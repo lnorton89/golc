@@ -80,15 +80,15 @@ Wrap Bifrost Core in a GOLC-owned interface with provider configuration, message
 
 ## Linear from Day One
 
-Use Linear as the delivery system of record while retaining the repository artifacts as the durable technical specification:
+Use Linear as the delivery system of record while retaining the repository artifacts as the durable technical specification. The synthesis reconciled the initial stack proposal to the simpler hierarchy below; add an Initiative only after multiple release Projects need portfolio grouping:
 
 | GSD artifact | Linear object | Stable linkage |
 |--------------|---------------|----------------|
-| Milestone/release (for example v1) | Initiative | Store GraphQL UUID as `linear_initiative_id` |
-| `ROADMAP.md` phase | Project under the initiative | Store UUID as `linear_project_id`; phase number is metadata, not identity |
-| Phase `PLAN.md` / wave | Project milestone | Store UUID as `linear_project_milestone_id` |
+| Milestone/release (for example v1) | Project | Store GraphQL UUID as `linear_project_id`; optionally group multiple releases under an Initiative later |
+| `ROADMAP.md` phase | Project milestone | Store UUID as `linear_project_milestone_id`; phase number and title are metadata, not identity |
+| Phase `PLAN.md` / feature slice | Parent issue | Link to the phase milestone and requirements delivered |
 | `REQ-*` requirement | Issue labeled `requirement` | Store immutable issue UUID plus human key such as `GOLC-123` |
-| Executable plan task | Issue or sub-issue linked to its requirement | Store immutable issue UUID; use dependencies/relations for ordering |
+| Executable plan task | Issue or sub-issue | Store immutable issue UUID; link to its plan parent and requirement, and use dependencies/relations for ordering |
 
 Commit `.planning/linear-map.json` as the canonical bidirectional map keyed by durable repository IDs (`milestone:v1`, `phase:02`, `requirement:REQ-014`, `task:02-01-03`). Persist Linear's GraphQL UUID as authority and the mutable human identifier/URL only for display. The official API is GraphQL and the official SDK is typed TypeScript; use a small idempotent sync program, not a community CLI. It must query by stored UUID before mutation, paginate, detect deleted/moved objects, and refuse ambiguous title-based matching. [Linear API endpoint/auth](https://linear.app/developers/graphql), [projects](https://linear.app/docs/projects), [project milestones](https://linear.app/docs/project-milestones) **[HIGH]**
 
