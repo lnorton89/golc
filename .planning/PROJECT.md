@@ -59,9 +59,14 @@ An operator can author a modular show once, adapt its fixture pools to different
 - Fixture-pool propagation behavior is configurable. The safe default is a review screen showing affected programming, warnings, and errors before applying a change.
 - Compatible fixture substitution is semantic rather than channel-number based. Shared intensity, color, position, beam, and other capabilities can be mapped; unsupported behavior is surfaced for review and never approximated silently.
 - A scene is a tempo-aware looping performance container spanning a configured number of bars. It can combine independently swappable color themes, chases, and motion presets, with blending behavior controlling transitions between combinations.
+- Global BPM can be entered numerically or established through tap tempo.
+- Only one scene is active at a time. Its color, chase, and motion layers can be combined, enabled, disabled, and replaced independently.
+- Scene and layer changes take effect immediately by default. Blending behavior comes from reusable transition presets rather than ad hoc timing on every control.
+- When global BPM changes, the operator can choose whether the active loop preserves musical position or restarts.
 - A knowledgeable author prepares the show and MIDI surface; a less-experienced operator should then be able to control the rig quickly from the assigned physical controls.
 - The initial MIDI controller is not yet selected. Hardware-specific controller integration and acceptance criteria are blocked until the user identifies the target device; generic MIDI abstractions can be designed earlier.
 - Keyboard and on-screen controls must provide the full playback workflow while MIDI hardware remains undecided and after MIDI support is added.
+- `Revoke Automation` is the independent operator safety action: it blocks AI and scripts, cancels their queued actions, freezes the current look, and returns control to manual operation. Blackout remains a separate immediate intensity control.
 - TypeScript is a first-class automation surface, not an incidental plugin format. Scripts should use the same domain capabilities available to the UI and API.
 - LLM support serves two distinct jobs: authoring fixture definitions and operating the application to create or run show content.
 - Full autonomous LLM operation is an intended capability. The architecture must therefore separate model interpretation from deterministic command validation and execution, retain an audit trail, and preserve an immediate manual override path.
@@ -87,6 +92,7 @@ An operator can author a modular show once, adapt its fixture pools to different
 - **MIDI hardware**: Do not finalize or claim device-specific controller support until the target controller is selected — controller selection is a blocker for that phase's hardware acceptance tests.
 - **Safe structural edits**: Pool resizing and fixture substitution default to previewing a deterministic impact plan before commit — modular reuse must not silently corrupt or reinterpret show programming.
 - **Musical timing**: Tempo-aware scenes derive timing from a global BPM and explicit bar structure — scene playback must remain deterministic and independent of UI, script, or LLM latency.
+- **Automation override**: Revoke Automation must not depend on an AI provider, script runtime, or queued application command completing — it is a local priority control path distinct from blackout.
 
 ## Key Decisions
 
@@ -108,6 +114,12 @@ An operator can author a modular show once, adapt its fixture pools to different
 | Map replacement fixtures by semantic capability | Shows should survive deployment changes across compatible fixture models without relying on raw channel positions | — Pending |
 | Model scenes as bar-based loops synchronized to global BPM | Matches the primary performance workflow and makes color, chase, and motion programming musically reusable | — Pending |
 | Make color themes, chases, and motion presets independently swappable with blending | Enables fast variation within a prepared show without rebuilding scenes | — Pending |
+| Accept typed BPM and tap tempo | Covers deliberate show setup and quick live tempo adjustment without requiring external clock hardware | — Pending |
+| Run one scene at a time with combinable internal layers | Keeps operator state understandable while still allowing independent color, chase, and motion variation | — Pending |
+| Apply scene and layer changes immediately by default | Matches the intended responsive playback workflow | — Pending |
+| Express blending through reusable presets | Makes transitions consistent, shareable, and quick to assign | — Pending |
+| Make tempo-change loop behavior selectable | Different shows may need continuity or a clean restart when BPM changes | — Pending |
+| Provide an independent Revoke Automation action | The operator must be able to stop AI and scripts without waiting for them and without forcing blackout | — Pending |
 | Provide complete keyboard and on-screen playback | The application must be fully operable before and independently of the selected MIDI hardware | — Pending |
 | Defer cross-show module synchronization to v1.x | Modular deployment inside a show delivers the primary value first | — Pending |
 | Support Windows first | Concentrates v1 packaging, timing, networking, and hardware qualification on the user's required platform | — Pending |
