@@ -28,6 +28,7 @@ A small-show operator can go from fixture patch to reliable live playback dramat
 - [ ] External programs and LLM agents can inspect and control the application through a stable, versioned, well-documented API.
 - [ ] UI actions, TypeScript scripts, API clients, and LLM tools share a typed application command model so all control surfaces expose consistent behavior.
 - [ ] The application runs on the desktop platforms supported by Go and Wails, with platform-specific differences isolated from show behavior.
+- [ ] Project requirements, roadmap phases, implementation work, and delivery status are tracked in Linear from the start with durable links back to repository planning artifacts.
 
 ### Out of Scope
 
@@ -46,6 +47,7 @@ A small-show operator can go from fixture patch to reliable live playback dramat
 - LLM support serves two distinct jobs: authoring fixture definitions and operating the application to create or run show content.
 - Full autonomous LLM operation is an intended capability. The architecture must therefore separate model interpretation from deterministic command validation and execution, retain an audit trail, and preserve an immediate manual override path.
 - The public API is a product surface. It should be designed for external software and agent use, versioned deliberately, documented with examples, and testable independently of the desktop UI.
+- Linear is the project-delivery system of record from initialization onward. Planning artifacts should retain stable identifiers and map predictably to Linear projects, milestones, and issues without making offline repository context dependent on Linear availability.
 
 ## Constraints
 
@@ -56,6 +58,7 @@ A small-show operator can go from fixture patch to reliable live playback dramat
 - **Live reliability**: DMX/Art-Net output and playback timing cannot depend on UI rendering, network-bound LLM inference, or script responsiveness — show output must remain deterministic under load or component failure.
 - **Control consistency**: UI, scripts, API calls, and LLM operations must converge on shared domain commands and state — otherwise automation and interoperation will become incomplete or unsafe.
 - **Autonomy safety**: Autonomous AI control must remain observable and interruptible by the operator — live lighting changes need a dependable human override even when confirmation is not required for each action.
+- **Project tracking**: Use Linear from the start — requirements, roadmap phases, and implementation issues need explicit repository-to-Linear traceability.
 
 ## Key Decisions
 
@@ -69,6 +72,7 @@ A small-show operator can go from fixture patch to reliable live playback dramat
 | Treat the API as a first-class, versioned product surface | External programs and LLMs need durable interoperability rather than UI automation | — Pending |
 | Route UI, scripts, API, and LLM tools through a shared typed command model | Preserves behavioral consistency, testability, and control boundaries across every interface | — Pending |
 | Implement Art-Net first behind a protocol abstraction | Delivers the initial real-world output path without blocking later protocol support | — Pending |
+| Use Linear from project inception | Keeps requirements, planned work, and delivery status visible and traceable from the first implementation phase | — Pending |
 
 ## Evolution
 
