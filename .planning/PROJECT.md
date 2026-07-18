@@ -22,7 +22,11 @@ An operator can author a modular show once, adapt its fixture pools to different
 - [ ] Fixture definitions are human-readable YAML files validated against a versioned schema and compiled into a canonical typed model before use.
 - [ ] Users can import fixture definitions from Open Fixture Library and create, edit, validate, and share custom YAML fixture definitions.
 - [ ] Show files model reusable fixture pools independently from a deployment's concrete fixture count and addresses.
-- [ ] Users can add or remove fixtures in a pool and propagate the change through dependent groups, palettes, scenes, cues, chases, and controller mappings in one or two explicit actions.
+- [ ] Users can configure how fixture-pool updates propagate through dependents; the default workflow presents an impact review before applying changes.
+- [ ] Users can replace fixture models by mapping shared semantic capabilities and reviewing unsupported or incompatible capabilities before committing the deployment change.
+- [ ] Scenes can loop for a configured number of musical bars synchronized to a show-wide BPM.
+- [ ] Users can combine and swap color themes, chases, and motion presets within tempo-aware scenes using configurable blending transitions.
+- [ ] Keyboard and on-screen playback expose the complete operator workflow without requiring a MIDI controller.
 - [ ] Users can prepare a constrained MIDI playback surface that another operator can learn and use quickly without exposing the full authoring interface.
 - [ ] The application sends reliable, observable Art-Net output suitable for running a small live show.
 - [ ] The desktop UI provides a modern, efficient programming and playback workflow that avoids the setup friction and clunky interaction patterns of QLC+.
@@ -43,6 +47,7 @@ An operator can author a modular show once, adapt its fixture pools to different
 - Reproducing every feature of a high-end professional lighting console — workflow speed, scripting, interoperability, and AI-native control take priority.
 - A browser-only or native mobile control application — the initial product is a cross-platform Wails desktop application; remote clients can use the API later.
 - Official macOS and Linux support in v1 — preserve portability in the architecture, but qualify and support Windows first.
+- Cross-show module import with optional source synchronization — useful for sharing songs, playback pages, and programming collections, but lower priority than modular deployment within one show; target v1.x.
 - Proprietary AI orchestration tied to a single model provider — the integration must support common hosted providers and local models through an open-source abstraction.
 
 ## Context
@@ -51,8 +56,12 @@ An operator can author a modular show once, adapt its fixture pools to different
 - The first users are operators of clubs, churches, schools, community venues, and comparable small live shows rather than enterprise productions or large touring rigs.
 - The conventional lighting workflow is the v1 proof point: patch fixtures, build scenes and chases, play them back reliably, and persist the show.
 - The primary workflow is front-loaded show authoring followed by repeated deployment. A show should be reusable with all or a subset of available fixtures, and pool-size changes should update dependents without rebuilding programming manually.
+- Fixture-pool propagation behavior is configurable. The safe default is a review screen showing affected programming, warnings, and errors before applying a change.
+- Compatible fixture substitution is semantic rather than channel-number based. Shared intensity, color, position, beam, and other capabilities can be mapped; unsupported behavior is surfaced for review and never approximated silently.
+- A scene is a tempo-aware looping performance container spanning a configured number of bars. It can combine independently swappable color themes, chases, and motion presets, with blending behavior controlling transitions between combinations.
 - A knowledgeable author prepares the show and MIDI surface; a less-experienced operator should then be able to control the rig quickly from the assigned physical controls.
 - The initial MIDI controller is not yet selected. Hardware-specific controller integration and acceptance criteria are blocked until the user identifies the target device; generic MIDI abstractions can be designed earlier.
+- Keyboard and on-screen controls must provide the full playback workflow while MIDI hardware remains undecided and after MIDI support is added.
 - TypeScript is a first-class automation surface, not an incidental plugin format. Scripts should use the same domain capabilities available to the UI and API.
 - LLM support serves two distinct jobs: authoring fixture definitions and operating the application to create or run show content.
 - Full autonomous LLM operation is an intended capability. The architecture must therefore separate model interpretation from deterministic command validation and execution, retain an audit trail, and preserve an immediate manual override path.
@@ -76,6 +85,8 @@ An operator can author a modular show once, adapt its fixture pools to different
 - **Project tracking**: Use Linear from the start — requirements, roadmap phases, and implementation issues need explicit repository-to-Linear traceability.
 - **Developer experience**: Centralize project configuration behind one documented root entrypoint with logically separated subconfiguration — contributors and automation should not need to discover scattered sources of truth.
 - **MIDI hardware**: Do not finalize or claim device-specific controller support until the target controller is selected — controller selection is a blocker for that phase's hardware acceptance tests.
+- **Safe structural edits**: Pool resizing and fixture substitution default to previewing a deterministic impact plan before commit — modular reuse must not silently corrupt or reinterpret show programming.
+- **Musical timing**: Tempo-aware scenes derive timing from a global BPM and explicit bar structure — scene playback must remain deterministic and independent of UI, script, or LLM latency.
 
 ## Key Decisions
 
@@ -93,6 +104,12 @@ An operator can author a modular show once, adapt its fixture pools to different
 | Store fixture definitions as schema-validated YAML | YAML fits nested fixture modes, channels, capabilities, and ranges better than TOML while remaining friendly to people and LLMs | — Pending |
 | Import OFL and support custom fixture definitions | Combines broad ecosystem coverage with an escape hatch for missing or venue-specific fixtures | — Pending |
 | Make show files modular around reusable fixture pools | The same authored show must adapt quickly to different quantities and deployments of compatible fixtures | — Pending |
+| Default pool and fixture-substitution changes to review-before-apply | Structural edits can affect the whole show and require an understandable impact diff before commit | — Pending |
+| Map replacement fixtures by semantic capability | Shows should survive deployment changes across compatible fixture models without relying on raw channel positions | — Pending |
+| Model scenes as bar-based loops synchronized to global BPM | Matches the primary performance workflow and makes color, chase, and motion programming musically reusable | — Pending |
+| Make color themes, chases, and motion presets independently swappable with blending | Enables fast variation within a prepared show without rebuilding scenes | — Pending |
+| Provide complete keyboard and on-screen playback | The application must be fully operable before and independently of the selected MIDI hardware | — Pending |
+| Defer cross-show module synchronization to v1.x | Modular deployment inside a show delivers the primary value first | — Pending |
 | Support Windows first | Concentrates v1 packaging, timing, networking, and hardware qualification on the user's required platform | — Pending |
 | Centralize project configuration while separating concerns | Makes setup and operation discoverable without collapsing unrelated configuration into one unmaintainable file | — Pending |
 
