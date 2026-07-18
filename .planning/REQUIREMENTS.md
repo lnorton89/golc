@@ -192,16 +192,98 @@ A v1 requirement is complete only when its implementation is committed, automate
 
 ## Traceability
 
-Roadmap phase mapping is populated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| CONF-01 | Phase 1 | Pending |
+| CONF-02 | Phase 1 | Pending |
+| CONF-03 | Phase 1 | Pending |
+| CONF-04 | Phase 1 | Pending |
+| FIXT-01 | Phase 2 | Pending |
+| FIXT-02 | Phase 2 | Pending |
+| FIXT-03 | Phase 2 | Pending |
+| FIXT-04 | Phase 2 | Pending |
+| FIXT-05 | Phase 2 | Pending |
+| FIXT-06 | Phase 2 | Pending |
+| POOL-01 | Phase 2 | Pending |
+| POOL-02 | Phase 2 | Pending |
+| POOL-03 | Phase 2 | Pending |
+| POOL-04 | Phase 2 | Pending |
+| POOL-05 | Phase 2 | Pending |
+| POOL-06 | Phase 2 | Pending |
+| POOL-07 | Phase 2 | Pending |
+| POOL-08 | Phase 2 | Pending |
+| PROG-01 | Phase 3 | Pending |
+| PROG-02 | Phase 3 | Pending |
+| PROG-03 | Phase 3 | Pending |
+| PROG-04 | Phase 3 | Pending |
+| PROG-05 | Phase 3 | Pending |
+| PROG-06 | Phase 3 | Pending |
+| PROG-07 | Phase 3 | Pending |
+| SCEN-01 | Phase 3 | Pending |
+| SCEN-02 | Phase 3 | Pending |
+| SCEN-03 | Phase 3 | Pending |
+| SCEN-04 | Phase 3 | Pending |
+| SCEN-05 | Phase 3 | Pending |
+| SCEN-06 | Phase 3 | Pending |
+| SCEN-07 | Phase 3 | Pending |
+| SCEN-08 | Phase 3 | Pending |
+| SCEN-09 | Phase 3 | Pending |
+| PLAY-01 | Phase 6 | Pending |
+| PLAY-02 | Phase 6 | Pending |
+| PLAY-03 | Phase 6 | Pending |
+| PLAY-04 | Phase 6 | Pending |
+| PLAY-05 | Phase 6 | Pending |
+| PLAY-06 | Phase 6 | Pending |
+| PLAY-07 | Phase 6 | Pending |
+| PLAY-08 | Phase 6 | Pending |
+| PLAY-09 | Phase 6 | Pending |
+| ARTN-01 | Phase 4 | Pending |
+| ARTN-02 | Phase 4 | Pending |
+| ARTN-03 | Phase 4 | Pending |
+| ARTN-04 | Phase 4 | Pending |
+| ARTN-05 | Phase 4 | Pending |
+| ARTN-06 | Phase 4 | Pending |
+| SHOW-01 | Phase 5 | Pending |
+| SHOW-02 | Phase 5 | Pending |
+| SHOW-03 | Phase 5 | Pending |
+| SHOW-04 | Phase 5 | Pending |
+| SHOW-05 | Phase 5 | Pending |
+| SHOW-06 | Phase 5 | Pending |
+| API-01 | Phase 7 | Pending |
+| API-02 | Phase 7 | Pending |
+| API-03 | Phase 7 | Pending |
+| API-04 | Phase 7 | Pending |
+| API-05 | Phase 7 | Pending |
+| API-06 | Phase 7 | Pending |
+| SCRP-01 | Phase 8 | Pending |
+| SCRP-02 | Phase 8 | Pending |
+| SCRP-03 | Phase 8 | Pending |
+| SCRP-04 | Phase 8 | Pending |
+| SCRP-05 | Phase 8 | Pending |
+| SCRP-06 | Phase 8 | Pending |
+| LLM-01 | Phase 9 | Pending |
+| LLM-02 | Phase 9 | Pending |
+| LLM-03 | Phase 9 | Pending |
+| LLM-04 | Phase 9 | Pending |
+| LLM-05 | Phase 9 | Pending |
+| LLM-06 | Phase 9 | Pending |
+| LLM-07 | Phase 9 | Pending |
+| LLM-08 | Phase 9 | Pending |
+| LLM-09 | Phase 9 | Pending |
+| WIN-01 | Phase 10 | Pending |
+| WIN-02 | Phase 10 | Pending |
+| WIN-03 | Phase 10 | Pending |
+| WIN-04 | Phase 10 | Pending |
+| LINR-01 | Phase 1 | Pending |
+| LINR-02 | Phase 1 | Pending |
+| LINR-03 | Phase 1 | Pending |
+| LINR-04 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 84
-- Mapped to phases: 0
-- Unmapped: pending roadmap
+- Mapped to phases: 84
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-17*
-*Last updated: 2026-07-17 after initial definition*
+*Last updated: 2026-07-17 after roadmap creation*
