@@ -2,13 +2,13 @@
 
 ## What This Is
 
-GOLC is a modern, cross-platform lighting-control application for operators of small live shows, built in Go with a Wails desktop interface. It combines a fast conventional programming workflow with TypeScript scripting, autonomous LLM control, and a well-documented API so people, scripts, external programs, and AI agents can all create and operate fixture patches, scenes, chases, and show playback through the same system.
+GOLC is a modern lighting-control application for operators of small live shows, built in Go with a Wails desktop interface and a cross-platform architecture. Its first supported release targets Windows. It combines a fast, modular show-authoring workflow with TypeScript scripting, autonomous LLM control, and a well-documented API so people, scripts, external programs, and AI agents can all create and operate fixture patches, scenes, chases, and show playback through the same system.
 
 The first release will output Art-Net and support complete show authoring and playback. Additional lighting protocols and larger-scale console capabilities can be added after the core workflow and extension model are proven.
 
 ## Core Value
 
-A small-show operator can go from fixture patch to reliable live playback dramatically faster than in QLC+, without sacrificing the power to automate or extend the show.
+An operator can author a modular show once, adapt its fixture pools to different deployments in one or two actions, and hand a simple controller surface to another person for reliable playback.
 
 ## Requirements
 
@@ -19,6 +19,11 @@ A small-show operator can go from fixture patch to reliable live playback dramat
 ### Active
 
 - [ ] Operators can patch fixtures, organize controllable attributes, create looks/scenes and chases, play them back, save a show, and restore it later.
+- [ ] Fixture definitions are human-readable YAML files validated against a versioned schema and compiled into a canonical typed model before use.
+- [ ] Users can import fixture definitions from Open Fixture Library and create, edit, validate, and share custom YAML fixture definitions.
+- [ ] Show files model reusable fixture pools independently from a deployment's concrete fixture count and addresses.
+- [ ] Users can add or remove fixtures in a pool and propagate the change through dependent groups, palettes, scenes, cues, chases, and controller mappings in one or two explicit actions.
+- [ ] Users can prepare a constrained MIDI playback surface that another operator can learn and use quickly without exposing the full authoring interface.
 - [ ] The application sends reliable, observable Art-Net output suitable for running a small live show.
 - [ ] The desktop UI provides a modern, efficient programming and playback workflow that avoids the setup friction and clunky interaction patterns of QLC+.
 - [ ] Users can create, edit, run, and debug TypeScript scripts that interact with the supported application and show-control capabilities.
@@ -27,8 +32,9 @@ A small-show operator can go from fixture patch to reliable live playback dramat
 - [ ] LLM actions are validated, observable, auditable, and subject to immediate operator override even when autonomous control is enabled.
 - [ ] External programs and LLM agents can inspect and control the application through a stable, versioned, well-documented API.
 - [ ] UI actions, TypeScript scripts, API clients, and LLM tools share a typed application command model so all control surfaces expose consistent behavior.
-- [ ] The application runs on the desktop platforms supported by Go and Wails, with platform-specific differences isolated from show behavior.
+- [ ] The v1 application installs, runs, saves, restores, and outputs Art-Net reliably on supported Windows systems.
 - [ ] Project requirements, roadmap phases, implementation work, and delivery status are tracked in Linear from the start with durable links back to repository planning artifacts.
+- [ ] Developer tooling, application defaults, runtime configuration, schemas, generation, validation, build, test, and packaging settings are centralized behind one documented project configuration entrypoint and separated into clear concerns.
 
 ### Out of Scope
 
@@ -36,6 +42,7 @@ A small-show operator can go from fixture patch to reliable live playback dramat
 - Enterprise-scale multi-user, distributed, or redundant console operation — v1 focuses on one operator running a small show.
 - Reproducing every feature of a high-end professional lighting console — workflow speed, scripting, interoperability, and AI-native control take priority.
 - A browser-only or native mobile control application — the initial product is a cross-platform Wails desktop application; remote clients can use the API later.
+- Official macOS and Linux support in v1 — preserve portability in the architecture, but qualify and support Windows first.
 - Proprietary AI orchestration tied to a single model provider — the integration must support common hosted providers and local models through an open-source abstraction.
 
 ## Context
@@ -43,22 +50,32 @@ A small-show operator can go from fixture patch to reliable live playback dramat
 - The project is motivated by QLC+: its workflow feels clunky, show setup takes too long, and it does not provide the desired scripting capability.
 - The first users are operators of clubs, churches, schools, community venues, and comparable small live shows rather than enterprise productions or large touring rigs.
 - The conventional lighting workflow is the v1 proof point: patch fixtures, build scenes and chases, play them back reliably, and persist the show.
+- The primary workflow is front-loaded show authoring followed by repeated deployment. A show should be reusable with all or a subset of available fixtures, and pool-size changes should update dependents without rebuilding programming manually.
+- A knowledgeable author prepares the show and MIDI surface; a less-experienced operator should then be able to control the rig quickly from the assigned physical controls.
+- The initial MIDI controller is not yet selected. Hardware-specific controller integration and acceptance criteria are blocked until the user identifies the target device; generic MIDI abstractions can be designed earlier.
 - TypeScript is a first-class automation surface, not an incidental plugin format. Scripts should use the same domain capabilities available to the UI and API.
 - LLM support serves two distinct jobs: authoring fixture definitions and operating the application to create or run show content.
 - Full autonomous LLM operation is an intended capability. The architecture must therefore separate model interpretation from deterministic command validation and execution, retain an audit trail, and preserve an immediate manual override path.
 - The public API is a product surface. It should be designed for external software and agent use, versioned deliberately, documented with examples, and testable independently of the desktop UI.
 - Linear is the project-delivery system of record from initialization onward. Planning artifacts should retain stable identifiers and map predictably to Linear projects, milestones, and issues without making offline repository context dependent on Linear availability.
+- Fixture source files are intended to be readable, reviewable, portable, and suitable for hand editing or AI generation. YAML is the authoring format; the runtime never consumes unvalidated YAML directly.
+- Project configuration covers both development and application concerns. It should be centralized for discoverability while keeping each concern logically separated and independently validatable.
 
 ## Constraints
 
 - **Application stack**: Go with Wails — required by the chosen cross-platform desktop architecture.
+- **Initial platform**: Windows only for v1 qualification and support — other desktop platforms are deferred even though portability remains an architectural goal.
 - **Scripting**: TypeScript — required for user-authored automation and extensibility.
+- **Fixture source format**: Use a strict YAML 1.2 subset with schema validation, duplicate-key rejection, explicit schema versioning, and deterministic normalization — fixture files must remain approachable without introducing ambiguous runtime behavior.
+- **Fixture ecosystem**: Support Open Fixture Library import plus first-class custom definitions — imported definitions must pass through GOLC's canonical validation and pinning pipeline.
 - **Initial protocol**: Art-Net — all other lighting-output protocols are deferred beyond v1.
 - **AI portability**: Use an open-source provider-neutral wrapper that supports common hosted providers and local models — users must not be locked to one LLM vendor.
 - **Live reliability**: DMX/Art-Net output and playback timing cannot depend on UI rendering, network-bound LLM inference, or script responsiveness — show output must remain deterministic under load or component failure.
 - **Control consistency**: UI, scripts, API calls, and LLM operations must converge on shared domain commands and state — otherwise automation and interoperation will become incomplete or unsafe.
 - **Autonomy safety**: Autonomous AI control must remain observable and interruptible by the operator — live lighting changes need a dependable human override even when confirmation is not required for each action.
 - **Project tracking**: Use Linear from the start — requirements, roadmap phases, and implementation issues need explicit repository-to-Linear traceability.
+- **Developer experience**: Centralize project configuration behind one documented root entrypoint with logically separated subconfiguration — contributors and automation should not need to discover scattered sources of truth.
+- **MIDI hardware**: Do not finalize or claim device-specific controller support until the target controller is selected — controller selection is a blocker for that phase's hardware acceptance tests.
 
 ## Key Decisions
 
@@ -73,6 +90,11 @@ A small-show operator can go from fixture patch to reliable live playback dramat
 | Route UI, scripts, API, and LLM tools through a shared typed command model | Preserves behavioral consistency, testability, and control boundaries across every interface | — Pending |
 | Implement Art-Net first behind a protocol abstraction | Delivers the initial real-world output path without blocking later protocol support | — Pending |
 | Use Linear from project inception | Keeps requirements, planned work, and delivery status visible and traceable from the first implementation phase | — Pending |
+| Store fixture definitions as schema-validated YAML | YAML fits nested fixture modes, channels, capabilities, and ranges better than TOML while remaining friendly to people and LLMs | — Pending |
+| Import OFL and support custom fixture definitions | Combines broad ecosystem coverage with an escape hatch for missing or venue-specific fixtures | — Pending |
+| Make show files modular around reusable fixture pools | The same authored show must adapt quickly to different quantities and deployments of compatible fixtures | — Pending |
+| Support Windows first | Concentrates v1 packaging, timing, networking, and hardware qualification on the user's required platform | — Pending |
+| Centralize project configuration while separating concerns | Makes setup and operation discoverable without collapsing unrelated configuration into one unmaintainable file | — Pending |
 
 ## Evolution
 
