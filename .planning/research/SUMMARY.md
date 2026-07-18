@@ -23,7 +23,7 @@ The four research streams agree on the boundaries but differ on several implemen
 | Public event transport | **REST/JSON commands and queries plus SSE events** | Architecture allowed SSE or WebSocket; stack selected Huma + Chi with OpenAPI 3.1 and SSE/AsyncAPI. WebSockets remain deferred until bidirectional streaming is demonstrated. **HIGH for framework capability; MEDIUM for product fit.** |
 | LLM provider layer | **Bifrost Core behind a small GOLC-owned `ModelClient`** | Pitfall research used LangChainGo/Ollama to illustrate risks, not as a final dependency. Bifrost better matches the provider-neutral hosted/local requirement today, but its maturity and provider parity require a phase gate. **MEDIUM.** |
 | Linear hierarchy | **One Linear Project for each active release/milestone; roadmap phases as Project Milestones; requirements as issues; tasks as issues/sub-issues** | Stack proposed an Initiative above release Projects, while feature/architecture research used Project -> Project Milestones. Start with the simpler hierarchy; add an Initiative only when multiple release Projects need portfolio grouping. **MEDIUM.** |
-| Linear mapping file | **`.planning/linear-map.json`**, credential-free | Research differed only in path casing. Use one lowercase canonical file keyed by stable repository IDs and immutable Linear UUIDs. Authentication material and caches remain outside version control. **HIGH for stable-ID rule; LOW-MEDIUM for filename convention.** |
+| Linear mapping file | **`.planning/linear-map.json`**, credential-free | Research differed only in path casing. The synthesis initializes one lowercase manifest with stable local project/milestone IDs and explicitly pending remote mappings; Phase 0 resolves and reconciles immutable Linear UUIDs. Authentication material and caches remain outside version control. **HIGH for stable-ID rule; LOW-MEDIUM for filename convention.** |
 | Show persistence | **One portable `.golc` SQLite database plus versioned JSON export** | All streams favor SQLite for atomicity, migration, audit, and recovery; JSON is interchange, not authority. **HIGH.** |
 | Art-Net implementation | **Narrow internal Art-Net 4 codec and transport** | No current Go library was judged sufficiently proven for the critical path. Community implementations may serve as test oracles only. **MEDIUM until hardware conformance testing.** |
 | Desktop runtime | **Wails v2.13.0, not v3 alpha** | v2 is the production line; v3 remains prerelease in the research snapshot. Revisit only after v3 is stable and packaging is proven. **HIGH.** |
@@ -129,7 +129,7 @@ Linear is mandatory from project inception and at every phase transition, but it
 | Phase plan or feature slice | Parent issue | Link to the phase milestone and requirements delivered |
 | Executable task | Issue/sub-issue | Close only with repository verification evidence |
 
-Commit complete planning intent locally and maintain the credential-free `.planning/linear-map.json` keyed by durable local IDs. Sync is explicit and idempotent, queries by UUID before mutation, handles pagination/partial GraphQL errors/rate limits, and produces dry-run reconciliation for ambiguity. Offline planning, builds, tests, authoring, and playback continue when Linear is unavailable ([Linear pagination](https://linear.app/developers/pagination), [webhooks](https://linear.app/developers/webhooks), [project milestones](https://linear.app/docs/project-milestones)). **Confidence: MEDIUM.**
+Commit complete planning intent locally and maintain the credential-free `.planning/linear-map.json` keyed by durable local IDs. Its initial entries intentionally have pending remote mappings; Phase 0 must resolve those entries before claiming remote traceability. Sync is explicit and idempotent, queries by UUID before mutation, handles pagination/partial GraphQL errors/rate limits, and produces dry-run reconciliation for ambiguity. Offline planning, builds, tests, authoring, and playback continue when Linear is unavailable ([Linear pagination](https://linear.app/developers/pagination), [webhooks](https://linear.app/developers/webhooks), [project milestones](https://linear.app/docs/project-milestones)). **Confidence: MEDIUM.**
 
 ### Critical Pitfalls
 
@@ -153,7 +153,7 @@ The roadmap should use the following dependency order. Linear traceability begin
 
 **Rationale:** The project requires delivery traceability from inception, and retrofitting stable mappings creates duplicates and ambiguous identity.
 
-**Delivers:** Stable local milestone/phase/requirement/task IDs, initial Linear Project and Project Milestones, `.planning/linear-map.json`, idempotent sync/reconcile skeleton, and uniqueness/offline-completeness checks.
+**Delivers:** Validation of the initialized local project/milestone identities, resolved Linear Project and Project Milestone mappings, later stable phase/requirement/task IDs, idempotent sync/reconcile skeleton, and uniqueness/offline-completeness checks. Pending remote fields are not evidence that synchronization has occurred.
 
 **Addresses:** Project tracking requirement.
 
@@ -362,3 +362,13 @@ Detailed provenance and claim-level links are retained in [STACK.md](./STACK.md)
 ---
 *Research completed: 2026-07-17*
 *Ready for roadmap: yes*
+
+## Self-Check
+
+**Passed.**
+
+- All four research inputs and the synthesis are present and substantive.
+- `.planning/research/SUMMARY.md` contains the required executive summary, findings, roadmap implications, confidence assessment, gaps, and sources.
+- The local Linear manifest exists with stable local identity and pending remote mappings only.
+- The research corpus is recorded in commit `3e7606f`.
+- The synthesis contains no continuation sentinel and no remote Linear identifiers.

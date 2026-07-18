@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "repository": {
+    "project_id": "project:golc",
+    "name": "GOLC"
+  },
+  "active_milestone": {
+    "milestone_id": "milestone:v1",
+    "name": "GOLC v1"
+  },
+  "remote_mappings": [
+    {
+      "repo_id": "milestone:v1",
+      "linear_type": "project",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    }
+  ]
+}
