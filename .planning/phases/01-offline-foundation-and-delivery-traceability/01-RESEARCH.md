@@ -746,27 +746,29 @@ The real workflow must add masking before any derived sensitive value, minimize 
 
 All other implementation choices are either locked decisions, verified codebase facts, cited official behavior, or explicit recommendations for the planner.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Which Linear workspace/team/project taxonomy should the first real sync target?**
+All four planning seams are resolved below; external Linear values remain deliberately unset rather than unresolved implementation choices.
+
+1. **RESOLVED - Linear taxonomy remains external, reviewed configuration.**
    - What we know: the release maps to a Linear Project, the phase maps to a Project Milestone, requirements/plans/tasks map to issues/sub-issues. [VERIFIED: AGENTS.md]
-   - What's unclear: workspace UUID, team UUID, workflow states, requirement label UUID, and whether the current user wants a personal API key or a later OAuth app. No value was inspected or invented. [VERIFIED: STATE.md; environment boundary]
-   - Recommendation: implement and test against a fake GraphQL server first; require explicit `linear configure/link` review before the first real preview/apply.
+   - Resolution: workspace/team UUIDs, workflow states, labels, and credential choice remain external reviewed configuration; no value is inspected, defaulted, or invented. [VERIFIED: STATE.md; environment boundary]
+   - Implementation contract: test the complete hierarchy against a fake SDK/service and require explicit `linear configure/link` review before the first real preview/apply.
 
-2. **Where should the remote local-ID marker live for each Linear object type?**
+2. **RESOLVED - use a visible, validated local-ID footer on every managed Linear object.**
    - What we know: Issue descriptions are available through the API, and Projects/Project Milestones expose description-like fields in the current SDK schema. [CITED: https://linear.app/developers/graphql] [CITED: https://github.com/linear/linear]
-   - What's unclear: whether the current Linear editor preserves the exact footer byte-for-byte for all three types and whether workspace search/filtering can narrow discovery by marker efficiently.
-   - Recommendation: use a visible footer, validate preservation in a non-mutating schema/exploration checkpoint, and retain exhaustive scoped pagination plus explicit ambiguity handling.
+   - Resolution: use a visible parser-stable footer for all managed types and validate preservation before accepting the remote snapshot.
+   - Implementation contract: retain exhaustive scoped pagination plus explicit ambiguity handling even after footer preservation validates.
 
-3. **What should `package` produce before the product application exists?**
+3. **RESOLVED - foundation packaging produces a deterministic Windows AMD64 ZIP, canonical manifest, and SHA-256 file.**
    - What we know: CONF-01/03 require a discoverable, shared packaging entrypoint; the phase boundary excludes application UI and Wails product behavior. [VERIFIED: REQUIREMENTS.md; VERIFIED: CONTEXT.md]
-   - What's unclear: whether stakeholders expect an actual foundation-tool ZIP or only a packaging-readiness validation in Phase 1.
-   - Recommendation: make `package --foundation` create a deterministic Windows AMD64 developer-tool bundle/checksum manifest; explicitly report that app/NSIS packaging is unavailable until its owning phase.
+   - Resolution: `package --foundation` creates a deterministic Windows AMD64 developer-tool ZIP, canonical manifest, and SHA-256 file.
+   - Implementation contract: explicitly report that app/NSIS packaging is unavailable until its owning phase.
 
-4. **Should Go dependencies be vendored in addition to project-local caches?**
+4. **RESOLVED - use warmed project-local Go/npm caches without committing vendored dependency trees.**
    - What we know: `-mod=vendor` avoids both network and module cache, while project-local module caches satisfy the locked “after bootstrap” offline condition. [CITED: https://go.dev/ref/mod]
-   - What's unclear: repository size policy and whether long-term archival from a clean clone without any prior bootstrap is required.
-   - Recommendation: start with verified local caches; add vendoring only if clean-clone-without-network becomes a requirement.
+   - Resolution: bootstrap warms verified project-local Go/npm caches, and dependency trees are not committed as vendored source.
+   - Implementation contract: clean-clone-without-network is not claimed; the supported offline boundary begins after one verified bootstrap.
 
 ## Thinnest Phase-1 Vertical Walking Skeleton
 
