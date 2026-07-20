@@ -3,10 +3,10 @@
 // repository containment (CONTEXT D-05). The root index owns only schema
 // and index metadata; each concern file alone owns its values.
 //
-// This file is also the root config-inspect command file: it self-registers
-// the exact route "config inspect" through the command package's
-// declaration entrypoint (D-03), so no central router file is edited to
-// make it reachable.
+// This package is a pure configuration library: the config command routes
+// that expose it self-register from internal/command/config.go (D-03), so
+// projectconfig never imports the command package and command handlers can
+// call into it without an import cycle.
 package projectconfig
 
 import (
@@ -19,8 +19,6 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-
-	"github.com/lnorton89/golc/internal/command"
 )
 
 // rootIndexName is the fixed repository-root configuration index (D-05).
@@ -44,17 +42,6 @@ type RootIndex struct {
 }
 
 var concernIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
-
-var _ = command.MustDeclareScope(command.ScopeRegistration{
-	Scope:   "config",
-	Summary: "Project configuration index and concern operations.",
-})
-
-var _ = command.MustDeclareRoute(command.CommandRegistration{
-	Route:   "config inspect",
-	Summary: "Print one indexed configuration concern as deterministic JSON.",
-	Handler: runConfigInspect,
-})
 
 // LoadRootIndex reads and strictly validates the repository root index:
 // unknown keys, unsupported schema versions, invalid or duplicate concern
@@ -186,53 +173,4 @@ func InspectConcern(root, concernID string) ([]byte, error) {
 		return nil, fmt.Errorf("GOLC_CONFIG_ENCODE: %s: %v", found.Path, err)
 	}
 	return append(payload, '\n'), nil
-}
-
-// runConfigInspect serves the self-registered "config inspect" route.
-func runConfigInspect(request command.Request) command.Result {
-	concernID, err := parseInspectArgs(request.Args)
-	if err != nil {
-		return command.Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
-	}
-	payload, err := InspectConcern(request.Root, concernID)
-	if err != nil {
-		return command.Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
-	}
-	return command.Result{Stdout: payload}
-}
-
-// parseInspectArgs accepts exactly one concern id plus an optional
-// "--format json" (the only supported format).
-func parseInspectArgs(args []string) (string, error) {
-	concernID := ""
-	format := "json"
-	for i := 0; i < len(args); {
-		argument := args[i]
-		switch {
-		case argument == "--format":
-			if i+1 >= len(args) {
-				return "", fmt.Errorf("GOLC_CONFIG_USAGE: --format requires a value")
-			}
-			format = args[i+1]
-			i += 2
-		case strings.HasPrefix(argument, "--format="):
-			format = strings.TrimPrefix(argument, "--format=")
-			i++
-		case strings.HasPrefix(argument, "-"):
-			return "", fmt.Errorf("GOLC_CONFIG_USAGE: unknown flag %q", argument)
-		default:
-			if concernID != "" {
-				return "", fmt.Errorf("GOLC_CONFIG_USAGE: exactly one concern id is required")
-			}
-			concernID = argument
-			i++
-		}
-	}
-	if concernID == "" {
-		return "", fmt.Errorf("GOLC_CONFIG_USAGE: usage: config inspect <concern> [--format json]")
-	}
-	if format != "json" {
-		return "", fmt.Errorf("GOLC_CONFIG_FORMAT_UNSUPPORTED: %q (only json is supported)", format)
-	}
-	return concernID, nil
 }

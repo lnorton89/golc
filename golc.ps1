@@ -496,7 +496,7 @@ $shimExitCode = 1
 try {
     switch ($Command) {
         "" {
-            [Console]::Error.WriteLine("GOLC_USAGE: golc.ps1 <bootstrap|check|generate|build|test|package|linear> [arguments]")
+            [Console]::Error.WriteLine("GOLC_USAGE: golc.ps1 <bootstrap|config|check|generate|build|test|package|linear> [arguments]")
             $shimExitCode = 1
         }
         "bootstrap" {

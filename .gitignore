@@ -4,3 +4,6 @@
 
 # Project-local bootstrap toolchains, caches, and installs (provisioned by golc.ps1 bootstrap)
 /.tools/
+
+# Machine-local configuration overrides (written by 'golc config set --local'; never committed)
+/golc.local.toml
