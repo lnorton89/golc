@@ -182,9 +182,12 @@
 | Enterprise multi-console redundancy in v1 | The initial release serves a single small-show operator and rig |
 | Official macOS or Linux support in v1 | Windows qualification is the initial release constraint |
 
-## Open Blockers
+## MIDI Hardware Decision and Evidence Gates
 
-- **MIDI-HW-01**: The initial MIDI controller has not been selected. Generic MIDI architecture and keyboard/on-screen playback may proceed, but device-specific mapping, feedback, packaging, and acceptance tests remain blocked until the target hardware is identified.
+- **MIDI-HW-01 - RESOLVED 2026-07-19**: Akai MIDImix, Novation Launch Control XL Mk2, and Worlde EasyControl 9 together are the selected Phase 6 physical acceptance set for generic MIDI Note/CC learn and soft-takeover qualification. The documentation gate is resolved by review of the immutable user-supplied manuals `Akai-MIDImix-UserGuide-v1.0.pdf`, `launch_control_xl_programmer_s_reference_guide.pdf`, `Novation-Launch Control XL GSG v2.pdf`, and `Worlde-EasyControl-9-UserManual.pdf`. Selection and manual evidence do not establish compatibility or support.
+- **MIDI-HW-02 - OPEN**: Each selected-set member requires independent physical Windows acceptance before any named compatibility or support claim. The evidence must identify the exact hardware revision, firmware, Windows version, and GOLC build and must verify enumeration/hot plug, raw Note/CC behavior, ranges and button semantics, bank/template identity, reconnect, saved mappings, conflicts, and PLAY-05 soft takeover. Device-specific profiles or feedback additionally require applicable output/resync evidence and remain v1.x work under EXTN-04.
+
+MIDI-HW-01 and MIDI-HW-02 are documentation gate labels, not counted feature requirements or Traceability rows. They create no Phase 1 catalog entry, requirement, plan, Linear mapping, or implementation work; the release catalog and dynamic traceability set remain unchanged at 84/84.
 
 ## Definition of Done
 

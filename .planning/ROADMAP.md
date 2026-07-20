@@ -104,7 +104,7 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
 **Plans:** TBD
 **UI hint:** yes
 **Validation:** Operator validation required for information density, navigation, patch-to-playback speed versus QLC+, constrained-surface learnability, cue-list needs, and the Wails/MIDI workflow.
-**Blocker:** `MIDI-HW-01` remains open. This phase may qualify generic MIDI Note/CC and soft takeover with virtual or generic inputs, but device-specific mappings, feedback, packaging, and hardware acceptance must not be claimed until the user selects the controller.
+**Blocker:** `MIDI-HW-01` RESOLVED 2026-07-19: Akai MIDImix, Novation Launch Control XL Mk2, and Worlde EasyControl 9 together are the selected Phase 6 physical acceptance set for generic MIDI Note/CC learn and soft takeover. `MIDI-HW-02` OPEN: each device requires independent physical evidence for its exact hardware revision, firmware, Windows version, and GOLC build before any named compatibility or support claim; device-specific profiles and feedback remain v1.x work under EXTN-04.
 
 ### Phase 7: Versioned External Control API
 **Goal:** External programs can inspect and control all public GOLC capabilities through a secure, documented, revision-aware API that behaves like the desktop application.

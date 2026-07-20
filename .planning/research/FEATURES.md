@@ -122,7 +122,7 @@ This is a feature-complete v1 rather than a thin prototype. The correct risk red
 - [ ] Deterministic HTP/LTP merge, structured playback banks, keyboard operation, submasters, Grand Master, blackout, and release-all.
 - [ ] Conformant Art-Net output isolated from UI/script/AI timing plus fixture/address/source and network-health monitoring.
 - [ ] Atomic save/open/save-as, autosave-on-change, rotating recovery revisions, exportable bundle, and tested schema migration.
-- [ ] MIDI Note/CC learn, button/fader mappings, soft takeover, and supported state feedback.
+- [ ] MIDI Note/CC learn, button/fader mappings, and soft takeover; generic operation does not require device-specific feedback.
 - [ ] One typed command/state/event model exposed through Wails, a scoped TypeScript runtime/SDK, and a documented versioned API.
 - [ ] Hosted/local provider-neutral LLM integration for evidence-backed fixture authoring and bounded show authoring.
 - [ ] Separately armed live AI operation with validation, stale-state protection, allowlists, rate/time limits, audit, cancellation, and manual blackout/release priority.
@@ -132,7 +132,7 @@ This is a feature-complete v1 rather than a thin prototype. The correct risk red
 - [ ] Native or reference OSC-to-API bridge — add when real controller mappings reveal a stable address surface.
 - [ ] Fixture morph/remap assistant — add when operators need to reuse shows across rented or replacement fixtures.
 - [ ] Reusable parameter effects (intensity/color/position wave, fan, phase) — add after timing and grouping prove stable.
-- [ ] Advanced MIDI profiles, SysEx initialization, beat clock, and MIDI Show Control — add for validated hardware and synchronization needs.
+- [ ] Device-specific MIDI profiles, feedback, SysEx initialization, beat clock, and MIDI Show Control — add only after independent per-device MIDI-HW-02 evidence passes and EXTN-04 is in scope for the relevant validated hardware or synchronization need.
 - [ ] Blind/offline editing while live playback continues — add after the live programmer and command revision model are field-tested.
 - [ ] Thin remote web/mobile playback client — add through the public API only after authentication and reconnection behavior are proven.
 - [ ] QLC+ show/fixture import tools — add based on migration demand; never compromise the canonical GOLC schema.
@@ -235,7 +235,7 @@ All confidence tiers below were assigned through the research confidence seam. O
 
 - How many universes, fixtures, simultaneous playbacks, and MIDI controls define the actual first-user ceiling? Do not choose pro-console scale without field data.
 - Do first users need a GO-driven cue list at launch, or will scenes/chases plus execute banks cover almost all shows? The research recommendation is to keep one lightweight cue-list type because omitting it blocks simple theatre/church workflows.
-- Which MIDI controllers are the initial compatibility targets, and which require SysEx initialization or device-specific feedback beyond generic Note/CC?
+- Akai MIDImix, Novation Launch Control XL Mk2, and Worlde EasyControl 9 are the selected Phase 6 physical acceptance set; which capabilities can each device independently substantiate through MIDI-HW-02 for its exact hardware revision, firmware, Windows version, and GOLC build beyond generic Note/CC learn and soft takeover?
 - Does live AI need direct cue triggering in the first public build, or can launch validation begin with autonomous offline authoring plus operator-started playback? The project intent allows live autonomy, but staged exposure substantially reduces field risk.
 - What legal/safety restrictions should apply to fixture capabilities representing lasers, fog/haze, relays, or other non-lighting loads?
 - Which OFL snapshot/import policy and licensing notices should ship with the starter fixture library?

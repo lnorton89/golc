@@ -64,7 +64,7 @@ An operator can author a modular show once, adapt its fixture pools to different
 - Scene and layer changes take effect immediately by default. Blending behavior comes from reusable transition presets rather than ad hoc timing on every control.
 - When global BPM changes, the operator can choose whether the active loop preserves musical position or restarts.
 - A knowledgeable author prepares the show and MIDI surface; a less-experienced operator should then be able to control the rig quickly from the assigned physical controls.
-- The initial MIDI controller is not yet selected. Hardware-specific controller integration and acceptance criteria are blocked until the user identifies the target device; generic MIDI abstractions can be designed earlier.
+- Akai MIDImix, Novation Launch Control XL Mk2, and Worlde EasyControl 9 together are the selected Phase 6 physical acceptance set for generic MIDI Note/CC learn and soft takeover. Selection does not establish support; each device must independently pass MIDI-HW-02 for its exact hardware revision, firmware, Windows version, and GOLC build before a named compatibility or support claim.
 - Keyboard and on-screen controls must provide the full playback workflow while MIDI hardware remains undecided and after MIDI support is added.
 - `Revoke Automation` is the independent operator safety action: it blocks AI and scripts, cancels their queued actions, freezes the current look, and returns control to manual operation. Blackout remains a separate immediate intensity control.
 - TypeScript is a first-class automation surface, not an incidental plugin format. Scripts should use the same domain capabilities available to the UI and API.
@@ -89,7 +89,7 @@ An operator can author a modular show once, adapt its fixture pools to different
 - **Autonomy safety**: Autonomous AI control must remain observable and interruptible by the operator — live lighting changes need a dependable human override even when confirmation is not required for each action.
 - **Project tracking**: Use Linear from the start — requirements, roadmap phases, and implementation issues need explicit repository-to-Linear traceability.
 - **Developer experience**: Centralize project configuration behind one documented root entrypoint with logically separated subconfiguration — contributors and automation should not need to discover scattered sources of truth.
-- **MIDI hardware**: Do not finalize or claim device-specific controller support until the target controller is selected — controller selection is a blocker for that phase's hardware acceptance tests.
+- **MIDI hardware**: Akai MIDImix, Novation Launch Control XL Mk2, and Worlde EasyControl 9 are the selected Phase 6 physical acceptance set; selection does not establish support. Each device must independently pass MIDI-HW-02 for its exact hardware revision, firmware, Windows version, and GOLC build before a named compatibility or support claim, and device-specific profiles or feedback remain v1.x work under EXTN-04.
 - **Safe structural edits**: Pool resizing and fixture substitution default to previewing a deterministic impact plan before commit — modular reuse must not silently corrupt or reinterpret show programming.
 - **Musical timing**: Tempo-aware scenes derive timing from a global BPM and explicit bar structure — scene playback must remain deterministic and independent of UI, script, or LLM latency.
 - **Automation override**: Revoke Automation must not depend on an AI provider, script runtime, or queued application command completing — it is a local priority control path distinct from blackout.
@@ -124,6 +124,7 @@ An operator can author a modular show once, adapt its fixture pools to different
 | Defer cross-show module synchronization to v1.x | Modular deployment inside a show delivers the primary value first | — Pending |
 | Support Windows first | Concentrates v1 packaging, timing, networking, and hardware qualification on the user's required platform | — Pending |
 | Centralize project configuration while separating concerns | Makes setup and operation discoverable without collapsing unrelated configuration into one unmaintainable file | — Pending |
+| Select Akai MIDImix, Novation Launch Control XL Mk2, and Worlde EasyControl 9 together for Phase 6 physical acceptance | The three user-owned controllers can independently qualify generic MIDI learn and soft takeover without turning selection or manual evidence into a support claim | Decided 2026-07-19; MIDI-HW-01 resolved, MIDI-HW-02 remains open per device |
 
 ## Evolution
 
