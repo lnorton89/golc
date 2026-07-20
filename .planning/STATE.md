@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: Offline Foundation and Delivery Traceability
 status: executing
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-07-20T18:54:45.824Z"
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-07-20T19:09:18.834Z"
 last_activity: 2026-07-20
 last_activity_desc: Approved exact npm pins at 01-12 blocking-human gate
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 29
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 ## Current Position
 
 Phase: 01 (Offline Foundation and Delivery Traceability) — EXECUTING
-Plan: 5 of 29 complete (wave 1 done; waves 2-18 remaining)
+Plan: 6 of 29 complete (wave 1 done; waves 2-18 remaining)
 Status: Ready to execute
 Last activity: 2026-07-20 — Approved exact npm pins at 01-12 blocking-human gate
 
-Progress: [██░░░░░░░░] 17%
+Progress: [██░░░░░░░░] 21%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 01 P16 | 25min | 1 tasks | 8 files |
 | Phase 01 P17 | 35min | 1 tasks | 10 files |
 | Phase 01 P02 | 10min | 2 tasks | 9 files |
+| Phase 01 P03 | 7min | 1 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent roadmap constrain
 - [Phase ?]: internal/projectconfig is a pure library: all config CLI routes (inspect/set/explain) self-register from internal/command/config.go, resolving the command<->projectconfig import cycle.
 - [Phase ?]: Go test scopes are declared from external test packages via command.MustDeclareScope beside their exact TestScope{PascalName} marker (pattern set by config-local).
 - [Phase ?]: golc.local.toml is re-validated strictly on every read, so hand-edited unknown/locked keys fail resolution with the same stable diagnostics as rejected writes.
+- [Phase ?]: Strict concern decoding is Spec-driven: DefaultSpec is the production single-authority registry (six concerns, sixteen canonical keys); tests inject synthetic Specs for every failure mode.
+- [Phase ?]: Cross-concern values use typed ref:<canonical.key> references resolved at repository level, so no authority literal (e.g. the Go pin) is ever duplicated across concern files.
+- [Phase ?]: Deprecation outcomes use plan-specified codes CFG_DEPRECATED_KEY (non-fatal warning with migration guidance) and CFG_DEPRECATED_COLLISION (fatal); production deprecation register starts empty.
 
 ### Pending Todos
 
@@ -111,6 +115,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-20T18:54:45.813Z
-Stopped at: Completed 01-02-PLAN.md
+Last session: 2026-07-20T19:09:18.824Z
+Stopped at: Completed 01-03-PLAN.md
 Resume file: None
