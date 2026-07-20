@@ -1,0 +1,9 @@
+schema_version = 1
+
+[[concerns]]
+id = "toolchain"
+path = "config/toolchain.toml"
+
+[[concerns]]
+id = "runtime"
+path = "config/runtime.toml"
