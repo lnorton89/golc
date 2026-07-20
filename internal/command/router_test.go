@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lawrence/golc/internal/command"
+	"github.com/lnorton89/golc/internal/command"
 	// Command files self-register their routes and scopes (D-03). Importing
 	// the package is the only wiring required for the default registry to
 	// serve them, which is exactly what cmd/golc-project/main.go does.
-	_ "github.com/lawrence/golc/internal/projectconfig"
+	_ "github.com/lnorton89/golc/internal/projectconfig"
 )
 
 // The fixture route and scope below are declared through the exact

@@ -1,4 +1,4 @@
-module github.com/lawrence/golc
+module github.com/lnorton89/golc
 
 go 1.26.5
 

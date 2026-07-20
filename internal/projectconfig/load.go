@@ -20,7 +20,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/lawrence/golc/internal/command"
+	"github.com/lnorton89/golc/internal/command"
 )
 
 // rootIndexName is the fixed repository-root configuration index (D-05).

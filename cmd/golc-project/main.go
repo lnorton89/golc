@@ -11,10 +11,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/lawrence/golc/internal/command"
+	"github.com/lnorton89/golc/internal/command"
 	// Self-registering command files. Adding a command means adding an
 	// import here at most — never editing a central route switch.
-	_ "github.com/lawrence/golc/internal/projectconfig"
+	_ "github.com/lnorton89/golc/internal/projectconfig"
 )
 
 // repoRootEnvName is set by golc.ps1 so command behavior is independent of

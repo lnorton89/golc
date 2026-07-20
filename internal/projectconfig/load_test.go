@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lawrence/golc/internal/projectconfig"
+	"github.com/lnorton89/golc/internal/projectconfig"
 )
 
 const validRootIndex = `schema_version = 1
