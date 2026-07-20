@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: Offline Foundation and Delivery Traceability
 status: executing
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-07-20T19:09:18.834Z"
+stopped_at: Completed 01-08-PLAN.md
+last_updated: "2026-07-20T19:24:42.779Z"
 last_activity: 2026-07-20
 last_activity_desc: Approved exact npm pins at 01-12 blocking-human gate
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 29
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 ## Current Position
 
 Phase: 01 (Offline Foundation and Delivery Traceability) — EXECUTING
-Plan: 6 of 29 complete (wave 1 done; waves 2-18 remaining)
+Plan: 7 of 29 complete (wave 1 done; waves 2-18 remaining)
 Status: Ready to execute
 Last activity: 2026-07-20 — Approved exact npm pins at 01-12 blocking-human gate
 
-Progress: [██░░░░░░░░] 21%
+Progress: [██░░░░░░░░] 24%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [██░░░░░░░░] 21%
 | Phase 01 P17 | 35min | 1 tasks | 10 files |
 | Phase 01 P02 | 10min | 2 tasks | 9 files |
 | Phase 01 P03 | 7min | 1 tasks | 9 files |
+| Phase 01 P08 | 16min | 1 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,10 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent roadmap constrain
 - [Phase ?]: Strict concern decoding is Spec-driven: DefaultSpec is the production single-authority registry (six concerns, sixteen canonical keys); tests inject synthetic Specs for every failure mode.
 - [Phase ?]: Cross-concern values use typed ref:<canonical.key> references resolved at repository level, so no authority literal (e.g. the Go pin) is ever duplicated across concern files.
 - [Phase ?]: Deprecation outcomes use plan-specified codes CFG_DEPRECATED_KEY (non-fatal warning with migration guidance) and CFG_DEPRECATED_COLLISION (fatal); production deprecation register starts empty.
+- [Phase ?]: Durable local ID grammar (project:slug, milestone:vN, phase:NN, req:KEY-NN, plan:NN-MM, task:NN-MM.p) derives only from structural metadata — linear-map seed IDs, two-digit numbers, XML task positions — never titles or issue keys; renames cannot change identity.
+- [Phase ?]: Executable-task identity is the 1-based position among ALL task elements in a plan's <tasks> block; checkpoint tasks keep their position but receive no catalog entity.
+- [Phase ?]: The D-11 authority split is a fixed typed registry: repository fields (scope, local_id, requirement_text, structure) and Linear operational fields (status, assignee, priority, estimate, completed_at) cannot be reassigned in either direction, and comment/discussion fields cannot be stored at all (D-12).
+- [Phase ?]: Catalog entity sources must be repository-relative slash paths inside .planning/; near-miss plan filenames and drifted frontmatter fail the whole catalog build loudly instead of being skipped.
 
 ### Pending Todos
 
@@ -115,6 +120,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-20T19:09:18.824Z
-Stopped at: Completed 01-03-PLAN.md
+Last session: 2026-07-20T19:24:42.767Z
+Stopped at: Completed 01-08-PLAN.md
 Resume file: None
