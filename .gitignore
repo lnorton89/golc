@@ -1,3 +1,6 @@
 .env
 
 /tmp
+
+# Project-local bootstrap toolchains, caches, and installs (provisioned by golc.ps1 bootstrap)
+/.tools/
