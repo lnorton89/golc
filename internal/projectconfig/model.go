@@ -80,7 +80,82 @@ func (d Diagnostic) String() string {
 	return fmt.Sprintf("%s: %s (%s): %s", d.Code, d.Key, d.Origin, d.Message)
 }
 
-// DefaultSpec returns the production Phase 1 concern allocation.
+// Shared production value shapes.
+var (
+	dottedVersionPattern = regexp.MustCompile(`^[0-9]+(\.[0-9]+)*$`)
+	sha256Pattern        = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	goArchiveURLPattern  = regexp.MustCompile(`^https://go\.dev/dl/[A-Za-z0-9.\-]+\.(zip|tar\.gz)$`)
+	toolsPathPattern     = regexp.MustCompile(`^\.tools(/[A-Za-z0-9._-]+)+$`)
+	planningPathPattern  = regexp.MustCompile(`^\.planning(/[A-Za-z0-9._-]+)+$`)
+	relativeDirPattern   = regexp.MustCompile(`^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$`)
+	fileNamePattern      = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+	envVarNamePattern    = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
+	labelNamePattern     = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+)
+
+// DefaultSpec returns the production Phase 1 concern allocation: exactly
+// the six concerns the root index must discover, each owning its canonical
+// keys once, plus the (currently empty) production deprecation register.
 func DefaultSpec() Spec {
-	return Spec{}
+	return Spec{
+		Concerns: []ConcernSpec{
+			{
+				ID:   "toolchain",
+				Path: "config/toolchain.toml",
+				Keys: map[string]KeySpec{
+					"toolchain.go.version":        {Pattern: dottedVersionPattern},
+					"toolchain.go.archive_url":    {Pattern: goArchiveURLPattern},
+					"toolchain.go.archive_sha256": {Pattern: sha256Pattern},
+					"cache.downloads":             {Pattern: toolsPathPattern},
+					"cache.gomodcache":            {Pattern: toolsPathPattern},
+					"cache.gocache":               {Pattern: toolsPathPattern},
+				},
+			},
+			{
+				ID:   "commands",
+				Path: "config/commands.toml",
+				Keys: map[string]KeySpec{
+					"commands.entrypoint": {Pattern: fileNamePattern},
+					"commands.cli_binary": {Pattern: toolsPathPattern},
+					"commands.go_version": {Pattern: dottedVersionPattern},
+				},
+			},
+			{
+				ID:   "generation",
+				Path: "config/generation.toml",
+				Keys: map[string]KeySpec{
+					"generation.schemas_dir":  {Pattern: relativeDirPattern},
+					"generation.line_endings": {AllowedValues: []string{"lf"}},
+				},
+			},
+			{
+				ID:   "application_defaults",
+				Path: "config/application-defaults.toml",
+				Keys: map[string]KeySpec{
+					"application_defaults.pool_update_review": {AllowedValues: []string{"immediate", "preview"}},
+					"application_defaults.scene_apply":        {AllowedValues: []string{"immediate", "preview"}},
+				},
+			},
+			{
+				ID:   "runtime",
+				Path: "config/runtime.toml",
+				Keys: map[string]KeySpec{
+					"runtime.log_level": {AllowedValues: []string{"debug", "error", "info", "warn"}},
+				},
+			},
+			{
+				ID:   "linear",
+				Path: "config/integrations/linear.toml",
+				Keys: map[string]KeySpec{
+					"linear.mapping_file":               {Pattern: planningPathPattern},
+					"linear.env.api_key":                {Pattern: envVarNamePattern},
+					"linear.env.team_id":                {Pattern: envVarNamePattern},
+					"linear.taxonomy.requirement_label": {Pattern: labelNamePattern},
+				},
+			},
+		},
+		// No key has been renamed yet; the register exists so deprecations
+		// are declared as reviewable metadata, never ad-hoc parser rules.
+		Deprecations: []Deprecation{},
+	}
 }

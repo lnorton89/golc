@@ -1,0 +1,19 @@
+# GOLC Linear integration concern: names and declarations only.
+#
+# This file alone owns the non-secret Linear taxonomy and the documented
+# environment variable NAMES that explicit Linear commands read (D-19).
+# It never contains credential values, tokens, or remote UUIDs: secrets
+# stay in the untracked .env, and remote identities are adopted into
+# .planning/linear-map.json only after explicit reviewed linkage (D-14).
+
+schema_version = 1
+
+[linear]
+mapping_file = ".planning/linear-map.json"
+
+[linear.env]
+api_key = "LINEAR_API_KEY"
+team_id = "LINEAR_TEAM_ID"
+
+[linear.taxonomy]
+requirement_label = "requirement"

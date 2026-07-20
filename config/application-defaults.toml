@@ -1,0 +1,13 @@
+# GOLC application-defaults concern: future product defaults.
+#
+# This file alone owns committed product-behavior defaults. It never holds
+# machine-specific values, secrets, or runtime state. The defaults below
+# restate locked PROJECT.md decisions (review-before-apply pool updates,
+# immediate scene application) so they are discoverable from the root
+# index before their owning phases implement the behavior.
+
+schema_version = 1
+
+[application_defaults]
+pool_update_review = "preview"
+scene_apply = "immediate"

@@ -1,0 +1,14 @@
+# GOLC commands concern: the supported repository command surface.
+#
+# This file alone owns the contributor entrypoint and delegated CLI
+# locations (single-authority rule). The pinned Go version is referenced
+# from the toolchain concern — never repeated here (D-05: a concern may
+# refer to another authority through a typed "ref:" value, but it may not
+# duplicate it).
+
+schema_version = 1
+
+[commands]
+entrypoint = "golc.ps1"
+cli_binary = ".tools/installs/golc_project/bin/golc-project.exe"
+go_version = "ref:toolchain.go.version"

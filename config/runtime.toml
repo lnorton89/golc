@@ -1,7 +1,9 @@
 # GOLC runtime concern: committed runtime configuration defaults.
 #
-# This file alone owns runtime.log_level (single-authority rule). It holds
-# no secrets and no machine-specific values.
+# This file alone owns runtime.log_level (single-authority rule enforced
+# by the strict registry in internal/projectconfig/model.go). It holds no
+# secrets and no machine-specific values; machine-local overrides live in
+# the untracked golc.local.toml layer (D-06).
 
 schema_version = 1
 
