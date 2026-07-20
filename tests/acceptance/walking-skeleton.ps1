@@ -275,6 +275,66 @@ function Assert-RuntimeInspection {
     }
 }
 
+function Assert-LocalExplainProvenance {
+    <# Asserts the config explain payload proves the project-local write:
+       winning layer project-local, safe source golc.local.toml, ordered
+       shadowed committed origin, and only allowlisted safe fields (no
+       environment or credential content). #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [byte[]]$Bytes
+    )
+
+    $text = (Convert-OutputBytesToText -Bytes $Bytes).Trim()
+    if ([string]::IsNullOrWhiteSpace($text)) {
+        throw "LOCAL_EXPLAIN_EMPTY: expected JSON output"
+    }
+    try {
+        $document = $text | ConvertFrom-Json -ErrorAction Stop
+    }
+    catch {
+        throw "LOCAL_EXPLAIN_INVALID_JSON: $($_.Exception.Message)"
+    }
+
+    $fieldNames = @($document.PSObject.Properties.Name | Sort-Object)
+    $allowedFields = @("key", "layer", "shadowed", "source", "value")
+    if (($fieldNames -join ",") -cne ($allowedFields -join ",")) {
+        throw "LOCAL_EXPLAIN_UNSAFE_FIELDS: expected exactly [$($allowedFields -join ', ')], got [$($fieldNames -join ', ')]"
+    }
+    if ($document.key -cne "runtime.log_level") {
+        throw "LOCAL_EXPLAIN_WRONG_KEY: expected runtime.log_level, got $($document.key)"
+    }
+    if ($document.layer -cne "project-local") {
+        throw "LOCAL_EXPLAIN_WRONG_LAYER: expected project-local, got $($document.layer)"
+    }
+    if ($document.source -cne "golc.local.toml") {
+        throw "LOCAL_EXPLAIN_UNSAFE_SOURCE: expected golc.local.toml, got $($document.source)"
+    }
+    if ($document.value -cne "debug") {
+        throw "LOCAL_EXPLAIN_WRONG_VALUE: expected debug, got $($document.value)"
+    }
+
+    $shadowed = @($document.shadowed)
+    if ($shadowed.Count -ne 1) {
+        throw "LOCAL_EXPLAIN_SHADOWED_COUNT: expected exactly one ordered shadowed origin, got $($shadowed.Count)"
+    }
+    $origin = $shadowed[0]
+    $originFields = @($origin.PSObject.Properties.Name | Sort-Object)
+    if (($originFields -join ",") -cne "layer,source,value") {
+        throw "LOCAL_EXPLAIN_ORIGIN_FIELDS: expected exactly [layer, source, value], got [$($originFields -join ', ')]"
+    }
+    if ($origin.layer -cne "committed" -or $origin.source -cne "config/runtime.toml" -or $origin.value -cne "info") {
+        throw "LOCAL_EXPLAIN_WRONG_ORIGIN: expected committed config/runtime.toml=info, got $($origin | ConvertTo-Json -Compress)"
+    }
+
+    foreach ($forbidden in @("environment", "credential", "secret", "token")) {
+        if ($text.ToLowerInvariant().Contains($forbidden)) {
+            throw "LOCAL_EXPLAIN_UNSAFE_CONTENT: output contains forbidden content '$forbidden'"
+        }
+    }
+}
+
 function Get-ModuleCacheInventory {
     <# Stable inventory of the project-local Go module cache: relative path
        plus byte length for every file. Any download or mutation changes it. #>
@@ -477,7 +537,39 @@ try {
                 throw "RUNTIME_INSPECT_NONDETERMINISTIC: repeated JSON output was not byte-identical"
             }
             Assert-RuntimeInspection -Bytes $firstInspection.StdOutBytes
+
+            # Local write and cross-process readback (Plan 01-02): one
+            # process writes the ignored machine-local value, and separate
+            # fresh processes must resolve it above the committed default
+            # with safe deterministic provenance.
+            $setResult = Invoke-Golc `
+                -RepositoryRoot $workingRepository `
+                -CommandArguments @("config", "set", "--local", "runtime.log_level", "debug")
+            Assert-GolcSucceeded -Result $setResult -Operation "config set --local"
+
+            $localFile = Join-Path $workingRepository "golc.local.toml"
+            if (-not (Test-Path -LiteralPath $localFile -PathType Leaf)) {
+                throw "LOCAL_WRITE_MISSING: config set --local did not write golc.local.toml"
+            }
+
+            $firstExplain = Invoke-Golc `
+                -RepositoryRoot $workingRepository `
+                -CommandArguments @("config", "explain", "runtime.log_level", "--format", "json")
+            $secondExplain = Invoke-Golc `
+                -RepositoryRoot $workingRepository `
+                -CommandArguments @("config", "explain", "runtime.log_level", "--format", "json")
+            Assert-GolcSucceeded -Result $firstExplain -Operation "first cross-process config explain"
+            Assert-GolcSucceeded -Result $secondExplain -Operation "second cross-process config explain"
+
+            $firstExplainBytes = [Convert]::ToBase64String($firstExplain.StdOutBytes)
+            $secondExplainBytes = [Convert]::ToBase64String($secondExplain.StdOutBytes)
+            if ($firstExplainBytes -cne $secondExplainBytes) {
+                throw "LOCAL_EXPLAIN_NONDETERMINISTIC: repeated explain output was not byte-identical"
+            }
+            Assert-LocalExplainProvenance -Bytes $firstExplain.StdOutBytes
+
             Write-Output "Green contract confirmed: runtime.log_level is deterministic and byte-identical."
+            Write-Output "Green local contract confirmed: cross-process local write, safe provenance, and deterministic explain."
         }
     }
 
