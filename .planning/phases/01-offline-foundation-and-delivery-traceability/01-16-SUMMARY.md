@@ -119,7 +119,7 @@ TDD gates committed atomically:
 ## Files Created/Modified
 
 - `golc.ps1` - Root command shim: bootstrap authority and delegation to the pinned project-local command.
-- `go.mod` / `go.sum` - Module authority declaring `github.com/lawrence/golc`, Go `1.26.5`, both exact direct pins, and the complete verified sum graph.
+- `go.mod` / `go.sum` - Module authority declaring `github.com/lnorton89/golc` (originally created as `github.com/lawrence/golc` from a planning error; corrected in 01-17 commit `0286186`), Go `1.26.5`, both exact direct pins, and the complete verified sum graph.
 - `internal/bootstrap/bootstrap.go` - Verified staged installation: `VerifyArchive`, `InstallStaged`, `InstalledMatches`, install manifest.
 - `internal/bootstrap/bootstrap_test.go` - Contract tests plus the TOML/Invopop schema probe run online by bootstrap and offline by the harness.
 - `config/toolchain.toml` - Committed exact-pin concern: Go 1.26.5 official archive URL/SHA-256 and repository-local cache policy.
