@@ -262,6 +262,110 @@ function Assert-RuntimeInspection {
     }
 }
 
+function Get-ModuleCacheInventory {
+    <# Stable inventory of the project-local Go module cache: relative path
+       plus byte length for every file. Any download or mutation changes it. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$CacheRoot
+    )
+
+    if (-not (Test-Path -LiteralPath $CacheRoot -PathType Container)) {
+        throw "BOOTSTRAP_MODULE_CACHE_MISSING: $CacheRoot"
+    }
+    $resolvedRoot = (Get-Item -LiteralPath $CacheRoot).FullName
+    return @(Get-ChildItem -LiteralPath $resolvedRoot -Recurse -Force -File | ForEach-Object {
+            $_.FullName.Substring($resolvedRoot.Length).TrimStart("\", "/").Replace("\", "/") + "|" + $_.Length
+        } | Sort-Object)
+}
+
+function Assert-OfflineSchemaProbe {
+    <# Reruns the bootstrap schema probe (the internal/bootstrap tests that
+       exercise VerifyArchive/InstallStaged/InstalledMatches and the
+       TOML-to-Invopop schema emission) with GOPROXY=off, readonly module
+       mode, and a proxy transport that fails any network call, then proves
+       go.mod, go.sum, and the warmed module-cache inventory are unchanged. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepositoryRoot
+    )
+
+    $toolchainRoot = Join-Path $RepositoryRoot ".tools\toolchains\go"
+    if (-not (Test-Path -LiteralPath $toolchainRoot -PathType Container)) {
+        throw "OFFLINE_PROBE_GO_MISSING: $toolchainRoot"
+    }
+    $goExecutable = @(Get-ChildItem -LiteralPath $toolchainRoot -Recurse -Force -Filter "go.exe" |
+            Where-Object { $_.Directory.Name -eq "bin" }) | Select-Object -First 1
+    if ($null -eq $goExecutable) {
+        throw "OFFLINE_PROBE_GO_MISSING: no provisioned go.exe under $toolchainRoot"
+    }
+
+    $goModPath = Join-Path $RepositoryRoot "go.mod"
+    $goSumPath = Join-Path $RepositoryRoot "go.sum"
+    $moduleCache = Join-Path $RepositoryRoot ".tools\cache\go-mod"
+    $modBefore = (Get-FileHash -LiteralPath $goModPath -Algorithm SHA256).Hash
+    $sumBefore = (Get-FileHash -LiteralPath $goSumPath -Algorithm SHA256).Hash
+    $inventoryBefore = Get-ModuleCacheInventory -CacheRoot $moduleCache
+
+    $environmentNames = @(
+        "GOPROXY", "GOFLAGS", "GOTOOLCHAIN", "GOMODCACHE", "GOCACHE",
+        "GONOSUMDB", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"
+    )
+    $savedEnvironment = @{}
+    foreach ($name in $environmentNames) {
+        $savedEnvironment[$name] = [System.Environment]::GetEnvironmentVariable($name)
+    }
+    $probeExitCode = $null
+    try {
+        # Network denial: module resolution is forbidden outright and any
+        # HTTP transport call fails immediately against a dead proxy.
+        [System.Environment]::SetEnvironmentVariable("GOPROXY", "off")
+        [System.Environment]::SetEnvironmentVariable("GOFLAGS", "-mod=readonly")
+        [System.Environment]::SetEnvironmentVariable("GOTOOLCHAIN", "local")
+        [System.Environment]::SetEnvironmentVariable("GOMODCACHE", $moduleCache)
+        [System.Environment]::SetEnvironmentVariable("GOCACHE", (Join-Path $RepositoryRoot ".tools\cache\go-build"))
+        [System.Environment]::SetEnvironmentVariable("HTTP_PROXY", "http://127.0.0.1:9")
+        [System.Environment]::SetEnvironmentVariable("HTTPS_PROXY", "http://127.0.0.1:9")
+        [System.Environment]::SetEnvironmentVariable("NO_PROXY", $null)
+
+        Push-Location $RepositoryRoot
+        try {
+            & $goExecutable.FullName test -count=1 `
+                -run "TestVerifyArchive|TestInstallStaged|TestInstalledMatches|TestSchemaProbe" `
+                ./internal/bootstrap/
+            $probeExitCode = $LASTEXITCODE
+        }
+        finally {
+            Pop-Location
+        }
+    }
+    finally {
+        foreach ($name in $environmentNames) {
+            [System.Environment]::SetEnvironmentVariable($name, $savedEnvironment[$name])
+        }
+    }
+
+    if ($probeExitCode -ne 0) {
+        throw "OFFLINE_PROBE_FAILED: network-denied schema probe exited $probeExitCode"
+    }
+
+    $modAfter = (Get-FileHash -LiteralPath $goModPath -Algorithm SHA256).Hash
+    $sumAfter = (Get-FileHash -LiteralPath $goSumPath -Algorithm SHA256).Hash
+    if ($modAfter -cne $modBefore) {
+        throw "OFFLINE_PROBE_LOCK_MUTATION: go.mod changed during the network-denied probe"
+    }
+    if ($sumAfter -cne $sumBefore) {
+        throw "OFFLINE_PROBE_LOCK_MUTATION: go.sum changed during the network-denied probe"
+    }
+    $inventoryAfter = Get-ModuleCacheInventory -CacheRoot $moduleCache
+    $differences = @(Compare-Object -ReferenceObject $inventoryBefore -DifferenceObject $inventoryAfter)
+    if ($differences.Count -ne 0) {
+        throw "OFFLINE_PROBE_CACHE_MUTATION: module cache inventory changed; a download or mutation occurred"
+    }
+}
+
 $temporaryRoot = $null
 $scriptExitCode = 1
 try {
@@ -288,13 +392,41 @@ try {
             Write-Output "RED contract confirmed: golc.ps1 is the only missing implementation."
         }
         "bootstrap" {
+            # Stage 1: checksum-controlled provisioning in the temporary
+            # checkout. The digest is calculated before bootstrap sees the
+            # source metadata, and bootstrap must verify bytes before any
+            # extraction (VerifyArchive/InstallStaged contract).
             $toolchainFixture = New-ChecksumToolchainFixture -RepositoryRoot $workingRepository
             if ([string]::IsNullOrWhiteSpace($toolchainFixture.Sha256)) {
                 throw "FIXTURE_ARCHIVE_HASH_EMPTY"
             }
             $bootstrapResult = Invoke-Golc -RepositoryRoot $workingRepository -CommandArguments @("bootstrap")
             Assert-GolcSucceeded -Result $bootstrapResult -Operation "bootstrap"
-            Write-Output "Bootstrap contract confirmed with a checksum-controlled local archive."
+
+            # Stage 2: the archive source is deleted, so the second bootstrap
+            # can only succeed through a matching installed manifest
+            # (InstalledMatches contract) with zero archive-source calls.
+            Remove-Item -LiteralPath $toolchainFixture.ArchivePath -Force
+            $downloadsCache = Join-Path $workingRepository ".tools\cache\downloads"
+            if (Test-Path -LiteralPath $downloadsCache) {
+                Remove-Item -LiteralPath $downloadsCache -Recurse -Force
+            }
+            $secondBootstrap = Invoke-Golc -RepositoryRoot $workingRepository -CommandArguments @("bootstrap")
+            Assert-GolcSucceeded -Result $secondBootstrap -Operation "second bootstrap without archive source"
+
+            # Stage 3: online cache warm in the repository under test.
+            # Bootstrap provisions the pinned Go toolchain, downloads the
+            # complete go.mod graph into the project-local module cache,
+            # verifies the selected graph and sums, and compiles/runs the
+            # TOML + Invopop schema probe online.
+            $repositoryBootstrap = Invoke-Golc -RepositoryRoot $repositoryUnderTest -CommandArguments @("bootstrap")
+            Assert-GolcSucceeded -Result $repositoryBootstrap -Operation "repository online bootstrap"
+
+            # Stage 4: immediately rerun the schema probe with the network
+            # denied and prove resolution required no download or mutation.
+            Assert-OfflineSchemaProbe -RepositoryRoot $repositoryUnderTest
+
+            Write-Output "Bootstrap contract confirmed: checksum-controlled install, idempotent manifest match, warmed module graph, and network-denied schema resolution."
         }
         "green" {
             $toolchainFixture = New-ChecksumToolchainFixture -RepositoryRoot $workingRepository
