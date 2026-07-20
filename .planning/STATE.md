@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: Offline Foundation and Delivery Traceability
 status: executing
-stopped_at: Completed 01-16-PLAN.md
-last_updated: "2026-07-20T18:09:55.217Z"
+stopped_at: Completed 01-17-PLAN.md
+last_updated: "2026-07-20T18:37:30.763Z"
 last_activity: 2026-07-20
 last_activity_desc: Approved exact npm pins at 01-12 blocking-human gate
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 29
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 ## Current Position
 
 Phase: 01 (Offline Foundation and Delivery Traceability) — EXECUTING
-Plan: 3 of 29 complete (wave 1 done; waves 2-18 remaining)
+Plan: 4 of 29 complete (wave 1 done; waves 2-18 remaining)
 Status: Ready to execute
 Last activity: 2026-07-20 — Approved exact npm pins at 01-12 blocking-human gate
 
-Progress: [█░░░░░░░░░] 10%
+Progress: [█░░░░░░░░░] 14%
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Progress: [█░░░░░░░░░] 10%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 01 P16 | 25min | 1 tasks | 8 files |
+| Phase 01 P17 | 35min | 1 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent roadmap constrain
 - [Phase 01]: Bootstrap fixture metadata is populated only after hashing a locally built archive, and green acceptance compares raw output bytes. — Locks checksum-before-use and byte-determinism into the first contributor contract.
 - [Phase 01]: Bootstrap archives promote as per-tool atomic install units with content-addressed verified download caching; a matching install manifest makes second bootstrap consult no archive source.
 - [Phase 01]: Bootstrap hashes go.mod/go.sum around every module operation and hard-fails on mutation, mechanically enforcing D-04 pin immutability.
+- [Phase ?]: Routes must belong to a declared scope; MustDeclareScope is a mechanical precondition for every command graph (GOLC_ROUTE_SCOPE_UNDECLARED).
+- [Phase ?]: Green acceptance packages the real built golc-project.exe as the checksum-pinned archive payload; bootstrap mode keeps the inert payload.
+- [Phase ?]: Go module path corrected to github.com/lnorton89/golc across go.mod and all imports (user correction).
 
 ### Pending Todos
 
@@ -102,6 +106,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-20T18:09:55.207Z
-Stopped at: Completed 01-16-PLAN.md
+Last session: 2026-07-20T18:37:30.750Z
+Stopped at: Completed 01-17-PLAN.md
 Resume file: None
