@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: Offline Foundation and Delivery Traceability
 status: executing
-stopped_at: Phase 1 context gathered
-last_updated: "2026-07-20T04:02:07.044Z"
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-07-20T04:12:27.735Z"
 last_activity: 2026-07-20
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 10
   completed_phases: 0
   total_plans: 29
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -29,8 +29,8 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 ## Current Position
 
 Phase: 01 (Offline Foundation and Delivery Traceability) — EXECUTING
-Plan: 1 of 29
-Status: Executing Phase 01
+Plan: 2 of 29
+Status: Ready to execute
 Last activity: 2026-07-20 — Phase 01 execution started
 
 Progress: [----------] 0%
@@ -54,6 +54,8 @@ Progress: [----------] 0%
 - Last 5 plans: none
 - Trend: Not started
 
+| Phase 01 P01 | 7min | 1 tasks | 4 files |
+
 ## Accumulated Context
 
 ### Decisions
@@ -64,6 +66,8 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent roadmap constrain
 - [All phases]: UI, persistence, scripts, API, LLM, and Linear never own or block deterministic playback or Art-Net timing.
 - [Phase 6]: Akai MIDImix, Novation Launch Control XL Mk2, and Worlde EasyControl 9 are the selected Phase 6 physical acceptance set for generic MIDI Note/CC learn and soft takeover; selection is not support, and MIDI-HW-02 requires independent per-device evidence for the exact hardware revision, firmware, Windows version, and GOLC build before a named claim.
 - [Phase 10]: Windows is the only qualified and supported v1 platform; portability is preserved without macOS/Linux release claims.
+- [Phase 01]: Acceptance fixtures are data-only and restricted to the three expected TOML files; only the repository-owned root command may be executed. — Prevents untrusted fixture content from becoming executable while preserving a clean-checkout test.
+- [Phase 01]: Bootstrap fixture metadata is populated only after hashing a locally built archive, and green acceptance compares raw output bytes. — Locks checksum-before-use and byte-determinism into the first contributor contract.
 
 ### Pending Todos
 
@@ -91,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-18T05:14:21.796Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-offline-foundation-and-delivery-traceability/01-CONTEXT.md
+Last session: 2026-07-20T04:12:27.726Z
+Stopped at: Completed 01-01-PLAN.md
+Resume file: None
