@@ -41,6 +41,12 @@ var _ = MustDeclareRoute(CommandRegistration{
 // paths, regex metacharacters — is rejected before any translation.
 var testScopeNamePattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
+// toolchainVersionPattern keeps the committed Go pin path-safe: a version
+// is dotted digits only, so joining it under .tools/toolchains can never
+// escape the repository (T-01-SC: execution stays on the verified
+// project-local toolchain).
+var toolchainVersionPattern = regexp.MustCompile(`^[0-9]+(\.[0-9]+)*$`)
+
 // parseQuickScopeArgs accepts exactly the supported quick form:
 // --quick --scope <scope-name> (or --scope=<scope-name>).
 func parseQuickScopeArgs(args []string) (string, error) {
@@ -114,6 +120,9 @@ func resolvePinnedGoExecutable(root string) (string, error) {
 	version := manifest.Toolchain.Go.Version
 	if version == "" {
 		return "", fmt.Errorf("GOLC_TEST_TOOLCHAIN_MISSING: config/toolchain.toml does not pin toolchain.go.version")
+	}
+	if !toolchainVersionPattern.MatchString(version) {
+		return "", fmt.Errorf("GOLC_TEST_TOOLCHAIN_MISSING: pinned toolchain.go.version %q is not a safe dotted version", version)
 	}
 	executableName := "go"
 	if runtime.GOOS == "windows" {
