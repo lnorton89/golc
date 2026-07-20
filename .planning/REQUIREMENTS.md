@@ -16,9 +16,9 @@
 ### Centralized Configuration
 
 - [x] **CONF-01**: A contributor can discover toolchain versions, setup, generation, validation, build, test, packaging, application-default, and runtime-configuration entrypoints from one documented root project configuration.
-- [ ] **CONF-02**: Project configuration is separated into independently validatable concerns without duplicating authoritative values across files.
+- [x] **CONF-02**: Project configuration is separated into independently validatable concerns without duplicating authoritative values across files.
 - [x] **CONF-03**: A contributor and CI can invoke the same documented project commands for generation, validation, build, test, and packaging.
-- [ ] **CONF-04**: Secrets and machine-local values remain outside committed project configuration and are represented by documented names and safe examples.
+- [x] **CONF-04**: Secrets and machine-local values remain outside committed project configuration and are represented by documented names and safe examples.
 
 ### Fixture Definitions
 
@@ -198,9 +198,9 @@ A v1 requirement is complete only when its implementation is committed, automate
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | CONF-01 | Phase 1 | Complete |
-| CONF-02 | Phase 1 | Pending |
+| CONF-02 | Phase 1 | Complete |
 | CONF-03 | Phase 1 | Complete |
-| CONF-04 | Phase 1 | Pending |
+| CONF-04 | Phase 1 | Complete |
 | FIXT-01 | Phase 2 | Pending |
 | FIXT-02 | Phase 2 | Pending |
 | FIXT-03 | Phase 2 | Pending |

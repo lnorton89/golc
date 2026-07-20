@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: Offline Foundation and Delivery Traceability
 status: executing
-stopped_at: Completed 01-17-PLAN.md
-last_updated: "2026-07-20T18:37:30.763Z"
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-07-20T18:54:45.824Z"
 last_activity: 2026-07-20
 last_activity_desc: Approved exact npm pins at 01-12 blocking-human gate
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 29
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 ## Current Position
 
 Phase: 01 (Offline Foundation and Delivery Traceability) — EXECUTING
-Plan: 4 of 29 complete (wave 1 done; waves 2-18 remaining)
+Plan: 5 of 29 complete (wave 1 done; waves 2-18 remaining)
 Status: Ready to execute
 Last activity: 2026-07-20 — Approved exact npm pins at 01-12 blocking-human gate
 
-Progress: [█░░░░░░░░░] 14%
+Progress: [██░░░░░░░░] 17%
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [█░░░░░░░░░] 14%
 |------|----------|-------|-------|
 | Phase 01 P16 | 25min | 1 tasks | 8 files |
 | Phase 01 P17 | 35min | 1 tasks | 10 files |
+| Phase 01 P02 | 10min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,10 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent roadmap constrain
 - [Phase ?]: Routes must belong to a declared scope; MustDeclareScope is a mechanical precondition for every command graph (GOLC_ROUTE_SCOPE_UNDECLARED).
 - [Phase ?]: Green acceptance packages the real built golc-project.exe as the checksum-pinned archive payload; bootstrap mode keeps the inert payload.
 - [Phase ?]: Go module path corrected to github.com/lnorton89/golc across go.mod and all imports (user correction).
+- [Phase ?]: Registry routes cannot contain dash-prefixed words: the quick dispatcher registers route 'test' and strictly accepts only '--quick --scope <name>'; the user-facing command is unchanged.
+- [Phase ?]: internal/projectconfig is a pure library: all config CLI routes (inspect/set/explain) self-register from internal/command/config.go, resolving the command<->projectconfig import cycle.
+- [Phase ?]: Go test scopes are declared from external test packages via command.MustDeclareScope beside their exact TestScope{PascalName} marker (pattern set by config-local).
+- [Phase ?]: golc.local.toml is re-validated strictly on every read, so hand-edited unknown/locked keys fail resolution with the same stable diagnostics as rejected writes.
 
 ### Pending Todos
 
@@ -106,6 +111,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-20T18:37:30.750Z
-Stopped at: Completed 01-17-PLAN.md
+Last session: 2026-07-20T18:54:45.813Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
