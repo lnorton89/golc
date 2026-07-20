@@ -1,0 +1,9 @@
+# GOLC runtime concern: committed runtime configuration defaults.
+#
+# This file alone owns runtime.log_level (single-authority rule). It holds
+# no secrets and no machine-specific values.
+
+schema_version = 1
+
+[runtime]
+log_level = "info"

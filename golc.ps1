@@ -464,6 +464,18 @@ function Invoke-GolcBootstrap {
             Invoke-ProjectGo -GoExecutable $goExecutable `
                 -Arguments @("test", "-count=1", "./internal/bootstrap/") `
                 -FailureDiagnostic "GOLC_BOOTSTRAP_PROBE_FAILED"
+
+            # Build the pinned project command that every normal subcommand
+            # delegates to. -trimpath keeps the binary independent of the
+            # checkout path; readonly module mode is already in force.
+            $golcProjectPackage = Join-Path $RepoRoot "cmd\golc-project"
+            if (Test-Path -LiteralPath $golcProjectPackage -PathType Container) {
+                New-Item -ItemType Directory -Path (Split-Path -Parent $GolcProjectExecutable) -Force | Out-Null
+                Invoke-ProjectGo -GoExecutable $goExecutable `
+                    -Arguments @("build", "-trimpath", "-o", $GolcProjectExecutable, "./cmd/golc-project") `
+                    -FailureDiagnostic "GOLC_BOOTSTRAP_PROJECT_BUILD"
+                Write-Output "GOLC bootstrap: golc-project command built from source."
+            }
         }
         finally {
             Pop-Location
@@ -498,6 +510,9 @@ try {
             }
             else {
                 Set-ProjectGoEnvironment
+                # Delegation passes the repository root explicitly so command
+                # behavior never depends on the caller's working directory.
+                $env:GOLC_PROJECT_ROOT = $RepoRoot
                 & $GolcProjectExecutable $Command @CommandArguments
                 $shimExitCode = $LASTEXITCODE
             }

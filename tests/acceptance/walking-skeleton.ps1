@@ -156,7 +156,12 @@ function New-ChecksumToolchainFixture {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
-        [string]$RepositoryRoot
+        [string]$RepositoryRoot,
+
+        # When provided, the archive carries this real executable instead of
+        # the inert bootstrap-mode payload. Green mode packages the actual
+        # pinned project command so the temporary checkout runs it for real.
+        [string]$PayloadExecutable
     )
 
     $toolchainPath = Join-Path $RepositoryRoot "config\toolchain.toml"
@@ -170,11 +175,19 @@ function New-ChecksumToolchainFixture {
     New-Item -ItemType Directory -Path $payloadBin -Force -ErrorAction Stop | Out-Null
 
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-    [System.IO.File]::WriteAllText(
-        (Join-Path $payloadBin "golc-project.exe"),
-        "walking-skeleton tool payload`n",
-        $utf8NoBom
-    )
+    if ([string]::IsNullOrWhiteSpace($PayloadExecutable)) {
+        [System.IO.File]::WriteAllText(
+            (Join-Path $payloadBin "golc-project.exe"),
+            "walking-skeleton tool payload`n",
+            $utf8NoBom
+        )
+    }
+    else {
+        if (-not (Test-Path -LiteralPath $PayloadExecutable -PathType Leaf)) {
+            throw "FIXTURE_PAYLOAD_MISSING: $PayloadExecutable"
+        }
+        Copy-Item -LiteralPath $PayloadExecutable -Destination (Join-Path $payloadBin "golc-project.exe") -Force
+    }
     Compress-Archive -Path (Join-Path $archiveRoot "payload\*") -DestinationPath $archivePath -Force
 
     # The digest is calculated before bootstrap sees the source metadata.
@@ -429,7 +442,20 @@ try {
             Write-Output "Bootstrap contract confirmed: checksum-controlled install, idempotent manifest match, warmed module graph, and network-denied schema resolution."
         }
         "green" {
-            $toolchainFixture = New-ChecksumToolchainFixture -RepositoryRoot $workingRepository
+            # The green slice runs the real pinned project command inside the
+            # temporary checkout. Ensure the repository under test has
+            # bootstrapped and built it (offline after the first warm), then
+            # package that executable as the checksum-pinned tool archive.
+            $repositoryBootstrap = Invoke-Golc -RepositoryRoot $repositoryUnderTest -CommandArguments @("bootstrap")
+            Assert-GolcSucceeded -Result $repositoryBootstrap -Operation "repository bootstrap before green"
+            $projectExecutable = Join-Path $repositoryUnderTest ".tools\installs\golc_project\bin\golc-project.exe"
+            if (-not (Test-Path -LiteralPath $projectExecutable -PathType Leaf)) {
+                throw "GREEN_TOOL_MISSING: repository bootstrap did not produce golc-project.exe"
+            }
+
+            $toolchainFixture = New-ChecksumToolchainFixture `
+                -RepositoryRoot $workingRepository `
+                -PayloadExecutable $projectExecutable
             if ([string]::IsNullOrWhiteSpace($toolchainFixture.Sha256)) {
                 throw "FIXTURE_ARCHIVE_HASH_EMPTY"
             }

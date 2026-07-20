@@ -1,0 +1,16 @@
+# GOLC root configuration index (CONTEXT D-05).
+#
+# This file owns only schema and index metadata. It points at logically
+# separated concern files and never holds configuration values itself;
+# each indexed concern file alone owns its values. Paths are strictly
+# repository-relative and are containment-checked before any read.
+
+schema_version = 1
+
+[[concerns]]
+id = "toolchain"
+path = "config/toolchain.toml"
+
+[[concerns]]
+id = "runtime"
+path = "config/runtime.toml"
