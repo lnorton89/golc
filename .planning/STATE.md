@@ -5,16 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: Offline Foundation and Delivery Traceability
 status: executing
-stopped_at: Completed 01-12-PLAN.md
-last_updated: "2026-07-20T06:05:00.000Z"
+stopped_at: Completed 01-16-PLAN.md
+last_updated: "2026-07-20T18:09:55.217Z"
 last_activity: 2026-07-20
 last_activity_desc: Approved exact npm pins at 01-12 blocking-human gate
 progress:
-  total_phases: 10
+  total_phases: 1
   completed_phases: 0
   total_plans: 29
-  completed_plans: 2
-  percent: 7
+  completed_plans: 3
 ---
 
 # Project State
@@ -29,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 ## Current Position
 
 Phase: 01 (Offline Foundation and Delivery Traceability) — EXECUTING
-Plan: 2 of 29 complete (wave 1 done; waves 2-18 remaining)
-Status: Executing
+Plan: 3 of 29 complete (wave 1 done; waves 2-18 remaining)
+Status: Ready to execute
 Last activity: 2026-07-20 — Approved exact npm pins at 01-12 blocking-human gate
 
-Progress: [#---------] 7%
+Progress: [█░░░░░░░░░] 10%
 
 ## Performance Metrics
 
@@ -56,6 +55,11 @@ Progress: [#---------] 7%
 
 | Phase 01 P01 | 7min | 1 tasks | 4 files |
 | Phase 01 P12 | 8min | 1 tasks | 0 files |
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 01 P16 | 25min | 1 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -69,6 +73,8 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent roadmap constrain
 - [Phase 10]: Windows is the only qualified and supported v1 platform; portability is preserved without macOS/Linux release claims.
 - [Phase 01]: Acceptance fixtures are data-only and restricted to the three expected TOML files; only the repository-owned root command may be executed. — Prevents untrusted fixture content from becoming executable while preserving a clean-checkout test.
 - [Phase 01]: Bootstrap fixture metadata is populated only after hashing a locally built archive, and green acceptance compares raw output bytes. — Locks checksum-before-use and byte-determinism into the first contributor contract.
+- [Phase 01]: Bootstrap archives promote as per-tool atomic install units with content-addressed verified download caching; a matching install manifest makes second bootstrap consult no archive source.
+- [Phase 01]: Bootstrap hashes go.mod/go.sum around every module operation and hard-fails on mutation, mechanically enforcing D-04 pin immutability.
 
 ### Pending Todos
 
@@ -96,6 +102,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-20T04:12:27.726Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-07-20T18:09:55.207Z
+Stopped at: Completed 01-16-PLAN.md
 Resume file: None
