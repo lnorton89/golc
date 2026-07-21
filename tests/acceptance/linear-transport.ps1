@@ -44,6 +44,18 @@ safety: no pull_request trigger, protected/manual jobs only, and the
 `plan_file`/`plan_id`/`confirm_apply` inputs plus `finally`-scoped cleanup
 this plan's action requires.
 
+-Mode readfailure proves CR-02's end-to-end recovery (Plan 01-31): after
+linking a full hierarchy against the fake SDK, one already-linked task's
+remote object is marked archived/deleted (its next single-entity read
+throws, not returns undefined) and a fresh `linear preview --remote` is
+run. Before the CR-02 fix, that throwing read would propagate uncaught out
+of LinearSdkAdapter.execute, stall the shared long-lived NDJSON reader
+loop, and every subsequent Call() in the run would hang until
+GOLC_LINEAR_SYNC_TIMEOUT_MS; this mode asserts the command instead
+completes promptly with no GOLC_TRANSPORT_TIMEOUT/
+GOLC_TRANSPORT_PROCESS_EXITED, proving the read exception is contained to
+a graceful found:false outcome.
+
 Requires a prior successful `golc.ps1 bootstrap --include linear-sync` and
 `golc.ps1 build --scope linear-sdk` (the compiled adapter must already
 exist at tools/linear-sync/dist/src/cli.js) -- this script never
@@ -52,7 +64,7 @@ script's precedent in this repository.
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet("hierarchy", "offline", "workflow")]
+    [ValidateSet("hierarchy", "offline", "workflow", "readfailure")]
     [string]$Mode = "hierarchy"
 )
 
@@ -215,9 +227,22 @@ import { readFileSync, existsSync, appendFileSync, writeFileSync } from "node:fs
 const CALL_LOG_PATH = "$callLogLiteral";
 const STORE_PATH = "$storeLiteral";
 const FAIL_LOCAL_ID = process.env.GOLC_TEST_FAIL_LOCAL_ID || "";
+// GOLC_TEST_ARCHIVE_IDS names already-linked remote object ids (comma-
+// separated) whose next single-entity read (project()/projectMilestone()/
+// issue()) must throw instead of returning undefined -- the exact CR-02
+// failure mode: a missing/archived/deleted remote object surfaces to the
+// official @linear/sdk as a thrown exception, not an empty/undefined
+// result. Reads of any other id are unaffected.
+const ARCHIVE_IDS = new Set((process.env.GOLC_TEST_ARCHIVE_IDS || "").split(",").map((s) => s.trim()).filter(Boolean));
 
 const store = new Map();
 let nextId = 1;
+
+function maybeArchived(id) {
+  if (ARCHIVE_IDS.has(id)) {
+    throw new Error("GOLC_FAKE_SECRET_CANARY_4f9c2e6b1a7d3f809c21 simulated archived/deleted remote object for " + id);
+  }
+}
 
 function loadStore() {
   if (!existsSync(STORE_PATH)) return;
@@ -274,16 +299,19 @@ export class LinearClient {
 
   async project(id) {
     logCall("project", { id });
+    maybeArchived(id);
     return store.get(id);
   }
 
   async projectMilestone(id) {
     logCall("projectMilestone", { id });
+    maybeArchived(id);
     return store.get(id);
   }
 
   async issue(id) {
     logCall("issue", { id });
+    maybeArchived(id);
     return store.get(id);
   }
 
@@ -575,6 +603,127 @@ function Invoke-HierarchyAcceptance {
     }
 }
 
+function Invoke-ReadFailureRecoveryAcceptance {
+    <# CR-02 / Plan 01-31: links a full hierarchy against the fake SDK, then
+       archives (marks throwing) one already-linked task's remote object and
+       proves a fresh `linear preview --remote` -- which drives
+       processLinearClient.CaptureSnapshot to read back every already-linked
+       local ID (internal/command/linear.go lines ~935-968) -- still
+       completes promptly instead of stalling the shared long-lived NDJSON
+       reader process. Entirely offline (fake SDK only). #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][string]$RepositoryUnderTest)
+
+    $workDir = Join-Path ([System.IO.Path]::GetTempPath()) ("golc-linear-transport-readfail-" + [guid]::NewGuid().ToString("N"))
+    $fakeWorkspace = Join-Path $workDir "fake-sdk-workspace"
+    $callLogPath = Join-Path $workDir "call-log.jsonl"
+    $storePath = Join-Path $workDir "store.json"
+    $planLinkPath = Join-Path $workDir "plan-link.json"
+    $planAfterArchivePath = Join-Path $workDir "plan-after-archive.json"
+
+    New-Item -ItemType Directory -Path $workDir -Force | Out-Null
+    $mapBackup = Backup-LinearMap -RepositoryUnderTest $RepositoryUnderTest
+
+    try {
+        # New-FakeLinearSdkWorkspace throws LINEAR_TRANSPORT_ADAPTER_MISSING
+        # if tools/linear-sync/dist/src is absent -- this is this script's
+        # existing toolchain-presence gate, and applies to this mode exactly
+        # as it does to -Mode hierarchy/workflow.
+        New-FakeLinearSdkWorkspace -RepositoryUnderTest $RepositoryUnderTest -WorkspaceRoot $fakeWorkspace -CallLogPath $callLogPath -StorePath $storePath | Out-Null
+
+        $env:LINEAR_API_KEY = "golc-acceptance-fake-key"
+        $env:LINEAR_TEAM_ID = "golc-acceptance-fake-team"
+        $env:GOLC_LINEAR_SYNC_WORKDIR = $fakeWorkspace
+        $env:GOLC_LINEAR_SYNC_TIMEOUT_MS = "15000"
+        $env:GOLC_TEST_CALL_LOG = $callLogPath
+        $env:GOLC_TEST_STORE_PATH = $storePath
+
+        try {
+            # 1. Link the full hierarchy against an empty remote (no induced
+            #    mutation failure this time -- CR-02's scenario needs every
+            #    entity already linked before one is archived out from
+            #    under a later CaptureSnapshot).
+            $previewResult = Invoke-Golc -RepositoryRoot $RepositoryUnderTest -CommandArguments @("linear", "preview", "--remote", "--out", $planLinkPath)
+            Assert-GolcSucceeded -Result $previewResult -Operation "linear preview --remote (read-failure recovery setup)"
+            $planLink = Get-Content -LiteralPath $planLinkPath -Raw | ConvertFrom-Json
+            if ((Get-JsonArrayCount $planLink.operations) -lt 2) {
+                throw "LINEAR_TRANSPORT_READFAIL_PLAN_TOO_SMALL: expected the full repository catalog hierarchy, got $((Get-JsonArrayCount $planLink.operations)) operations"
+            }
+
+            $applyLinkResult = Invoke-Golc -RepositoryRoot $RepositoryUnderTest -CommandArguments @("linear", "apply", $planLinkPath, "--plan-id", $planLink.plan_id)
+            Assert-GolcSucceeded -Result $applyLinkResult -Operation "linear apply (read-failure recovery setup)"
+            $reportLink = $applyLinkResult.StdOutText | ConvertFrom-Json
+            $notAchieved = @((ConvertTo-JsonArray $reportLink.results) | Where-Object { $_.status -ne "completed" -and $_.status -ne "noop" })
+            if ($notAchieved.Count -ne 0) {
+                throw "LINEAR_TRANSPORT_READFAIL_SETUP_INCOMPLETE: $($notAchieved.Count) operation(s) did not link cleanly before the read-failure scenario could begin: $($notAchieved | ConvertTo-Json -Compress)"
+            }
+            Write-Output "Read-failure recovery acceptance: linked the full $((Get-JsonArrayCount $reportLink.results))-operation hierarchy against the fake SDK before inducing a remote archive."
+
+            # 2. Pick one already-linked task issue and archive its remote
+            #    object out from under CaptureSnapshot -- the exact CR-02
+            #    failure mode: a subsequent read of it must throw, not
+            #    return undefined.
+            $mapAfterLink = Get-Content -LiteralPath (Join-Path $RepositoryUnderTest ".planning\linear-map.json") -Raw | ConvertFrom-Json
+            $archiveTarget = (ConvertTo-JsonArray $mapAfterLink.remote_mappings) | Where-Object { $_.linear_type -eq "issue" -and $_.linear_uuid } | Select-Object -Last 1
+            if ($null -eq $archiveTarget) {
+                throw "LINEAR_TRANSPORT_READFAIL_NO_ISSUE_MAPPING: expected at least one linked issue-type remote mapping to archive"
+            }
+            $archiveUUID = $archiveTarget.linear_uuid
+            $env:GOLC_TEST_ARCHIVE_IDS = $archiveUUID
+
+            # 3. A fresh linear preview --remote drives CaptureSnapshot to
+            #    read back every already-linked entity, including the now-
+            #    archived one. Before the CR-02 fix, the archived object's
+            #    throwing read would propagate uncaught out of
+            #    LinearSdkAdapter.execute, stall the shared long-lived
+            #    NDJSON reader loop, and every subsequent Call() in this run
+            #    would hang until GOLC_LINEAR_SYNC_TIMEOUT_MS fires. The fix
+            #    makes the archived read resolve to found:false instead, so
+            #    this command must complete promptly and well under the
+            #    configured transport timeout.
+            $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+            $previewAfterArchiveResult = Invoke-Golc -RepositoryRoot $RepositoryUnderTest -CommandArguments @("linear", "preview", "--remote", "--out", $planAfterArchivePath)
+            $stopwatch.Stop()
+
+            if ($previewAfterArchiveResult.Classification -eq "missing-root-command") {
+                throw "ROOT_COMMAND_MISSING: linear preview --remote (after archive) requires golc.ps1"
+            }
+            if ($previewAfterArchiveResult.StdErrText.Contains("GOLC_TRANSPORT_TIMEOUT") -or $previewAfterArchiveResult.StdErrText.Contains("GOLC_TRANSPORT_PROCESS_EXITED")) {
+                throw "LINEAR_TRANSPORT_READFAIL_STALLED: linear preview --remote stalled/timed out reading the archived object instead of receiving a graceful found:false outcome: $($previewAfterArchiveResult.StdErrText.Trim())"
+            }
+            if ($previewAfterArchiveResult.ExitCode -ne 0) {
+                throw "LINEAR_TRANSPORT_READFAIL_COMMAND_FAILED: linear preview --remote (after archive) exited $($previewAfterArchiveResult.ExitCode): $($previewAfterArchiveResult.StdErrText.Trim())"
+            }
+            $timeoutMs = [int]$env:GOLC_LINEAR_SYNC_TIMEOUT_MS
+            if ($stopwatch.ElapsedMilliseconds -ge $timeoutMs) {
+                throw "LINEAR_TRANSPORT_READFAIL_SLOW: linear preview --remote (after archive) took $($stopwatch.ElapsedMilliseconds)ms, at or beyond the $timeoutMs ms transport timeout -- the archived read likely stalled the shared reader loop instead of resolving gracefully"
+            }
+            Write-Output "Read-failure recovery acceptance: linear preview --remote completed in $($stopwatch.ElapsedMilliseconds)ms after $archiveUUID's remote object was archived/removed -- the read exception was contained to a found:false outcome instead of stalling the shared NDJSON reader loop."
+        }
+        finally {
+            Remove-Item Env:\LINEAR_API_KEY -ErrorAction SilentlyContinue
+            Remove-Item Env:\LINEAR_TEAM_ID -ErrorAction SilentlyContinue
+            Remove-Item Env:\GOLC_LINEAR_SYNC_WORKDIR -ErrorAction SilentlyContinue
+            Remove-Item Env:\GOLC_LINEAR_SYNC_TIMEOUT_MS -ErrorAction SilentlyContinue
+            Remove-Item Env:\GOLC_TEST_CALL_LOG -ErrorAction SilentlyContinue
+            Remove-Item Env:\GOLC_TEST_STORE_PATH -ErrorAction SilentlyContinue
+            Remove-Item Env:\GOLC_TEST_ARCHIVE_IDS -ErrorAction SilentlyContinue
+        }
+    }
+    finally {
+        Restore-LinearMap -Backup $mapBackup
+        foreach ($journalLike in @(
+                "$planLinkPath.journal.json", "$planLinkPath.report.json",
+                "$planAfterArchivePath.journal.json", "$planAfterArchivePath.report.json"
+            )) {
+            Remove-Item -LiteralPath $journalLike -Force -ErrorAction SilentlyContinue
+        }
+        if (Test-Path -LiteralPath $workDir) {
+            Remove-Item -LiteralPath $workDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Invoke-OfflineAcceptance {
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)][string]$RepositoryUnderTest)
@@ -719,6 +868,10 @@ try {
         "workflow" {
             Invoke-WorkflowAcceptance -RepositoryUnderTest $repositoryUnderTest
             Write-Output "Linear transport acceptance confirmed: the protected/manual workflow is structurally safe and the runtime PR guard is authoritative."
+        }
+        "readfailure" {
+            Invoke-ReadFailureRecoveryAcceptance -RepositoryUnderTest $repositoryUnderTest
+            Write-Output "Linear transport acceptance confirmed: an archived/deleted already-linked remote object's read failure is contained to a found:false outcome and the run completes without stalling the shared NDJSON reader loop (CR-02)."
         }
     }
 

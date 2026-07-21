@@ -22,7 +22,7 @@ import type { LinearClient } from "@linear/sdk";
 
 import { LinearSdkAdapter } from "../src/adapter.js";
 import { scanCanary } from "../src/redact.js";
-import type { EntityKind, MutationOutcome, Operation } from "../src/protocol.js";
+import type { EntityKind, MutationOutcome, Operation, ReadResult } from "../src/protocol.js";
 
 // ---------------------------------------------------------------------------
 // Fixture shape and loader
@@ -160,4 +160,44 @@ test("TestScopeLinearTransportNode", async (t) => {
       );
     });
   }
+
+  // -------------------------------------------------------------------------
+  // Read-failure case (CR-02 / 01-31): a read operation whose single SDK
+  // accessor (issue()/project()/projectMilestone()) throws -- the documented
+  // behavior for a missing/archived/deleted remote object -- must resolve to
+  // a found:false ReadResult (a returned value), never a thrown exception or
+  // rejected promise. Reuses the fixture's existing readbackFails:true
+  // scenario purely for its HostileLinearClient throw-on-issue() behavior;
+  // this sub-test never exercises create/update at all.
+  // -------------------------------------------------------------------------
+  await t.test("read operation against a throwing issue() resolves to found:false, not a thrown/rejected error", async () => {
+    const readScenario = fixture.scenarios.find((scenario) => scenario.readbackFails);
+    assert.ok(readScenario, "expected a readbackFails:true scenario in the fixture to drive the throwing issue() read");
+
+    const fakeClient = new HostileLinearClient(readScenario!, fixture.canaryMessage);
+    const adapter = new LinearSdkAdapter(fakeClient as unknown as LinearClient);
+
+    const operation = {
+      entity: "task_subissue" as EntityKind,
+      action: "read",
+      linearUUID: "archived-uuid",
+    } as unknown as Operation;
+
+    let result: ReadResult | undefined;
+    let thrown: unknown;
+    try {
+      result = (await adapter.execute(operation)) as unknown as ReadResult;
+    } catch (error) {
+      thrown = error;
+    }
+
+    assert.strictEqual(thrown, undefined, "a throwing SDK read must resolve to a found:false ReadResult, never reject/throw out of adapter.execute");
+    assert.deepStrictEqual(result, { found: false }, "a throwing SDK read must resolve to exactly the found:false ReadResult");
+
+    const rendered = JSON.stringify(result);
+    assert.strictEqual(scanCanary(rendered), undefined, "the found:false read outcome must never leak the hostile error's canary/credential content");
+    assert.ok(!rendered.includes(fixture.canaryMessage), "the raw hostile error message must never appear in the found:false read outcome");
+
+    assert.strictEqual(fakeClient.calls.length, 1, "expected exactly one SDK read call (issue), zero retry");
+  });
 });

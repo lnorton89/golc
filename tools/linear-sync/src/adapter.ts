@@ -195,8 +195,25 @@ export async function captureSnapshot(connections: readonly ConnectionQuery[]): 
   return { status: "complete", records };
 }
 
+/**
+ * readOperation performs exactly one read attempt (CONTEXT D-21; CR-02): any
+ * exception readByEntity throws -- the documented SDK behavior for a
+ * missing/archived/deleted remote object -- is caught here and reported the
+ * exact same way as a genuine miss, a found-false ReadResult, mirroring
+ * confirmReadback's identical try/catch shape below. This keeps a read
+ * exception from ever escaping LinearSdkAdapter.execute into cli.ts's
+ * unwrapped handleLine, where it would permanently stop the shared
+ * long-lived NDJSON reader loop for the rest of the process's lifetime. The
+ * found-false result carries no bytes from the caught error (no diagnostic,
+ * no retry) -- preserving D-20 secret isolation on the read path.
+ */
 async function readOperation(client: LinearClient, entity: EntityKind, linearUUID: string): Promise<ReadResult> {
-  const handle = await readByEntity(client, entity, linearUUID);
+  let handle: LinearEntityHandle | undefined;
+  try {
+    handle = await readByEntity(client, entity, linearUUID);
+  } catch {
+    return { found: false };
+  }
   if (!handle) {
     return { found: false };
   }
