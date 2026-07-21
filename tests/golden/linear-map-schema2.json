@@ -1,0 +1,187 @@
+{
+  "schema": 2,
+  "repository": {
+    "project_id": "project:golc",
+    "name": "GOLC"
+  },
+  "active_milestone": {
+    "milestone_id": "milestone:v1",
+    "name": "GOLC v1"
+  },
+  "entities": [
+    {
+      "local_id": "project:golc",
+      "kind": "project",
+      "parent_local_id": "",
+      "display": "GOLC",
+      "source": ".planning/linear-map.json"
+    },
+    {
+      "local_id": "milestone:v1",
+      "kind": "milestone",
+      "parent_local_id": "project:golc",
+      "display": "GOLC v1",
+      "source": ".planning/linear-map.json"
+    },
+    {
+      "local_id": "phase:01",
+      "kind": "phase",
+      "parent_local_id": "milestone:v1",
+      "display": "Test Phase Display Name",
+      "source": ".planning/ROADMAP.md"
+    },
+    {
+      "local_id": "req:TSTA-01",
+      "kind": "req",
+      "parent_local_id": "phase:01",
+      "display": "First fixture requirement text.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:TSTB-02",
+      "kind": "req",
+      "parent_local_id": "phase:01",
+      "display": "Second fixture requirement text.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "plan:01-01",
+      "kind": "plan",
+      "parent_local_id": "phase:01",
+      "display": "Plan 01-01",
+      "source": ".planning/phases/01-test-phase/01-01-PLAN.md"
+    },
+    {
+      "local_id": "task:01-01.1",
+      "kind": "task",
+      "parent_local_id": "plan:01-01",
+      "display": "Task 1: First executable",
+      "source": ".planning/phases/01-test-phase/01-01-PLAN.md"
+    },
+    {
+      "local_id": "task:01-01.3",
+      "kind": "task",
+      "parent_local_id": "plan:01-01",
+      "display": "Task 3: Second executable",
+      "source": ".planning/phases/01-test-phase/01-01-PLAN.md"
+    },
+    {
+      "local_id": "plan:01-02",
+      "kind": "plan",
+      "parent_local_id": "phase:01",
+      "display": "Plan 01-02",
+      "source": ".planning/phases/01-test-phase/01-02-PLAN.md"
+    },
+    {
+      "local_id": "task:01-02.1",
+      "kind": "task",
+      "parent_local_id": "plan:01-02",
+      "display": "Task 1: Only executable",
+      "source": ".planning/phases/01-test-phase/01-02-PLAN.md"
+    },
+    {
+      "local_id": "plan:01-10",
+      "kind": "plan",
+      "parent_local_id": "phase:01",
+      "display": "Plan 01-10",
+      "source": ".planning/phases/01-test-phase/01-10-PLAN.md"
+    },
+    {
+      "local_id": "task:01-10.1",
+      "kind": "task",
+      "parent_local_id": "plan:01-10",
+      "display": "Task 1: Tenth plan executable",
+      "source": ".planning/phases/01-test-phase/01-10-PLAN.md"
+    }
+  ],
+  "remote_mappings": [
+    {
+      "repo_id": "milestone:v1",
+      "linear_type": "project",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "phase:01",
+      "linear_type": "project_milestone",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:TSTA-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:TSTB-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:01-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:01-01.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:01-01.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:01-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:01-02.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:01-10",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:01-10.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    }
+  ]
+}
