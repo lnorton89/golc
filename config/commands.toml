@@ -38,22 +38,30 @@ network_steps = "bootstrap"
 mutation_steps = "none"
 
 # Linear SDK workspace scopes (Plan 01-13): the isolated tools/linear-sync
-# Node workspace registers exactly four scopes -- "linear-sdk" (build,
+# Node workspace registers exactly five scopes -- "linear-sdk" (build,
 # `build --scope linear-sdk`), "linear-sdk-operations" (quick test,
 # `test --quick --scope linear-sdk-operations`, consumed starting with
 # Plan 01-25's SDK contract tests), "linear-transport-pagination" (quick
 # test, `test --quick --scope linear-transport-pagination`, consumed
 # starting with Plan 01-14's exhaustive Relay connection pagination --
 # T-01-39: every page is consumed and cursor anomalies never reach an
-# identity/create/preview decision), and "linear-transport-errors" (quick
+# identity/create/preview decision), "linear-transport-errors" (quick
 # test, `test --quick --scope linear-transport-errors`, consumed starting
 # with Plan 01-26's HTTP-200 data-plus-errors and rate-limit normalization
 # -- T-01-40: a data-plus-errors read and any rate-limited/partial
 # mutation both block/stop-write, and every diagnostic exposes only
 # allowlisted path/code/operation/request/endpoint/complexity/reset
-# metadata). All four are self-registered through the same Plan 17
-# MustDeclareRoute/MustDeclareScope contract internal/command/router.go
-# already establishes (internal/command/linear_sync.go calls
+# metadata), and "linear-transport-node" (quick test,
+# `test --quick --scope linear-transport-node`, consumed starting with
+# Plan 01-27's redaction/uncertain-write contract -- T-01-40/T-01-41: a
+# create/update mutation observing a partial GraphQL error, timeout, or
+# any other SDK failure -- including its own mandatory readback -- returns
+# a typed unknown outcome immediately via redact.ts's safeError, with zero
+# automatic write retry, and redact.ts's scanCanary proves no fake
+# credential/header byte ever reaches an emitted diagnostic). All five are
+# self-registered through the same Plan 17 MustDeclareRoute/
+# MustDeclareScope contract internal/command/router.go already establishes
+# (internal/command/linear_sync.go calls
 # MustDeclareNodeBuildScope/MustDeclareNodeScope), not as machine-readable
 # keys here: config/toolchain.toml's strict single-authority "commands"
 # concern spec (internal/projectconfig/model.go DefaultSpec) owns exactly

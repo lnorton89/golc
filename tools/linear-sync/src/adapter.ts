@@ -12,7 +12,7 @@ import {
   ProtocolDecodeError,
   type EntityKind,
   type IssueFields,
-  type MutationResult,
+  type MutationOutcome,
   type NormalizedRecord,
   type Operation,
   type OperationResult,
@@ -28,7 +28,9 @@ import {
   normalizeRateLimit,
   type RawGraphQLResponse,
   type RawRateLimitSignal,
+  type RequestContext,
 } from "./errors.js";
+import { safeError } from "./redact.js";
 
 /**
  * LinearEntityHandle is the narrow subset of a Linear SDK model
@@ -202,85 +204,121 @@ async function readOperation(client: LinearClient, entity: EntityKind, linearUUI
 }
 
 /**
- * readBackOrFail re-reads the exact object a mutation just targeted and
- * fails closed if it does not read back. Both createOperation and
- * updateOperation call this instead of trusting the mutation payload echo
- * (mutations require readback).
+ * confirmReadback re-reads the exact object a mutation attempt just
+ * targeted (Plan 01-27; CONTEXT D-20/D-21; T-01-40/T-01-41): both
+ * createOperation and updateOperation call this instead of trusting the
+ * mutation payload echo (mutations require readback). A missing record or
+ * any exception the readback call itself throws (a timeout, an aborted
+ * request) never propagates raw -- it becomes a typed "unknown"
+ * MutationOutcome via redact.ts's safeError, immediately, with no retry.
  */
-async function readBackOrFail(client: LinearClient, entity: EntityKind, linearUUID: string, code: string): Promise<MutationResult> {
-  const handle = await readByEntity(client, entity, linearUUID);
-  if (!handle) {
-    throw new ProtocolDecodeError(code, `${entity} ${linearUUID} did not read back after mutation`);
+async function confirmReadback(client: LinearClient, entity: EntityKind, linearUUID: string, context: RequestContext): Promise<MutationOutcome> {
+  let handle: LinearEntityHandle | undefined;
+  try {
+    handle = await readByEntity(client, entity, linearUUID);
+  } catch (error) {
+    return { status: "unknown", diagnostic: safeError(error, context) };
   }
-  return { record: normalize(entity, handle) };
+  if (!handle) {
+    return { status: "unknown", diagnostic: safeError(new Error("mutation did not read back"), context) };
+  }
+  return { status: "confirmed", record: normalize(entity, handle) };
 }
 
+/**
+ * createOperation performs exactly one create mutation attempt (CONTEXT
+ * D-21; T-01-40): the SDK call and its mandatory readback are the only two
+ * remote calls ever made -- any exception from either (a partial GraphQL
+ * error, a timeout, an aborted request, or any other SDK failure) returns a
+ * typed "unknown" MutationOutcome immediately via redact.ts's safeError,
+ * with zero automatic retry. Go retains sole authority for discovering the
+ * true remote postcondition of an "unknown" create (identity-marker
+ * discovery, internal/trace/apply/engine.go's applyUnlinkedOperation).
+ */
 async function createOperation(
   client: LinearClient,
   entity: EntityKind,
   fields: ProjectFields | ProjectMilestoneFields | IssueFields,
-): Promise<MutationResult> {
+): Promise<MutationOutcome> {
+  const context: RequestContext = { operation: `${entity} create` };
   let createdId: string;
-  switch (entity) {
-    case "project": {
-      const payload = await client.createProject(fields as ProjectFields);
-      const project = await payload.project;
-      if (!project) {
-        throw new ProtocolDecodeError("LINEAR_ADAPTER_CREATE_FAILED", "createProject returned no project");
+  try {
+    switch (entity) {
+      case "project": {
+        const payload = await client.createProject(fields as ProjectFields);
+        const project = await payload.project;
+        if (!project) {
+          throw new Error("createProject returned no project");
+        }
+        createdId = project.id;
+        break;
       }
-      createdId = project.id;
-      break;
-    }
-    case "project_milestone": {
-      const payload = await client.createProjectMilestone(fields as ProjectMilestoneFields);
-      const milestone = await payload.projectMilestone;
-      if (!milestone) {
-        throw new ProtocolDecodeError("LINEAR_ADAPTER_CREATE_FAILED", "createProjectMilestone returned no milestone");
+      case "project_milestone": {
+        const payload = await client.createProjectMilestone(fields as ProjectMilestoneFields);
+        const milestone = await payload.projectMilestone;
+        if (!milestone) {
+          throw new Error("createProjectMilestone returned no milestone");
+        }
+        createdId = milestone.id;
+        break;
       }
-      createdId = milestone.id;
-      break;
-    }
-    case "parent_issue":
-    case "requirement_issue":
-    case "task_subissue": {
-      const payload = await client.createIssue(fields as IssueFields);
-      const issue = await payload.issue;
-      if (!issue) {
-        throw new ProtocolDecodeError("LINEAR_ADAPTER_CREATE_FAILED", "createIssue returned no issue");
+      case "parent_issue":
+      case "requirement_issue":
+      case "task_subissue": {
+        const payload = await client.createIssue(fields as IssueFields);
+        const issue = await payload.issue;
+        if (!issue) {
+          throw new Error("createIssue returned no issue");
+        }
+        createdId = issue.id;
+        break;
       }
-      createdId = issue.id;
-      break;
+      default:
+        return assertExhaustive(entity, "LINEAR_ADAPTER_UNKNOWN_ENTITY");
     }
-    default:
-      return assertExhaustive(entity, "LINEAR_ADAPTER_UNKNOWN_ENTITY");
+  } catch (error) {
+    return { status: "unknown", diagnostic: safeError(error, context) };
   }
 
-  return readBackOrFail(client, entity, createdId, "LINEAR_ADAPTER_READBACK_FAILED");
+  return confirmReadback(client, entity, createdId, context);
 }
 
+/**
+ * updateOperation performs exactly one update mutation attempt, mirroring
+ * createOperation's single-attempt/typed-unknown-outcome discipline (CONTEXT
+ * D-21; T-01-40): the update call and its mandatory readback are the only
+ * two remote calls ever made, and any exception from either returns a typed
+ * "unknown" MutationOutcome immediately via redact.ts's safeError, with
+ * zero automatic retry.
+ */
 async function updateOperation(
   client: LinearClient,
   entity: EntityKind,
   linearUUID: string,
   fields: Partial<ProjectFields> | Partial<ProjectMilestoneFields> | Partial<IssueFields>,
-): Promise<MutationResult> {
-  switch (entity) {
-    case "project":
-      await client.updateProject(linearUUID, fields as Partial<ProjectFields>);
-      break;
-    case "project_milestone":
-      await client.updateProjectMilestone(linearUUID, fields as Partial<ProjectMilestoneFields>);
-      break;
-    case "parent_issue":
-    case "requirement_issue":
-    case "task_subissue":
-      await client.updateIssue(linearUUID, fields as Partial<IssueFields>);
-      break;
-    default:
-      return assertExhaustive(entity, "LINEAR_ADAPTER_UNKNOWN_ENTITY");
+): Promise<MutationOutcome> {
+  const context: RequestContext = { operation: `${entity} update` };
+  try {
+    switch (entity) {
+      case "project":
+        await client.updateProject(linearUUID, fields as Partial<ProjectFields>);
+        break;
+      case "project_milestone":
+        await client.updateProjectMilestone(linearUUID, fields as Partial<ProjectMilestoneFields>);
+        break;
+      case "parent_issue":
+      case "requirement_issue":
+      case "task_subissue":
+        await client.updateIssue(linearUUID, fields as Partial<IssueFields>);
+        break;
+      default:
+        return assertExhaustive(entity, "LINEAR_ADAPTER_UNKNOWN_ENTITY");
+    }
+  } catch (error) {
+    return { status: "unknown", diagnostic: safeError(error, context) };
   }
 
-  return readBackOrFail(client, entity, linearUUID, "LINEAR_ADAPTER_READBACK_FAILED");
+  return confirmReadback(client, entity, linearUUID, context);
 }
 
 /**

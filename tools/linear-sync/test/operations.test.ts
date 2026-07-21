@@ -219,7 +219,7 @@ test("TestScopeLinearSdkOperations", async (t) => {
         action: "read",
         linearUUID: entityFixture.create.linearUUID,
       } as unknown as Operation;
-      const readResult = (await adapter.execute(readOperation)) as ReadResult;
+      const readResult = (await adapter.execute(readOperation)) as unknown as ReadResult;
       assert.ok(readResult.found, `expected ${entityFixture.entity} to read back found=true after create+update`);
       if (readResult.found) {
         assert.deepStrictEqual(readResult.record, entityFixture.update.record, "explicit read must observe the post-update state");
