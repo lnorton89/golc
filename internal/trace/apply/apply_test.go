@@ -1,4 +1,4 @@
-// apply_test.go covers the D-17/D-18 exact-plan apply contract: an
+// apply_test.go covers the D-17/D-18/D-21 exact-plan apply contract: an
 // untampered plan with a hash mismatch or wrong schema is rejected
 // outright (ValidatePlanIntegrity), a plan that no longer matches current
 // repository/remote state is rejected before any mutation
@@ -8,10 +8,14 @@
 // a later re-preview replays as an exact no-op, a create whose remote
 // outcome timed out is discovered by its exact D-14 marker footer before
 // any retry so it never duplicates (remote-timeout-after-create.json),
-// and only ApplyRemoval -- never the regular create/update Apply path --
-// can ever archive or unlink a remote object.
+// only ApplyRemoval -- never the regular create/update Apply path -- can
+// ever archive or unlink a remote object, a rate-limited mutation stops
+// all further writes and reports safe retry metadata
+// (remote-partial-apply.json), and a later apply of the exact same plan
+// resumes only the exact already-achieved prefix without replaying a
+// completed mutation.
 //
-// It is an external test package so it can declare its quick-test scope
+// It is an external test package so it can declare its quick-test scopes
 // through the command package's exact registration entrypoint, matching
 // the linear-preview-contract/linear-reconcile pattern from Plans 01-10
 // and 01-23.
@@ -37,6 +41,11 @@ import (
 var _ = command.MustDeclareScope(command.ScopeRegistration{
 	Scope:   "linear-apply-core",
 	Summary: "Exact-plan apply integrity/freshness/PR guards, no-op replay, and timeout-after-create discovery tests.",
+})
+
+var _ = command.MustDeclareScope(command.ScopeRegistration{
+	Scope:   "linear-apply-resume",
+	Summary: "Partial-apply stop/report and exact achieved-prefix journal resume tests.",
 })
 
 // repositoryRoot walks upward from the test working directory to the real
@@ -68,6 +77,8 @@ func requireErrorCode(t *testing.T, err error, code string) {
 		t.Fatalf("error = %v, want it to contain %q", err, code)
 	}
 }
+
+func strPtr(s string) *string { return &s }
 
 func operationOrder(operations []reconcile.Operation) []string {
 	ids := make([]string, 0, len(operations))
@@ -225,6 +236,13 @@ type staleFixture struct {
 type timeoutFixture struct {
 	snapshotFixture
 	AchievedRecord transport.RemoteRecord `json:"achieved_record"`
+}
+
+// partialApplyFixture extends snapshotFixture with the local ID whose
+// mutation remote-partial-apply.json exercises as rate-limited.
+type partialApplyFixture struct {
+	snapshotFixture
+	FailLocalID string `json:"fail_local_id"`
 }
 
 func loadFixture(t *testing.T, name string, out any) {
@@ -464,6 +482,232 @@ func TestScopeLinearApplyCore(t *testing.T) {
 		}
 		if len(fakeTransport.Applied()) != 1 {
 			t.Fatalf("fakeTransport.Applied() = %+v, want exactly one recorded mutation", fakeTransport.Applied())
+		}
+	})
+}
+
+// TestScopeLinearApplyResume is the exact quick-test marker for scope
+// "linear-apply-resume" (test --quick --scope linear-apply-resume).
+func TestScopeLinearApplyResume(t *testing.T) {
+	t.Run("RunApply rejects the remote-stale fixture before ever touching a RemoteClient", func(t *testing.T) {
+		var fixture staleFixture
+		loadFixture(t, "remote-stale.json", &fixture)
+		plan, err := reconcile.BuildCompletePreview(fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines)
+		if err != nil {
+			t.Fatalf("BuildCompletePreview: %v", err)
+		}
+		client := newFakeRemoteClient()
+		_, _, err = apply.RunApply(client, plan, fixture.Intents, fixture.Mappings, fixture.DriftedSnapshot, fixture.Baselines, nil, nil)
+		requireErrorCode(t, err, "GOLC_APPLY_PLAN_STALE")
+		if len(client.byUUID) != 0 || len(client.createCalls) != 0 || len(client.updateCalls) != 0 {
+			t.Fatalf("RunApply touched the RemoteClient before rejecting a stale plan: byUUID=%v createCalls=%v updateCalls=%v", client.byUUID, client.createCalls, client.updateCalls)
+		}
+	})
+
+	t.Run("RunApply refuses to run at all from a pull_request CI event", func(t *testing.T) {
+		intents, mappings, snapshot, baselines := twoOpFixture()
+		plan, err := reconcile.BuildCompletePreview(intents, mappings, snapshot, baselines)
+		if err != nil {
+			t.Fatalf("BuildCompletePreview: %v", err)
+		}
+		client := newFakeRemoteClient()
+		pullRequest := func(string) (string, bool) { return "pull_request", true }
+		_, _, err = apply.RunApply(client, plan, intents, mappings, snapshot, baselines, nil, pullRequest)
+		requireErrorCode(t, err, "GOLC_APPLY_PR_BLOCKED")
+		if len(client.createCalls) != 0 {
+			t.Fatalf("RunApply attempted a mutation despite the pull_request guard: createCalls=%v", client.createCalls)
+		}
+	})
+
+	t.Run("RunApply stops all writes on a retryable error, reports every operation state plus retry metadata, and resumes the exact achieved prefix without replay", func(t *testing.T) {
+		var fixture partialApplyFixture
+		loadFixture(t, "remote-partial-apply.json", &fixture)
+		plan, err := reconcile.BuildCompletePreview(fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines)
+		if err != nil {
+			t.Fatalf("BuildCompletePreview: %v", err)
+		}
+		wantOrder := []string{"milestone:v1", "phase:01", "plan:01-11", "task:01-11.2"}
+		if len(plan.Operations) != len(wantOrder) {
+			t.Fatalf("Operations = %v, want %v", operationOrder(plan.Operations), wantOrder)
+		}
+		for index, op := range plan.Operations {
+			if op.LocalID != wantOrder[index] {
+				t.Fatalf("Operations[%d].LocalID = %q, want %q (full order: %v)", index, op.LocalID, wantOrder[index], operationOrder(plan.Operations))
+			}
+		}
+
+		client := newFakeRemoteClient()
+		client.failCreate[fixture.FailLocalID] = &apply.RetryableError{Reason: "rate limited", RetryAfter: "60s"}
+
+		report1, journal1, err := apply.RunApply(client, plan, fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines, nil, nil)
+		if err != nil {
+			t.Fatalf("RunApply (first attempt): %v", err)
+		}
+		if len(report1.Results) != len(wantOrder) {
+			t.Fatalf("Results = %v, want an entry for every operation", resultOrder(report1.Results))
+		}
+		if report1.Results[0].Status != apply.StatusCompleted || report1.Results[1].Status != apply.StatusCompleted {
+			t.Fatalf("Results[0:2] = %v, want both completed before the throttled operation", resultOrder(report1.Results[:2]))
+		}
+		throttled := report1.Results[2]
+		if throttled.LocalID != fixture.FailLocalID || throttled.Status != apply.StatusPending {
+			t.Fatalf("Results[2] = %+v, want a pending result for %q", throttled, fixture.FailLocalID)
+		}
+		if !strings.Contains(throttled.Reason, "GOLC_APPLY_RETRYABLE") {
+			t.Fatalf("throttled.Reason = %q, want it to contain GOLC_APPLY_RETRYABLE", throttled.Reason)
+		}
+		if throttled.RetryAfter == nil || *throttled.RetryAfter != "60s" {
+			t.Fatalf("throttled.RetryAfter = %v, want %q", throttled.RetryAfter, "60s")
+		}
+		stopped := report1.Results[3]
+		if stopped.Status != apply.StatusPending || !strings.Contains(stopped.Reason, "GOLC_APPLY_STOPPED") {
+			t.Fatalf("Results[3] = %+v, want a stopped pending result", stopped)
+		}
+		if len(journal1.Results) != 2 {
+			t.Fatalf("journal1.Results = %v, want the exact 2-operation achieved prefix", resultOrder(journal1.Results))
+		}
+
+		// Resuming with the exact same plan and the persisted journal must
+		// never re-attempt the already-achieved prefix.
+		report2, journal2, err := apply.RunApply(client, plan, fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines, &journal1, nil)
+		if err != nil {
+			t.Fatalf("RunApply (resume): %v", err)
+		}
+		if len(report2.Results) != len(wantOrder) {
+			t.Fatalf("resumed Results = %v, want an entry for every operation", resultOrder(report2.Results))
+		}
+		for _, result := range report2.Results {
+			if result.Status != apply.StatusCompleted {
+				t.Fatalf("resumed result %+v, want StatusCompleted", result)
+			}
+		}
+		if len(journal2.Results) != len(wantOrder) {
+			t.Fatalf("journal2.Results = %v, want the full achieved prefix", resultOrder(journal2.Results))
+		}
+		if client.createCalls["milestone:v1"] != 1 || client.createCalls["phase:01"] != 1 {
+			t.Fatalf("resume replayed an already-achieved operation: createCalls = %v", client.createCalls)
+		}
+		if client.createCalls[fixture.FailLocalID] != 2 {
+			t.Fatalf("createCalls[%s] = %d, want exactly 2 (one failed attempt, one successful retry)", fixture.FailLocalID, client.createCalls[fixture.FailLocalID])
+		}
+		successfulObjects := 0
+		for _, state := range client.byUUID {
+			marker, found, err := reconcile.ParseMarker(state.Description)
+			if err == nil && found && marker.LocalID == fixture.FailLocalID {
+				successfulObjects++
+			}
+		}
+		if successfulObjects != 1 {
+			t.Fatalf("byUUID has %d remote objects for %s, want exactly 1 (no duplicate)", successfulObjects, fixture.FailLocalID)
+		}
+
+		encoded, err := strictjson.CanonicalEncode(report2)
+		if err != nil {
+			t.Fatalf("CanonicalEncode: %v", err)
+		}
+		goldenPath := filepath.Join(repositoryRoot(t), "tests", "golden", "linear-apply-report.json")
+		golden, err := os.ReadFile(goldenPath)
+		if err != nil {
+			t.Fatalf("read golden %s: %v", goldenPath, err)
+		}
+		if string(encoded) != string(golden) {
+			t.Fatalf("resumed report does not match the committed golden:\ngot:\n%s\nwant:\n%s", encoded, golden)
+		}
+	})
+
+	t.Run("ResumePrefix rejects a journal bound to a different plan, an out-of-order journal, and drifted already-achieved state", func(t *testing.T) {
+		intents, mappings, snapshot, baselines := twoOpFixture()
+		plan, err := reconcile.BuildCompletePreview(intents, mappings, snapshot, baselines)
+		if err != nil {
+			t.Fatalf("BuildCompletePreview: %v", err)
+		}
+		client := newFakeRemoteClient()
+		report, _, err := apply.RunApply(client, plan, intents, mappings, snapshot, baselines, nil, nil)
+		if err != nil {
+			t.Fatalf("RunApply: %v", err)
+		}
+
+		wrongPlan := apply.Journal{PlanID: "not-" + plan.PlanID, Results: report.Results}
+		_, _, err = apply.ResumePrefix(plan, &wrongPlan, client)
+		requireErrorCode(t, err, "GOLC_APPLY_RESUME_PLAN_MISMATCH")
+
+		outOfOrder := apply.Journal{PlanID: plan.PlanID, Results: []apply.OperationResult{report.Results[1], report.Results[0]}}
+		_, _, err = apply.ResumePrefix(plan, &outOfOrder, client)
+		requireErrorCode(t, err, "GOLC_APPLY_RESUME_PREFIX_MISMATCH")
+
+		drifted := apply.Journal{PlanID: plan.PlanID, Results: []apply.OperationResult{report.Results[0]}}
+		driftedClient := newFakeRemoteClient()
+		state := client.byUUID[*report.Results[0].LinearUUID]
+		state.Fields = map[string]string{"title": "someone changed this after the journal was written"}
+		driftedClient.seed(state)
+		_, _, err = apply.ResumePrefix(plan, &drifted, driftedClient)
+		requireErrorCode(t, err, "GOLC_APPLY_RESUME_DRIFT")
+
+		achieved, remaining, err := apply.ResumePrefix(plan, nil, client)
+		if err != nil {
+			t.Fatalf("ResumePrefix (nil journal): %v", err)
+		}
+		if len(achieved) != 0 || len(remaining) != len(plan.Operations) {
+			t.Fatalf("ResumePrefix (nil journal) = achieved:%v remaining:%v, want no achieved and every operation remaining", achieved, resultOrder(nil))
+		}
+	})
+
+	t.Run("CommitResultAtomically writes map/journal/report as one validated result and leaves prior state intact on failure", func(t *testing.T) {
+		dir := t.TempDir()
+		mapPath := filepath.Join(dir, "linear-map.json")
+		journalPath := filepath.Join(dir, "linear-apply.journal.json")
+		reportPath := filepath.Join(dir, "linear-apply.report.json")
+
+		mapPayload := &catalog.Map{Schema: 2}
+		mapPayload.Repository.ProjectID = "project:golc"
+		mapPayload.Repository.Name = "GOLC"
+		mapPayload.ActiveMilestone.MilestoneID = "milestone:v1"
+		mapPayload.ActiveMilestone.Name = "GOLC v1"
+		journal := apply.Journal{PlanID: "test-plan-id", Results: []apply.OperationResult{{LocalID: "milestone:v1", Status: apply.StatusCompleted, LinearUUID: strPtr("bbbbbbbb-0000-0000-0000-000000000001")}}}
+		report := apply.Report{PlanID: "test-plan-id", Results: journal.Results}
+
+		if err := apply.CommitResultAtomically(mapPath, mapPayload, journalPath, journal, reportPath, report); err != nil {
+			t.Fatalf("CommitResultAtomically: %v", err)
+		}
+		loaded, err := apply.LoadJournal(journalPath)
+		if err != nil {
+			t.Fatalf("LoadJournal: %v", err)
+		}
+		if loaded == nil || loaded.PlanID != journal.PlanID || len(loaded.Results) != 1 {
+			t.Fatalf("LoadJournal = %+v, want the committed journal", loaded)
+		}
+		if _, err := os.Stat(mapPath); err != nil {
+			t.Fatalf("map file missing after commit: %v", err)
+		}
+		if _, err := os.Stat(reportPath); err != nil {
+			t.Fatalf("report file missing after commit: %v", err)
+		}
+
+		// A staging failure for the third (report) destination must leave
+		// no destination file behind at all -- not even the map/journal
+		// that staged successfully before it.
+		missingDirReportPath := filepath.Join(dir, "does-not-exist", "linear-apply.report.json")
+		freshMapPath := filepath.Join(dir, "second-linear-map.json")
+		freshJournalPath := filepath.Join(dir, "second-linear-apply.journal.json")
+		err = apply.CommitResultAtomically(freshMapPath, mapPayload, freshJournalPath, journal, missingDirReportPath, report)
+		if err == nil {
+			t.Fatal("CommitResultAtomically unexpectedly succeeded with an unwritable report destination")
+		}
+		if _, statErr := os.Stat(freshMapPath); statErr == nil {
+			t.Fatal("CommitResultAtomically left a partially committed map file after a later staging failure")
+		}
+		if _, statErr := os.Stat(freshJournalPath); statErr == nil {
+			t.Fatal("CommitResultAtomically left a partially committed journal file after a later staging failure")
+		}
+	})
+
+	t.Run("LoadJournal reports no error and a nil journal for a missing file", func(t *testing.T) {
+		journal, err := apply.LoadJournal(filepath.Join(t.TempDir(), "does-not-exist.json"))
+		if err != nil {
+			t.Fatalf("LoadJournal (missing): %v", err)
+		}
+		if journal != nil {
+			t.Fatalf("LoadJournal (missing) = %+v, want nil", journal)
 		}
 	})
 }
