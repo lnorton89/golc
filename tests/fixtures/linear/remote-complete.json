@@ -1,0 +1,37 @@
+{
+  "description": "Complete fake snapshot: one unlinked intent whose marker matches exactly one remote record (adopt/update, zero field disagreement) and one unlinked intent with no matching record (create).",
+  "intents": [
+    {
+      "local_id": "plan:01-10",
+      "kind": "plan",
+      "linear_type": "issue",
+      "parent_local_id": "phase:01",
+      "fields": { "title": "Plan 01-10" }
+    },
+    {
+      "local_id": "task:01-10.1",
+      "kind": "task",
+      "linear_type": "issue",
+      "parent_local_id": "plan:01-10",
+      "fields": { "title": "Task 1: Define canonical operations and visible identity markers" }
+    }
+  ],
+  "mappings": [
+    { "repo_id": "plan:01-10", "linear_type": "issue", "status": "pending", "linear_uuid": null, "identifier": null, "url": null },
+    { "repo_id": "task:01-10.1", "linear_type": "issue", "status": "pending", "linear_uuid": null, "identifier": null, "url": null }
+  ],
+  "baselines": [],
+  "snapshot": {
+    "status": "complete",
+    "records": [
+      {
+        "linear_uuid": "aaaaaaaa-0000-0000-0000-000000000001",
+        "linear_type": "issue",
+        "title": "Plan 01-10",
+        "description": "Managed by GOLC. Do not edit this footer.\n\n---\nGOLC local ID: plan:01-10\nGOLC mapping schema: 2\n",
+        "fields": { "title": "Plan 01-10" },
+        "updated_at": "2026-07-20T00:00:00Z"
+      }
+    ]
+  }
+}

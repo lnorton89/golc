@@ -1,0 +1,37 @@
+{
+  "description": "Complete-status fake snapshot where two distinct remote records both carry the exact same GOLC local ID identity footer (T-01-28 duplication/spoofing). ValidateCompleteSnapshot must block before any discovery or planning is attempted, regardless of the differing titles.",
+  "intents": [
+    {
+      "local_id": "task:01-10.1",
+      "kind": "task",
+      "linear_type": "issue",
+      "parent_local_id": "plan:01-10",
+      "fields": { "title": "Task 1: Define canonical operations and visible identity markers" }
+    }
+  ],
+  "mappings": [
+    { "repo_id": "task:01-10.1", "linear_type": "issue", "status": "pending", "linear_uuid": null, "identifier": null, "url": null }
+  ],
+  "baselines": [],
+  "snapshot": {
+    "status": "complete",
+    "records": [
+      {
+        "linear_uuid": "bbbbbbbb-0000-0000-0000-000000000001",
+        "linear_type": "issue",
+        "title": "Task 1 (first copy)",
+        "description": "Managed by GOLC. Do not edit this footer.\n\n---\nGOLC local ID: task:01-10.1\nGOLC mapping schema: 2\n",
+        "fields": { "title": "Task 1 (first copy)" },
+        "updated_at": "2026-07-20T00:00:00Z"
+      },
+      {
+        "linear_uuid": "bbbbbbbb-0000-0000-0000-000000000002",
+        "linear_type": "issue",
+        "title": "Task 1 (second copy)",
+        "description": "Managed by GOLC. Do not edit this footer.\n\n---\nGOLC local ID: task:01-10.1\nGOLC mapping schema: 2\n",
+        "fields": { "title": "Task 1 (second copy)" },
+        "updated_at": "2026-07-20T00:05:00Z"
+      }
+    ]
+  }
+}

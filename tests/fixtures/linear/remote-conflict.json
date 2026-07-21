@@ -1,0 +1,38 @@
+{
+  "description": "Complete fake snapshot: an already-linked intent whose title changed on both the repository and Linear sides away from the recorded baseline, so it must block as a D-13 conflict instead of producing an operation.",
+  "intents": [
+    {
+      "local_id": "req:CONF-01",
+      "kind": "req",
+      "linear_type": "issue",
+      "parent_local_id": "phase:01",
+      "fields": { "title": "Repository title override" }
+    }
+  ],
+  "mappings": [
+    {
+      "repo_id": "req:CONF-01",
+      "linear_type": "issue",
+      "status": "linked",
+      "linear_uuid": "11111111-1111-1111-1111-111111111111",
+      "identifier": null,
+      "url": null
+    }
+  ],
+  "baselines": [
+    { "local_id": "req:CONF-01", "fields": { "title": "Original title" } }
+  ],
+  "snapshot": {
+    "status": "complete",
+    "records": [
+      {
+        "linear_uuid": "11111111-1111-1111-1111-111111111111",
+        "linear_type": "issue",
+        "title": "Linear title override",
+        "description": "Managed by GOLC. Do not edit this footer.\n\n---\nGOLC local ID: req:CONF-01\nGOLC mapping schema: 2\n",
+        "fields": { "title": "Linear title override" },
+        "updated_at": "2026-07-20T00:00:00Z"
+      }
+    ]
+  }
+}

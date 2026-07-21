@@ -1,0 +1,11 @@
+{
+  "description": "Already-linked managed entity fixture for the explicit archive/unlink review builders (CONTEXT D-15): only an explicit request against an already-linked mapping like this one may ever produce a reviewable removal preview.",
+  "mapping": {
+    "repo_id": "task:01-23.9",
+    "linear_type": "issue",
+    "status": "linked",
+    "linear_uuid": "22222222-2222-2222-2222-222222222222",
+    "identifier": "GOLC-999",
+    "url": "https://linear.app/golc/issue/GOLC-999"
+  }
+}
