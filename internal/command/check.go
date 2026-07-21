@@ -27,12 +27,16 @@ package command
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/lnorton89/golc/internal/contracts"
 	"github.com/lnorton89/golc/internal/delivery"
 	"github.com/lnorton89/golc/internal/projectconfig"
+	"github.com/lnorton89/golc/internal/security"
 )
 
 var _ = MustDeclareScope(ScopeRegistration{
@@ -42,17 +46,22 @@ var _ = MustDeclareScope(ScopeRegistration{
 
 var _ = MustDeclareRoute(CommandRegistration{
 	Route: "check",
-	Summary: "Run a strict offline concern check: check --concern <name>|--offline. Concern \"project\" validates " +
-		"the root index, every concern, the authority/reference graph, path containment, and generated-schema " +
-		"drift; --offline runs the complete generate/check/build/test core graph with network denied.",
+	Summary: "Run a strict offline concern check: check --concern <name>|--offline|--command-parity. Concern " +
+		"\"project\" validates the root index, every concern, the authority/reference graph, path containment, " +
+		"generated-schema drift, and the cross-artifact fake-secret canary; --offline runs the complete " +
+		"generate/check/build/test core graph with network denied; --command-parity proves the committed Windows " +
+		"PR workflow invokes exactly config/commands.toml's commands.pr.steps graph in order, with no Linear " +
+		"secret reference, remote trigger, or apply-capable command reachable (CONTEXT D-03/D-10/D-16).",
 	Handler: runCheck,
 })
 
 // checkArgs is the parsed shape of one check invocation: exactly one of
-// concern (check --concern <name>) or offline (check --offline) is set.
+// concern (check --concern <name>), offline (check --offline), or
+// commandParity (check --command-parity) is set.
 type checkArgs struct {
-	concern string
-	offline bool
+	concern       string
+	offline       bool
+	commandParity bool
 }
 
 // runCheck serves the self-registered "check" route.
@@ -64,6 +73,9 @@ func runCheck(request Request) Result {
 	if parsed.offline {
 		return runCheckOffline(request.Root)
 	}
+	if parsed.commandParity {
+		return runCheckCommandParity(request.Root)
+	}
 	switch parsed.concern {
 	case "project":
 		return runProjectCheck(request.Root)
@@ -72,19 +84,20 @@ func runCheck(request Request) Result {
 	}
 }
 
-// parseCheckArgs accepts exactly "--concern <name>" or "--offline"; the
-// two forms are mutually exclusive.
+// parseCheckArgs accepts exactly "--concern <name>", "--offline", or
+// "--command-parity"; the three forms are mutually exclusive.
 func parseCheckArgs(args []string) (checkArgs, error) {
 	parsed := checkArgs{}
+	exclusiveSet := func() bool {
+		return parsed.concern != "" || parsed.offline || parsed.commandParity
+	}
 	for i := 0; i < len(args); {
 		argument := args[i]
 		switch {
 		case argument == "--concern":
-			if parsed.offline {
-				return checkArgs{}, fmt.Errorf("GOLC_CHECK_USAGE: --concern and --offline are mutually exclusive")
-			}
-			if parsed.concern != "" {
-				return checkArgs{}, fmt.Errorf("GOLC_CHECK_USAGE: --concern may be given only once")
+			if exclusiveSet() {
+				return checkArgs{}, fmt.Errorf(
+					"GOLC_CHECK_USAGE: --concern, --offline, and --command-parity are mutually exclusive")
 			}
 			if i+1 >= len(args) {
 				return checkArgs{}, fmt.Errorf("GOLC_CHECK_USAGE: --concern requires a value")
@@ -92,21 +105,26 @@ func parseCheckArgs(args []string) (checkArgs, error) {
 			parsed.concern = args[i+1]
 			i += 2
 		case argument == "--offline":
-			if parsed.concern != "" {
-				return checkArgs{}, fmt.Errorf("GOLC_CHECK_USAGE: --concern and --offline are mutually exclusive")
-			}
-			if parsed.offline {
-				return checkArgs{}, fmt.Errorf("GOLC_CHECK_USAGE: --offline may be given only once")
+			if exclusiveSet() {
+				return checkArgs{}, fmt.Errorf(
+					"GOLC_CHECK_USAGE: --concern, --offline, and --command-parity are mutually exclusive")
 			}
 			parsed.offline = true
 			i++
+		case argument == "--command-parity":
+			if exclusiveSet() {
+				return checkArgs{}, fmt.Errorf(
+					"GOLC_CHECK_USAGE: --concern, --offline, and --command-parity are mutually exclusive")
+			}
+			parsed.commandParity = true
+			i++
 		default:
 			return checkArgs{}, fmt.Errorf(
-				"GOLC_CHECK_USAGE: unsupported argument %q; usage: check --concern <name>|--offline", argument)
+				"GOLC_CHECK_USAGE: unsupported argument %q; usage: check --concern <name>|--offline|--command-parity", argument)
 		}
 	}
-	if parsed.concern == "" && !parsed.offline {
-		return checkArgs{}, fmt.Errorf("GOLC_CHECK_USAGE: usage: check --concern <name>|--offline")
+	if parsed.concern == "" && !parsed.offline && !parsed.commandParity {
+		return checkArgs{}, fmt.Errorf("GOLC_CHECK_USAGE: usage: check --concern <name>|--offline|--command-parity")
 	}
 	return parsed, nil
 }
@@ -214,5 +232,185 @@ func runProjectCheck(root string) Result {
 	}
 	report.WriteString("check --concern project: every committed schema matches its generated source.\n")
 
+	sources, err := canaryScanSources(root, resolved)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte("GOLC_CHECK_PROJECT_CANARY: " + err.Error() + "\n")}
+	}
+	if violations := security.ScanCanaryAll(sources); len(violations) > 0 {
+		details := make([]string, 0, len(violations))
+		for _, violation := range violations {
+			details = append(details, fmt.Sprintf("%s (token %q)", violation.Source, violation.Token))
+		}
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
+			"GOLC_CHECK_PROJECT_CANARY: fake-secret bytes found: %s\n", strings.Join(details, "; ")))}
+	}
+	report.WriteString("check --concern project: no fake-secret bytes found across generated schemas and the Linear map.\n")
+
 	return Result{Stdout: []byte(report.String())}
+}
+
+// canaryScanSources collects every generated schema (T-01-18: information
+// disclosure) plus the committed Linear map into one named byte set
+// security.ScanCanaryAll can scan in a single pass. It reads only committed
+// repository-relative paths already declared by contracts.RegisteredSchemas
+// and the resolved "linear.mapping_file" canonical key -- no second,
+// independently maintained inventory of scanned artifacts exists elsewhere.
+func canaryScanSources(root string, resolved map[string]string) (map[string][]byte, error) {
+	sources := map[string][]byte{}
+	for _, descriptor := range contracts.RegisteredSchemas() {
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(descriptor.OutputPath)))
+		if err != nil {
+			return nil, fmt.Errorf("%s: %v", descriptor.OutputPath, err)
+		}
+		sources["schema:"+descriptor.OutputPath] = data
+	}
+	if mapPath, declared := resolved["linear.mapping_file"]; declared {
+		full := filepath.Join(root, filepath.FromSlash(mapPath))
+		data, err := os.ReadFile(full)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %v", mapPath, err)
+		}
+		sources["map:"+mapPath] = data
+	}
+	return sources, nil
+}
+
+// prWorkflowPath is the exact committed Windows PR workflow
+// runCheckCommandParity parses (CONTEXT D-03/D-10/D-16). No second,
+// independently maintained workflow path exists in this repository.
+const prWorkflowPath = ".github/workflows/check.yml"
+
+// prStepInvocationPattern extracts every golc.ps1 invocation from a
+// single-line "run: powershell -NoProfile -File .\golc.ps1 <args>" workflow
+// step, in file order — the same invocation shape every acceptance script
+// (tests/acceptance/*.ps1) and this repository's own documentation already
+// use.
+var prStepInvocationPattern = regexp.MustCompile(`(?m)^\s*run:\s*powershell\s+-NoProfile\s+-File\s+\.\\golc\.ps1\s+(.+?)\s*$`)
+
+// prForbiddenTokens names every substring that must never appear in the
+// committed PR workflow (CONTEXT D-16): a Linear secret reference or an
+// apply-capable (mutation) command.
+var prForbiddenTokens = []string{
+	"LINEAR_API_KEY",
+	"LINEAR_TEAM_ID",
+	"secrets.",
+	"linear apply",
+	"linear map migrate --write",
+	"linear archive",
+	"linear unlink",
+}
+
+// prForbiddenTriggers names every workflow trigger keyword that would let
+// this workflow run from something other than an untrusted pull_request
+// event (CONTEXT D-16): mutation must never become reachable through a
+// second trigger path.
+var prForbiddenTriggers = []string{"workflow_dispatch", "schedule:", "push:", "repository_dispatch"}
+
+// parsePRStepPolicy splits resolved["commands.pr.steps"] (already validated
+// against prStepListPattern by projectconfig) into its ordered, trimmed
+// "route [--flag ...]" invocations.
+func parsePRStepPolicy(resolved map[string]string) ([]string, error) {
+	raw, declared := resolved["commands.pr.steps"]
+	if !declared || strings.TrimSpace(raw) == "" {
+		return nil, fmt.Errorf("GOLC_CHECK_PARITY_POLICY_MISSING: config/commands.toml does not declare commands.pr.steps")
+	}
+	rawSteps := strings.Split(raw, ",")
+	steps := make([]string, 0, len(rawSteps))
+	for _, step := range rawSteps {
+		trimmed := strings.TrimSpace(step)
+		if trimmed == "" {
+			return nil, fmt.Errorf("GOLC_CHECK_PARITY_POLICY_INVALID: commands.pr.steps declares a blank step")
+		}
+		steps = append(steps, trimmed)
+	}
+	return steps, nil
+}
+
+// extractWorkflowSteps returns every golc.ps1 invocation prStepInvocationPattern
+// finds in data, in file order.
+func extractWorkflowSteps(data []byte) []string {
+	matches := prStepInvocationPattern.FindAllSubmatch(data, -1)
+	steps := make([]string, 0, len(matches))
+	for _, match := range matches {
+		steps = append(steps, strings.TrimSpace(string(match[1])))
+	}
+	return steps
+}
+
+// compareStepSequences reports a stable mismatched/missing-step diagnostic
+// the first time expected (config/commands.toml's commands.pr.steps) and
+// actual (the workflow's own invocation order) diverge in count or content.
+func compareStepSequences(expected, actual []string) error {
+	if len(expected) != len(actual) {
+		return fmt.Errorf(
+			"GOLC_CHECK_PARITY_STEP_COUNT: config/commands.toml declares %d PR step(s) but %s invokes %d: expected %v, got %v",
+			len(expected), prWorkflowPath, len(actual), expected, actual)
+	}
+	for i := range expected {
+		if expected[i] != actual[i] {
+			return fmt.Errorf(
+				"GOLC_CHECK_PARITY_STEP_MISMATCH: step %d: config/commands.toml declares %q but %s invokes %q",
+				i+1, expected[i], prWorkflowPath, actual[i])
+		}
+	}
+	return nil
+}
+
+// runCheckCommandParity serves "check --command-parity" (CONTEXT D-03/
+// D-10/D-16, T-01-19/T-01-20): it re-validates the strict configuration set
+// (so a malformed or missing commands.pr.steps policy fails closed with the
+// same diagnostics runProjectCheck already uses), parses the committed
+// commands.pr.steps policy as the single authoritative PR step graph,
+// parses the committed .github/workflows/check.yml for its own ordered
+// golc.ps1 invocations, and fails on the first mismatch. It then scans the
+// same workflow bytes for a forbidden Linear secret reference, mutation-
+// capable command, or non-pull_request trigger. tests/acceptance/
+// command-parity.ps1 invokes only this route; it never re-parses
+// config/commands.toml or the workflow file itself.
+func runCheckCommandParity(root string) Result {
+	spec := projectconfig.DefaultSpec()
+	resolved, _, err := projectconfig.ValidateRepository(root, spec)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte("GOLC_CHECK_PARITY_CONFIG: " + err.Error() + "\n")}
+	}
+	expectedSteps, err := parsePRStepPolicy(resolved)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	workflowPath := filepath.Join(root, filepath.FromSlash(prWorkflowPath))
+	data, err := os.ReadFile(workflowPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
+			"GOLC_CHECK_PARITY_WORKFLOW_MISSING: %s: %v\n", prWorkflowPath, err))}
+	}
+
+	actualSteps := extractWorkflowSteps(data)
+	if err := compareStepSequences(expectedSteps, actualSteps); err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	text := string(data)
+	for _, token := range prForbiddenTokens {
+		if strings.Contains(text, token) {
+			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
+				"GOLC_CHECK_PARITY_SECRET_OR_MUTATION: %s contains forbidden token %q\n", prWorkflowPath, token))}
+		}
+	}
+	for _, trigger := range prForbiddenTriggers {
+		if strings.Contains(text, trigger) {
+			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
+				"GOLC_CHECK_PARITY_TRIGGER_FORBIDDEN: %s declares forbidden trigger %q\n", prWorkflowPath, trigger))}
+		}
+	}
+	if !strings.Contains(text, "pull_request") {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
+			"GOLC_CHECK_PARITY_TRIGGER_MISSING: %s does not declare a pull_request trigger\n", prWorkflowPath))}
+	}
+
+	report := fmt.Sprintf(
+		"check --command-parity: %d PR step(s) in %s exactly match config/commands.toml's commands.pr.steps in "+
+			"order; no Linear secret reference, remote trigger, or apply-capable command was found.\n",
+		len(expectedSteps), prWorkflowPath)
+	return Result{Stdout: []byte(report)}
 }
