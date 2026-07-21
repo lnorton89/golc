@@ -1,0 +1,11 @@
+{
+  "description": "Adversarial catalog fixture: a requirement entity carries a source that escapes the .planning/ tree via a parent-directory anchor, expected to fail GOLC_CATALOG_SOURCE_EXTERNAL.",
+  "entities": [
+    { "id": "project:golc", "kind": "project", "parent": "", "display": "GOLC", "source": ".planning/linear-map.json", "mapped_uuid": null },
+    { "id": "milestone:v1", "kind": "milestone", "parent": "project:golc", "display": "GOLC v1", "source": ".planning/linear-map.json", "mapped_uuid": null },
+    { "id": "phase:01", "kind": "phase", "parent": "milestone:v1", "display": "Phase One", "source": ".planning/ROADMAP.md", "mapped_uuid": null },
+    { "id": "req:TSTA-01", "kind": "req", "parent": "phase:01", "display": "Requirement text.", "source": ".planning/../.env", "mapped_uuid": null },
+    { "id": "plan:01-01", "kind": "plan", "parent": "phase:01", "display": "Plan 01-01", "source": ".planning/phases/01-test-phase/01-01-PLAN.md", "mapped_uuid": null },
+    { "id": "task:01-01.1", "kind": "task", "parent": "plan:01-01", "display": "Task 1", "source": ".planning/phases/01-test-phase/01-01-PLAN.md", "mapped_uuid": null }
+  ]
+}

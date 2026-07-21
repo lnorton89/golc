@@ -10,6 +10,7 @@
 package catalog_test
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -215,6 +216,85 @@ func validSyntheticEntities() []catalog.Entity {
 
 func syntheticCatalog(entities []catalog.Entity) *catalog.Catalog {
 	return &catalog.Catalog{Entities: entities, Authorities: catalog.DefaultAuthorities()}
+}
+
+// fixtureEntity is the on-disk JSON shape of one entity inside a
+// tests/fixtures/linear/*.json catalog fixture. mapped_uuid is a nullable
+// stand-in for a Linear remote mapping's immutable UUID: it carries no
+// catalog-package meaning, but rename fixtures must prove it never changes
+// alongside the durable local ID.
+type fixtureEntity struct {
+	ID         string  `json:"id"`
+	Kind       string  `json:"kind"`
+	Parent     string  `json:"parent"`
+	Display    string  `json:"display"`
+	Source     string  `json:"source"`
+	MappedUUID *string `json:"mapped_uuid"`
+}
+
+// fixtureCatalogFile is the on-disk JSON shape of a whole fixture file.
+type fixtureCatalogFile struct {
+	Description string          `json:"description"`
+	Entities    []fixtureEntity `json:"entities"`
+}
+
+// fixtureKinds maps the fixture JSON kind strings to catalog.Kind values.
+var fixtureKinds = map[string]catalog.Kind{
+	"project":   catalog.KindProject,
+	"milestone": catalog.KindMilestone,
+	"phase":     catalog.KindPhase,
+	"req":       catalog.KindRequirement,
+	"plan":      catalog.KindPlan,
+	"task":      catalog.KindTask,
+}
+
+// loadLinearFixture reads and decodes one tests/fixtures/linear/*.json
+// fixture relative to the real repository root.
+func loadLinearFixture(t *testing.T, root, name string) fixtureCatalogFile {
+	t.Helper()
+	path := filepath.Join(root, "tests", "fixtures", "linear", name)
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read fixture %s: %v", path, err)
+	}
+	var file fixtureCatalogFile
+	if err := json.Unmarshal(content, &file); err != nil {
+		t.Fatalf("decode fixture %s: %v", path, err)
+	}
+	if len(file.Entities) == 0 {
+		t.Fatalf("fixture %s declares no entities", path)
+	}
+	return file
+}
+
+// fixtureCatalogEntities converts one fixture file's entities into
+// catalog.Entity values, failing loudly on any unrecognized kind.
+func fixtureCatalogEntities(t *testing.T, file fixtureCatalogFile) []catalog.Entity {
+	t.Helper()
+	entities := make([]catalog.Entity, 0, len(file.Entities))
+	for _, fixture := range file.Entities {
+		kind, known := fixtureKinds[fixture.Kind]
+		if !known {
+			t.Fatalf("fixture entity %s declares unknown kind %q", fixture.ID, fixture.Kind)
+		}
+		entities = append(entities, catalog.Entity{
+			ID:      fixture.ID,
+			Kind:    kind,
+			Parent:  fixture.Parent,
+			Display: fixture.Display,
+			Source:  fixture.Source,
+		})
+	}
+	return entities
+}
+
+// uuidPointersEqual reports whether two nullable mapped_uuid fixture values
+// carry the same identity: both nil, or both non-nil with equal contents.
+func uuidPointersEqual(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
 }
 
 var (
@@ -665,6 +745,88 @@ func TestScopeLinearCatalog(t *testing.T) {
 		}
 		if err := catalog.Validate(built); err != nil {
 			t.Fatalf("Validate: %v", err)
+		}
+	})
+
+	t.Run("adversarial linear fixtures load and fail with specific diagnostics", func(t *testing.T) {
+		root := repositoryRoot(t)
+		cases := []struct {
+			fixture string
+			code    string
+		}{
+			{"map-duplicate-id.json", "GOLC_CATALOG_ID_DUPLICATE"},
+			{"map-invalid-parent.json", "GOLC_CATALOG_PARENT_UNKNOWN"},
+			{"map-cycle.json", "GOLC_CATALOG_CYCLE"},
+			{"map-unsafe-source.json", "GOLC_CATALOG_SOURCE_EXTERNAL"},
+		}
+		for _, testCase := range cases {
+			t.Run(testCase.fixture, func(t *testing.T) {
+				file := loadLinearFixture(t, root, testCase.fixture)
+				entities := fixtureCatalogEntities(t, file)
+				err := catalog.Validate(syntheticCatalog(entities))
+				requireErrorCode(t, err, testCase.code)
+			})
+		}
+	})
+
+	t.Run("rename fixture pair proves durable local ids and mapped uuids survive display renames", func(t *testing.T) {
+		root := repositoryRoot(t)
+		before := loadLinearFixture(t, root, "catalog-rename-before.json")
+		after := loadLinearFixture(t, root, "catalog-rename-after.json")
+
+		if len(before.Entities) != len(after.Entities) {
+			t.Fatalf("rename fixture entity count differs: before=%d after=%d", len(before.Entities), len(after.Entities))
+		}
+
+		beforeCatalog := syntheticCatalog(fixtureCatalogEntities(t, before))
+		afterCatalog := syntheticCatalog(fixtureCatalogEntities(t, after))
+		if err := catalog.Validate(beforeCatalog); err != nil {
+			t.Fatalf("catalog-rename-before.json failed validation: %v", err)
+		}
+		if err := catalog.Validate(afterCatalog); err != nil {
+			t.Fatalf("catalog-rename-after.json failed validation: %v", err)
+		}
+
+		afterByID := make(map[string]fixtureEntity, len(after.Entities))
+		for _, entity := range after.Entities {
+			afterByID[entity.ID] = entity
+		}
+
+		displayChanged := false
+		for _, beforeEntity := range before.Entities {
+			afterEntity, ok := afterByID[beforeEntity.ID]
+			if !ok {
+				t.Fatalf("id %s present before rename is missing after rename", beforeEntity.ID)
+			}
+			if afterEntity.Kind != beforeEntity.Kind {
+				t.Fatalf("%s kind changed across rename: %q -> %q", beforeEntity.ID, beforeEntity.Kind, afterEntity.Kind)
+			}
+			if afterEntity.Parent != beforeEntity.Parent {
+				t.Fatalf("%s parent changed across rename: %q -> %q", beforeEntity.ID, beforeEntity.Parent, afterEntity.Parent)
+			}
+			if afterEntity.Source != beforeEntity.Source {
+				t.Fatalf("%s source changed across rename: %q -> %q", beforeEntity.ID, beforeEntity.Source, afterEntity.Source)
+			}
+			if !uuidPointersEqual(beforeEntity.MappedUUID, afterEntity.MappedUUID) {
+				t.Fatalf("%s mapped_uuid changed across rename", beforeEntity.ID)
+			}
+			if afterEntity.Display != beforeEntity.Display {
+				displayChanged = true
+			}
+		}
+		if !displayChanged {
+			t.Fatal("rename fixture pair does not change any display text; it does not exercise a rename")
+		}
+
+		hasNonNilMappedUUID := false
+		for _, entity := range before.Entities {
+			if entity.MappedUUID != nil {
+				hasNonNilMappedUUID = true
+				break
+			}
+		}
+		if !hasNonNilMappedUUID {
+			t.Fatal("rename fixture pair must exercise at least one non-null mapped_uuid")
 		}
 	})
 }

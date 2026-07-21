@@ -1,0 +1,7 @@
+{
+  "description": "Adversarial catalog fixture: two phases parent each other, expected to fail GOLC_CATALOG_CYCLE.",
+  "entities": [
+    { "id": "phase:01", "kind": "phase", "parent": "phase:02", "display": "Phase A", "source": ".planning/ROADMAP.md", "mapped_uuid": null },
+    { "id": "phase:02", "kind": "phase", "parent": "phase:01", "display": "Phase B", "source": ".planning/ROADMAP.md", "mapped_uuid": null }
+  ]
+}
