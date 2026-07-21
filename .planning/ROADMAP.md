@@ -36,39 +36,91 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
   5. A contributor can preview an exact reconciliation and, when access is configured outside the repository, rerun it without duplicates; ambiguity, pagination, partial errors, and rate limits are reported without blocking local planning, builds, tests, or runtime operation.
 
 **Plans:** 32 plans (29 executed + 3 gap-closure pending: 01-30, 01-31, 01-32)
+**Wave 1**
 
 - [x] 01-01-PLAN.md
-- [x] 01-02-PLAN.md
-- [x] 01-03-PLAN.md
-- [x] 01-04-PLAN.md
-- [x] 01-05-PLAN.md
-- [x] 01-06-PLAN.md
-- [x] 01-07-PLAN.md
-- [x] 01-08-PLAN.md
-- [x] 01-09-PLAN.md
-- [x] 01-10-PLAN.md
-- [x] 01-11-PLAN.md
 - [x] 01-12-PLAN.md
-- [x] 01-13-PLAN.md
-- [x] 01-14-PLAN.md
-- [x] 01-15-PLAN.md
-- [x] 01-16-PLAN.md
-- [x] 01-17-PLAN.md
-- [x] 01-18-PLAN.md
-- [x] 01-19-PLAN.md
-- [x] 01-20-PLAN.md
-- [x] 01-21-PLAN.md
-- [x] 01-22-PLAN.md
-- [x] 01-23-PLAN.md
-- [x] 01-24-PLAN.md
-- [x] 01-25-PLAN.md
-- [x] 01-26-PLAN.md
-- [x] 01-27-PLAN.md
-- [x] 01-28-PLAN.md
-- [x] 01-29-PLAN.md
 - [ ] 01-30-PLAN.md — Gap 1/CR-01: rewire runLinearApply to apply.RunApply (D-18 staleness + D-21 journal resume) so retried apply never duplicates (LINR-03)
 - [ ] 01-31-PLAN.md — Gap 2/CR-02: wrap adapter.ts readOperation in try/catch returning found:false so a read failure can't stall the NDJSON process (LINR-04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 01-16-PLAN.md
 - [ ] 01-32-PLAN.md — Gap 3: check off LINR-01/LINR-02 and certify LINR-03/LINR-04 in REQUIREMENTS.md after the CR-01/CR-02 fixes (runs last)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 01-17-PLAN.md
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 01-02-PLAN.md
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 01-03-PLAN.md
+- [x] 01-08-PLAN.md
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [x] 01-09-PLAN.md
+- [x] 01-18-PLAN.md
+- [x] 01-21-PLAN.md
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [x] 01-04-PLAN.md
+- [x] 01-05-PLAN.md
+- [x] 01-10-PLAN.md
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [x] 01-19-PLAN.md
+- [x] 01-23-PLAN.md
+- [x] 01-28-PLAN.md
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [x] 01-06-PLAN.md
+- [x] 01-11-PLAN.md
+- [x] 01-22-PLAN.md
+
+**Wave 10** *(blocked on Wave 9 completion)*
+
+- [x] 01-20-PLAN.md
+- [x] 01-24-PLAN.md
+
+**Wave 11** *(blocked on Wave 10 completion)*
+
+- [x] 01-07-PLAN.md
+
+**Wave 12** *(blocked on Wave 11 completion)*
+
+- [x] 01-13-PLAN.md
+
+**Wave 13** *(blocked on Wave 12 completion)*
+
+- [x] 01-29-PLAN.md
+
+**Wave 14** *(blocked on Wave 13 completion)*
+
+- [x] 01-25-PLAN.md
+
+**Wave 15** *(blocked on Wave 14 completion)*
+
+- [x] 01-14-PLAN.md
+
+**Wave 16** *(blocked on Wave 15 completion)*
+
+- [x] 01-26-PLAN.md
+
+**Wave 17** *(blocked on Wave 16 completion)*
+
+- [x] 01-27-PLAN.md
+
+**Wave 18** *(blocked on Wave 17 completion)*
+
+- [x] 01-15-PLAN.md
 
 **Research:** Standard configuration and Linear UUID/reconciliation patterns; phase planning must settle local command boundaries, Linear taxonomy, and credential-external sync behavior without inventing remote IDs.
 
