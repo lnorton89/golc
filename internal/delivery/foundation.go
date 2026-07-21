@@ -88,6 +88,30 @@ func FoundationInventory(root string, inventory CommandInventory) ([]FoundationE
 	}
 	entries = append(entries, schemaFiles...)
 
+	// The compiled Linear SDK adapter runtime (Plan 01-15): only its
+	// compiled dist/src/*.js output, never dist/test or node_modules
+	// (T-01-SC: no vendored dependency tree ever enters this deterministic
+	// bundle -- a consumer who wants to run the adapter still runs its own
+	// `npm ci` against the committed package.json/package-lock.json this
+	// entry set also carries). This is developer tooling review/build
+	// material inside the foundation ZIP, not a claim that Node is part of
+	// the GOLC application runtime (CONTEXT: Phase 1 boundary). Optional:
+	// a checkout that never ran `golc.ps1 bootstrap --include linear-sync`
+	// (or `build --scope linear-sdk`) simply produces a foundation bundle
+	// without these entries -- packaging must never hard-fail on a missing
+	// adapter (CONTEXT D-21, this plan's Task 2 remote-failure isolation).
+	linearSyncAdapterFiles, err := collectSortedFilesOptional(root, "tools/linear-sync/dist/src", ".js")
+	if err != nil {
+		return nil, err
+	}
+	entries = append(entries, linearSyncAdapterFiles...)
+	for _, relative := range []string{"tools/linear-sync/package.json", "tools/linear-sync/package-lock.json"} {
+		if _, statErr := os.Stat(filepath.Join(root, filepath.FromSlash(relative))); statErr != nil {
+			continue
+		}
+		entries = append(entries, FoundationEntry{ArchivePath: relative, SourcePath: relative})
+	}
+
 	sort.Slice(entries, func(i, j int) bool { return entries[i].ArchivePath < entries[j].ArchivePath })
 
 	seen := make(map[string]struct{}, len(entries))
@@ -132,6 +156,23 @@ func collectSortedFiles(root, subdir, extension string) ([]FoundationEntry, erro
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].ArchivePath < entries[j].ArchivePath })
 	return entries, nil
+}
+
+// collectSortedFilesOptional behaves exactly like collectSortedFiles
+// except a missing root/subdir is not an error: it returns an empty,
+// non-nil slice instead (CONTEXT D-21). This is the one deliberate
+// exception to collectSortedFiles's "a missing committed directory fails
+// closed" rule, reserved for the optional, bootstrap-provisioned compiled
+// Linear adapter output (tools/linear-sync/dist/src) -- every other
+// caller of collectSortedFiles walks a directory that must already be
+// committed source (config/, schemas/), where a walk failure genuinely
+// indicates a broken checkout.
+func collectSortedFilesOptional(root, subdir, extension string) ([]FoundationEntry, error) {
+	base := filepath.Join(root, filepath.FromSlash(subdir))
+	if _, statErr := os.Stat(base); statErr != nil {
+		return []FoundationEntry{}, nil
+	}
+	return collectSortedFiles(root, subdir, extension)
 }
 
 // ManifestFileEntry is one canonical, hashed, sorted manifest record: no

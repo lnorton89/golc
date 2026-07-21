@@ -69,3 +69,26 @@ mutation_steps = "none"
 # rather than duplicating a second, competing declaration source. This
 # comment is that documentation, matching commands.toml's existing
 # authority-by-prose precedent for D-16 mutation policy above.
+
+# Real process transport and remote routes (Plan 01-15): "linear preview
+# --remote --out <path>" and "linear drift --remote --read-only" capture a
+# targeted snapshot (every already-linked entity, read back by immutable
+# UUID) through internal/trace/transport.ProcessClient over the exact
+# compiled adapter entrypoint tools/linear-sync/dist/src/cli.js, launched
+# with the pinned project-local Node executable only -- never a host PATH
+# lookup. "linear apply {plan-file} --plan-id <id>" (Plan 01-24's route,
+# unchanged) resolves its RemoteClient through the same process transport
+# and commits every achieved result back into .planning/linear-map.json,
+# which is what makes a later preview/apply against the same repository
+# observe it (replay is a safe no-op). None of these three routes belongs
+# to the offline core graph (internal/delivery's coreSteps): a missing or
+# unbuilt adapter fails only the explicit remote command that needed it,
+# never generate/check/build/test (T-01-46; tests/acceptance/
+# linear-transport.ps1 -Mode offline proves this). LINEAR_API_KEY (D-19/
+# D-20) and LINEAR_TEAM_ID are read only inside these three routes, never
+# by any offline command. package --foundation additionally includes the
+# compiled adapter's dist/src/*.js output plus its package.json/
+# package-lock.json when they already exist on disk (developer-tooling
+# review/build material, never claimed as part of the GOLC application
+# runtime); a checkout that never ran `bootstrap --include linear-sync`
+# simply produces a foundation bundle without those optional entries.

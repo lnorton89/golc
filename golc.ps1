@@ -13,17 +13,29 @@ project-local command. Bootstrap treats manifest pins as immutable inputs:
 it never consults an update feed and never rewrites go.mod, go.sum, or
 config/toolchain.toml.
 #>
-[CmdletBinding()]
-param(
-    [Parameter(Position = 0)]
-    [string]$Command = "",
-
-    [Parameter(ValueFromRemainingArguments = $true)]
-    [string[]]$CommandArguments = @()
-)
-
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+# Command/CommandArguments are extracted from the raw $args automatic
+# variable rather than a declared param() block (Plan 01-15 deviation;
+# CONTEXT D-03): a declared [Parameter(ValueFromRemainingArguments = $true)]
+# collection still makes PowerShell 5.1's advanced parameter binder try to
+# prefix-match every "-something"/"--something" token against the full
+# common-parameter set (-OutVariable, -OutBuffer, ...) before it ever
+# reaches CommandArguments -- so an otherwise-legitimate route argument
+# like "--out <path>" (linear preview --remote --out <path>, linear
+# preview --snapshot <path> --out <path>) fails at the shim itself with
+# "the parameter name 'out' is ambiguous," before golc-project.exe's own
+# strict per-route argument parsing is ever reached. $args carries every
+# invocation argument verbatim with no such binding attempt.
+$Command = ""
+$CommandArguments = @()
+if ($args.Count -gt 0) {
+    $Command = [string]$args[0]
+    if ($args.Count -gt 1) {
+        $CommandArguments = [string[]]$args[1..($args.Count - 1)]
+    }
+}
 
 $RepoRoot = $PSScriptRoot
 $ToolchainManifestPath = Join-Path $RepoRoot "config\toolchain.toml"

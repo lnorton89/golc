@@ -103,6 +103,19 @@ type Graph struct {
 // runs before test (so a test failure is never masked by a stale binary),
 // and check invokes "--concern project" rather than "--offline" so a
 // check-driven graph run can never recurse into itself.
+//
+// Remote-failure isolation (T-01-46, Plan 01-15 Task 2): no step here
+// ever names a Linear remote route ("linear preview --remote", "linear
+// drift --remote --read-only", "linear apply"), and "test" runs in its
+// quick (go vet) form, which never executes internal/trace/transport's
+// process-boundary tests or a registered Node scope. This is a structural
+// property, not a runtime check -- a missing/unreachable compiled Linear
+// adapter (internal/command's applyRemoteClientFactory =
+// newProcessRemoteClient, tools/linear-sync/dist/src/cli.js) can
+// therefore never affect check --offline, build, or test --quick: only
+// the explicit remote command that actually needed the adapter fails
+// (tests/acceptance/linear-transport.ps1 -Mode offline proves this
+// end to end).
 func coreSteps() []Step {
 	return []Step{
 		{Name: "generate", Route: "generate", Args: nil, Network: NetworkDenied},
