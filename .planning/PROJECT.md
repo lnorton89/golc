@@ -14,7 +14,8 @@ An operator can author a modular show once, adapt its fixture pools to different
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Project requirements, roadmap phases, implementation work, and delivery status are tracked in Linear from the start with durable links back to repository planning artifacts. — *Validated in Phase 1: Offline Foundation and Delivery Traceability (2026-07-21)*
+- [x] Developer tooling, application defaults, runtime configuration, schemas, generation, validation, build, test, and packaging settings are centralized behind one documented project configuration entrypoint and separated into clear concerns. — *Validated in Phase 1: Offline Foundation and Delivery Traceability (2026-07-21)*
 
 ### Active
 
@@ -37,9 +38,6 @@ An operator can author a modular show once, adapt its fixture pools to different
 - [ ] External programs and LLM agents can inspect and control the application through a stable, versioned, well-documented API.
 - [ ] UI actions, TypeScript scripts, API clients, and LLM tools share a typed application command model so all control surfaces expose consistent behavior.
 - [ ] The v1 application installs, runs, saves, restores, and outputs Art-Net reliably on supported Windows systems.
-- [ ] Project requirements, roadmap phases, implementation work, and delivery status are tracked in Linear from the start with durable links back to repository planning artifacts.
-- [ ] Developer tooling, application defaults, runtime configuration, schemas, generation, validation, build, test, and packaging settings are centralized behind one documented project configuration entrypoint and separated into clear concerns.
-
 ### Out of Scope
 
 - Lighting protocols beyond Art-Net — deferred until the output abstraction and Art-Net implementation are proven in real use.
@@ -144,4 +142,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-17 after initialization*
+*Last updated: 2026-07-21 after Phase 1: Offline Foundation and Delivery Traceability completion*
