@@ -4,6 +4,15 @@
 # verifies archive bytes against the committed SHA-256 before extraction and
 # never upgrades a pin. Only the explicit `tools update` command may propose
 # changes to this file, as reviewable diffs.
+#
+# `official_host`/`official_path_prefix` are the D-01/T-01-SC acquisition
+# allowlist consumed by internal/bootstrap's OfficialSourcePolicy: a tool
+# archive URL may only be fetched when its scheme is https and its host/path
+# match one committed per-tool pattern here. Nothing outside this pin is
+# ever an acceptable download origin. These stay flat scalar keys (rather
+# than a table array) so the existing strict single-authority decoder in
+# internal/projectconfig can keep validating every toolchain.toml key
+# without adding array-valued key support.
 
 schema_version = 1
 
@@ -11,6 +20,8 @@ schema_version = 1
 version = "1.26.5"
 archive_url = "https://go.dev/dl/go1.26.5.windows-amd64.zip"
 archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd38"
+official_host = "go.dev"
+official_path_prefix = "/dl/"
 
 [cache]
 downloads = ".tools/cache/downloads"

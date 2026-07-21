@@ -2,9 +2,12 @@ package bootstrap
 
 import (
 	"archive/zip"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,7 +15,21 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/invopop/jsonschema"
+
+	"github.com/lnorton89/golc/internal/command"
 )
+
+// The bootstrap-archive quick-test scope is declared through the exact
+// production entrypoint (01-VALIDATION: every owning Go test task
+// registers its scope through MustDeclareScope beside its TestScope
+// marker, pattern set by config/config-local/config-strict). This file is
+// package bootstrap (not an external _test package) because
+// internal/bootstrap has no import cycle with internal/command — command
+// never imports bootstrap.
+var _ = command.MustDeclareScope(command.ScopeRegistration{
+	Scope:   "bootstrap-archive",
+	Summary: "Official-source policy, archive verification, and atomic promotion tests.",
+})
 
 // buildArchive writes a zip archive containing the given entry names and
 // contents, returning the archive path and its lowercase hex SHA-256.
@@ -314,4 +331,445 @@ func TestSchemaProbeDecodesTOMLAndEmitsInvopopSchema(t *testing.T) {
 			t.Fatalf("schema bytes missing %q: %s", fragment, emitted)
 		}
 	}
+}
+
+// writeTestToolchainManifest materializes a minimal config/toolchain.toml
+// under a fresh repository root, declaring one official_host/
+// official_path_prefix pin per entry in patterns (keyed by tool name).
+func writeTestToolchainManifest(t *testing.T, root string, patterns map[string]SourcePattern) {
+	t.Helper()
+
+	var body strings.Builder
+	body.WriteString("schema_version = 1\n\n")
+	for name, pattern := range patterns {
+		fmt.Fprintf(&body, "[toolchain.%s]\n", name)
+		fmt.Fprintf(&body, "version = \"1.0.0\"\n")
+		if pattern.Host != "" {
+			fmt.Fprintf(&body, "official_host = %q\n", pattern.Host)
+		}
+		if pattern.PathPrefix != "" {
+			fmt.Fprintf(&body, "official_path_prefix = %q\n", pattern.PathPrefix)
+		}
+		body.WriteString("\n")
+	}
+
+	configDir := filepath.Join(root, "config")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("mkdir config: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "toolchain.toml"), []byte(body.String()), 0o644); err != nil {
+		t.Fatalf("write toolchain.toml: %v", err)
+	}
+}
+
+// buildZipWithSymlinkEntry writes a zip archive containing one file entry
+// plus one symlink entry (encoded the same way archive/zip's
+// FileHeader.SetMode round-trips a Unix symlink mode), returning the
+// archive path and its lowercase hex SHA-256.
+func buildZipWithSymlinkEntry(t *testing.T, dir string) (string, string) {
+	t.Helper()
+
+	archivePath := filepath.Join(dir, "symlink-archive.zip")
+	file, err := os.Create(archivePath)
+	if err != nil {
+		t.Fatalf("create archive: %v", err)
+	}
+	writer := zip.NewWriter(file)
+
+	regular, err := writer.Create("bin/golc-project.exe")
+	if err != nil {
+		t.Fatalf("create regular entry: %v", err)
+	}
+	if _, err := regular.Write([]byte("payload\n")); err != nil {
+		t.Fatalf("write regular entry: %v", err)
+	}
+
+	header := &zip.FileHeader{Name: "bin/evil-link", Method: zip.Deflate}
+	header.SetMode(os.ModeSymlink | 0o777)
+	linkWriter, err := writer.CreateHeader(header)
+	if err != nil {
+		t.Fatalf("create symlink header: %v", err)
+	}
+	if _, err := linkWriter.Write([]byte("../../../etc/passwd")); err != nil {
+		t.Fatalf("write symlink entry: %v", err)
+	}
+
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close zip writer: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close archive file: %v", err)
+	}
+
+	raw, err := os.ReadFile(archivePath)
+	if err != nil {
+		t.Fatalf("read archive back: %v", err)
+	}
+	digest := sha256.Sum256(raw)
+	return archivePath, hex.EncodeToString(digest[:])
+}
+
+// fakeSource is the only Source implementation any bootstrap-archive test
+// uses: it serves fixed in-memory payloads keyed by exact URL and records
+// call count, so tests can assert that a policy rejection never reaches
+// the network layer at all.
+type fakeSource struct {
+	payload map[string][]byte
+	calls   int
+}
+
+func (source *fakeSource) Fetch(rawURL string) (io.ReadCloser, error) {
+	source.calls++
+	body, ok := source.payload[rawURL]
+	if !ok {
+		return nil, fmt.Errorf("fakeSource has no payload for %q", rawURL)
+	}
+	return io.NopCloser(bytes.NewReader(body)), nil
+}
+
+// repositoryRoot resolves the real checkout root from the package
+// directory (pattern set by internal/projectconfig/strict_test.go and
+// internal/trace/catalog/catalog_test.go) so config/toolchain.toml is
+// validated exactly as committed, not from a synthetic fixture.
+func repositoryRoot(t *testing.T) string {
+	t.Helper()
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatalf("resolve repository root: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "golc.project.toml")); err != nil {
+		t.Fatalf("repository root %q has no golc.project.toml: %v", root, err)
+	}
+	return root
+}
+
+// TestScopeBootstrapArchive is the exact quick-test marker for scope
+// "bootstrap-archive" (test --quick --scope bootstrap-archive). Every
+// subtest uses only injected sources and locally built fixture archives —
+// no live network call is ever made, so the registered scope exits 0
+// offline.
+func TestScopeBootstrapArchive(t *testing.T) {
+	t.Run("the committed config/toolchain.toml pins exactly the official go.dev source", func(t *testing.T) {
+		root := repositoryRoot(t)
+		policy, err := LoadOfficialSourcePolicy(root)
+		if err != nil {
+			t.Fatalf("LoadOfficialSourcePolicy(repository root) failed: %v", err)
+		}
+		if err := policy.Allows("https://go.dev/dl/go1.26.5.windows-amd64.zip"); err != nil {
+			t.Fatalf("expected the committed pin to allow the committed Go archive URL, got: %v", err)
+		}
+		if err := policy.Allows("https://evil.example.com/dl/go1.26.5.windows-amd64.zip"); err == nil {
+			t.Fatal("expected the committed policy to reject an unofficial host")
+		}
+	})
+
+	t.Run("OfficialSourcePolicy accepts only the committed official host/path patterns", func(t *testing.T) {
+		root := t.TempDir()
+		writeTestToolchainManifest(t, root, map[string]SourcePattern{
+			"go": {Host: "go.dev", PathPrefix: "/dl/"},
+		})
+
+		policy, err := LoadOfficialSourcePolicy(root)
+		if err != nil {
+			t.Fatalf("LoadOfficialSourcePolicy failed: %v", err)
+		}
+		if len(policy.Patterns) != 1 {
+			t.Fatalf("expected exactly one committed pattern, got %d", len(policy.Patterns))
+		}
+
+		if err := policy.Allows("https://go.dev/dl/go1.26.5.windows-amd64.zip"); err != nil {
+			t.Fatalf("expected committed host/path to be allowed, got: %v", err)
+		}
+
+		for name, rejected := range map[string]string{
+			"different host":       "https://evil.example.com/dl/go1.26.5.windows-amd64.zip",
+			"look-alike subdomain": "https://go.dev.evil.example.com/dl/go1.26.5.windows-amd64.zip",
+			"different path":       "https://go.dev/other/go1.26.5.windows-amd64.zip",
+			"insecure scheme":      "http://go.dev/dl/go1.26.5.windows-amd64.zip",
+			"malformed url":        "://not-a-url",
+		} {
+			if err := policy.Allows(rejected); err == nil {
+				t.Fatalf("%s: expected %q to be rejected", name, rejected)
+			}
+		}
+	})
+
+	t.Run("LoadOfficialSourcePolicy fails closed when no source is pinned", func(t *testing.T) {
+		root := t.TempDir()
+		writeTestToolchainManifest(t, root, map[string]SourcePattern{
+			"go": {},
+		})
+
+		if _, err := LoadOfficialSourcePolicy(root); err == nil {
+			t.Fatal("expected an empty official-source pin to fail")
+		}
+	})
+
+	t.Run("VerifySHA256 rejects wrong or malformed hashes", func(t *testing.T) {
+		dir := t.TempDir()
+		archivePath, digest := buildArchive(t, dir, map[string]string{
+			"bin/golc-project.exe": "payload\n",
+		})
+
+		if err := VerifySHA256(archivePath, digest); err != nil {
+			t.Fatalf("expected matching checksum to verify, got: %v", err)
+		}
+
+		wrong := strings.Repeat("ab", 32)
+		err := VerifySHA256(archivePath, wrong)
+		if err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_CHECKSUM_MISMATCH") {
+			t.Fatalf("expected BOOTSTRAP_CHECKSUM_MISMATCH, got: %v", err)
+		}
+
+		err = VerifySHA256(archivePath, "NOT-A-DIGEST")
+		if err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_CHECKSUM_FORMAT") {
+			t.Fatalf("expected BOOTSTRAP_CHECKSUM_FORMAT, got: %v", err)
+		}
+	})
+
+	t.Run("InspectZipEntries rejects traversal and symlink entries before extraction", func(t *testing.T) {
+		dir := t.TempDir()
+		traversalPath, traversalDigest := buildArchive(t, dir, map[string]string{
+			"bin/../../escape.txt": "escape\n",
+		})
+		if err := InspectZipEntries(traversalPath); err == nil {
+			t.Fatal("expected traversal entry to be rejected")
+		} else if !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_TRAVERSAL") {
+			t.Fatalf("expected BOOTSTRAP_ARCHIVE_TRAVERSAL, got: %v", err)
+		}
+		// Checksum still verifies; structure is the failure being tested.
+		if err := VerifySHA256(traversalPath, traversalDigest); err != nil {
+			t.Fatalf("fixture checksum should verify: %v", err)
+		}
+
+		linkPath, _ := buildZipWithSymlinkEntry(t, dir)
+		err := InspectZipEntries(linkPath)
+		if err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_UNSAFE_LINK") {
+			t.Fatalf("expected BOOTSTRAP_ARCHIVE_UNSAFE_LINK, got: %v", err)
+		}
+
+		cleanDir := filepath.Join(dir, "clean")
+		if err := os.MkdirAll(cleanDir, 0o755); err != nil {
+			t.Fatalf("mkdir clean: %v", err)
+		}
+		cleanPath, _ := buildArchive(t, cleanDir, map[string]string{
+			"bin/golc-project.exe": "payload\n",
+		})
+		if err := InspectZipEntries(cleanPath); err != nil {
+			t.Fatalf("expected a clean archive to pass inspection, got: %v", err)
+		}
+	})
+
+	t.Run("ExtractVerified writes only staging and leaves no residue on failure", func(t *testing.T) {
+		dir := t.TempDir()
+		parent := filepath.Join(dir, "install-parent")
+		archivePath, digest := buildArchive(t, dir, map[string]string{
+			"bin/golc-project.exe": "payload\n",
+			"share/notes.txt":      "notes\n",
+		})
+
+		stagingDir, err := ExtractVerified(archivePath, digest, parent)
+		if err != nil {
+			t.Fatalf("expected extraction to succeed, got: %v", err)
+		}
+		if filepath.Dir(stagingDir) != parent {
+			t.Fatalf("expected staging directory under %q, got %q", parent, stagingDir)
+		}
+		payload, err := os.ReadFile(filepath.Join(stagingDir, "bin", "golc-project.exe"))
+		if err != nil || string(payload) != "payload\n" {
+			t.Fatalf("staged payload missing or wrong: err=%v payload=%q", err, payload)
+		}
+
+		before, err := os.ReadDir(parent)
+		if err != nil {
+			t.Fatalf("read parent: %v", err)
+		}
+
+		// A checksum mismatch must leave no additional staging residue.
+		if _, err := ExtractVerified(archivePath, strings.Repeat("cd", 32), parent); err == nil {
+			t.Fatal("expected checksum mismatch to fail extraction")
+		}
+		// An archive that passes its own checksum but fails entry
+		// inspection (a symlink entry) must also leave no additional
+		// staging residue.
+		linkPath, linkDigest := buildZipWithSymlinkEntry(t, dir)
+		if _, err := ExtractVerified(linkPath, linkDigest, parent); err == nil {
+			t.Fatal("expected unsafe archive to fail extraction")
+		} else if !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_UNSAFE_LINK") {
+			t.Fatalf("expected BOOTSTRAP_ARCHIVE_UNSAFE_LINK, got: %v", err)
+		}
+
+		after, err := os.ReadDir(parent)
+		if err != nil {
+			t.Fatalf("read parent: %v", err)
+		}
+		if len(after) != len(before) {
+			t.Fatalf("expected no new staging residue, had %d entries, now %d", len(before), len(after))
+		}
+	})
+
+	t.Run("PromoteAtomically exposes the complete tree or nothing", func(t *testing.T) {
+		dir := t.TempDir()
+		parent := filepath.Join(dir, "parent")
+		installDir := filepath.Join(dir, "install", "tool")
+
+		firstArchive, firstDigest := buildArchive(t, dir, map[string]string{
+			"bin/golc-project.exe": "payload\n",
+		})
+		firstStaging, err := ExtractVerified(firstArchive, firstDigest, parent)
+		if err != nil {
+			t.Fatalf("extract first archive: %v", err)
+		}
+		if err := PromoteAtomically(firstStaging, installDir); err != nil {
+			t.Fatalf("expected first promotion to succeed, got: %v", err)
+		}
+		if _, err := os.Stat(firstStaging); !os.IsNotExist(err) {
+			t.Fatalf("staging directory must not survive promotion, stat err: %v", err)
+		}
+		payload, err := os.ReadFile(filepath.Join(installDir, "bin", "golc-project.exe"))
+		if err != nil || string(payload) != "payload\n" {
+			t.Fatalf("promoted payload missing or wrong: err=%v payload=%q", err, payload)
+		}
+
+		// A corrected retry with different contents must fully replace the
+		// prior install, not merge with it: the old file disappears and
+		// only the new tree remains.
+		secondDir := filepath.Join(dir, "second")
+		if err := os.MkdirAll(secondDir, 0o755); err != nil {
+			t.Fatalf("mkdir second: %v", err)
+		}
+		secondArchive, secondDigest := buildArchive(t, secondDir, map[string]string{
+			"share/notes.txt": "notes\n",
+		})
+		secondStaging, err := ExtractVerified(secondArchive, secondDigest, parent)
+		if err != nil {
+			t.Fatalf("extract second archive: %v", err)
+		}
+		if err := PromoteAtomically(secondStaging, installDir); err != nil {
+			t.Fatalf("expected retry promotion to succeed, got: %v", err)
+		}
+		if _, err := os.Stat(filepath.Join(installDir, "bin", "golc-project.exe")); !os.IsNotExist(err) {
+			t.Fatalf("prior install content must not survive promotion, stat err: %v", err)
+		}
+		notes, err := os.ReadFile(filepath.Join(installDir, "share", "notes.txt"))
+		if err != nil || string(notes) != "notes\n" {
+			t.Fatalf("expected the retried tree to be complete: err=%v notes=%q", err, notes)
+		}
+	})
+
+	t.Run("AcquireStaged validates policy before ever calling the source", func(t *testing.T) {
+		root := t.TempDir()
+		writeTestToolchainManifest(t, root, map[string]SourcePattern{
+			"go": {Host: "go.dev", PathPrefix: "/dl/"},
+		})
+		policy, err := LoadOfficialSourcePolicy(root)
+		if err != nil {
+			t.Fatalf("LoadOfficialSourcePolicy failed: %v", err)
+		}
+
+		dir := t.TempDir()
+		cacheDir := filepath.Join(dir, "cache")
+		source := &fakeSource{payload: map[string][]byte{
+			"https://evil.example.com/dl/tool.zip": []byte("bytes\n"),
+		}}
+
+		if _, err := AcquireStaged(policy, source, "https://evil.example.com/dl/tool.zip", cacheDir); err == nil {
+			t.Fatal("expected an unallowlisted source to be rejected")
+		}
+		if source.calls != 0 {
+			t.Fatalf("policy rejection must happen before any fetch, got %d calls", source.calls)
+		}
+		if _, statErr := os.Stat(cacheDir); !os.IsNotExist(statErr) {
+			t.Fatalf("a rejected source must not even create the staging directory, stat err: %v", statErr)
+		}
+
+		allowedSource := &fakeSource{payload: map[string][]byte{
+			"https://go.dev/dl/tool.zip": []byte("bytes\n"),
+		}}
+		archivePath, err := AcquireStaged(policy, allowedSource, "https://go.dev/dl/tool.zip", cacheDir)
+		if err != nil {
+			t.Fatalf("expected an allowlisted source to be staged, got: %v", err)
+		}
+		if allowedSource.calls != 1 {
+			t.Fatalf("expected exactly one fetch call, got %d", allowedSource.calls)
+		}
+		staged, err := os.ReadFile(archivePath)
+		if err != nil || string(staged) != "bytes\n" {
+			t.Fatalf("staged bytes missing or wrong: err=%v bytes=%q", err, staged)
+		}
+	})
+
+	t.Run("AcquireAndPromote rejects unofficial sources and corrupt bytes, then a corrected retry promotes atomically", func(t *testing.T) {
+		root := t.TempDir()
+		writeTestToolchainManifest(t, root, map[string]SourcePattern{
+			"go": {Host: "go.dev", PathPrefix: "/dl/"},
+		})
+		policy, err := LoadOfficialSourcePolicy(root)
+		if err != nil {
+			t.Fatalf("LoadOfficialSourcePolicy failed: %v", err)
+		}
+
+		dir := t.TempDir()
+		fixtureArchive, digest := buildArchive(t, dir, map[string]string{
+			"bin/golc-tool.exe": "tool bytes\n",
+		})
+		payloadBytes, err := os.ReadFile(fixtureArchive)
+		if err != nil {
+			t.Fatalf("read fixture archive: %v", err)
+		}
+
+		cacheDir := filepath.Join(dir, "cache")
+		installDir := filepath.Join(dir, "install", "tool")
+
+		// 1. An untrusted host is rejected before any fetch call and before
+		// any install is promoted.
+		untrusted := &fakeSource{payload: map[string][]byte{
+			"https://evil.example.com/dl/tool.zip": payloadBytes,
+		}}
+		if err := AcquireAndPromote(policy, untrusted, "https://evil.example.com/dl/tool.zip", digest, cacheDir, installDir); err == nil {
+			t.Fatal("expected an untrusted source to be rejected")
+		}
+		if untrusted.calls != 0 {
+			t.Fatalf("policy rejection must happen before any fetch, got %d calls", untrusted.calls)
+		}
+		if _, statErr := os.Stat(installDir); !os.IsNotExist(statErr) {
+			t.Fatalf("a rejected source must not promote an install, stat err: %v", statErr)
+		}
+
+		// 2. An allowlisted host serving tampered bytes must leave no
+		// promoted install.
+		tampered := &fakeSource{payload: map[string][]byte{
+			"https://go.dev/dl/tool.zip": []byte("tampered bytes that do not match the pin\n"),
+		}}
+		if err := AcquireAndPromote(policy, tampered, "https://go.dev/dl/tool.zip", digest, cacheDir, installDir); err == nil {
+			t.Fatal("expected tampered bytes to fail the checksum")
+		}
+		if _, statErr := os.Stat(installDir); !os.IsNotExist(statErr) {
+			t.Fatalf("a checksum mismatch must leave no install, stat err: %v", statErr)
+		}
+
+		// 3. A corrected retry with the exact pinned bytes over the
+		// allowlisted source promotes a complete verified tree.
+		correct := &fakeSource{payload: map[string][]byte{
+			"https://go.dev/dl/tool.zip": payloadBytes,
+		}}
+		if err := AcquireAndPromote(policy, correct, "https://go.dev/dl/tool.zip", digest, cacheDir, installDir); err != nil {
+			t.Fatalf("expected the corrected retry to succeed, got: %v", err)
+		}
+		installed, err := os.ReadFile(filepath.Join(installDir, "bin", "golc-tool.exe"))
+		if err != nil || string(installed) != "tool bytes\n" {
+			t.Fatalf("promoted payload missing or wrong: err=%v payload=%q", err, installed)
+		}
+
+		// The downloaded archive is removed from cacheDir once promotion
+		// completes; only the extraction staging (already renamed away by
+		// PromoteAtomically) and the download itself ever touched disk.
+		remaining, err := os.ReadDir(cacheDir)
+		if err != nil {
+			t.Fatalf("read cache dir: %v", err)
+		}
+		if len(remaining) != 0 {
+			t.Fatalf("expected no residual staged downloads in %q, found %v", cacheDir, remaining)
+		}
+	})
 }
