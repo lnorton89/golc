@@ -21,6 +21,7 @@ import (
 	"github.com/lnorton89/golc/internal/strictjson"
 	"github.com/lnorton89/golc/internal/trace/catalog"
 	"github.com/lnorton89/golc/internal/trace/reconcile"
+	"github.com/lnorton89/golc/internal/trace/transport"
 )
 
 // The linear-preview-contract quick-test scope is declared through the
@@ -429,4 +430,238 @@ func operationOrder(operations []reconcile.Operation) []string {
 		ids = append(ids, op.LocalID)
 	}
 	return ids
+}
+
+// The linear-reconcile quick-test scope covers the D-17 complete-snapshot
+// preview path introduced in Plan 01-23 — ValidateCompleteSnapshot,
+// ThreeWayField, marker-based discovery (zero/one/multiple), and
+// BuildCompletePreview — plus the explicit D-15 archive/unlink review
+// builders, declared beside the existing linear-preview-contract scope
+// above.
+var _ = command.MustDeclareScope(command.ScopeRegistration{
+	Scope:   "linear-reconcile",
+	Summary: "Complete-snapshot reconciliation preview, three-way field conflicts, marker discovery, and explicit archive/unlink review tests.",
+})
+
+// snapshotFixture is the self-contained JSON shape shared by the
+// remote-complete/remote-conflict/remote-ambiguous fixtures: repository
+// intent, the credential-free remote mapping set, the last-synchronized
+// baseline, and the transport-neutral captured snapshot all live in one
+// file, so each fixture is a complete, independently reviewable scenario
+// that never depends on live transport.
+type snapshotFixture struct {
+	Description string                   `json:"description"`
+	Intents     []reconcile.Intent       `json:"intents"`
+	Mappings    []catalog.RemoteMapping  `json:"mappings"`
+	Baselines   []reconcile.SyncBaseline `json:"baselines"`
+	Snapshot    transport.Snapshot       `json:"snapshot"`
+}
+
+// archiveFixture is the self-contained JSON shape for
+// explicit-archive.json: an already-linked managed entity's remote
+// mapping, the only input BuildArchivePreview/BuildUnlinkPreview need.
+type archiveFixture struct {
+	Description string                `json:"description"`
+	Mapping     catalog.RemoteMapping `json:"mapping"`
+}
+
+func loadSnapshotFixture(t *testing.T, name string) snapshotFixture {
+	t.Helper()
+	path := filepath.Join(repositoryRoot(t), "tests", "fixtures", "linear", name)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read fixture %s: %v", path, err)
+	}
+	var fixture snapshotFixture
+	if err := strictjson.DecodeStrict(data, &fixture); err != nil {
+		t.Fatalf("decode fixture %s: %v", path, err)
+	}
+	return fixture
+}
+
+func loadArchiveFixture(t *testing.T, name string) archiveFixture {
+	t.Helper()
+	path := filepath.Join(repositoryRoot(t), "tests", "fixtures", "linear", name)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read fixture %s: %v", path, err)
+	}
+	var fixture archiveFixture
+	if err := strictjson.DecodeStrict(data, &fixture); err != nil {
+		t.Fatalf("decode fixture %s: %v", path, err)
+	}
+	return fixture
+}
+
+// TestScopeLinearReconcile is the exact quick-test marker for scope
+// "linear-reconcile" (test --quick --scope linear-reconcile).
+func TestScopeLinearReconcile(t *testing.T) {
+	t.Run("ValidateCompleteSnapshot blocks every non-complete status with a stable diagnostic", func(t *testing.T) {
+		cases := []struct {
+			status transport.SnapshotStatus
+			code   string
+		}{
+			{transport.SnapshotIncomplete, "GOLC_RECONCILE_SNAPSHOT_INCOMPLETE"},
+			{transport.SnapshotPartial, "GOLC_RECONCILE_SNAPSHOT_PARTIAL"},
+			{transport.SnapshotCursorAnomaly, "GOLC_RECONCILE_SNAPSHOT_CURSOR_ANOMALY"},
+			{transport.SnapshotAmbiguous, "GOLC_RECONCILE_SNAPSHOT_AMBIGUOUS"},
+			{transport.SnapshotRateLimited, "GOLC_RECONCILE_SNAPSHOT_RATE_LIMITED"},
+		}
+		for _, tc := range cases {
+			t.Run(string(tc.status), func(t *testing.T) {
+				err := reconcile.ValidateCompleteSnapshot(transport.Snapshot{Status: tc.status, Reason: "synthetic diagnostic"})
+				requireErrorCode(t, err, tc.code)
+			})
+		}
+	})
+
+	t.Run("ValidateCompleteSnapshot accepts a clean complete snapshot with no duplicate identity footers", func(t *testing.T) {
+		fixture := loadSnapshotFixture(t, "remote-complete.json")
+		if err := reconcile.ValidateCompleteSnapshot(fixture.Snapshot); err != nil {
+			t.Fatalf("ValidateCompleteSnapshot: %v", err)
+		}
+	})
+
+	t.Run("ValidateCompleteSnapshot and BuildCompletePreview block a complete snapshot with a duplicated identity footer", func(t *testing.T) {
+		fixture := loadSnapshotFixture(t, "remote-ambiguous.json")
+		err := reconcile.ValidateCompleteSnapshot(fixture.Snapshot)
+		requireErrorCode(t, err, "GOLC_RECONCILE_SNAPSHOT_AMBIGUOUS")
+
+		_, err = reconcile.BuildCompletePreview(fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines)
+		requireErrorCode(t, err, "GOLC_RECONCILE_SNAPSHOT_AMBIGUOUS")
+	})
+
+	t.Run("BuildCompletePreview adopts a marker-matched record and creates an unmatched intent", func(t *testing.T) {
+		fixture := loadSnapshotFixture(t, "remote-complete.json")
+		plan, err := reconcile.BuildCompletePreview(fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines)
+		if err != nil {
+			t.Fatalf("BuildCompletePreview: %v", err)
+		}
+		if len(plan.Conflicts) != 0 {
+			t.Fatalf("Conflicts = %+v, want none", plan.Conflicts)
+		}
+		want := []string{"plan:01-10", "task:01-10.1"}
+		if len(plan.Operations) != len(want) {
+			t.Fatalf("Operations has %d entries, want %d: %v", len(plan.Operations), len(want), operationOrder(plan.Operations))
+		}
+		for index, op := range plan.Operations {
+			if op.LocalID != want[index] {
+				t.Fatalf("Operations[%d].LocalID = %q, want %q", index, op.LocalID, want[index])
+			}
+		}
+		adopted := plan.Operations[0]
+		if string(adopted.Before) != `{"title":"Plan 01-10"}` {
+			t.Fatalf("adopted plan:01-10 Before = %s, want the marker-matched record's fields", adopted.Before)
+		}
+		created := plan.Operations[1]
+		if string(created.Before) != `{}` {
+			t.Fatalf("created task:01-10.1 Before = %s, want an empty object (no discovered observation)", created.Before)
+		}
+	})
+
+	t.Run("BuildCompletePreview blocks a three-way disagreement discovered through an already-linked UUID", func(t *testing.T) {
+		fixture := loadSnapshotFixture(t, "remote-conflict.json")
+		plan, err := reconcile.BuildCompletePreview(fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines)
+		if err != nil {
+			t.Fatalf("BuildCompletePreview: %v", err)
+		}
+		if len(plan.Operations) != 0 {
+			t.Fatalf("Operations = %+v, want none (blocked)", plan.Operations)
+		}
+		if len(plan.Conflicts) != 1 {
+			t.Fatalf("Conflicts has %d entries, want 1: %+v", len(plan.Conflicts), plan.Conflicts)
+		}
+		conflict := plan.Conflicts[0]
+		if conflict.LocalID != "req:CONF-01" || conflict.Field != "title" {
+			t.Fatalf("conflict = %+v, want req:CONF-01/title", conflict)
+		}
+		if conflict.BaseValue == nil || *conflict.BaseValue != "Original title" {
+			t.Fatalf("conflict.BaseValue = %v, want %q", conflict.BaseValue, "Original title")
+		}
+		if conflict.RepositoryValue == nil || *conflict.RepositoryValue != "Repository title override" {
+			t.Fatalf("conflict.RepositoryValue = %v, want %q", conflict.RepositoryValue, "Repository title override")
+		}
+		if conflict.LinearValue == nil || *conflict.LinearValue != "Linear title override" {
+			t.Fatalf("conflict.LinearValue = %v, want %q", conflict.LinearValue, "Linear title override")
+		}
+	})
+
+	t.Run("ThreeWayField blocks only when base, repository, and Linear are pairwise distinct", func(t *testing.T) {
+		if got := reconcile.ThreeWayField("plan:01-10", "title", "A", "A", "B"); got != nil {
+			t.Fatalf("base==repo: ThreeWayField = %+v, want nil", got)
+		}
+		if got := reconcile.ThreeWayField("plan:01-10", "title", "A", "B", "A"); got != nil {
+			t.Fatalf("base==linear: ThreeWayField = %+v, want nil", got)
+		}
+		if got := reconcile.ThreeWayField("plan:01-10", "title", "A", "B", "B"); got != nil {
+			t.Fatalf("repo==linear: ThreeWayField = %+v, want nil", got)
+		}
+		got := reconcile.ThreeWayField("plan:01-10", "title", "A", "B", "C")
+		if got == nil {
+			t.Fatal("all three distinct: ThreeWayField = nil, want a blocking Conflict")
+		}
+		if got.LocalID != "plan:01-10" || got.Field != "title" {
+			t.Fatalf("conflict = %+v, want plan:01-10/title", got)
+		}
+		if got.BaseValue == nil || *got.BaseValue != "A" || got.RepositoryValue == nil || *got.RepositoryValue != "B" || got.LinearValue == nil || *got.LinearValue != "C" {
+			t.Fatalf("conflict values = base:%v repo:%v linear:%v, want A/B/C", got.BaseValue, got.RepositoryValue, got.LinearValue)
+		}
+		if got.ResolutionCommand == "" {
+			t.Fatal("ResolutionCommand is empty")
+		}
+	})
+
+	t.Run("BuildArchivePreview and BuildUnlinkPreview build an explicit D-15 removal preview, and reject an unmapped entity", func(t *testing.T) {
+		fixture := loadArchiveFixture(t, "explicit-archive.json")
+
+		archived, err := reconcile.BuildArchivePreview(fixture.Mapping)
+		if err != nil {
+			t.Fatalf("BuildArchivePreview: %v", err)
+		}
+		if archived.Action != "archive" || archived.LocalID != fixture.Mapping.RepoID {
+			t.Fatalf("archived = %+v, want action archive for %q", archived, fixture.Mapping.RepoID)
+		}
+		if archived.LinearUUID == nil || fixture.Mapping.LinearUUID == nil || *archived.LinearUUID != *fixture.Mapping.LinearUUID {
+			t.Fatalf("archived.LinearUUID = %v, want %v", archived.LinearUUID, fixture.Mapping.LinearUUID)
+		}
+
+		unlinked, err := reconcile.BuildUnlinkPreview(fixture.Mapping)
+		if err != nil {
+			t.Fatalf("BuildUnlinkPreview: %v", err)
+		}
+		if unlinked.Action != "unlink" || unlinked.LocalID != fixture.Mapping.RepoID {
+			t.Fatalf("unlinked = %+v, want action unlink for %q", unlinked, fixture.Mapping.RepoID)
+		}
+
+		pending := catalog.RemoteMapping{RepoID: "task:01-99.1", LinearType: "issue", Status: "pending"}
+		_, err = reconcile.BuildArchivePreview(pending)
+		requireErrorCode(t, err, "GOLC_RECONCILE_ARCHIVE_UNMAPPED")
+		_, err = reconcile.BuildUnlinkPreview(pending)
+		requireErrorCode(t, err, "GOLC_RECONCILE_ARCHIVE_UNMAPPED")
+	})
+
+	t.Run("the complete preview is reachable end to end through a credential-free Fake transport", func(t *testing.T) {
+		fixture := loadSnapshotFixture(t, "remote-complete.json")
+		fake := transport.NewFake(fixture.Snapshot)
+
+		captured, err := fake.CaptureSnapshot()
+		if err != nil {
+			t.Fatalf("Fake.CaptureSnapshot: %v", err)
+		}
+		plan, err := reconcile.BuildCompletePreview(fixture.Intents, fixture.Mappings, captured, fixture.Baselines)
+		if err != nil {
+			t.Fatalf("BuildCompletePreview via fake transport: %v", err)
+		}
+		if len(plan.Operations) != 2 || len(plan.Conflicts) != 0 {
+			t.Fatalf("plan via fake transport = %+v, want 2 operations and no conflicts", plan)
+		}
+
+		applied, err := fake.Apply(transport.Mutation{Kind: transport.MutationArchive, LocalID: "task:01-23.9", LinearUUID: "22222222-2222-2222-2222-222222222222"})
+		if err != nil {
+			t.Fatalf("Fake.Apply: %v", err)
+		}
+		if applied.Kind != transport.MutationArchive || len(fake.Applied()) != 1 {
+			t.Fatalf("Fake.Applied() = %+v, want exactly one recorded archive mutation", fake.Applied())
+		}
+	})
 }
