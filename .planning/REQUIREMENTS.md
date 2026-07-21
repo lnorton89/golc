@@ -134,7 +134,7 @@
 - [ ] **LINR-01**: Every milestone, phase, requirement, plan, and executable task has a durable local identifier that remains usable offline.
 - [ ] **LINR-02**: The repository maintains a credential-free mapping from durable local identifiers to immutable Linear UUIDs without making Linear the only source of planning truth.
 - [ ] **LINR-03**: A contributor can preview and run an idempotent reconciliation that creates or updates the intended Linear project, milestones, issues, and sub-issues without duplicating retried work.
-- [ ] **LINR-04**: Linear synchronization reports ambiguity, partial GraphQL errors, pagination, and rate limiting without blocking local planning, builds, tests, or application runtime.
+- [x] **LINR-04**: Linear synchronization reports ambiguity, partial GraphQL errors, pagination, and rate limiting without blocking local planning, builds, tests, or application runtime.
 
 ## v1.x Requirements
 
@@ -280,7 +280,7 @@ A v1 requirement is complete only when its implementation is committed, automate
 | LINR-01 | Phase 1 | Pending |
 | LINR-02 | Phase 1 | Pending |
 | LINR-03 | Phase 1 | Pending |
-| LINR-04 | Phase 1 | Pending |
+| LINR-04 | Phase 1 | Complete |
 
 **Coverage:**
 
