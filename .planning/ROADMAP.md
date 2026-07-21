@@ -138,7 +138,17 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
   4. Adding or removing pool fixtures produces a deterministic review of every affected group, theme, palette, scene, chase, motion preset, and controller mapping; review-before-apply remains the default even when propagation policy is configurable.
   5. A show author can map replacement fixtures by semantic capability, see every missing or incompatible capability, and accept, revise, or cancel an all-or-nothing change without silent approximation.
 
-**Plans:** TBD
+**Plans:** 6 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Fixture validate: canonical capability model, generated versioned schema, strict YAML decode + diagnostics, `golc fixture validate` (FIXT-01/02/04) [Wave 1]
+- [ ] 02-02-PLAN.md — Fixture identity/hash pinning + provenance, `golc fixture inspect` (FIXT-05/06) [Wave 2]
+- [ ] 02-03-PLAN.md — OFL import: SSRF-guarded fetch/cache, normalize onto canonical model, lossy warnings, `golc fixture import` (FIXT-03/06) [Wave 3]
+- [ ] 02-04-PLAN.md — Pool + deployment domain model + revisioned ShowState, `golc pool/deployment create` (POOL-01/02) [Wave 2]
+- [ ] 02-05-PLAN.md — Pool impact review + integrity/freshness gates + atomic apply, `golc pool update`/`pool apply` (POOL-03/04/05/08) [Wave 3]
+- [ ] 02-06-PLAN.md — Capability-diff fixture substitution + severity taxonomy, `golc pool substitute` (POOL-06/07/08) [Wave 4]
+
+**Waves:** W1: 02-01 · W2: 02-02, 02-04 · W3: 02-03, 02-05 · W4: 02-06
 **Research:** Deeper phase research required for canonical fixture semantics, pool propagation rules, representative first-user fixtures, OFL snapshot/licensing, GDTF preservation, hazardous attributes, and physical validation corpus.
 
 ### Phase 3: Deterministic Show Programming and Playback
@@ -282,7 +292,7 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Offline Foundation and Delivery Traceability | 32/32 | Complete    | 2026-07-21 |
-| 2. Modular Fixtures and Deployments | 0/TBD | Not started | - |
+| 2. Modular Fixtures and Deployments | 0/6 | Planned | - |
 | 3. Deterministic Show Programming and Playback | 0/TBD | Not started | - |
 | 4. Observable Art-Net Live Output | 0/TBD | Not started | - |
 | 5. Durable Shows and Recovery | 0/TBD | Not started | - |
