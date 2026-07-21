@@ -382,18 +382,80 @@ function Resolve-CacheDirectory {
     return (Join-Path $RepoRoot $normalized)
 }
 
+function Test-LinearSyncNpmInstallMatches {
+    <# Mirrors Test-InstalledManifestMatches's archive-pin skip contract
+       (D-02, Plan 01-25): a recorded npm-ci manifest inside node_modules
+       matching the exact current package.json/package-lock.json bytes,
+       plus the pinned TypeScript compiler and every compiled dist output
+       already present, means the exact-lock `npm ci` (and its tsc
+       recompile) is never invoked again -- so a second bootstrap of an
+       unchanged lock performs zero npm/network calls, not merely a fast
+       one. The manifest lives inside node_modules so deleting node_modules
+       naturally invalidates it. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LinearSyncDir,
+
+        [Parameter(Mandatory = $true)]
+        [string]$PackageJsonSha256,
+
+        [Parameter(Mandatory = $true)]
+        [string]$PackageLockSha256
+    )
+
+    $manifestPath = Join-Path $LinearSyncDir "node_modules\.golc-npm-ci-manifest.json"
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+        return $false
+    }
+    try {
+        $manifest = [System.IO.File]::ReadAllText($manifestPath) | ConvertFrom-Json
+    }
+    catch {
+        return $false
+    }
+    $packageJsonProperty = $manifest.PSObject.Properties["package_json_sha256"]
+    $packageLockProperty = $manifest.PSObject.Properties["package_lock_sha256"]
+    if ($null -eq $packageJsonProperty -or $null -eq $packageLockProperty) {
+        return $false
+    }
+    if ($packageJsonProperty.Value -cne $PackageJsonSha256 -or $packageLockProperty.Value -cne $PackageLockSha256) {
+        return $false
+    }
+    $tscPath = Join-Path $LinearSyncDir "node_modules\typescript\bin\tsc"
+    if (-not (Test-Path -LiteralPath $tscPath -PathType Leaf)) {
+        return $false
+    }
+    foreach ($distFile in @(
+            (Join-Path $LinearSyncDir "dist\src\protocol.js"),
+            (Join-Path $LinearSyncDir "dist\src\adapter.js"),
+            (Join-Path $LinearSyncDir "dist\src\cli.js"),
+            (Join-Path $LinearSyncDir "dist\test\operations.test.js")
+        )) {
+        if (-not (Test-Path -LiteralPath $distFile -PathType Leaf)) {
+            return $false
+        }
+    }
+    return $true
+}
+
 function Invoke-GolcBootstrapLinearSync {
     <# Provisions the isolated tools/linear-sync workspace (CONTEXT D-01/
-       D-03; Plan 01-13): installs the pinned project-local Node archive
-       exactly the way Install-ArchivePin already provisions Go, then runs
-       an exact-lock `npm ci` with lifecycle scripts disabled against the
-       already-committed package.json/package-lock.json, and finally
-       compiles protocol.ts/adapter.ts with the pinned project-local
+       D-03; Plan 01-13/01-25): installs the pinned project-local Node
+       archive exactly the way Install-ArchivePin already provisions Go,
+       then runs an exact-lock `npm ci` with lifecycle scripts disabled
+       against the already-committed package.json/package-lock.json, and
+       finally compiles src/**/*.ts and test/**/*.ts (protocol, adapter,
+       cli, and the fake-SDK hierarchy test) with the pinned project-local
        TypeScript compiler. It never runs `npm install`, never touches
        package.json or package-lock.json, and hard-fails
        (GOLC_BOOTSTRAP_NODE_LOCK_MUTATION) if either changes underneath it
        -- the same before/after hash discipline the Go module bootstrap
-       block above already enforces for go.mod/go.sum (D-04). #>
+       block above already enforces for go.mod/go.sum (D-04). A recorded
+       npm-ci manifest matching the current lock bytes (Plan 01-25,
+       Test-LinearSyncNpmInstallMatches) makes a second bootstrap of an
+       unchanged lock skip npm ci and tsc entirely -- zero network calls,
+       not merely a fast no-op. #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -432,10 +494,15 @@ function Invoke-GolcBootstrapLinearSync {
         throw "GOLC_BOOTSTRAP_OFFLINE_ARTIFACT_MISSING: tools/linear-sync/package-lock.json"
     }
 
-    New-Item -ItemType Directory -Path $NpmCacheDirectory -Force | Out-Null
-
     $packageJsonBefore = (Get-FileHash -LiteralPath $packageJsonPath -Algorithm SHA256).Hash
     $packageLockBefore = (Get-FileHash -LiteralPath $packageLockPath -Algorithm SHA256).Hash
+
+    if (Test-LinearSyncNpmInstallMatches -LinearSyncDir $linearSyncDir -PackageJsonSha256 $packageJsonBefore -PackageLockSha256 $packageLockBefore) {
+        Write-Output "GOLC bootstrap: tools/linear-sync already matches package-lock.json $packageLockBefore; npm ci not invoked."
+        return
+    }
+
+    New-Item -ItemType Directory -Path $NpmCacheDirectory -Force | Out-Null
 
     Push-Location $linearSyncDir
     try {
@@ -463,10 +530,15 @@ function Invoke-GolcBootstrapLinearSync {
         Pop-Location
     }
 
-    $distProtocol = Join-Path $linearSyncDir "dist\protocol.js"
-    $distAdapter = Join-Path $linearSyncDir "dist\adapter.js"
-    if (-not (Test-Path -LiteralPath $distProtocol -PathType Leaf) -or -not (Test-Path -LiteralPath $distAdapter -PathType Leaf)) {
-        throw "GOLC_BOOTSTRAP_LINEAR_SYNC_BUILD_FAILED: expected compiled dist/protocol.js and dist/adapter.js"
+    foreach ($expectedDistFile in @(
+            (Join-Path $linearSyncDir "dist\src\protocol.js"),
+            (Join-Path $linearSyncDir "dist\src\adapter.js"),
+            (Join-Path $linearSyncDir "dist\src\cli.js"),
+            (Join-Path $linearSyncDir "dist\test\operations.test.js")
+        )) {
+        if (-not (Test-Path -LiteralPath $expectedDistFile -PathType Leaf)) {
+            throw "GOLC_BOOTSTRAP_LINEAR_SYNC_BUILD_FAILED: expected compiled $expectedDistFile"
+        }
     }
 
     $packageJsonAfter = (Get-FileHash -LiteralPath $packageJsonPath -Algorithm SHA256).Hash
@@ -475,7 +547,17 @@ function Invoke-GolcBootstrapLinearSync {
         throw "GOLC_BOOTSTRAP_NODE_LOCK_MUTATION: bootstrap must never rewrite tools/linear-sync/package.json or package-lock.json"
     }
 
-    Write-Output "GOLC bootstrap: tools/linear-sync compiled (protocol.ts/adapter.ts); pins/lock unchanged."
+    # Recording this manifest inside node_modules (rather than under
+    # .tools/manifest) means deleting node_modules naturally invalidates
+    # it -- a stale manifest can never survive without its install.
+    $npmCiManifestJson = [ordered]@{
+        package_json_sha256 = $packageJsonBefore
+        package_lock_sha256 = $packageLockBefore
+    } | ConvertTo-Json
+    $utf8NoBomManifest = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText((Join-Path $linearSyncDir "node_modules\.golc-npm-ci-manifest.json"), $npmCiManifestJson + "`n", $utf8NoBomManifest)
+
+    Write-Output "GOLC bootstrap: tools/linear-sync compiled (src + test); pins/lock unchanged."
 }
 
 function Invoke-GolcBootstrap {
