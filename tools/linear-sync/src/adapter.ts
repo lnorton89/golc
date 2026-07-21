@@ -22,6 +22,13 @@ import {
   type Snapshot,
 } from "./protocol.js";
 import { fetchAllPages, type FetchPage } from "./pagination.js";
+import {
+  describeDiagnostics,
+  normalizeGraphQLResult,
+  normalizeRateLimit,
+  type RawGraphQLResponse,
+  type RawRateLimitSignal,
+} from "./errors.js";
 
 /**
  * LinearEntityHandle is the narrow subset of a Linear SDK model
@@ -106,24 +113,71 @@ export interface ConnectionQuery<TEntity extends EntityKind = EntityKind> {
   entity: TEntity;
   label: string;
   fetchPage: FetchPage<LinearEntityHandle>;
+  /**
+   * probeGraphQLResult is an optional preflight raw-response probe
+   * captureSnapshot inspects through errors.ts's normalizeGraphQLResult
+   * before exhausting this connection's pages (Plan 01-26; CONTEXT
+   * D-21/T-01-40): a real adapter supplies the connection's most recently
+   * observed raw HTTP-200 GraphQL envelope (data/errors together); a
+   * fixture-driven fake in tests supplies the exact
+   * data-plus-errors.json scenario. A connection that omits this (every
+   * existing Plan 01-14 caller/test) behaves exactly as before --
+   * captureSnapshot never invents a probe.
+   */
+  probeGraphQLResult?: () => Promise<RawGraphQLResponse>;
+  /**
+   * probeRateLimit is the parallel preflight for rate-limit evidence,
+   * normalized through errors.ts's normalizeRateLimit and blocking the
+   * whole snapshot with status "rate_limited" the same way a
+   * probeGraphQLResult data-plus-errors probe blocks it with "partial".
+   * Returning undefined (or omitting this field) means no rate-limit
+   * signal was observed for this connection.
+   */
+  probeRateLimit?: () => Promise<RawRateLimitSignal | undefined>;
 }
 
 /**
  * captureSnapshot exhausts every one of the given connections through
  * fetchAllPages and normalizes every node it reads (CONTEXT D-21;
- * T-01-39). The snapshot is marked "complete" only once every intended
- * connection has itself finished exhaustively: the first connection with
- * a cursor anomaly blocks the whole snapshot and discards every record
- * already read (including from connections that already completed), so a
- * hidden later page can never spoof absence or uniqueness for an identity
- * decision. Multiple matching records across connections are preserved
- * individually here, never deduplicated or collapsed: whether zero, one,
- * or more than one record carries a given GOLC identity marker is a
- * decision internal/trace/reconcile (Go) makes, not this transport.
+ * T-01-39/T-01-40). Before paginating a connection, its optional
+ * probeGraphQLResult/probeRateLimit are inspected first: a non-empty
+ * GraphQL errors array (even alongside populated data, and even on
+ * HTTP 200) or an observed rate-limit signal each block the whole
+ * snapshot immediately -- exactly like a cursor anomaly already does --
+ * discarding every record already read (including from connections that
+ * already completed), so a hidden later page or partial error can never
+ * spoof absence or uniqueness for an identity decision. Multiple matching
+ * records across connections are preserved individually here, never
+ * deduplicated or collapsed: whether zero, one, or more than one record
+ * carries a given GOLC identity marker is a decision
+ * internal/trace/reconcile (Go) makes, not this transport.
  */
 export async function captureSnapshot(connections: readonly ConnectionQuery[]): Promise<Snapshot> {
   const records: NormalizedRecord[] = [];
   for (const connection of connections) {
+    if (connection.probeGraphQLResult) {
+      const response = await connection.probeGraphQLResult();
+      const outcome = normalizeGraphQLResult(response, { operation: connection.label });
+      if (outcome.kind === "partial") {
+        return {
+          status: "partial",
+          reason: describeDiagnostics(connection.label, outcome.diagnostics),
+          records: [],
+        };
+      }
+    }
+    if (connection.probeRateLimit) {
+      const signal = await connection.probeRateLimit();
+      if (signal !== undefined) {
+        const diagnostic = normalizeRateLimit(signal, { operation: connection.label });
+        return {
+          status: "rate_limited",
+          reason: describeDiagnostics(connection.label, [diagnostic]),
+          records: [],
+        };
+      }
+    }
+
     const result = await fetchAllPages<LinearEntityHandle>(connection.fetchPage);
     if (!result.complete) {
       return {

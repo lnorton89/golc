@@ -248,6 +248,32 @@ export interface Snapshot {
 }
 
 // ---------------------------------------------------------------------------
+// Transport diagnostics (Plan 01-26 -- GraphQL/rate normalization)
+// ---------------------------------------------------------------------------
+
+/**
+ * TransportDiagnostic is the exact allowlisted metadata surface a partial
+ * GraphQL error or rate-limit signal may ever expose (CONTEXT D-20/D-21;
+ * T-01-40): path/code/operation/request/endpoint/complexity/reset only.
+ * No raw error message, GraphQL query text, variables, header value, or
+ * credential may ever appear on this type -- errors.ts's
+ * normalizeGraphQLResult/normalizeRateLimit are the sole producers of this
+ * shape, and adapter.ts's captureSnapshot is the sole place it is folded
+ * into a Snapshot's "partial"/"rate_limited" reason text (CONTEXT D-20's
+ * "secret values must never appear in previews, logs, errors" extended
+ * here to every transport diagnostic, not only credentials).
+ */
+export interface TransportDiagnostic {
+  operation: string;
+  path?: string;
+  code?: string;
+  request?: string;
+  endpoint?: string;
+  complexity?: number;
+  reset?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Strict decoding
 // ---------------------------------------------------------------------------
 

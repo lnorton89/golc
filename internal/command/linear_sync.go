@@ -61,6 +61,22 @@ var _ = MustDeclareNodeScope(NodeScopeRegistration{
 	Command: linearSyncNodeTestCommandPagination(),
 })
 
+// linear-transport-errors is the exact quick-test scope
+// config/commands.toml documents for tools/linear-sync's HTTP-200
+// data-plus-errors and rate-limit normalization (Plan 01-26; T-01-40):
+// `test --quick --scope linear-transport-errors` runs both
+// test/errors.test.ts and test/rate-limit.test.ts (compiled to
+// dist/test/errors.test.js and dist/test/rate-limit.test.js), asserting
+// its TestScopeLinearTransportErrors marker before anything executes,
+// exactly as MustDeclareNodeScope's fail-on-missing-marker/exit-nonzero
+// contract already requires for every registered Node scope.
+var _ = MustDeclareNodeScope(NodeScopeRegistration{
+	Scope:   "linear-transport-errors",
+	Dir:     linearSyncWorkspaceDir,
+	Marker:  "TestScopeLinearTransportErrors",
+	Command: linearSyncNodeTestCommandErrors(),
+})
+
 // linearSyncNodeTestGlob is a glob pattern, not a bare directory: Node's
 // own --test path resolution (confirmed empirically against the pinned
 // Node 24.18.0 build) fails a bare directory argument with
@@ -78,6 +94,15 @@ const linearSyncNodeTestGlob = "dist/test/**/*.test.js"
 // file so a scoped `test --quick --scope linear-transport-pagination` run
 // exercises exactly TestScopeLinearTransportPagination and nothing else.
 const linearSyncNodeTestFilePagination = "dist/test/pagination.test.js"
+
+// linearSyncNodeTestFilesErrors are the exact compiled output paths of
+// Plan 01-26's errors.test.ts and rate-limit.test.ts. The
+// "linear-transport-errors" scope registered below targets exactly these
+// two files (Node's --test accepts multiple positional file arguments, no
+// shell expansion required since exec.Command passes argv directly) so a
+// scoped `test --quick --scope linear-transport-errors` run exercises
+// exactly the data-plus-errors and rate-limit fixtures and nothing else.
+var linearSyncNodeTestFilesErrors = []string{"dist/test/errors.test.js", "dist/test/rate-limit.test.js"}
 
 // resolveLinearSyncProjectRoot resolves the repository root
 // linearSyncNodeTestCommand and linearSyncNodeTestCommandPagination both
@@ -123,4 +148,17 @@ func linearSyncNodeTestCommandPagination() []string {
 		return []string{nodeExecutable, "--test", linearSyncNodeTestFilePagination}
 	}
 	return []string{"golc-linear-sync-node-not-bootstrapped", "--test", linearSyncNodeTestFilePagination}
+}
+
+// linearSyncNodeTestCommandErrors resolves the exact `node --test
+// dist/test/errors.test.js dist/test/rate-limit.test.js` invocation the
+// "linear-transport-errors" scope's registered Command runs, mirroring
+// linearSyncNodeTestCommandPagination's same pre-bootstrap placeholder-
+// Command safety.
+func linearSyncNodeTestCommandErrors() []string {
+	root := resolveLinearSyncProjectRoot()
+	if nodeExecutable, err := resolvePinnedNodeExecutable(root); err == nil {
+		return append([]string{nodeExecutable, "--test"}, linearSyncNodeTestFilesErrors...)
+	}
+	return append([]string{"golc-linear-sync-node-not-bootstrapped", "--test"}, linearSyncNodeTestFilesErrors...)
 }
