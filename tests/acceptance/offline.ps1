@@ -1,8 +1,9 @@
 <#
 .SYNOPSIS
-Plan 01-06 acceptance: exact registered core routes (generate, check,
-build, test) run through one offline-enforced graph (D-02/D-03/D-10,
-T-01-15, T-01-17).
+Plan 01-06/01-20 acceptance: exact registered core routes (generate,
+check, build, test) run through one offline-enforced graph (D-02/D-03/
+D-10, T-01-15, T-01-17), and the deterministic foundation package
+(T-01-16) reproduces byte-identical output.
 
 .DESCRIPTION
 -Mode core runs entirely against the repository under test, through
@@ -23,6 +24,21 @@ exact contributor-facing routes, not just the underlying Go API:
      drift, proving check --offline's own generate step left the
      committed schemas byte-identical.
 
+-Mode package proves Plan 01-20's deterministic foundation package
+(T-01-16): the exact registered "package --foundation" route is reachable,
+and running it twice produces byte-identical ZIP, manifest, and checksum
+output:
+
+  1. `golc.ps1 package --foundation` succeeds once, and the resulting ZIP,
+     manifest, and .sha256 checksum sidecar at dist/foundation/ are copied
+     aside.
+  2. `golc.ps1 package --foundation` runs a second time against the same
+     repository state.
+  3. The second run's ZIP, manifest, and checksum sidecar bytes are
+     compared byte-for-byte against the first run's copies — any
+     divergence (a machine timestamp, path, or non-deterministic ordering
+     leaking into the archive) fails this acceptance.
+
 Requires a prior successful `golc.ps1 bootstrap` (the pinned project-local
 Go toolchain and warmed caches must already exist) — this script never
 bootstraps or installs anything itself, matching
@@ -31,7 +47,7 @@ bootstrapped checkout.
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet("core")]
+    [ValidateSet("core", "package")]
     [string]$Mode = "core"
 )
 
@@ -165,6 +181,57 @@ function Invoke-CoreOfflineAcceptance {
     Write-Output "Offline core acceptance: committed schemas remain drift-free after the offline graph's own generate step."
 }
 
+function Invoke-FoundationPackageAcceptance {
+    <# Exercises the registered "package --foundation" route twice against
+       the repository under test and asserts the ZIP, manifest, and
+       checksum sidecar bytes are identical both times (T-01-16). #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepositoryUnderTest
+    )
+
+    if (-not (Test-Path -LiteralPath (Join-Path $RepositoryUnderTest "golc.ps1") -PathType Leaf)) {
+        throw "ROOT_COMMAND_MISSING: foundation package acceptance requires golc.ps1"
+    }
+
+    $distDirectory = Join-Path $RepositoryUnderTest "dist\foundation"
+    $zipPath = Join-Path $distDirectory "golc-foundation-windows-amd64.zip"
+    $manifestPath = Join-Path $distDirectory "golc-foundation-windows-amd64.manifest.json"
+    $checksumPath = Join-Path $distDirectory "golc-foundation-windows-amd64.zip.sha256"
+
+    $firstResult = Invoke-Golc -RepositoryRoot $RepositoryUnderTest -CommandArguments @("package", "--foundation")
+    Assert-GolcSucceeded -Result $firstResult -Operation "package --foundation (first run)"
+    foreach ($path in @($zipPath, $manifestPath, $checksumPath)) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "FOUNDATION_OUTPUT_MISSING: expected $path after the first package --foundation run"
+        }
+    }
+    $firstZipBytes = [System.IO.File]::ReadAllBytes($zipPath)
+    $firstManifestBytes = [System.IO.File]::ReadAllBytes($manifestPath)
+    $firstChecksumBytes = [System.IO.File]::ReadAllBytes($checksumPath)
+    Write-Output "Foundation package acceptance: first package --foundation run produced a ZIP, manifest, and checksum sidecar."
+
+    $secondResult = Invoke-Golc -RepositoryRoot $RepositoryUnderTest -CommandArguments @("package", "--foundation")
+    Assert-GolcSucceeded -Result $secondResult -Operation "package --foundation (second run)"
+    $secondZipBytes = [System.IO.File]::ReadAllBytes($zipPath)
+    $secondManifestBytes = [System.IO.File]::ReadAllBytes($manifestPath)
+    $secondChecksumBytes = [System.IO.File]::ReadAllBytes($checksumPath)
+
+    # Byte-array equality via Base64 string comparison avoids a dependency
+    # on System.Linq.Enumerable being loaded in Windows PowerShell 5.1.
+    if ([System.Convert]::ToBase64String($firstZipBytes) -cne [System.Convert]::ToBase64String($secondZipBytes)) {
+        throw "FOUNDATION_NOT_DETERMINISTIC: repeated package --foundation produced different ZIP bytes"
+    }
+    if ([System.Convert]::ToBase64String($firstManifestBytes) -cne [System.Convert]::ToBase64String($secondManifestBytes)) {
+        throw "FOUNDATION_NOT_DETERMINISTIC: repeated package --foundation produced different manifest bytes"
+    }
+    if ([System.Convert]::ToBase64String($firstChecksumBytes) -cne [System.Convert]::ToBase64String($secondChecksumBytes)) {
+        throw "FOUNDATION_NOT_DETERMINISTIC: repeated package --foundation produced different checksum sidecar bytes"
+    }
+    Write-Output "Foundation package acceptance: repeated package --foundation produced byte-identical ZIP, manifest, and checksum output."
+}
+
 $scriptExitCode = 1
 try {
     $repositoryUnderTest = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
@@ -172,10 +239,14 @@ try {
     switch ($Mode) {
         "core" {
             Invoke-CoreOfflineAcceptance -RepositoryUnderTest $repositoryUnderTest
+            Write-Output "Offline acceptance confirmed: exact registered core routes ran through one graph with network denied."
+        }
+        "package" {
+            Invoke-FoundationPackageAcceptance -RepositoryUnderTest $repositoryUnderTest
+            Write-Output "Offline acceptance confirmed: package --foundation is reachable and byte-reproducible."
         }
     }
 
-    Write-Output "Offline acceptance confirmed: exact registered core routes ran through one graph with network denied."
     $scriptExitCode = 0
 }
 catch {

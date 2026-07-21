@@ -60,6 +60,18 @@ dist/
 # Wails compiles into build/bin; packaging jobs produce their own artifacts.
 /build/bin/
 
+# --- Foundation package output (golc.ps1 package --foundation) ------------------
+
+# `package --foundation` regenerates a deterministic Windows AMD64
+# developer-tool ZIP, canonical manifest, and SHA-256 checksum sidecar at
+# dist/foundation/ on every run (already covered by the generic `dist/`
+# rule above; named explicitly here for discoverability). These are
+# transient, machine-reproducible distribution artifacts, never committed
+# source — the only committed foundation-package fixture is the golden
+# test oracle at tests/golden/foundation-manifest.json, which this rule
+# must never match.
+/dist/foundation/
+
 # --- OS cruft ---------------------------------------------------------------------
 
 # Windows Explorer metadata.

@@ -20,11 +20,16 @@
 package delivery_test
 
 import (
+	"archive/zip"
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/delivery"
@@ -273,4 +278,331 @@ func TestScopeDelivery(t *testing.T) {
 			t.Fatalf("NetworkAllowed.String() = %q, want allowed", delivery.NetworkAllowed.String())
 		}
 	})
+
+	t.Run("package --foundation route is self-registered and reachable", func(t *testing.T) {
+		registry, err := command.NewDefaultCommandRegistry()
+		if err != nil {
+			t.Fatalf("NewDefaultCommandRegistry: %v", err)
+		}
+		registration, rest, ok := registry.Lookup([]string{"package", "--foundation"})
+		if !ok {
+			t.Fatal("expected the default registry to resolve \"package --foundation\"")
+		}
+		if registration.Route != "package" {
+			t.Fatalf("Route = %q, want \"package\"", registration.Route)
+		}
+		if strings.Join(rest, " ") != "--foundation" {
+			t.Fatalf("remaining args = %v, want [--foundation]", rest)
+		}
+	})
+
+	t.Run("FoundationInventory returns a sorted, duplicate-free allowlist derived from the graph inventory", func(t *testing.T) {
+		root := t.TempDir()
+		writeFoundationFixture(t, root)
+
+		graph, err := delivery.LoadGraph(root)
+		if err != nil {
+			t.Fatalf("LoadGraph: %v", err)
+		}
+
+		entries, err := delivery.FoundationInventory(root, graph.Inventory)
+		if err != nil {
+			t.Fatalf("FoundationInventory: %v", err)
+		}
+
+		wantPaths := []string{
+			".tools/installs/golc_project/bin/golc-project.exe",
+			"config/commands.toml",
+			"config/integrations/linear.toml",
+			"config/toolchain.toml",
+			"docs/development.md",
+			"golc.project.toml",
+			"golc.ps1",
+			"schemas/config-commands.schema.json",
+			"schemas/golc-project.schema.json",
+		}
+		gotPaths := make([]string, len(entries))
+		for i, entry := range entries {
+			gotPaths[i] = entry.ArchivePath
+		}
+		if strings.Join(gotPaths, ",") != strings.Join(wantPaths, ",") {
+			t.Fatalf("FoundationInventory paths = %v, want %v", gotPaths, wantPaths)
+		}
+		if !sort.StringsAreSorted(gotPaths) {
+			t.Fatalf("expected FoundationInventory to return sorted archive paths, got %v", gotPaths)
+		}
+
+		incomplete := delivery.CommandInventory{Entrypoint: "golc.ps1"}
+		if _, err := delivery.FoundationInventory(root, incomplete); err == nil {
+			t.Fatal("expected FoundationInventory to reject an incomplete graph inventory")
+		}
+	})
+
+	t.Run("CanonicalManifest sorts, hashes, and rejects a duplicate archive path", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, "b.txt"), []byte("second\n"), 0o644); err != nil {
+			t.Fatalf("write b.txt: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(root, "a.txt"), []byte("first\n"), 0o644); err != nil {
+			t.Fatalf("write a.txt: %v", err)
+		}
+
+		manifest, payloads, err := delivery.CanonicalManifest(root, []delivery.FoundationEntry{
+			{ArchivePath: "b.txt", SourcePath: "b.txt"},
+			{ArchivePath: "a.txt", SourcePath: "a.txt"},
+		})
+		if err != nil {
+			t.Fatalf("CanonicalManifest: %v", err)
+		}
+		if len(manifest.Files) != 2 || len(payloads) != 2 {
+			t.Fatalf("expected 2 files/payloads, got %d/%d", len(manifest.Files), len(payloads))
+		}
+		if manifest.Files[0].Path != "a.txt" || manifest.Files[1].Path != "b.txt" {
+			t.Fatalf("expected manifest sorted by archive path, got %v", manifest.Files)
+		}
+		wantSHA256 := "b640e840b19d378660b32fb51ae18d67dccb4a8596a29e7bd72c1b2ae5928f41"
+		if manifest.Files[0].SHA256 != wantSHA256 {
+			t.Fatalf("a.txt sha256 = %s, want %s", manifest.Files[0].SHA256, wantSHA256)
+		}
+		if manifest.Files[0].Size != int64(len("first\n")) {
+			t.Fatalf("a.txt size = %d, want %d", manifest.Files[0].Size, len("first\n"))
+		}
+		if string(payloads[0]) != "first\n" {
+			t.Fatalf("payloads[0] = %q, want %q", payloads[0], "first\n")
+		}
+
+		if _, _, err := delivery.CanonicalManifest(root, []delivery.FoundationEntry{
+			{ArchivePath: "a.txt", SourcePath: "a.txt"},
+			{ArchivePath: "a.txt", SourcePath: "b.txt"},
+		}); err == nil {
+			t.Fatal("expected CanonicalManifest to reject a duplicate archive path")
+		}
+
+		if _, _, err := delivery.CanonicalManifest(root, []delivery.FoundationEntry{
+			{ArchivePath: "", SourcePath: "a.txt"},
+		}); err == nil {
+			t.Fatal("expected CanonicalManifest to reject a blank archive path")
+		}
+
+		if _, _, err := delivery.CanonicalManifest(root, []delivery.FoundationEntry{
+			{ArchivePath: "missing.txt", SourcePath: "missing.txt"},
+		}); err == nil {
+			t.Fatal("expected CanonicalManifest to fail closed on a missing source file")
+		}
+	})
+
+	t.Run("EncodeManifest is deterministic byte-stable JSON matching the committed golden fixture", func(t *testing.T) {
+		root := t.TempDir()
+		writeFoundationFixture(t, root)
+
+		graph, err := delivery.LoadGraph(root)
+		if err != nil {
+			t.Fatalf("LoadGraph: %v", err)
+		}
+		entries, err := delivery.FoundationInventory(root, graph.Inventory)
+		if err != nil {
+			t.Fatalf("FoundationInventory: %v", err)
+		}
+		manifest, _, err := delivery.CanonicalManifest(root, entries)
+		if err != nil {
+			t.Fatalf("CanonicalManifest: %v", err)
+		}
+		encoded, err := delivery.EncodeManifest(manifest)
+		if err != nil {
+			t.Fatalf("EncodeManifest: %v", err)
+		}
+
+		again, err := delivery.EncodeManifest(manifest)
+		if err != nil {
+			t.Fatalf("EncodeManifest (repeat): %v", err)
+		}
+		if !bytes.Equal(encoded, again) {
+			t.Fatal("expected EncodeManifest to be byte-identical across repeated calls with unchanged input")
+		}
+		if encoded[len(encoded)-1] != '\n' || bytes.Contains(encoded, []byte("\r\n")) {
+			t.Fatalf("expected LF-only output ending with exactly one trailing newline, got %q", encoded)
+		}
+
+		golden, err := os.ReadFile(goldenFoundationManifestPath(t))
+		if err != nil {
+			t.Fatalf("read golden foundation manifest: %v", err)
+		}
+		if !bytes.Equal(encoded, golden) {
+			t.Fatalf("EncodeManifest output does not match tests/golden/foundation-manifest.json:\ngot:  %s\nwant: %s", encoded, golden)
+		}
+	})
+
+	t.Run("BuildFoundationBundle produces byte-identical ZIP, manifest, and checksums across repeated runs", func(t *testing.T) {
+		root := t.TempDir()
+		writeFoundationFixture(t, root)
+
+		first, err := delivery.BuildFoundationBundle(root)
+		if err != nil {
+			t.Fatalf("BuildFoundationBundle (first): %v", err)
+		}
+		second, err := delivery.BuildFoundationBundle(root)
+		if err != nil {
+			t.Fatalf("BuildFoundationBundle (second): %v", err)
+		}
+
+		if !bytes.Equal(first.ZIPBytes, second.ZIPBytes) {
+			t.Fatal("expected byte-identical ZIP bytes across repeated builds of unchanged inputs")
+		}
+		if !bytes.Equal(first.ManifestBytes, second.ManifestBytes) {
+			t.Fatal("expected byte-identical manifest bytes across repeated builds of unchanged inputs")
+		}
+		if first.ZIPChecksum != second.ZIPChecksum || first.ManifestChecksum != second.ManifestChecksum {
+			t.Fatal("expected byte-identical checksums across repeated builds of unchanged inputs")
+		}
+		if len(first.ZIPChecksum) != 64 || len(first.ManifestChecksum) != 64 {
+			t.Fatalf("expected 64-hex-character SHA-256 checksums, got zip=%q manifest=%q", first.ZIPChecksum, first.ManifestChecksum)
+		}
+
+		reader, err := zip.NewReader(bytes.NewReader(first.ZIPBytes), int64(len(first.ZIPBytes)))
+		if err != nil {
+			t.Fatalf("zip.NewReader: %v", err)
+		}
+		if len(reader.File) != len(first.Manifest.Files)+1 {
+			t.Fatalf("zip entry count = %d, want %d (manifest files + the embedded manifest)", len(reader.File), len(first.Manifest.Files)+1)
+		}
+		seenNames := map[string]bool{}
+		for _, zipEntry := range reader.File {
+			seenNames[zipEntry.Name] = true
+			if strings.Contains(zipEntry.Name, "\\") {
+				t.Fatalf("zip entry %q must use forward slashes only", zipEntry.Name)
+			}
+			if zipEntry.Mode().Perm() != 0o644 {
+				t.Fatalf("zip entry %q mode = %v, want 0644", zipEntry.Name, zipEntry.Mode().Perm())
+			}
+			wantEpoch := time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)
+			if !zipEntry.Modified.Equal(wantEpoch) {
+				t.Fatalf("zip entry %q Modified = %v, want the fixed epoch %v (no machine timestamp)", zipEntry.Name, zipEntry.Modified, wantEpoch)
+			}
+		}
+		for _, file := range first.Manifest.Files {
+			if !seenNames[file.Path] {
+				t.Fatalf("expected manifest entry %q to be present as a zip entry", file.Path)
+			}
+		}
+		if !seenNames["foundation-manifest.json"] {
+			t.Fatal("expected the zip to embed foundation-manifest.json")
+		}
+
+		manifestZipFile, err := reader.Open("foundation-manifest.json")
+		if err != nil {
+			t.Fatalf("open embedded manifest: %v", err)
+		}
+		defer manifestZipFile.Close()
+		var decodedManifest struct {
+			SchemaVersion int `json:"schema_version"`
+			Files         []struct {
+				Path   string `json:"path"`
+				SHA256 string `json:"sha256"`
+				Size   int64  `json:"size"`
+			} `json:"files"`
+		}
+		if err := json.NewDecoder(manifestZipFile).Decode(&decodedManifest); err != nil {
+			t.Fatalf("decode embedded manifest: %v", err)
+		}
+		if decodedManifest.SchemaVersion != 1 {
+			t.Fatalf("embedded manifest schema_version = %d, want 1", decodedManifest.SchemaVersion)
+		}
+		if len(decodedManifest.Files) != len(first.Manifest.Files) {
+			t.Fatalf("embedded manifest has %d files, want %d", len(decodedManifest.Files), len(first.Manifest.Files))
+		}
+	})
+
+	t.Run("WriteFoundationBundle writes the ZIP, manifest, and sha256 sidecar to the fixed output paths", func(t *testing.T) {
+		root := t.TempDir()
+		writeFoundationFixture(t, root)
+
+		bundle, err := delivery.BuildFoundationBundle(root)
+		if err != nil {
+			t.Fatalf("BuildFoundationBundle: %v", err)
+		}
+		paths := delivery.DefaultFoundationOutputPaths(root)
+		if err := delivery.WriteFoundationBundle(bundle, paths); err != nil {
+			t.Fatalf("WriteFoundationBundle: %v", err)
+		}
+
+		zipBytes, err := os.ReadFile(paths.ZIPPath)
+		if err != nil {
+			t.Fatalf("read written zip: %v", err)
+		}
+		if !bytes.Equal(zipBytes, bundle.ZIPBytes) {
+			t.Fatal("expected the written zip file to match bundle.ZIPBytes exactly")
+		}
+
+		checksumBytes, err := os.ReadFile(paths.ChecksumPath)
+		if err != nil {
+			t.Fatalf("read written checksum sidecar: %v", err)
+		}
+		wantChecksumLine := bundle.ZIPChecksum + "  golc-foundation-windows-amd64.zip\n"
+		if string(checksumBytes) != wantChecksumLine {
+			t.Fatalf("checksum sidecar = %q, want %q", checksumBytes, wantChecksumLine)
+		}
+
+		// A second write must replace the prior output at the exact same
+		// path rather than accumulating a second differently-named
+		// artifact (offline.ps1 -Mode package's repeat-and-compare
+		// verification depends on this fixed identity).
+		if err := delivery.WriteFoundationBundle(bundle, paths); err != nil {
+			t.Fatalf("WriteFoundationBundle (second write): %v", err)
+		}
+		zipBytesAgain, err := os.ReadFile(paths.ZIPPath)
+		if err != nil {
+			t.Fatalf("read written zip (second write): %v", err)
+		}
+		if !bytes.Equal(zipBytesAgain, bundle.ZIPBytes) {
+			t.Fatal("expected the second write to leave byte-identical output at the same fixed path")
+		}
+	})
+}
+
+// writeFoundationFixture writes a minimal, self-contained repository tree
+// under root that FoundationInventory/BuildFoundationBundle can operate
+// on: config/commands.toml (with an exact, deterministic
+// entrypoint/cli_binary/go_version so LoadGraph succeeds), one additional
+// config concern file, one nested integrations concern file, the
+// entrypoint and cli_binary files themselves, docs/development.md, and
+// two schema fixtures — deliberately independent of the real repository's
+// current file set so this fixture (and the golden manifest it produces)
+// never drifts when the real repository gains or loses files.
+func writeFoundationFixture(t *testing.T, root string) {
+	t.Helper()
+	files := map[string]string{
+		"golc.ps1":                                          "REM golc.ps1 fixture entrypoint\n",
+		"golc.project.toml":                                 "schema_version = 1\n",
+		"docs/development.md":                               "# Fixture Docs\n",
+		"config/commands.toml":                              "schema_version = 1\n\n[commands]\nentrypoint = \"golc.ps1\"\ncli_binary = \".tools/installs/golc_project/bin/golc-project.exe\"\ngo_version = \"1.26.5\"\n",
+		"config/toolchain.toml":                             "schema_version = 1\n",
+		"config/integrations/linear.toml":                   "schema_version = 1\n",
+		"schemas/golc-project.schema.json":                  "{}\n",
+		"schemas/config-commands.schema.json":               "{}\n",
+		".tools/installs/golc_project/bin/golc-project.exe": "fixture binary payload\n",
+	}
+	for relative, content := range files {
+		fullPath := filepath.Join(root, filepath.FromSlash(relative))
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
+			t.Fatalf("mkdir for %s: %v", relative, err)
+		}
+		if err := os.WriteFile(fullPath, []byte(content), 0o644); err != nil {
+			t.Fatalf("write %s: %v", relative, err)
+		}
+	}
+}
+
+// goldenFoundationManifestPath locates the committed golden fixture
+// tests/golden/foundation-manifest.json by walking up from the current
+// working directory (go test's working directory is always the package
+// directory, internal/delivery) to the repository root.
+func goldenFoundationManifestPath(t *testing.T) string {
+	t.Helper()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("os.Getwd: %v", err)
+	}
+	// internal/delivery -> internal -> repository root
+	repoRoot := filepath.Dir(filepath.Dir(wd))
+	return filepath.Join(repoRoot, "tests", "golden", "foundation-manifest.json")
 }
