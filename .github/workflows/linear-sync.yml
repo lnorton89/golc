@@ -1,0 +1,155 @@
+# GOLC protected/manual Linear synchronization workflow (CONTEXT D-16
+# through D-21).
+#
+# This workflow is never triggered by a pull_request, push, schedule, or
+# repository_dispatch event: its only trigger is an explicit
+# workflow_dispatch, so mutation authority can never be gained through a
+# second, untrusted entry point (D-16). linear-drift is manual and
+# read-only -- it needs no protected environment. linear-apply
+# additionally requires the "linear-production" protected GitHub
+# Environment (a required-reviewer approval gate configured at the
+# repository level) and only ever runs when the operator typed the exact
+# literal "CONFIRM" into confirm_apply; every other confirm_apply value,
+# including a blank one, makes the apply job's own `if:` condition skip it
+# entirely, before any checkout, secret, or command runs.
+#
+# Even if this YAML were ever misconfigured, disabled, or bypassed,
+# internal/trace/apply/guard.go's GuardAgainstPullRequestMutation refuses
+# to mutate from a pull_request-triggered CI event independent of this
+# file, and internal/command/linear.go's self-registered exact routes plus
+# apply.ValidatePlanIntegrity/ValidatePlanFreshness/decodeAndValidatePlanStrict
+# remain the sole runtime authority over what a plan is allowed to do
+# (T-01-45) -- this workflow can request an apply, but it can never make
+# apply accept a plan the Go engine itself would reject.
+#
+# LINEAR_API_KEY/LINEAR_TEAM_ID are read from repository/environment
+# secrets and materialized into a local .env only inside each job's own
+# "linear drift"/"linear apply" step, inside a try/finally: the finally
+# block removes .env on success, on failure, and (via the separate
+# always()-gated cleanup step below, defense in depth against a step being
+# force-terminated on cancellation before its own finally can run) on
+# cancellation too. No step here ever echoes, logs, or passes a secret
+# value as a command-line argument; golc.ps1's linear routes read
+# LINEAR_API_KEY/LINEAR_TEAM_ID only from the process environment.
+name: linear-sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      plan_file:
+        description: "Repository-relative path to the already-reviewed preview plan file (required for linear-apply; ignored by linear-drift)."
+        required: false
+        type: string
+      plan_id:
+        description: "The exact plan_id the reviewed plan file itself declares (required for linear-apply; linear.go rejects any mismatch)."
+        required: false
+        type: string
+      confirm_apply:
+        description: 'Type the exact literal CONFIRM to run linear-apply. Any other value (including blank) only ever runs linear-drift.'
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  linear-drift:
+    name: linear-drift (read-only, manual)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: bootstrap --include linear-sync
+        run: powershell -NoProfile -File .\golc.ps1 bootstrap --include linear-sync
+
+      - name: build --scope linear-sdk
+        run: powershell -NoProfile -File .\golc.ps1 build --scope linear-sdk
+
+      - name: linear drift --remote --read-only
+        shell: powershell
+        env:
+          LINEAR_API_KEY_SECRET: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_ID_SECRET: ${{ secrets.LINEAR_TEAM_ID }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          try {
+            if ([string]::IsNullOrWhiteSpace($env:LINEAR_API_KEY_SECRET)) {
+              Write-Output "linear-sync: LINEAR_API_KEY is not configured; real remote drift is pending until reviewed taxonomy/credentials are available (CONTEXT D-21) -- this is not a failure."
+              exit 0
+            }
+            Set-Content -LiteralPath .env -Value "LINEAR_API_KEY=$($env:LINEAR_API_KEY_SECRET)`nLINEAR_TEAM_ID=$($env:LINEAR_TEAM_ID_SECRET)`n" -NoNewline -Encoding ascii
+            $env:LINEAR_API_KEY = $env:LINEAR_API_KEY_SECRET
+            $env:LINEAR_TEAM_ID = $env:LINEAR_TEAM_ID_SECRET
+            powershell -NoProfile -File .\golc.ps1 linear drift --remote --read-only
+            if ($LASTEXITCODE -ne 0) {
+              throw "linear drift --remote --read-only exited $LASTEXITCODE"
+            }
+          }
+          finally {
+            Remove-Item -LiteralPath .env -Force -ErrorAction SilentlyContinue
+            Remove-Item Env:\LINEAR_API_KEY -ErrorAction SilentlyContinue
+            Remove-Item Env:\LINEAR_TEAM_ID -ErrorAction SilentlyContinue
+          }
+
+      - name: Ensure no ephemeral .env survives (defense in depth)
+        if: always()
+        shell: powershell
+        run: Remove-Item -LiteralPath .env -Force -ErrorAction SilentlyContinue
+
+  linear-apply:
+    name: linear-apply (protected, manual)
+    if: ${{ github.event.inputs.confirm_apply == 'CONFIRM' }}
+    needs: linear-drift
+    environment: linear-production
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Require plan_file and plan_id inputs
+        shell: powershell
+        run: |
+          if ([string]::IsNullOrWhiteSpace("${{ github.event.inputs.plan_file }}") -or [string]::IsNullOrWhiteSpace("${{ github.event.inputs.plan_id }}")) {
+            throw "linear-apply requires both plan_file and plan_id inputs"
+          }
+
+      - name: bootstrap --include linear-sync
+        run: powershell -NoProfile -File .\golc.ps1 bootstrap --include linear-sync
+
+      - name: build --scope linear-sdk
+        run: powershell -NoProfile -File .\golc.ps1 build --scope linear-sdk
+
+      - name: linear apply (exact plan, protected environment)
+        shell: powershell
+        env:
+          LINEAR_API_KEY_SECRET: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_ID_SECRET: ${{ secrets.LINEAR_TEAM_ID }}
+          GOLC_PLAN_FILE: ${{ github.event.inputs.plan_file }}
+          GOLC_PLAN_ID: ${{ github.event.inputs.plan_id }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          try {
+            if ([string]::IsNullOrWhiteSpace($env:LINEAR_API_KEY_SECRET)) {
+              Write-Output "linear-sync: LINEAR_API_KEY is not configured; real remote apply is pending until reviewed taxonomy/credentials are available (CONTEXT D-21) -- this is not a failure, and no plan is applied."
+              exit 0
+            }
+            Set-Content -LiteralPath .env -Value "LINEAR_API_KEY=$($env:LINEAR_API_KEY_SECRET)`nLINEAR_TEAM_ID=$($env:LINEAR_TEAM_ID_SECRET)`n" -NoNewline -Encoding ascii
+            $env:LINEAR_API_KEY = $env:LINEAR_API_KEY_SECRET
+            $env:LINEAR_TEAM_ID = $env:LINEAR_TEAM_ID_SECRET
+            powershell -NoProfile -File .\golc.ps1 linear apply $env:GOLC_PLAN_FILE --plan-id $env:GOLC_PLAN_ID
+            if ($LASTEXITCODE -ne 0) {
+              throw "linear apply exited $LASTEXITCODE"
+            }
+          }
+          finally {
+            Remove-Item -LiteralPath .env -Force -ErrorAction SilentlyContinue
+            Remove-Item Env:\LINEAR_API_KEY -ErrorAction SilentlyContinue
+            Remove-Item Env:\LINEAR_TEAM_ID -ErrorAction SilentlyContinue
+          }
+
+      - name: Ensure no ephemeral .env survives (defense in depth)
+        if: always()
+        shell: powershell
+        run: Remove-Item -LiteralPath .env -Force -ErrorAction SilentlyContinue

@@ -655,19 +655,50 @@ function Invoke-WorkflowAcceptance {
     Write-Output "Workflow acceptance: linear-sync.yml has no pull_request trigger, is workflow_dispatch-only, and declares plan_file/plan_id/confirm_apply/finally/environment."
 
     # Runtime guards remain authoritative even if the workflow YAML were
-    # bypassed: PR-triggered mutation is refused independent of the caller.
-    $env:GITHUB_EVENT_NAME = "pull_request"
+    # bypassed: PR-triggered mutation is refused independent of the caller
+    # -- proved against a real, hash-valid plan file (not a decode
+    # failure) so the observed diagnostic is unambiguously the PR guard,
+    # not an earlier parse error.
+    $workDir = Join-Path ([System.IO.Path]::GetTempPath()) ("golc-linear-transport-workflow-" + [guid]::NewGuid().ToString("N"))
+    $fakeWorkspace = Join-Path $workDir "fake-sdk-workspace"
+    $callLogPath = Join-Path $workDir "call-log.jsonl"
+    $storePath = Join-Path $workDir "store.json"
+    $guardPlanPath = Join-Path $workDir "guard-plan.json"
+    New-Item -ItemType Directory -Path $workDir -Force | Out-Null
     try {
-        $guardResult = Invoke-Golc -RepositoryRoot $RepositoryUnderTest -CommandArguments @("linear", "apply", (Join-Path $RepositoryUnderTest ".planning\linear-map.json"), "--plan-id", "deadbeef")
-        if ($guardResult.ExitCode -eq 0) {
-            throw "LINEAR_SYNC_PR_GUARD_BYPASSED: linear apply must refuse to run under GITHUB_EVENT_NAME=pull_request"
+        New-FakeLinearSdkWorkspace -RepositoryUnderTest $RepositoryUnderTest -WorkspaceRoot $fakeWorkspace -CallLogPath $callLogPath -StorePath $storePath | Out-Null
+        $env:LINEAR_API_KEY = "golc-acceptance-fake-key"
+        $env:LINEAR_TEAM_ID = "golc-acceptance-fake-team"
+        $env:GOLC_LINEAR_SYNC_WORKDIR = $fakeWorkspace
+        try {
+            $guardPreviewResult = Invoke-Golc -RepositoryRoot $RepositoryUnderTest -CommandArguments @("linear", "preview", "--remote", "--out", $guardPlanPath)
+            Assert-GolcSucceeded -Result $guardPreviewResult -Operation "linear preview --remote (guard fixture)"
+            $guardPlan = Get-Content -LiteralPath $guardPlanPath -Raw | ConvertFrom-Json
         }
-        if (-not ($guardResult.StdErrText.Contains("GOLC_APPLY_PR_BLOCKED") -or $guardResult.StdErrText.Contains("GOLC_LINEAR_APPLY_PLAN_DECODE"))) {
-            throw "LINEAR_SYNC_PR_GUARD_WRONG_DIAGNOSTIC: $($guardResult.StdErrText.Trim())"
+        finally {
+            Remove-Item Env:\LINEAR_API_KEY -ErrorAction SilentlyContinue
+            Remove-Item Env:\LINEAR_TEAM_ID -ErrorAction SilentlyContinue
+            Remove-Item Env:\GOLC_LINEAR_SYNC_WORKDIR -ErrorAction SilentlyContinue
+        }
+
+        $env:GITHUB_EVENT_NAME = "pull_request"
+        try {
+            $guardResult = Invoke-Golc -RepositoryRoot $RepositoryUnderTest -CommandArguments @("linear", "apply", $guardPlanPath, "--plan-id", $guardPlan.plan_id)
+            if ($guardResult.ExitCode -eq 0) {
+                throw "LINEAR_SYNC_PR_GUARD_BYPASSED: linear apply must refuse to run under GITHUB_EVENT_NAME=pull_request"
+            }
+            if (-not $guardResult.StdErrText.Contains("GOLC_APPLY_PR_BLOCKED")) {
+                throw "LINEAR_SYNC_PR_GUARD_WRONG_DIAGNOSTIC: $($guardResult.StdErrText.Trim())"
+            }
+        }
+        finally {
+            Remove-Item Env:\GITHUB_EVENT_NAME -ErrorAction SilentlyContinue
         }
     }
     finally {
-        Remove-Item Env:\GITHUB_EVENT_NAME -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $workDir) {
+            Remove-Item -LiteralPath $workDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
     Write-Output "Workflow acceptance: the runtime PR guard (GuardAgainstPullRequestMutation) is reachable and authoritative independent of the workflow YAML."
 }
