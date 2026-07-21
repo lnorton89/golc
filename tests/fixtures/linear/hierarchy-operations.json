@@ -1,0 +1,314 @@
+{
+  "schemaVersion": 1,
+  "entities": [
+    {
+      "entity": "project",
+      "create": {
+        "input": {
+          "name": "GOLC v1.0",
+          "teamIds": ["team-golc-core"],
+          "description": "Delivery traceability for the v1.0 milestone."
+        },
+        "linearUUID": "fake-project-1",
+        "sdkOutput": {
+          "id": "fake-project-1",
+          "name": "GOLC v1.0",
+          "description": "Delivery traceability for the v1.0 milestone.",
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        "record": {
+          "linearUUID": "fake-project-1",
+          "linearType": "project",
+          "title": "GOLC v1.0",
+          "description": "Delivery traceability for the v1.0 milestone.",
+          "fields": {},
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      },
+      "update": {
+        "input": {
+          "description": "Delivery traceability for the v1.0 milestone (revised)."
+        },
+        "sdkOutput": {
+          "id": "fake-project-1",
+          "name": "GOLC v1.0",
+          "description": "Delivery traceability for the v1.0 milestone (revised).",
+          "updatedAt": "2026-01-02T00:00:00.000Z"
+        },
+        "record": {
+          "linearUUID": "fake-project-1",
+          "linearType": "project",
+          "title": "GOLC v1.0",
+          "description": "Delivery traceability for the v1.0 milestone (revised).",
+          "fields": {},
+          "updatedAt": "2026-01-02T00:00:00.000Z"
+        }
+      },
+      "calls": [
+        {
+          "method": "createProject",
+          "input": {
+            "name": "GOLC v1.0",
+            "teamIds": ["team-golc-core"],
+            "description": "Delivery traceability for the v1.0 milestone."
+          }
+        },
+        { "method": "project", "input": "fake-project-1" },
+        {
+          "method": "updateProject",
+          "input": ["fake-project-1", { "description": "Delivery traceability for the v1.0 milestone (revised)." }]
+        },
+        { "method": "project", "input": "fake-project-1" },
+        { "method": "project", "input": "fake-project-1" }
+      ]
+    },
+    {
+      "entity": "project_milestone",
+      "create": {
+        "input": {
+          "name": "Phase 1: Offline Foundation",
+          "description": "Offline foundation and delivery traceability.",
+          "projectId": "fake-project-1"
+        },
+        "linearUUID": "fake-milestone-1",
+        "sdkOutput": {
+          "id": "fake-milestone-1",
+          "name": "Phase 1: Offline Foundation",
+          "description": "Offline foundation and delivery traceability.",
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        "record": {
+          "linearUUID": "fake-milestone-1",
+          "linearType": "project_milestone",
+          "title": "Phase 1: Offline Foundation",
+          "description": "Offline foundation and delivery traceability.",
+          "fields": {},
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      },
+      "update": {
+        "input": {
+          "targetDate": "2026-08-01"
+        },
+        "sdkOutput": {
+          "id": "fake-milestone-1",
+          "name": "Phase 1: Offline Foundation",
+          "description": "Offline foundation and delivery traceability.",
+          "updatedAt": "2026-01-02T00:00:00.000Z"
+        },
+        "record": {
+          "linearUUID": "fake-milestone-1",
+          "linearType": "project_milestone",
+          "title": "Phase 1: Offline Foundation",
+          "description": "Offline foundation and delivery traceability.",
+          "fields": {},
+          "updatedAt": "2026-01-02T00:00:00.000Z"
+        }
+      },
+      "calls": [
+        {
+          "method": "createProjectMilestone",
+          "input": {
+            "name": "Phase 1: Offline Foundation",
+            "description": "Offline foundation and delivery traceability.",
+            "projectId": "fake-project-1"
+          }
+        },
+        { "method": "projectMilestone", "input": "fake-milestone-1" },
+        {
+          "method": "updateProjectMilestone",
+          "input": ["fake-milestone-1", { "targetDate": "2026-08-01" }]
+        },
+        { "method": "projectMilestone", "input": "fake-milestone-1" },
+        { "method": "projectMilestone", "input": "fake-milestone-1" }
+      ]
+    },
+    {
+      "entity": "parent_issue",
+      "create": {
+        "input": {
+          "title": "Phase 1 Plan 25: Contract-test the hierarchy",
+          "description": "Parent issue for Plan 01-25.",
+          "teamId": "team-golc-core",
+          "projectId": "fake-project-1",
+          "projectMilestoneId": "fake-milestone-1"
+        },
+        "linearUUID": "fake-parent-issue-1",
+        "sdkOutput": {
+          "id": "fake-parent-issue-1",
+          "title": "Phase 1 Plan 25: Contract-test the hierarchy",
+          "description": "Parent issue for Plan 01-25.",
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        "record": {
+          "linearUUID": "fake-parent-issue-1",
+          "linearType": "parent_issue",
+          "title": "Phase 1 Plan 25: Contract-test the hierarchy",
+          "description": "Parent issue for Plan 01-25.",
+          "fields": {},
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      },
+      "update": {
+        "input": {
+          "description": "Parent issue for Plan 01-25 (revised)."
+        },
+        "sdkOutput": {
+          "id": "fake-parent-issue-1",
+          "title": "Phase 1 Plan 25: Contract-test the hierarchy",
+          "description": "Parent issue for Plan 01-25 (revised).",
+          "updatedAt": "2026-01-02T00:00:00.000Z"
+        },
+        "record": {
+          "linearUUID": "fake-parent-issue-1",
+          "linearType": "parent_issue",
+          "title": "Phase 1 Plan 25: Contract-test the hierarchy",
+          "description": "Parent issue for Plan 01-25 (revised).",
+          "fields": {},
+          "updatedAt": "2026-01-02T00:00:00.000Z"
+        }
+      },
+      "calls": [
+        {
+          "method": "createIssue",
+          "input": {
+            "title": "Phase 1 Plan 25: Contract-test the hierarchy",
+            "description": "Parent issue for Plan 01-25.",
+            "teamId": "team-golc-core",
+            "projectId": "fake-project-1",
+            "projectMilestoneId": "fake-milestone-1"
+          }
+        },
+        { "method": "issue", "input": "fake-parent-issue-1" },
+        {
+          "method": "updateIssue",
+          "input": ["fake-parent-issue-1", { "description": "Parent issue for Plan 01-25 (revised)." }]
+        },
+        { "method": "issue", "input": "fake-parent-issue-1" },
+        { "method": "issue", "input": "fake-parent-issue-1" }
+      ]
+    },
+    {
+      "entity": "requirement_issue",
+      "create": {
+        "input": {
+          "title": "CONF-01: centralized bootstrap command",
+          "teamId": "team-golc-core",
+          "projectId": "fake-project-1",
+          "parentId": "fake-parent-issue-1",
+          "labelIds": ["label-requirement"]
+        },
+        "linearUUID": "fake-requirement-issue-1",
+        "sdkOutput": {
+          "id": "fake-requirement-issue-1",
+          "title": "CONF-01: centralized bootstrap command",
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        "record": {
+          "linearUUID": "fake-requirement-issue-1",
+          "linearType": "requirement_issue",
+          "title": "CONF-01: centralized bootstrap command",
+          "description": "",
+          "fields": {},
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      },
+      "update": {
+        "input": {
+          "labelIds": ["label-requirement", "label-phase-1"]
+        },
+        "sdkOutput": {
+          "id": "fake-requirement-issue-1",
+          "title": "CONF-01: centralized bootstrap command",
+          "updatedAt": "2026-01-02T00:00:00.000Z"
+        },
+        "record": {
+          "linearUUID": "fake-requirement-issue-1",
+          "linearType": "requirement_issue",
+          "title": "CONF-01: centralized bootstrap command",
+          "description": "",
+          "fields": {},
+          "updatedAt": "2026-01-02T00:00:00.000Z"
+        }
+      },
+      "calls": [
+        {
+          "method": "createIssue",
+          "input": {
+            "title": "CONF-01: centralized bootstrap command",
+            "teamId": "team-golc-core",
+            "projectId": "fake-project-1",
+            "parentId": "fake-parent-issue-1",
+            "labelIds": ["label-requirement"]
+          }
+        },
+        { "method": "issue", "input": "fake-requirement-issue-1" },
+        {
+          "method": "updateIssue",
+          "input": ["fake-requirement-issue-1", { "labelIds": ["label-requirement", "label-phase-1"] }]
+        },
+        { "method": "issue", "input": "fake-requirement-issue-1" },
+        { "method": "issue", "input": "fake-requirement-issue-1" }
+      ]
+    },
+    {
+      "entity": "task_subissue",
+      "create": {
+        "input": {
+          "title": "Task 01-25.1: contract-test the hierarchy",
+          "teamId": "team-golc-core",
+          "parentId": "fake-parent-issue-1"
+        },
+        "linearUUID": "fake-task-subissue-1",
+        "sdkOutput": {
+          "id": "fake-task-subissue-1",
+          "title": "Task 01-25.1: contract-test the hierarchy",
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        "record": {
+          "linearUUID": "fake-task-subissue-1",
+          "linearType": "task_subissue",
+          "title": "Task 01-25.1: contract-test the hierarchy",
+          "description": "",
+          "fields": {},
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      },
+      "update": {
+        "input": {
+          "title": "Task 01-25.1: contract-test the hierarchy (in review)"
+        },
+        "sdkOutput": {
+          "id": "fake-task-subissue-1",
+          "title": "Task 01-25.1: contract-test the hierarchy (in review)",
+          "updatedAt": "2026-01-02T00:00:00.000Z"
+        },
+        "record": {
+          "linearUUID": "fake-task-subissue-1",
+          "linearType": "task_subissue",
+          "title": "Task 01-25.1: contract-test the hierarchy (in review)",
+          "description": "",
+          "fields": {},
+          "updatedAt": "2026-01-02T00:00:00.000Z"
+        }
+      },
+      "calls": [
+        {
+          "method": "createIssue",
+          "input": {
+            "title": "Task 01-25.1: contract-test the hierarchy",
+            "teamId": "team-golc-core",
+            "parentId": "fake-parent-issue-1"
+          }
+        },
+        { "method": "issue", "input": "fake-task-subissue-1" },
+        {
+          "method": "updateIssue",
+          "input": ["fake-task-subissue-1", { "title": "Task 01-25.1: contract-test the hierarchy (in review)" }]
+        },
+        { "method": "issue", "input": "fake-task-subissue-1" },
+        { "method": "issue", "input": "fake-task-subissue-1" }
+      ]
+    }
+  ]
+}
