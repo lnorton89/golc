@@ -9,8 +9,11 @@
 # --- Secrets & environment ---------------------------------------------------
 
 # Environment files are never committed; external names are documented in safe examples.
+# The safe example itself (.env.example: names and empty placeholders only,
+# D-19) is deliberately re-included below so it stays trackable.
 .env
 .env.*
+!.env.example
 
 # --- GOLC bootstrap & machine-local state ------------------------------------
 

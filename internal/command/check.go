@@ -27,12 +27,15 @@ package command
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/lnorton89/golc/internal/contracts"
 	"github.com/lnorton89/golc/internal/delivery"
 	"github.com/lnorton89/golc/internal/projectconfig"
+	"github.com/lnorton89/golc/internal/security"
 )
 
 var _ = MustDeclareScope(ScopeRegistration{
@@ -214,5 +217,45 @@ func runProjectCheck(root string) Result {
 	}
 	report.WriteString("check --concern project: every committed schema matches its generated source.\n")
 
+	sources, err := canaryScanSources(root, resolved)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte("GOLC_CHECK_PROJECT_CANARY: " + err.Error() + "\n")}
+	}
+	if violations := security.ScanCanaryAll(sources); len(violations) > 0 {
+		details := make([]string, 0, len(violations))
+		for _, violation := range violations {
+			details = append(details, fmt.Sprintf("%s (token %q)", violation.Source, violation.Token))
+		}
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
+			"GOLC_CHECK_PROJECT_CANARY: fake-secret bytes found: %s\n", strings.Join(details, "; ")))}
+	}
+	report.WriteString("check --concern project: no fake-secret bytes found across generated schemas and the Linear map.\n")
+
 	return Result{Stdout: []byte(report.String())}
+}
+
+// canaryScanSources collects every generated schema (T-01-18: information
+// disclosure) plus the committed Linear map into one named byte set
+// security.ScanCanaryAll can scan in a single pass. It reads only committed
+// repository-relative paths already declared by contracts.RegisteredSchemas
+// and the resolved "linear.mapping_file" canonical key -- no second,
+// independently maintained inventory of scanned artifacts exists elsewhere.
+func canaryScanSources(root string, resolved map[string]string) (map[string][]byte, error) {
+	sources := map[string][]byte{}
+	for _, descriptor := range contracts.RegisteredSchemas() {
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(descriptor.OutputPath)))
+		if err != nil {
+			return nil, fmt.Errorf("%s: %v", descriptor.OutputPath, err)
+		}
+		sources["schema:"+descriptor.OutputPath] = data
+	}
+	if mapPath, declared := resolved["linear.mapping_file"]; declared {
+		full := filepath.Join(root, filepath.FromSlash(mapPath))
+		data, err := os.ReadFile(full)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %v", mapPath, err)
+		}
+		sources["map:"+mapPath] = data
+	}
+	return sources, nil
 }
