@@ -141,11 +141,22 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
 **Plans:** 6 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 02-01-PLAN.md — Fixture validate: canonical capability model, generated versioned schema, strict YAML decode + diagnostics, `golc fixture validate` (FIXT-01/02/04) [Wave 1]
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 02-02-PLAN.md — Fixture identity/hash pinning + provenance, `golc fixture inspect` (FIXT-05/06) [Wave 2]
-- [ ] 02-03-PLAN.md — OFL import: SSRF-guarded fetch/cache, normalize onto canonical model, lossy warnings, `golc fixture import` (FIXT-03/06) [Wave 3]
 - [ ] 02-04-PLAN.md — Pool + deployment domain model + revisioned ShowState, `golc pool/deployment create` (POOL-01/02) [Wave 2]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 02-03-PLAN.md — OFL import: SSRF-guarded fetch/cache, normalize onto canonical model, lossy warnings, `golc fixture import` (FIXT-03/06) [Wave 3]
 - [ ] 02-05-PLAN.md — Pool impact review + integrity/freshness gates + atomic apply, `golc pool update`/`pool apply` (POOL-03/04/05/08) [Wave 3]
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 02-06-PLAN.md — Capability-diff fixture substitution + severity taxonomy, `golc pool substitute` (POOL-06/07/08) [Wave 4]
 
 **Waves:** W1: 02-01 · W2: 02-02, 02-04 · W3: 02-03, 02-05 · W4: 02-06
