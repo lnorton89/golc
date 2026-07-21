@@ -1,0 +1,29 @@
+{
+  "plan_id": "4d397cbb29ffdc351bb0568aff19003dcb16633bd5f390db616b1a4ac562f543",
+  "results": [
+    {
+      "local_id": "milestone:v1",
+      "status": "completed",
+      "linear_uuid": "bbbbbbbb-0000-0000-0000-000000000001",
+      "updated_at": "2026-07-21T00:00:00Z"
+    },
+    {
+      "local_id": "phase:01",
+      "status": "completed",
+      "linear_uuid": "bbbbbbbb-0000-0000-0000-000000000002",
+      "updated_at": "2026-07-21T00:00:00Z"
+    },
+    {
+      "local_id": "plan:01-11",
+      "status": "completed",
+      "linear_uuid": "bbbbbbbb-0000-0000-0000-000000000003",
+      "updated_at": "2026-07-21T00:00:00Z"
+    },
+    {
+      "local_id": "task:01-11.2",
+      "status": "completed",
+      "linear_uuid": "bbbbbbbb-0000-0000-0000-000000000004",
+      "updated_at": "2026-07-21T00:00:00Z"
+    }
+  ]
+}

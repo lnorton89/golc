@@ -1,0 +1,42 @@
+{
+  "description": "Partial-apply fixture (CONTEXT D-21): a four-operation plan (milestone -> phase -> plan -> task) where the plan-level mutation is throttled mid-run. The two operations before it must complete, the throttled operation and everything after it must stop without further writes, and the achieved prefix must be safely resumable by a later apply of the exact same plan.",
+  "intents": [
+    {
+      "local_id": "milestone:v1",
+      "kind": "milestone",
+      "linear_type": "project",
+      "parent_local_id": "project:golc",
+      "fields": { "title": "GOLC v1" }
+    },
+    {
+      "local_id": "phase:01",
+      "kind": "phase",
+      "linear_type": "project_milestone",
+      "parent_local_id": "milestone:v1",
+      "fields": { "title": "Offline Foundation and Delivery Traceability" }
+    },
+    {
+      "local_id": "plan:01-11",
+      "kind": "plan",
+      "linear_type": "issue",
+      "parent_local_id": "phase:01",
+      "fields": { "title": "Plan 01-11" }
+    },
+    {
+      "local_id": "task:01-11.2",
+      "kind": "task",
+      "linear_type": "issue",
+      "parent_local_id": "plan:01-11",
+      "fields": { "title": "Task 2: Journal partial apply and resume an exact achieved prefix" }
+    }
+  ],
+  "mappings": [
+    { "repo_id": "milestone:v1", "linear_type": "project", "status": "pending", "linear_uuid": null, "identifier": null, "url": null },
+    { "repo_id": "phase:01", "linear_type": "project_milestone", "status": "pending", "linear_uuid": null, "identifier": null, "url": null },
+    { "repo_id": "plan:01-11", "linear_type": "issue", "status": "pending", "linear_uuid": null, "identifier": null, "url": null },
+    { "repo_id": "task:01-11.2", "linear_type": "issue", "status": "pending", "linear_uuid": null, "identifier": null, "url": null }
+  ],
+  "baselines": [],
+  "snapshot": { "status": "complete", "records": [] },
+  "fail_local_id": "plan:01-11"
+}

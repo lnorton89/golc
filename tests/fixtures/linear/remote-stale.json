@@ -1,0 +1,30 @@
+{
+  "description": "Stale-plan rejection fixture (CONTEXT D-18): the original preview was built against an empty remote snapshot (a clean create for req:CONF-02), but relevant remote state changed after the preview was produced -- a matching record now exists with different fields -- so recomputing the exact same preview from the current inputs no longer produces the same plan_id and apply must reject it before any mutation.",
+  "intents": [
+    {
+      "local_id": "req:CONF-02",
+      "kind": "req",
+      "linear_type": "issue",
+      "parent_local_id": "phase:01",
+      "fields": { "title": "Stale rejection requirement" }
+    }
+  ],
+  "mappings": [
+    { "repo_id": "req:CONF-02", "linear_type": "issue", "status": "pending", "linear_uuid": null, "identifier": null, "url": null }
+  ],
+  "baselines": [],
+  "snapshot": { "status": "complete", "records": [] },
+  "drifted_snapshot": {
+    "status": "complete",
+    "records": [
+      {
+        "linear_uuid": "33333333-3333-3333-3333-333333333333",
+        "linear_type": "issue",
+        "title": "Stale rejection requirement",
+        "description": "Managed by GOLC. Do not edit this footer.\n\n---\nGOLC local ID: req:CONF-02\nGOLC mapping schema: 2\n",
+        "fields": { "title": "Someone else created this before the stale apply attempt" },
+        "updated_at": "2026-07-21T00:00:00Z"
+      }
+    ]
+  }
+}
