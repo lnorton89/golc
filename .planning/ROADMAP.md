@@ -35,13 +35,13 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
   4. Every milestone, phase, requirement, plan, and task can retain a durable local identity and complete planning context while Linear is unavailable.
   5. A contributor can preview an exact reconciliation and, when access is configured outside the repository, rerun it without duplicates; ambiguity, pagination, partial errors, and rate limits are reported without blocking local planning, builds, tests, or runtime operation.
 
-**Plans:** 32 plans (29 executed + 3 gap-closure pending: 01-30, 01-31, 01-32)
+**Plans:** 31/32 plans executed
 **Wave 1**
 
 - [x] 01-01-PLAN.md
 - [x] 01-12-PLAN.md
-- [ ] 01-30-PLAN.md — Gap 1/CR-01: rewire runLinearApply to apply.RunApply (D-18 staleness + D-21 journal resume) so retried apply never duplicates (LINR-03)
-- [ ] 01-31-PLAN.md — Gap 2/CR-02: wrap adapter.ts readOperation in try/catch returning found:false so a read failure can't stall the NDJSON process (LINR-04)
+- [x] 01-30-PLAN.md — Gap 1/CR-01: rewire runLinearApply to apply.RunApply (D-18 staleness + D-21 journal resume) so retried apply never duplicates (LINR-03)
+- [x] 01-31-PLAN.md — Gap 2/CR-02: wrap adapter.ts readOperation in try/catch returning found:false so a read failure can't stall the NDJSON process (LINR-04)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -281,7 +281,7 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Offline Foundation and Delivery Traceability | 29/29 | In Progress|  |
+| 1. Offline Foundation and Delivery Traceability | 31/32 | In Progress|  |
 | 2. Modular Fixtures and Deployments | 0/TBD | Not started | - |
 | 3. Deterministic Show Programming and Playback | 0/TBD | Not started | - |
 | 4. Observable Art-Net Live Output | 0/TBD | Not started | - |
