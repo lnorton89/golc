@@ -1,0 +1,26 @@
+{
+  "description": "Timeout-after-create discovery fixture (CONTEXT D-17/D-21): the preview captured no existing remote record for task:01-11.1, but a prior, interrupted create attempt actually succeeded remotely. Apply must discover the achieved object by its exact D-14 identity footer before ever attempting Create again, so it never leaves more than one remote object.",
+  "intents": [
+    {
+      "local_id": "task:01-11.1",
+      "kind": "task",
+      "linear_type": "issue",
+      "parent_local_id": "plan:01-11",
+      "fields": { "title": "Timeout-after-create task" }
+    }
+  ],
+  "mappings": [
+    { "repo_id": "task:01-11.1", "linear_type": "issue", "status": "pending", "linear_uuid": null, "identifier": null, "url": null },
+    { "repo_id": "plan:01-11", "linear_type": "issue", "status": "linked", "linear_uuid": "55555555-5555-5555-5555-555555555555", "identifier": "GOLC-555", "url": "https://linear.app/golc/issue/GOLC-555" }
+  ],
+  "baselines": [],
+  "snapshot": { "status": "complete", "records": [] },
+  "achieved_record": {
+    "linear_uuid": "44444444-4444-4444-4444-444444444444",
+    "linear_type": "issue",
+    "title": "Timeout-after-create task",
+    "description": "Managed by GOLC. Do not edit this footer.\n\n---\nGOLC local ID: task:01-11.1\nGOLC mapping schema: 2\n",
+    "fields": { "title": "Timeout-after-create task" },
+    "updated_at": "2026-07-21T00:00:00Z"
+  }
+}
