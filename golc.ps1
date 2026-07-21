@@ -30,6 +30,11 @@ $ToolchainManifestPath = Join-Path $RepoRoot "config\toolchain.toml"
 $DownloadsDirectory = Join-Path $RepoRoot ".tools\cache\downloads"
 $GoModCacheDirectory = Join-Path $RepoRoot ".tools\cache\go-mod"
 $GoBuildCacheDirectory = Join-Path $RepoRoot ".tools\cache\go-build"
+# Repository-local GOBIN: mirrors internal/bootstrap/cache.go's
+# ProjectCacheLayout.GoBin exactly, so a project-local Go tool install
+# (for example the pinned Wails CLI a future phase wires in) never lands
+# in a machine-global bin directory.
+$GoBinDirectory = Join-Path $RepoRoot ".tools\cache\go-bin"
 $RecordDirectory = Join-Path $RepoRoot ".tools\manifest"
 $GolcProjectExecutable = Join-Path $RepoRoot ".tools\installs\golc_project\bin\golc-project.exe"
 $InstallManifestName = ".golc-install-manifest.json"
@@ -317,14 +322,18 @@ function Install-ArchivePin {
 }
 
 function Set-ProjectGoEnvironment {
-    <# Repository-local Go paths. GOTOOLCHAIN=local forbids any silent
-       toolchain download or host fallback once bootstrap begins. #>
+    <# Repository-local Go paths (mirrors internal/bootstrap/cache.go's
+       ProjectCacheLayout.Environment()). GOTOOLCHAIN=local forbids any
+       silent toolchain download or host fallback once bootstrap begins;
+       GOBIN keeps any Go-installed tool binary project-local instead of a
+       machine-global bin directory. #>
     [CmdletBinding()]
     param()
 
     $env:GOTOOLCHAIN = "local"
     $env:GOMODCACHE = $GoModCacheDirectory
     $env:GOCACHE = $GoBuildCacheDirectory
+    $env:GOBIN = $GoBinDirectory
     $env:GOFLAGS = "-mod=readonly"
 }
 
@@ -388,7 +397,19 @@ function Invoke-GolcBootstrap {
         if ($cacheSection.ContainsKey("gocache")) {
             $script:GoBuildCacheDirectory = Resolve-CacheDirectory -RelativePath $cacheSection["gocache"]
         }
+        if ($cacheSection.ContainsKey("gobin")) {
+            $script:GoBinDirectory = Resolve-CacheDirectory -RelativePath $cacheSection["gobin"]
+        }
     }
+
+    # Warm the complete project-local cache layout up front (mirrors
+    # internal/bootstrap/cache.go's ProjectCacheLayout.Warm): every
+    # directory is created if missing and never touched if it already
+    # exists, so this step alone is always a safe idempotent no-op.
+    foreach ($cacheDirectory in @($DownloadsDirectory, $GoModCacheDirectory, $GoBuildCacheDirectory, $GoBinDirectory, $RecordDirectory)) {
+        New-Item -ItemType Directory -Path $cacheDirectory -Force | Out-Null
+    }
+    Write-Output "GOLC bootstrap: project-local cache layout warmed (GOBIN=$GoBinDirectory, GOMODCACHE=$GoModCacheDirectory, GOCACHE=$GoBuildCacheDirectory)."
 
     # Tool archive pins (the acceptance harness injects its archive source
     # here; production pins are committed in config/toolchain.toml only).
