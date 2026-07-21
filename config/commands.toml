@@ -12,3 +12,27 @@ schema_version = 1
 entrypoint = "golc.ps1"
 cli_binary = ".tools/installs/golc_project/bin/golc-project.exe"
 go_version = "ref:toolchain.go.version"
+
+# Windows PR CI policy (D-03/D-10/D-16): the exact ordered root-command
+# graph a Windows pull-request job may invoke, plus its network and
+# mutation policy. .github/workflows/check.yml and
+# tests/acceptance/command-parity.ps1 both parse this single authoritative
+# declaration (through the self-registered "check --command-parity" route)
+# rather than each maintaining an independent duplicate inventory. Values
+# stay flat, pattern-matched, comma-separated strings — not a TOML array or
+# table array — because the strict single-authority concern decoder does
+# not decode array-valued keys (the same precedent config/toolchain.toml's
+# per-tool official_host/official_path_prefix keys already establish).
+[commands.pr]
+# Exact ordered "route [--flag ...]" invocations: the same contributor
+# graph (generate --check, check --offline, build, test) plus bootstrap
+# (tool acquisition) and the foundation package build.
+steps = "bootstrap,generate --check,check --offline,build,test,package --foundation"
+# Only "bootstrap" may open a network connection (D-02); every other step
+# runs with network denied, matching internal/delivery's offline core
+# graph exactly.
+network_steps = "bootstrap"
+# No PR step may mutate anything remote (D-16): pull-request CI is
+# read-only end to end. Mutating Linear synchronization only ever runs
+# through an explicit, separate, protected/manual command context.
+mutation_steps = "none"

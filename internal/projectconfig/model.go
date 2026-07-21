@@ -93,6 +93,18 @@ var (
 	fileNamePattern           = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 	envVarNamePattern         = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 	labelNamePattern          = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+	// prStepListPattern is the flat-scalar shape commands.pr.steps must
+	// satisfy: a comma-separated, ordered list of "route [--flag ...]"
+	// invocations (CONTEXT D-03/D-10/D-16). It stays a single pattern-
+	// matched string rather than a TOML array/table because the strict
+	// single-authority decoder does not decode array-valued keys — the
+	// same flat-scalar precedent config/toolchain.toml's per-tool
+	// official_host/official_path_prefix keys already establish.
+	prStepListPattern = regexp.MustCompile(`^[a-z][a-z0-9]*( --?[a-z0-9-]+)*(,[a-z][a-z0-9]*( --?[a-z0-9-]+)*)*$`)
+	// prStepNamesPattern is the flat-scalar shape commands.pr.network_steps
+	// and commands.pr.mutation_steps must satisfy: either the literal
+	// "none" or a comma-separated list of bare route names.
+	prStepNamesPattern = regexp.MustCompile(`^(none|[a-z][a-z0-9]*(,[a-z][a-z0-9]*)*)$`)
 )
 
 // DefaultSpec returns the production Phase 1 concern allocation: exactly
@@ -119,9 +131,12 @@ func DefaultSpec() Spec {
 				ID:   "commands",
 				Path: "config/commands.toml",
 				Keys: map[string]KeySpec{
-					"commands.entrypoint": {Pattern: fileNamePattern},
-					"commands.cli_binary": {Pattern: toolsPathPattern},
-					"commands.go_version": {Pattern: dottedVersionPattern},
+					"commands.entrypoint":        {Pattern: fileNamePattern},
+					"commands.cli_binary":        {Pattern: toolsPathPattern},
+					"commands.go_version":        {Pattern: dottedVersionPattern},
+					"commands.pr.steps":          {Pattern: prStepListPattern},
+					"commands.pr.network_steps":  {Pattern: prStepNamesPattern},
+					"commands.pr.mutation_steps": {Pattern: prStepNamesPattern},
 				},
 			},
 			{
