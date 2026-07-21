@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "description": "Three cursor anomaly scenarios a hostile or buggy transport could produce: an immediately repeated cursor, a null cursor while more pages are claimed to exist, and an indirect loop back to an earlier-seen cursor. Every scenario must produce fetchAllPages complete=false and must never permit an identity or create/preview decision (T-01-39).",
+  "scenarios": [
+    {
+      "name": "repeated_cursor",
+      "pages": [
+        {
+          "requestCursor": null,
+          "nodes": [
+            {
+              "id": "loop-a-1",
+              "title": "Fixture Node loop-a-1",
+              "description": "Fixture node loop-a-1, no GOLC identity marker.",
+              "updatedAt": "2026-07-20T00:00:00.000Z"
+            }
+          ],
+          "pageInfo": {
+            "hasNextPage": true,
+            "endCursor": "cursor-A"
+          }
+        },
+        {
+          "requestCursor": "cursor-A",
+          "nodes": [
+            {
+              "id": "loop-a-2",
+              "title": "Fixture Node loop-a-2",
+              "description": "Fixture node loop-a-2, no GOLC identity marker.",
+              "updatedAt": "2026-07-20T00:00:00.000Z"
+            }
+          ],
+          "pageInfo": {
+            "hasNextPage": true,
+            "endCursor": "cursor-A"
+          }
+        }
+      ],
+      "expectedCode": "LINEAR_PAGINATION_CURSOR_ANOMALY_REPEATED"
+    },
+    {
+      "name": "null_cursor",
+      "pages": [
+        {
+          "requestCursor": null,
+          "nodes": [
+            {
+              "id": "loop-b-1",
+              "title": "Fixture Node loop-b-1",
+              "description": "Fixture node loop-b-1, no GOLC identity marker.",
+              "updatedAt": "2026-07-20T00:00:00.000Z"
+            }
+          ],
+          "pageInfo": {
+            "hasNextPage": true,
+            "endCursor": null
+          }
+        }
+      ],
+      "expectedCode": "LINEAR_PAGINATION_CURSOR_ANOMALY_NULL"
+    },
+    {
+      "name": "indirect_loop",
+      "pages": [
+        {
+          "requestCursor": null,
+          "nodes": [
+            {
+              "id": "loop-c-1",
+              "title": "Fixture Node loop-c-1",
+              "description": "Fixture node loop-c-1, no GOLC identity marker.",
+              "updatedAt": "2026-07-20T00:00:00.000Z"
+            }
+          ],
+          "pageInfo": {
+            "hasNextPage": true,
+            "endCursor": "cursor-C1"
+          }
+        },
+        {
+          "requestCursor": "cursor-C1",
+          "nodes": [
+            {
+              "id": "loop-c-2",
+              "title": "Fixture Node loop-c-2",
+              "description": "Fixture node loop-c-2, no GOLC identity marker.",
+              "updatedAt": "2026-07-20T00:00:00.000Z"
+            }
+          ],
+          "pageInfo": {
+            "hasNextPage": true,
+            "endCursor": "cursor-C2"
+          }
+        },
+        {
+          "requestCursor": "cursor-C2",
+          "nodes": [
+            {
+              "id": "loop-c-3",
+              "title": "Fixture Node loop-c-3",
+              "description": "Fixture node loop-c-3, no GOLC identity marker.",
+              "updatedAt": "2026-07-20T00:00:00.000Z"
+            }
+          ],
+          "pageInfo": {
+            "hasNextPage": true,
+            "endCursor": "cursor-C1"
+          }
+        }
+      ],
+      "expectedCode": "LINEAR_PAGINATION_CURSOR_ANOMALY_LOOP"
+    }
+  ]
+}

@@ -38,17 +38,21 @@ network_steps = "bootstrap"
 mutation_steps = "none"
 
 # Linear SDK workspace scopes (Plan 01-13): the isolated tools/linear-sync
-# Node workspace registers exactly two scopes -- "linear-sdk" (build,
-# `build --scope linear-sdk`) and "linear-sdk-operations" (quick test,
+# Node workspace registers exactly three scopes -- "linear-sdk" (build,
+# `build --scope linear-sdk`), "linear-sdk-operations" (quick test,
 # `test --quick --scope linear-sdk-operations`, consumed starting with
-# Plan 01-25's SDK contract tests). Both are self-registered through the
-# same Plan 17 MustDeclareRoute/MustDeclareScope contract
-# internal/command/router.go already establishes
+# Plan 01-25's SDK contract tests), and "linear-transport-pagination"
+# (quick test, `test --quick --scope linear-transport-pagination`,
+# consumed starting with Plan 01-14's exhaustive Relay connection
+# pagination -- T-01-39: every page is consumed and cursor anomalies never
+# reach an identity/create/preview decision). All three are
+# self-registered through the same Plan 17 MustDeclareRoute/
+# MustDeclareScope contract internal/command/router.go already establishes
 # (internal/command/linear_sync.go calls
 # MustDeclareNodeBuildScope/MustDeclareNodeScope), not as machine-readable
 # keys here: config/toolchain.toml's strict single-authority "commands"
 # concern spec (internal/projectconfig/model.go DefaultSpec) owns exactly
-# the six keys above, so this scope pair stays documented here in prose
+# the six keys above, so this scope set stays documented here in prose
 # rather than duplicating a second, competing declaration source. This
 # comment is that documentation, matching commands.toml's existing
 # authority-by-prose precedent for D-16 mutation policy above.

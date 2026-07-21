@@ -1,0 +1,336 @@
+{
+  "schemaVersion": 1,
+  "description": "One connection of 51 objects across two Relay pages (page size 50). Proves fetchAllPages reaches the page-two-only object and its exact GOLC identity footer, never treating page one alone as complete, and that a distinct earlier marker (page one, node 25) survives alongside it without collapsing (T-01-39).",
+  "pageSize": 50,
+  "totalNodes": 51,
+  "pages": [
+    {
+      "requestCursor": null,
+      "nodes": [
+        {
+          "id": "issue-1",
+          "title": "Fixture Issue 1",
+          "description": "Fixture requirement issue #1, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:01.000Z"
+        },
+        {
+          "id": "issue-2",
+          "title": "Fixture Issue 2",
+          "description": "Fixture requirement issue #2, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:02.000Z"
+        },
+        {
+          "id": "issue-3",
+          "title": "Fixture Issue 3",
+          "description": "Fixture requirement issue #3, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:03.000Z"
+        },
+        {
+          "id": "issue-4",
+          "title": "Fixture Issue 4",
+          "description": "Fixture requirement issue #4, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:04.000Z"
+        },
+        {
+          "id": "issue-5",
+          "title": "Fixture Issue 5",
+          "description": "Fixture requirement issue #5, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:05.000Z"
+        },
+        {
+          "id": "issue-6",
+          "title": "Fixture Issue 6",
+          "description": "Fixture requirement issue #6, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:06.000Z"
+        },
+        {
+          "id": "issue-7",
+          "title": "Fixture Issue 7",
+          "description": "Fixture requirement issue #7, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:07.000Z"
+        },
+        {
+          "id": "issue-8",
+          "title": "Fixture Issue 8",
+          "description": "Fixture requirement issue #8, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:08.000Z"
+        },
+        {
+          "id": "issue-9",
+          "title": "Fixture Issue 9",
+          "description": "Fixture requirement issue #9, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:09.000Z"
+        },
+        {
+          "id": "issue-10",
+          "title": "Fixture Issue 10",
+          "description": "Fixture requirement issue #10, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:10.000Z"
+        },
+        {
+          "id": "issue-11",
+          "title": "Fixture Issue 11",
+          "description": "Fixture requirement issue #11, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:11.000Z"
+        },
+        {
+          "id": "issue-12",
+          "title": "Fixture Issue 12",
+          "description": "Fixture requirement issue #12, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:12.000Z"
+        },
+        {
+          "id": "issue-13",
+          "title": "Fixture Issue 13",
+          "description": "Fixture requirement issue #13, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:13.000Z"
+        },
+        {
+          "id": "issue-14",
+          "title": "Fixture Issue 14",
+          "description": "Fixture requirement issue #14, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:14.000Z"
+        },
+        {
+          "id": "issue-15",
+          "title": "Fixture Issue 15",
+          "description": "Fixture requirement issue #15, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:15.000Z"
+        },
+        {
+          "id": "issue-16",
+          "title": "Fixture Issue 16",
+          "description": "Fixture requirement issue #16, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:16.000Z"
+        },
+        {
+          "id": "issue-17",
+          "title": "Fixture Issue 17",
+          "description": "Fixture requirement issue #17, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:17.000Z"
+        },
+        {
+          "id": "issue-18",
+          "title": "Fixture Issue 18",
+          "description": "Fixture requirement issue #18, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:18.000Z"
+        },
+        {
+          "id": "issue-19",
+          "title": "Fixture Issue 19",
+          "description": "Fixture requirement issue #19, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:19.000Z"
+        },
+        {
+          "id": "issue-20",
+          "title": "Fixture Issue 20",
+          "description": "Fixture requirement issue #20, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:20.000Z"
+        },
+        {
+          "id": "issue-21",
+          "title": "Fixture Issue 21",
+          "description": "Fixture requirement issue #21, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:21.000Z"
+        },
+        {
+          "id": "issue-22",
+          "title": "Fixture Issue 22",
+          "description": "Fixture requirement issue #22, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:22.000Z"
+        },
+        {
+          "id": "issue-23",
+          "title": "Fixture Issue 23",
+          "description": "Fixture requirement issue #23, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:23.000Z"
+        },
+        {
+          "id": "issue-24",
+          "title": "Fixture Issue 24",
+          "description": "Fixture requirement issue #24, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:24.000Z"
+        },
+        {
+          "id": "issue-25",
+          "title": "Fixture Issue 25",
+          "description": "Requirement LINR-03 issue body.\n---\nGOLC local ID: req:LINR-03\nGOLC mapping schema: 2\n",
+          "updatedAt": "2026-07-20T00:00:25.000Z"
+        },
+        {
+          "id": "issue-26",
+          "title": "Fixture Issue 26",
+          "description": "Fixture requirement issue #26, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:26.000Z"
+        },
+        {
+          "id": "issue-27",
+          "title": "Fixture Issue 27",
+          "description": "Fixture requirement issue #27, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:27.000Z"
+        },
+        {
+          "id": "issue-28",
+          "title": "Fixture Issue 28",
+          "description": "Fixture requirement issue #28, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:28.000Z"
+        },
+        {
+          "id": "issue-29",
+          "title": "Fixture Issue 29",
+          "description": "Fixture requirement issue #29, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:29.000Z"
+        },
+        {
+          "id": "issue-30",
+          "title": "Fixture Issue 30",
+          "description": "Fixture requirement issue #30, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:30.000Z"
+        },
+        {
+          "id": "issue-31",
+          "title": "Fixture Issue 31",
+          "description": "Fixture requirement issue #31, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:31.000Z"
+        },
+        {
+          "id": "issue-32",
+          "title": "Fixture Issue 32",
+          "description": "Fixture requirement issue #32, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:32.000Z"
+        },
+        {
+          "id": "issue-33",
+          "title": "Fixture Issue 33",
+          "description": "Fixture requirement issue #33, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:33.000Z"
+        },
+        {
+          "id": "issue-34",
+          "title": "Fixture Issue 34",
+          "description": "Fixture requirement issue #34, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:34.000Z"
+        },
+        {
+          "id": "issue-35",
+          "title": "Fixture Issue 35",
+          "description": "Fixture requirement issue #35, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:35.000Z"
+        },
+        {
+          "id": "issue-36",
+          "title": "Fixture Issue 36",
+          "description": "Fixture requirement issue #36, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:36.000Z"
+        },
+        {
+          "id": "issue-37",
+          "title": "Fixture Issue 37",
+          "description": "Fixture requirement issue #37, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:37.000Z"
+        },
+        {
+          "id": "issue-38",
+          "title": "Fixture Issue 38",
+          "description": "Fixture requirement issue #38, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:38.000Z"
+        },
+        {
+          "id": "issue-39",
+          "title": "Fixture Issue 39",
+          "description": "Fixture requirement issue #39, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:39.000Z"
+        },
+        {
+          "id": "issue-40",
+          "title": "Fixture Issue 40",
+          "description": "Fixture requirement issue #40, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:40.000Z"
+        },
+        {
+          "id": "issue-41",
+          "title": "Fixture Issue 41",
+          "description": "Fixture requirement issue #41, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:41.000Z"
+        },
+        {
+          "id": "issue-42",
+          "title": "Fixture Issue 42",
+          "description": "Fixture requirement issue #42, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:42.000Z"
+        },
+        {
+          "id": "issue-43",
+          "title": "Fixture Issue 43",
+          "description": "Fixture requirement issue #43, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:43.000Z"
+        },
+        {
+          "id": "issue-44",
+          "title": "Fixture Issue 44",
+          "description": "Fixture requirement issue #44, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:44.000Z"
+        },
+        {
+          "id": "issue-45",
+          "title": "Fixture Issue 45",
+          "description": "Fixture requirement issue #45, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:45.000Z"
+        },
+        {
+          "id": "issue-46",
+          "title": "Fixture Issue 46",
+          "description": "Fixture requirement issue #46, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:46.000Z"
+        },
+        {
+          "id": "issue-47",
+          "title": "Fixture Issue 47",
+          "description": "Fixture requirement issue #47, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:47.000Z"
+        },
+        {
+          "id": "issue-48",
+          "title": "Fixture Issue 48",
+          "description": "Fixture requirement issue #48, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:48.000Z"
+        },
+        {
+          "id": "issue-49",
+          "title": "Fixture Issue 49",
+          "description": "Fixture requirement issue #49, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:49.000Z"
+        },
+        {
+          "id": "issue-50",
+          "title": "Fixture Issue 50",
+          "description": "Fixture requirement issue #50, no GOLC identity marker.",
+          "updatedAt": "2026-07-20T00:00:50.000Z"
+        }
+      ],
+      "pageInfo": {
+        "hasNextPage": true,
+        "endCursor": "cursor-page-2"
+      }
+    },
+    {
+      "requestCursor": "cursor-page-2",
+      "nodes": [
+        {
+          "id": "issue-51",
+          "title": "Requirement LINR-04 issue",
+          "description": "Requirement LINR-04 issue body.\n---\nGOLC local ID: req:LINR-04\nGOLC mapping schema: 2\n",
+          "updatedAt": "2026-07-20T00:01:00.000Z"
+        }
+      ],
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      }
+    }
+  ],
+  "expectedFooterNodeId": "issue-51",
+  "expectedFooterSubstring": "GOLC local ID: req:LINR-04",
+  "secondMarkerNodeId": "issue-25",
+  "secondMarkerSubstring": "GOLC local ID: req:LINR-03"
+}

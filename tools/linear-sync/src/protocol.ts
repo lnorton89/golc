@@ -209,6 +209,45 @@ export type OperationResult<TOperation extends Operation> = TOperation["action"]
   : MutationResult;
 
 // ---------------------------------------------------------------------------
+// Snapshot (exhaustive connection capture)
+// ---------------------------------------------------------------------------
+
+/**
+ * SnapshotStatus mirrors internal/trace/transport.SnapshotStatus (Go)
+ * exactly -- CONTEXT D-21's complete/incomplete/partial/cursor_anomaly/
+ * ambiguous/rate_limited vocabulary. Plan 01-14's pagination-driven
+ * captureSnapshot (adapter.ts) only ever produces "complete" or
+ * "cursor_anomaly"; "partial" and "rate_limited" are produced starting
+ * with Plan 01-26's GraphQL/rate error normalization (errors.ts), layered
+ * on top of this same Snapshot shape without changing it here.
+ * "incomplete" and "ambiguous" are reserved for future producers and are
+ * declared now only to keep this vocabulary exhaustive and Go-matching.
+ */
+export type SnapshotStatus =
+  | "complete"
+  | "incomplete"
+  | "partial"
+  | "cursor_anomaly"
+  | "ambiguous"
+  | "rate_limited";
+
+/**
+ * Snapshot is the transport-neutral complete-capture outcome this
+ * workspace reports, matching internal/trace/transport.Snapshot (Go)
+ * field names exactly. Only status "complete" may ever feed a
+ * reconciliation preview (CONTEXT D-21); every other status is a
+ * diagnostic that must never reach an identity or create/preview decision
+ * (T-01-39) -- records is always empty whenever status is not "complete",
+ * so an incomplete or anomalous capture can never expose a partial record
+ * set for identity use.
+ */
+export interface Snapshot {
+  status: SnapshotStatus;
+  reason?: string;
+  records: NormalizedRecord[];
+}
+
+// ---------------------------------------------------------------------------
 // Strict decoding
 // ---------------------------------------------------------------------------
 
