@@ -1,0 +1,11 @@
+{
+  "description": "Rename-stability fixture (after): same durable IDs, parents, sources, and mapped_uuid values as catalog-rename-before.json with only display text changed.",
+  "entities": [
+    { "id": "project:golc", "kind": "project", "parent": "", "display": "GOLC (renamed)", "source": ".planning/linear-map.json", "mapped_uuid": null },
+    { "id": "milestone:v1", "kind": "milestone", "parent": "project:golc", "display": "GOLC v1 (renamed)", "source": ".planning/linear-map.json", "mapped_uuid": "11111111-1111-4111-8111-111111111111" },
+    { "id": "phase:01", "kind": "phase", "parent": "milestone:v1", "display": "Offline Foundation and Delivery Traceability", "source": ".planning/ROADMAP.md", "mapped_uuid": null },
+    { "id": "req:TSTA-01", "kind": "req", "parent": "phase:01", "display": "Renamed first requirement text.", "source": ".planning/REQUIREMENTS.md", "mapped_uuid": "22222222-2222-4222-8222-222222222222" },
+    { "id": "plan:01-01", "kind": "plan", "parent": "phase:01", "display": "Plan 01-01 (renamed title)", "source": ".planning/phases/01-test-phase/01-01-PLAN.md", "mapped_uuid": null },
+    { "id": "task:01-01.1", "kind": "task", "parent": "plan:01-01", "display": "Renamed first executable task", "source": ".planning/phases/01-test-phase/01-01-PLAN.md", "mapped_uuid": null }
+  ]
+}
