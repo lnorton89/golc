@@ -35,7 +35,7 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
   4. Every milestone, phase, requirement, plan, and task can retain a durable local identity and complete planning context while Linear is unavailable.
   5. A contributor can preview an exact reconciliation and, when access is configured outside the repository, rerun it without duplicates; ambiguity, pagination, partial errors, and rate limits are reported without blocking local planning, builds, tests, or runtime operation.
 
-**Plans:** 31/32 plans executed
+**Plans:** 32/32 plans executed
 **Wave 1**
 
 - [x] 01-01-PLAN.md
@@ -46,7 +46,7 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 01-16-PLAN.md
-- [ ] 01-32-PLAN.md — Gap 3: check off LINR-01/LINR-02 and certify LINR-03/LINR-04 in REQUIREMENTS.md after the CR-01/CR-02 fixes (runs last)
+- [x] 01-32-PLAN.md — Gap 3: check off LINR-01/LINR-02 and certify LINR-03/LINR-04 in REQUIREMENTS.md after the CR-01/CR-02 fixes (runs last)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -281,7 +281,7 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Offline Foundation and Delivery Traceability | 31/32 | In Progress|  |
+| 1. Offline Foundation and Delivery Traceability | 32/32 | In Progress|  |
 | 2. Modular Fixtures and Deployments | 0/TBD | Not started | - |
 | 3. Deterministic Show Programming and Playback | 0/TBD | Not started | - |
 | 4. Observable Art-Net Live Output | 0/TBD | Not started | - |
