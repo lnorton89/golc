@@ -519,6 +519,69 @@
       "parent_local_id": "plan:01-29",
       "display": "Task 1: Prove deterministic check/write update proposals with zero installation",
       "source": ".planning/phases/01-offline-foundation-and-delivery-traceability/01-29-PLAN.md"
+    },
+    {
+      "local_id": "plan:01-30",
+      "kind": "plan",
+      "parent_local_id": "phase:01",
+      "display": "Plan 01-30",
+      "source": ".planning/phases/01-offline-foundation-and-delivery-traceability/01-30-PLAN.md"
+    },
+    {
+      "local_id": "task:01-30.1",
+      "kind": "task",
+      "parent_local_id": "plan:01-30",
+      "display": "Task 1: Add a failing command-level idempotent-replay test for runLinearApply (RED)",
+      "source": ".planning/phases/01-offline-foundation-and-delivery-traceability/01-30-PLAN.md"
+    },
+    {
+      "local_id": "task:01-30.2",
+      "kind": "task",
+      "parent_local_id": "plan:01-30",
+      "display": "Task 2: Rewire runLinearApply to apply.RunApply with captured snapshot + loaded journal, and document single-use plans (GREEN)",
+      "source": ".planning/phases/01-offline-foundation-and-delivery-traceability/01-30-PLAN.md"
+    },
+    {
+      "local_id": "plan:01-31",
+      "kind": "plan",
+      "parent_local_id": "phase:01",
+      "display": "Plan 01-31",
+      "source": ".planning/phases/01-offline-foundation-and-delivery-traceability/01-31-PLAN.md"
+    },
+    {
+      "local_id": "task:01-31.1",
+      "kind": "task",
+      "parent_local_id": "plan:01-31",
+      "display": "Task 1: Add a failing read-failure test proving a throwing read resolves to found:false (RED)",
+      "source": ".planning/phases/01-offline-foundation-and-delivery-traceability/01-31-PLAN.md"
+    },
+    {
+      "local_id": "task:01-31.2",
+      "kind": "task",
+      "parent_local_id": "plan:01-31",
+      "display": "Task 2: Wrap readOperation's readByEntity call in try/catch returning found:false (GREEN)",
+      "source": ".planning/phases/01-offline-foundation-and-delivery-traceability/01-31-PLAN.md"
+    },
+    {
+      "local_id": "task:01-31.3",
+      "kind": "task",
+      "parent_local_id": "plan:01-31",
+      "display": "Task 3: Add a Go-side acceptance scenario for read-failure recovery under CaptureSnapshot",
+      "source": ".planning/phases/01-offline-foundation-and-delivery-traceability/01-31-PLAN.md"
+    },
+    {
+      "local_id": "plan:01-32",
+      "kind": "plan",
+      "parent_local_id": "phase:01",
+      "display": "Plan 01-32",
+      "source": ".planning/phases/01-offline-foundation-and-delivery-traceability/01-32-PLAN.md"
+    },
+    {
+      "local_id": "task:01-32.1",
+      "kind": "task",
+      "parent_local_id": "plan:01-32",
+      "display": "Task 1: Check off LINR-01/LINR-02 and certify LINR-03/LINR-04 in REQUIREMENTS.md",
+      "source": ".planning/phases/01-offline-foundation-and-delivery-traceability/01-32-PLAN.md"
     }
   ],
   "remote_mappings": [
@@ -1092,6 +1155,78 @@
     },
     {
       "repo_id": "task:01-29.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:01-30",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:01-30.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:01-30.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:01-31",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:01-31.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:01-31.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:01-31.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:01-32",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:01-32.1",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,
