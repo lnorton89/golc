@@ -90,8 +90,9 @@ var _ = MustDeclareRoute(CommandRegistration{
 // with "-", so a flag can never become part of Route either way).
 
 var _ = MustDeclareRoute(CommandRegistration{
-	Route:   "linear apply",
-	Summary: "Apply an exact, already-reviewed reconciliation plan through the injected remote transport: linear apply {plan-file} --plan-id <id>.",
+	Route: "linear apply",
+	Summary: "Apply an exact, already-reviewed reconciliation plan through the injected remote transport: linear apply {plan-file} --plan-id <id>. " +
+		"A plan file is single-use: after any apply attempt, run a fresh \"linear preview\" before applying again; a stale re-apply is rejected by the freshness guard (CONTEXT D-18).",
 	Handler: runLinearApply,
 })
 
@@ -1372,18 +1373,41 @@ func commitApplyResults(root, planFile string, migrated *catalog.Map, results []
 }
 
 // runLinearApply serves the self-registered "linear apply" route (CONTEXT
-// D-17/D-18/D-21): it strictly decodes and validates the plan file, then
-// requires --plan-id to exactly match the loaded plan's own plan_id before
-// anything is attempted (CONTEXT D-17: an exact-plan bound apply never
-// runs against an implicitly selected or approximately matching plan).
-// With no RemoteClientFactory wired, apply fails
+// D-16/D-17/D-18/D-21): it strictly decodes and validates the plan file,
+// then requires --plan-id to exactly match the loaded plan's own plan_id
+// before anything is attempted (CONTEXT D-17: an exact-plan bound apply
+// never runs against an implicitly selected or approximately matching
+// plan). With no RemoteClientFactory wired, apply fails
 // GOLC_LINEAR_TRANSPORT_UNAVAILABLE before any credential, subprocess, or
 // mutation access. Production wiring (applyRemoteClientFactory =
-// newProcessRemoteClient, Plan 01-15) commits every achieved result back
-// into .planning/linear-map.json before returning, so a subsequent
-// preview/apply against the same repository observes it.
+// newProcessRemoteClient, Plan 01-15) reaches the full apply.RunApply
+// orchestration (Plan 01-30 / CR-01): a freshly captured remote snapshot
+// and a freshly loaded on-disk journal feed ValidatePlanFreshness (D-18)
+// and ResumePrefix (D-21), so a stale re-apply of an already-achieved plan
+// file is rejected instead of silently duplicating every not-yet-linked
+// remote object, and a within-lineage retry after a transient failure
+// resumes the exact achieved prefix without replaying it. Every achieved
+// result is committed back into .planning/linear-map.json before
+// returning, so a subsequent preview/apply against the same repository
+// observes it.
+//
+// A plan file produced by "linear preview" is strictly single-use: once
+// any apply attempt against it has committed even one achieved operation,
+// .planning/linear-map.json has moved (CONTEXT D-18), and a later apply of
+// the exact same plan bytes is correctly rejected as stale
+// (GOLC_APPLY_PLAN_STALE) rather than silently re-attempted. Always run a
+// fresh "linear preview" before applying again. This is the deliberate
+// compensating control for processLinearClient.ReadByMarker's permanent
+// stub (WR-05): the compiled adapter has no search-by-marker wire
+// operation, so a not-yet-linked entity can never be discovered by its
+// D-14 identity footer alone -- the freshness guard, not marker discovery,
+// is what makes a stale re-apply safe.
 func runLinearApply(request Request) Result {
-	usage := "linear apply {plan-file} --plan-id <id>"
+	usage := "linear apply {plan-file} --plan-id <id>\n" +
+		"A plan file is single-use: after any apply attempt, run a fresh\n" +
+		"\"linear preview\" before applying again. Re-applying a stale plan is\n" +
+		"rejected by the freshness guard (CONTEXT D-18); it never re-attempts\n" +
+		"or duplicates an already-achieved operation."
 	planFile, planID, err := parseApplyArgs(usage, request.Args)
 	if err != nil {
 		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
@@ -1421,10 +1445,30 @@ func runLinearApply(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
-	results := apply.Apply(client, plan, migrated.RemoteMappings)
-	report := apply.Report{PlanID: plan.PlanID, Results: results}
+	snapshotter, ok := client.(interface {
+		CaptureSnapshot() (transport.Snapshot, error)
+	})
+	if !ok {
+		return Result{ExitCode: 1, Stderr: []byte(
+			"GOLC_LINEAR_TRANSPORT_UNAVAILABLE: transport cannot capture a fresh snapshot\n")}
+	}
+	snapshot, err := snapshotter.CaptureSnapshot()
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
 
-	if err := commitApplyResults(request.Root, resolvedPlanFile, migrated, results, report); err != nil {
+	journalPath := resolvedPlanFile + ".journal.json"
+	journal, err := apply.LoadJournal(journalPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	report, _, err := apply.RunApply(client, plan, intentsFromMigratedMap(migrated), migrated.RemoteMappings, snapshot, nil, journal, os.LookupEnv)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	if err := commitApplyResults(request.Root, resolvedPlanFile, migrated, report.Results, report); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
