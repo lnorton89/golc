@@ -327,6 +327,15 @@ var emptyCompleteSnapshot = transport.Snapshot{Status: transport.SnapshotComplet
 // "linear-apply-replay" (test --quick --scope linear-apply-replay).
 func TestScopeLinearApplyReplay(t *testing.T) {
 	t.Run("stale re-apply of an already-achieved plan is rejected without any duplicate create", func(t *testing.T) {
+		// Isolate from the ambient process environment: runLinearApply's PR
+		// guard (apply.GuardAgainstPullRequestMutation) reads the real
+		// os.LookupEnv, and GitHub Actions sets GITHUB_EVENT_NAME=pull_request
+		// for every pull_request-triggered run -- exactly how this project's
+		// only CI gate (.github/workflows/check.yml) invokes `go test ./...`.
+		// Without this, the test passes locally (unset) but deterministically
+		// fails in CI with GOLC_APPLY_PR_BLOCKED before ever reaching the
+		// staleness/resume logic under test.
+		t.Setenv("GITHUB_EVENT_NAME", "")
 		root := newApplyReplayFixtureRepository(t)
 		plan, planPath := buildAndWriteReplayPlan(t, root, emptyCompleteSnapshot, "apply-plan-a.json")
 
@@ -362,6 +371,10 @@ func TestScopeLinearApplyReplay(t *testing.T) {
 	})
 
 	t.Run("a within-lineage retry after a transient failure resumes without duplicating the achieved prefix", func(t *testing.T) {
+		// See the sibling subtest above: isolate from the ambient
+		// GITHUB_EVENT_NAME so this test does not depend on whether the
+		// process running it happens to be a pull_request-triggered CI job.
+		t.Setenv("GITHUB_EVENT_NAME", "")
 		root := newApplyReplayFixtureRepository(t)
 		snapshot := emptyCompleteSnapshot
 		plan, planPath := buildAndWriteReplayPlan(t, root, snapshot, "apply-plan-b.json")
