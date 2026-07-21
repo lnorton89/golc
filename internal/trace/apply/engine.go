@@ -18,6 +18,7 @@ import (
 
 	"github.com/lnorton89/golc/internal/trace/catalog"
 	"github.com/lnorton89/golc/internal/trace/reconcile"
+	"github.com/lnorton89/golc/internal/trace/transport"
 )
 
 // classifyBlocked determines, before any mutation is attempted, which
@@ -209,8 +210,8 @@ func applyOperations(client RemoteClient, operations []reconcile.Operation, bloc
 }
 
 // achievedPrefix returns the leading contiguous run of
-// completed/noop results -- the exact achieved prefix safe to journal
-// (consumed by RunApply once journal.go exists).
+// completed/noop results -- the exact achieved prefix RunApply journals
+// (CONTEXT D-21).
 func achievedPrefix(results []OperationResult) []OperationResult {
 	prefix := make([]OperationResult, 0, len(results))
 	for _, result := range results {
@@ -238,4 +239,52 @@ func achievedPrefix(results []OperationResult) []OperationResult {
 func Apply(client RemoteClient, plan reconcile.Plan, mappings []catalog.RemoteMapping) []OperationResult {
 	blocked := classifyBlocked(plan.Operations, mappings)
 	return applyOperations(client, plan.Operations, blocked)
+}
+
+// RunApply is the full exact-plan apply orchestration (CONTEXT
+// D-16/D-17/D-18/D-21): it validates the plan's own hash binding
+// (ValidatePlanIntegrity), rejects it if relevant repository or Linear
+// state changed since the preview was produced (ValidatePlanFreshness),
+// refuses to run at all from a pull_request-triggered CI event
+// (GuardAgainstPullRequestMutation), resumes only the exact
+// already-achieved prefix recorded in journal (ResumePrefix), and then
+// attempts exactly the remaining operations (Apply's per-operation
+// engine). It never persists anything itself -- the caller commits the
+// returned Report and Journal together, atomically, through
+// CommitResultAtomically.
+func RunApply(
+	client RemoteClient,
+	plan reconcile.Plan,
+	intents []reconcile.Intent,
+	mappings []catalog.RemoteMapping,
+	snapshot transport.Snapshot,
+	baselines []reconcile.SyncBaseline,
+	journal *Journal,
+	lookupEnv func(string) (string, bool),
+) (Report, Journal, error) {
+	if err := ValidatePlanIntegrity(plan); err != nil {
+		return Report{}, Journal{}, err
+	}
+	if err := ValidatePlanFreshness(plan, intents, mappings, snapshot, baselines); err != nil {
+		return Report{}, Journal{}, err
+	}
+	if err := GuardAgainstPullRequestMutation(lookupEnv); err != nil {
+		return Report{}, Journal{}, err
+	}
+
+	achieved, remaining, err := ResumePrefix(plan, journal, client)
+	if err != nil {
+		return Report{}, Journal{}, err
+	}
+
+	blocked := classifyBlocked(plan.Operations, mappings)
+	fresh := applyOperations(client, remaining, blocked)
+
+	allResults := make([]OperationResult, 0, len(achieved)+len(fresh))
+	allResults = append(allResults, achieved...)
+	allResults = append(allResults, fresh...)
+
+	report := Report{PlanID: plan.PlanID, Results: allResults}
+	newJournal := Journal{PlanID: plan.PlanID, Results: achievedPrefix(allResults)}
+	return report, newJournal, nil
 }
