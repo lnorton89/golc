@@ -31,6 +31,14 @@ var _ = command.MustDeclareScope(command.ScopeRegistration{
 	Summary: "Official-source policy, archive verification, and atomic promotion tests.",
 })
 
+// The bootstrap-cache quick-test scope covers Plan 01-28's project-local
+// cache-layout/offline-environment contract (cache.go) and the directory
+// primitive it shares with bootstrap.go's staged install.
+var _ = command.MustDeclareScope(command.ScopeRegistration{
+	Scope:   "bootstrap-cache",
+	Summary: "Project-local cache layout, offline environment, and directory warming tests.",
+})
+
 // buildArchive writes a zip archive containing the given entry names and
 // contents, returning the archive path and its lowercase hex SHA-256.
 func buildArchive(t *testing.T, dir string, entries map[string]string) (string, string) {
@@ -770,6 +778,204 @@ func TestScopeBootstrapArchive(t *testing.T) {
 		}
 		if len(remaining) != 0 {
 			t.Fatalf("expected no residual staged downloads in %q, found %v", cacheDir, remaining)
+		}
+	})
+}
+
+// TestScopeBootstrapCache is the exact quick-test marker for scope
+// "bootstrap-cache" (test --quick --scope bootstrap-cache). Every subtest
+// exercises only in-memory paths and t.TempDir() fixtures — no archive
+// download, module fetch, or tool install ever happens here, so the
+// registered scope exits 0 offline.
+func TestScopeBootstrapCache(t *testing.T) {
+	t.Run("NewProjectCacheLayout returns every directory contained inside root", func(t *testing.T) {
+		root := t.TempDir()
+		layout, err := NewProjectCacheLayout(root)
+		if err != nil {
+			t.Fatalf("expected a valid root to succeed, got: %v", err)
+		}
+		absoluteRoot, err := filepath.Abs(root)
+		if err != nil {
+			t.Fatalf("resolve absolute root: %v", err)
+		}
+		if layout.Root != absoluteRoot {
+			t.Fatalf("expected Root %q, got %q", absoluteRoot, layout.Root)
+		}
+		for name, path := range map[string]string{
+			"Downloads":    layout.Downloads,
+			"GoModCache":   layout.GoModCache,
+			"GoBuildCache": layout.GoBuildCache,
+			"GoBin":        layout.GoBin,
+			"Manifest":     layout.Manifest,
+		} {
+			if !strings.HasPrefix(path, absoluteRoot+string(os.PathSeparator)) {
+				t.Fatalf("%s path %q is not contained inside root %q", name, path, absoluteRoot)
+			}
+		}
+		// Every directory must be distinct — no two cache concerns may
+		// silently collide on the same path.
+		seen := map[string]string{}
+		for name, path := range map[string]string{
+			"Downloads": layout.Downloads, "GoModCache": layout.GoModCache,
+			"GoBuildCache": layout.GoBuildCache, "GoBin": layout.GoBin, "Manifest": layout.Manifest,
+		} {
+			if other, exists := seen[path]; exists {
+				t.Fatalf("%s and %s resolve to the same path %q", name, other, path)
+			}
+			seen[path] = name
+		}
+	})
+
+	t.Run("NewProjectCacheLayout rejects an empty root", func(t *testing.T) {
+		if _, err := NewProjectCacheLayout(""); err == nil {
+			t.Fatal("expected an empty root to be rejected")
+		} else if !strings.Contains(err.Error(), "BOOTSTRAP_CACHE_ROOT") {
+			t.Fatalf("expected BOOTSTRAP_CACHE_ROOT diagnostic, got: %v", err)
+		}
+	})
+
+	t.Run("Validate rejects a layout whose directory escapes root", func(t *testing.T) {
+		root := t.TempDir()
+		layout, err := NewProjectCacheLayout(root)
+		if err != nil {
+			t.Fatalf("construct layout: %v", err)
+		}
+		layout.GoBin = filepath.Join(filepath.Dir(layout.Root), "escaped-go-bin")
+
+		err = layout.Validate()
+		if err == nil {
+			t.Fatal("expected an escaping cache directory to be rejected")
+		}
+		if !strings.Contains(err.Error(), "BOOTSTRAP_CACHE_ESCAPE") {
+			t.Fatalf("expected BOOTSTRAP_CACHE_ESCAPE diagnostic, got: %v", err)
+		}
+	})
+
+	t.Run("Warm creates every cache directory and is a safe idempotent no-op", func(t *testing.T) {
+		root := t.TempDir()
+		layout, err := NewProjectCacheLayout(root)
+		if err != nil {
+			t.Fatalf("construct layout: %v", err)
+		}
+
+		if err := layout.Warm(); err != nil {
+			t.Fatalf("first Warm failed: %v", err)
+		}
+		for _, dir := range []string{layout.Downloads, layout.GoModCache, layout.GoBuildCache, layout.GoBin, layout.Manifest} {
+			info, statErr := os.Stat(dir)
+			if statErr != nil {
+				t.Fatalf("expected %q to exist after Warm, stat err: %v", dir, statErr)
+			}
+			if !info.IsDir() {
+				t.Fatalf("expected %q to be a directory", dir)
+			}
+		}
+
+		// A canary file inside a warmed directory must survive a second Warm
+		// call: warming is directory provisioning only, never destructive.
+		canaryPath := filepath.Join(layout.GoModCache, "canary.txt")
+		if err := os.WriteFile(canaryPath, []byte("preserved\n"), 0o644); err != nil {
+			t.Fatalf("write canary: %v", err)
+		}
+		if err := layout.Warm(); err != nil {
+			t.Fatalf("second Warm failed: %v", err)
+		}
+		canary, err := os.ReadFile(canaryPath)
+		if err != nil || string(canary) != "preserved\n" {
+			t.Fatalf("expected canary to survive idempotent Warm: err=%v content=%q", err, canary)
+		}
+	})
+
+	t.Run("Environment derives the exact repository-local Go/Wails variables", func(t *testing.T) {
+		root := t.TempDir()
+		layout, err := NewProjectCacheLayout(root)
+		if err != nil {
+			t.Fatalf("construct layout: %v", err)
+		}
+
+		env := layout.Environment()
+		if env.GOTOOLCHAIN != "local" {
+			t.Fatalf("expected GOTOOLCHAIN=local, got %q", env.GOTOOLCHAIN)
+		}
+		if env.GOMODCACHE != layout.GoModCache {
+			t.Fatalf("expected GOMODCACHE=%q, got %q", layout.GoModCache, env.GOMODCACHE)
+		}
+		if env.GOCACHE != layout.GoBuildCache {
+			t.Fatalf("expected GOCACHE=%q, got %q", layout.GoBuildCache, env.GOCACHE)
+		}
+		if env.GOBIN != layout.GoBin {
+			t.Fatalf("expected GOBIN=%q, got %q", layout.GoBin, env.GOBIN)
+		}
+		if env.GOFLAGS != "-mod=readonly" {
+			t.Fatalf("expected GOFLAGS=-mod=readonly, got %q", env.GOFLAGS)
+		}
+
+		asMap := env.AsMap()
+		expected := map[string]string{
+			"GOTOOLCHAIN": "local",
+			"GOMODCACHE":  layout.GoModCache,
+			"GOCACHE":     layout.GoBuildCache,
+			"GOBIN":       layout.GoBin,
+			"GOFLAGS":     "-mod=readonly",
+		}
+		if len(asMap) != len(expected) {
+			t.Fatalf("expected exactly %d environment entries, got %d: %v", len(expected), len(asMap), asMap)
+		}
+		for key, value := range expected {
+			if asMap[key] != value {
+				t.Fatalf("AsMap()[%q] = %q, expected %q", key, asMap[key], value)
+			}
+		}
+	})
+
+	t.Run("WailsBinaryPath and the pinned Wails module/version are exact and stable", func(t *testing.T) {
+		if WailsModule != "github.com/wailsapp/wails/v2/cmd/wails" {
+			t.Fatalf("unexpected WailsModule pin: %q", WailsModule)
+		}
+		if WailsVersion != "v2.13.0" {
+			t.Fatalf("unexpected WailsVersion pin: %q", WailsVersion)
+		}
+
+		root := t.TempDir()
+		layout, err := NewProjectCacheLayout(root)
+		if err != nil {
+			t.Fatalf("construct layout: %v", err)
+		}
+		if got, want := layout.WailsBinaryPath(".exe"), filepath.Join(layout.GoBin, "wails.exe"); got != want {
+			t.Fatalf("expected WailsBinaryPath(.exe) = %q, got %q", want, got)
+		}
+		if got, want := layout.WailsBinaryPath(""), filepath.Join(layout.GoBin, "wails"); got != want {
+			t.Fatalf("expected WailsBinaryPath(\"\") = %q, got %q", want, got)
+		}
+	})
+
+	t.Run("EnsureDirectories creates missing directories and rejects a path that is already a file", func(t *testing.T) {
+		root := t.TempDir()
+		nested := filepath.Join(root, "a", "b", "c")
+
+		if err := EnsureDirectories(nested); err != nil {
+			t.Fatalf("expected nested directory creation to succeed, got: %v", err)
+		}
+		info, statErr := os.Stat(nested)
+		if statErr != nil || !info.IsDir() {
+			t.Fatalf("expected %q to exist as a directory: stat err=%v", nested, statErr)
+		}
+
+		// Idempotent: creating the same directory again must not fail.
+		if err := EnsureDirectories(nested); err != nil {
+			t.Fatalf("expected idempotent re-creation to succeed, got: %v", err)
+		}
+
+		blockedPath := filepath.Join(root, "blocked-file")
+		if err := os.WriteFile(blockedPath, []byte("not a directory\n"), 0o644); err != nil {
+			t.Fatalf("write blocking file: %v", err)
+		}
+		err := EnsureDirectories(blockedPath)
+		if err == nil {
+			t.Fatal("expected creating a directory where a file already exists to fail")
+		}
+		if !strings.Contains(err.Error(), "BOOTSTRAP_CACHE_DIRECTORY") {
+			t.Fatalf("expected BOOTSTRAP_CACHE_DIRECTORY diagnostic, got: %v", err)
 		}
 	})
 }
