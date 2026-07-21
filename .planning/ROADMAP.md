@@ -35,7 +35,7 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
   4. Every milestone, phase, requirement, plan, and task can retain a durable local identity and complete planning context while Linear is unavailable.
   5. A contributor can preview an exact reconciliation and, when access is configured outside the repository, rerun it without duplicates; ambiguity, pagination, partial errors, and rate limits are reported without blocking local planning, builds, tests, or runtime operation.
 
-**Plans:** 29/29 plans executed
+**Plans:** 32 plans (29 executed + 3 gap-closure pending: 01-30, 01-31, 01-32)
 
 - [x] 01-01-PLAN.md
 - [x] 01-02-PLAN.md
@@ -66,6 +66,9 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
 - [x] 01-27-PLAN.md
 - [x] 01-28-PLAN.md
 - [x] 01-29-PLAN.md
+- [ ] 01-30-PLAN.md — Gap 1/CR-01: rewire runLinearApply to apply.RunApply (D-18 staleness + D-21 journal resume) so retried apply never duplicates (LINR-03)
+- [ ] 01-31-PLAN.md — Gap 2/CR-02: wrap adapter.ts readOperation in try/catch returning found:false so a read failure can't stall the NDJSON process (LINR-04)
+- [ ] 01-32-PLAN.md — Gap 3: check off LINR-01/LINR-02 and certify LINR-03/LINR-04 in REQUIREMENTS.md after the CR-01/CR-02 fixes (runs last)
 
 **Research:** Standard configuration and Linear UUID/reconciliation patterns; phase planning must settle local command boundaries, Linear taxonomy, and credential-external sync behavior without inventing remote IDs.
 

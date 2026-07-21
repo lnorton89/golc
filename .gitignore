@@ -41,6 +41,9 @@
 *.test
 *.out
 coverage.*
+# Planning capability-coverage matrices are deliberate committed artifacts, not
+# Go coverage output (the case-insensitive filesystem otherwise collides them).
+!.planning/**/COVERAGE.md
 
 # Go workspace files are developer-local; the module graph is pinned by go.mod/go.sum.
 go.work
