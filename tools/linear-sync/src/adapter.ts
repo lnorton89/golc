@@ -19,16 +19,20 @@ import {
   type ProjectFields,
   type ProjectMilestoneFields,
   type ReadResult,
+  type Snapshot,
 } from "./protocol.js";
+import { fetchAllPages, type FetchPage } from "./pagination.js";
 
 /**
  * LinearEntityHandle is the narrow subset of a Linear SDK model
  * (Project | ProjectMilestone | Issue) this adapter reads from: an
  * immutable id, either a "name" (Project/ProjectMilestone) or "title"
  * (Issue), an optional description, and a required updatedAt. No other
- * SDK model field crosses this boundary.
+ * SDK model field crosses this boundary. Exported so pagination-driven
+ * connection reads (captureSnapshot below, and its tests) can construct
+ * and normalize the exact same shape a single-entity read produces.
  */
-interface LinearEntityHandle {
+export interface LinearEntityHandle {
   id: string;
   name?: string;
   title?: string;
@@ -87,6 +91,52 @@ function normalize(entity: EntityKind, handle: LinearEntityHandle): NormalizedRe
     fields: {},
     updatedAt: handle.updatedAt.toISOString(),
   };
+}
+
+/**
+ * ConnectionQuery describes one intended Linear Relay connection to
+ * exhaust during a snapshot capture: which entity kind its records
+ * normalize as, a diagnostic label for anomaly reporting, and the paged
+ * fetcher itself (a real @linear/sdk connection walk, or a fixture-driven
+ * fake in tests). captureSnapshot never issues a GraphQL call directly --
+ * every connection read routes through fetchAllPages (pagination.ts; Plan
+ * 01-14 key_links "all connection reads" -> fetchAllPages).
+ */
+export interface ConnectionQuery<TEntity extends EntityKind = EntityKind> {
+  entity: TEntity;
+  label: string;
+  fetchPage: FetchPage<LinearEntityHandle>;
+}
+
+/**
+ * captureSnapshot exhausts every one of the given connections through
+ * fetchAllPages and normalizes every node it reads (CONTEXT D-21;
+ * T-01-39). The snapshot is marked "complete" only once every intended
+ * connection has itself finished exhaustively: the first connection with
+ * a cursor anomaly blocks the whole snapshot and discards every record
+ * already read (including from connections that already completed), so a
+ * hidden later page can never spoof absence or uniqueness for an identity
+ * decision. Multiple matching records across connections are preserved
+ * individually here, never deduplicated or collapsed: whether zero, one,
+ * or more than one record carries a given GOLC identity marker is a
+ * decision internal/trace/reconcile (Go) makes, not this transport.
+ */
+export async function captureSnapshot(connections: readonly ConnectionQuery[]): Promise<Snapshot> {
+  const records: NormalizedRecord[] = [];
+  for (const connection of connections) {
+    const result = await fetchAllPages<LinearEntityHandle>(connection.fetchPage);
+    if (!result.complete) {
+      return {
+        status: "cursor_anomaly",
+        reason: `${connection.label}: ${result.reason} (${result.code})`,
+        records: [],
+      };
+    }
+    for (const node of result.nodes) {
+      records.push(normalize(connection.entity, node));
+    }
+  }
+  return { status: "complete", records };
 }
 
 async function readOperation(client: LinearClient, entity: EntityKind, linearUUID: string): Promise<ReadResult> {
