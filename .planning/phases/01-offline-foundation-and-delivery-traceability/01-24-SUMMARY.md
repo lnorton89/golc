@@ -177,3 +177,8 @@ None -- schema generation and the `linear apply` decode/validate/transport-unava
 ---
 *Phase: 01-offline-foundation-and-delivery-traceability*
 *Completed: 2026-07-21*
+
+## Self-Check: PASSED (verified)
+
+- Files re-verified present on disk: `internal/contracts/linear_plan.go`, `internal/contracts/linear_plan_test.go`, `internal/command/linear.go`, `schemas/linear-plan.schema.json`, `schemas/linear-report.schema.json`, and this SUMMARY.md itself.
+- Commits `b4c73ec` (test), `c1a1cb7` (feat), and `63efe01` (docs, this summary) all verified present in `git log --oneline` on branch `worktree-agent-ac7bb7fabc8ec7b6d`; working tree clean.
