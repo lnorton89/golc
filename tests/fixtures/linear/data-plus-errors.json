@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "description": "An HTTP-200 GraphQL response carrying both a populated data object and a non-empty errors array (CONTEXT D-21 \"HTTP-200 data-plus-errors is incomplete/blocked\"; T-01-40). captureSnapshot must block the whole snapshot with status \"partial\" the instant this response is observed for any connection, discarding every record already read, even though the response's own data field is fully populated and the transport reported success.",
+  "operation": "requirement_issue connection read",
+  "endpoint": "https://api.linear.app/graphql",
+  "response": {
+    "data": {
+      "issues": {
+        "nodes": [
+          {
+            "id": "issue-1",
+            "title": "Fixture issue one",
+            "description": "Fixture issue one, no GOLC identity marker.",
+            "updatedAt": "2026-07-21T00:00:00.000Z"
+          },
+          {
+            "id": "issue-2",
+            "title": "Fixture issue two",
+            "description": "Fixture issue two, no GOLC identity marker.",
+            "updatedAt": "2026-07-21T00:00:00.000Z"
+          }
+        ],
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": null
+        }
+      }
+    },
+    "errors": [
+      {
+        "message": "Field 'labels' on 'Issue' could not be resolved for issue-2 (internal transport error, not for repository disclosure)",
+        "path": ["issues", "nodes", 1, "labels"],
+        "extensions": {
+          "code": "INTERNAL_SERVER_ERROR",
+          "complexity": 42
+        }
+      }
+    ]
+  },
+  "expectedDiagnosticCount": 1,
+  "expectedDiagnosticPath": "issues.nodes.1.labels",
+  "expectedDiagnosticCode": "INTERNAL_SERVER_ERROR",
+  "expectedDiagnosticComplexity": 42,
+  "cleanResponse": {
+    "data": {
+      "issues": {
+        "nodes": [
+          {
+            "id": "issue-3",
+            "title": "Fixture issue three",
+            "description": "Fixture issue three, no GOLC identity marker.",
+            "updatedAt": "2026-07-21T00:00:00.000Z"
+          }
+        ],
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": null
+        }
+      }
+    }
+  }
+}

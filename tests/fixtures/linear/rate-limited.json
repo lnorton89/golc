@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "description": "Rate-limit evidence and retry-policy scenarios for linear-transport-errors (CONTEXT D-21; T-01-40). rateLimitSignal proves normalizeRateLimit's exact allowlist; retryScenarios proves decideRetry permits only a bounded read/server_error retry and returns a typed stop-write decision for any rate-limited or partial mutation.",
+  "operation": "task_subissue connection read",
+  "rateLimitSignal": {
+    "requestId": "req_9f1c2a",
+    "endpoint": "https://api.linear.app/graphql",
+    "complexity": 950,
+    "reset": "2026-07-21T12:00:00.000Z",
+    "authorization": "should never be read or echoed by normalizeRateLimit"
+  },
+  "expectedDiagnosticRequest": "req_9f1c2a",
+  "expectedDiagnosticEndpoint": "https://api.linear.app/graphql",
+  "expectedDiagnosticComplexity": 950,
+  "expectedDiagnosticReset": "2026-07-21T12:00:00.000Z",
+  "retryScenarios": [
+    {
+      "name": "read server_error retries within bound",
+      "action": "read",
+      "kind": "server_error",
+      "attempt": 1,
+      "maxAttempts": 3,
+      "expectedOutcome": "retry",
+      "expectedNextAttempt": 2
+    },
+    {
+      "name": "read server_error retries a second time still within bound",
+      "action": "read",
+      "kind": "server_error",
+      "attempt": 2,
+      "maxAttempts": 3,
+      "expectedOutcome": "retry",
+      "expectedNextAttempt": 3
+    },
+    {
+      "name": "read server_error stops once the bound is exhausted",
+      "action": "read",
+      "kind": "server_error",
+      "attempt": 3,
+      "maxAttempts": 3,
+      "expectedOutcome": "stop"
+    },
+    {
+      "name": "read rate_limited never retries even on the first attempt",
+      "action": "read",
+      "kind": "rate_limited",
+      "attempt": 1,
+      "maxAttempts": 3,
+      "expectedOutcome": "stop"
+    },
+    {
+      "name": "read partial never retries even on the first attempt",
+      "action": "read",
+      "kind": "partial",
+      "attempt": 1,
+      "maxAttempts": 3,
+      "expectedOutcome": "stop"
+    },
+    {
+      "name": "create mutation observing rate_limited stops the write immediately",
+      "action": "create",
+      "kind": "rate_limited",
+      "attempt": 1,
+      "maxAttempts": 3,
+      "expectedOutcome": "stop_write"
+    },
+    {
+      "name": "update mutation observing partial stops the write immediately",
+      "action": "update",
+      "kind": "partial",
+      "attempt": 1,
+      "maxAttempts": 3,
+      "expectedOutcome": "stop_write"
+    },
+    {
+      "name": "create mutation observing server_error never retries and is not a stop_write",
+      "action": "create",
+      "kind": "server_error",
+      "attempt": 1,
+      "maxAttempts": 3,
+      "expectedOutcome": "stop"
+    },
+    {
+      "name": "update mutation observing rate_limited on a later attempt still stops the write, not a retry",
+      "action": "update",
+      "kind": "rate_limited",
+      "attempt": 2,
+      "maxAttempts": 3,
+      "expectedOutcome": "stop_write"
+    }
+  ]
+}
