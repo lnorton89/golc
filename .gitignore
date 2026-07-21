@@ -7,3 +7,9 @@
 
 # Machine-local configuration overrides (written by 'golc config set --local'; never committed)
 /golc.local.toml
+
+# Claude Code: per-agent git worktrees (transient; managed by the orchestrator)
+/.claude/worktrees/
+
+# Claude Code: machine-local settings overrides (never committed; committed hooks live in .claude/settings.json)
+/.claude/settings.local.json
