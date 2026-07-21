@@ -75,6 +75,38 @@ exact Go test marker `TestScope{PascalName}` (here
 no marker exists. Tests always run through the pinned project-local Go
 toolchain, never a host installation.
 
+## 6. Build the deterministic foundation package
+
+```powershell
+powershell -NoProfile -File .\golc.ps1 package --foundation
+```
+
+`package --foundation` builds a **developer-tool bundle, not a product
+installer**: a Windows AMD64 ZIP containing the bootstrap-built
+`golc-project.exe`, the `golc.ps1` shim, `golc.project.toml`, every
+committed `config/**/*.toml` concern, every committed `schemas/*.json`
+contract, and `docs/development.md`. Output is written to
+`dist/foundation/`:
+
+- `golc-foundation-windows-amd64.zip` — the archive itself.
+- `golc-foundation-windows-amd64.manifest.json` — a canonical, sorted
+  inventory of every archived file's path, SHA-256, and size (also
+  embedded inside the ZIP as `foundation-manifest.json`).
+- `golc-foundation-windows-amd64.zip.sha256` — the archive's own SHA-256
+  checksum, in the standard `<hex>  <filename>` sidecar shape.
+
+Every entry's ZIP metadata (path, mode, timestamp) is normalized, and the
+file list is a fixed, sorted allowlist rather than an unbounded directory
+walk: identical repository inputs always produce byte-identical ZIP,
+manifest, and checksum bytes. `dist/foundation/` is regenerated on every
+run and is git-ignored; the only committed foundation-package fixture is
+the golden test oracle at `tests/golden/foundation-manifest.json`.
+`tests/acceptance/offline.ps1 -Mode package` proves this by running the
+command twice and comparing all three output files byte-for-byte.
+
+This command makes **no Wails or NSIS product-packaging claim** — see the
+boundary below.
+
 ## What this walking skeleton is (and is not)
 
 The Phase 1 adaptation of GOLC's architecture is deliberately narrow:
@@ -89,8 +121,10 @@ Explicitly out of scope for Phase 1:
   only user interaction surface.
 - **SQLite show storage** — no `.golc` database exists; TOML
   configuration is the only persisted state.
-- **NSIS product packaging** — nothing is installed or distributed; the
-  only build artifact is the project-local `golc-project` command.
+- **NSIS product packaging** — nothing is installed or distributed.
+  `package --foundation` (step 6 above) produces a deterministic
+  developer-tool ZIP of the CLI, config, schemas, and docs — it is not an
+  application installer, and it stages no Wails frontend or NSIS output.
 
 Lighting-domain behavior, playback, Art-Net, scripting, and AI features
 are later phases and are not part of this skeleton.

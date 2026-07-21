@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "files": [
+    {
+      "path": ".tools/installs/golc_project/bin/golc-project.exe",
+      "sha256": "f45767f4aa5f84408c2acd61892d5f2e181b01a72bea89859fe22e448ed859be",
+      "size": 23
+    },
+    {
+      "path": "config/commands.toml",
+      "sha256": "d408a9164c4adcf215cd862d19c8031034e68ab95e8488714be5d014cb1b6225",
+      "size": 142
+    },
+    {
+      "path": "config/integrations/linear.toml",
+      "sha256": "4e1a53d3a13edf322c7d195c0bb546d0b29b969f74f6427a6edf05fa54ebafef",
+      "size": 19
+    },
+    {
+      "path": "config/toolchain.toml",
+      "sha256": "4e1a53d3a13edf322c7d195c0bb546d0b29b969f74f6427a6edf05fa54ebafef",
+      "size": 19
+    },
+    {
+      "path": "docs/development.md",
+      "sha256": "48781f8a6343b0513ccf33cc4b257f980d3de08c55e4c40fff08fcba86848365",
+      "size": 15
+    },
+    {
+      "path": "golc.project.toml",
+      "sha256": "4e1a53d3a13edf322c7d195c0bb546d0b29b969f74f6427a6edf05fa54ebafef",
+      "size": 19
+    },
+    {
+      "path": "golc.ps1",
+      "sha256": "c9629e1d747fdb2944745401d4a85b9820b97a334d4e660ff511d375b364c4b9",
+      "size": 32
+    },
+    {
+      "path": "schemas/config-commands.schema.json",
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "size": 3
+    },
+    {
+      "path": "schemas/golc-project.schema.json",
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "size": 3
+    }
+  ]
+}
