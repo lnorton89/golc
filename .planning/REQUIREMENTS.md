@@ -131,8 +131,8 @@
 
 ### Linear Traceability
 
-- [ ] **LINR-01**: Every milestone, phase, requirement, plan, and executable task has a durable local identifier that remains usable offline.
-- [ ] **LINR-02**: The repository maintains a credential-free mapping from durable local identifiers to immutable Linear UUIDs without making Linear the only source of planning truth.
+- [x] **LINR-01**: Every milestone, phase, requirement, plan, and executable task has a durable local identifier that remains usable offline.
+- [x] **LINR-02**: The repository maintains a credential-free mapping from durable local identifiers to immutable Linear UUIDs without making Linear the only source of planning truth.
 - [x] **LINR-03**: A contributor can preview and run an idempotent reconciliation that creates or updates the intended Linear project, milestones, issues, and sub-issues without duplicating retried work.
 - [x] **LINR-04**: Linear synchronization reports ambiguity, partial GraphQL errors, pagination, and rate limiting without blocking local planning, builds, tests, or application runtime.
 
@@ -277,8 +277,8 @@ A v1 requirement is complete only when its implementation is committed, automate
 | WIN-02 | Phase 10 | Pending |
 | WIN-03 | Phase 10 | Pending |
 | WIN-04 | Phase 10 | Pending |
-| LINR-01 | Phase 1 | Pending |
-| LINR-02 | Phase 1 | Pending |
+| LINR-01 | Phase 1 | Complete |
+| LINR-02 | Phase 1 | Complete |
 | LINR-03 | Phase 1 | Complete |
 | LINR-04 | Phase 1 | Complete |
 
@@ -290,4 +290,4 @@ A v1 requirement is complete only when its implementation is committed, automate
 
 ---
 *Requirements defined: 2026-07-17*
-*Last updated: 2026-07-17 after roadmap creation*
+*Last updated: 2026-07-21 after Phase 1 gap-closure: LINR-01/LINR-02 checked off to match delivered internal/trace/catalog implementation; LINR-03/LINR-04 certified Complete against CR-01/CR-02 resolution (plans 01-30/01-31)*
