@@ -107,6 +107,22 @@ class HostileLinearClient {
     }
     return undefined;
   }
+
+  async project(_id: string) {
+    this.calls.push("project");
+    if (this.scenario.readbackFails) {
+      throw buildHostileError(this.scenario, this.canaryMessage);
+    }
+    return undefined;
+  }
+
+  async projectMilestone(_id: string) {
+    this.calls.push("projectMilestone");
+    if (this.scenario.readbackFails) {
+      throw buildHostileError(this.scenario, this.canaryMessage);
+    }
+    return undefined;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -162,42 +178,58 @@ test("TestScopeLinearTransportNode", async (t) => {
   }
 
   // -------------------------------------------------------------------------
-  // Read-failure case (CR-02 / 01-31): a read operation whose single SDK
-  // accessor (issue()/project()/projectMilestone()) throws -- the documented
-  // behavior for a missing/archived/deleted remote object -- must resolve to
-  // a found:false ReadResult (a returned value), never a thrown exception or
-  // rejected promise. Reuses the fixture's existing readbackFails:true
-  // scenario purely for its HostileLinearClient throw-on-issue() behavior;
-  // this sub-test never exercises create/update at all.
+  // Read-failure case (CR-02 / 01-31, hardened for WR-02): a read operation
+  // whose single SDK accessor throws -- the documented behavior for a
+  // missing/archived/deleted remote object -- must resolve to a found:false
+  // ReadResult (a returned value), never a thrown exception or rejected
+  // promise. readByEntity (adapter.ts) dispatches to one of three distinct
+  // accessors depending on entity kind (issue()/project()/
+  // projectMilestone()), and readOperation's try/catch wraps the whole
+  // switch uniformly -- but WR-02 flagged that only the issue()-backed
+  // entities had regression coverage, leaving project()/projectMilestone()
+  // to a future refactor that moved the try/catch inside individual switch
+  // cases undetected. Parameterized over all three accessors so each has
+  // its own regression proof. Reuses the fixture's existing
+  // readbackFails:true scenario purely for its HostileLinearClient
+  // throw-on-accessor behavior; this sub-test never exercises create/update
+  // at all.
   // -------------------------------------------------------------------------
-  await t.test("read operation against a throwing issue() resolves to found:false, not a thrown/rejected error", async () => {
-    const readScenario = fixture.scenarios.find((scenario) => scenario.readbackFails);
-    assert.ok(readScenario, "expected a readbackFails:true scenario in the fixture to drive the throwing issue() read");
+  const readFailureCases: Array<{ entity: EntityKind; accessor: string }> = [
+    { entity: "task_subissue", accessor: "issue" },
+    { entity: "project", accessor: "project" },
+    { entity: "project_milestone", accessor: "projectMilestone" },
+  ];
 
-    const fakeClient = new HostileLinearClient(readScenario!, fixture.canaryMessage);
-    const adapter = new LinearSdkAdapter(fakeClient as unknown as LinearClient);
+  for (const { entity, accessor } of readFailureCases) {
+    await t.test(`read operation against a throwing ${accessor}() resolves to found:false, not a thrown/rejected error`, async () => {
+      const readScenario = fixture.scenarios.find((scenario) => scenario.readbackFails);
+      assert.ok(readScenario, `expected a readbackFails:true scenario in the fixture to drive the throwing ${accessor}() read`);
 
-    const operation = {
-      entity: "task_subissue" as EntityKind,
-      action: "read",
-      linearUUID: "archived-uuid",
-    } as unknown as Operation;
+      const fakeClient = new HostileLinearClient(readScenario!, fixture.canaryMessage);
+      const adapter = new LinearSdkAdapter(fakeClient as unknown as LinearClient);
 
-    let result: ReadResult | undefined;
-    let thrown: unknown;
-    try {
-      result = (await adapter.execute(operation)) as unknown as ReadResult;
-    } catch (error) {
-      thrown = error;
-    }
+      const operation = {
+        entity,
+        action: "read",
+        linearUUID: "archived-uuid",
+      } as unknown as Operation;
 
-    assert.strictEqual(thrown, undefined, "a throwing SDK read must resolve to a found:false ReadResult, never reject/throw out of adapter.execute");
-    assert.deepStrictEqual(result, { found: false }, "a throwing SDK read must resolve to exactly the found:false ReadResult");
+      let result: ReadResult | undefined;
+      let thrown: unknown;
+      try {
+        result = (await adapter.execute(operation)) as unknown as ReadResult;
+      } catch (error) {
+        thrown = error;
+      }
 
-    const rendered = JSON.stringify(result);
-    assert.strictEqual(scanCanary(rendered), undefined, "the found:false read outcome must never leak the hostile error's canary/credential content");
-    assert.ok(!rendered.includes(fixture.canaryMessage), "the raw hostile error message must never appear in the found:false read outcome");
+      assert.strictEqual(thrown, undefined, "a throwing SDK read must resolve to a found:false ReadResult, never reject/throw out of adapter.execute");
+      assert.deepStrictEqual(result, { found: false }, "a throwing SDK read must resolve to exactly the found:false ReadResult");
 
-    assert.strictEqual(fakeClient.calls.length, 1, "expected exactly one SDK read call (issue), zero retry");
-  });
+      const rendered = JSON.stringify(result);
+      assert.strictEqual(scanCanary(rendered), undefined, "the found:false read outcome must never leak the hostile error's canary/credential content");
+      assert.ok(!rendered.includes(fixture.canaryMessage), "the raw hostile error message must never appear in the found:false read outcome");
+
+      assert.deepStrictEqual(fakeClient.calls, [accessor], `expected exactly one SDK read call (${accessor}), zero retry`);
+    });
+  }
 });

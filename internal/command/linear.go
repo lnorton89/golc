@@ -1297,23 +1297,6 @@ func decodeAndValidatePlanStrict(path string) (reconcile.Plan, error) {
 	return plan, nil
 }
 
-// achievedApplyPrefix returns the leading contiguous run of
-// completed/noop results, mirroring internal/trace/apply/engine.go's own
-// unexported achievedPrefix exactly (that helper is not exported; this is
-// the same three-line rule, not a reimplementation of any different
-// policy) -- the exact achieved prefix safe to journal and to fold back
-// into the committed remote mapping map.
-func achievedApplyPrefix(results []apply.OperationResult) []apply.OperationResult {
-	prefix := make([]apply.OperationResult, 0, len(results))
-	for _, result := range results {
-		if result.Status != apply.StatusCompleted && result.Status != apply.StatusNoop {
-			break
-		}
-		prefix = append(prefix, result)
-	}
-	return prefix
-}
-
 // applyMapPath is the one fixed destination "linear apply" ever commits
 // updated remote mappings to: the same .planning/linear-map.json every
 // other Linear route already reads through catalog.MigrateV1ToV2.
@@ -1348,25 +1331,26 @@ func mergeApplyResultsIntoMap(migrated *catalog.Map, results []apply.OperationRe
 	return &updated
 }
 
-// commitApplyResults persists the exact D-21 achieved prefix (journal),
-// the folded-forward remote mapping map, and the human-reviewable report
-// as one atomic result (apply.CommitResultAtomically), so a later "linear
+// commitApplyResults persists the exact D-21 achieved prefix (journal, as
+// already computed and returned by apply.RunApply itself -- never
+// recomputed here, so this can never silently diverge from RunApply's own
+// notion of "achieved" if engine.go's prefix rule is ever extended), the
+// folded-forward remote mapping map, and the human-reviewable report as
+// one atomic result (apply.CommitResultAtomically), so a later "linear
 // preview --remote"/"linear apply" against the same repository observes
 // every object this run actually created or confirmed as already linked
 // -- the exact mechanism that makes replay a safe no-op (CONTEXT D-17/D-21;
 // this plan's must_haves truth: "replay is all no-op"). Nothing is
 // written when zero operations achieved a clean outcome, so a wholly
 // failed first attempt never fabricates progress.
-func commitApplyResults(root, planFile string, migrated *catalog.Map, results []apply.OperationResult, report apply.Report) error {
-	prefix := achievedApplyPrefix(results)
-	if len(prefix) == 0 {
+func commitApplyResults(root, planFile string, migrated *catalog.Map, results []apply.OperationResult, newJournal apply.Journal, report apply.Report) error {
+	if len(newJournal.Results) == 0 {
 		return nil
 	}
 	updatedMap := mergeApplyResultsIntoMap(migrated, results)
-	journal := apply.Journal{PlanID: report.PlanID, Results: prefix}
 	journalPath := planFile + ".journal.json"
 	reportPath := planFile + ".report.json"
-	if err := apply.CommitResultAtomically(applyMapPath(root), updatedMap, journalPath, journal, reportPath, report); err != nil {
+	if err := apply.CommitResultAtomically(applyMapPath(root), updatedMap, journalPath, newJournal, reportPath, report); err != nil {
 		return fmt.Errorf("GOLC_LINEAR_APPLY_COMMIT_FAILED: %v", err)
 	}
 	return nil
@@ -1414,6 +1398,10 @@ func runLinearApply(request Request) Result {
 	}
 
 	resolvedPlanFile := resolveWritablePath(request.Root, planFile)
+	// decodeAndValidatePlanStrict's apply.ValidatePlanIntegrity call is also
+	// a deliberate fail-fast duplicate of the same check apply.RunApply
+	// performs internally below -- see the GuardAgainstPullRequestMutation
+	// comment further down for why both outer checks are kept.
 	plan, err := decodeAndValidatePlanStrict(resolvedPlanFile)
 	if err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
@@ -1428,6 +1416,13 @@ func runLinearApply(request Request) Result {
 			"GOLC_LINEAR_TRANSPORT_UNAVAILABLE: no RemoteClientFactory is wired; the process-based Linear transport does not exist yet\n")}
 	}
 
+	// Deliberate fail-fast duplicate of the same check apply.RunApply
+	// performs internally below: this outer guard must run before the
+	// remote client is constructed and before LINEAR_API_KEY/LINEAR_TEAM_ID
+	// are touched, so a blocked PR event never spawns the transport
+	// subprocess or reads credentials. RunApply's internal check is what
+	// actually protects a caller that skips this one; this one only saves
+	// the wasted subprocess/credential access.
 	if err := apply.GuardAgainstPullRequestMutation(os.LookupEnv); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
@@ -1463,12 +1458,12 @@ func runLinearApply(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
-	report, _, err := apply.RunApply(client, plan, intentsFromMigratedMap(migrated), migrated.RemoteMappings, snapshot, nil, journal, os.LookupEnv)
+	report, newJournal, err := apply.RunApply(client, plan, intentsFromMigratedMap(migrated), migrated.RemoteMappings, snapshot, nil, journal, os.LookupEnv)
 	if err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
-	if err := commitApplyResults(request.Root, resolvedPlanFile, migrated, report.Results, report); err != nil {
+	if err := commitApplyResults(request.Root, resolvedPlanFile, migrated, report.Results, newJournal, report); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
