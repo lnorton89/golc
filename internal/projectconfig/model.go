@@ -82,9 +82,15 @@ func (d Diagnostic) String() string {
 
 // Shared production value shapes.
 var (
-	dottedVersionPattern      = regexp.MustCompile(`^[0-9]+(\.[0-9]+)*$`)
-	sha256Pattern             = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	goArchiveURLPattern       = regexp.MustCompile(`^https://go\.dev/dl/[A-Za-z0-9.\-]+\.(zip|tar\.gz)$`)
+	dottedVersionPattern = regexp.MustCompile(`^[0-9]+(\.[0-9]+)*$`)
+	sha256Pattern        = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	goArchiveURLPattern  = regexp.MustCompile(`^https://go\.dev/dl/[A-Za-z0-9.\-]+\.(zip|tar\.gz)$`)
+	// nodeArchiveURLPattern is the official Node.js distribution archive
+	// shape (CONTEXT D-01; Plan 01-13): only the official nodejs.org/dist/
+	// origin is ever an acceptable Node download source, mirroring the same
+	// per-tool official-source-allowlist discipline goArchiveURLPattern
+	// already establishes for Go.
+	nodeArchiveURLPattern     = regexp.MustCompile(`^https://nodejs\.org/dist/v[0-9]+(\.[0-9]+)*/[A-Za-z0-9.\-]+\.(zip|tar\.gz)$`)
 	officialHostPattern       = regexp.MustCompile(`^[a-z0-9]+(\.[a-z0-9]+)+$`)
 	officialPathPrefixPattern = regexp.MustCompile(`^/[A-Za-z0-9/_-]*/$`)
 	toolsPathPattern          = regexp.MustCompile(`^\.tools(/[A-Za-z0-9._-]+)+$`)
@@ -117,14 +123,19 @@ func DefaultSpec() Spec {
 				ID:   "toolchain",
 				Path: "config/toolchain.toml",
 				Keys: map[string]KeySpec{
-					"toolchain.go.version":              {Pattern: dottedVersionPattern},
-					"toolchain.go.archive_url":          {Pattern: goArchiveURLPattern},
-					"toolchain.go.archive_sha256":       {Pattern: sha256Pattern},
-					"toolchain.go.official_host":        {Pattern: officialHostPattern},
-					"toolchain.go.official_path_prefix": {Pattern: officialPathPrefixPattern},
-					"cache.downloads":                   {Pattern: toolsPathPattern},
-					"cache.gomodcache":                  {Pattern: toolsPathPattern},
-					"cache.gocache":                     {Pattern: toolsPathPattern},
+					"toolchain.go.version":                {Pattern: dottedVersionPattern},
+					"toolchain.go.archive_url":            {Pattern: goArchiveURLPattern},
+					"toolchain.go.archive_sha256":         {Pattern: sha256Pattern},
+					"toolchain.go.official_host":          {Pattern: officialHostPattern},
+					"toolchain.go.official_path_prefix":   {Pattern: officialPathPrefixPattern},
+					"toolchain.node.version":              {Pattern: dottedVersionPattern},
+					"toolchain.node.archive_url":          {Pattern: nodeArchiveURLPattern},
+					"toolchain.node.archive_sha256":       {Pattern: sha256Pattern},
+					"toolchain.node.official_host":        {Pattern: officialHostPattern},
+					"toolchain.node.official_path_prefix": {Pattern: officialPathPrefixPattern},
+					"cache.downloads":                     {Pattern: toolsPathPattern},
+					"cache.gomodcache":                    {Pattern: toolsPathPattern},
+					"cache.gocache":                       {Pattern: toolsPathPattern},
 				},
 			},
 			{

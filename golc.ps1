@@ -35,6 +35,11 @@ $GoBuildCacheDirectory = Join-Path $RepoRoot ".tools\cache\go-build"
 # (for example the pinned Wails CLI a future phase wires in) never lands
 # in a machine-global bin directory.
 $GoBinDirectory = Join-Path $RepoRoot ".tools\cache\go-bin"
+# Project-local npm cache: only warmed/consulted when a contributor opts
+# into the isolated tools/linear-sync workspace (`bootstrap --include
+# linear-sync`, Plan 01-13/CONTEXT D-01). Mirrors
+# internal/bootstrap/cache.go's ProjectCacheLayout.NpmCache exactly.
+$NpmCacheDirectory = Join-Path $RepoRoot ".tools\cache\npm"
 $RecordDirectory = Join-Path $RepoRoot ".tools\manifest"
 $GolcProjectExecutable = Join-Path $RepoRoot ".tools\installs\golc_project\bin\golc-project.exe"
 $InstallManifestName = ".golc-install-manifest.json"
@@ -377,9 +382,107 @@ function Resolve-CacheDirectory {
     return (Join-Path $RepoRoot $normalized)
 }
 
+function Invoke-GolcBootstrapLinearSync {
+    <# Provisions the isolated tools/linear-sync workspace (CONTEXT D-01/
+       D-03; Plan 01-13): installs the pinned project-local Node archive
+       exactly the way Install-ArchivePin already provisions Go, then runs
+       an exact-lock `npm ci` with lifecycle scripts disabled against the
+       already-committed package.json/package-lock.json, and finally
+       compiles protocol.ts/adapter.ts with the pinned project-local
+       TypeScript compiler. It never runs `npm install`, never touches
+       package.json or package-lock.json, and hard-fails
+       (GOLC_BOOTSTRAP_NODE_LOCK_MUTATION) if either changes underneath it
+       -- the same before/after hash discipline the Go module bootstrap
+       block above already enforces for go.mod/go.sum (D-04). #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Manifest
+    )
+
+    if (-not $Manifest.ContainsKey("toolchain.node")) {
+        throw "GOLC_NODE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.node] before 'bootstrap --include linear-sync'"
+    }
+    $nodeSection = $Manifest["toolchain.node"]
+    $nodeVersion = Get-RequiredPinValue -Section $nodeSection -SectionName "toolchain.node" -Key "version"
+    $nodeInstallDir = Join-Path $RepoRoot (".tools\toolchains\node\" + $nodeVersion + "\windows-amd64")
+    Install-ArchivePin `
+        -DisplayName ("node " + $nodeVersion) `
+        -Uri (Get-RequiredPinValue -Section $nodeSection -SectionName "toolchain.node" -Key "archive_url") `
+        -Sha256 (Get-RequiredPinValue -Section $nodeSection -SectionName "toolchain.node" -Key "archive_sha256") `
+        -InstallDir $nodeInstallDir
+
+    $nodeExtractedDir = Join-Path $nodeInstallDir ("node-v" + $nodeVersion + "-win-x64")
+    $nodeExecutable = Join-Path $nodeExtractedDir "node.exe"
+    $npmCliPath = Join-Path $nodeExtractedDir "node_modules\npm\bin\npm-cli.js"
+    if (-not (Test-Path -LiteralPath $nodeExecutable -PathType Leaf)) {
+        throw "GOLC_NODE_TOOLCHAIN_MISSING: expected node executable at $nodeExecutable after provisioning"
+    }
+    if (-not (Test-Path -LiteralPath $npmCliPath -PathType Leaf)) {
+        throw "GOLC_NODE_TOOLCHAIN_MISSING: expected npm-cli.js at $npmCliPath after provisioning"
+    }
+
+    $linearSyncDir = Join-Path $RepoRoot "tools\linear-sync"
+    $packageJsonPath = Join-Path $linearSyncDir "package.json"
+    $packageLockPath = Join-Path $linearSyncDir "package-lock.json"
+    if (-not (Test-Path -LiteralPath $packageJsonPath -PathType Leaf)) {
+        throw "GOLC_BOOTSTRAP_OFFLINE_ARTIFACT_MISSING: tools/linear-sync/package.json"
+    }
+    if (-not (Test-Path -LiteralPath $packageLockPath -PathType Leaf)) {
+        throw "GOLC_BOOTSTRAP_OFFLINE_ARTIFACT_MISSING: tools/linear-sync/package-lock.json"
+    }
+
+    New-Item -ItemType Directory -Path $NpmCacheDirectory -Force | Out-Null
+
+    $packageJsonBefore = (Get-FileHash -LiteralPath $packageJsonPath -Algorithm SHA256).Hash
+    $packageLockBefore = (Get-FileHash -LiteralPath $packageLockPath -Algorithm SHA256).Hash
+
+    Push-Location $linearSyncDir
+    try {
+        $env:NPM_CONFIG_CACHE = $NpmCacheDirectory
+        # Exact-lock install: --ignore-scripts disables every lifecycle
+        # script (T-01-36/T-01-SC), and `ci` refuses to resolve anything
+        # outside the committed, human-approved package-lock.json.
+        & $nodeExecutable $npmCliPath "ci" "--ignore-scripts" "--no-audit" "--no-fund"
+        if ($LASTEXITCODE -ne 0) {
+            throw "GOLC_BOOTSTRAP_NPM_CI_FAILED: npm ci exited $LASTEXITCODE"
+        }
+        Write-Output "GOLC bootstrap: tools/linear-sync exact-lock npm ci complete (lifecycle scripts disabled)."
+
+        $tscPath = Join-Path $linearSyncDir "node_modules\typescript\bin\tsc"
+        if (-not (Test-Path -LiteralPath $tscPath -PathType Leaf)) {
+            throw "GOLC_BOOTSTRAP_LINEAR_SYNC_BUILD_FAILED: pinned TypeScript compiler missing at $tscPath after npm ci"
+        }
+        & $nodeExecutable $tscPath "-p" (Join-Path $linearSyncDir "tsconfig.json")
+        if ($LASTEXITCODE -ne 0) {
+            throw "GOLC_BOOTSTRAP_LINEAR_SYNC_BUILD_FAILED: tsc exited $LASTEXITCODE"
+        }
+    }
+    finally {
+        Remove-Item Env:\NPM_CONFIG_CACHE -ErrorAction SilentlyContinue
+        Pop-Location
+    }
+
+    $distProtocol = Join-Path $linearSyncDir "dist\protocol.js"
+    $distAdapter = Join-Path $linearSyncDir "dist\adapter.js"
+    if (-not (Test-Path -LiteralPath $distProtocol -PathType Leaf) -or -not (Test-Path -LiteralPath $distAdapter -PathType Leaf)) {
+        throw "GOLC_BOOTSTRAP_LINEAR_SYNC_BUILD_FAILED: expected compiled dist/protocol.js and dist/adapter.js"
+    }
+
+    $packageJsonAfter = (Get-FileHash -LiteralPath $packageJsonPath -Algorithm SHA256).Hash
+    $packageLockAfter = (Get-FileHash -LiteralPath $packageLockPath -Algorithm SHA256).Hash
+    if ($packageJsonAfter -cne $packageJsonBefore -or $packageLockAfter -cne $packageLockBefore) {
+        throw "GOLC_BOOTSTRAP_NODE_LOCK_MUTATION: bootstrap must never rewrite tools/linear-sync/package.json or package-lock.json"
+    }
+
+    Write-Output "GOLC bootstrap: tools/linear-sync compiled (protocol.ts/adapter.ts); pins/lock unchanged."
+}
+
 function Invoke-GolcBootstrap {
     [CmdletBinding()]
-    param()
+    param(
+        [switch]$IncludeLinearSync
+    )
 
     if (-not (Test-Path -LiteralPath $ToolchainManifestPath -PathType Leaf)) {
         throw "GOLC_TOOLCHAIN_MANIFEST_MISSING: config/toolchain.toml"
@@ -406,7 +509,7 @@ function Invoke-GolcBootstrap {
     # internal/bootstrap/cache.go's ProjectCacheLayout.Warm): every
     # directory is created if missing and never touched if it already
     # exists, so this step alone is always a safe idempotent no-op.
-    foreach ($cacheDirectory in @($DownloadsDirectory, $GoModCacheDirectory, $GoBuildCacheDirectory, $GoBinDirectory, $RecordDirectory)) {
+    foreach ($cacheDirectory in @($DownloadsDirectory, $GoModCacheDirectory, $GoBuildCacheDirectory, $GoBinDirectory, $NpmCacheDirectory, $RecordDirectory)) {
         New-Item -ItemType Directory -Path $cacheDirectory -Force | Out-Null
     }
     Write-Output "GOLC bootstrap: project-local cache layout warmed (GOBIN=$GoBinDirectory, GOMODCACHE=$GoModCacheDirectory, GOCACHE=$GoBuildCacheDirectory)."
@@ -510,6 +613,10 @@ function Invoke-GolcBootstrap {
         Write-Output "GOLC bootstrap: module graph warmed, verified, and recorded; probe passed; locks unchanged."
     }
 
+    if ($IncludeLinearSync) {
+        Invoke-GolcBootstrapLinearSync -Manifest $manifest
+    }
+
     Write-Output "GOLC bootstrap: complete."
 }
 
@@ -521,7 +628,31 @@ try {
             $shimExitCode = 1
         }
         "bootstrap" {
-            Invoke-GolcBootstrap
+            # Only "--include linear-sync" is a supported bootstrap
+            # argument today (Plan 01-13): it opts a contributor into
+            # provisioning the isolated tools/linear-sync Node workspace.
+            # Anything else fails closed with a stable usage diagnostic
+            # rather than being silently ignored.
+            $includeLinearSync = $false
+            $i = 0
+            while ($i -lt $CommandArguments.Count) {
+                $argument = $CommandArguments[$i]
+                if ($argument -eq "--include") {
+                    if ($i + 1 -ge $CommandArguments.Count) {
+                        throw "GOLC_BOOTSTRAP_USAGE: --include requires a value; usage: bootstrap [--include linear-sync]"
+                    }
+                    $includeTarget = $CommandArguments[$i + 1]
+                    if ($includeTarget -ne "linear-sync") {
+                        throw "GOLC_BOOTSTRAP_USAGE: unsupported --include target '$includeTarget'; only 'linear-sync' is supported"
+                    }
+                    $includeLinearSync = $true
+                    $i += 2
+                }
+                else {
+                    throw "GOLC_BOOTSTRAP_USAGE: unsupported argument '$argument'; usage: bootstrap [--include linear-sync]"
+                }
+            }
+            Invoke-GolcBootstrap -IncludeLinearSync:$includeLinearSync
             $shimExitCode = 0
         }
         default {
