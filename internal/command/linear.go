@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/lnorton89/golc/internal/strictjson"
+	"github.com/lnorton89/golc/internal/trace/apply"
 	"github.com/lnorton89/golc/internal/trace/catalog"
 	"github.com/lnorton89/golc/internal/trace/reconcile"
 	"github.com/lnorton89/golc/internal/trace/transport"
@@ -64,6 +65,37 @@ var _ = MustDeclareRoute(CommandRegistration{
 	Summary: "Report offline mapping status with allowlisted safe fields; pending/null linkage is valid, not a failure: linear status --offline.",
 	Handler: runLinearStatus,
 })
+
+// "linear apply {plan-file} --plan-id <id>" follows the same positional-
+// argument-plus-flag shape "linear archive"/"linear unlink" already
+// establish: the route word itself stays exactly two words ("linear
+// apply"), and the plan file path is the first remaining argument, never a
+// route word (router.go's route-word grammar rejects any word beginning
+// with "-", so a flag can never become part of Route either way).
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route:   "linear apply",
+	Summary: "Apply an exact, already-reviewed reconciliation plan through the injected remote transport: linear apply {plan-file} --plan-id <id>.",
+	Handler: runLinearApply,
+})
+
+// RemoteClientFactory builds the apply.RemoteClient "linear apply" mutates
+// through. No concrete process-based implementation is declared in this
+// package (CONTEXT: the real GraphQL-backed adapter is a later plan's
+// explicit scope) -- production wiring assigns applyRemoteClientFactory
+// from that later plan's own package-level var initializer, and a test
+// binary assigns a fake-returning factory directly. Leaving the factory
+// nil here means "linear apply" fails GOLC_LINEAR_TRANSPORT_UNAVAILABLE
+// before any credential, subprocess, or mutation access is ever attempted,
+// rather than silently picking a default implementation now (T-01-31/
+// T-01-34).
+type RemoteClientFactory func(root string) (apply.RemoteClient, error)
+
+// applyRemoteClientFactory is the injection point "linear apply" resolves
+// its RemoteClient through. It is intentionally nil: no ProcessClient (or
+// any other concrete apply.RemoteClient implementation) exists in this
+// codebase yet.
+var applyRemoteClientFactory RemoteClientFactory
 
 // catalogEntityView is the allowlisted JSON projection of one catalog
 // entity: only durable identity, structure, and repository-relative
@@ -481,4 +513,186 @@ func runLinearStatus(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_STATUS_ENCODE_FAILED: %v\n", err))}
 	}
 	return Result{Stdout: append(payload, '\n')}
+}
+
+// parseApplyArgs accepts exactly the supported apply form: a plan file
+// path (the first argument, never a flag) followed by --plan-id <id> /
+// --plan-id=<id>.
+func parseApplyArgs(usage string, args []string) (planFile, planID string, err error) {
+	if len(args) == 0 {
+		return "", "", fmt.Errorf("GOLC_LINEAR_USAGE: usage: %s", usage)
+	}
+	planFile = args[0]
+	if strings.HasPrefix(planFile, "--") {
+		return "", "", fmt.Errorf("GOLC_LINEAR_USAGE: usage: %s", usage)
+	}
+	for i := 1; i < len(args); {
+		argument := args[i]
+		switch {
+		case argument == "--plan-id":
+			if i+1 >= len(args) {
+				return "", "", fmt.Errorf("GOLC_LINEAR_USAGE: --plan-id requires a value; usage: %s", usage)
+			}
+			planID = args[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--plan-id="):
+			planID = strings.TrimPrefix(argument, "--plan-id=")
+			i++
+		default:
+			return "", "", fmt.Errorf("GOLC_LINEAR_USAGE: unsupported argument %q; usage: %s", argument, usage)
+		}
+	}
+	if planFile == "" || planID == "" {
+		return "", "", fmt.Errorf("GOLC_LINEAR_USAGE: usage: %s", usage)
+	}
+	return planFile, planID, nil
+}
+
+// validateOperationsSorted rejects a plan whose operations are not already
+// in the exact canonical D-17 hierarchy/local-id order. This is an
+// independent check from ValidatePlanIntegrity's hash self-consistency:
+// a tampered plan that reordered its operations and then recomputed its
+// own plan_id over that new order would otherwise still pass integrity
+// alone, so reordering is caught here explicitly before any typed apply.
+func validateOperationsSorted(plan reconcile.Plan) error {
+	sorted := append([]reconcile.Operation(nil), plan.Operations...)
+	if err := reconcile.SortOperations(sorted); err != nil {
+		return fmt.Errorf("GOLC_LINEAR_APPLY_PLAN_INVALID: %v", err)
+	}
+	for index := range sorted {
+		if sorted[index].LocalID != plan.Operations[index].LocalID {
+			return fmt.Errorf(
+				"GOLC_LINEAR_APPLY_PLAN_UNSORTED: plan operations are not in canonical D-17 order at position %d (expected %s, found %s); re-run linear preview",
+				index, sorted[index].LocalID, plan.Operations[index].LocalID)
+		}
+	}
+	return nil
+}
+
+// validateConflictsWellFormed rejects any D-13 conflict entry that is not
+// structurally complete: every conflict must name the local id and field
+// in disagreement, carry the resolution command a contributor runs, and
+// record all three sides of the three-way comparison it is reporting.
+func validateConflictsWellFormed(plan reconcile.Plan) error {
+	for _, conflict := range plan.Conflicts {
+		if conflict.LocalID == "" || conflict.Field == "" || conflict.ResolutionCommand == "" {
+			return fmt.Errorf(
+				"GOLC_LINEAR_APPLY_PLAN_CONFLICT_INVALID: conflict for %q field %q is missing required local id, field, or resolution command text",
+				conflict.LocalID, conflict.Field)
+		}
+		if conflict.BaseValue == nil || conflict.RepositoryValue == nil || conflict.LinearValue == nil {
+			return fmt.Errorf(
+				"GOLC_LINEAR_APPLY_PLAN_CONFLICT_INVALID: conflict for %q field %q must carry base, repository, and linear values",
+				conflict.LocalID, conflict.Field)
+		}
+	}
+	return nil
+}
+
+// validateNoConflictedOperations rejects a plan where the same local id
+// appears both as a planned operation and as an unresolved D-13 conflict:
+// those two states are mutually exclusive by construction (canonical.go's
+// BuildPlan never emits both for the same local id), so their joint
+// presence in a loaded plan file is an illegal state transition rather
+// than a plan reconcile itself would ever produce.
+func validateNoConflictedOperations(plan reconcile.Plan) error {
+	conflicted := make(map[string]bool, len(plan.Conflicts))
+	for _, conflict := range plan.Conflicts {
+		conflicted[conflict.LocalID] = true
+	}
+	for _, op := range plan.Operations {
+		if conflicted[op.LocalID] {
+			return fmt.Errorf(
+				"GOLC_LINEAR_APPLY_PLAN_ILLEGAL_TRANSITION: %s has both a planned operation and an unresolved D-13 conflict",
+				op.LocalID)
+		}
+	}
+	return nil
+}
+
+// decodeAndValidatePlanStrict reads path and strictly decodes it into a
+// reconcile.Plan before anything typed is ever handed to apply.Apply
+// (CONTEXT D-17/D-18): duplicate object member names and unknown JSON
+// fields are rejected by strictjson.DecodeStrict; the plan's own recorded
+// plan_id must match its independently recomputed canonical hash
+// (apply.ValidatePlanIntegrity); its operations must already be in the
+// exact canonical D-17 order; every recorded conflict must be structurally
+// well-formed; and no local id may simultaneously own both a planned
+// operation and an unresolved conflict. Any violation returns before a
+// single typed field is used.
+func decodeAndValidatePlanStrict(path string) (reconcile.Plan, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return reconcile.Plan{}, fmt.Errorf("GOLC_LINEAR_APPLY_PLAN_READ: %s: %v", path, err)
+	}
+	var plan reconcile.Plan
+	if err := strictjson.DecodeStrict(data, &plan); err != nil {
+		return reconcile.Plan{}, fmt.Errorf("GOLC_LINEAR_APPLY_PLAN_DECODE: %s: %v", path, err)
+	}
+	if err := apply.ValidatePlanIntegrity(plan); err != nil {
+		return reconcile.Plan{}, err
+	}
+	if err := validateOperationsSorted(plan); err != nil {
+		return reconcile.Plan{}, err
+	}
+	if err := validateConflictsWellFormed(plan); err != nil {
+		return reconcile.Plan{}, err
+	}
+	if err := validateNoConflictedOperations(plan); err != nil {
+		return reconcile.Plan{}, err
+	}
+	return plan, nil
+}
+
+// runLinearApply serves the self-registered "linear apply" route (CONTEXT
+// D-17/D-18/D-21): it strictly decodes and validates the plan file, then
+// requires --plan-id to exactly match the loaded plan's own plan_id before
+// anything is attempted (CONTEXT D-17: an exact-plan bound apply never
+// runs against an implicitly selected or approximately matching plan).
+// With no RemoteClientFactory wired, apply fails
+// GOLC_LINEAR_TRANSPORT_UNAVAILABLE before any credential, subprocess, or
+// mutation access -- no ProcessClient (or other concrete transport) is
+// referenced anywhere in this package.
+func runLinearApply(request Request) Result {
+	usage := "linear apply {plan-file} --plan-id <id>"
+	planFile, planID, err := parseApplyArgs(usage, request.Args)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	plan, err := decodeAndValidatePlanStrict(resolveWritablePath(request.Root, planFile))
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	if plan.PlanID != planID {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
+			"GOLC_LINEAR_APPLY_PLAN_ID_MISMATCH: --plan-id %q does not match the loaded plan's own plan_id %q\n", planID, plan.PlanID))}
+	}
+
+	if applyRemoteClientFactory == nil {
+		return Result{ExitCode: 1, Stderr: []byte(
+			"GOLC_LINEAR_TRANSPORT_UNAVAILABLE: no RemoteClientFactory is wired; the process-based Linear transport does not exist yet\n")}
+	}
+
+	if err := apply.GuardAgainstPullRequestMutation(os.LookupEnv); err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	client, err := applyRemoteClientFactory(request.Root)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_TRANSPORT_UNAVAILABLE: %v\n", err))}
+	}
+
+	migrated, err := catalog.MigrateV1ToV2(request.Root)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	results := apply.Apply(client, plan, migrated.RemoteMappings)
+	report := apply.Report{PlanID: plan.PlanID, Results: results}
+	payload, err := strictjson.CanonicalEncode(report)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_APPLY_REPORT_ENCODE_FAILED: %v\n", err))}
+	}
+	return Result{Stdout: payload}
 }
