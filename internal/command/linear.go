@@ -8,9 +8,14 @@ package command
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/lnorton89/golc/internal/strictjson"
 	"github.com/lnorton89/golc/internal/trace/catalog"
+	"github.com/lnorton89/golc/internal/trace/reconcile"
+	"github.com/lnorton89/golc/internal/trace/transport"
 )
 
 var _ = MustDeclareScope(ScopeRegistration{
@@ -22,6 +27,24 @@ var _ = MustDeclareRoute(CommandRegistration{
 	Route:   "linear catalog",
 	Summary: "Print the offline repository-owned planning identity catalog as deterministic JSON: linear catalog --offline --format json.",
 	Handler: runLinearCatalog,
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route:   "linear preview",
+	Summary: "Preview a complete-snapshot reconciliation plan against a fake transport fixture: linear preview --snapshot <path> --out <path>.",
+	Handler: runLinearPreview,
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route:   "linear archive",
+	Summary: "Build an explicit D-15 archive review preview for an already-linked local entity: linear archive --local-id <id> --preview-out <path>.",
+	Handler: runLinearArchive,
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route:   "linear unlink",
+	Summary: "Build an explicit D-15 unlink review preview for an already-linked local entity: linear unlink --local-id <id> --preview-out <path>.",
+	Handler: runLinearUnlink,
 })
 
 // catalogEntityView is the allowlisted JSON projection of one catalog
@@ -105,4 +128,209 @@ func runLinearCatalog(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_CATALOG_ENCODE_FAILED: %v\n", err))}
 	}
 	return Result{Stdout: append(payload, '\n')}
+}
+
+// parseSnapshotOutArgs accepts exactly the supported preview form:
+// --snapshot <path> --out <path>.
+func parseSnapshotOutArgs(usage string, args []string) (snapshotPath, outPath string, err error) {
+	for i := 0; i < len(args); {
+		argument := args[i]
+		switch {
+		case argument == "--snapshot":
+			if i+1 >= len(args) {
+				return "", "", fmt.Errorf("GOLC_LINEAR_USAGE: --snapshot requires a path; usage: %s", usage)
+			}
+			snapshotPath = args[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--snapshot="):
+			snapshotPath = strings.TrimPrefix(argument, "--snapshot=")
+			i++
+		case argument == "--out":
+			if i+1 >= len(args) {
+				return "", "", fmt.Errorf("GOLC_LINEAR_USAGE: --out requires a path; usage: %s", usage)
+			}
+			outPath = args[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--out="):
+			outPath = strings.TrimPrefix(argument, "--out=")
+			i++
+		default:
+			return "", "", fmt.Errorf("GOLC_LINEAR_USAGE: unsupported argument %q; usage: %s", argument, usage)
+		}
+	}
+	if snapshotPath == "" || outPath == "" {
+		return "", "", fmt.Errorf("GOLC_LINEAR_USAGE: usage: %s", usage)
+	}
+	return snapshotPath, outPath, nil
+}
+
+// parseLocalIDPreviewOutArgs accepts exactly the supported archive/unlink
+// form: --local-id <id> --preview-out <path>.
+func parseLocalIDPreviewOutArgs(usage string, args []string) (localID, outPath string, err error) {
+	for i := 0; i < len(args); {
+		argument := args[i]
+		switch {
+		case argument == "--local-id":
+			if i+1 >= len(args) {
+				return "", "", fmt.Errorf("GOLC_LINEAR_USAGE: --local-id requires a value; usage: %s", usage)
+			}
+			localID = args[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--local-id="):
+			localID = strings.TrimPrefix(argument, "--local-id=")
+			i++
+		case argument == "--preview-out":
+			if i+1 >= len(args) {
+				return "", "", fmt.Errorf("GOLC_LINEAR_USAGE: --preview-out requires a path; usage: %s", usage)
+			}
+			outPath = args[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--preview-out="):
+			outPath = strings.TrimPrefix(argument, "--preview-out=")
+			i++
+		default:
+			return "", "", fmt.Errorf("GOLC_LINEAR_USAGE: unsupported argument %q; usage: %s", argument, usage)
+		}
+	}
+	if localID == "" || outPath == "" {
+		return "", "", fmt.Errorf("GOLC_LINEAR_USAGE: usage: %s", usage)
+	}
+	return localID, outPath, nil
+}
+
+// resolveWritablePath returns path unchanged when it is already absolute
+// (the contributor's own explicit choice of where to write review
+// output); otherwise it is resolved relative to root.
+func resolveWritablePath(root, path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(root, path)
+}
+
+// intentsFromMigratedMap derives the exact repository intent set for
+// BuildCompletePreview from the canonical schema-2 map: every non-project
+// entity becomes an Intent whose sole owned field is its display title
+// (CONTEXT D-11), and its Linear object type comes from the matching
+// remote mapping already computed by catalog.MigrateV1ToV2.
+func intentsFromMigratedMap(migrated *catalog.Map) []reconcile.Intent {
+	linearTypeByID := make(map[string]string, len(migrated.RemoteMappings))
+	for _, mapping := range migrated.RemoteMappings {
+		linearTypeByID[mapping.RepoID] = mapping.LinearType
+	}
+	intents := make([]reconcile.Intent, 0, len(migrated.Entities))
+	for _, entity := range migrated.Entities {
+		if entity.Kind == string(catalog.KindProject) {
+			continue // the repository root is never remote-mapped
+		}
+		intents = append(intents, reconcile.Intent{
+			LocalID:       entity.LocalID,
+			Kind:          entity.Kind,
+			LinearType:    linearTypeByID[entity.LocalID],
+			ParentLocalID: entity.ParentLocalID,
+			Fields:        map[string]string{"title": entity.Display},
+		})
+	}
+	return intents
+}
+
+// runLinearPreview serves the self-registered "linear preview" route: it
+// captures a snapshot from a credential-free fake transport fixture,
+// builds the exact D-17 complete-snapshot preview against the
+// repository's own catalog intent and remote mapping set, and writes the
+// canonical preview JSON to --out. No network, SDK, or Linear credential
+// access is reachable from this route (T-01-SC).
+func runLinearPreview(request Request) Result {
+	snapshotPath, outPath, err := parseSnapshotOutArgs("linear preview --snapshot <path> --out <path>", request.Args)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	fake, err := transport.LoadFakeSnapshot(resolveWritablePath(request.Root, snapshotPath))
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	snapshot, err := fake.CaptureSnapshot()
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	migrated, err := catalog.MigrateV1ToV2(request.Root)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	plan, err := reconcile.BuildCompletePreview(intentsFromMigratedMap(migrated), migrated.RemoteMappings, snapshot, nil)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	payload, err := strictjson.CanonicalEncode(plan)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_PREVIEW_ENCODE_FAILED: %v\n", err))}
+	}
+	destination := resolveWritablePath(request.Root, outPath)
+	if err := os.WriteFile(destination, payload, 0o644); err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_PREVIEW_WRITE_FAILED: %v\n", err))}
+	}
+	return Result{Stdout: []byte(fmt.Sprintf("GOLC_LINEAR_PREVIEW: wrote %s\n", destination))}
+}
+
+// writeArchivePreview is the shared handler body for the "linear archive"
+// and "linear unlink" routes: it resolves localID's already-recorded
+// remote mapping from the canonical schema-2 map, builds the requested
+// explicit D-15 removal preview, and writes it to --preview-out.
+func writeArchivePreview(request Request, localID, outPath string, build func(catalog.RemoteMapping) (reconcile.ArchivePreview, error)) Result {
+	migrated, err := catalog.MigrateV1ToV2(request.Root)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	var mapping catalog.RemoteMapping
+	found := false
+	for _, candidate := range migrated.RemoteMappings {
+		if candidate.RepoID == localID {
+			mapping = candidate
+			found = true
+			break
+		}
+	}
+	if !found {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_ARCHIVE_UNKNOWN: %q has no recorded remote mapping\n", localID))}
+	}
+	preview, err := build(mapping)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	payload, err := strictjson.CanonicalEncode(preview)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_ARCHIVE_ENCODE_FAILED: %v\n", err))}
+	}
+	destination := resolveWritablePath(request.Root, outPath)
+	if err := os.WriteFile(destination, payload, 0o644); err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_ARCHIVE_WRITE_FAILED: %v\n", err))}
+	}
+	return Result{Stdout: []byte(fmt.Sprintf("GOLC_LINEAR_ARCHIVE: wrote %s\n", destination))}
+}
+
+// runLinearArchive serves the self-registered "linear archive" route
+// (CONTEXT D-15): it never infers removal from local absence, only from
+// this explicit, already-reviewed invocation against an already-linked
+// entity.
+func runLinearArchive(request Request) Result {
+	localID, outPath, err := parseLocalIDPreviewOutArgs("linear archive --local-id <id> --preview-out <path>", request.Args)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+	return writeArchivePreview(request, localID, outPath, reconcile.BuildArchivePreview)
+}
+
+// runLinearUnlink serves the self-registered "linear unlink" route
+// (CONTEXT D-15): only the local-to-remote link is previewed for
+// removal; the remote object itself is left untouched.
+func runLinearUnlink(request Request) Result {
+	localID, outPath, err := parseLocalIDPreviewOutArgs("linear unlink --local-id <id> --preview-out <path>", request.Args)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+	return writeArchivePreview(request, localID, outPath, reconcile.BuildUnlinkPreview)
 }
