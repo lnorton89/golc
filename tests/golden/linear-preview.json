@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "intent_digest": "f0905dbd216dc4b9a09ab4c5e650b6bd849ac24b46a6110597f57ef253045fa2",
+  "mapping_digest": "79c603a65a6847ecc5f33e8c5079519168dc13e7c666e4923d7cd8fe6e6e1d9c",
+  "remote_scope_digest": "d57bb4681deb27aaea9532a0a91a8cbd44b10600c5581c79075bb9bb57e2ffd1",
+  "operations": [
+    {
+      "local_id": "milestone:v1",
+      "kind": "milestone",
+      "linear_type": "project",
+      "linear_uuid": null,
+      "discovery_marker": "---\nGOLC local ID: milestone:v1\nGOLC mapping schema: 2\n",
+      "parent_local_id": "project:golc",
+      "before": {},
+      "after": {
+        "title": "GOLC v1"
+      },
+      "owned_fields": [
+        "title"
+      ],
+      "expected_updated_at": null,
+      "depends_on": []
+    },
+    {
+      "local_id": "phase:01",
+      "kind": "phase",
+      "linear_type": "project_milestone",
+      "linear_uuid": null,
+      "discovery_marker": "---\nGOLC local ID: phase:01\nGOLC mapping schema: 2\n",
+      "parent_local_id": "milestone:v1",
+      "before": {},
+      "after": {
+        "title": "Offline Foundation and Delivery Traceability"
+      },
+      "owned_fields": [
+        "title"
+      ],
+      "expected_updated_at": null,
+      "depends_on": [
+        "milestone:v1"
+      ]
+    },
+    {
+      "local_id": "plan:01-10",
+      "kind": "plan",
+      "linear_type": "issue",
+      "linear_uuid": null,
+      "discovery_marker": "---\nGOLC local ID: plan:01-10\nGOLC mapping schema: 2\n",
+      "parent_local_id": "phase:01",
+      "before": {},
+      "after": {
+        "title": "Plan 01-10"
+      },
+      "owned_fields": [
+        "title"
+      ],
+      "expected_updated_at": null,
+      "depends_on": [
+        "phase:01"
+      ]
+    },
+    {
+      "local_id": "req:CONF-01",
+      "kind": "req",
+      "linear_type": "issue",
+      "linear_uuid": null,
+      "discovery_marker": "---\nGOLC local ID: req:CONF-01\nGOLC mapping schema: 2\n",
+      "parent_local_id": "phase:01",
+      "before": {},
+      "after": {
+        "title": "Centralize discoverable project configuration."
+      },
+      "owned_fields": [
+        "title"
+      ],
+      "expected_updated_at": null,
+      "depends_on": [
+        "phase:01"
+      ]
+    },
+    {
+      "local_id": "task:01-10.1",
+      "kind": "task",
+      "linear_type": "issue",
+      "linear_uuid": null,
+      "discovery_marker": "---\nGOLC local ID: task:01-10.1\nGOLC mapping schema: 2\n",
+      "parent_local_id": "plan:01-10",
+      "before": {},
+      "after": {
+        "title": "Task 1: Define canonical operations and visible identity markers"
+      },
+      "owned_fields": [
+        "title"
+      ],
+      "expected_updated_at": null,
+      "depends_on": [
+        "plan:01-10"
+      ]
+    }
+  ],
+  "conflicts": null,
+  "plan_id": "226f9a33dfe547294651408ffdc7c3914e664b6814a966a2d60ceb80566aa861"
+}

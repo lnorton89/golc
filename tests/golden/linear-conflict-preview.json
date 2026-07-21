@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "intent_digest": "9c79e616a7697d6f6aece5bd92fece649ac035c16fdcfeacf47a80b3fda433d0",
+  "mapping_digest": "f3038daefa08b86d088fdf679f1f8f4dc3c3315ce5cea7d30d025c747f885799",
+  "remote_scope_digest": "1e57694a3fd8f3874d087549b94f3b76d31932c3e82aa17c3f758b3811a67494",
+  "operations": [
+    {
+      "local_id": "phase:01",
+      "kind": "phase",
+      "linear_type": "project_milestone",
+      "linear_uuid": null,
+      "discovery_marker": "---\nGOLC local ID: phase:01\nGOLC mapping schema: 2\n",
+      "parent_local_id": "milestone:v1",
+      "before": {},
+      "after": {
+        "title": "Offline Foundation and Delivery Traceability"
+      },
+      "owned_fields": [
+        "title"
+      ],
+      "expected_updated_at": null,
+      "depends_on": [
+        "milestone:v1"
+      ]
+    },
+    {
+      "local_id": "plan:01-10",
+      "kind": "plan",
+      "linear_type": "issue",
+      "linear_uuid": null,
+      "discovery_marker": "---\nGOLC local ID: plan:01-10\nGOLC mapping schema: 2\n",
+      "parent_local_id": "phase:01",
+      "before": {},
+      "after": {
+        "title": "Plan 01-10"
+      },
+      "owned_fields": [
+        "title"
+      ],
+      "expected_updated_at": null,
+      "depends_on": [
+        "phase:01"
+      ]
+    }
+  ],
+  "conflicts": [
+    {
+      "local_id": "req:CONF-01",
+      "field": "title",
+      "base_value": "Original title",
+      "repository_value": "Repository title override",
+      "linear_value": "Linear title override",
+      "resolution_command": "golc linear resolve --local-id req:CONF-01 --field title"
+    }
+  ],
+  "plan_id": "c0f80a184b3bd1aa02864db842b92c126140b87546e86d58882a9e3a7125a5c2"
+}
