@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "description": "Commit/timeout mutation-failure transcript for linear-transport-node (CONTEXT D-20/D-21; T-01-40/T-01-41). Each scenario supplies a raw, hostile create/update SDK failure -- deliberately embedding the security canary token and forbidden secret-shaped substrings in its own message and attached fields -- that adapter.ts's createOperation/updateOperation must convert into a typed 'unknown' MutationOutcome via redact.ts's safeError, immediately, with exactly one (or, for a commit-then-readback-timeout scenario, exactly two) SDK call(s) ever attempted and zero write retry, and every emitted byte must remain clean under redact.ts's scanCanary.",
+  "canaryMessage": "leaked LINEAR_API_KEY=lin_api_should_never_appear Authorization: Bearer sk-should-never-appear canary=GOLC_FAKE_SECRET_CANARY_4f9c2e6b1a7d3f809c21",
+  "scenarios": [
+    {
+      "name": "create mutation call itself aborts/times out (AbortError)",
+      "action": "create",
+      "errorName": "AbortError",
+      "attachCause": false,
+      "readbackFails": false,
+      "expectedCode": "LINEAR_MUTATION_TIMEOUT"
+    },
+    {
+      "name": "create mutation observes a lower-level network failure (TypeError with a structured cause)",
+      "action": "create",
+      "errorName": "TypeError",
+      "attachCause": true,
+      "readbackFails": false,
+      "expectedCode": "LINEAR_MUTATION_NETWORK_ERROR"
+    },
+    {
+      "name": "create mutation observes a partial GraphQL error mid-mutation (generic Error, no structured cause)",
+      "action": "create",
+      "errorName": "Error",
+      "attachCause": false,
+      "readbackFails": false,
+      "expectedCode": "LINEAR_MUTATION_UNCERTAIN"
+    },
+    {
+      "name": "update mutation call itself fails with a generic partial error",
+      "action": "update",
+      "errorName": "Error",
+      "attachCause": false,
+      "readbackFails": false,
+      "expectedCode": "LINEAR_MUTATION_UNCERTAIN"
+    },
+    {
+      "name": "update mutation commits successfully but its mandatory post-mutation readback times out (commit-then-timeout)",
+      "action": "update",
+      "errorName": "AbortError",
+      "attachCause": false,
+      "readbackFails": true,
+      "expectedCode": "LINEAR_MUTATION_TIMEOUT"
+    }
+  ]
+}

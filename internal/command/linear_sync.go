@@ -77,6 +77,22 @@ var _ = MustDeclareNodeScope(NodeScopeRegistration{
 	Command: linearSyncNodeTestCommandErrors(),
 })
 
+// linear-transport-node is the exact quick-test scope config/commands.toml
+// documents for tools/linear-sync's redaction/uncertain-write contract
+// (Plan 01-27; T-01-40/T-01-41): `test --quick --scope
+// linear-transport-node` runs both test/redact.test.ts and
+// test/mutation.test.ts (compiled to dist/test/redact.test.js and
+// dist/test/mutation.test.js), asserting its TestScopeLinearTransportNode
+// marker before anything executes, exactly as MustDeclareNodeScope's
+// fail-on-missing-marker/exit-nonzero contract already requires for every
+// registered Node scope.
+var _ = MustDeclareNodeScope(NodeScopeRegistration{
+	Scope:   "linear-transport-node",
+	Dir:     linearSyncWorkspaceDir,
+	Marker:  "TestScopeLinearTransportNode",
+	Command: linearSyncNodeTestCommandNode(),
+})
+
 // linearSyncNodeTestGlob is a glob pattern, not a bare directory: Node's
 // own --test path resolution (confirmed empirically against the pinned
 // Node 24.18.0 build) fails a bare directory argument with
@@ -103,6 +119,15 @@ const linearSyncNodeTestFilePagination = "dist/test/pagination.test.js"
 // scoped `test --quick --scope linear-transport-errors` run exercises
 // exactly the data-plus-errors and rate-limit fixtures and nothing else.
 var linearSyncNodeTestFilesErrors = []string{"dist/test/errors.test.js", "dist/test/rate-limit.test.js"}
+
+// linearSyncNodeTestFilesNode are the exact compiled output paths of Plan
+// 01-27's redact.test.ts and mutation.test.ts. The "linear-transport-node"
+// scope registered above targets exactly these two files (mirroring
+// linearSyncNodeTestFilesErrors's same multi-file precedent) so a scoped
+// `test --quick --scope linear-transport-node` run exercises exactly the
+// canary-scan/safe-uncertain-outcome contract and the mutation-uncertain
+// fixture, and nothing else.
+var linearSyncNodeTestFilesNode = []string{"dist/test/redact.test.js", "dist/test/mutation.test.js"}
 
 // resolveLinearSyncProjectRoot resolves the repository root
 // linearSyncNodeTestCommand and linearSyncNodeTestCommandPagination both
@@ -161,4 +186,17 @@ func linearSyncNodeTestCommandErrors() []string {
 		return append([]string{nodeExecutable, "--test"}, linearSyncNodeTestFilesErrors...)
 	}
 	return append([]string{"golc-linear-sync-node-not-bootstrapped", "--test"}, linearSyncNodeTestFilesErrors...)
+}
+
+// linearSyncNodeTestCommandNode resolves the exact `node --test
+// dist/test/redact.test.js dist/test/mutation.test.js` invocation the
+// "linear-transport-node" scope's registered Command runs, mirroring
+// linearSyncNodeTestCommandErrors's same pre-bootstrap placeholder-Command
+// safety.
+func linearSyncNodeTestCommandNode() []string {
+	root := resolveLinearSyncProjectRoot()
+	if nodeExecutable, err := resolvePinnedNodeExecutable(root); err == nil {
+		return append([]string{nodeExecutable, "--test"}, linearSyncNodeTestFilesNode...)
+	}
+	return append([]string{"golc-linear-sync-node-not-bootstrapped", "--test"}, linearSyncNodeTestFilesNode...)
 }

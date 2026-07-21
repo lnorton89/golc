@@ -200,13 +200,34 @@ export interface MutationResult {
 }
 
 /**
+ * MutationOutcome is the actual result LinearSdkAdapter.execute returns for
+ * a "create"/"update" operation (Plan 01-27; CONTEXT D-20/D-21; T-01-40):
+ * "confirmed" carries the same mandatory readback record MutationResult
+ * already required; "unknown" is returned the instant the mutation attempt
+ * itself, or its immediately following mandatory readback, observes any
+ * uncertain SDK failure -- a partial GraphQL error, a timeout, an aborted
+ * request, or any other exception -- immediately, with zero automatic
+ * create/update retry. adapter.ts's redact.ts import (safeError) is the
+ * sole producer of an "unknown" outcome's diagnostic: never the raw
+ * exception's message, stack, headers, request body, or credential. Go
+ * retains sole authority for discovering the true remote postcondition of
+ * an "unknown" mutation (identity-marker discovery,
+ * internal/trace/apply/engine.go's applyUnlinkedOperation) -- this
+ * transport never re-attempts or guesses on its own.
+ */
+export type MutationOutcome =
+  | ({ status: "confirmed" } & MutationResult)
+  | { status: "unknown"; diagnostic: TransportDiagnostic };
+
+/**
  * OperationResult maps an Operation's action to its exact result shape:
  * "read" always produces a ReadResult; "create"/"update" always produce a
- * MutationResult with a mandatory readback.
+ * MutationOutcome (Plan 01-27), either a confirmed mandatory readback or a
+ * typed unknown outcome.
  */
 export type OperationResult<TOperation extends Operation> = TOperation["action"] extends "read"
   ? ReadResult
-  : MutationResult;
+  : MutationOutcome;
 
 // ---------------------------------------------------------------------------
 // Snapshot (exhaustive connection capture)
