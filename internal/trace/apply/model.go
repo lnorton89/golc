@@ -122,29 +122,45 @@ type Report struct {
 	Results []OperationResult `json:"results"`
 }
 
-// canonicalFields renders fields the same way reconcile's
-// canonicalFieldsJSON does (sorted keys, {} for nil/empty), so a
-// RemoteState's fields can be compared byte-for-byte against an
-// Operation's already-canonical After snapshot.
-func canonicalFields(fields map[string]string) (string, error) {
+// decodeFields normalizes fields (or op.After's raw bytes) into a plain
+// map[string]string, treating nil/empty identically to {}.
+func decodeFields(fields map[string]string) map[string]string {
 	if fields == nil {
-		fields = map[string]string{}
+		return map[string]string{}
 	}
-	encoded, err := json.Marshal(fields)
-	if err != nil {
-		return "", fmt.Errorf("GOLC_APPLY_ENCODE: %v", err)
-	}
-	return string(encoded), nil
+	return fields
 }
 
 // fieldsMatch reports whether state's fields exactly match op's already-
-// canonical desired postcondition (op.After).
+// canonical desired postcondition (op.After), by decoded content rather
+// than marshaled bytes (CONTEXT: a Plan loaded from a file was written
+// through strictjson.CanonicalEncode, which uses json.MarshalIndent --
+// that reformats every nested json.RawMessage field, including
+// Operation.After/Before, to match its own nesting depth inside the whole
+// document. A plain json.Marshal byte comparison against that
+// differently-indented, differently-nested RawMessage would then
+// spuriously mismatch for every plan loaded from disk even when the
+// content is semantically identical -- the first real end-to-end apply
+// exercise against a working RemoteClient (Plan 01-15's fake-SDK
+// acceptance) is what surfaced this).
 func fieldsMatch(state RemoteState, op reconcile.Operation) bool {
-	encoded, err := canonicalFields(state.Fields)
-	if err != nil {
+	var afterFields map[string]string
+	if len(op.After) > 0 {
+		if err := json.Unmarshal(op.After, &afterFields); err != nil {
+			return false
+		}
+	}
+	left := decodeFields(state.Fields)
+	right := decodeFields(afterFields)
+	if len(left) != len(right) {
 		return false
 	}
-	return encoded == string(op.After)
+	for key, value := range left {
+		if right[key] != value {
+			return false
+		}
+	}
+	return true
 }
 
 func strPtr(s string) *string { return &s }
