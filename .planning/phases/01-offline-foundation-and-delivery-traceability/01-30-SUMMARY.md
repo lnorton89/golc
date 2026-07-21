@@ -150,3 +150,12 @@ None - no external service configuration required.
 ---
 *Phase: 01-offline-foundation-and-delivery-traceability*
 *Completed: 2026-07-21*
+
+## Self-Check: PASSED
+
+- FOUND: internal/command/linear_test.go
+- FOUND: .planning/phases/01-offline-foundation-and-delivery-traceability/01-30-SUMMARY.md
+- FOUND commit: e5b1a6d (test, Task 1 RED)
+- FOUND commit: 9773a08 (fix, Task 2 GREEN)
+- FOUND commit: ca9f2cf (docs, deferred-items logging)
+- FOUND commit: b64e2fd (docs, this SUMMARY.md)
