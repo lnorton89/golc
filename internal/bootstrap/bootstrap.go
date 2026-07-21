@@ -40,6 +40,20 @@ type InstalledFile struct {
 	SHA256 string `json:"sha256"`
 }
 
+// EnsureDirectories creates every directory in paths (including parents) if
+// missing, so cache-layout warming (cache.go's ProjectCacheLayout.Warm) and
+// staged installs share one exact "make it exist" primitive instead of
+// duplicating os.MkdirAll calls with inconsistent permissions. It fails if
+// a path already exists as a non-directory.
+func EnsureDirectories(paths ...string) error {
+	for _, path := range paths {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			return fmt.Errorf("BOOTSTRAP_CACHE_DIRECTORY: %s: %w", path, err)
+		}
+	}
+	return nil
+}
+
 // normalizeExpectedSHA256 validates and canonicalizes an exact pin.
 func normalizeExpectedSHA256(expected string) (string, error) {
 	normalized := strings.ToLower(strings.TrimSpace(expected))
@@ -130,7 +144,7 @@ func InstallStaged(archivePath, expectedSHA256, installDir string) (err error) {
 	}
 
 	parent := filepath.Dir(installDir)
-	if err := os.MkdirAll(parent, 0o755); err != nil {
+	if err := EnsureDirectories(parent); err != nil {
 		return fmt.Errorf("BOOTSTRAP_INSTALL_PARENT: %w", err)
 	}
 	staging, err := os.MkdirTemp(parent, ".golc-staging-")
