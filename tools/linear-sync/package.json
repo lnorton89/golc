@@ -1,0 +1,20 @@
+{
+  "name": "linear-sync",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Isolated Linear TypeScript SDK transport workspace for GOLC delivery traceability (CONTEXT D-01/D-03; workflow tool only, not part of the GOLC runtime).",
+  "type": "module",
+  "engines": {
+    "node": ">=24.18.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test dist/test/"
+  },
+  "dependencies": {
+    "@linear/sdk": "88.1.0"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}

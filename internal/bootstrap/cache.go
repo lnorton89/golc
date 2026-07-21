@@ -29,17 +29,23 @@ const (
 	WailsVersion = "v2.13.0"
 )
 
-// ProjectCacheLayout is the complete set of repository-local Go/Wails cache
-// directories bootstrap warms and every subsequent build/test/package
+// ProjectCacheLayout is the complete set of repository-local Go/Node/Wails
+// cache directories bootstrap warms and every subsequent build/test/package
 // operation must consume, matching the directories golc.ps1 provisions
 // during bootstrap: .tools/cache/downloads, .tools/cache/go-mod,
-// .tools/cache/go-build, .tools/cache/go-bin, and .tools/manifest.
+// .tools/cache/go-build, .tools/cache/go-bin, .tools/cache/npm, and
+// .tools/manifest. NpmCache is only warmed/consumed when a contributor
+// opts into the isolated tools/linear-sync workspace (`bootstrap --include
+// linear-sync`, Plan 01-13); its directory is still always part of this
+// layout so Validate/Warm treat it exactly like every other cache
+// directory rather than special-casing it.
 type ProjectCacheLayout struct {
 	Root         string
 	Downloads    string
 	GoModCache   string
 	GoBuildCache string
 	GoBin        string
+	NpmCache     string
 	Manifest     string
 }
 
@@ -61,6 +67,7 @@ func NewProjectCacheLayout(root string) (ProjectCacheLayout, error) {
 		GoModCache:   filepath.Join(absoluteRoot, ".tools", "cache", "go-mod"),
 		GoBuildCache: filepath.Join(absoluteRoot, ".tools", "cache", "go-build"),
 		GoBin:        filepath.Join(absoluteRoot, ".tools", "cache", "go-bin"),
+		NpmCache:     filepath.Join(absoluteRoot, ".tools", "cache", "npm"),
 		Manifest:     filepath.Join(absoluteRoot, ".tools", "manifest"),
 	}
 	if err := layout.Validate(); err != nil {
@@ -71,7 +78,7 @@ func NewProjectCacheLayout(root string) (ProjectCacheLayout, error) {
 
 // directories returns every cache directory in layout in a stable order.
 func (layout ProjectCacheLayout) directories() []string {
-	return []string{layout.Downloads, layout.GoModCache, layout.GoBuildCache, layout.GoBin, layout.Manifest}
+	return []string{layout.Downloads, layout.GoModCache, layout.GoBuildCache, layout.GoBin, layout.NpmCache, layout.Manifest}
 }
 
 // Validate confirms every cache directory in layout is contained inside
@@ -106,41 +113,47 @@ func (layout ProjectCacheLayout) Warm() error {
 }
 
 // OfflineEnvironment is the exact set of environment variables bootstrap
-// and every subsequent golc.ps1 subcommand must set so Go/Wails operations
-// stay repository-local: GOTOOLCHAIN is pinned to "local" (never a silent
-// toolchain download or host fallback), GOMODCACHE/GOCACHE/GOBIN point
-// inside layout, and GOFLAGS forces readonly module resolution so nothing
-// outside the explicit `tools update` command rewrites go.mod or go.sum
-// (D-04).
+// and every subsequent golc.ps1 subcommand must set so Go/Node/Wails
+// operations stay repository-local: GOTOOLCHAIN is pinned to "local"
+// (never a silent toolchain download or host fallback), GOMODCACHE/
+// GOCACHE/GOBIN point inside layout, GOFLAGS forces readonly module
+// resolution so nothing outside the explicit `tools update` command
+// rewrites go.mod or go.sum (D-04), and NPM_CONFIG_CACHE points npm's own
+// cache at the same repository-local layout (D-01/D-02) whenever the
+// isolated tools/linear-sync workspace is in use.
 type OfflineEnvironment struct {
-	GOTOOLCHAIN string
-	GOMODCACHE  string
-	GOCACHE     string
-	GOBIN       string
-	GOFLAGS     string
+	GOTOOLCHAIN    string
+	GOMODCACHE     string
+	GOCACHE        string
+	GOBIN          string
+	GOFLAGS        string
+	NpmConfigCache string
 }
 
 // Environment derives the OfflineEnvironment layout requires.
 func (layout ProjectCacheLayout) Environment() OfflineEnvironment {
 	return OfflineEnvironment{
-		GOTOOLCHAIN: "local",
-		GOMODCACHE:  layout.GoModCache,
-		GOCACHE:     layout.GoBuildCache,
-		GOBIN:       layout.GoBin,
-		GOFLAGS:     "-mod=readonly",
+		GOTOOLCHAIN:    "local",
+		GOMODCACHE:     layout.GoModCache,
+		GOCACHE:        layout.GoBuildCache,
+		GOBIN:          layout.GoBin,
+		GOFLAGS:        "-mod=readonly",
+		NpmConfigCache: layout.NpmCache,
 	}
 }
 
 // AsMap returns env as a name->value map suitable for merging into a child
 // process environment (for example before invoking the pinned Go
-// executable).
+// executable, or the pinned Node executable for the isolated
+// tools/linear-sync workspace).
 func (env OfflineEnvironment) AsMap() map[string]string {
 	return map[string]string{
-		"GOTOOLCHAIN": env.GOTOOLCHAIN,
-		"GOMODCACHE":  env.GOMODCACHE,
-		"GOCACHE":     env.GOCACHE,
-		"GOBIN":       env.GOBIN,
-		"GOFLAGS":     env.GOFLAGS,
+		"GOTOOLCHAIN":      env.GOTOOLCHAIN,
+		"GOMODCACHE":       env.GOMODCACHE,
+		"GOCACHE":          env.GOCACHE,
+		"GOBIN":            env.GOBIN,
+		"GOFLAGS":          env.GOFLAGS,
+		"NPM_CONFIG_CACHE": env.NpmConfigCache,
 	}
 }
 

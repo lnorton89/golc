@@ -806,6 +806,7 @@ func TestScopeBootstrapCache(t *testing.T) {
 			"GoModCache":   layout.GoModCache,
 			"GoBuildCache": layout.GoBuildCache,
 			"GoBin":        layout.GoBin,
+			"NpmCache":     layout.NpmCache,
 			"Manifest":     layout.Manifest,
 		} {
 			if !strings.HasPrefix(path, absoluteRoot+string(os.PathSeparator)) {
@@ -817,7 +818,7 @@ func TestScopeBootstrapCache(t *testing.T) {
 		seen := map[string]string{}
 		for name, path := range map[string]string{
 			"Downloads": layout.Downloads, "GoModCache": layout.GoModCache,
-			"GoBuildCache": layout.GoBuildCache, "GoBin": layout.GoBin, "Manifest": layout.Manifest,
+			"GoBuildCache": layout.GoBuildCache, "GoBin": layout.GoBin, "NpmCache": layout.NpmCache, "Manifest": layout.Manifest,
 		} {
 			if other, exists := seen[path]; exists {
 				t.Fatalf("%s and %s resolve to the same path %q", name, other, path)
@@ -861,7 +862,7 @@ func TestScopeBootstrapCache(t *testing.T) {
 		if err := layout.Warm(); err != nil {
 			t.Fatalf("first Warm failed: %v", err)
 		}
-		for _, dir := range []string{layout.Downloads, layout.GoModCache, layout.GoBuildCache, layout.GoBin, layout.Manifest} {
+		for _, dir := range []string{layout.Downloads, layout.GoModCache, layout.GoBuildCache, layout.GoBin, layout.NpmCache, layout.Manifest} {
 			info, statErr := os.Stat(dir)
 			if statErr != nil {
 				t.Fatalf("expected %q to exist after Warm, stat err: %v", dir, statErr)
@@ -886,7 +887,7 @@ func TestScopeBootstrapCache(t *testing.T) {
 		}
 	})
 
-	t.Run("Environment derives the exact repository-local Go/Wails variables", func(t *testing.T) {
+	t.Run("Environment derives the exact repository-local Go/Node/Wails variables", func(t *testing.T) {
 		root := t.TempDir()
 		layout, err := NewProjectCacheLayout(root)
 		if err != nil {
@@ -909,14 +910,18 @@ func TestScopeBootstrapCache(t *testing.T) {
 		if env.GOFLAGS != "-mod=readonly" {
 			t.Fatalf("expected GOFLAGS=-mod=readonly, got %q", env.GOFLAGS)
 		}
+		if env.NpmConfigCache != layout.NpmCache {
+			t.Fatalf("expected NpmConfigCache=%q, got %q", layout.NpmCache, env.NpmConfigCache)
+		}
 
 		asMap := env.AsMap()
 		expected := map[string]string{
-			"GOTOOLCHAIN": "local",
-			"GOMODCACHE":  layout.GoModCache,
-			"GOCACHE":     layout.GoBuildCache,
-			"GOBIN":       layout.GoBin,
-			"GOFLAGS":     "-mod=readonly",
+			"GOTOOLCHAIN":      "local",
+			"GOMODCACHE":       layout.GoModCache,
+			"GOCACHE":          layout.GoBuildCache,
+			"GOBIN":            layout.GoBin,
+			"GOFLAGS":          "-mod=readonly",
+			"NPM_CONFIG_CACHE": layout.NpmCache,
 		}
 		if len(asMap) != len(expected) {
 			t.Fatalf("expected exactly %d environment entries, got %d: %v", len(expected), len(asMap), asMap)
