@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GOLC × Claude Max — Action Playbook</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1a1a1a; --muted: #666; --card: #f6f6f4;
+    --accent: #b3541e; --border: #e0ddd8; --chip: #ede9e3; --link: #0b63b8;
+    --now: #1e7a3c; --code-bg: #f0efec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161513; --fg: #e8e6e1; --muted: #9a968f; --card: #201f1c;
+      --accent: #e07b39; --border: #34322d; --chip: #2b2a26; --link: #6fb3ee;
+      --now: #4cc06f; --code-bg: #262521;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.6 system-ui, "Segoe UI", sans-serif; background: var(--bg); color: var(--fg); }
+  main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+  h1 { font-size: 1.8rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1.25rem; margin: 2.6rem 0 .9rem; border-bottom: 2px solid var(--accent); padding-bottom: .3rem; }
+  .sub { color: var(--muted); margin: 0 0 1.25rem; }
+  .play { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.15rem; margin: 0 0 1rem; }
+  .play h3 { margin: 0 0 .5rem; font-size: 1.05rem; }
+  .tag { display: inline-block; font-size: .72rem; font-weight: 600; letter-spacing: .03em; border-radius: 4px; padding: .1rem .5rem; margin-right: .5rem; vertical-align: 2px; }
+  .t-now { background: var(--now); color: #fff; }
+  .t-week { background: var(--accent); color: #fff; }
+  .t-gate { background: var(--chip); color: var(--fg); border: 1px solid var(--border); }
+  p, li { font-size: .95rem; }
+  .play p { margin: .4rem 0; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: .7rem .9rem; overflow-x: auto; font-size: .84rem; line-height: 1.5; margin: .6rem 0; }
+  code { font-family: ui-monospace, Consolas, monospace; }
+  p code, li code { background: var(--code-bg); border-radius: 4px; padding: .05rem .35rem; font-size: .85em; }
+  .why { color: var(--muted); font-size: .88rem; margin-top: .5rem; }
+  .warn { border-left: 3px solid var(--accent); padding-left: .7rem; font-size: .88rem; color: var(--muted); margin: .6rem 0; }
+  ul { padding-left: 1.25rem; margin: .4rem 0; }
+  li { margin: .3rem 0; }
+  footer { margin-top: 3rem; color: var(--muted); font-size: .85rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+  a { color: var(--link); }
+</style>
+</head>
+<body>
+<main>
+  <h1>GOLC × Claude Max — Action Playbook</h1>
+  <p class="sub">Nine concrete plays, ordered by when to run them. Grounded in the repo's actual state on 2026-07-20: Phase 1 executing, 6/29 plans done, waves 2–18 remaining, <code>model_profile: "inherit"</code>, Linear mappings pending.</p>
+
+  <h2>Do now (before the next execute wave)</h2>
+
+  <div class="play">
+    <h3><span class="tag t-now">NOW</span>1 · Stop paying Fable prices for executor work</h3>
+    <p><strong>The problem, verbatim from <code>.planning/config.json</code>:</strong> <code>"model_profile": "inherit"</code>. Every gsd-executor, verifier, and researcher subagent inherits your interactive session's model. With 23 plans left in Phase 1, that's ~23 executor runs plus checkers all drawing from the all-models weekly cap.</p>
+    <p><strong>Do this:</strong></p>
+<pre>/gsd-settings        →  Model profile  →  pick the balanced/budget profile
+                        (executors on Sonnet, planners/checkers stay on the premium model)</pre>
+    <p class="why">Why it works: Max has <em>two</em> weekly caps — all-models and a separate Sonnet-only cap. Executor work (mechanical: follow plan, write code, commit) is exactly what Sonnet 5 is for. Moving it frees the premium cap for planning and review, roughly doubling how many plans you clear per week. Plan quality is unaffected — plans are already written by the planner before an executor sees them.</p>
+  </div>
+
+  <div class="play">
+    <h3><span class="tag t-now">NOW</span>2 · Let the waves actually fan out</h3>
+    <p><strong>State:</strong> <code>"parallelization": true</code> is already set, and each remaining plan carries wave metadata — e.g. <code>01-04-PLAN.md</code> has <code>wave: 7</code>, <code>depends_on: [01-16, 01-18]</code>, <code>autonomous: true</code>. Waves 2–18 remain. On Pro-level limits, parallel executor agents would eat a 5-hour window fast; on Max they won't.</p>
+    <p><strong>Do this:</strong></p>
+<pre># Right after a 5-hour usage window resets, launch the phase executor
+# and let same-wave plans run as parallel background agents:
+/gsd-execute-phase 1</pre>
+    <ul>
+      <li>Time big waves to a fresh window: check remaining budget at claude.ai → Settings → Usage before launching.</li>
+      <li>Plans marked <code>autonomous: true</code> won't stop for you — waves can run while you're away; only checkpoint plans (like the 01-12 npm-pin gate you already cleared) need you present.</li>
+      <li>If two independent chunks of Phase 1 are both unblocked (config-side vs. trace-side), <code>/gsd-workstreams</code> + git worktrees run them without file collisions — relevant since <code>branching_strategy: "none"</code> means everything lands on <code>master</code>.</li>
+    </ul>
+  </div>
+
+  <div class="play">
+    <h3><span class="tag t-now">NOW</span>3 · Connect the Linear MCP before the reconciliation plans need it</h3>
+    <p><strong>State:</strong> <code>.planning/linear-map.json</code> has <code>milestone:v1 → status: "pending", linear_uuid: null</code>. Later Phase 1 plans build the reconciliation preview (LINR-02/03/04). When they execute, having a live credential-external channel to your actual Linear workspace lets you test the preview against reality instead of mocks only.</p>
+    <p><strong>Do this (5 minutes):</strong></p>
+<pre># Hosted server, OAuth in the connector — no credentials touch the repo,
+# which is exactly what CONF-03 / the clean-checkout rule requires:
+claude mcp add --transport http linear https://mcp.linear.app/mcp
+
+# then in a session:
+/mcp        # authenticate Linear
+# smoke test: "list my Linear teams and projects"</pre>
+    <p class="why">Also decide the workspace taxonomy now (one Linear project for milestone v1? phases as projects or milestones?) — <code>config/integrations/linear.toml</code> declares taxonomy and env-var names only, and it's cheaper to settle that before plans 01-2x bake it in. Known caveat: 2026 reports of intermittent connector auth drops; repo-side tooling stays authoritative (the roadmap already mandates this).</p>
+  </div>
+
+  <h2>Do this week</h2>
+
+  <div class="play">
+    <h3><span class="tag t-week">WEEK</span>4 · One scheduled job: the clean-checkout truth test</h3>
+    <p><strong>Why this job:</strong> Phase 1's core promise is "a clean checkout bootstraps offline from pins with byte-identical results." That claim rots silently as plans land. A schedule re-proves it while you sleep.</p>
+    <p><strong>Reality check first:</strong> Anthropic's cloud Routines run on Linux — <code>golc.ps1</code> is Windows PowerShell 5.1, so the real entrypoint can't run there. Two options, use A:</p>
+    <p><strong>Option A — local scheduled task on this PC (runs the real thing):</strong></p>
+<pre>/schedule
+# prompt for the task, verbatim:
+"Clone github.com/lnorton89/golc into a fresh temp directory. Run
+ powershell -NoProfile -File .\golc.ps1 bootstrap, then
+ .\golc.ps1 test --quick --scope config-local and
+ .\golc.ps1 test --quick --scope linear-catalog.
+ Confirm bootstrap made zero archive-source calls on a second run.
+ Report pass/fail per step with the first failing error verbatim."
+# cadence: nightly</pre>
+    <p><strong>Option B — cloud Routine (Linux, partial coverage):</strong> limit it to <code>go build ./...</code> + <code>go vet ./...</code> + module-graph checks against the pinned toolchain version read from <code>config/toolchain.toml</code>. Weaker, but survives your PC being off. Note cloud cron is UTC.</p>
+  </div>
+
+  <div class="play">
+    <h3><span class="tag t-week">WEEK</span>5 · Turn the four MIDI PDFs into a MIDI-HW-02 evidence pack</h3>
+    <p><strong>State:</strong> <code>.planning/midi/</code> holds the Akai MIDImix, Launch Control XL (×2 docs), and Worlde EasyControl 9 manuals. Blocker <code>MIDI-HW-02</code> needs per-device physical acceptance evidence eventually — Phase 6 will go faster if the paper part is pre-digested.</p>
+    <p><strong>Do this — paste into any Claude session (this works right here via the pdf skill, or hand it to Cowork on desktop/phone if you want it off your machine):</strong></p>
+<pre>"From the four PDFs in .planning/midi/, produce
+ .planning/midi/MIDI-HW-02-CHECKLIST.md with one section per device:
+ (1) factory MIDI Note/CC map for every fader, knob, and button;
+ (2) MIDI channel defaults and how to change them;
+ (3) any documented pickup/soft-takeover or feedback behavior;
+ (4) firmware/revision identifiers the manual mentions;
+ (5) a fill-in evidence table: hardware revision, firmware, Windows
+     version, GOLC build, learn-test result, takeover-test result."</pre>
+    <p class="why">Output is data for Phase 6's generic Note/CC learn design (PLAY-08/09) and the exact table MIDI-HW-02 says each device must fill before any support claim.</p>
+  </div>
+
+  <h2>At the Phase 1 ship gate</h2>
+
+  <div class="play">
+    <h3><span class="tag t-gate">GATE</span>6 · One paid ultrareview as a calibration run</h3>
+    <p><strong>State:</strong> GSD's built-in review already runs (<code>code_review: true, depth: "standard"</code>). Ultrareview is the paid escalation: cloud agent fleet + independent verification pass, only confirmed bugs surface. ~$5–20 per run, billed outside the subscription.</p>
+    <p><strong>Do this when <code>/gsd-verify-work</code> passes for Phase 1:</strong></p>
+<pre>/gsd-pr-branch        # builds a clean branch with .planning/ commits filtered out
+/code-review ultra    # review THAT branch — product code only, smaller diff, lower cost</pre>
+    <p class="why">Phase 1 is the cheapest possible calibration: mostly config/bootstrap Go code. If the confirmed-bug rate impresses you, budget one run per phase gate — it matters most at Phase 3 (deterministic engine), Phase 7 (API security), and Phase 8 (sandbox boundary). If it doesn't, you've spent one coffee's worth finding out.</p>
+  </div>
+
+  <h2>At Phase 2 kickoff</h2>
+
+  <div class="play">
+    <h3><span class="tag t-gate">GATE</span>7 · Route Phase 2's research debt through ultraplan</h3>
+    <p><strong>State:</strong> the roadmap flags Phase 2 as needing deep research: canonical fixture semantics, pool propagation rules, OFL snapshot/licensing, GDTF preservation, hazardous attributes, physical validation corpus. That's days of research that would otherwise occupy your terminal and your all-models cap interactively.</p>
+    <p><strong>Do this instead of plain <code>/gsd-plan-phase 2</code>:</strong></p>
+<pre>/gsd-ultraplan-phase 2
+# → planning runs in an Anthropic cloud session
+# → you review/comment on the draft plan in the browser (async, from anywhere)
+# → import the result back into .planning/phases/</pre>
+    <p class="why">Ultraplan draws from included Max usage (unlike ultrareview — no per-run bill), runs long research without tying up your machine, and the browser review step fits the GSD plan-check gate. The command is beta — diff what it imports against <code>/gsd-plan-phase</code> conventions before executing (frontmatter: <code>wave</code>, <code>depends_on</code>, <code>must_haves</code>).</p>
+    <p><strong>Companion Chrome task during the same phase:</strong> "Using the browser, open open-fixture-library.org, pull three representative moving-head definitions, record each one's license and attribution requirements, and note which OFL export format preserves capability semantics best" — feeds FIXT-02's provenance/lossiness requirements with real data.</p>
+  </div>
+
+  <h2>Standing changes (set once)</h2>
+
+  <div class="play">
+    <h3><span class="tag t-gate">SETUP</span>8 · Make every agent session self-check through the pinned toolchain</h3>
+    <p><strong>The gap:</strong> subagents and future routines can edit Go files and "finish" without running your quick scopes. A Stop hook closes it mechanically — when a session that touched <code>internal/</code> ends, the pinned-toolchain tests run and failures bounce back into the session.</p>
+    <p><strong>Do this:</strong> run <code>/update-config</code> and ask for exactly this:</p>
+<pre>"Add a Stop hook to .claude/settings.json for this project: when a session
+ modified any file under internal/ or cmd/, run
+   powershell -NoProfile -File golc.ps1 test --quick --scope config-local
+ and block completion on failure, feeding stderr back to the session."</pre>
+    <p class="why">As more scopes exist (a <code>linear-catalog</code> scope already does; more land with each plan), extend the hook to run each registered scope. This turns "tests always run through the pinned toolchain, never a host install" from documentation into an enforced invariant for AI-driven work too.</p>
+  </div>
+
+  <div class="play">
+    <h3><span class="tag t-gate">SETUP</span>9 · Weekly budget rhythm (2 minutes, Mondays)</h3>
+    <ul>
+      <li>Check both weekly meters (all-models + Sonnet-only) at claude.ai → Settings → Usage.</li>
+      <li>Premium cap healthy → schedule an ultraplan or a heavy planning/review block this week. Premium cap tight → it's an execution week: Sonnet executors grinding waves.</li>
+      <li>Launch the biggest execute wave right after a 5-hour window reset, not at the end of one.</li>
+      <li>Sustained ceiling-hitting during heavy phases (3, 6, 9) is the actual signal to move 5x → 20x — not vibes.</li>
+    </ul>
+  </div>
+
+  <h2>Deliberately skipped</h2>
+  <p style="font-size:.9rem; color:var(--muted)">Computer-use desktop control (real leverage starts at Phase 6 Wails walkthroughs and Phase 10 clean-machine installs — nothing to automate yet), voice mode, artifacts publishing, and building custom skills (worth revisiting at Phase 4 for a packet-capture triage skill, pointless before there are packets). Cowork appears only as an alternate runner in plays 4–5.</p>
+
+  <h2>Sources</h2>
+  <ul style="font-size:.88rem">
+    <li><a href="https://support.claude.com/en/articles/11049741-what-is-the-max-plan">Claude Help Center — What is the Max plan?</a> · <a href="https://support.claude.com/en/articles/11145838-use-claude-code-with-your-pro-or-max-plan">Claude Code on Pro/Max</a></li>
+    <li><a href="https://code.claude.com/docs/en/ultrareview">Claude Code Docs — ultrareview</a> · <a href="https://code.claude.com/docs/en/scheduled-tasks">scheduled tasks</a> · <a href="https://code.claude.com/docs/en/whats-new/2026-w27">what's new W27</a></li>
+    <li><a href="https://www.shareuhack.com/en/posts/claude-code-ultraplan-guide-2026">Shareuhack — ultraplan guide</a> · <a href="https://makerkit.dev/blog/tutorials/claude-code-routines-guide">Makerkit — routines guide</a></li>
+    <li><a href="https://linear.app/docs/mcp">Linear Docs — MCP server</a></li>
+    <li><a href="https://claude.com/blog/cowork-web-mobile">Anthropic — Cowork on web/mobile</a> · <a href="https://ccforeveryone.com/guides/claude-code-limits-and-pricing">CC for Everyone — limits &amp; pricing</a></li>
+  </ul>
+
+  <footer>
+    Researched 2026-07-20. Repo facts read from .planning/config.json, linear-map.json, phase plan frontmatter, and .planning/midi/ at that date — re-check before acting if weeks have passed. Third-party cost/limit figures are point-in-time. This folder is not a GSD-managed artifact; no GSD state was modified.
+  </footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "$j=$null; try{$j=[Console]::In.ReadToEnd()|ConvertFrom-Json}catch{}; if($j -and $j.stop_hook_active){exit 0}; if(-not $env:CLAUDE_PROJECT_DIR){$env:CLAUDE_PROJECT_DIR='.'}; $c=git -C \"$env:CLAUDE_PROJECT_DIR\" status --porcelain -- internal cmd; if(-not $c){exit 0}; $o=& powershell -NoProfile -File \"$env:CLAUDE_PROJECT_DIR\\golc.ps1\" test --quick --scope config-local 2>&1; if($LASTEXITCODE -ne 0){[Console]::Error.WriteLine('GOLC quick-test gate: uncommitted changes under internal/ or cmd/ fail the pinned-toolchain quick tests. Fix or finish the in-flight work before stopping.' + \"`n\" + ($o|Out-String)); exit 2}; exit 0",
+            "timeout": 300,
+            "statusMessage": "GOLC quick-test gate (pinned toolchain)"
+          }
+        ]
+      }
+    ]
+  }
+}
