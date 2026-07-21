@@ -1,14 +1,24 @@
 // test.go is the generic project test command file: it self-registers the
-// route that serves `test --quick --scope {scope-name}` (CONTEXT D-03).
-// Route keys are normalized words and may not begin with dashes, so the
-// registered route is "test" and the handler accepts exactly the
-// `--quick --scope <scope-name>` form.
+// exact "test" route (CONTEXT D-03) and serves three forms:
+//   - "test --quick --scope <scope-name>": the original scoped quick run.
+//     Route keys are normalized words and may not begin with dashes, so a
+//     flag can never itself be a route word; this dispatcher parses the
+//     remaining arguments strictly.
+//   - "test --quick" (bare): the offline core graph's quick step
+//     (internal/delivery's "test" Step) — a fast go vet sanity gate over
+//     every project package, meeting 01-VALIDATION.md's <=30s quick
+//     budget without executing every test body.
+//   - "test" (bare, no flags): the full suite — every project Go package's
+//     tests run once through the pinned toolchain, followed by every
+//     registered Node scope's exact test command.
 //
-// The dispatcher accepts only safe scope names, derives the exact
-// `TestScope{PascalName}` marker, lists matching markers through the
-// pinned project-local Go toolchain before executing anything, fails when
-// zero markers exist, and then runs only those project-local Go tests
-// (01-VALIDATION route/scope ordering contract).
+// The scoped dispatcher accepts only safe scope names, first consults the
+// registered Node-scope registry (MustDeclareNodeScope; empty in Phase 1's
+// core graph, populated by a later Node-owning plan), and otherwise
+// derives the exact `TestScope{PascalName}` marker, lists matching
+// markers through the pinned project-local Go toolchain before executing
+// anything, fails when zero markers exist, and then runs only those
+// project-local Go tests (01-VALIDATION route/scope ordering contract).
 package command
 
 import (
@@ -32,8 +42,8 @@ var _ = MustDeclareScope(ScopeRegistration{
 
 var _ = MustDeclareRoute(CommandRegistration{
 	Route:   "test",
-	Summary: "Run project-local Go tests for one registered scope: test --quick --scope <scope-name>.",
-	Handler: runTestQuickScope,
+	Summary: "Run project tests: test [--quick [--scope <scope-name>]].",
+	Handler: runTest,
 })
 
 // testScopeNamePattern is the only accepted scope-name shape: lowercase
@@ -47,9 +57,21 @@ var testScopeNamePattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 // project-local toolchain).
 var toolchainVersionPattern = regexp.MustCompile(`^[0-9]+(\.[0-9]+)*$`)
 
-// parseQuickScopeArgs accepts exactly the supported quick form:
-// --quick --scope <scope-name> (or --scope=<scope-name>).
-func parseQuickScopeArgs(args []string) (string, error) {
+// testInvocation is the parsed shape of one "test" invocation: exactly one
+// of the three supported modes below.
+type testInvocation struct {
+	// mode is "full" (bare test), "quick" (bare test --quick), or
+	// "quick-scope" (test --quick --scope <scope-name>).
+	mode  string
+	scope string
+}
+
+// parseTestArgs accepts exactly the three supported forms: no arguments
+// (full suite), "--quick" alone (quick graph orchestration), or
+// "--quick --scope <scope-name>" / "--quick --scope=<scope-name>" (the
+// original scoped quick run). "--scope" without "--quick" is rejected: a
+// scope always runs through the quick marker-discovery path.
+func parseTestArgs(args []string) (testInvocation, error) {
 	quick := false
 	scope := ""
 	setScope := func(value string) error {
@@ -70,25 +92,32 @@ func parseQuickScopeArgs(args []string) (string, error) {
 			i++
 		case argument == "--scope":
 			if i+1 >= len(args) {
-				return "", fmt.Errorf("GOLC_TEST_USAGE: --scope requires a scope name")
+				return testInvocation{}, fmt.Errorf("GOLC_TEST_USAGE: --scope requires a scope name")
 			}
 			if err := setScope(args[i+1]); err != nil {
-				return "", err
+				return testInvocation{}, err
 			}
 			i += 2
 		case strings.HasPrefix(argument, "--scope="):
 			if err := setScope(strings.TrimPrefix(argument, "--scope=")); err != nil {
-				return "", err
+				return testInvocation{}, err
 			}
 			i++
 		default:
-			return "", fmt.Errorf("GOLC_TEST_USAGE: unsupported argument %q; usage: test --quick --scope <scope-name>", argument)
+			return testInvocation{}, fmt.Errorf(
+				"GOLC_TEST_USAGE: unsupported argument %q; usage: test [--quick [--scope <scope-name>]]", argument)
 		}
 	}
-	if !quick || scope == "" {
-		return "", fmt.Errorf("GOLC_TEST_USAGE: usage: test --quick --scope <scope-name>")
+	switch {
+	case quick && scope != "":
+		return testInvocation{mode: "quick-scope", scope: scope}, nil
+	case quick:
+		return testInvocation{mode: "quick"}, nil
+	case scope != "":
+		return testInvocation{}, fmt.Errorf("GOLC_TEST_USAGE: --scope requires --quick; usage: test [--quick [--scope <scope-name>]]")
+	default:
+		return testInvocation{mode: "full"}, nil
 	}
-	return scope, nil
 }
 
 // scopeTestMarker translates a validated scope name to its exact Go test
@@ -137,19 +166,23 @@ func resolvePinnedGoExecutable(root string) (string, error) {
 
 // projectGoEnvironment returns the child environment for project-local Go
 // invocations: the pinned-toolchain and repository-local cache variables
-// are enforced even when the shim did not export them.
+// are enforced even when the shim did not export them. GOPROXY=off (D-02)
+// means a missing module sum fails closed with Go's own diagnostic instead
+// of a silent network fetch, even though GOFLAGS=-mod=readonly already
+// forbids the module graph from changing.
 func projectGoEnvironment(root string) []string {
 	environment := []string{}
 	for _, entry := range os.Environ() {
 		name := strings.SplitN(entry, "=", 2)[0]
 		switch strings.ToUpper(name) {
-		case "GOTOOLCHAIN", "GOMODCACHE", "GOCACHE", "GOFLAGS":
+		case "GOTOOLCHAIN", "GOPROXY", "GOMODCACHE", "GOCACHE", "GOFLAGS":
 			continue
 		}
 		environment = append(environment, entry)
 	}
 	return append(environment,
 		"GOTOOLCHAIN=local",
+		"GOPROXY=off",
 		"GOMODCACHE="+filepath.Join(root, ".tools", "cache", "go-mod"),
 		"GOCACHE="+filepath.Join(root, ".tools", "cache", "go-build"),
 		"GOFLAGS=-mod=readonly",
@@ -200,24 +233,134 @@ func listScopeMarkers(goExecutable, root, marker string) ([]string, error) {
 	return packages, nil
 }
 
-// runTestQuickScope serves the registered generic quick/scope route.
-func runTestQuickScope(request Request) Result {
-	scopeName, err := parseQuickScopeArgs(request.Args)
+// NodeScopeRegistration declares one project-local Node/npm test scope
+// (CONTEXT D-03/D-10): a project-relative directory containing its own
+// package.json, plus the exact command that runs its
+// TestScope{PascalName} marker. No Node scope exists yet in Phase 1's
+// core graph; this is the registered extension point a later Node-owning
+// plan (for example the tools/linear-sync package) uses so
+// "test --quick --scope <name>" and the full-suite "test" can reach a
+// Node scope exactly the way they already reach a Go scope, without
+// editing this dispatcher again.
+type NodeScopeRegistration struct {
+	Scope   string
+	Dir     string
+	Marker  string
+	Command []string
+}
+
+// declaredNodeScopes collects every Node scope a command file registers
+// through MustDeclareNodeScope from a package-level var initializer.
+var declaredNodeScopes []NodeScopeRegistration
+
+// MustDeclareNodeScope is the compile-safe self-registration entrypoint a
+// future Node-owning command file calls from a package-level var
+// initializer, mirroring MustDeclareRoute/MustDeclareScope's shape:
+//
+//	var _ = command.MustDeclareNodeScope(command.NodeScopeRegistration{...})
+func MustDeclareNodeScope(registration NodeScopeRegistration) NodeScopeRegistration {
+	if !testScopeNamePattern.MatchString(registration.Scope) {
+		panic(fmt.Sprintf("GOLC_TEST_NODE_SCOPE_INVALID: %q is not a safe scope name", registration.Scope))
+	}
+	if strings.TrimSpace(registration.Marker) == "" {
+		panic(fmt.Sprintf("GOLC_TEST_NODE_SCOPE_INVALID: %q has a blank marker", registration.Scope))
+	}
+	if len(registration.Command) == 0 {
+		panic(fmt.Sprintf("GOLC_TEST_NODE_SCOPE_INVALID: %q declares no command", registration.Scope))
+	}
+	for _, existing := range declaredNodeScopes {
+		if existing.Scope == registration.Scope {
+			panic(fmt.Sprintf("GOLC_TEST_NODE_SCOPE_DUPLICATE: %q is already registered", registration.Scope))
+		}
+	}
+	declaredNodeScopes = append(declaredNodeScopes, registration)
+	return registration
+}
+
+// lookupNodeScope resolves one registered Node scope by exact name.
+func lookupNodeScope(scopeName string) (NodeScopeRegistration, bool) {
+	for _, registration := range declaredNodeScopes {
+		if registration.Scope == scopeName {
+			return registration, true
+		}
+	}
+	return NodeScopeRegistration{}, false
+}
+
+// runNodeScopeTest runs one registered Node scope's exact command inside
+// its declared repository-relative directory.
+func runNodeScopeTest(root string, registration NodeScopeRegistration) Result {
+	execution := exec.Command(registration.Command[0], registration.Command[1:]...)
+	execution.Dir = filepath.Join(root, filepath.FromSlash(registration.Dir))
+	execution.Env = os.Environ()
+	var stdoutBuffer, stderrBuffer bytes.Buffer
+	execution.Stdout = &stdoutBuffer
+	execution.Stderr = &stderrBuffer
+	err := execution.Run()
+
+	var output bytes.Buffer
+	fmt.Fprintf(&output, "GOLC test: scope %s -> Node command %s\n", registration.Scope, strings.Join(registration.Command, " "))
+	output.Write(stdoutBuffer.Bytes())
+	if err != nil {
+		stderr := append(stderrBuffer.Bytes(), []byte(fmt.Sprintf("GOLC_TEST_FAILED: scope %s: %v\n", registration.Scope, err))...)
+		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: stderr}
+	}
+	return Result{Stdout: output.Bytes(), Stderr: stderrBuffer.Bytes()}
+}
+
+// runAllNodeScopes runs every registered Node scope in declaration order,
+// stopping at the first failure.
+func runAllNodeScopes(root string) ([]byte, error) {
+	var output bytes.Buffer
+	for _, registration := range declaredNodeScopes {
+		result := runNodeScopeTest(root, registration)
+		output.Write(result.Stdout)
+		if result.ExitCode != 0 {
+			return output.Bytes(), fmt.Errorf("GOLC_TEST_FAILED: node scope %s failed", registration.Scope)
+		}
+	}
+	return output.Bytes(), nil
+}
+
+// runTest serves the self-registered "test" route, dispatching to one of
+// the three supported forms.
+func runTest(request Request) Result {
+	invocation, err := parseTestArgs(request.Args)
 	if err != nil {
 		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
 	}
+	switch invocation.mode {
+	case "quick-scope":
+		return runTestQuickScope(request.Root, invocation.scope)
+	case "quick":
+		return runTestQuick(request.Root)
+	default:
+		return runTestFull(request.Root)
+	}
+}
+
+// runTestQuickScope serves "test --quick --scope <scope-name>": a
+// registered Node scope is preferred when present; otherwise this falls
+// back to exact Go marker discovery, fail-on-zero, and the pinned
+// toolchain, unchanged from the original scoped-quick behavior.
+func runTestQuickScope(root, scopeName string) Result {
 	if !testScopeNamePattern.MatchString(scopeName) {
 		diagnostic := fmt.Sprintf("GOLC_TEST_SCOPE_INVALID: %q is not a safe scope name\n", scopeName)
 		return Result{ExitCode: 2, Stderr: []byte(diagnostic)}
 	}
+
+	if nodeScope, found := lookupNodeScope(scopeName); found {
+		return runNodeScopeTest(root, nodeScope)
+	}
+
 	marker := scopeTestMarker(scopeName)
 
-	goExecutable, err := resolvePinnedGoExecutable(request.Root)
+	goExecutable, err := resolvePinnedGoExecutable(root)
 	if err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
-	packages, err := listScopeMarkers(goExecutable, request.Root, marker)
+	packages, err := listScopeMarkers(goExecutable, root, marker)
 	if err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
@@ -234,11 +377,60 @@ func runTestQuickScope(request Request) Result {
 	}
 
 	arguments := append([]string{"test", "-count=1", "-run", "^" + marker + "$"}, packages...)
-	stdout, stderr, err := runProjectGo(goExecutable, request.Root, arguments)
+	stdout, stderr, err := runProjectGo(goExecutable, root, arguments)
 	output.Write(stdout)
 	if err != nil {
 		stderr = append(stderr, []byte(fmt.Sprintf("GOLC_TEST_FAILED: scope %s: %v\n", scopeName, err))...)
 		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: stderr}
 	}
+	return Result{Stdout: output.Bytes(), Stderr: stderr}
+}
+
+// runTestQuick serves bare "test --quick": internal/delivery's offline
+// core graph "test" Step. It is a fast go vet compile/lint sanity gate
+// over every project package — no test body executes — meeting
+// 01-VALIDATION.md's <=30s quick budget.
+func runTestQuick(root string) Result {
+	goExecutable, err := resolvePinnedGoExecutable(root)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	var output bytes.Buffer
+	output.WriteString("GOLC test --quick: go vet ./...\n")
+	stdout, stderr, err := runProjectGo(goExecutable, root, []string{"vet", "./..."})
+	output.Write(stdout)
+	if err != nil {
+		stderr = append(stderr, []byte(fmt.Sprintf("GOLC_TEST_FAILED: quick vet: %v\n", err))...)
+		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: stderr}
+	}
+	output.WriteString("GOLC test --quick: go vet passed.\n")
+	return Result{Stdout: output.Bytes(), Stderr: stderr}
+}
+
+// runTestFull serves bare "test": every project Go package's tests run
+// once through the pinned toolchain (fail on any failure), followed by
+// every registered Node scope's exact test command. "test" never filters
+// by marker: it is the one full-suite contributor/CI gate
+// 01-VALIDATION.md documents.
+func runTestFull(root string) Result {
+	goExecutable, err := resolvePinnedGoExecutable(root)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	var output bytes.Buffer
+	output.WriteString("GOLC test: full suite (go test ./...).\n")
+	stdout, stderr, err := runProjectGo(goExecutable, root, []string{"test", "-count=1", "./..."})
+	output.Write(stdout)
+	if err != nil {
+		stderr = append(stderr, []byte(fmt.Sprintf("GOLC_TEST_FAILED: full suite: %v\n", err))...)
+		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: stderr}
+	}
+
+	nodeOutput, nodeErr := runAllNodeScopes(root)
+	output.Write(nodeOutput)
+	if nodeErr != nil {
+		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: append(stderr, []byte(nodeErr.Error()+"\n")...)}
+	}
+	output.WriteString("GOLC test: full suite passed.\n")
 	return Result{Stdout: output.Bytes(), Stderr: stderr}
 }
