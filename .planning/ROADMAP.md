@@ -176,7 +176,7 @@ Plans:
   4. An operator can enter or tap global BPM, switch the one active scene or any layer immediately, and choose whether a BPM change preserves musical position or restarts the loop.
   5. A deterministic playback harness produces the same time-indexed results when UI rendering, persistence, scripts, API clients, or LLM providers are slow, unavailable, or restarted, and adopts only complete valid show plans at safe boundaries.
 
-**Plans:** 4/7 plans executed
+**Plans:** 6/7 plans executed
 
 Plans:
 **Wave 1**
@@ -197,8 +197,8 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 03-05-PLAN.md — Session-only linear undo/redo history + full record/update/rename/reorder/duplicate/delete CRUD surface (PROG-07) [Wave 5]
-- [ ] 03-06-PLAN.md — Pure musical clock + numeric/tap BPM entry + preserve/restart epoch (SCEN-01/02/03/08) [Wave 5]
+- [x] 03-05-PLAN.md — Session-only linear undo/redo history + full record/update/rename/reorder/duplicate/delete CRUD surface (PROG-07) [Wave 5]
+- [x] 03-06-PLAN.md — Pure musical clock + numeric/tap BPM entry + preserve/restart epoch (SCEN-01/02/03/08) [Wave 5]
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
@@ -332,7 +332,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Offline Foundation and Delivery Traceability | 32/32 | Complete    | 2026-07-21 |
 | 2. Modular Fixtures and Deployments | 6/6 | Complete    | 2026-07-21 |
-| 3. Deterministic Show Programming and Playback | 4/7 | In Progress|  |
+| 3. Deterministic Show Programming and Playback | 6/7 | In Progress|  |
 | 4. Observable Art-Net Live Output | 0/TBD | Not started | - |
 | 5. Durable Shows and Recovery | 0/TBD | Not started | - |
 | 6. Wails Authoring and Operator Surface | 0/TBD | Not started | - |
