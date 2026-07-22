@@ -69,6 +69,29 @@ var _ = MustDeclareRoute(CommandRegistration{
 	Handler: runPresetRecord,
 })
 
+var _ = MustDeclareScope(ScopeRegistration{
+	Scope:   "chase",
+	Summary: "Reusable chases with ordered, tempo-relative steps (PROG-05).",
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route: "chase create",
+	Summary: "Create a named chase against a ShowState document: chase create <name> " +
+		"--unit bar|beat --step-duration <value> --show <path>.",
+	Handler: runChaseCreate,
+})
+
+var _ = MustDeclareScope(ScopeRegistration{
+	Scope:   "motion",
+	Summary: "Reusable motion presets scoped strictly to position/beam semantic capabilities (PROG-06, D-04).",
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route:   "motion create",
+	Summary: "Create a named motion preset against a ShowState document: motion create <name> --show <path>.",
+	Handler: runMotionCreate,
+})
+
 // attrAssignment is one parsed "--attr <capability>=<value>" pair.
 type attrAssignment struct {
 	Capability fixture.CapabilityType
@@ -544,4 +567,168 @@ func runPresetRecord(request Request) Result {
 	}
 	return Result{Stdout: []byte(fmt.Sprintf(
 		"GOLC_PRESET_RECORDED: %s (%s) kind=%s attributes=%d\n", newPreset.Name, newPreset.ID, newPreset.Kind, len(newPreset.Attributes)))}
+}
+
+// parseChaseCreateArgs accepts a positional chase name followed by a
+// required "--unit bar|beat", a required "--step-duration <value>", and a
+// required "--show <path>" (both --flag value and --flag=value forms),
+// rejecting anything else (GOLC_CHASE_USAGE). --unit's own validity against
+// the two declared StepUnit values and --step-duration's own positivity are
+// checked later by programming.NewChase, never re-derived here -- this
+// parser only requires the flags to be present and --step-duration to parse
+// as a float64.
+func parseChaseCreateArgs(usage string, args []string) (name string, unit programming.StepUnit, stepDuration float64, showPath string, err error) {
+	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
+		return "", "", 0, "", fmt.Errorf("GOLC_CHASE_USAGE: usage: %s", usage)
+	}
+	name = args[0]
+
+	var rawUnit, rawStepDuration string
+	rest := args[1:]
+	for i := 0; i < len(rest); {
+		argument := rest[i]
+		switch {
+		case argument == "--unit":
+			if i+1 >= len(rest) {
+				return "", "", 0, "", fmt.Errorf("GOLC_CHASE_USAGE: --unit requires a value; usage: %s", usage)
+			}
+			rawUnit = rest[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--unit="):
+			rawUnit = strings.TrimPrefix(argument, "--unit=")
+			i++
+		case argument == "--step-duration":
+			if i+1 >= len(rest) {
+				return "", "", 0, "", fmt.Errorf("GOLC_CHASE_USAGE: --step-duration requires a value; usage: %s", usage)
+			}
+			rawStepDuration = rest[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--step-duration="):
+			rawStepDuration = strings.TrimPrefix(argument, "--step-duration=")
+			i++
+		case argument == "--show":
+			if i+1 >= len(rest) {
+				return "", "", 0, "", fmt.Errorf("GOLC_CHASE_USAGE: --show requires a path; usage: %s", usage)
+			}
+			showPath = rest[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--show="):
+			showPath = strings.TrimPrefix(argument, "--show=")
+			i++
+		default:
+			return "", "", 0, "", fmt.Errorf("GOLC_CHASE_USAGE: unsupported argument %q; usage: %s", argument, usage)
+		}
+	}
+	if rawUnit == "" {
+		return "", "", 0, "", fmt.Errorf("GOLC_CHASE_USAGE: --unit is required; usage: %s", usage)
+	}
+	if rawStepDuration == "" {
+		return "", "", 0, "", fmt.Errorf("GOLC_CHASE_USAGE: --step-duration is required; usage: %s", usage)
+	}
+	if showPath == "" {
+		return "", "", 0, "", fmt.Errorf("GOLC_CHASE_USAGE: --show is required; usage: %s", usage)
+	}
+	stepDuration, parseErr := strconv.ParseFloat(rawStepDuration, 64)
+	if parseErr != nil {
+		return "", "", 0, "", fmt.Errorf("GOLC_CHASE_USAGE: --step-duration value %q is not a valid number; usage: %s", rawStepDuration, usage)
+	}
+	return name, programming.StepUnit(rawUnit), stepDuration, showPath, nil
+}
+
+// runChaseCreate serves the self-registered "chase create" route
+// (PROG-05): load the ShowState at --show, append the new chase (with zero
+// steps -- populating Steps from the current programmer/selection state is
+// a later scene-authoring concern, not this route's own record path), and
+// save atomically. An invalid --unit/--step-duration is rejected by
+// programming.NewChase with GOLC_CHASE_STEP_UNIT_INVALID/GOLC_CHASE_STEP_
+// DURATION_INVALID; a duplicate chase name is rejected by show.Save's
+// whole-State validation (GOLC_CHASE_DUPLICATE_NAME inside the wrapping
+// GOLC_SHOW_STATE_INVALID diagnostic) -- never a silent duplicate.
+func runChaseCreate(request Request) Result {
+	usage := "chase create <name> --unit bar|beat --step-duration <value> --show <path>"
+	name, unit, stepDuration, showPath, err := parseChaseCreateArgs(usage, request.Args)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	state, err := show.Load(request.Root, showPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	newChase, err := programming.NewChase(name, nil, unit, stepDuration)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	state.Chases = append(state.Chases, newChase)
+
+	if err := show.Save(request.Root, showPath, state); err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	return Result{Stdout: []byte(fmt.Sprintf("GOLC_CHASE_CREATED: %s (%s)\n", newChase.Name, newChase.ID))}
+}
+
+// parseMotionCreateArgs accepts exactly a positional motion preset name
+// followed by a required "--show <path>" (both --flag value and
+// --flag=value forms), rejecting anything else (GOLC_MOTION_USAGE) --
+// mirrors parseThemeCreateArgs's positional-name-plus-required-show shape.
+func parseMotionCreateArgs(usage string, args []string) (name, showPath string, err error) {
+	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
+		return "", "", fmt.Errorf("GOLC_MOTION_USAGE: usage: %s", usage)
+	}
+	name = args[0]
+
+	rest := args[1:]
+	for i := 0; i < len(rest); {
+		argument := rest[i]
+		switch {
+		case argument == "--show":
+			if i+1 >= len(rest) {
+				return "", "", fmt.Errorf("GOLC_MOTION_USAGE: --show requires a path; usage: %s", usage)
+			}
+			showPath = rest[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--show="):
+			showPath = strings.TrimPrefix(argument, "--show=")
+			i++
+		default:
+			return "", "", fmt.Errorf("GOLC_MOTION_USAGE: unsupported argument %q; usage: %s", argument, usage)
+		}
+	}
+	if showPath == "" {
+		return "", "", fmt.Errorf("GOLC_MOTION_USAGE: --show is required; usage: %s", usage)
+	}
+	return name, showPath, nil
+}
+
+// runMotionCreate serves the self-registered "motion create" route
+// (PROG-06): load the ShowState at --show, append the new motion preset
+// (with zero keyframes -- populating Keyframes from the current
+// programmer/selection state is a later scene-authoring concern, not this
+// route's own record path), and save atomically. A duplicate motion
+// preset name is rejected by show.Save's whole-State validation (surfaced
+// as GOLC_MOTION_PRESET_DUPLICATE_NAME inside the wrapping GOLC_SHOW_
+// STATE_INVALID diagnostic) -- never a silent duplicate.
+func runMotionCreate(request Request) Result {
+	usage := "motion create <name> --show <path>"
+	name, showPath, err := parseMotionCreateArgs(usage, request.Args)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	state, err := show.Load(request.Root, showPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	newMotionPreset, err := programming.NewMotionPreset(name, nil)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	state.MotionPresets = append(state.MotionPresets, newMotionPreset)
+
+	if err := show.Save(request.Root, showPath, state); err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	return Result{Stdout: []byte(fmt.Sprintf("GOLC_MOTION_PRESET_CREATED: %s (%s)\n", newMotionPreset.Name, newMotionPreset.ID))}
 }

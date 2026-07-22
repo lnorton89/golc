@@ -43,6 +43,8 @@ type State struct {
 	Programmer    *programming.ProgrammerState `json:"programmer,omitempty"`
 	Themes        []programming.Theme          `json:"themes"`
 	Presets       []programming.Preset         `json:"presets"`
+	Chases        []programming.Chase          `json:"chases"`
+	MotionPresets []programming.MotionPreset   `json:"motion_presets"`
 }
 
 // resolvePath returns path unchanged when it is already absolute (the
@@ -128,7 +130,10 @@ func Save(root, path string, s State) error {
 // unique group names, every group's member refs resolving to an existing
 // pool/pool member (WR-02), and -- when a Programmer buffer is present --
 // every touched attribute still within the normalized [0,1] bound and a
-// supported capability type (PROG-02/PROG-03), the single validate() entry
+// supported capability type (PROG-02/PROG-03). Every Chase's step order/
+// unit/duration/count ceiling and unique name (PROG-05, D-09/D-10), and
+// every MotionPreset's position/beam capability scope and unique name
+// (PROG-06, D-04), are re-checked here too -- the single validate() entry
 // point every new object type extends rather than a parallel path.
 func validate(s State) error {
 	for _, p := range s.Pools {
@@ -172,6 +177,22 @@ func validate(s State) error {
 		return err
 	}
 	if err := programming.ValidatePresetUniqueNames(s.Presets); err != nil {
+		return err
+	}
+	for _, chase := range s.Chases {
+		if err := programming.ValidateChase(chase); err != nil {
+			return err
+		}
+	}
+	if err := programming.ValidateChaseUniqueNames(s.Chases); err != nil {
+		return err
+	}
+	for _, motionPreset := range s.MotionPresets {
+		if err := programming.ValidateMotionPreset(motionPreset); err != nil {
+			return err
+		}
+	}
+	if err := programming.ValidateMotionPresetUniqueNames(s.MotionPresets); err != nil {
 		return err
 	}
 	return nil

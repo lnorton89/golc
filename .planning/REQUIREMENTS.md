@@ -46,8 +46,8 @@
 - [x] **PROG-02**: A show author can edit semantic intensity, color, position, beam, and supported fixture-specific attributes without working in raw DMX channels.
 - [x] **PROG-03**: The programmer shows which attributes are touched, their values, their sources, and what will be recorded.
 - [ ] **PROG-04**: A show author can create reusable color themes and intensity, color, position, and beam presets from programmer state.
-- [ ] **PROG-05**: A show author can create reusable chases with ordered steps and tempo-relative timing.
-- [ ] **PROG-06**: A show author can create reusable motion presets using semantic position capabilities.
+- [x] **PROG-05**: A show author can create reusable chases with ordered steps and tempo-relative timing.
+- [x] **PROG-06**: A show author can create reusable motion presets using semantic position capabilities.
 - [ ] **PROG-07**: A show author can record, update, rename, reorder, duplicate, and delete programming objects with undo and redo.
 
 ### Tempo-Aware Scenes
@@ -219,8 +219,8 @@ A v1 requirement is complete only when its implementation is committed, automate
 | PROG-02 | Phase 3 | Complete |
 | PROG-03 | Phase 3 | Complete |
 | PROG-04 | Phase 3 | Pending |
-| PROG-05 | Phase 3 | Pending |
-| PROG-06 | Phase 3 | Pending |
+| PROG-05 | Phase 3 | Complete |
+| PROG-06 | Phase 3 | Complete |
 | PROG-07 | Phase 3 | Pending |
 | SCEN-01 | Phase 3 | Pending |
 | SCEN-02 | Phase 3 | Pending |
