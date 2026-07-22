@@ -54,7 +54,7 @@ var SupportedCapabilityTypes = []CapabilityType{
 // same-type ranges but rejects an overlap.
 type Capability struct {
 	Type    CapabilityType `yaml:"type" json:"type" jsonschema:"required,description=Capability type; must be one of the declared CapabilityType enum values."`
-	Range   [2]float64     `yaml:"range" json:"range" jsonschema:"required,description=Normalized [min,max] value range in [0,1] (not raw DMX)."`
+	Range   [2]float64     `yaml:"range" json:"range" jsonschema:"required,description=Normalized [min max] value range within the 0 to 1 interval; never raw DMX."`
 	Comment string         `yaml:"comment,omitempty" json:"comment,omitempty" jsonschema:"description=Optional human-readable note about this capability."`
 }
 
