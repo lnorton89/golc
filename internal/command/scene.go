@@ -217,17 +217,29 @@ func runSceneActivate(request Request) Result {
 }
 
 // sceneLayerSetArgs is the parsed shape of one "scene layer set"
-// invocation.
+// invocation. The has* flags (WR-03) record whether the caller supplied at
+// least one flag of that selector kind on THIS invocation -- distinct from
+// the corresponding slice being non-empty -- so runSceneLayerSet can tell
+// "the caller didn't mention pools this time" (merge in the existing
+// layer's PoolIDs) apart from "the caller explicitly supplied zero pools"
+// (which cannot be expressed by omission alone, since --pool is a
+// repeatable flag with no "clear" form; clearing one selector kind while
+// leaving others untouched still requires re-supplying every OTHER
+// selector kind that should be kept).
 type sceneLayerSetArgs struct {
-	sceneName   string
-	kind        string
-	ref         uuid.UUID
-	instances   []uuid.UUID
-	pools       []uuid.UUID
-	groups      []uuid.UUID
-	fixtureRefs []programming.FixtureRef
-	disable     bool
-	showPath    string
+	sceneName    string
+	kind         string
+	ref          uuid.UUID
+	instances    []uuid.UUID
+	hasInstances bool
+	pools        []uuid.UUID
+	hasPools     bool
+	groups       []uuid.UUID
+	hasGroups    bool
+	fixtureRefs  []programming.FixtureRef
+	hasFixtures  bool
+	disable      bool
+	showPath     string
 }
 
 // parseSceneLayerSetArgs accepts a positional scene name followed by a
@@ -282,6 +294,7 @@ func parseSceneLayerSetArgs(usage string, args []string) (sceneLayerSetArgs, err
 				return sceneLayerSetArgs{}, err
 			}
 			parsed.instances = append(parsed.instances, id)
+			parsed.hasInstances = true
 			i += 2
 		case strings.HasPrefix(argument, "--instance="):
 			id, err := parseUUIDFlag("--instance", usage, strings.TrimPrefix(argument, "--instance="))
@@ -289,6 +302,7 @@ func parseSceneLayerSetArgs(usage string, args []string) (sceneLayerSetArgs, err
 				return sceneLayerSetArgs{}, err
 			}
 			parsed.instances = append(parsed.instances, id)
+			parsed.hasInstances = true
 			i++
 		case argument == "--pool":
 			if i+1 >= len(rest) {
@@ -299,6 +313,7 @@ func parseSceneLayerSetArgs(usage string, args []string) (sceneLayerSetArgs, err
 				return sceneLayerSetArgs{}, err
 			}
 			parsed.pools = append(parsed.pools, id)
+			parsed.hasPools = true
 			i += 2
 		case strings.HasPrefix(argument, "--pool="):
 			id, err := parseUUIDFlag("--pool", usage, strings.TrimPrefix(argument, "--pool="))
@@ -306,6 +321,7 @@ func parseSceneLayerSetArgs(usage string, args []string) (sceneLayerSetArgs, err
 				return sceneLayerSetArgs{}, err
 			}
 			parsed.pools = append(parsed.pools, id)
+			parsed.hasPools = true
 			i++
 		case argument == "--group":
 			if i+1 >= len(rest) {
@@ -316,6 +332,7 @@ func parseSceneLayerSetArgs(usage string, args []string) (sceneLayerSetArgs, err
 				return sceneLayerSetArgs{}, err
 			}
 			parsed.groups = append(parsed.groups, id)
+			parsed.hasGroups = true
 			i += 2
 		case strings.HasPrefix(argument, "--group="):
 			id, err := parseUUIDFlag("--group", usage, strings.TrimPrefix(argument, "--group="))
@@ -323,6 +340,7 @@ func parseSceneLayerSetArgs(usage string, args []string) (sceneLayerSetArgs, err
 				return sceneLayerSetArgs{}, err
 			}
 			parsed.groups = append(parsed.groups, id)
+			parsed.hasGroups = true
 			i++
 		case argument == "--fixture":
 			if i+1 >= len(rest) {
@@ -333,6 +351,7 @@ func parseSceneLayerSetArgs(usage string, args []string) (sceneLayerSetArgs, err
 				return sceneLayerSetArgs{}, err
 			}
 			parsed.fixtureRefs = append(parsed.fixtureRefs, ref)
+			parsed.hasFixtures = true
 			i += 2
 		case strings.HasPrefix(argument, "--fixture="):
 			ref, err := parseFixtureRef(usage, strings.TrimPrefix(argument, "--fixture="))
@@ -340,6 +359,7 @@ func parseSceneLayerSetArgs(usage string, args []string) (sceneLayerSetArgs, err
 				return sceneLayerSetArgs{}, err
 			}
 			parsed.fixtureRefs = append(parsed.fixtureRefs, ref)
+			parsed.hasFixtures = true
 			i++
 		case argument == "--disable":
 			parsed.disable = true
@@ -375,6 +395,20 @@ func parseSceneLayerSetArgs(usage string, args []string) (sceneLayerSetArgs, err
 // rejected by show.Save's whole-State validation (surfaced as
 // GOLC_SCENE_LAYER_DANGLING_REFERENCE inside the wrapping
 // GOLC_SHOW_STATE_INVALID diagnostic).
+//
+// WR-03: Selection is built per selector kind (pools/groups/instances/
+// fixtures) rather than wholesale from this invocation's flags alone --
+// for any selector kind the caller did not mention at all on this
+// invocation, the existing layer's own value for that kind is carried
+// forward unchanged, so e.g. repointing a chase's --ref (or toggling
+// --disable) without re-supplying --pool no longer silently discards a
+// previously configured pool/group/instance/fixture selector. A selector
+// kind is only replaced when the caller supplies at least one flag of
+// that kind on this invocation -- there is no dedicated "clear this
+// selector kind" flag, so clearing one kind while preserving the others
+// still requires explicitly re-supplying every OTHER kind that should be
+// kept (matching this package's existing has*-flag convention in
+// "chase update").
 func runSceneLayerSet(request Request) Result {
 	usage := "scene layer set <scene> --kind base_look|color_theme|chase|motion [--ref <id>] " +
 		"[--instance <id>]... [--pool <id>]... [--group <id>]... [--fixture <pool_id>|<pool_member_id>]... [--disable] --show <path>"
@@ -393,14 +427,33 @@ func runSceneLayerSet(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCENE_NOT_FOUND: no scene named %q exists\n", parsed.sceneName))}
 	}
 
+	pools := parsed.pools
+	groups := parsed.groups
+	instances := parsed.instances
+	fixtureRefs := parsed.fixtureRefs
+	if existing, ok := targetScene.LayerByKind(scene.LayerKind(parsed.kind)); ok {
+		if !parsed.hasPools {
+			pools = existing.Selection.PoolIDs
+		}
+		if !parsed.hasGroups {
+			groups = existing.Selection.GroupIDs
+		}
+		if !parsed.hasInstances {
+			instances = existing.Selection.InstanceIDs
+		}
+		if !parsed.hasFixtures {
+			fixtureRefs = existing.Selection.FixtureRefs
+		}
+	}
+
 	layer := scene.Layer{
 		Kind:    scene.LayerKind(parsed.kind),
 		Enabled: !parsed.disable,
 		Selection: programming.Selection{
-			PoolIDs:     parsed.pools,
-			GroupIDs:    parsed.groups,
-			InstanceIDs: parsed.instances,
-			FixtureRefs: parsed.fixtureRefs,
+			PoolIDs:     pools,
+			GroupIDs:    groups,
+			InstanceIDs: instances,
+			FixtureRefs: fixtureRefs,
 		},
 		Ref: parsed.ref,
 	}
