@@ -148,3 +148,76 @@ func TestFixtureInspectRoute(t *testing.T) {
 		}
 	})
 }
+
+// oflCorpusDir resolves the repository's pinned offline OFL test corpus
+// directory (tests/fixtures/ofl), relative to this package's own
+// directory, so TestFixtureImportRoute never depends on live network
+// access.
+func oflCorpusDir(t *testing.T) string {
+	t.Helper()
+	dir, err := filepath.Abs(filepath.Join("..", "..", "tests", "fixtures", "ofl"))
+	if err != nil {
+		t.Fatalf("resolving OFL corpus directory: %v", err)
+	}
+	return dir
+}
+
+// TestFixtureImportRoute proves FIXT-03/FIXT-06's "fixture import" route
+// contract (02-03-PLAN.md, Task 1 Wave-0 scaffold): "fixture import
+// --ofl-file <corpus file> --out <path>" imports offline (this code path
+// never calls ofl.Fetch -- see internal/command/fixture.go's
+// runFixtureImport) with ExitCode 0, and writes a pinned canonical
+// fixture + provenance envelope to --out.
+//
+// This file compiles today (it depends only on the already-implemented
+// command package), but fails at RUN time until 02-03-PLAN.md's Task 3
+// self-registers the "fixture import" route -- that is the RED state
+// this task proves.
+func TestFixtureImportRoute(t *testing.T) {
+	registry, err := command.NewDefaultCommandRegistry()
+	if err != nil {
+		t.Fatalf("NewDefaultCommandRegistry failed: %v", err)
+	}
+	root := t.TempDir()
+
+	t.Run("--ofl-file imports offline with ExitCode 0 and writes a pinned fixture+provenance", func(t *testing.T) {
+		corpusPath := filepath.Join(oflCorpusDir(t), "chauvet-dj_led-par-64-tri-b.json")
+		outPath := filepath.Join(root, "imported.json")
+
+		result := registry.Execute(command.Request{Root: root, Args: []string{
+			"fixture", "import", "--ofl-file", corpusPath, "--out", outPath,
+		}})
+		if result.ExitCode != 0 {
+			t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+		}
+
+		written, readErr := os.ReadFile(outPath)
+		if readErr != nil {
+			t.Fatalf("expected --out file to be written: %v", readErr)
+		}
+		if len(written) == 0 {
+			t.Fatal("expected a non-empty written fixture+provenance payload")
+		}
+		if !strings.Contains(string(written), `"content_hash"`) {
+			t.Fatalf("expected the written payload to contain a pinned content_hash, got %s", written)
+		}
+		if !strings.Contains(string(written), `"warnings"`) {
+			t.Fatalf("expected the written payload to contain a provenance warnings array, got %s", written)
+		}
+	})
+
+	t.Run("--ofl and --ofl-file together are rejected with GOLC_FIXTURE_USAGE", func(t *testing.T) {
+		corpusPath := filepath.Join(oflCorpusDir(t), "chauvet-dj_led-par-64-tri-b.json")
+		outPath := filepath.Join(root, "mixed.json")
+
+		result := registry.Execute(command.Request{Root: root, Args: []string{
+			"fixture", "import", "--ofl", "chauvet-dj/led-par-64-tri-b", "--ofl-file", corpusPath, "--out", outPath,
+		}})
+		if result.ExitCode != 2 {
+			t.Fatalf("expected ExitCode 2, got %d (stdout: %s)", result.ExitCode, result.Stdout)
+		}
+		if !strings.Contains(string(result.Stderr), "GOLC_FIXTURE_USAGE") {
+			t.Fatalf("expected GOLC_FIXTURE_USAGE on Stderr, got %q", result.Stderr)
+		}
+	})
+}
