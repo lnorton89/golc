@@ -48,7 +48,7 @@
 - [ ] **PROG-04**: A show author can create reusable color themes and intensity, color, position, and beam presets from programmer state.
 - [x] **PROG-05**: A show author can create reusable chases with ordered steps and tempo-relative timing.
 - [x] **PROG-06**: A show author can create reusable motion presets using semantic position capabilities.
-- [ ] **PROG-07**: A show author can record, update, rename, reorder, duplicate, and delete programming objects with undo and redo.
+- [x] **PROG-07**: A show author can record, update, rename, reorder, duplicate, and delete programming objects with undo and redo.
 
 ### Tempo-Aware Scenes
 
@@ -221,7 +221,7 @@ A v1 requirement is complete only when its implementation is committed, automate
 | PROG-04 | Phase 3 | Pending |
 | PROG-05 | Phase 3 | Complete |
 | PROG-06 | Phase 3 | Complete |
-| PROG-07 | Phase 3 | Pending |
+| PROG-07 | Phase 3 | Complete |
 | SCEN-01 | Phase 3 | Complete |
 | SCEN-02 | Phase 3 | Complete |
 | SCEN-03 | Phase 3 | Complete |
