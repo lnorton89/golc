@@ -207,6 +207,10 @@ None - no external service configuration required.
 - `golc fixture validate` is reachable and end-to-end verified; no blockers for later plans in this wave.
 - One pre-existing, unrelated full-suite failure (`internal/trace/catalog` linear-map drift) is logged in `deferred-items.md` and should be picked up by a dedicated fix outside this plan's scope.
 
+## Self-Check: PASSED
+
+All created files verified present on disk; all four task/summary commit hashes (`6f65e01`, `559f596`, `0f51630`, `86a152b`) verified present in `git log --oneline --all`.
+
 ---
 *Phase: 02-modular-fixtures-and-deployments*
 *Completed: 2026-07-22*
