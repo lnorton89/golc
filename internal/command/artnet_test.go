@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -168,6 +169,7 @@ func TestScopeArtnet(t *testing.T) {
 		for _, route := range []string{
 			"artnet serve", "artnet interface list", "artnet configure",
 			"artnet status", "artnet target enable", "artnet target disable",
+			"artnet discover",
 		} {
 			if _, _, ok := registry.Lookup(strings.Fields(route)); !ok {
 				t.Fatalf("expected route %q to be registered", route)
@@ -328,5 +330,93 @@ func TestArtnetTargetUnknownReturnsNotFound(t *testing.T) {
 	}
 	if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_TARGET_NOT_FOUND") {
 		t.Fatalf("expected GOLC_ARTNET_TARGET_NOT_FOUND, got: %s", result.Stderr)
+	}
+}
+
+// TestArtnetDiscoverUsageErrors proves a missing --interface is rejected
+// as GOLC_ARTNET_USAGE, ExitCode 2, without ever scanning the network.
+func TestArtnetDiscoverUsageErrors(t *testing.T) {
+	result := runArtnetDiscover(Request{Args: nil})
+	if result.ExitCode != 2 {
+		t.Fatalf("expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	}
+	if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_USAGE") {
+		t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
+	}
+}
+
+// TestArtnetDiscoverUnknownInterfaceReturnsNotFound proves an interface
+// index that does not exist on this host is rejected as
+// GOLC_ARTNET_INTERFACE_NOT_FOUND, ExitCode 1.
+func TestArtnetDiscoverUnknownInterfaceReturnsNotFound(t *testing.T) {
+	result := runArtnetDiscover(Request{Args: []string{"--interface", "999999"}})
+	if result.ExitCode != 1 {
+		t.Fatalf("expected ExitCode 1, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	}
+	if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_INTERFACE_NOT_FOUND") {
+		t.Fatalf("expected GOLC_ARTNET_INTERFACE_NOT_FOUND, got: %s", result.Stderr)
+	}
+}
+
+// TestArtnetDiscoverRendersSuggestions proves a bounded "artnet discover"
+// scan on the loopback interface completes and renders the suggestions
+// header without error, even though nothing replies on this host (a
+// well-formed empty scan, Security Domain V5 backstop).
+func TestArtnetDiscoverRendersSuggestions(t *testing.T) {
+	interfaceIndex := testArtnetLoopbackInterfaceIndex(t)
+
+	result := runArtnetDiscover(Request{Args: []string{
+		"--interface", strconv.Itoa(interfaceIndex), "--window", "50ms",
+	}})
+	if result.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	}
+	if !strings.Contains(string(result.Stdout), "GOLC_ARTNET_DISCOVER") {
+		t.Fatalf("expected the discover suggestions header, got: %s", result.Stdout)
+	}
+}
+
+// TestArtnetDiscoverPerformsNoTargetMutation proves (D-06): running
+// "artnet discover" never adds, removes, or modifies a configured
+// target -- the daemon's configured target set (including its Enabled
+// state) is unchanged before and after.
+func TestArtnetDiscoverPerformsNoTargetMutation(t *testing.T) {
+	pipeName := startTestArtnetDaemon(t)
+	interfaceIndex := testArtnetLoopbackInterfaceIndex(t)
+
+	configureResult := runArtnetConfigure(Request{Args: []string{
+		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454", "--pipe", pipeName,
+	}})
+	if configureResult.ExitCode != 0 {
+		t.Fatalf("expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
+	}
+
+	before, errResult, ok := fetchArtnetStatus(pipeName, "")
+	if !ok {
+		t.Fatalf("fetchArtnetStatus before discover failed: %+v", errResult)
+	}
+
+	discoverResult := runArtnetDiscover(Request{Args: []string{
+		"--interface", strconv.Itoa(interfaceIndex), "--window", "50ms",
+	}})
+	if discoverResult.ExitCode != 0 {
+		t.Fatalf("expected discover ExitCode 0, got %d (stderr: %s)", discoverResult.ExitCode, discoverResult.Stderr)
+	}
+
+	after, errResult2, ok2 := fetchArtnetStatus(pipeName, "")
+	if !ok2 {
+		t.Fatalf("fetchArtnetStatus after discover failed: %+v", errResult2)
+	}
+
+	if len(before.Targets) != len(after.Targets) {
+		t.Fatalf("expected target count unchanged, before=%d after=%d", len(before.Targets), len(after.Targets))
+	}
+	beforeTarget, foundBefore := findArtnetTargetHealth(before, 1, "127.0.0.1", 6454)
+	afterTarget, foundAfter := findArtnetTargetHealth(after, 1, "127.0.0.1", 6454)
+	if !foundBefore || !foundAfter {
+		t.Fatalf("expected the configured target present before and after discover: before=%v after=%v", foundBefore, foundAfter)
+	}
+	if beforeTarget.Target.Enabled != afterTarget.Target.Enabled {
+		t.Fatalf("expected the target's Enabled state unchanged by discover: before=%v after=%v", beforeTarget.Target.Enabled, afterTarget.Target.Enabled)
 	}
 }
