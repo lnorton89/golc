@@ -10,7 +10,7 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
 
 - [x] **Phase 1: Offline Foundation and Delivery Traceability** - Contributors can build and govern the project from centralized configuration and durable local identities, with Linear reconciliation that never blocks offline work. (completed 2026-07-21)
 - [x] **Phase 2: Modular Fixtures and Deployments** - Authors can validate fixture definitions and safely adapt logical pools to concrete deployments through reviewable atomic changes. (completed 2026-07-21)
-- [ ] **Phase 3: Deterministic Show Programming and Playback** - Authors can build tempo-aware shows whose compiled playback remains deterministic without any adapter owning musical or frame time.
+- [x] **Phase 3: Deterministic Show Programming and Playback** - Authors can build tempo-aware shows whose compiled playback remains deterministic without any adapter owning musical or frame time. (completed 2026-07-21)
 - [ ] **Phase 4: Observable Art-Net Live Output** - Operators can send and inspect correct Art-Net frames from the independent playback engine through simulated and physical receivers.
 - [ ] **Phase 5: Durable Shows and Recovery** - Users can save, restore, migrate, recover, inspect, and export shows without storage work disturbing live output.
 - [ ] **Phase 6: Wails Authoring and Operator Surface** - Users can complete authoring and playback on screen or by keyboard, with constrained generic MIDI control and independent local safety actions.
@@ -176,7 +176,7 @@ Plans:
   4. An operator can enter or tap global BPM, switch the one active scene or any layer immediately, and choose whether a BPM change preserves musical position or restarts the loop.
   5. A deterministic playback harness produces the same time-indexed results when UI rendering, persistence, scripts, API clients, or LLM providers are slow, unavailable, or restarted, and adopts only complete valid show plans at safe boundaries.
 
-**Plans:** 7/7 plans executed
+**Plans:** 7/7 plans complete
 
 Plans:
 **Wave 1**
@@ -332,7 +332,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Offline Foundation and Delivery Traceability | 32/32 | Complete    | 2026-07-21 |
 | 2. Modular Fixtures and Deployments | 6/6 | Complete    | 2026-07-21 |
-| 3. Deterministic Show Programming and Playback | 7/7 | In Progress|  |
+| 3. Deterministic Show Programming and Playback | 7/7 | Complete    | 2026-07-21 |
 | 4. Observable Art-Net Live Output | 0/TBD | Not started | - |
 | 5. Durable Shows and Recovery | 0/TBD | Not started | - |
 | 6. Wails Authoring and Operator Surface | 0/TBD | Not started | - |
