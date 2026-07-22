@@ -69,26 +69,31 @@ func instanceIDs(set programming.ResolvedSet) []uuid.UUID {
 }
 
 func TestSelectionResolvesPool(t *testing.T) {
-	pools, groups, deployments, poolA, _, _, _, _, _, _, _, instA1, instA2, _, _, _ := newFixture(t)
+	pools, groups, deployments, poolA, _, _, _, _, _, _, _, instA1, instA2, _, instA1Dep2, _ := newFixture(t)
 
 	got, err := programming.Resolve(pools, groups, deployments, programming.Selection{PoolIDs: []uuid.UUID{poolA.ID}})
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	want := []uuid.UUID{instA1.ID, instA2.ID}
+	// poolA selection matches every instance whose PoolID is poolA, across
+	// both deployments: instA1/instA2 in deployment1, instA1Dep2 in
+	// deployment2 (a second instance also patched from poolA's member m1).
+	want := []uuid.UUID{instA1.ID, instA2.ID, instA1Dep2.ID}
 	if !reflect.DeepEqual(instanceIDs(got), want) {
 		t.Fatalf("pool selection: got %v, want %v", instanceIDs(got), want)
 	}
 }
 
 func TestSelectionResolvesGroup(t *testing.T) {
-	pools, groups, deployments, _, _, _, _, _, _, _, _, instA1, _, _, _, groupA := newFixture(t)
+	pools, groups, deployments, _, _, _, _, _, _, _, _, instA1, _, _, instA1Dep2, groupA := newFixture(t)
 
 	got, err := programming.Resolve(pools, groups, deployments, programming.Selection{GroupIDs: []uuid.UUID{groupA.ID}})
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	want := []uuid.UUID{instA1.ID}
+	// groupA's MemberRef selects poolA's member m1 -- it resolves to every
+	// instance patched from that member, across both deployments.
+	want := []uuid.UUID{instA1.ID, instA1Dep2.ID}
 	if !reflect.DeepEqual(instanceIDs(got), want) {
 		t.Fatalf("group selection: got %v, want %v", instanceIDs(got), want)
 	}
@@ -123,21 +128,22 @@ func TestSelectionResolvesDirectFixtureRef(t *testing.T) {
 }
 
 func TestSelectionOverlapDedupes(t *testing.T) {
-	pools, groups, deployments, poolA, _, _, m1, _, _, _, _, instA1, instA2, _, instA1Dep2, groupA := newFixture(t)
+	pools, groups, deployments, poolA, _, _, m1, _, _, _, _, instA1, _, _, instA1Dep2, _ := newFixture(t)
 
 	got, err := programming.Resolve(pools, groups, deployments, programming.Selection{
-		PoolIDs:     []uuid.UUID{poolA.ID},
-		GroupIDs:    []uuid.UUID{groupA.ID},
+		InstanceIDs: []uuid.UUID{instA1.ID},
 		FixtureRefs: []programming.FixtureRef{{PoolID: poolA.ID, PoolMemberID: m1.ID}},
 	})
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	// poolA selector alone yields instA1 and instA2; groupA and the direct
-	// fixture ref both also select instA1 -- it must appear exactly once.
-	want := []uuid.UUID{instA1.ID, instA2.ID}
+	// instA1 is reachable through both selectors (its own instance ID
+	// directly, and the direct fixture ref on poolA's member m1) -- it
+	// must appear exactly once. instA1Dep2 (also patched from m1, in the
+	// other deployment) is added once by the fixture ref selector only.
+	want := []uuid.UUID{instA1.ID, instA1Dep2.ID}
 	if !reflect.DeepEqual(instanceIDs(got), want) {
-		t.Fatalf("overlap selection: got %v, want %v (instA1Dep2=%v must not appear, it is a different instance of the same member)", instanceIDs(got), want, instA1Dep2.ID)
+		t.Fatalf("overlap selection: got %v, want %v", instanceIDs(got), want)
 	}
 }
 
@@ -181,11 +187,13 @@ func TestSelectionStableOrdering(t *testing.T) {
 		t.Fatalf("expected identical resolution order across repeated calls:\nfirst:  %+v\nsecond: %+v", first, second)
 	}
 	// deployment declaration order (dep1 before dep2), then instance
-	// declaration order within each deployment.
+	// declaration order within each deployment. Selecting both poolA and
+	// poolB matches every instance in this fixture.
 	want := []uuid.UUID{
 		deployments[0].Instances[0].ID,
 		deployments[0].Instances[1].ID,
 		deployments[1].Instances[0].ID,
+		deployments[1].Instances[1].ID,
 	}
 	if !reflect.DeepEqual(instanceIDs(first), want) {
 		t.Fatalf("expected deployment-then-instance declaration order: got %v, want %v", instanceIDs(first), want)
