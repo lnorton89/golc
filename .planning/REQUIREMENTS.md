@@ -78,9 +78,9 @@
 
 - [x] **ARTN-01**: An operator can select the Windows network interface used for Art-Net output and see its current status.
 - [x] **ARTN-02**: An operator can configure Art-Net universes and static unicast targets and discover compatible nodes when discovery is enabled.
-- [ ] **ARTN-03**: The application emits valid Art-Net 4 output with correct addressing, sequence, payload-length, refresh, and target behavior for supported nodes.
-- [ ] **ARTN-04**: Art-Net output consumes complete frames from the deterministic playback engine without being backpressured by the UI, persistence, scripts, API, or LLM operations.
-- [ ] **ARTN-05**: An operator can inspect per-universe final values, frame health, target health, errors, and output enablement.
+- [x] **ARTN-03**: The application emits valid Art-Net 4 output with correct addressing, sequence, payload-length, refresh, and target behavior for supported nodes.
+- [x] **ARTN-04**: Art-Net output consumes complete frames from the deterministic playback engine without being backpressured by the UI, persistence, scripts, API, or LLM operations.
+- [x] **ARTN-05**: An operator can inspect per-universe final values, frame health, target health, errors, and output enablement.
 - [ ] **ARTN-06**: A release can demonstrate packet and timing compatibility with an independent simulator and real Art-Net hardware.
 
 ### Show Storage and Recovery
@@ -242,9 +242,9 @@ A v1 requirement is complete only when its implementation is committed, automate
 | PLAY-09 | Phase 6 | Pending |
 | ARTN-01 | Phase 4 | Complete |
 | ARTN-02 | Phase 4 | Complete |
-| ARTN-03 | Phase 4 | Pending |
-| ARTN-04 | Phase 4 | Pending |
-| ARTN-05 | Phase 4 | Pending |
+| ARTN-03 | Phase 4 | Complete |
+| ARTN-04 | Phase 4 | Complete |
+| ARTN-05 | Phase 4 | Complete |
 | ARTN-06 | Phase 4 | Pending |
 | SHOW-01 | Phase 5 | Pending |
 | SHOW-02 | Phase 5 | Pending |
