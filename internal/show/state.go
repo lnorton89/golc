@@ -22,6 +22,7 @@ import (
 	"github.com/lnorton89/golc/internal/deployment"
 	"github.com/lnorton89/golc/internal/pool"
 	"github.com/lnorton89/golc/internal/programming"
+	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/strictjson"
 )
 
@@ -45,6 +46,20 @@ type State struct {
 	Presets       []programming.Preset         `json:"presets"`
 	Chases        []programming.Chase          `json:"chases"`
 	MotionPresets []programming.MotionPreset   `json:"motion_presets"`
+	Scenes        []scene.Scene                `json:"scenes"`
+	BlendPresets  []scene.BlendPreset           `json:"blend_presets"`
+	Tempo         Tempo                         `json:"tempo"`
+}
+
+// Tempo is the show-wide musical tempo (SCEN-02/SCEN-03): a single BPM
+// value the playback clock (03-06) reads to derive every scene's bar-based
+// looping and chase/motion step timing (CONTEXT D-10 -- one authoritative
+// musical clock for the whole engine). BPM = 0 is the fresh-show "not yet
+// set" value; SCEN-02's own bounds validation (numeric entry) and SCEN-03's
+// tap-tempo conversion are later plans' concern (03-06) -- this plan only
+// adds the field and its persistence.
+type Tempo struct {
+	BPM float64 `json:"bpm"`
 }
 
 // resolvePath returns path unchanged when it is already absolute (the
@@ -193,6 +208,28 @@ func validate(s State) error {
 		}
 	}
 	if err := programming.ValidateMotionPresetUniqueNames(s.MotionPresets); err != nil {
+		return err
+	}
+	for _, sc := range s.Scenes {
+		if err := scene.ValidateScene(sc); err != nil {
+			return err
+		}
+	}
+	if err := scene.ValidateSceneUniqueNames(s.Scenes); err != nil {
+		return err
+	}
+	if err := scene.ValidateSingleActiveScene(s.Scenes); err != nil {
+		return err
+	}
+	for _, blendPreset := range s.BlendPresets {
+		if err := scene.ValidateBlendPreset(blendPreset); err != nil {
+			return err
+		}
+	}
+	if err := scene.ValidateBlendPresetUniqueNames(s.BlendPresets); err != nil {
+		return err
+	}
+	if err := scene.ValidateLayerReferences(s.Scenes, s.Themes, s.Presets, s.Chases, s.MotionPresets); err != nil {
 		return err
 	}
 	return nil
