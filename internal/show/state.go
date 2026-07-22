@@ -1,11 +1,12 @@
 // state.go implements the ShowState substrate (CONTEXT POOL-01/POOL-02/
 // D-16): the working document every pool.Pool, deployment.Deployment,
-// and pool.Group live inside, revisioned so 02-05's impact-plan freshness
-// guard can detect a stale plan against a moved Revision. Load strictly
-// decodes (internal/strictjson.DecodeStrict) and runs whole-State
-// validation before trusting anything from disk (CONTEXT threat T-02-10:
-// an untrusted/hand-editable working show document crosses into the
-// domain model here); Save canonically encodes
+// pool.Group, and (03-01-PLAN.md PROG-02/PROG-03) programming.
+// ProgrammerState scratch buffer live inside, revisioned so 02-05's
+// impact-plan freshness guard can detect a stale plan against a moved
+// Revision. Load strictly decodes (internal/strictjson.DecodeStrict) and
+// runs whole-State validation before trusting anything from disk (CONTEXT
+// threat T-02-10: an untrusted/hand-editable working show document
+// crosses into the domain model here); Save canonically encodes
 // (internal/strictjson.CanonicalEncode), increments Revision, and writes
 // atomically (write-temp-then-rename), reusing the shape
 // internal/command/linear.go already established for resolving a
@@ -20,6 +21,7 @@ import (
 
 	"github.com/lnorton89/golc/internal/deployment"
 	"github.com/lnorton89/golc/internal/pool"
+	"github.com/lnorton89/golc/internal/programming"
 	"github.com/lnorton89/golc/internal/strictjson"
 )
 
@@ -33,11 +35,12 @@ const SchemaVersion = 1
 // bumps; 02-05's impact-plan freshness guard (D-16) compares an expected
 // Revision against this field to detect a stale plan.
 type State struct {
-	SchemaVersion int                     `json:"schema_version"`
-	Revision      int                     `json:"revision"`
-	Pools         []pool.Pool             `json:"pools"`
-	Deployments   []deployment.Deployment `json:"deployments"`
-	Groups        []pool.Group            `json:"groups"`
+	SchemaVersion int                          `json:"schema_version"`
+	Revision      int                          `json:"revision"`
+	Pools         []pool.Pool                  `json:"pools"`
+	Deployments   []deployment.Deployment      `json:"deployments"`
+	Groups        []pool.Group                 `json:"groups"`
+	Programmer    *programming.ProgrammerState `json:"programmer,omitempty"`
 }
 
 // resolvePath returns path unchanged when it is already absolute (the
@@ -120,8 +123,11 @@ func Save(root, path string, s State) error {
 // before trusting or persisting a State: every pool individually valid,
 // unique pool names, unique deployment names, at most one active
 // deployment, every instance address within the valid DMX/Art-Net range,
-// unique group names, and every group's member refs resolving to an
-// existing pool/pool member (WR-02).
+// unique group names, every group's member refs resolving to an existing
+// pool/pool member (WR-02), and -- when a Programmer buffer is present --
+// every touched attribute still within the normalized [0,1] bound and a
+// supported capability type (PROG-02/PROG-03), the single validate() entry
+// point every new object type extends rather than a parallel path.
 func validate(s State) error {
 	for _, p := range s.Pools {
 		if err := pool.Validate(p); err != nil {
@@ -149,6 +155,11 @@ func validate(s State) error {
 	}
 	if err := pool.ValidateGroupReferences(s.Pools, s.Groups); err != nil {
 		return err
+	}
+	if s.Programmer != nil {
+		if err := programming.ValidateProgrammer(*s.Programmer); err != nil {
+			return err
+		}
 	}
 	return nil
 }
