@@ -155,6 +155,10 @@ None - no external service configuration required.
 - `03-07`'s playback engine can evaluate a `Chase`'s `Steps`/`StepUnit`/`StepDuration` and a `MotionPreset`'s `Keyframes`/`Phase` against the shared musical clock (D-10) once that plan builds the pure `Position`/`Evaluate` functions described in 03-RESEARCH.md.
 - No blockers. The pre-existing `TestScopeLinearMap` drift (unrelated to this plan) remains open for a future triage pass.
 
+## Self-Check: PASSED
+
+All created files verified present on disk (`internal/programming/chase.go`, `internal/programming/chase_test.go`, `internal/programming/motion.go`, `internal/programming/motion_test.go`, `internal/command/chase_motion_test.go`), all modified files verified present (`internal/show/state.go`, `internal/command/programming.go`), and all six task commits plus the docs commit verified present in `git log` (`9458fbf`, `0727472`, `cf919a8`, `153d029`, `aad7f9c`, `1911b53`, `7428359`).
+
 ---
 *Phase: 03-deterministic-show-programming-and-playback*
 *Completed: 2026-07-22*
