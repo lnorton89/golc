@@ -219,3 +219,8 @@ None - no external service configuration required.
 ---
 *Phase: 03-deterministic-show-programming-and-playback*
 *Completed: 2026-07-21*
+
+## Self-Check: PASSED
+
+- Verified all 9 created/modified files exist on disk (internal/programming/{selection,programmer}.go + tests, internal/command/programming.go + test, internal/show/state.go, deferred-items.md, this SUMMARY.md).
+- Verified all 7 commit hashes exist in `git log --oneline --all` (03609ef, 6c62b92, 314c454, 9f8a0a0, 480c4f8, 020931b, cb952ec).
