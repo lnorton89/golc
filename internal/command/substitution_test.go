@@ -34,6 +34,9 @@ manufacturer: Acme
 model: PAR64
 modes:
   - name: Standard
+    channels:
+      - type: intensity
+        occurrence: 0
 capabilities:
   - type: intensity
     range: [0, 1]
@@ -44,6 +47,9 @@ manufacturer: Beta
 model: Spot300
 modes:
   - name: Standard
+    channels:
+      - type: intensity
+        occurrence: 0
 capabilities:
   - type: intensity
     range: [0, 1]

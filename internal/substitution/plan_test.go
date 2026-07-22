@@ -40,15 +40,34 @@ func fromFixture(caps ...fixture.Capability) fixture.FixtureDefinition {
 }
 
 // toFixture builds a minimal, otherwise-valid "target" fixture (the
-// candidate replacement) carrying exactly the given capabilities.
+// candidate replacement) carrying exactly the given capabilities. Its
+// Mode declares a D-16 channel layout derived from caps (one ChannelSlot
+// per capability, in order, with each same-type occurrence index computed
+// from resolution order) since BuildSubstitutionPlan runs the target
+// through fixture.Validate, which now hard-rejects a Mode with no
+// declared channel layout (D-17).
 func toFixture(caps ...fixture.Capability) fixture.FixtureDefinition {
 	return fixture.FixtureDefinition{
 		SchemaVersion: 1,
 		Manufacturer:  "Beta",
 		Model:         "Spot300",
-		Modes:         []fixture.Mode{{Name: "Standard"}},
+		Modes:         []fixture.Mode{{Name: "Standard", Channels: channelSlotsFor(caps)}},
 		Capabilities:  caps,
 	}
+}
+
+// channelSlotsFor builds one ChannelSlot per capability in caps, in
+// declared order, computing each same-type occurrence index from
+// resolution order.
+func channelSlotsFor(caps []fixture.Capability) []fixture.ChannelSlot {
+	occurrenceByType := map[fixture.CapabilityType]int{}
+	slots := make([]fixture.ChannelSlot, 0, len(caps))
+	for _, capability := range caps {
+		occurrence := occurrenceByType[capability.Type]
+		occurrenceByType[capability.Type]++
+		slots = append(slots, fixture.ChannelSlot{Type: capability.Type, Occurrence: occurrence})
+	}
+	return slots
 }
 
 // substitutionFixture builds a minimal show model reused across this

@@ -18,6 +18,7 @@
 package ofl
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -73,7 +74,7 @@ func Normalize(raw []byte, source string) (fixture.FixtureDefinition, fixture.Pr
 		SchemaVersion: oflSchemaVersion,
 		Manufacturer:  manufacturerFromSource(source),
 		Model:         def.Name,
-		Modes:         canonicalModes(def.Modes),
+		Modes:         canonicalModes(def.Modes, def.AvailableChannels, def.TemplateChannels),
 	}
 
 	ranges := map[fixture.CapabilityType][2]float64{}
@@ -127,13 +128,78 @@ func manufacturerFromSource(source string) string {
 
 // canonicalModes projects OFL's mode list onto fixture.Mode, preserving
 // declared order (mirrors fixture.FixtureDefinition.Capabilities' own
-// source-order-preservation discipline).
-func canonicalModes(modes []Mode) []fixture.Mode {
+// source-order-preservation discipline), resolving each mode's own
+// channel-key list into the canonical Mode.Channels field (D-16) via
+// resolveModeChannels.
+func canonicalModes(modes []Mode, availableChannels, templateChannels map[string]Channel) []fixture.Mode {
 	result := make([]fixture.Mode, 0, len(modes))
 	for _, mode := range modes {
-		result = append(result, fixture.Mode{Name: mode.Name})
+		result = append(result, fixture.Mode{
+			Name:     mode.Name,
+			Channels: resolveModeChannels(mode.Channels, availableChannels, templateChannels),
+		})
 	}
 	return result
+}
+
+// resolveModeChannels resolves one OFL mode's ordered channel list (D-16)
+// into fixture.ChannelSlot entries. Each raw entry is decoded as a plain
+// string first (the common case, a channel-key reference); an entry that
+// is not a JSON string (OFL's matrix/pixel "insert" expansion object,
+// Mode's own doc comment) is skipped here rather than guessed -- its
+// per-pixel template channels are already surfaced as unmodeled-construct
+// warnings via matrixChannelWarning's separate TemplateChannels walk. A
+// resolved key is looked up in availableChannels then templateChannels; a
+// key with no match, or whose channel's capabilities all fail to map onto
+// a v1 fixture.CapabilityType (mapCapabilityType returns ok=false for
+// every entry -- see firstMappedCapabilityType), is likewise skipped, so
+// the resulting slice can be shorter than the OFL mode's own channel
+// count. normalize.go's own capability mapping intentionally merges every
+// channel/capability that shares a canonical CapabilityType into exactly
+// one fixture.Capability per Type (mergeRange/capabilitiesFromRanges), so
+// every OFL-derived ChannelSlot uses Occurrence 0: Occurrence only
+// distinguishes multiple same-Type Capabilities, and this import pipeline
+// never produces more than one per Type. An OFL mode whose channels
+// resolve to zero slots (for example, every referenced channel is
+// unmapped, or the mode declares no channels at all) surfaces through the
+// exact same fixture.Validate path as a hand-authored fixture with no
+// declared layout (GOLC_FIXTURE_CHANNEL_LAYOUT_MISSING, D-17) --
+// normalize.go never synthesizes a fallback layout of its own.
+func resolveModeChannels(channelEntries []json.RawMessage, availableChannels, templateChannels map[string]Channel) []fixture.ChannelSlot {
+	var slots []fixture.ChannelSlot
+	for _, entry := range channelEntries {
+		var key string
+		if err := json.Unmarshal(entry, &key); err != nil {
+			continue
+		}
+		channel, ok := availableChannels[key]
+		if !ok {
+			channel, ok = templateChannels[key]
+		}
+		if !ok {
+			continue
+		}
+		capabilityType, ok := firstMappedCapabilityType(key, channel)
+		if !ok {
+			continue
+		}
+		slots = append(slots, fixture.ChannelSlot{Type: capabilityType, Occurrence: 0})
+	}
+	return slots
+}
+
+// firstMappedCapabilityType returns the first of channel's capabilities
+// (in declared order) that maps onto a v1 fixture.CapabilityType, the
+// same resolution normalizeChannel already applies per-capability -- a
+// channel whose every capability is unmapped (ok=false for all) returns
+// ok=false here too.
+func firstMappedCapabilityType(channelName string, channel Channel) (fixture.CapabilityType, bool) {
+	for _, capability := range channel.effectiveCapabilities() {
+		if capabilityType, ok := mapCapabilityType(channelName, capability); ok {
+			return capabilityType, true
+		}
+	}
+	return "", false
 }
 
 // sortedChannelNames returns channels' keys in deterministic (sorted)

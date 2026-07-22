@@ -26,6 +26,11 @@ manufacturer: Generic
 model: RGB PAR
 modes:
   - name: Standard
+    channels:
+      - type: intensity
+        occurrence: 0
+      - type: color
+        occurrence: 0
 capabilities:
   - type: intensity
     range: [0, 1]
@@ -251,6 +256,11 @@ manufacturer: Generic
 model: Strobe PAR
 modes:
   - name: Standard
+    channels:
+      - type: shutter
+        occurrence: 0
+      - type: shutter
+        occurrence: 1
 capabilities:
   - type: shutter
     range: [0, 0.5]
@@ -316,4 +326,107 @@ func TestDecodeDeterministic(t *testing.T) {
 	if string(firstEncoded) != string(secondEncoded) {
 		t.Fatalf("expected byte-identical canonical summary across repeated decodes:\nfirst:  %s\nsecond: %s", firstEncoded, secondEncoded)
 	}
+}
+
+// TestChannelLayout proves D-16/D-17's ordered DMX channel-layout
+// contract: a valid multi-channel layout decodes with its ChannelSlot
+// entries in declared order; an empty/absent layout, an unknown
+// capability type, and an occurrence index with no matching declared
+// Capability are each rejected with their own actionable GOLC_FIXTURE_*
+// diagnostic.
+func TestChannelLayout(t *testing.T) {
+	t.Run("valid multi-channel layout", func(t *testing.T) {
+		validYAML := `schema_version: 1
+manufacturer: Generic
+model: RGB PAR
+modes:
+  - name: Standard
+    channels:
+      - type: intensity
+        occurrence: 0
+      - type: color
+        occurrence: 0
+capabilities:
+  - type: intensity
+    range: [0, 1]
+  - type: color
+    range: [0, 1]
+`
+		def, err := fixture.Decode([]byte(validYAML))
+		if err != nil {
+			t.Fatalf("expected a valid multi-channel layout to decode, got: %v", err)
+		}
+		if len(def.Modes[0].Channels) != 2 {
+			t.Fatalf("expected 2 channel slots, got %d: %+v", len(def.Modes[0].Channels), def.Modes[0].Channels)
+		}
+		if def.Modes[0].Channels[0].Type != fixture.CapabilityIntensity {
+			t.Fatalf("expected first channel slot intensity (declared order), got %q", def.Modes[0].Channels[0].Type)
+		}
+		if def.Modes[0].Channels[1].Type != fixture.CapabilityColor {
+			t.Fatalf("expected second channel slot color (declared order), got %q", def.Modes[0].Channels[1].Type)
+		}
+	})
+
+	t.Run("empty channel layout rejected", func(t *testing.T) {
+		yaml := `schema_version: 1
+manufacturer: Generic
+model: RGB PAR
+modes:
+  - name: Standard
+capabilities:
+  - type: intensity
+    range: [0, 1]
+`
+		_, err := fixture.Decode([]byte(yaml))
+		if err == nil {
+			t.Fatal("expected a mode with no declared channels to be rejected")
+		}
+		if !strings.Contains(err.Error(), "GOLC_FIXTURE_CHANNEL_LAYOUT_MISSING") {
+			t.Fatalf("expected GOLC_FIXTURE_CHANNEL_LAYOUT_MISSING, got %v", err)
+		}
+	})
+
+	t.Run("unknown channel capability type rejected", func(t *testing.T) {
+		yaml := `schema_version: 1
+manufacturer: Generic
+model: RGB PAR
+modes:
+  - name: Standard
+    channels:
+      - type: not-a-real-capability
+        occurrence: 0
+capabilities:
+  - type: intensity
+    range: [0, 1]
+`
+		_, err := fixture.Decode([]byte(yaml))
+		if err == nil {
+			t.Fatal("expected an unknown channel capability type to be rejected")
+		}
+		if !strings.Contains(err.Error(), "GOLC_FIXTURE_CHANNEL_TYPE_UNKNOWN") {
+			t.Fatalf("expected GOLC_FIXTURE_CHANNEL_TYPE_UNKNOWN, got %v", err)
+		}
+	})
+
+	t.Run("invalid occurrence rejected", func(t *testing.T) {
+		yaml := `schema_version: 1
+manufacturer: Generic
+model: RGB PAR
+modes:
+  - name: Standard
+    channels:
+      - type: intensity
+        occurrence: 1
+capabilities:
+  - type: intensity
+    range: [0, 1]
+`
+		_, err := fixture.Decode([]byte(yaml))
+		if err == nil {
+			t.Fatal("expected an occurrence index with no matching declared capability to be rejected")
+		}
+		if !strings.Contains(err.Error(), "GOLC_FIXTURE_CHANNEL_OCCURRENCE_INVALID") {
+			t.Fatalf("expected GOLC_FIXTURE_CHANNEL_OCCURRENCE_INVALID, got %v", err)
+		}
+	})
 }

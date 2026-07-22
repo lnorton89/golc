@@ -34,9 +34,8 @@ import (
 // channels that *reference* a wheel via a WheelSlot/WheelRotation/
 // WheelShake/WheelSlotRotation capability, not the wheel definition
 // object itself, that normalize.go turns into a capability or a warning),
-// and modes (name only -- fixture.Mode, the canonical target type, does
-// not model per-mode channel subsets in v1, so OFL's per-mode channel-
-// order list has nothing to normalize into).
+// and modes (name plus its ordered channel-key list, resolved into the
+// canonical fixture.Mode.Channels field per D-16).
 type Definition struct {
 	Name              string                     `json:"name"`
 	Categories        []string                   `json:"categories"`
@@ -57,13 +56,22 @@ type Matrix struct {
 	PixelKeys json.RawMessage `json:"pixelKeys,omitempty"`
 }
 
-// Mode is one OFL operating mode. Its Channels list is intentionally not
-// modeled here: fixture.Mode carries only a Name (see
-// internal/fixture/model.go's Mode doc comment -- v1 does not represent
-// per-mode capability subsets), so OFL's per-mode channel-order list has
-// nothing to normalize into.
+// Mode is one OFL operating mode. Channels is its ordered channel list:
+// most entries are a plain channel-key string referencing the enclosing
+// Definition's AvailableChannels/TemplateChannels, but OFL also allows a
+// matrix/pixel expansion object (an "insert": "matrixChannels" directive)
+// in this same array -- so each entry is captured as raw JSON and
+// normalize.go's resolveModeChannels decodes it: a plain string resolves
+// into a fixture.ChannelSlot (D-16); an expansion object is skipped at
+// this mode-level resolution (its own per-pixel template channels are
+// already surfaced as unmodeled-construct warnings via
+// matrixChannelWarning's separate TemplateChannels walk). Previously this
+// list had nothing to normalize into (fixture.Mode carried no
+// channel-order field at all); D-16 makes it additive to the canonical
+// model, so it is re-added here.
 type Mode struct {
-	Name string `json:"name"`
+	Name     string            `json:"name"`
+	Channels []json.RawMessage `json:"channels,omitempty"`
 }
 
 // Channel is one OFL availableChannels/templateChannels entry: either a

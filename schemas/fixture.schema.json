@@ -51,6 +51,30 @@
       "items": {
         "additionalProperties": false,
         "properties": {
+          "channels": {
+            "description": "Ordered DMX channel layout (D-16); each entry names the CapabilityType and same-type occurrence index this channel drives.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "occurrence": {
+                  "description": "0-based index selecting among the fixture's possibly-multiple same-Type Capabilities.",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": {
+                  "description": "Capability type this channel drives; must be one of the declared CapabilityType enum values.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "occurrence"
+              ],
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
           "name": {
             "description": "Mode name.",
             "minLength": 1,
@@ -58,7 +82,8 @@
           }
         },
         "required": [
-          "name"
+          "name",
+          "channels"
         ],
         "type": "object"
       },

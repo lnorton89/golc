@@ -35,6 +35,15 @@ manufacturer: Test
 model: Equivalent RGB PAR
 modes:
   - name: Standard
+    channels:
+      - type: intensity
+        occurrence: 0
+      - type: color
+        occurrence: 0
+      - type: shutter
+        occurrence: 0
+      - type: strobe
+        occurrence: 0
 capabilities:
   - type: intensity
     range: [0, 1]
@@ -120,6 +129,26 @@ func TestNormalizeCanonicalPipeline(t *testing.T) {
 	}
 	if _, err := fixture.Pin(handAuthored); err != nil {
 		t.Fatalf("hand-authored equivalent fixture failed to pin: %v", err)
+	}
+}
+
+// TestNormalizeModeChannels proves D-16: an OFL mode declaring channel
+// keys normalizes into a populated fixture.Mode.Channels, resolved
+// through the same fixture.Validate path a hand-authored fixture's
+// channel layout runs through (no second, independently-evolving copy of
+// the validation logic).
+func TestNormalizeModeChannels(t *testing.T) {
+	raw := readCorpusFile(t, "chauvet-dj_led-par-64-tri-b.json")
+
+	def, _, err := ofl.Normalize(raw, "chauvet-dj/led-par-64-tri-b")
+	if err != nil {
+		t.Fatalf("Normalize failed: %v", err)
+	}
+	if len(def.Modes) == 0 {
+		t.Fatal("expected at least one normalized mode")
+	}
+	if len(def.Modes[0].Channels) == 0 {
+		t.Fatalf("expected mode %q to normalize into a non-empty Channels layout (D-16), got %+v", def.Modes[0].Name, def.Modes[0])
 	}
 }
 

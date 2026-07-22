@@ -24,6 +24,11 @@ manufacturer: Generic
 model: RGB PAR
 modes:
   - name: Standard
+    channels:
+      - type: intensity
+        occurrence: 0
+      - type: color
+        occurrence: 0
 capabilities:
   - type: intensity
     range: [0, 1]
@@ -40,6 +45,11 @@ manufacturer: Generic
 model: RGB PAX
 modes:
   - name: Standard
+    channels:
+      - type: intensity
+        occurrence: 0
+      - type: color
+        occurrence: 0
 capabilities:
   - type: intensity
     range: [0, 1]
@@ -64,6 +74,11 @@ capabilities:
 model: RGB PAR
 modes:
   - name: Standard
+    channels:
+      - type: intensity
+        occurrence: 0
+      - type: color
+        occurrence: 0
 `
 
 const identityMinimalYAML = `schema_version: 1
@@ -71,6 +86,9 @@ manufacturer: Acme
 model: Minimal Spot
 modes:
   - name: Standard
+    channels:
+      - type: intensity
+        occurrence: 0
 capabilities:
   - type: intensity
     range: [0, 1]
