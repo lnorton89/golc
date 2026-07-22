@@ -1,5 +1,5 @@
-// ipc_test.go proves 04-04-PLAN.md Task 1's contract: a command.Request
-// round-trips to a command.Result unchanged over the named pipe (a); a
+// ipc_test.go proves 04-04-PLAN.md Task 1's contract: a Request
+// round-trips to a Result unchanged over the named pipe (a); a
 // dial to a nonexistent pipe returns GOLC_ARTNET_DAEMON_UNREACHABLE rather
 // than a hang or a raw error (b); and the listener's security descriptor
 // is owner-restricted (c, a cheap source-level sanity check backing the
@@ -16,8 +16,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/lnorton89/golc/internal/command"
 )
 
 // testPipeName returns a per-test, per-process, per-nanosecond-unique pipe
@@ -36,8 +34,8 @@ func testPipeName(t *testing.T) string {
 func TestIPCRequestRoundTripsToResult(t *testing.T) {
 	pipeName := testPipeName(t)
 
-	wantResult := command.Result{ExitCode: 0, Stdout: []byte("hello from daemon\n")}
-	handler := func(request command.Request) command.Result {
+	wantResult := Result{ExitCode: 0, Stdout: []byte("hello from daemon\n")}
+	handler := func(request Request) Result {
 		return wantResult
 	}
 
@@ -62,7 +60,7 @@ func TestIPCRequestRoundTripsToResult(t *testing.T) {
 	}
 	defer conn.Close()
 
-	request := command.Request{Route: "artnet status", Args: []string{"--json"}, Root: `C:\show`}
+	request := Request{Route: "artnet status", Args: []string{"--json"}, Root: `C:\show`}
 	got := Forward(conn, request)
 
 	if !reflect.DeepEqual(got, wantResult) {

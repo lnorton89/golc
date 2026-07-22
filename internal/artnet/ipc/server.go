@@ -6,11 +6,13 @@
 // connections to the owning principal alone (Security Domain V4:
 // local-only, default-deny other principals) and never binds a routable
 // TCP address. Serve accepts connections on that listener until ctx is
-// cancelled, decoding one command.Request per connection (reusing this
-// repo's existing command.Request/command.Result shapes as the wire
-// format, per RESEARCH.md Pattern 5 -- no second protocol is invented),
-// invoking an injected handler, and writing back the command.Result --
-// both encoded/decoded via internal/strictjson's canonical, duplicate-safe
+// cancelled, decoding one Request per connection (field-for-field
+// identical to this repo's existing internal/command.Request/
+// command.Result shapes, per RESEARCH.md Pattern 5 -- no second wire
+// protocol is invented; see types.go's doc comment for why these types are
+// declared locally rather than imported from internal/command),
+// invoking an injected handler, and writing back the Result -- both
+// encoded/decoded via internal/strictjson's canonical, duplicate-safe
 // convention.
 //
 // Named-pipe byte-mode connections carry no message boundary of their
@@ -29,7 +31,6 @@ import (
 
 	winio "github.com/Microsoft/go-winio"
 
-	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/strictjson"
 )
 
@@ -76,7 +77,7 @@ func NewListener(pipeName string) (net.Listener, error) {
 // point it closes listener, unblocking Accept, and returns nil) or Accept
 // fails for a reason other than the listener having just been closed by
 // that same cancellation.
-func Serve(ctx context.Context, listener net.Listener, handler command.CommandHandler) error {
+func Serve(ctx context.Context, listener net.Listener, handler Handler) error {
 	closeOnce := make(chan struct{})
 	go func() {
 		select {
@@ -106,19 +107,19 @@ func Serve(ctx context.Context, listener net.Listener, handler command.CommandHa
 // caller as an ExitCode:1 GOLC_ARTNET_IPC_DECODE_FAILED Result rather than
 // silently dropping the connection, so a malformed client invocation gets
 // a diagnostic instead of a hang.
-func handleConn(conn net.Conn, handler command.CommandHandler) {
+func handleConn(conn net.Conn, handler Handler) {
 	defer conn.Close()
 
 	payload, err := readFrame(conn)
 	if err != nil {
-		_ = writeResult(conn, command.Result{ExitCode: 1, Stderr: []byte(
+		_ = writeResult(conn, Result{ExitCode: 1, Stderr: []byte(
 			fmt.Sprintf("GOLC_ARTNET_IPC_DECODE_FAILED: %v\n", err))})
 		return
 	}
 
-	var request command.Request
+	var request Request
 	if err := strictjson.DecodeStrict(payload, &request); err != nil {
-		_ = writeResult(conn, command.Result{ExitCode: 1, Stderr: []byte(
+		_ = writeResult(conn, Result{ExitCode: 1, Stderr: []byte(
 			fmt.Sprintf("GOLC_ARTNET_IPC_DECODE_FAILED: %v\n", err))})
 		return
 	}
@@ -129,7 +130,7 @@ func handleConn(conn net.Conn, handler command.CommandHandler) {
 
 // writeResult canonically encodes result (internal/strictjson) and writes
 // it to conn as one length-prefixed frame.
-func writeResult(conn net.Conn, result command.Result) error {
+func writeResult(conn net.Conn, result Result) error {
 	encoded, err := strictjson.CanonicalEncode(result)
 	if err != nil {
 		return fmt.Errorf("GOLC_ARTNET_IPC_ENCODE_FAILED: %v", err)
