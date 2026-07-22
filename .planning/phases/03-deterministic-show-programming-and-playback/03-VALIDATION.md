@@ -2,7 +2,7 @@
 phase: 3
 slug: deterministic-show-programming-and-playback
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-07-21
 ---
@@ -38,25 +38,25 @@ created: 2026-07-21
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD | TBD | TBD | PROG-01 | T-03-05 / — | Selection resolves pool/group/deployment-instance/direct-fixture into a fixture-instance set | unit | `go test ./internal/programming/... -run TestSelection` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | PROG-02 | — | Semantic intensity/color/position/beam edit without raw DMX | unit | `go test ./internal/programming/... -run TestProgrammer` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | PROG-03 | — | Programmer surfaces touched attrs, values, sources, record scope | unit | `go test ./internal/programming/... -run TestProgrammerInspect` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | PROG-04 | — | Create/reuse themes and intensity/color/position/beam presets | unit | `go test ./internal/programming/... -run TestThemePreset` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | PROG-05 | — | Reusable chases with ordered steps + tempo-relative timing | unit | `go test ./internal/programming/... -run TestChase` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | PROG-06 | — | Reusable motion presets (position/beam only, per D-04) | unit | `go test ./internal/programming/... -run TestMotionPreset` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | PROG-07 | T-03-05 / — | Record/update/rename/reorder/duplicate/delete with undo/redo (D-12/13) | unit | `go test ./internal/programming/... -run TestHistory` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | SCEN-01 | — | Scene loops for configured bar count against global BPM | unit | `go test ./internal/playback/... -run TestClockPosition` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | SCEN-02 | — | Numeric BPM entry | unit | `go test ./internal/playback/... -run TestBPMSet` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | SCEN-03 | — | Tap-tempo BPM | unit | `go test ./internal/playback/... -run TestTapTempo` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | SCEN-04 | — | Exactly one active scene | unit | `go test ./internal/scene/... -run TestSingleActiveScene` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | SCEN-05 | — | Scene combines independently enabled layers | unit | `go test ./internal/scene/... -run TestLayerCombination` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | SCEN-06 | — | Immediate scene/layer switch | unit | `go test ./internal/playback/... -run TestImmediateSwitch` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | SCEN-07 | — | Reusable blending presets | unit | `go test ./internal/scene/... -run TestBlendPreset` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | SCEN-08 | — | BPM-change preserve-position-or-restart | unit | `go test ./internal/playback/... -run TestBPMChangeEpoch` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | SCEN-09 | T-03-04 / T-03-05 | Deterministic time-indexed output under simulated adapter delay/failure | unit + property | `go test ./internal/playback/... -run TestDeterministicEvaluate` | ❌ W0 | ⬜ pending |
+| 03-01.1 | 03-01 | 1 | PROG-01 | T-03-05 / — | Selection resolves pool/group/deployment-instance/direct-fixture into a fixture-instance set | unit | `go test ./internal/programming/... -run TestSelection` | ❌ W0 | ⬜ pending |
+| 03-01.2 | 03-01 | 1 | PROG-02 | — | Semantic intensity/color/position/beam edit without raw DMX | unit | `go test ./internal/programming/... -run TestProgrammer` | ❌ W0 | ⬜ pending |
+| 03-01.2 | 03-01 | 1 | PROG-03 | — | Programmer surfaces touched attrs, values, sources, record scope | unit | `go test ./internal/programming/... -run TestProgrammerInspect` | ❌ W0 | ⬜ pending |
+| 03-02.1 | 03-02 | 2 | PROG-04 | — | Create/reuse themes and intensity/color/position/beam presets | unit | `go test ./internal/programming/... -run TestThemePreset` | ❌ W0 | ⬜ pending |
+| 03-03.1 | 03-03 | 3 | PROG-05 | — | Reusable chases with ordered steps + tempo-relative timing | unit | `go test ./internal/programming/... -run TestChase` | ❌ W0 | ⬜ pending |
+| 03-03.2 | 03-03 | 3 | PROG-06 | — | Reusable motion presets (position/beam only, per D-04) | unit | `go test ./internal/programming/... -run TestMotionPreset` | ❌ W0 | ⬜ pending |
+| 03-05.2 | 03-05 | 5 | PROG-07 | T-03-05 / — | Record/update/rename/reorder/duplicate/delete with undo/redo (D-12/13); live-active edit is ungated (D-08) | unit | `go test ./internal/command/... -run TestHistory` | ❌ W0 | ⬜ pending |
+| 03-04.1 / 03-06.1 | 03-04, 03-06 | 4, 5 | SCEN-01 | — | Scene loops for configured bar count against global BPM (model in 03-04; pure clock in 03-06) | unit | `go test ./internal/playback/... -run TestClockPosition` | ❌ W0 | ⬜ pending |
+| 03-06.2 | 03-06 | 5 | SCEN-02 | — | Numeric BPM entry | unit | `go test ./internal/playback/... -run TestBPMSet` | ❌ W0 | ⬜ pending |
+| 03-06.1 | 03-06 | 5 | SCEN-03 | — | Tap-tempo BPM | unit | `go test ./internal/playback/... -run TestTapTempo` | ❌ W0 | ⬜ pending |
+| 03-04.1 | 03-04 | 4 | SCEN-04 | T-03-01 / mitigate | Exactly one active scene | unit | `go test ./internal/scene/... -run TestSingleActiveScene` | ❌ W0 | ⬜ pending |
+| 03-04.1 | 03-04 | 4 | SCEN-05 | — | Scene combines independently enabled layers via fixed-priority reduce | unit | `go test ./internal/scene/... -run TestLayerCombination` | ❌ W0 | ⬜ pending |
+| 03-07.2 | 03-07 | 6 | SCEN-06 | — | Immediate scene/layer switch (adopted at next-bar boundary, D-05/D-07); live-active edit ungated (D-08) | unit | `go test ./internal/playback/... -run TestImmediateSwitch` | ❌ W0 | ⬜ pending |
+| 03-04.2 | 03-04 | 4 | SCEN-07 | — | Reusable blending presets | unit | `go test ./internal/scene/... -run TestBlendPreset` | ❌ W0 | ⬜ pending |
+| 03-06.1 | 03-06 | 5 | SCEN-08 | — | BPM-change preserve-position-or-restart, applied uniformly to chases/motion (D-11) | unit | `go test ./internal/playback/... -run TestBPMChangeEpoch` | ❌ W0 | ⬜ pending |
+| 03-07.1 | 03-07 | 6 | SCEN-09 | T-03-04 / T-03-05 | Deterministic time-indexed output under simulated adapter delay/failure — byte-identical Evaluate across concurrent goroutines | unit + property | `go test ./internal/playback/... -run TestDeterministicEvaluate -race` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
-*Task/Plan/Wave IDs are TBD until the planner assigns them — the plan-checker or a manual pass should backfill these columns once PLAN.md files exist.*
+*Task IDs use the `{plan}.{1-based task position}` convention (STATE.md durable-ID grammar). Backfilled 2026-07-21 against the 7 committed PLAN.md files (03-01 through 03-07) after gsd-plan-checker verification passed; exact `-run` test names cross-checked against each plan's own `Test*` references.*
 
 ---
 
