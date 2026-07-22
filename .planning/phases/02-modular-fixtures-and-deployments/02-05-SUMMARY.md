@@ -166,3 +166,7 @@ None - no external service configuration required.
 ---
 *Phase: 02-modular-fixtures-and-deployments*
 *Completed: 2026-07-21*
+
+## Self-Check: PASSED
+
+All created files (internal/pool/impact.go, internal/pool/impact_test.go, internal/pool/plan.go, internal/pool/plan_test.go, internal/command/poolimpact_test.go, this SUMMARY.md) and all commit hashes (32ab3e7, b4a7cc8, a5dc8c6, 238bbe0) were verified present.
