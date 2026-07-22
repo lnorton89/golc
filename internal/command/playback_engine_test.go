@@ -182,6 +182,32 @@ func TestPlaybackEvaluateInvalidPlan(t *testing.T) {
 	}
 }
 
+// TestPlaybackEvaluateWrapsBarIndexModuloBarsPerLoop proves WR-01: an
+// "--at" value beyond the active scene's BarsPerLoop-1 wraps BarIndex into
+// [0, BarsPerLoop), matching playback.Position's own documented invariant
+// ("already wrapped modulo barsPerLoop") rather than producing an
+// out-of-range BarIndex the real engine could never emit.
+func TestPlaybackEvaluateWrapsBarIndexModuloBarsPerLoop(t *testing.T) {
+	root := t.TempDir()
+	registry, err := command.NewDefaultCommandRegistry()
+	if err != nil {
+		t.Fatalf("NewDefaultCommandRegistry: %v", err)
+	}
+	showPath := filepath.Join(t.TempDir(), "show.json")
+	seedPlaybackEvaluateShow(t, root, showPath) // 4-bar scene
+
+	// 5.5 against a 4-bar loop should wrap to bar=1 (5 % 4), not bar=5.
+	result := registry.Execute(command.Request{Root: root, Args: []string{
+		"playback", "evaluate", "--at", "5.5", "--show", showPath,
+	}})
+	if result.ExitCode != 0 {
+		t.Fatalf("playback evaluate failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if !strings.Contains(string(result.Stdout), "GOLC_PLAYBACK_EVALUATE: bar=1") {
+		t.Fatalf("expected GOLC_PLAYBACK_EVALUATE summary with wrapped bar=1, got %s", result.Stdout)
+	}
+}
+
 func TestPlaybackEvaluateMissingAtUsage(t *testing.T) {
 	root := t.TempDir()
 	registry, err := command.NewDefaultCommandRegistry()

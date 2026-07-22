@@ -291,12 +291,23 @@ func parsePlaybackEvaluateArgs(usage string, args []string) (playbackEvaluateArg
 }
 
 // positionFromAt decomposes a raw "--at" numeric value into a
-// playback.MusicalPosition: BarIndex is the integer floor, BeatFraction is
-// the remaining fractional part -- so "--at 2.0" is bar=2 beat_fraction=0,
-// and "--at 2.75" is bar=2 beat_fraction=0.75.
-func positionFromAt(at float64) playback.MusicalPosition {
+// playback.MusicalPosition: the integer floor is the raw bar count,
+// BeatFraction is the remaining fractional part -- so "--at 2.0" is bar=2
+// beat_fraction=0, and "--at 2.75" is bar=2 beat_fraction=0.75. BarIndex is
+// then wrapped into [0, barsPerLoop), matching playback.Position's own
+// documented invariant ("already wrapped modulo barsPerLoop") that
+// motionPhase and every other MusicalPosition consumer relies on -- a
+// negative wrapped remainder (from a negative --at) is normalized back
+// into [0, barsPerLoop) rather than left negative, mirroring Go's
+// truncating (not flooring) % operator behavior for negative operands.
+func positionFromAt(at float64, barsPerLoop int) playback.MusicalPosition {
 	bar := math.Floor(at)
-	return playback.MusicalPosition{BarIndex: int(bar), BeatFraction: at - bar}
+	beatFraction := at - bar
+	wrapped := int(bar) % barsPerLoop
+	if wrapped < 0 {
+		wrapped += barsPerLoop
+	}
+	return playback.MusicalPosition{BarIndex: wrapped, BeatFraction: beatFraction}
 }
 
 // runPlaybackEvaluate serves the self-registered "playback evaluate" route
@@ -326,7 +337,7 @@ func runPlaybackEvaluate(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
-	pos := positionFromAt(parsed.at)
+	pos := positionFromAt(parsed.at, plan.BarsPerLoop)
 	frame := playback.Evaluate(plan, pos)
 
 	if parsed.json {
