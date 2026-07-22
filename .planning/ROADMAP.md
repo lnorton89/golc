@@ -176,12 +176,12 @@ Plans:
   4. An operator can enter or tap global BPM, switch the one active scene or any layer immediately, and choose whether a BPM change preserves musical position or restarts the loop.
   5. A deterministic playback harness produces the same time-indexed results when UI rendering, persistence, scripts, API clients, or LLM providers are slow, unavailable, or restarted, and adopts only complete valid show plans at safe boundaries.
 
-**Plans:** 7 plans
+**Plans:** 1/7 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — Selection + programmer semantic attribute editing + inspect (PROG-01/02/03) [Wave 1]
+- [x] 03-01-PLAN.md — Selection + programmer semantic attribute editing + inspect (PROG-01/02/03) [Wave 1]
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -332,7 +332,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Offline Foundation and Delivery Traceability | 32/32 | Complete    | 2026-07-21 |
 | 2. Modular Fixtures and Deployments | 6/6 | Complete    | 2026-07-21 |
-| 3. Deterministic Show Programming and Playback | 0/7 | Planned | - |
+| 3. Deterministic Show Programming and Playback | 1/7 | In Progress|  |
 | 4. Observable Art-Net Live Output | 0/TBD | Not started | - |
 | 5. Durable Shows and Recovery | 0/TBD | Not started | - |
 | 6. Wails Authoring and Operator Surface | 0/TBD | Not started | - |
