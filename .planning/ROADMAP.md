@@ -138,12 +138,12 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
   4. Adding or removing pool fixtures produces a deterministic review of every affected group, theme, palette, scene, chase, motion preset, and controller mapping; review-before-apply remains the default even when propagation policy is configurable.
   5. A show author can map replacement fixtures by semantic capability, see every missing or incompatible capability, and accept, revise, or cancel an all-or-nothing change without silent approximation.
 
-**Plans:** 6 plans
+**Plans:** 1/6 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — Fixture validate: canonical capability model, generated versioned schema, strict YAML decode + diagnostics, `golc fixture validate` (FIXT-01/02/04) [Wave 1]
+- [x] 02-01-PLAN.md — Fixture validate: canonical capability model, generated versioned schema, strict YAML decode + diagnostics, `golc fixture validate` (FIXT-01/02/04) [Wave 1]
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -303,7 +303,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Offline Foundation and Delivery Traceability | 32/32 | Complete    | 2026-07-21 |
-| 2. Modular Fixtures and Deployments | 0/6 | Planned | - |
+| 2. Modular Fixtures and Deployments | 1/6 | In Progress|  |
 | 3. Deterministic Show Programming and Playback | 0/TBD | Not started | - |
 | 4. Observable Art-Net Live Output | 0/TBD | Not started | - |
 | 5. Durable Shows and Recovery | 0/TBD | Not started | - |
