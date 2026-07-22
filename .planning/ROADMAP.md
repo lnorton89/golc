@@ -9,7 +9,7 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
 ## Phases
 
 - [x] **Phase 1: Offline Foundation and Delivery Traceability** - Contributors can build and govern the project from centralized configuration and durable local identities, with Linear reconciliation that never blocks offline work. (completed 2026-07-21)
-- [ ] **Phase 2: Modular Fixtures and Deployments** - Authors can validate fixture definitions and safely adapt logical pools to concrete deployments through reviewable atomic changes.
+- [x] **Phase 2: Modular Fixtures and Deployments** - Authors can validate fixture definitions and safely adapt logical pools to concrete deployments through reviewable atomic changes. (completed 2026-07-21)
 - [ ] **Phase 3: Deterministic Show Programming and Playback** - Authors can build tempo-aware shows whose compiled playback remains deterministic without any adapter owning musical or frame time.
 - [ ] **Phase 4: Observable Art-Net Live Output** - Operators can send and inspect correct Art-Net frames from the independent playback engine through simulated and physical receivers.
 - [ ] **Phase 5: Durable Shows and Recovery** - Users can save, restore, migrate, recover, inspect, and export shows without storage work disturbing live output.
@@ -138,7 +138,7 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
   4. Adding or removing pool fixtures produces a deterministic review of every affected group, theme, palette, scene, chase, motion preset, and controller mapping; review-before-apply remains the default even when propagation policy is configurable.
   5. A show author can map replacement fixtures by semantic capability, see every missing or incompatible capability, and accept, revise, or cancel an all-or-nothing change without silent approximation.
 
-**Plans:** 6/6 plans executed
+**Plans:** 6/6 plans complete
 
 Plans:
 **Wave 1**
@@ -303,7 +303,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Offline Foundation and Delivery Traceability | 32/32 | Complete    | 2026-07-21 |
-| 2. Modular Fixtures and Deployments | 6/6 | In Progress|  |
+| 2. Modular Fixtures and Deployments | 6/6 | Complete    | 2026-07-21 |
 | 3. Deterministic Show Programming and Playback | 0/TBD | Not started | - |
 | 4. Observable Art-Net Live Output | 0/TBD | Not started | - |
 | 5. Durable Shows and Recovery | 0/TBD | Not started | - |
