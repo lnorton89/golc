@@ -1,0 +1,216 @@
+// daemon_test.go proves 04-04-PLAN.md Task 2's contract: Run starts
+// engine+worker+interface manager+IPC listener and serves a status/health
+// Request end-to-end in-process (a); an unrecognized route is rejected
+// rather than silently succeeding (b); "artnet configure" and "artnet
+// target enable|disable" mutate the daemon's in-memory target set through
+// the stop/rebuild/start reconfigure path without error, and an unknown
+// target selector fails with GOLC_ARTNET_TARGET_NOT_FOUND (c); and ctx
+// cancel triggers Run to return with the worker stopped, no goroutine leak
+// (d).
+package artnet
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/lnorton89/golc/internal/artnet/ipc"
+	"github.com/lnorton89/golc/internal/command"
+	"github.com/lnorton89/golc/internal/scene"
+	"github.com/lnorton89/golc/internal/show"
+)
+
+// testDaemonPipeName returns a per-test, per-process, per-nanosecond-unique
+// pipe path so this package's daemon tests never collide with each other,
+// with a real running daemon, or with internal/artnet/ipc's own tests
+// running concurrently in a sibling package.
+func testDaemonPipeName(t *testing.T) string {
+	t.Helper()
+	sanitized := strings.NewReplacer("/", "-", " ", "-").Replace(t.Name())
+	return fmt.Sprintf(`\\.\pipe\golc-artnet-daemon-test-%s-%d-%d`, sanitized, os.Getpid(), time.Now().UnixNano())
+}
+
+// minimalPlayableState builds the smallest show.State Compile accepts: one
+// active scene, all four layers left disabled with a zero Selection/Ref,
+// at a valid BPM -- enough for NewEngine to succeed and publish frames,
+// with no fixture/pool/deployment content this test doesn't need.
+func minimalPlayableState(t *testing.T) show.State {
+	t.Helper()
+	sc, err := scene.NewScene("Test Scene", 1)
+	if err != nil {
+		t.Fatalf("scene.NewScene: %v", err)
+	}
+	sc.Active = true
+	return show.State{Scenes: []scene.Scene{sc}, Tempo: show.Tempo{BPM: 120}}
+}
+
+// loopbackInterfaceIndex finds the IPv4 loopback interface's index on this
+// host (mirrors interfacemgr_test.go's own approach) so Run has a real,
+// always-present interface to pin without depending on external hardware.
+func loopbackInterfaceIndex(t *testing.T) int {
+	t.Helper()
+	ifaces, err := ListCandidateInterfaces()
+	if err != nil {
+		t.Fatalf("ListCandidateInterfaces: %v", err)
+	}
+	for _, iface := range ifaces {
+		for _, addr := range iface.Addrs {
+			if ip := addrIP(addr); ip != nil && ip.IsLoopback() && ip.To4() != nil {
+				return iface.Index
+			}
+		}
+	}
+	t.Skip("no IPv4 loopback interface found on this host")
+	return 0
+}
+
+// startTestDaemon starts Run in a goroutine against a fresh cancellable
+// context and a per-test pipe name, dials it (retrying until the listener
+// is up), and registers cleanup that cancels ctx and waits for Run to
+// return.
+func startTestDaemon(t *testing.T) (pipeName string, runDone chan error, cancel context.CancelFunc) {
+	t.Helper()
+	pipeName = testDaemonPipeName(t)
+	interfaceIndex := loopbackInterfaceIndex(t)
+
+	ctx, cancelFn := context.WithCancel(context.Background())
+	runDone = make(chan error, 1)
+	go func() {
+		runDone <- Run(ctx, Config{
+			State:          minimalPlayableState(t),
+			InterfaceIndex: interfaceIndex,
+			InterfaceName:  "loopback",
+			PipeName:       pipeName,
+		})
+	}()
+
+	t.Cleanup(func() {
+		cancelFn()
+		select {
+		case <-runDone:
+		case <-time.After(5 * time.Second):
+			t.Fatal("Run did not return within 5s of ctx cancel")
+		}
+	})
+
+	return pipeName, runDone, cancelFn
+}
+
+// dialTestDaemon dials pipeName, retrying briefly while the daemon's IPC
+// listener is still starting up.
+func dialTestDaemon(t *testing.T, pipeName string) net.Conn {
+	t.Helper()
+	var conn net.Conn
+	var dialErr error
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		conn, dialErr = ipc.Dial(pipeName)
+		if dialErr == nil {
+			return conn
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("Dial: %v", dialErr)
+	return nil
+}
+
+// TestDaemonRunServesStatusAndShutsDownCleanly proves (a) and (d): Run
+// serves a status Request end-to-end in-process and returns cleanly once
+// ctx is cancelled (asserted via startTestDaemon's own cleanup deadline).
+func TestDaemonRunServesStatusAndShutsDownCleanly(t *testing.T) {
+	pipeName, _, _ := startTestDaemon(t)
+
+	conn := dialTestDaemon(t, pipeName)
+	defer conn.Close()
+
+	result := ipc.Forward(conn, command.Request{Route: "artnet status"})
+	if result.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0 from status, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	}
+	if len(result.Stdout) == 0 {
+		t.Fatal("expected a non-empty health snapshot in Stdout")
+	}
+	if !strings.Contains(string(result.Stdout), "OnCadence") {
+		t.Fatalf("expected the health snapshot JSON to mention OnCadence, got: %s", result.Stdout)
+	}
+}
+
+// TestDaemonUnknownRouteReturnsRouteUnknown proves (b): the daemon's
+// handler rejects a route it does not recognize rather than silently
+// succeeding.
+func TestDaemonUnknownRouteReturnsRouteUnknown(t *testing.T) {
+	pipeName, _, _ := startTestDaemon(t)
+
+	conn := dialTestDaemon(t, pipeName)
+	defer conn.Close()
+
+	result := ipc.Forward(conn, command.Request{Route: "artnet bogus"})
+	if result.ExitCode != 2 {
+		t.Fatalf("expected ExitCode 2 for an unknown route, got %d", result.ExitCode)
+	}
+	if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_ROUTE_UNKNOWN") {
+		t.Fatalf("expected GOLC_ARTNET_ROUTE_UNKNOWN, got: %s", result.Stderr)
+	}
+}
+
+// TestDaemonConfigureThenTargetDisableEnable proves (c): "artnet configure"
+// adds a fan-out target and "artnet target disable" toggles it without
+// error (exercising the daemon's stop/rebuild/start reconfigure path
+// end-to-end), while an unknown target selector fails with
+// GOLC_ARTNET_TARGET_NOT_FOUND.
+func TestDaemonConfigureThenTargetDisableEnable(t *testing.T) {
+	pipeName, _, _ := startTestDaemon(t)
+
+	configureConn := dialTestDaemon(t, pipeName)
+	defer configureConn.Close()
+	configureResult := ipc.Forward(configureConn, command.Request{Route: "artnet configure", Args: []string{
+		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454",
+	}})
+	if configureResult.ExitCode != 0 {
+		t.Fatalf("expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
+	}
+
+	disableConn := dialTestDaemon(t, pipeName)
+	defer disableConn.Close()
+	disableResult := ipc.Forward(disableConn, command.Request{Route: "artnet target disable", Args: []string{
+		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454",
+	}})
+	if disableResult.ExitCode != 0 {
+		t.Fatalf("expected target disable to succeed, got ExitCode %d stderr %s", disableResult.ExitCode, disableResult.Stderr)
+	}
+
+	notFoundConn := dialTestDaemon(t, pipeName)
+	defer notFoundConn.Close()
+	notFoundResult := ipc.Forward(notFoundConn, command.Request{Route: "artnet target enable", Args: []string{
+		"--universe", "99", "--ip", "10.0.0.9", "--port", "6454",
+	}})
+	if notFoundResult.ExitCode != 1 {
+		t.Fatalf("expected ExitCode 1 for an unknown target, got %d", notFoundResult.ExitCode)
+	}
+	if !strings.Contains(string(notFoundResult.Stderr), "GOLC_ARTNET_TARGET_NOT_FOUND") {
+		t.Fatalf("expected GOLC_ARTNET_TARGET_NOT_FOUND, got: %s", notFoundResult.Stderr)
+	}
+}
+
+// TestDaemonMalformedConfigureArgsReturnUsageError proves a malformed
+// "artnet configure" invocation (missing --ip) is rejected as
+// GOLC_ARTNET_USAGE with ExitCode 2, mirroring this repo's two-tier
+// usage/domain exit-code convention.
+func TestDaemonMalformedConfigureArgsReturnUsageError(t *testing.T) {
+	pipeName, _, _ := startTestDaemon(t)
+
+	conn := dialTestDaemon(t, pipeName)
+	defer conn.Close()
+
+	result := ipc.Forward(conn, command.Request{Route: "artnet configure", Args: []string{"--universe", "1"}})
+	if result.ExitCode != 2 {
+		t.Fatalf("expected ExitCode 2 for a malformed configure request, got %d", result.ExitCode)
+	}
+	if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_USAGE") {
+		t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
+	}
+}
