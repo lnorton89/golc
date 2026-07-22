@@ -582,6 +582,279 @@
       "parent_local_id": "plan:01-32",
       "display": "Task 1: Check off LINR-01/LINR-02 and certify LINR-03/LINR-04 in REQUIREMENTS.md",
       "source": ".planning/phases/01-offline-foundation-and-delivery-traceability/01-32-PLAN.md"
+    },
+    {
+      "local_id": "phase:02",
+      "kind": "phase",
+      "parent_local_id": "milestone:v1",
+      "display": "Modular Fixtures and Deployments",
+      "source": ".planning/ROADMAP.md"
+    },
+    {
+      "local_id": "req:FIXT-01",
+      "kind": "req",
+      "parent_local_id": "phase:02",
+      "display": "A user can load fixture definitions authored in a documented, versioned YAML schema.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:FIXT-02",
+      "kind": "req",
+      "parent_local_id": "phase:02",
+      "display": "The application rejects duplicate keys, ambiguous YAML constructs, invalid ranges, and unsupported fixture semantics with actionable diagnostics.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:FIXT-03",
+      "kind": "req",
+      "parent_local_id": "phase:02",
+      "display": "A user can import an Open Fixture Library definition through GOLC's canonical validation and normalization pipeline.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:FIXT-04",
+      "kind": "req",
+      "parent_local_id": "phase:02",
+      "display": "A user can create, edit, validate, and share a custom YAML fixture definition.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:FIXT-05",
+      "kind": "req",
+      "parent_local_id": "phase:02",
+      "display": "A show pins each fixture definition by stable identity, schema version, content revision, and hash so library updates cannot silently change an existing show.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:FIXT-06",
+      "kind": "req",
+      "parent_local_id": "phase:02",
+      "display": "A user can inspect a fixture definition's source, provenance, validation result, and unsupported or lossy import details before using it.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:POOL-01",
+      "kind": "req",
+      "parent_local_id": "phase:02",
+      "display": "A show author can define a logical pool of compatible fixtures independently of the concrete fixture count, addresses, and deployment hardware.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:POOL-02",
+      "kind": "req",
+      "parent_local_id": "phase:02",
+      "display": "A show author can create a deployment that maps logical pools to concrete fixture instances, modes, universes, and addresses.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:POOL-03",
+      "kind": "req",
+      "parent_local_id": "phase:02",
+      "display": "A show author can add or remove fixtures from a pool and receive an impact review covering all dependent groups, themes, palettes, scenes, chases, motion presets, and controller mappings.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:POOL-04",
+      "kind": "req",
+      "parent_local_id": "phase:02",
+      "display": "A show author can configure propagation behavior for each pool update while review-before-apply remains the default.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:POOL-05",
+      "kind": "req",
+      "parent_local_id": "phase:02",
+      "display": "A reviewed pool update is applied atomically so dependents never observe a partially updated deployment.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:POOL-06",
+      "kind": "req",
+      "parent_local_id": "phase:02",
+      "display": "A show author can replace a fixture model by mapping shared semantic capabilities rather than raw channel positions.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:POOL-07",
+      "kind": "req",
+      "parent_local_id": "phase:02",
+      "display": "A fixture replacement review identifies missing, incompatible, and unsupported capabilities and never silently approximates them.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:POOL-08",
+      "kind": "req",
+      "parent_local_id": "phase:02",
+      "display": "A show author can accept, revise, or cancel a pool or fixture-substitution impact plan before it changes the show.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "plan:02-01",
+      "kind": "plan",
+      "parent_local_id": "phase:02",
+      "display": "Plan 02-01",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-01-PLAN.md"
+    },
+    {
+      "local_id": "task:02-01.1",
+      "kind": "task",
+      "parent_local_id": "plan:02-01",
+      "display": "Task 1: Failing end-to-end + unit tests for fixture validate (Wave 0 scaffold)",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-01-PLAN.md"
+    },
+    {
+      "local_id": "task:02-01.2",
+      "kind": "task",
+      "parent_local_id": "plan:02-01",
+      "display": "Task 2: Canonical capability model + strict YAML decode + fixture validate route (thin happy path)",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-01-PLAN.md"
+    },
+    {
+      "local_id": "task:02-01.3",
+      "kind": "task",
+      "parent_local_id": "plan:02-01",
+      "display": "Task 3: Harden validation diagnostics + generate versioned fixture schema",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-01-PLAN.md"
+    },
+    {
+      "local_id": "plan:02-02",
+      "kind": "plan",
+      "parent_local_id": "phase:02",
+      "display": "Plan 02-02",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-02-PLAN.md"
+    },
+    {
+      "local_id": "task:02-02.1",
+      "kind": "task",
+      "parent_local_id": "plan:02-02",
+      "display": "Task 1: Failing tests for content-hash pinning + provenance inspection",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-02-PLAN.md"
+    },
+    {
+      "local_id": "task:02-02.2",
+      "kind": "task",
+      "parent_local_id": "plan:02-02",
+      "display": "Task 2: Content-addressed identity + provenance record",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-02-PLAN.md"
+    },
+    {
+      "local_id": "task:02-02.3",
+      "kind": "task",
+      "parent_local_id": "plan:02-02",
+      "display": "Task 3: fixture inspect route surfacing identity + provenance",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-02-PLAN.md"
+    },
+    {
+      "local_id": "plan:02-03",
+      "kind": "plan",
+      "parent_local_id": "phase:02",
+      "display": "Plan 02-03",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-03-PLAN.md"
+    },
+    {
+      "local_id": "task:02-03.1",
+      "kind": "task",
+      "parent_local_id": "plan:02-03",
+      "display": "Task 1: Pin an offline OFL corpus + failing normalize/fetch/import tests",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-03-PLAN.md"
+    },
+    {
+      "local_id": "task:02-03.2",
+      "kind": "task",
+      "parent_local_id": "plan:02-03",
+      "display": "Task 2: OFL model + normalizer onto the canonical FixtureDefinition",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-03-PLAN.md"
+    },
+    {
+      "local_id": "task:02-03.3",
+      "kind": "task",
+      "parent_local_id": "plan:02-03",
+      "display": "Task 3: OFL fetch/cache client (SSRF-guarded) + fixture import route",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-03-PLAN.md"
+    },
+    {
+      "local_id": "plan:02-04",
+      "kind": "plan",
+      "parent_local_id": "phase:02",
+      "display": "Plan 02-04",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-04-PLAN.md"
+    },
+    {
+      "local_id": "task:02-04.1",
+      "kind": "task",
+      "parent_local_id": "plan:02-04",
+      "display": "Task 1: Failing tests for ShowState + pool/deployment create/activate/inspect",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-04-PLAN.md"
+    },
+    {
+      "local_id": "task:02-04.2",
+      "kind": "task",
+      "parent_local_id": "plan:02-04",
+      "display": "Task 2: Pool, Deployment, Group, Instance types + revisioned ShowState load/save",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-04-PLAN.md"
+    },
+    {
+      "local_id": "task:02-04.3",
+      "kind": "task",
+      "parent_local_id": "plan:02-04",
+      "display": "Task 3: pool create / deployment create / deployment activate / show inspect routes",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-04-PLAN.md"
+    },
+    {
+      "local_id": "plan:02-05",
+      "kind": "plan",
+      "parent_local_id": "phase:02",
+      "display": "Plan 02-05",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-05-PLAN.md"
+    },
+    {
+      "local_id": "task:02-05.1",
+      "kind": "task",
+      "parent_local_id": "plan:02-05",
+      "display": "Task 1: Failing tests for impact-plan build, integrity/freshness gates, atomic apply, and dry-run/apply routes",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-05-PLAN.md"
+    },
+    {
+      "local_id": "task:02-05.2",
+      "kind": "task",
+      "parent_local_id": "plan:02-05",
+      "display": "Task 2: Deterministic impact-plan builder + integrity/freshness gates + atomic apply",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-05-PLAN.md"
+    },
+    {
+      "local_id": "task:02-05.3",
+      "kind": "task",
+      "parent_local_id": "plan:02-05",
+      "display": "Task 3: pool update (dry-run) / pool apply routes + configurable propagation default",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-05-PLAN.md"
+    },
+    {
+      "local_id": "plan:02-06",
+      "kind": "plan",
+      "parent_local_id": "phase:02",
+      "display": "Plan 02-06",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-06-PLAN.md"
+    },
+    {
+      "local_id": "task:02-06.1",
+      "kind": "task",
+      "parent_local_id": "plan:02-06",
+      "display": "Task 1: Failing tests for capability-diff severity taxonomy + substitute route",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-06-PLAN.md"
+    },
+    {
+      "local_id": "task:02-06.2",
+      "kind": "task",
+      "parent_local_id": "plan:02-06",
+      "display": "Task 2: Capability-diff substitution plan reusing the pool ImpactPlan contract",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-06-PLAN.md"
+    },
+    {
+      "local_id": "task:02-06.3",
+      "kind": "task",
+      "parent_local_id": "plan:02-06",
+      "display": "Task 3: pool substitute route (dry-run) reusing pool apply",
+      "source": ".planning/phases/02-modular-fixtures-and-deployments/02-06-PLAN.md"
     }
   ],
   "remote_mappings": [
@@ -1227,6 +1500,318 @@
     },
     {
       "repo_id": "task:01-32.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "phase:02",
+      "linear_type": "project_milestone",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:FIXT-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:FIXT-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:FIXT-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:FIXT-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:FIXT-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:FIXT-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:POOL-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:POOL-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:POOL-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:POOL-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:POOL-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:POOL-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:POOL-07",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:POOL-08",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:02-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-01.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-01.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-01.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:02-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-02.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-02.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-02.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:02-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-03.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-03.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-03.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:02-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-04.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-04.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-04.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:02-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-05.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-05.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-05.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:02-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-06.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-06.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:02-06.3",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,
