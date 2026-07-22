@@ -14,7 +14,12 @@
 // running layer is never blanked or disabled by a rejected edit. Neither
 // StageEdit nor SwitchScene requires any preceding pause/detach/lock call
 // (CONTEXT D-08): the engine exposes no such API at all -- the next-bar
-// adoption boundary alone keeps live output safe.
+// adoption boundary alone keeps live output safe. When the plan adopted at
+// a bar-boundary crossing carries a different BPM than the plan it
+// replaces, tick recomputes loopStart via playback.RecomputeEpoch (CONTEXT
+// SCEN-08/D-11) according to the newly adopted plan's own
+// PreserveOnBPMChange flag, so the running look/chase/motion neither
+// blanks nor jumps mid-bar across a BPM change either.
 //
 // No manual Windows timer-resolution call (winmm/timeBeginPeriod/
 // NtSetTimerResolution) is added anywhere in this file: Go 1.26.5 (this
@@ -47,10 +52,12 @@ const tickInterval = time.Second / tickHz
 // activeFrame/activePlan/pendingPlan are published and read exclusively
 // via atomic.Pointer, so every reader (CurrentFrame) and every writer
 // (StageEdit/SwitchScene) is non-blocking. loopStart is the engine's
-// single musical-clock epoch, established once at construction and never
-// recomputed afterward (03-RESEARCH.md Pitfall 3: never resume mid-bar
-// across a restart -- every fresh Engine begins at bar 0 from a fresh
-// time.Now() origin); lastBar is touched only by the tick goroutine
+// musical-clock epoch, established at construction (03-RESEARCH.md
+// Pitfall 3: never resume mid-bar across a restart -- every fresh Engine
+// begins at bar 0 from a fresh time.Now() origin) and thereafter
+// recomputed by tick, exactly once per adopted plan whose BPM differs from
+// the plan it replaces, via RecomputeEpoch (CONTEXT SCEN-08/D-11) -- never
+// otherwise reassigned; lastBar is touched only by the tick goroutine
 // itself (single-writer, read only by tick), so it needs no atomic
 // wrapper. lastState holds the most recently successfully compiled
 // show.State (via atomic.Pointer, since SwitchScene reads it from
@@ -119,6 +126,13 @@ func crossedBarBoundary(lastBar, curBar, barsPerLoop int) bool {
 // of now (03-RESEARCH.md Pattern 1) and a single already-staged
 // pendingPlan is promoted exactly once, at the first crossing tick
 // observes, regardless of how many boundaries that tick's jump spanned.
+//
+// When the newly adopted plan's BPM differs from the plan it replaces,
+// loopStart is recomputed via RecomputeEpoch (CONTEXT SCEN-08/D-11) before
+// the new plan's position is computed: the newly adopted plan's own
+// PreserveOnBPMChange flag decides whether the running bar/beat location
+// is preserved across the change or the loop restarts at bar 0 -- either
+// way the adoption never blanks or jumps mid-bar.
 func (e *Engine) tick(now time.Time) {
 	plan := e.activePlan.Load()
 	if plan == nil {
@@ -127,13 +141,16 @@ func (e *Engine) tick(now time.Time) {
 	pos := Position(now, plan.BPM, plan.BarsPerLoop, e.loopStart)
 
 	if pending := e.pendingPlan.Load(); pending != nil && crossedBarBoundary(e.lastBar, pos.BarIndex, plan.BarsPerLoop) {
+		if pending.BPM != plan.BPM {
+			e.loopStart = RecomputeEpoch(pending.PreserveOnBPMChange, plan.BPM, pending.BPM, plan.BarsPerLoop, e.loopStart, now)
+		}
 		e.activePlan.Store(pending)
 		e.pendingPlan.Store(nil)
 		plan = pending
 		// Recompute pos against the newly adopted plan's own BPM/
 		// BarsPerLoop: a switch may change BarsPerLoop, and recomputing
 		// keeps BarIndex wrapping correct under the newly active loop
-		// length.
+		// length, and reflects any loopStart recompute above.
 		pos = Position(now, plan.BPM, plan.BarsPerLoop, e.loopStart)
 	}
 

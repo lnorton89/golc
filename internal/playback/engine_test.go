@@ -9,7 +9,13 @@
 // against an object live in the currently active scene requires no
 // preceding lock/pause/detach call (D-08 -- the engine exposes no such
 // API at all); and CurrentFrame is safe to call concurrently with the
-// tick loop without blocking (verified under -race).
+// tick loop without blocking (verified under -race). It also proves
+// CR-01/SCEN-08/D-11's BPM-change preserve-or-restart contract is
+// observable through the real tick loop, not merely at the
+// RecomputeEpoch/clock_test.go primitive level: a staged Tempo.BPM change,
+// once adopted at a bar-boundary crossing, either preserves the running
+// bar/beat position (PreserveMusicalPositionOnBPMChange=true) or restarts
+// at bar 0 (=false), per the adopted plan's own PreserveOnBPMChange flag.
 //
 // This file is an internal (package playback, not playback_test)
 // white-box test: it reads/overrides Engine's unexported loopStart/lastBar
@@ -282,6 +288,102 @@ func TestEngineCurrentFrameNonBlockingUnderConcurrentTick(t *testing.T) {
 	time.Sleep(5 * tickInterval)
 	close(stop)
 	wg.Wait()
+}
+
+// TestEngineBPMChangePreservesPosition proves CR-01/SCEN-08/D-11's
+// preserve contract is actually observable through the real tick loop
+// (not merely at the RecomputeEpoch/clock_test.go primitive level): a
+// staged edit that changes Tempo.BPM on a scene whose
+// PreserveMusicalPositionOnBPMChange is true, once adopted at the next
+// bar-boundary crossing, leaves the running bar/beat position unchanged
+// from what it was, an instant earlier, under the old BPM -- it neither
+// blanks nor jumps mid-bar.
+func TestEngineBPMChangePreservesPosition(t *testing.T) {
+	state, _, _ := newEngineTestState(t)
+	state.Scenes[0].PreserveMusicalPositionOnBPMChange = true
+	// secondsPerBar(120) = 2s; secondsPerBar(90) = 2.6667s.
+	newBPM := 90.0
+
+	e, err := NewEngine(state)
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+	pinLoopStart(e)
+	e.tick(fixedEngineLoopStart) // establish bar-0 baseline
+
+	edited := state
+	edited.Tempo = show.Tempo{BPM: newBPM}
+	if err := e.StageEdit(edited); err != nil {
+		t.Fatalf("StageEdit (BPM change): %v", err)
+	}
+
+	// Still bar 0 under the OLD plan's BPM (elapsed=0.5s < secondsPerBar=2s):
+	// the staged BPM change must not be adopted yet.
+	e.tick(fixedEngineLoopStart.Add(500 * time.Millisecond))
+	if e.activePlan.Load().BPM != 120 {
+		t.Fatalf("expected the staged BPM change to NOT be adopted mid-bar, activePlan.BPM=%v", e.activePlan.Load().BPM)
+	}
+
+	// before is the position the OLD (120bpm) plan would report at the
+	// exact instant the crossing tick below fires (2.5s elapsed since
+	// loopStart -- bar 1, 0.25 through the bar).
+	crossingNow := fixedEngineLoopStart.Add(2500 * time.Millisecond)
+	before := Position(crossingNow, 120.0, 2, fixedEngineLoopStart)
+	if before.BarIndex != 1 {
+		t.Fatalf("test setup: expected bar 1 just before the crossing tick, got BarIndex=%d", before.BarIndex)
+	}
+
+	// This tick crosses the bar-1 boundary under the still-active 120bpm
+	// plan, so the staged 90bpm plan is adopted here.
+	e.tick(crossingNow)
+	if got := e.activePlan.Load().BPM; got != newBPM {
+		t.Fatalf("expected the staged BPM change to be adopted at the bar boundary, activePlan.BPM=%v", got)
+	}
+
+	after := Position(crossingNow, newBPM, 2, e.loopStart)
+	if after.BarIndex != before.BarIndex {
+		t.Fatalf("preserve=true: BarIndex jumped across the BPM change: before=%d after=%d", before.BarIndex, after.BarIndex)
+	}
+	if diff := after.BeatFraction - before.BeatFraction; diff < -1e-6 || diff > 1e-6 {
+		t.Fatalf("preserve=true: BeatFraction jumped across the BPM change: before=%v after=%v", before.BeatFraction, after.BeatFraction)
+	}
+}
+
+// TestEngineBPMChangeRestartsAtBarZero proves the mirror-image restart
+// contract (CR-01/SCEN-08/D-11): a staged BPM change on a scene whose
+// PreserveMusicalPositionOnBPMChange is false, once adopted at the next
+// bar-boundary crossing, restarts the loop at bar 0 rather than preserving
+// (or arbitrarily jumping past) the prior bar/beat position.
+func TestEngineBPMChangeRestartsAtBarZero(t *testing.T) {
+	state, _, _ := newEngineTestState(t)
+	state.Scenes[0].PreserveMusicalPositionOnBPMChange = false
+	newBPM := 90.0
+
+	e, err := NewEngine(state)
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+	pinLoopStart(e)
+	e.tick(fixedEngineLoopStart)
+
+	edited := state
+	edited.Tempo = show.Tempo{BPM: newBPM}
+	if err := e.StageEdit(edited); err != nil {
+		t.Fatalf("StageEdit (BPM change): %v", err)
+	}
+
+	e.tick(fixedEngineLoopStart.Add(500 * time.Millisecond))
+
+	crossingNow := fixedEngineLoopStart.Add(2500 * time.Millisecond)
+	e.tick(crossingNow)
+	if got := e.activePlan.Load().BPM; got != newBPM {
+		t.Fatalf("expected the staged BPM change to be adopted at the bar boundary, activePlan.BPM=%v", got)
+	}
+
+	after := Position(crossingNow, newBPM, 2, e.loopStart)
+	if after.BarIndex != 0 || after.BeatFraction != 0.0 {
+		t.Fatalf("preserve=false: expected a restart at bar 0, got %+v", after)
+	}
 }
 
 func TestCrossedBarBoundarySentinelAndWraparound(t *testing.T) {
