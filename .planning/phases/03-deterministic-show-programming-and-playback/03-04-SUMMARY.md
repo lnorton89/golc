@@ -199,6 +199,11 @@ None. Every threat this plan's `<threat_model>` assigned a `mitigate` dispositio
 - `ReduceLayers`'s `[]LayerContribution` input shape is ready for the engine (03-07) to populate per-tick from time-resolved chase/motion step values and Selection-based instance scoping.
 - No blockers identified for 03-06/03-07.
 
+## Self-Check: PASSED
+
+- All created files verified present: `internal/scene/scene.go`, `internal/scene/scene_test.go`, `internal/scene/layer.go`, `internal/scene/layer_test.go`, `internal/scene/blend.go`, `internal/scene/blend_test.go`, `internal/command/scene.go`, `internal/command/scene_test.go`, `internal/show/state.go`.
+- All task commit hashes verified present in `git log`: `216db23`, `f0ac887`, `73102da`.
+
 ---
 *Phase: 03-deterministic-show-programming-and-playback*
 *Completed: 2026-07-22*
