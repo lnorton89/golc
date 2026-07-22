@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/lnorton89/golc/internal/artnet/ipc"
-	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/show"
 )
@@ -127,7 +126,7 @@ func TestDaemonRunServesStatusAndShutsDownCleanly(t *testing.T) {
 	conn := dialTestDaemon(t, pipeName)
 	defer conn.Close()
 
-	result := ipc.Forward(conn, command.Request{Route: "artnet status"})
+	result := ipc.Forward(conn, ipc.Request{Route: "artnet status"})
 	if result.ExitCode != 0 {
 		t.Fatalf("expected ExitCode 0 from status, got %d (stderr: %s)", result.ExitCode, result.Stderr)
 	}
@@ -148,7 +147,7 @@ func TestDaemonUnknownRouteReturnsRouteUnknown(t *testing.T) {
 	conn := dialTestDaemon(t, pipeName)
 	defer conn.Close()
 
-	result := ipc.Forward(conn, command.Request{Route: "artnet bogus"})
+	result := ipc.Forward(conn, ipc.Request{Route: "artnet bogus"})
 	if result.ExitCode != 2 {
 		t.Fatalf("expected ExitCode 2 for an unknown route, got %d", result.ExitCode)
 	}
@@ -167,7 +166,7 @@ func TestDaemonConfigureThenTargetDisableEnable(t *testing.T) {
 
 	configureConn := dialTestDaemon(t, pipeName)
 	defer configureConn.Close()
-	configureResult := ipc.Forward(configureConn, command.Request{Route: "artnet configure", Args: []string{
+	configureResult := ipc.Forward(configureConn, ipc.Request{Route: "artnet configure", Args: []string{
 		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454",
 	}})
 	if configureResult.ExitCode != 0 {
@@ -176,7 +175,7 @@ func TestDaemonConfigureThenTargetDisableEnable(t *testing.T) {
 
 	disableConn := dialTestDaemon(t, pipeName)
 	defer disableConn.Close()
-	disableResult := ipc.Forward(disableConn, command.Request{Route: "artnet target disable", Args: []string{
+	disableResult := ipc.Forward(disableConn, ipc.Request{Route: "artnet target disable", Args: []string{
 		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454",
 	}})
 	if disableResult.ExitCode != 0 {
@@ -185,7 +184,7 @@ func TestDaemonConfigureThenTargetDisableEnable(t *testing.T) {
 
 	notFoundConn := dialTestDaemon(t, pipeName)
 	defer notFoundConn.Close()
-	notFoundResult := ipc.Forward(notFoundConn, command.Request{Route: "artnet target enable", Args: []string{
+	notFoundResult := ipc.Forward(notFoundConn, ipc.Request{Route: "artnet target enable", Args: []string{
 		"--universe", "99", "--ip", "10.0.0.9", "--port", "6454",
 	}})
 	if notFoundResult.ExitCode != 1 {
@@ -206,7 +205,7 @@ func TestDaemonMalformedConfigureArgsReturnUsageError(t *testing.T) {
 	conn := dialTestDaemon(t, pipeName)
 	defer conn.Close()
 
-	result := ipc.Forward(conn, command.Request{Route: "artnet configure", Args: []string{"--universe", "1"}})
+	result := ipc.Forward(conn, ipc.Request{Route: "artnet configure", Args: []string{"--universe", "1"}})
 	if result.ExitCode != 2 {
 		t.Fatalf("expected ExitCode 2 for a malformed configure request, got %d", result.ExitCode)
 	}

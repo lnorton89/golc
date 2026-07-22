@@ -3,12 +3,16 @@
 // the daemon's named pipe, surfacing an unreachable daemon as
 // GOLC_ARTNET_DAEMON_UNREACHABLE rather than a raw dial error or a hang
 // (CONTEXT: "A CLI client that cannot reach the daemon gets a clear
-// GOLC_ARTNET_DAEMON_UNREACHABLE result"). Forward marshals a
-// command.Request over an already-dialed connection (the same
-// length-prefixed, strictjson-canonical framing server.go's Serve uses)
-// and returns the command.Result the daemon wrote back -- Plan 05's thin
-// `golc artnet ...` CLI routes are expected to call Dial then Forward
-// exactly as RESEARCH.md Pattern 5's runArtnetStatus example shows.
+// GOLC_ARTNET_DAEMON_UNREACHABLE result"). Forward marshals a Request over
+// an already-dialed connection (the same length-prefixed, strictjson-
+// canonical framing server.go's Serve uses) and returns the Result the
+// daemon wrote back -- 04-05's thin `golc artnet ...` CLI routes
+// (internal/command/artnet.go) call Dial then Forward exactly as
+// RESEARCH.md Pattern 5's runArtnetStatus example shows, converting
+// between these local types and command.Request/command.Result at that
+// call site (see types.go's doc comment for why Request/Result are
+// declared locally in this package rather than imported from
+// internal/command).
 package ipc
 
 import (
@@ -18,7 +22,6 @@ import (
 
 	winio "github.com/Microsoft/go-winio"
 
-	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/strictjson"
 )
 
@@ -43,30 +46,30 @@ func Dial(pipeName string) (net.Conn, error) {
 
 // Forward marshals request over conn as one length-prefixed,
 // strictjson-canonical frame, then reads and decodes the daemon's
-// length-prefixed command.Result response. Any transport or decode failure
-// on this side of the exchange is reported as an ExitCode:1 Result (never
-// a panic or a zero-value success) since Forward's caller -- a CLI route
-// -- has no other channel to report it through.
-func Forward(conn net.Conn, request command.Request) command.Result {
+// length-prefixed Result response. Any transport or decode failure on this
+// side of the exchange is reported as an ExitCode:1 Result (never a panic
+// or a zero-value success) since Forward's caller -- a CLI route -- has no
+// other channel to report it through.
+func Forward(conn net.Conn, request Request) Result {
 	encoded, err := strictjson.CanonicalEncode(request)
 	if err != nil {
-		return command.Result{ExitCode: 1, Stderr: []byte(
+		return Result{ExitCode: 1, Stderr: []byte(
 			fmt.Sprintf("GOLC_ARTNET_IPC_ENCODE_FAILED: %v\n", err))}
 	}
 	if err := writeFrame(conn, encoded); err != nil {
-		return command.Result{ExitCode: 1, Stderr: []byte(
+		return Result{ExitCode: 1, Stderr: []byte(
 			fmt.Sprintf("GOLC_ARTNET_IPC_WRITE_FAILED: %v\n", err))}
 	}
 
 	payload, err := readFrame(conn)
 	if err != nil {
-		return command.Result{ExitCode: 1, Stderr: []byte(
+		return Result{ExitCode: 1, Stderr: []byte(
 			fmt.Sprintf("GOLC_ARTNET_IPC_DECODE_FAILED: %v\n", err))}
 	}
 
-	var result command.Result
+	var result Result
 	if err := strictjson.DecodeStrict(payload, &result); err != nil {
-		return command.Result{ExitCode: 1, Stderr: []byte(
+		return Result{ExitCode: 1, Stderr: []byte(
 			fmt.Sprintf("GOLC_ARTNET_IPC_DECODE_FAILED: %v\n", err))}
 	}
 	return result

@@ -3,7 +3,7 @@
 // Engine, the InterfaceManager (pinned interface, D-05), and the Art-Net
 // Worker against the Engine's CurrentFrame source (Plans 01-03), then
 // serves the IPC listener (Task 1) until ctx is cancelled. The handler
-// dispatches inbound command.Request routes to daemon-side operations:
+// dispatches inbound ipc.Request routes to daemon-side operations:
 // "artnet status" reads the Health snapshot; "artnet configure" adds or
 // updates one fan-out target for a universe (CONTEXT D-08); "artnet target
 // enable"/"artnet target disable" toggle one target's output without
@@ -16,9 +16,11 @@
 // phase; persistence is Phase 5 scope.
 //
 // The daemon is standalone-capable (D-04): Run's own import graph reaches
-// only playback/show/command/strictjson plus this package and its ipc
-// subpackage -- nothing from Wails/UI -- so it runs entirely headless.
-// Phase 6's Wails app will later attach as just one more IPC client.
+// only playback/show/strictjson plus this package and its ipc subpackage
+// -- nothing from Wails/UI, and (as of 04-05-PLAN.md's import-cycle fix)
+// not internal/command either -- so it runs entirely headless and can be
+// imported by internal/command/artnet.go without a cycle. Phase 6's Wails
+// app will later attach as just one more IPC client.
 //
 // worker.go exposes no dynamic reconfigure API by design (Start dials
 // every target once); a configure/enable/disable mutation is therefore
@@ -39,7 +41,6 @@ import (
 	"time"
 
 	"github.com/lnorton89/golc/internal/artnet/ipc"
-	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/deployment"
 	"github.com/lnorton89/golc/internal/playback"
 	"github.com/lnorton89/golc/internal/show"
@@ -200,11 +201,11 @@ func Run(ctx context.Context, cfg Config) error {
 	return serveErr
 }
 
-// handle dispatches one IPC-forwarded command.Request to a daemon-side
+// handle dispatches one IPC-forwarded ipc.Request to a daemon-side
 // operation (CONTEXT D-03). Every route mutates only this daemon's own
 // in-memory state -- no CLI invocation ever owns a separate output
 // process.
-func (d *daemon) handle(request command.Request) command.Result {
+func (d *daemon) handle(request ipc.Request) ipc.Result {
 	switch request.Route {
 	case "artnet status":
 		return d.handleStatus()
@@ -215,7 +216,7 @@ func (d *daemon) handle(request command.Request) command.Result {
 	case "artnet target disable":
 		return d.handleSetEnabled(request.Args, false)
 	default:
-		return command.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
+		return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
 			"GOLC_ARTNET_ROUTE_UNKNOWN: the daemon has no operation for route %q\n", request.Route))}
 	}
 }
@@ -262,13 +263,13 @@ func newStatusPayload(snapshot HealthSnapshot) statusPayload {
 // handleStatus answers "artnet status" with the current Health snapshot
 // (ARTN-05), canonically encoded (internal/strictjson) into Result.Stdout
 // via the JSON-safe statusPayload rendering.
-func (d *daemon) handleStatus() command.Result {
+func (d *daemon) handleStatus() ipc.Result {
 	payload, err := strictjson.CanonicalEncode(newStatusPayload(d.health.Snapshot()))
 	if err != nil {
-		return command.Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
+		return ipc.Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
 			"GOLC_ARTNET_STATUS_ENCODE_FAILED: %v\n", err))}
 	}
-	return command.Result{Stdout: payload}
+	return ipc.Result{Stdout: payload}
 }
 
 const configureUsage = "artnet configure --universe <n> --ip <address> [--port <port>] [--enabled true|false]"
@@ -277,21 +278,21 @@ const configureUsage = "artnet configure --universe <n> --ip <address> [--port <
 // for the given universe, or replaces the existing target sharing the same
 // (Universe, IP, Port) triple (CONTEXT D-08), then reconfigures the
 // running Worker so the change takes effect on the next tick.
-func (d *daemon) handleConfigure(args []string) command.Result {
+func (d *daemon) handleConfigure(args []string) ipc.Result {
 	flags, err := parseFlags(configureUsage, args)
 	if err != nil {
-		return command.Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+		return ipc.Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
 	}
 	universe, ip, port, err := parseTargetSelector(configureUsage, flags)
 	if err != nil {
-		return command.Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+		return ipc.Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
 	}
 
 	enabled := true
 	if raw, ok := flags["enabled"]; ok {
 		parsed, parseErr := strconv.ParseBool(raw)
 		if parseErr != nil {
-			return command.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
+			return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
 				"GOLC_ARTNET_USAGE: --enabled value %q is not a valid bool; usage: %s\n", raw, configureUsage))}
 		}
 		enabled = parsed
@@ -299,7 +300,7 @@ func (d *daemon) handleConfigure(args []string) command.Result {
 
 	target := Target{Universe: universe, IP: ip, Port: port, Enabled: enabled}
 	if err := ValidateTarget(target); err != nil {
-		return command.Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+		return ipc.Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
 	d.mu.Lock()
@@ -320,13 +321,13 @@ func (d *daemon) handleConfigure(args []string) command.Result {
 		updated = append(updated, target)
 	}
 	if err := ValidateUniqueTargets(updated); err != nil {
-		return command.Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+		return ipc.Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
 	d.targets[universe] = updated
 	d.reconfigureLocked()
 
-	return command.Result{Stdout: []byte(fmt.Sprintf(
+	return ipc.Result{Stdout: []byte(fmt.Sprintf(
 		"GOLC_ARTNET_CONFIGURE: universe %d target %s:%d configured (enabled=%v)\n", universe, ip, port, enabled))}
 }
 
@@ -334,15 +335,15 @@ func (d *daemon) handleConfigure(args []string) command.Result {
 // (CONTEXT D-12): it toggles the single target matching the given
 // selector's Enabled flag via SetEnabled (copy-returning) and reconfigures
 // the running Worker, leaving every other target in the rig untouched.
-func (d *daemon) handleSetEnabled(args []string, enabled bool) command.Result {
+func (d *daemon) handleSetEnabled(args []string, enabled bool) ipc.Result {
 	usage := "artnet target enable|disable --universe <n> --ip <address> [--port <port>]"
 	flags, err := parseFlags(usage, args)
 	if err != nil {
-		return command.Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+		return ipc.Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
 	}
 	universe, ip, port, err := parseTargetSelector(usage, flags)
 	if err != nil {
-		return command.Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+		return ipc.Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
 	}
 	match := Target{Universe: universe, IP: ip, Port: port}
 
@@ -351,12 +352,12 @@ func (d *daemon) handleSetEnabled(args []string, enabled bool) command.Result {
 
 	updated, err := SetEnabled(d.targets[universe], match, enabled)
 	if err != nil {
-		return command.Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+		return ipc.Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 	d.targets[universe] = updated
 	d.reconfigureLocked()
 
-	return command.Result{Stdout: []byte(fmt.Sprintf(
+	return ipc.Result{Stdout: []byte(fmt.Sprintf(
 		"GOLC_ARTNET_TARGET_SET_ENABLED: universe %d target %s:%d enabled=%v\n", universe, ip, port, enabled))}
 }
 
