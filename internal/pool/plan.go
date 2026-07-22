@@ -51,16 +51,52 @@ func ValidatePlanIntegrity(plan ImpactPlan) error {
 // plan's own prior successful apply, which bumps Revision -- is caught
 // here, before any mutation is attempted. Re-running "pool update" is the
 // only way to obtain a fresh, applyable plan.
+//
+// BuildImpactPlan itself never derives Warnings/Errors (it always leaves
+// them empty); those fields exist on ImpactPlan so a caller-supplied
+// review layer built on top of the same Add/Remove/Operations shape --
+// for example internal/substitution's capability-diff gaps and
+// GOLC_SUBSTITUTION_TARGET_INVALID hard-block (D-16: one mechanism, not a
+// second) -- can attach its own review annotations without BuildImpactPlan
+// needing to know anything about fixture capability semantics. Freshness
+// is therefore scoped to the state-dependent computation only: fresh
+// carries plan's own Warnings/Errors forward, unchanged, before the
+// plan_id comparison, so a rebuild whose Add/Remove/Propagate/
+// ExpectedRevision/Operations still match is never rejected merely because
+// BuildImpactPlan cannot regenerate a caller's own review annotations. For
+// a plain pool update those annotations are always empty on both sides, so
+// this is a no-op; ValidatePlanIntegrity (the tamper-check gate, called
+// before this one) still hashes plan's Warnings/Errors exactly as stored,
+// so any tampering of those fields is still caught before this function
+// ever runs.
 func ValidatePlanFreshness(plan ImpactPlan, pools []Pool, deployments []deployment.Deployment, groups []Group, revision int) error {
 	req := ImpactRequest{PoolID: plan.PoolID, Add: plan.Add, Remove: plan.Remove, Propagate: plan.Propagate}
 	fresh, err := BuildImpactPlan(pools, deployments, groups, revision, req)
 	if err != nil {
 		return fmt.Errorf("GOLC_POOL_PLAN_STALE: recomputing the current impact plan failed: %v; re-run pool review", err)
 	}
-	if fresh.PlanID != plan.PlanID {
-		return fmt.Errorf("GOLC_POOL_PLAN_STALE: plan %s no longer matches the current show state (recomputed %s); re-run pool review", plan.PlanID, fresh.PlanID)
+	fresh.Warnings = plan.Warnings
+	fresh.Errors = plan.Errors
+	freshID, err := computePlanID(bodyOf(fresh))
+	if err != nil {
+		return err
+	}
+	if freshID != plan.PlanID {
+		return fmt.Errorf("GOLC_POOL_PLAN_STALE: plan %s no longer matches the current show state (recomputed %s); re-run pool review", plan.PlanID, freshID)
 	}
 	return nil
+}
+
+// RecomputePlanID recomputes plan_id = sha256(canonical_body) from plan's
+// own current fields, reusing the exact same canonical-hash computation
+// ValidatePlanIntegrity uses internally. Exported so a caller building a
+// pool.ImpactPlan-shaped plan with review data BuildImpactPlan itself has
+// no way to derive (for example internal/substitution's capability-diff
+// Warnings and GOLC_SUBSTITUTION_TARGET_INVALID Errors) can bind its own
+// plan_id through this exact single mechanism (D-16), rather than
+// hand-rolling a second hash implementation.
+func RecomputePlanID(plan ImpactPlan) (string, error) {
+	return computePlanID(bodyOf(plan))
 }
 
 // Apply performs plan's reviewed mutation against pools/deployments/
