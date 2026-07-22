@@ -220,8 +220,39 @@ Plans:
   3. Playback continues publishing the newest complete frames at its defined cadence while UI, persistence, scripts, API, or LLM work is stalled or overloaded, without those components backpressuring the engine or Art-Net worker.
   4. An operator can inspect per-universe final values, frame health, target health, errors, and output enablement, and a release candidate demonstrates compatibility with both an independent simulator and real Art-Net hardware.
 
-**Plans:** TBD
-**UI hint:** yes
+**Plans:** 7 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Encoding foundation: additive fixture channel-order (D-16/D-17) + byte-exact ArtDMX codec + semantic→DMX channel map (ARTN-03) [Wave 1]
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 04-02-PLAN.md — Windows interface selection/loss (D-05) + unicast target model with fan-out & enable/disable (ARTN-01/02, D-07/D-08/D-12) [Wave 2]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 04-03-PLAN.md — Non-blocking ticker-driven worker + frame/target health model (ARTN-03/04/05, D-09/D-10/D-11) [Wave 3]
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 04-04-PLAN.md — Long-lived standalone daemon + local named-pipe IPC via go-winio (ARTN-04, D-03/D-04) [Wave 4]
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 04-05-PLAN.md — CLI operator surface: serve/interface/configure/status (watch+snapshot+--json)/target enable-disable (ARTN-01/02/05, D-01/D-02/D-12) [Wave 5]
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 04-06-PLAN.md — Optional node discovery: ArtPoll/ArtPollReply codec + `artnet discover` suggestions-only (ARTN-02, D-06) [Wave 6]
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 04-07-PLAN.md — ARTN-06 release-candidate verification: Wireshark/OLA runbook + human-verify checkpoint (ARTN-06, D-13/D-14/D-15/D-18) [Wave 7]
+
+**Waves:** W1: 04-01 · W2: 04-02 · W3: 04-03 · W4: 04-04 · W5: 04-05 · W6: 04-06 · W7: 04-07
+**UI hint:** yes (resolved to CLI-only per D-01; no Wails GUI until Phase 6)
 **Research:** Deeper phase research required for actual first-user nodes, subscriber/unicast behavior, multi-NIC and VPN cases, static-target workflow, compatibility policy, packet captures, and the physical hardware matrix.
 
 ### Phase 5: Durable Shows and Recovery
@@ -333,7 +364,7 @@ Plans:
 | 1. Offline Foundation and Delivery Traceability | 32/32 | Complete    | 2026-07-21 |
 | 2. Modular Fixtures and Deployments | 6/6 | Complete    | 2026-07-21 |
 | 3. Deterministic Show Programming and Playback | 7/7 | Complete    | 2026-07-21 |
-| 4. Observable Art-Net Live Output | 0/TBD | Not started | - |
+| 4. Observable Art-Net Live Output | 0/7 | Planned | - |
 | 5. Durable Shows and Recovery | 0/TBD | Not started | - |
 | 6. Wails Authoring and Operator Surface | 0/TBD | Not started | - |
 | 7. Versioned External Control API | 0/TBD | Not started | - |
