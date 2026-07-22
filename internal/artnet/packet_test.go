@@ -159,7 +159,7 @@ func buildGoodArtPollReply(ip [4]byte, shortName, longName string, netSwitch, su
 
 // TestEncodeArtPollGoldenVector asserts the exact 14-byte ArtPoll layout:
 // id, little-endian OpPoll opcode, protocol version, TalkToMe, Priority.
-func TestEncodeArtPollGoldenVector(t *testing.T) {
+func TestArtPollEncodeGoldenVector(t *testing.T) {
 	got := EncodeArtPoll()
 	want := []byte{
 		'A', 'r', 't', '-', 'N', 'e', 't', 0x00, // ID
@@ -181,7 +181,7 @@ func TestEncodeArtPollGoldenVector(t *testing.T) {
 
 // TestDecodeArtPollReplyGoodVector proves DecodeArtPollReply parses a
 // known-good reply's IP, short/long name, and Port-Address fields.
-func TestDecodeArtPollReplyGoodVector(t *testing.T) {
+func TestArtPollReplyDecodeGoodVector(t *testing.T) {
 	buf := buildGoodArtPollReply([4]byte{10, 0, 0, 5}, "GOLC-Node", "GOLC Test Node Long Name", 0x00, 0x01, 0x03)
 
 	reply, err := DecodeArtPollReply(buf)
@@ -211,7 +211,7 @@ func TestDecodeArtPollReplyGoodVector(t *testing.T) {
 // (empty, short header, wrong id, wrong opcode, oversized declared port
 // count) returns GOLC_ARTNET_POLLREPLY_INVALID without panicking
 // (Security Domain V5, T-04-01).
-func TestDecodeArtPollReplyMalformed(t *testing.T) {
+func TestArtPollReplyDecodeMalformed(t *testing.T) {
 	good := buildGoodArtPollReply([4]byte{10, 0, 0, 5}, "N", "L", 0x00, 0x01, 0x03)
 
 	wrongID := append([]byte(nil), good...)
