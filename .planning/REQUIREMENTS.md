@@ -57,10 +57,10 @@
 - [x] **SCEN-03**: An operator can set global BPM through tap tempo.
 - [x] **SCEN-04**: Exactly one scene is active at a time during normal playback.
 - [x] **SCEN-05**: A scene can combine independently enabled color-theme, chase, motion-preset, and base-look layers.
-- [ ] **SCEN-06**: An operator can switch the active scene or any scene layer immediately.
+- [x] **SCEN-06**: An operator can switch the active scene or any scene layer immediately.
 - [x] **SCEN-07**: A show author can create and assign reusable blending presets that define transitions between scene and layer states.
 - [x] **SCEN-08**: A show author can configure whether a global BPM change preserves the active loop's musical position or restarts the loop.
-- [ ] **SCEN-09**: Scene timing and layer evaluation remain deterministic when UI rendering, scripts, API clients, or LLM providers are slow or unavailable.
+- [x] **SCEN-09**: Scene timing and layer evaluation remain deterministic when UI rendering, scripts, API clients, or LLM providers are slow or unavailable.
 
 ### Playback and Operator Safety
 
@@ -227,10 +227,10 @@ A v1 requirement is complete only when its implementation is committed, automate
 | SCEN-03 | Phase 3 | Complete |
 | SCEN-04 | Phase 3 | Complete |
 | SCEN-05 | Phase 3 | Complete |
-| SCEN-06 | Phase 3 | Pending |
+| SCEN-06 | Phase 3 | Complete |
 | SCEN-07 | Phase 3 | Complete |
 | SCEN-08 | Phase 3 | Complete |
-| SCEN-09 | Phase 3 | Pending |
+| SCEN-09 | Phase 3 | Complete |
 | PLAY-01 | Phase 6 | Pending |
 | PLAY-02 | Phase 6 | Pending |
 | PLAY-03 | Phase 6 | Pending |
