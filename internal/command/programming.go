@@ -46,6 +46,29 @@ var _ = MustDeclareRoute(CommandRegistration{
 	Handler: runProgrammerClear,
 })
 
+var _ = MustDeclareScope(ScopeRegistration{
+	Scope:   "theme",
+	Summary: "Reusable named color themes captured from a show author's programming (PROG-04).",
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route:   "theme create",
+	Summary: "Create a named color theme against a ShowState document: theme create <name> --show <path>.",
+	Handler: runThemeCreate,
+})
+
+var _ = MustDeclareScope(ScopeRegistration{
+	Scope:   "preset",
+	Summary: "Reusable intensity/color/position/beam presets recorded from the Programmer buffer (PROG-04).",
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route: "preset record",
+	Summary: "Record a kind-scoped preset from the persisted Programmer buffer: preset record <name> " +
+		"--kind intensity|color|position|beam --show <path>.",
+	Handler: runPresetRecord,
+})
+
 // attrAssignment is one parsed "--attr <capability>=<value>" pair.
 type attrAssignment struct {
 	Capability fixture.CapabilityType
@@ -373,4 +396,152 @@ func runProgrammerClear(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 	return Result{Stdout: []byte("GOLC_PROGRAMMER_CLEARED\n")}
+}
+
+// parseThemeCreateArgs accepts exactly a positional theme name followed by
+// a required "--show <path>" (both --flag value and --flag=value forms),
+// rejecting anything else (GOLC_THEME_USAGE) -- mirrors
+// parsePoolCreateArgs's positional-name-plus-required-show shape.
+func parseThemeCreateArgs(usage string, args []string) (name, showPath string, err error) {
+	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
+		return "", "", fmt.Errorf("GOLC_THEME_USAGE: usage: %s", usage)
+	}
+	name = args[0]
+
+	rest := args[1:]
+	for i := 0; i < len(rest); {
+		argument := rest[i]
+		switch {
+		case argument == "--show":
+			if i+1 >= len(rest) {
+				return "", "", fmt.Errorf("GOLC_THEME_USAGE: --show requires a path; usage: %s", usage)
+			}
+			showPath = rest[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--show="):
+			showPath = strings.TrimPrefix(argument, "--show=")
+			i++
+		default:
+			return "", "", fmt.Errorf("GOLC_THEME_USAGE: unsupported argument %q; usage: %s", argument, usage)
+		}
+	}
+	if showPath == "" {
+		return "", "", fmt.Errorf("GOLC_THEME_USAGE: --show is required; usage: %s", usage)
+	}
+	return name, showPath, nil
+}
+
+// runThemeCreate serves the self-registered "theme create" route
+// (PROG-04): load the ShowState at --show, append the new theme, and save
+// atomically. A duplicate theme name is rejected by show.Save's
+// whole-State validation (surfaced as GOLC_THEME_DUPLICATE_NAME inside the
+// wrapping GOLC_SHOW_STATE_INVALID diagnostic) -- never a silent
+// duplicate.
+func runThemeCreate(request Request) Result {
+	usage := "theme create <name> --show <path>"
+	name, showPath, err := parseThemeCreateArgs(usage, request.Args)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	state, err := show.Load(request.Root, showPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	newTheme, err := programming.NewTheme(name)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	state.Themes = append(state.Themes, newTheme)
+
+	if err := show.Save(request.Root, showPath, state); err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	return Result{Stdout: []byte(fmt.Sprintf("GOLC_THEME_CREATED: %s (%s)\n", newTheme.Name, newTheme.ID))}
+}
+
+// parsePresetRecordArgs accepts a positional preset name followed by a
+// required "--kind <intensity|color|position|beam>" and a required
+// "--show <path>" (both --flag value and --flag=value forms), rejecting
+// anything else (GOLC_PRESET_USAGE). --kind's own validity against the
+// four declared PresetKind values is checked later by
+// programming.RecordPresetFromProgrammer, never re-derived here.
+func parsePresetRecordArgs(usage string, args []string) (name string, kind programming.PresetKind, showPath string, err error) {
+	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
+		return "", "", "", fmt.Errorf("GOLC_PRESET_USAGE: usage: %s", usage)
+	}
+	name = args[0]
+
+	var rawKind string
+	rest := args[1:]
+	for i := 0; i < len(rest); {
+		argument := rest[i]
+		switch {
+		case argument == "--kind":
+			if i+1 >= len(rest) {
+				return "", "", "", fmt.Errorf("GOLC_PRESET_USAGE: --kind requires a value; usage: %s", usage)
+			}
+			rawKind = rest[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--kind="):
+			rawKind = strings.TrimPrefix(argument, "--kind=")
+			i++
+		case argument == "--show":
+			if i+1 >= len(rest) {
+				return "", "", "", fmt.Errorf("GOLC_PRESET_USAGE: --show requires a path; usage: %s", usage)
+			}
+			showPath = rest[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--show="):
+			showPath = strings.TrimPrefix(argument, "--show=")
+			i++
+		default:
+			return "", "", "", fmt.Errorf("GOLC_PRESET_USAGE: unsupported argument %q; usage: %s", argument, usage)
+		}
+	}
+	if rawKind == "" {
+		return "", "", "", fmt.Errorf("GOLC_PRESET_USAGE: --kind is required; usage: %s", usage)
+	}
+	if showPath == "" {
+		return "", "", "", fmt.Errorf("GOLC_PRESET_USAGE: --show is required; usage: %s", usage)
+	}
+	return name, programming.PresetKind(rawKind), showPath, nil
+}
+
+// runPresetRecord serves the self-registered "preset record" route
+// (PROG-04): load the ShowState at --show, record a new kind-filtered
+// preset from the persisted Programmer buffer (an absent buffer records
+// from an empty, zero-value ProgrammerState -- never an error), append
+// it, and save atomically. An unknown --kind is rejected with
+// GOLC_PRESET_KIND_INVALID; a duplicate preset name is rejected by
+// show.Save's whole-State validation (GOLC_PRESET_DUPLICATE_NAME inside
+// the wrapping GOLC_SHOW_STATE_INVALID diagnostic).
+func runPresetRecord(request Request) Result {
+	usage := "preset record <name> --kind intensity|color|position|beam --show <path>"
+	name, kind, showPath, err := parsePresetRecordArgs(usage, request.Args)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	state, err := show.Load(request.Root, showPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	var ps programming.ProgrammerState
+	if state.Programmer != nil {
+		ps = *state.Programmer
+	}
+	newPreset, err := programming.RecordPresetFromProgrammer(ps, kind, name)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	state.Presets = append(state.Presets, newPreset)
+
+	if err := show.Save(request.Root, showPath, state); err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	return Result{Stdout: []byte(fmt.Sprintf(
+		"GOLC_PRESET_RECORDED: %s (%s) kind=%s attributes=%d\n", newPreset.Name, newPreset.ID, newPreset.Kind, len(newPreset.Attributes)))}
 }
