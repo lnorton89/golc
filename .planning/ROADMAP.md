@@ -176,7 +176,35 @@ Plans:
   4. An operator can enter or tap global BPM, switch the one active scene or any layer immediately, and choose whether a BPM change preserves musical position or restarts the loop.
   5. A deterministic playback harness produces the same time-indexed results when UI rendering, persistence, scripts, API clients, or LLM providers are slow, unavailable, or restarted, and adopts only complete valid show plans at safe boundaries.
 
-**Plans:** TBD
+**Plans:** 7 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — Selection + programmer semantic attribute editing + inspect (PROG-01/02/03) [Wave 1]
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03-02-PLAN.md — Reusable color themes + intensity/color/position/beam presets recorded from programmer state (PROG-04) [Wave 2]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 03-03-PLAN.md — Ordered tempo-relative chases + position/beam-only motion presets (PROG-05/06) [Wave 3]
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 03-04-PLAN.md — Scenes + independently enabled layers with fixed-priority reduce + blend presets + global Tempo (SCEN-01/04/05/07) [Wave 4]
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 03-05-PLAN.md — Session-only linear undo/redo history + full record/update/rename/reorder/duplicate/delete CRUD surface (PROG-07) [Wave 5]
+- [ ] 03-06-PLAN.md — Pure musical clock + numeric/tap BPM entry + preserve/restart epoch (SCEN-01/02/03/08) [Wave 5]
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 03-07-PLAN.md — All-or-nothing compile + pure evaluate + real-time engine with next-bar adoption + SCEN-09 determinism proof (SCEN-06/09) [Wave 6]
+
+**Waves:** W1: 03-01 · W2: 03-02 · W3: 03-03 · W4: 03-04 · W5: 03-05, 03-06 · W6: 03-07
 **Research:** Deeper phase research required for playback jitter and override budgets, HTP/LTP and release semantics, live plan adoption, first-user scale ceilings, deterministic effect seeding, and Windows timing behavior.
 
 ### Phase 4: Observable Art-Net Live Output
@@ -304,7 +332,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Offline Foundation and Delivery Traceability | 32/32 | Complete    | 2026-07-21 |
 | 2. Modular Fixtures and Deployments | 6/6 | Complete    | 2026-07-21 |
-| 3. Deterministic Show Programming and Playback | 0/TBD | Not started | - |
+| 3. Deterministic Show Programming and Playback | 0/7 | Planned | - |
 | 4. Observable Art-Net Live Output | 0/TBD | Not started | - |
 | 5. Durable Shows and Recovery | 0/TBD | Not started | - |
 | 6. Wails Authoring and Operator Surface | 0/TBD | Not started | - |
