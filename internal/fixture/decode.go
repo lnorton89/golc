@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"strings"
 
 	yaml "go.yaml.in/yaml/v4"
 )
@@ -65,6 +66,22 @@ var supportedCapabilityTypes = func() map[CapabilityType]bool {
 // validate enforces FIXT-02's post-decode rules against an already
 // strictly-decoded FixtureDefinition.
 func validate(def FixtureDefinition) error {
+	if def.SchemaVersion != 1 {
+		return fmt.Errorf(
+			"GOLC_FIXTURE_SCHEMA_VERSION_UNSUPPORTED: schema_version %d is not supported (only 1 is supported)",
+			def.SchemaVersion)
+	}
+	if strings.TrimSpace(def.Manufacturer) == "" {
+		return fmt.Errorf("GOLC_FIXTURE_MANUFACTURER_EMPTY: fixture manufacturer must not be empty")
+	}
+	if strings.TrimSpace(def.Model) == "" {
+		return fmt.Errorf("GOLC_FIXTURE_MODEL_EMPTY: fixture model must not be empty")
+	}
+	if len(def.Modes) == 0 {
+		return fmt.Errorf(
+			"GOLC_FIXTURE_MODES_EMPTY: %s %s declares zero modes; a fixture must declare at least one",
+			def.Manufacturer, def.Model)
+	}
 	if len(def.Capabilities) == 0 {
 		return fmt.Errorf(
 			"GOLC_FIXTURE_EMPTY: %s %s declares zero capabilities; a fixture must declare at least one",

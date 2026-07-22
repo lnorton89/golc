@@ -123,6 +123,92 @@ capabilities:
 			wantCode: "GOLC_FIXTURE_EMPTY",
 		},
 		{
+			name: "unsupported schema_version",
+			yaml: `schema_version: 99
+manufacturer: Generic
+model: RGB PAR
+modes:
+  - name: Standard
+capabilities:
+  - type: intensity
+    range: [0, 1]
+`,
+			wantCode: "GOLC_FIXTURE_SCHEMA_VERSION_UNSUPPORTED",
+		},
+		{
+			name: "empty manufacturer",
+			yaml: `schema_version: 1
+manufacturer: ""
+model: RGB PAR
+modes:
+  - name: Standard
+capabilities:
+  - type: intensity
+    range: [0, 1]
+`,
+			wantCode: "GOLC_FIXTURE_MANUFACTURER_EMPTY",
+		},
+		{
+			name: "missing manufacturer",
+			yaml: `schema_version: 1
+model: RGB PAR
+modes:
+  - name: Standard
+capabilities:
+  - type: intensity
+    range: [0, 1]
+`,
+			wantCode: "GOLC_FIXTURE_MANUFACTURER_EMPTY",
+		},
+		{
+			name: "empty model",
+			yaml: `schema_version: 1
+manufacturer: Generic
+model: ""
+modes:
+  - name: Standard
+capabilities:
+  - type: intensity
+    range: [0, 1]
+`,
+			wantCode: "GOLC_FIXTURE_MODEL_EMPTY",
+		},
+		{
+			name: "missing model",
+			yaml: `schema_version: 1
+manufacturer: Generic
+modes:
+  - name: Standard
+capabilities:
+  - type: intensity
+    range: [0, 1]
+`,
+			wantCode: "GOLC_FIXTURE_MODEL_EMPTY",
+		},
+		{
+			name: "zero modes",
+			yaml: `schema_version: 1
+manufacturer: Generic
+model: RGB PAR
+modes: []
+capabilities:
+  - type: intensity
+    range: [0, 1]
+`,
+			wantCode: "GOLC_FIXTURE_MODES_EMPTY",
+		},
+		{
+			name: "missing modes",
+			yaml: `schema_version: 1
+manufacturer: Generic
+model: RGB PAR
+capabilities:
+  - type: intensity
+    range: [0, 1]
+`,
+			wantCode: "GOLC_FIXTURE_MODES_EMPTY",
+		},
+		{
 			name: "zero capabilities",
 			yaml: `schema_version: 1
 manufacturer: Generic
