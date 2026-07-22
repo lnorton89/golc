@@ -26,6 +26,14 @@
 // values) are GOLC_ARTNET_USAGE with ExitCode 2; validated-but-rejected
 // domain values (e.g. an invalid target) are GOLC_ARTNET_* domain errors
 // with ExitCode 1.
+//
+// 04-06-PLAN.md Task 2 adds "artnet discover" (ARTN-02, CONTEXT D-06):
+// like "artnet interface list", it is a direct OS/network operation, not
+// a daemon client -- it never dials the running daemon and never calls
+// any configure/enable/disable path. Its results are suggestions only;
+// there is no "add all discovered nodes" bulk-apply anywhere in this
+// file, and promoting a suggestion to a live unicast target always
+// requires a separate, explicit "artnet configure" invocation.
 package command
 
 import (
@@ -79,6 +87,14 @@ var _ = MustDeclareRoute(CommandRegistration{
 	Route:   "artnet status",
 	Summary: "Inspect per-universe/target Art-Net health as a snapshot or watch view (ARTN-05, D-02): artnet status [--watch] [--json] [--pipe <name>].",
 	Handler: runArtnetStatus,
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route: "artnet discover",
+	Summary: "Scan a pinned interface for compatible Art-Net nodes and list them as suggestions only (ARTN-02, CONTEXT D-06): " +
+		"artnet discover --interface <index> [--window <duration>] [--json]. Never adds/removes/modifies a live target -- " +
+		"promoting a suggestion to a target is a separate 'artnet configure' action.",
+	Handler: runArtnetDiscover,
 })
 
 var _ = MustDeclareRoute(CommandRegistration{
@@ -402,6 +418,123 @@ func runArtnetInterfaceList(request Request) Result {
 		fmt.Fprintf(&b, "%-6d %-24s %-6v %s\n", iface.Index, iface.Name, iface.Up, strings.Join(addrs, ","))
 	}
 	return Result{Stdout: []byte(b.String())}
+}
+
+// --- artnet discover -----------------------------------------------------
+
+// artnetDiscoverArgs is the parsed shape of one "artnet discover"
+// invocation.
+type artnetDiscoverArgs struct {
+	interfaceIdx int
+	window       time.Duration
+	json         bool
+}
+
+// parseArtnetDiscoverArgs accepts a required --interface index (the same
+// durable net.Interface.Index "artnet serve" pins by, never a display
+// name), an optional --window duration (Go duration syntax, e.g. "3s"),
+// and an optional --json flag, rejecting anything else as
+// GOLC_ARTNET_USAGE.
+func parseArtnetDiscoverArgs(usage string, args []string) (artnetDiscoverArgs, error) {
+	values, err := parseArtnetArgs(usage, args, map[string]bool{"json": true})
+	if err != nil {
+		return artnetDiscoverArgs{}, err
+	}
+
+	rawIdx, ok := values["interface"]
+	if !ok {
+		return artnetDiscoverArgs{}, fmt.Errorf("GOLC_ARTNET_USAGE: --interface is required; usage: %s", usage)
+	}
+	idx, convErr := strconv.Atoi(rawIdx)
+	if convErr != nil {
+		return artnetDiscoverArgs{}, fmt.Errorf("GOLC_ARTNET_USAGE: --interface value %q is not a valid integer; usage: %s", rawIdx, usage)
+	}
+
+	var window time.Duration
+	if raw, ok := values["window"]; ok {
+		parsed, parseErr := time.ParseDuration(raw)
+		if parseErr != nil {
+			return artnetDiscoverArgs{}, fmt.Errorf("GOLC_ARTNET_USAGE: --window value %q is not a valid duration; usage: %s", raw, usage)
+		}
+		window = parsed
+	}
+
+	return artnetDiscoverArgs{interfaceIdx: idx, window: window, json: values["json"] == "true"}, nil
+}
+
+// findInterfaceByIndex resolves index against artnet.ListCandidateInterfaces
+// (no daemon round trip -- discovery, like "artnet interface list", is a
+// direct OS-level operation, not a daemon-state read). An index matching
+// no candidate interface is GOLC_ARTNET_INTERFACE_NOT_FOUND.
+func findInterfaceByIndex(index int) (artnet.InterfaceInfo, error) {
+	interfaces, err := artnet.ListCandidateInterfaces()
+	if err != nil {
+		return artnet.InterfaceInfo{}, err
+	}
+	for _, iface := range interfaces {
+		if iface.Index == index {
+			return iface, nil
+		}
+	}
+	return artnet.InterfaceInfo{}, fmt.Errorf("GOLC_ARTNET_INTERFACE_NOT_FOUND: no network interface with index %d", index)
+}
+
+// renderArtnetDiscoverPlain renders nodes as the plain, human-readable
+// suggestions table: an explicit header naming these as suggestions only
+// (CONTEXT D-06 -- promoting one to a live target is a separate
+// "artnet configure" action), then one row per discovered node.
+func renderArtnetDiscoverPlain(nodes []artnet.DiscoveredNode) []byte {
+	var b strings.Builder
+	fmt.Fprintf(&b, "GOLC_ARTNET_DISCOVER: %d suggested node(s) -- adding one as a live target is a separate 'artnet configure' action (D-06)\n", len(nodes))
+	fmt.Fprintf(&b, "%-16s %-20s %-24s %s\n", "IP", "SHORT_NAME", "LONG_NAME", "PORT_ADDRESSES")
+	for _, n := range nodes {
+		addrs := make([]string, 0, len(n.PortAddresses))
+		for _, pa := range n.PortAddresses {
+			addrs = append(addrs, fmt.Sprintf("0x%04x", pa))
+		}
+		fmt.Fprintf(&b, "%-16s %-20s %-24s %s\n", n.IP.String(), n.ShortName, n.LongName, strings.Join(addrs, ","))
+	}
+	return []byte(b.String())
+}
+
+// runArtnetDiscover serves the self-registered "artnet discover" route
+// (ARTN-02, CONTEXT D-06): it resolves --interface to an InterfaceInfo,
+// runs a bounded artnet.Discover scan, and renders the resulting nodes as
+// suggestions only (plain table or --json). This route never dials the
+// daemon and never calls artnet.ValidateTarget/ValidateUniqueTargets or
+// any configure/enable/disable path -- there is no "add all discovered
+// nodes" bulk-apply here or anywhere else in this file; promoting a
+// suggestion to a live unicast target always requires a separate,
+// explicit "artnet configure" invocation naming that exact node.
+func runArtnetDiscover(request Request) Result {
+	usage := "artnet discover --interface <index> [--window <duration>] [--json]"
+	parsed, err := parseArtnetDiscoverArgs(usage, request.Args)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	iface, err := findInterfaceByIndex(parsed.interfaceIdx)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	nodes, err := artnet.Discover(ctx, iface, parsed.window)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_ARTNET_DISCOVER_FAILED: %v\n", err))}
+	}
+
+	if parsed.json {
+		payload, encodeErr := strictjson.CanonicalEncode(nodes)
+		if encodeErr != nil {
+			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_ARTNET_DISCOVER_ENCODE_FAILED: %v\n", encodeErr))}
+		}
+		return Result{Stdout: payload}
+	}
+
+	return Result{Stdout: renderArtnetDiscoverPlain(nodes)}
 }
 
 // --- artnet configure ---------------------------------------------------

@@ -10,6 +10,8 @@
 package artnet
 
 import (
+	"encoding/binary"
+	"net"
 	"strings"
 	"testing"
 )
@@ -132,5 +134,114 @@ func TestSequenceWrap(t *testing.T) {
 	seq = nextSeq(seq)
 	if seq != 1 {
 		t.Fatalf("expected nextSeq(255) to wrap to 1, got %d", seq)
+	}
+}
+
+// buildGoodArtPollReply constructs a spec-shaped, artPollReplyMinLen-byte
+// ArtPollReply body carrying ip/shortName/longName and one declared
+// output port at (netSwitch, subSwitch, swOut) -- the "known-good"
+// vector this file's own decode tests and discovery_test.go's Discover
+// tests both exercise.
+func buildGoodArtPollReply(ip [4]byte, shortName, longName string, netSwitch, subSwitch, swOut byte) []byte {
+	buf := make([]byte, artPollReplyMinLen)
+	copy(buf[0:8], []byte("Art-Net\x00"))
+	binary.LittleEndian.PutUint16(buf[8:10], opPollReply)
+	copy(buf[10:14], ip[:])
+	binary.LittleEndian.PutUint16(buf[14:16], artNetPort)
+	buf[18] = netSwitch
+	buf[19] = subSwitch
+	copy(buf[26:44], []byte(shortName))
+	copy(buf[44:108], []byte(longName))
+	buf[173] = 1 // NumPortsLo: one declared output port
+	buf[190] = swOut
+	return buf
+}
+
+// TestEncodeArtPollGoldenVector asserts the exact 14-byte ArtPoll layout:
+// id, little-endian OpPoll opcode, protocol version, TalkToMe, Priority.
+func TestArtPollEncodeGoldenVector(t *testing.T) {
+	got := EncodeArtPoll()
+	want := []byte{
+		'A', 'r', 't', '-', 'N', 'e', 't', 0x00, // ID
+		0x00, 0x20, // OpCode little-endian (0x2000)
+		0x00, // ProtVerHi
+		0x0e, // ProtVerLo
+		0x00, // TalkToMe
+		0x00, // Priority (DpAll)
+	}
+	if len(got) != len(want) {
+		t.Fatalf("expected %d bytes, got %d: % x", len(want), len(got), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("byte %d: expected 0x%02x, got 0x%02x\nwant: % x\ngot:  % x", i, want[i], got[i], want, got)
+		}
+	}
+}
+
+// TestDecodeArtPollReplyGoodVector proves DecodeArtPollReply parses a
+// known-good reply's IP, short/long name, and Port-Address fields.
+func TestArtPollReplyDecodeGoodVector(t *testing.T) {
+	buf := buildGoodArtPollReply([4]byte{10, 0, 0, 5}, "GOLC-Node", "GOLC Test Node Long Name", 0x00, 0x01, 0x03)
+
+	reply, err := DecodeArtPollReply(buf)
+	if err != nil {
+		t.Fatalf("DecodeArtPollReply failed: %v", err)
+	}
+	if !reply.IP.Equal(net.IPv4(10, 0, 0, 5)) {
+		t.Fatalf("expected IP 10.0.0.5, got %v", reply.IP)
+	}
+	if reply.ShortName != "GOLC-Node" {
+		t.Fatalf("expected short name %q, got %q", "GOLC-Node", reply.ShortName)
+	}
+	if reply.LongName != "GOLC Test Node Long Name" {
+		t.Fatalf("expected long name %q, got %q", "GOLC Test Node Long Name", reply.LongName)
+	}
+	if len(reply.PortAddresses) != 1 {
+		t.Fatalf("expected exactly 1 port address, got %d: %v", len(reply.PortAddresses), reply.PortAddresses)
+	}
+	// netSwitch=0x00 -> Net=0; subSwitch=0x01 -> Sub-Net=1; swOut=0x03 ->
+	// Universe=3 -> Port-Address 0x0013.
+	if reply.PortAddresses[0] != 0x0013 {
+		t.Fatalf("expected port address 0x0013, got 0x%04x", reply.PortAddresses[0])
+	}
+}
+
+// TestDecodeArtPollReplyMalformed proves every malformed-input case
+// (empty, short header, wrong id, wrong opcode, oversized declared port
+// count) returns GOLC_ARTNET_POLLREPLY_INVALID without panicking
+// (Security Domain V5, T-04-01).
+func TestArtPollReplyDecodeMalformed(t *testing.T) {
+	good := buildGoodArtPollReply([4]byte{10, 0, 0, 5}, "N", "L", 0x00, 0x01, 0x03)
+
+	wrongID := append([]byte(nil), good...)
+	wrongID[0] = 'X'
+
+	wrongOpcode := append([]byte(nil), good...)
+	binary.LittleEndian.PutUint16(wrongOpcode[8:10], opPoll)
+
+	oversizedPortCount := append([]byte(nil), good...)
+	oversizedPortCount[173] = artPollReplyMaxPorts + 1
+
+	cases := []struct {
+		name string
+		buf  []byte
+	}{
+		{name: "empty", buf: nil},
+		{name: "short header", buf: good[:artPollReplyMinLen-1]},
+		{name: "wrong id", buf: wrongID},
+		{name: "wrong opcode", buf: wrongOpcode},
+		{name: "oversized declared port count", buf: oversizedPortCount},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := DecodeArtPollReply(testCase.buf)
+			if err == nil {
+				t.Fatalf("expected %s to be rejected", testCase.name)
+			}
+			if !strings.Contains(err.Error(), "GOLC_ARTNET_POLLREPLY_INVALID") {
+				t.Fatalf("expected GOLC_ARTNET_POLLREPLY_INVALID, got %v", err)
+			}
+		})
 	}
 }

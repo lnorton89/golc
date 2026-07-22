@@ -12,8 +12,10 @@
 package artnet
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
+	"net"
 )
 
 // Art-Net 4 wire constants (04-RESEARCH.md Pattern 1, cross-checked
@@ -82,4 +84,127 @@ func nextSeq(prev uint8) uint8 {
 		return 1
 	}
 	return prev + 1
+}
+
+// Art-Net 4 ArtPoll/ArtPollReply opcodes (04-06-PLAN.md Task 1,
+// 04-RESEARCH.md Pattern 4; cross-checked art-net.org.uk against
+// jsimonetti/go-artnet/packet/code/opcode.go's OpPoll=0x2000/
+// OpPollReply=0x2100 constants).
+const (
+	opPoll      = 0x2000
+	opPollReply = 0x2100
+)
+
+// artPollReplyMinLen is the minimum ArtPollReply body size this decoder
+// requires before it will read any fixed-offset field: id(8) + opcode(2)
+// + ip(4) + port(2) + versInfoH/L(2) + netSwitch/subSwitch(2) + oem(2) +
+// ubeaVersion(1) + status1(1) + estaMan(2) + shortName(18) + longName(64)
+// + nodeReport(64) + numPortsHi/Lo(2) + portTypes(4) + goodInput(4) +
+// goodOutput(4) + swIn(4) + swOut(4) + swVideo/Macro/Remote(3) + spare(3)
+// + style(1) + mac(6) + bindIP(4) + bindIndex(1) + status2(1) +
+// filler(26) = 239 bytes (Security Domain V5: a buffer shorter than this
+// is rejected before any fixed-offset field is read, never silently
+// zero-padded or partially parsed).
+const artPollReplyMinLen = 239
+
+// artPollReplyMaxPorts is the hard ceiling ArtPollReply's declared port
+// count (NumPortsLo, byte offset 173) must never exceed: a real Art-Net
+// node reports at most 4 physical DMX ports per reply (Security Domain
+// V5/T-04-01). A declared count above this is rejected as
+// GOLC_ARTNET_POLLREPLY_INVALID rather than used to index the
+// fixed-4-element SwOut array, which would otherwise read past its own
+// bounds.
+const artPollReplyMaxPorts = 4
+
+// ArtPollReply is the subset of an inbound ArtPollReply this project
+// needs (04-06-PLAN.md): the node's IP, its short/long name, and every
+// Port-Address it reports output for (one per declared SwOut port entry,
+// combining NetSwitch/SubSwitch/SwOut into the same Net<<8|SubNet<<4|
+// Universe packing PortAddress uses).
+type ArtPollReply struct {
+	IP            net.IP
+	ShortName     string
+	LongName      string
+	PortAddresses []uint16
+}
+
+// EncodeArtPoll builds a spec-shaped ArtPoll packet (04-RESEARCH.md
+// Pattern 4): id + little-endian opPoll opcode + protocol version, then
+// TalkToMe=0x00 (no reply-on-change/diagnostics -- this is a single
+// bounded scan, not a persistent subscription) and Priority=0x00 (DpAll,
+// no diagnostic-severity filtering). This ArtPoll broadcast is the
+// opt-in discovery scan (CONTEXT D-06); it does not conflict with D-07's
+// no-broadcast rule for the live DMX *output* path.
+func EncodeArtPoll() []byte {
+	buf := make([]byte, 14)
+	copy(buf[0:8], []byte("Art-Net\x00"))
+	binary.LittleEndian.PutUint16(buf[8:10], opPoll)
+	buf[10] = protVerHi
+	buf[11] = protVerLo
+	buf[12] = 0x00 // TalkToMe
+	buf[13] = 0x00 // Priority (DpAll)
+	return buf
+}
+
+// artPollReplyNullTerminated returns field up to (not including) its
+// first 0x00 byte, or the whole field if it contains none. field is
+// always a fixed-length slice of the already length-validated buf, so
+// this can never read out of bounds regardless of the reply's content
+// (Security Domain V5).
+func artPollReplyNullTerminated(field []byte) string {
+	if idx := bytes.IndexByte(field, 0); idx >= 0 {
+		return string(field[:idx])
+	}
+	return string(field)
+}
+
+// DecodeArtPollReply strictly decodes buf into an ArtPollReply,
+// bounds-checking every length/count field against a hard ceiling before
+// it is used to index or allocate (Security Domain V5, T-04-01): buf
+// shorter than artPollReplyMinLen, a missing/malformed "Art-Net\0" id, a
+// non-ArtPollReply opcode, or a declared port count exceeding
+// artPollReplyMaxPorts each return GOLC_ARTNET_POLLREPLY_INVALID rather
+// than a panic or an out-of-range read -- this is untrusted network
+// input from an arbitrary (possibly spoofed) device.
+func DecodeArtPollReply(buf []byte) (ArtPollReply, error) {
+	if len(buf) < artPollReplyMinLen {
+		return ArtPollReply{}, fmt.Errorf(
+			"GOLC_ARTNET_POLLREPLY_INVALID: buffer length %d is shorter than the minimum ArtPollReply size %d", len(buf), artPollReplyMinLen)
+	}
+	if !bytes.Equal(buf[0:8], []byte("Art-Net\x00")) {
+		return ArtPollReply{}, fmt.Errorf("GOLC_ARTNET_POLLREPLY_INVALID: missing or malformed \"Art-Net\\0\" id")
+	}
+	opcode := binary.LittleEndian.Uint16(buf[8:10])
+	if opcode != opPollReply {
+		return ArtPollReply{}, fmt.Errorf(
+			"GOLC_ARTNET_POLLREPLY_INVALID: opcode 0x%04x is not ArtPollReply (0x%04x)", opcode, opPollReply)
+	}
+
+	ip := net.IPv4(buf[10], buf[11], buf[12], buf[13])
+	netSwitch := buf[18]
+	subSwitch := buf[19]
+	shortName := artPollReplyNullTerminated(buf[26:44])
+	longName := artPollReplyNullTerminated(buf[44:108])
+
+	numPorts := int(buf[173])
+	if numPorts < 0 || numPorts > artPollReplyMaxPorts {
+		return ArtPollReply{}, fmt.Errorf(
+			"GOLC_ARTNET_POLLREPLY_INVALID: declared port count %d exceeds the hard ceiling of %d", numPorts, artPollReplyMaxPorts)
+	}
+
+	swOut := buf[190:194]
+	net7 := uint16(netSwitch) & 0x7F
+	subNet4 := uint16(subSwitch) & 0xF
+	portAddresses := make([]uint16, 0, numPorts)
+	for i := 0; i < numPorts; i++ {
+		universeBits := uint16(swOut[i]) & 0xF
+		portAddresses = append(portAddresses, (net7<<8)|(subNet4<<4)|universeBits)
+	}
+
+	return ArtPollReply{
+		IP:            ip,
+		ShortName:     shortName,
+		LongName:      longName,
+		PortAddresses: portAddresses,
+	}, nil
 }
