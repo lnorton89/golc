@@ -140,6 +140,15 @@ func NewHealth() *Health {
 // from the configured set and will no longer accept new RecordSend
 // updates, though their last-known TargetHealth entry is preserved in
 // Targets for historical display rather than deleted outright.
+//
+// [04-05-PLAN.md Task 2 deviation, Rule 1 - bug]: an already-tracked key's
+// stored Target snapshot (which carries Enabled) is refreshed on every
+// call, not just the first -- otherwise a later "artnet target
+// enable|disable" reconfigure (CONTEXT D-12) would never change what
+// Snapshot() reports for that target's Enabled state, since Configure
+// previously only wrote TargetHealth once, at first-configuration time.
+// SendOK/SendErr/Reachable/LastError are left untouched so historical
+// counters still survive a reconfigure exactly as documented above.
 func (h *Health) Configure(targets map[int][]Target) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -149,9 +158,14 @@ func (h *Health) Configure(targets map[int][]Target) {
 		for _, t := range ts {
 			key := keyOf(t)
 			h.configured[key] = true
-			if _, ok := h.targets[key]; !ok {
+			existing, tracked := h.targets[key]
+			if !tracked {
 				h.targets[key] = TargetHealth{Universe: universe, Target: t}
+				continue
 			}
+			existing.Universe = universe
+			existing.Target = t
+			h.targets[key] = existing
 		}
 	}
 	h.publishTargetsLocked()

@@ -1,10 +1,13 @@
 // artnet.go is the artnet command file (04-05-PLAN.md): it owns the
 // "artnet" routing scope and self-registers this phase's operator-facing
-// routes (D-01, no standalone GUI/Wails window). This file (Task 1)
-// declares the scope plus the "artnet serve" (D-03/D-04, the one route
-// that IS the long-lived daemon, not a client), "artnet interface list"
-// (ARTN-01), and "artnet configure" (CONTEXT D-08) routes; "artnet
-// status" and "artnet target enable|disable" follow in Task 2.
+// routes (D-01, no standalone GUI/Wails window). Task 1 declared the
+// scope plus "artnet serve" (D-03/D-04, the one route that IS the
+// long-lived daemon, not a client), "artnet interface list" (ARTN-01),
+// and "artnet configure" (CONTEXT D-08); Task 2 (below) adds "artnet
+// status" (ARTN-05, D-02: one-shot snapshot plus a continuously-
+// refreshing watch view, plain by default with --json for scripting) and
+// "artnet target enable"/"artnet target disable" (D-12: take one target
+// online/offline without stopping the rest of the rig).
 //
 // Every route except "artnet serve" is a thin client: it dials the
 // running daemon's local named-pipe IPC listener (internal/artnet/ipc,
@@ -34,6 +37,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -70,6 +74,31 @@ var _ = MustDeclareRoute(CommandRegistration{
 		"artnet configure --universe <n> --ip <address> [--port <port>] [--enabled true|false] [--pipe <name>].",
 	Handler: runArtnetConfigure,
 })
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route:   "artnet status",
+	Summary: "Inspect per-universe/target Art-Net health as a snapshot or watch view (ARTN-05, D-02): artnet status [--watch] [--json] [--pipe <name>].",
+	Handler: runArtnetStatus,
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route: "artnet target enable",
+	Summary: "Re-enable output to one configured unicast target without stopping the rig (D-12): " +
+		"artnet target enable --universe <n> --ip <address> [--port <port>] [--pipe <name>].",
+	Handler: runArtnetTargetEnable,
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route: "artnet target disable",
+	Summary: "Take one configured unicast target offline without stopping the rig (D-12): " +
+		"artnet target disable --universe <n> --ip <address> [--port <port>] [--pipe <name>].",
+	Handler: runArtnetTargetDisable,
+})
+
+// artnetWatchInterval is "artnet status --watch"'s own refresh cadence --
+// independent of the daemon's 40Hz worker tick and 1Hz interface poll,
+// slow enough to be readable, fast enough to feel live (D-02/D-11).
+const artnetWatchInterval = 500 * time.Millisecond
 
 // artnetDefaultDisplayPort mirrors internal/artnet's own unexported
 // effectivePort default (the fixed Art-Net UDP port) for display purposes
@@ -468,4 +497,172 @@ func runArtnetConfigure(request Request) Result {
 		Args:  args,
 		Root:  request.Root,
 	})
+}
+
+// --- artnet target enable/disable ---------------------------------------
+
+// runArtnetTargetToggle is shared by "artnet target enable" and "artnet
+// target disable" (CONTEXT D-12): it parses the target selector only
+// (GOLC_ARTNET_USAGE on a shape failure), then forwards to the daemon,
+// which reports an unmatched selector as GOLC_ARTNET_TARGET_NOT_FOUND
+// (ExitCode 1) -- this route never re-validates the target itself, since
+// enable/disable only needs to match an already-configured target, not
+// pass ValidateTarget's own construction-time checks.
+func runArtnetTargetToggle(route, usage string, request Request) Result {
+	values, err := parseArtnetArgs(usage, request.Args, nil)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	universe, ip, port, err := parseArtnetTargetSelector(usage, values)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+	_, portGiven := values["port"]
+
+	return forwardToDaemon(pipeNameFromFlags(values), Request{
+		Route: route,
+		Args:  targetSelectorArgs(universe, ip, port, portGiven),
+		Root:  request.Root,
+	})
+}
+
+func runArtnetTargetEnable(request Request) Result {
+	usage := "artnet target enable --universe <n> --ip <address> [--port <port>] [--pipe <name>]"
+	return runArtnetTargetToggle("artnet target enable", usage, request)
+}
+
+func runArtnetTargetDisable(request Request) Result {
+	usage := "artnet target disable --universe <n> --ip <address> [--port <port>] [--pipe <name>]"
+	return runArtnetTargetToggle("artnet target disable", usage, request)
+}
+
+// --- artnet status ------------------------------------------------------
+
+// artnetStatusPayload mirrors internal/artnet/daemon.go's own
+// statusPayload wire shape exactly (same json tags) so DecodeStrict can
+// parse "artnet status"'s Result.Stdout back into typed
+// artnet.FrameHealth/artnet.TargetHealth values for rendering.
+type artnetStatusPayload struct {
+	Frame   artnet.FrameHealth    `json:"frame"`
+	Targets []artnet.TargetHealth `json:"targets"`
+}
+
+// displayPort mirrors internal/artnet's own unexported default-port
+// convention for display only: a Target.Port left at its zero value means
+// "the fixed Art-Net UDP port" (never sent back over the wire as 0).
+func displayPort(t artnet.Target) int {
+	if t.Port == 0 {
+		return artnetDefaultDisplayPort
+	}
+	return t.Port
+}
+
+// renderArtnetStatusPlain renders payload as the persistent, human-
+// readable per-universe/target status table D-11 requires: frame
+// cadence/staleness on its own summary line, then one row per configured
+// target with send success/error counts, reachability, and the last
+// recorded error (if any).
+func renderArtnetStatusPlain(payload artnetStatusPayload) []byte {
+	var b strings.Builder
+
+	frameStatus := "on-cadence"
+	if !payload.Frame.OnCadence {
+		frameStatus = "STALLED"
+	}
+	lastFrameAt := "never"
+	if !payload.Frame.LastFrameAt.IsZero() {
+		lastFrameAt = payload.Frame.LastFrameAt.UTC().Format(time.RFC3339Nano)
+	}
+	fmt.Fprintf(&b, "GOLC_ARTNET_STATUS: frame=%s last_frame_at=%s\n", frameStatus, lastFrameAt)
+
+	fmt.Fprintf(&b, "%-6s %-20s %-6s %-8s %-8s %-9s %-6s %s\n",
+		"UNIV", "TARGET", "PORT", "ENABLED", "SEND_OK", "SEND_ERR", "REACH", "LAST_ERROR")
+	for _, t := range payload.Targets {
+		fmt.Fprintf(&b, "%-6d %-20s %-6d %-8v %-8d %-9d %-6v %s\n",
+			t.Universe, t.Target.IP.String(), displayPort(t.Target), t.Target.Enabled,
+			t.SendOK, t.SendErr, t.Reachable, t.LastError)
+	}
+	return []byte(b.String())
+}
+
+// fetchArtnetStatus dials the daemon, forwards "artnet status", and
+// decodes the daemon's canonical JSON snapshot into artnetStatusPayload.
+// On any failure (dial, non-zero daemon result, or decode) it returns
+// ok=false and the exact Result the caller should return/print instead.
+func fetchArtnetStatus(pipeName, root string) (artnetStatusPayload, Result, bool) {
+	result := forwardToDaemon(pipeName, Request{Route: "artnet status", Root: root})
+	if result.ExitCode != 0 {
+		return artnetStatusPayload{}, result, false
+	}
+
+	var payload artnetStatusPayload
+	if err := strictjson.DecodeStrict(result.Stdout, &payload); err != nil {
+		return artnetStatusPayload{}, Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
+			"GOLC_ARTNET_STATUS_DECODE_FAILED: %v\n", err))}, false
+	}
+	return payload, Result{}, true
+}
+
+// runArtnetStatusWatch continuously re-fetches and re-renders the plain
+// status table on artnetWatchInterval (D-02/D-11's watch view) until the
+// operator interrupts (Ctrl+C) or a fetch fails.
+func runArtnetStatusWatch(pipeName, root string) Result {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt)
+	defer signal.Stop(sigCh)
+
+	ticker := time.NewTicker(artnetWatchInterval)
+	defer ticker.Stop()
+
+	for {
+		payload, errResult, ok := fetchArtnetStatus(pipeName, root)
+		if !ok {
+			return errResult
+		}
+		os.Stdout.Write(renderArtnetStatusPlain(payload))
+		fmt.Fprintln(os.Stdout, "--- (Ctrl+C to stop) ---")
+
+		select {
+		case <-sigCh:
+			return Result{Stdout: []byte("GOLC_ARTNET_STATUS_WATCH: stopped\n")}
+		case <-ticker.C:
+		}
+	}
+}
+
+// runArtnetStatus serves the self-registered "artnet status" route
+// (ARTN-05, D-02): a one-shot snapshot (default plain human-readable
+// output, --json for canonical JSON scripting) or, with --watch, a
+// continuously-refreshing plain-text view. --watch and --json are
+// mutually exclusive (the watch view is always the plain table).
+func runArtnetStatus(request Request) Result {
+	usage := "artnet status [--watch] [--json] [--pipe <name>]"
+	values, err := parseArtnetArgs(usage, request.Args, map[string]bool{"watch": true, "json": true})
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	watch := values["watch"] == "true"
+	jsonOut := values["json"] == "true"
+	if watch && jsonOut {
+		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
+			"GOLC_ARTNET_USAGE: --watch and --json are mutually exclusive; usage: %s\n", usage))}
+	}
+
+	pipeName := pipeNameFromFlags(values)
+
+	if watch {
+		return runArtnetStatusWatch(pipeName, request.Root)
+	}
+
+	if jsonOut {
+		return forwardToDaemon(pipeName, Request{Route: "artnet status", Root: request.Root})
+	}
+
+	payload, errResult, ok := fetchArtnetStatus(pipeName, request.Root)
+	if !ok {
+		return errResult
+	}
+	return Result{Stdout: renderArtnetStatusPlain(payload)}
 }
