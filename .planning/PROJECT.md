@@ -21,12 +21,12 @@ An operator can author a modular show once, adapt its fixture pools to different
 - [x] Show files model reusable fixture pools independently from a deployment's concrete fixture count and addresses. — *Validated in Phase 2: Modular Fixtures and Deployments (2026-07-21)*
 - [x] Users can configure how fixture-pool updates propagate through dependents; the default workflow presents an impact review before applying changes. — *Validated in Phase 2: Modular Fixtures and Deployments (2026-07-21)*
 - [x] Users can replace fixture models by mapping shared semantic capabilities and reviewing unsupported or incompatible capabilities before committing the deployment change. — *Validated in Phase 2: Modular Fixtures and Deployments (2026-07-21)*
+- [x] Scenes can loop for a configured number of musical bars synchronized to a show-wide BPM. — *Validated in Phase 3: Deterministic Show Programming and Playback (2026-07-21)*
+- [x] Users can combine and swap color themes, chases, and motion presets within tempo-aware scenes using configurable blending transitions. — *Validated in Phase 3: Deterministic Show Programming and Playback (2026-07-21)*
 
 ### Active
 
-- [ ] Operators can patch fixtures, organize controllable attributes, create looks/scenes and chases, play them back, save a show, and restore it later.
-- [ ] Scenes can loop for a configured number of musical bars synchronized to a show-wide BPM.
-- [ ] Users can combine and swap color themes, chases, and motion presets within tempo-aware scenes using configurable blending transitions.
+- [ ] Operators can patch fixtures, organize controllable attributes, create looks/scenes and chases, play them back, save a show, and restore it later. — programming/playback delivered in Phase 3; save/restore/recovery remains Phase 5 scope.
 - [ ] Keyboard and on-screen playback expose the complete operator workflow without requiring a MIDI controller.
 - [ ] Users can prepare a constrained MIDI playback surface that another operator can learn and use quickly without exposing the full authoring interface.
 - [ ] The application sends reliable, observable Art-Net output suitable for running a small live show.
@@ -142,4 +142,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-21 after Phase 2: Modular Fixtures and Deployments completion*
+*Last updated: 2026-07-21 after Phase 3: Deterministic Show Programming and Playback completion*
