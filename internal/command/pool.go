@@ -22,6 +22,7 @@ import (
 	"github.com/lnorton89/golc/internal/projectconfig"
 	"github.com/lnorton89/golc/internal/show"
 	"github.com/lnorton89/golc/internal/strictjson"
+	"github.com/lnorton89/golc/internal/substitution"
 )
 
 // poolUpdateReviewKey is the canonical five-layer configuration key
@@ -56,6 +57,13 @@ var _ = MustDeclareRoute(CommandRegistration{
 	Summary: "Validate (integrity then freshness) and atomically apply an already-reviewed pool impact plan: " +
 		"pool apply {plan-file} --plan-id <id> --show <path>.",
 	Handler: runPoolApply,
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route: "pool substitute",
+	Summary: "Compute and write/print a deterministic fixture-substitution capability-diff review without mutating the ShowState document: " +
+		"pool substitute <pool> --from <fixture-file> --to <fixture-file> [--out <path>] [--json] --show <path>.",
+	Handler: runPoolSubstitute,
 })
 
 // runPoolCreate serves the self-registered "pool create" route: load the
@@ -458,4 +466,165 @@ func runPoolApply(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 	return Result{Stdout: []byte(fmt.Sprintf("GOLC_POOL_APPLY: applied %s (%d operations)\n", plan.PlanID, len(plan.Operations)))}
+}
+
+// poolSubstituteArgs is the parsed shape of one "pool substitute"
+// invocation.
+type poolSubstituteArgs struct {
+	poolName string
+	fromPath string
+	toPath   string
+	outPath  string
+	json     bool
+	showPath string
+}
+
+// parsePoolSubstituteArgs accepts a positional pool name followed by
+// required --from/--to fixture file paths, an optional --out path, an
+// optional --json flag, and a required --show path (both --flag value and
+// --flag=value forms), rejecting anything else (GOLC_SUBSTITUTION_USAGE) --
+// mirroring parsePoolUpdateArgs's exact parsing shape.
+func parsePoolSubstituteArgs(usage string, args []string) (poolSubstituteArgs, error) {
+	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
+		return poolSubstituteArgs{}, fmt.Errorf("GOLC_SUBSTITUTION_USAGE: usage: %s", usage)
+	}
+	parsed := poolSubstituteArgs{poolName: args[0]}
+
+	rest := args[1:]
+	for i := 0; i < len(rest); {
+		argument := rest[i]
+		switch {
+		case argument == "--from":
+			if i+1 >= len(rest) {
+				return poolSubstituteArgs{}, fmt.Errorf("GOLC_SUBSTITUTION_USAGE: --from requires a path; usage: %s", usage)
+			}
+			parsed.fromPath = rest[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--from="):
+			parsed.fromPath = strings.TrimPrefix(argument, "--from=")
+			i++
+		case argument == "--to":
+			if i+1 >= len(rest) {
+				return poolSubstituteArgs{}, fmt.Errorf("GOLC_SUBSTITUTION_USAGE: --to requires a path; usage: %s", usage)
+			}
+			parsed.toPath = rest[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--to="):
+			parsed.toPath = strings.TrimPrefix(argument, "--to=")
+			i++
+		case argument == "--out":
+			if i+1 >= len(rest) {
+				return poolSubstituteArgs{}, fmt.Errorf("GOLC_SUBSTITUTION_USAGE: --out requires a path; usage: %s", usage)
+			}
+			parsed.outPath = rest[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--out="):
+			parsed.outPath = strings.TrimPrefix(argument, "--out=")
+			i++
+		case argument == "--json":
+			parsed.json = true
+			i++
+		case argument == "--show":
+			if i+1 >= len(rest) {
+				return poolSubstituteArgs{}, fmt.Errorf("GOLC_SUBSTITUTION_USAGE: --show requires a path; usage: %s", usage)
+			}
+			parsed.showPath = rest[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--show="):
+			parsed.showPath = strings.TrimPrefix(argument, "--show=")
+			i++
+		default:
+			return poolSubstituteArgs{}, fmt.Errorf("GOLC_SUBSTITUTION_USAGE: unsupported argument %q; usage: %s", argument, usage)
+		}
+	}
+	if parsed.fromPath == "" || parsed.toPath == "" || parsed.showPath == "" {
+		return poolSubstituteArgs{}, fmt.Errorf("GOLC_SUBSTITUTION_USAGE: --from, --to, and --show are required; usage: %s", usage)
+	}
+	return parsed, nil
+}
+
+// runPoolSubstitute serves the self-registered "pool substitute" route
+// (CONTEXT POOL-06/POOL-07/POOL-08/D-14/D-15): it loads the ShowState at
+// --show, resolves the target pool by name, strictly decodes both the
+// --from and --to fixture files (fixture.Decode, the same FIXT-01/02
+// pipeline "fixture validate" uses), builds a deterministic capability-diff
+// substitution.SubstitutionPlan (never mutating the ShowState), and either
+// writes it to --out, prints its canonical JSON (--json), or prints a
+// short human-readable summary. A --to file that fails fixture.Decode's
+// own strict decode/validate is a hard-blocking, route-level
+// GOLC_SUBSTITUTION_TARGET_INVALID failure (T-02-14) before any plan can
+// even be built; this is the same diagnostic code
+// BuildSubstitutionPlan itself emits inside a plan's Errors when called
+// directly with an already-decoded, structurally invalid target. Like
+// "pool update", no code path here can ever write the ShowState file
+// (D-15): acceptance is the existing "pool apply" route (no second apply
+// mechanism), cancel is discarding the written plan file, and revise is
+// re-running "pool substitute" with a different --to (D-13).
+func runPoolSubstitute(request Request) Result {
+	usage := "pool substitute <pool> --from <fixture-file> --to <fixture-file> [--out <path>] [--json] --show <path>"
+	parsed, err := parsePoolSubstituteArgs(usage, request.Args)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	state, err := show.Load(request.Root, parsed.showPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	targetPool, found := poolByName(state.Pools, parsed.poolName)
+	if !found {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_POOL_NOT_FOUND: no pool named %q exists\n", parsed.poolName))}
+	}
+
+	fromData, err := os.ReadFile(resolveWritablePath(request.Root, parsed.fromPath))
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_FIXTURE_READ_FAILED: %v\n", err))}
+	}
+	from, err := fixture.Decode(fromData)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	toData, err := os.ReadFile(resolveWritablePath(request.Root, parsed.toPath))
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_FIXTURE_READ_FAILED: %v\n", err))}
+	}
+	to, err := fixture.Decode(toData)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SUBSTITUTION_TARGET_INVALID: %v\n", err))}
+	}
+
+	fromIdentity, err := fixture.Pin(from)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	toIdentity, err := fixture.Pin(to)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	substitutionReq := substitution.SubstitutionRequest{
+		PoolID:         targetPool.ID,
+		FromFixtureRef: fromIdentity.StableKey,
+		ToFixtureRef:   toIdentity.StableKey,
+	}
+	plan, err := substitution.BuildSubstitutionPlan(state, from, to, substitutionReq)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	if parsed.outPath != "" {
+		return writeImpactPlan(request.Root, parsed.outPath, plan)
+	}
+	if parsed.json {
+		payload, err := strictjson.CanonicalEncode(plan)
+		if err != nil {
+			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_POOL_PLAN_ENCODE_FAILED: %v\n", err))}
+		}
+		return Result{Stdout: payload}
+	}
+	return Result{Stdout: []byte(fmt.Sprintf(
+		"GOLC_POOL_PLAN: pool=%s operations=%d warnings=%d errors=%d plan_id=%s\n",
+		targetPool.Name, len(plan.Operations), len(plan.Warnings), len(plan.Errors), plan.PlanID))}
 }
