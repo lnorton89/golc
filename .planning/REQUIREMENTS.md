@@ -24,10 +24,10 @@
 
 - [x] **FIXT-01**: A user can load fixture definitions authored in a documented, versioned YAML schema.
 - [x] **FIXT-02**: The application rejects duplicate keys, ambiguous YAML constructs, invalid ranges, and unsupported fixture semantics with actionable diagnostics.
-- [ ] **FIXT-03**: A user can import an Open Fixture Library definition through GOLC's canonical validation and normalization pipeline.
+- [x] **FIXT-03**: A user can import an Open Fixture Library definition through GOLC's canonical validation and normalization pipeline.
 - [x] **FIXT-04**: A user can create, edit, validate, and share a custom YAML fixture definition.
 - [ ] **FIXT-05**: A show pins each fixture definition by stable identity, schema version, content revision, and hash so library updates cannot silently change an existing show.
-- [ ] **FIXT-06**: A user can inspect a fixture definition's source, provenance, validation result, and unsupported or lossy import details before using it.
+- [x] **FIXT-06**: A user can inspect a fixture definition's source, provenance, validation result, and unsupported or lossy import details before using it.
 
 ### Pools and Deployments
 
@@ -203,10 +203,10 @@ A v1 requirement is complete only when its implementation is committed, automate
 | CONF-04 | Phase 1 | Complete |
 | FIXT-01 | Phase 2 | Complete |
 | FIXT-02 | Phase 2 | Complete |
-| FIXT-03 | Phase 2 | Pending |
+| FIXT-03 | Phase 2 | Complete |
 | FIXT-04 | Phase 2 | Complete |
 | FIXT-05 | Phase 2 | Pending |
-| FIXT-06 | Phase 2 | Pending |
+| FIXT-06 | Phase 2 | Complete |
 | POOL-01 | Phase 2 | Complete |
 | POOL-02 | Phase 2 | Complete |
 | POOL-03 | Phase 2 | Pending |
