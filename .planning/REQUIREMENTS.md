@@ -31,8 +31,8 @@
 
 ### Pools and Deployments
 
-- [ ] **POOL-01**: A show author can define a logical pool of compatible fixtures independently of the concrete fixture count, addresses, and deployment hardware.
-- [ ] **POOL-02**: A show author can create a deployment that maps logical pools to concrete fixture instances, modes, universes, and addresses.
+- [x] **POOL-01**: A show author can define a logical pool of compatible fixtures independently of the concrete fixture count, addresses, and deployment hardware.
+- [x] **POOL-02**: A show author can create a deployment that maps logical pools to concrete fixture instances, modes, universes, and addresses.
 - [ ] **POOL-03**: A show author can add or remove fixtures from a pool and receive an impact review covering all dependent groups, themes, palettes, scenes, chases, motion presets, and controller mappings.
 - [ ] **POOL-04**: A show author can configure propagation behavior for each pool update while review-before-apply remains the default.
 - [ ] **POOL-05**: A reviewed pool update is applied atomically so dependents never observe a partially updated deployment.
@@ -207,8 +207,8 @@ A v1 requirement is complete only when its implementation is committed, automate
 | FIXT-04 | Phase 2 | Complete |
 | FIXT-05 | Phase 2 | Pending |
 | FIXT-06 | Phase 2 | Pending |
-| POOL-01 | Phase 2 | Pending |
-| POOL-02 | Phase 2 | Pending |
+| POOL-01 | Phase 2 | Complete |
+| POOL-02 | Phase 2 | Complete |
 | POOL-03 | Phase 2 | Pending |
 | POOL-04 | Phase 2 | Pending |
 | POOL-05 | Phase 2 | Pending |
