@@ -41,6 +41,8 @@ type State struct {
 	Deployments   []deployment.Deployment      `json:"deployments"`
 	Groups        []pool.Group                 `json:"groups"`
 	Programmer    *programming.ProgrammerState `json:"programmer,omitempty"`
+	Themes        []programming.Theme          `json:"themes"`
+	Presets       []programming.Preset         `json:"presets"`
 }
 
 // resolvePath returns path unchanged when it is already absolute (the
@@ -160,6 +162,17 @@ func validate(s State) error {
 		if err := programming.ValidateProgrammer(*s.Programmer); err != nil {
 			return err
 		}
+	}
+	for _, preset := range s.Presets {
+		if err := programming.ValidatePreset(preset); err != nil {
+			return err
+		}
+	}
+	if err := programming.ValidateThemeUniqueNames(s.Themes); err != nil {
+		return err
+	}
+	if err := programming.ValidatePresetUniqueNames(s.Presets); err != nil {
+		return err
 	}
 	return nil
 }
