@@ -38,8 +38,15 @@ Requirements: ARTN-01 through ARTN-06.
 - **D-14:** No real Art-Net hardware is currently owned. Real-hardware compatibility is tracked as an **open item**, following the same selection-≠-support pattern as Phase 6's MIDI-HW-01/02: simulator+packet-level verification can proceed now, but no named hardware-compatibility claim is made until a real device is independently evidenced.
 - **D-15:** The evidence bar for a future real-hardware compatibility claim is a recorded Wireshark packet capture showing correct Art-Net 4 output reaching the node, plus an observed/recorded correct physical response from the fixture — simulator-only verification is not sufficient for a named hardware claim.
 
+### Data Model & Verification Environment (resolved post-research)
+04-RESEARCH.md surfaced three items that discussion did not reach (it focused on interface/process/health/hardware-policy, not the fixture-model gap or verification-environment mechanics research subsequently uncovered). Resolved with the user before planning:
+- **D-16:** The new DMX channel-order field (which channel offset within a fixture's addressed span corresponds to which semantic capability — this data exists nowhere in the codebase today) is added additively to the canonical `fixture.Mode` (Phase 2, status Complete), not kept as a Phase-4-scoped side model. One canonical fixture model stays authoritative; existing imported fixtures need this data re-derived or re-imported to gain Art-Net output.
+- **D-17:** A fixture/mode with no declared DMX channel-order is a hard rejection with an explicit re-authoring prompt — GOLC never silently guesses a channel order (e.g. falling back to declaration order). Matches the project's existing "never silently approximate" convention (Phase 2's POOL-07 capability-gap handling).
+- **D-18:** OLA (locked in D-13) has no native first-class Windows build. The plan keeps OLA as the verification simulator per D-13 and documents running it on a separate Linux host or bridged-adapter VM reachable from GOLC's pinned Windows interface — this is a verification-environment setup step, not a GOLC feature change.
+
 ### Claude's Discretion
-None — every gray area discussed converged on the recommended option; no "you decide" selections were made in this session.
+- The exact Net/Sub-Net/Universe bit-packing GOLC's flat `Instance.Universe` integer maps onto (RESEARCH.md Assumption A1 recommends Net=0, Sub-Net=`universe>>4`, Universe=`universe&0xF`) is left to the planner/executor as a technical implementation detail — the bit-packing rule itself is spec-fixed, and this is a mechanical mapping choice with a clear, low-risk default rather than a product/UX decision.
+- Otherwise: every gray area discussed converged on the recommended option; no other "you decide" selections were made in this session.
 
 </decisions>
 
