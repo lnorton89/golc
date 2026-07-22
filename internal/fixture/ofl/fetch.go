@@ -94,7 +94,15 @@ func Fetch(ctx context.Context, ref OFLRef) ([]byte, error) {
 		return nil, fmt.Errorf("GOLC_FIXTURE_OFL_FETCH_FAILED: %v", err)
 	}
 
-	response, err := http.DefaultClient.Do(request)
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if _, err := validateTargetURL(req.URL.String(), ref.AllowMirror); err != nil {
+				return fmt.Errorf("GOLC_FIXTURE_OFL_MIRROR_HOST: redirect to %q rejected: %v", req.URL, err)
+			}
+			return nil
+		},
+	}
+	response, err := client.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("GOLC_FIXTURE_OFL_FETCH_FAILED: %v", err)
 	}

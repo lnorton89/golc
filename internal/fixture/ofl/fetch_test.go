@@ -84,6 +84,27 @@ func TestFetchAllowsApprovedMirrorAndCaches(t *testing.T) {
 	}
 }
 
+// TestFetchRejectsRedirectToDisallowedScheme proves the SSRF guard
+// re-validates every redirect hop, not just the initial request URL
+// (CR-02): a server that 30x-redirects to a non-http(s) scheme is
+// rejected before the redirect is followed, even though the initial
+// request itself was to an approved, --allow-mirror-opted-in host.
+func TestFetchRejectsRedirectToDisallowedScheme(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "file:///etc/passwd", http.StatusFound)
+	}))
+	defer server.Close()
+
+	ref := ofl.OFLRef{Manufacturer: "acme", Key: "test", Mirror: server.URL, AllowMirror: true}
+	_, err := ofl.Fetch(context.Background(), ref)
+	if err == nil {
+		t.Fatal("expected Fetch to reject a redirect to a non-http(s) scheme")
+	}
+	if !strings.Contains(err.Error(), "GOLC_FIXTURE_OFL_MIRROR_HOST") {
+		t.Fatalf("expected the redirect rejection to surface a GOLC_FIXTURE_OFL_MIRROR_HOST diagnostic, got %v", err)
+	}
+}
+
 // TestFetchRejectsOversizedResponse proves the response-size cap (T-02-06)
 // rejects a response exceeding the limit with GOLC_FIXTURE_OFL_TOO_LARGE.
 func TestFetchRejectsOversizedResponse(t *testing.T) {
