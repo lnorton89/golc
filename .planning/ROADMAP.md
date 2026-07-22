@@ -164,7 +164,7 @@ Plans:
 
 ### Phase 3: Deterministic Show Programming and Playback
 
-**Goal:** Show authors can program complete tempo-aware looks and run them through a headless engine whose output is deterministic under adapter delay or failure.
+**Goal:** As a show author, I want to program complete tempo-aware looks and run them through a headless playback engine, so that the show's output stays deterministic even when the UI, persistence, scripts, an API client, or an LLM provider is slow, unavailable, or restarted.
 **Mode:** mvp
 **Depends on:** Phase 2
 **Requirements:** PROG-01, PROG-02, PROG-03, PROG-04, PROG-05, PROG-06, PROG-07, SCEN-01, SCEN-02, SCEN-03, SCEN-04, SCEN-05, SCEN-06, SCEN-07, SCEN-08, SCEN-09
