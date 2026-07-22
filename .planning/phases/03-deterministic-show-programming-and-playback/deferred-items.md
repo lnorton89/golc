@@ -75,3 +75,20 @@ task's changes are auto-fixed).
   outside this plan's `files_modified` list — likely reflects concurrent
   worktree-agent activity elsewhere in this wave. No new fix attempted;
   same pre-existing condition already logged under 03-01/03-03/03-04.
+
+## 03-07
+
+- Same `TestScopeLinearMap/real_repository_seed_migrates_end_to_end_offline`
+  drift reproduced again on `go test ./...` after 03-07's changes
+  (`internal/playback/frame.go`, `internal/playback/compile.go`,
+  `internal/playback/evaluate.go`, `internal/playback/engine.go`, plus
+  their `_test.go` files, and `internal/command/playback.go`/
+  `internal/command/playback_engine_test.go`). `go test
+  ./internal/playback/... -race`, `go test ./internal/command/... -run
+  TestPlayback`, and `go test ./internal/show/...` are all green, plus a
+  full `go build ./...` and `go vet ./...` clean; `git status --short
+  .planning/linear-map.json` shows zero uncommitted changes from this
+  plan's work. Drift remains isolated to `internal/trace/catalog` /
+  `.planning/linear-map.json`, outside this plan's `files_modified` list.
+  No new fix attempted; same pre-existing condition already logged under
+  03-01/03-03/03-04/03-05/03-06.
