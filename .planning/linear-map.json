@@ -855,6 +855,496 @@
       "parent_local_id": "plan:02-06",
       "display": "Task 3: pool substitute route (dry-run) reusing pool apply",
       "source": ".planning/phases/02-modular-fixtures-and-deployments/02-06-PLAN.md"
+    },
+    {
+      "local_id": "phase:03",
+      "kind": "phase",
+      "parent_local_id": "milestone:v1",
+      "display": "Deterministic Show Programming and Playback",
+      "source": ".planning/ROADMAP.md"
+    },
+    {
+      "local_id": "req:PROG-01",
+      "kind": "req",
+      "parent_local_id": "phase:03",
+      "display": "A show author can select fixtures by pool, group, deployment instance, or direct fixture selection.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:PROG-02",
+      "kind": "req",
+      "parent_local_id": "phase:03",
+      "display": "A show author can edit semantic intensity, color, position, beam, and supported fixture-specific attributes without working in raw DMX channels.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:PROG-03",
+      "kind": "req",
+      "parent_local_id": "phase:03",
+      "display": "The programmer shows which attributes are touched, their values, their sources, and what will be recorded.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:PROG-04",
+      "kind": "req",
+      "parent_local_id": "phase:03",
+      "display": "A show author can create reusable color themes and intensity, color, position, and beam presets from programmer state.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:PROG-05",
+      "kind": "req",
+      "parent_local_id": "phase:03",
+      "display": "A show author can create reusable chases with ordered steps and tempo-relative timing.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:PROG-06",
+      "kind": "req",
+      "parent_local_id": "phase:03",
+      "display": "A show author can create reusable motion presets using semantic position capabilities.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:PROG-07",
+      "kind": "req",
+      "parent_local_id": "phase:03",
+      "display": "A show author can record, update, rename, reorder, duplicate, and delete programming objects with undo and redo.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:SCEN-01",
+      "kind": "req",
+      "parent_local_id": "phase:03",
+      "display": "A show author can create a scene that loops for a configured number of musical bars against the global BPM.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:SCEN-02",
+      "kind": "req",
+      "parent_local_id": "phase:03",
+      "display": "An operator can set global BPM by entering a numeric value.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:SCEN-03",
+      "kind": "req",
+      "parent_local_id": "phase:03",
+      "display": "An operator can set global BPM through tap tempo.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:SCEN-04",
+      "kind": "req",
+      "parent_local_id": "phase:03",
+      "display": "Exactly one scene is active at a time during normal playback.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:SCEN-05",
+      "kind": "req",
+      "parent_local_id": "phase:03",
+      "display": "A scene can combine independently enabled color-theme, chase, motion-preset, and base-look layers.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:SCEN-06",
+      "kind": "req",
+      "parent_local_id": "phase:03",
+      "display": "An operator can switch the active scene or any scene layer immediately.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:SCEN-07",
+      "kind": "req",
+      "parent_local_id": "phase:03",
+      "display": "A show author can create and assign reusable blending presets that define transitions between scene and layer states.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:SCEN-08",
+      "kind": "req",
+      "parent_local_id": "phase:03",
+      "display": "A show author can configure whether a global BPM change preserves the active loop's musical position or restarts the loop.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:SCEN-09",
+      "kind": "req",
+      "parent_local_id": "phase:03",
+      "display": "Scene timing and layer evaluation remain deterministic when UI rendering, scripts, API clients, or LLM providers are slow or unavailable.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "plan:03-01",
+      "kind": "plan",
+      "parent_local_id": "phase:03",
+      "display": "Plan 03-01",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-01-PLAN.md"
+    },
+    {
+      "local_id": "task:03-01.1",
+      "kind": "task",
+      "parent_local_id": "plan:03-01",
+      "display": "Task 1: Selection resolution (PROG-01)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-01-PLAN.md"
+    },
+    {
+      "local_id": "task:03-01.2",
+      "kind": "task",
+      "parent_local_id": "plan:03-01",
+      "display": "Task 2: Programmer state and semantic attribute editing (PROG-02, PROG-03)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-01-PLAN.md"
+    },
+    {
+      "local_id": "task:03-01.3",
+      "kind": "task",
+      "parent_local_id": "plan:03-01",
+      "display": "Task 3: Persist programmer buffer on show.State and expose the `programmer` command scope (PROG-02, PROG-03)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-01-PLAN.md"
+    },
+    {
+      "local_id": "plan:03-02",
+      "kind": "plan",
+      "parent_local_id": "phase:03",
+      "display": "Plan 03-02",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-02-PLAN.md"
+    },
+    {
+      "local_id": "task:03-02.1",
+      "kind": "task",
+      "parent_local_id": "plan:03-02",
+      "display": "Task 1: Theme and Preset domain types (PROG-04)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-02-PLAN.md"
+    },
+    {
+      "local_id": "task:03-02.2",
+      "kind": "task",
+      "parent_local_id": "plan:03-02",
+      "display": "Task 2: Persist Themes/Presets on show.State and expose theme/preset routes (PROG-04)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-02-PLAN.md"
+    },
+    {
+      "local_id": "plan:03-03",
+      "kind": "plan",
+      "parent_local_id": "phase:03",
+      "display": "Plan 03-03",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-03-PLAN.md"
+    },
+    {
+      "local_id": "task:03-03.1",
+      "kind": "task",
+      "parent_local_id": "plan:03-03",
+      "display": "Task 1: Chase domain type with ordered tempo-relative steps (PROG-05)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-03-PLAN.md"
+    },
+    {
+      "local_id": "task:03-03.2",
+      "kind": "task",
+      "parent_local_id": "plan:03-03",
+      "display": "Task 2: Motion preset scoped to position/beam capabilities (PROG-06)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-03-PLAN.md"
+    },
+    {
+      "local_id": "task:03-03.3",
+      "kind": "task",
+      "parent_local_id": "plan:03-03",
+      "display": "Task 3: Persist Chases/MotionPresets on show.State and expose chase/motion routes (PROG-05, PROG-06)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-03-PLAN.md"
+    },
+    {
+      "local_id": "plan:03-04",
+      "kind": "plan",
+      "parent_local_id": "phase:03",
+      "display": "Plan 03-04",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-04-PLAN.md"
+    },
+    {
+      "local_id": "task:03-04.1",
+      "kind": "task",
+      "parent_local_id": "plan:03-04",
+      "display": "Task 1: Scene + Layer model and fixed-priority reduce (SCEN-01 model, SCEN-04, SCEN-05)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-04-PLAN.md"
+    },
+    {
+      "local_id": "task:03-04.2",
+      "kind": "task",
+      "parent_local_id": "plan:03-04",
+      "display": "Task 2: Blend preset model (SCEN-07)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-04-PLAN.md"
+    },
+    {
+      "local_id": "task:03-04.3",
+      "kind": "task",
+      "parent_local_id": "plan:03-04",
+      "display": "Task 3: Persist Scenes/BlendPresets/Tempo on show.State and expose scene routes (SCEN-01, SCEN-04, SCEN-05, SCEN-07)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-04-PLAN.md"
+    },
+    {
+      "local_id": "plan:03-05",
+      "kind": "plan",
+      "parent_local_id": "phase:03",
+      "display": "Plan 03-05",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-05-PLAN.md"
+    },
+    {
+      "local_id": "task:03-05.1",
+      "kind": "task",
+      "parent_local_id": "plan:03-05",
+      "display": "Task 1: Session-only linear undo/redo history (PROG-07, D-12/D-13/D-14)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-05-PLAN.md"
+    },
+    {
+      "local_id": "task:03-05.2",
+      "kind": "task",
+      "parent_local_id": "plan:03-05",
+      "display": "Task 2: Complete the record/update/rename/reorder/duplicate/delete CLI surface (PROG-07)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-05-PLAN.md"
+    },
+    {
+      "local_id": "plan:03-06",
+      "kind": "plan",
+      "parent_local_id": "phase:03",
+      "display": "Plan 03-06",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-06-PLAN.md"
+    },
+    {
+      "local_id": "task:03-06.1",
+      "kind": "task",
+      "parent_local_id": "plan:03-06",
+      "display": "Task 1: Pure musical-position clock, tap tempo, and preserve/restart epoch (SCEN-01, SCEN-03, SCEN-08)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-06-PLAN.md"
+    },
+    {
+      "local_id": "task:03-06.2",
+      "kind": "task",
+      "parent_local_id": "plan:03-06",
+      "display": "Task 2: BPM entry and tap-tempo command routes (SCEN-02, SCEN-03)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-06-PLAN.md"
+    },
+    {
+      "local_id": "plan:03-07",
+      "kind": "plan",
+      "parent_local_id": "phase:03",
+      "display": "Plan 03-07",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-07-PLAN.md"
+    },
+    {
+      "local_id": "task:03-07.1",
+      "kind": "task",
+      "parent_local_id": "plan:03-07",
+      "display": "Task 1: Frame, all-or-nothing Compile, and pure Evaluate (SCEN-09, D-06)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-07-PLAN.md"
+    },
+    {
+      "local_id": "task:03-07.2",
+      "kind": "task",
+      "parent_local_id": "plan:03-07",
+      "display": "Task 2: Real-time engine with next-bar adoption and lock-free publish (SCEN-06, SCEN-09, D-05/D-06/D-07)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-07-PLAN.md"
+    },
+    {
+      "local_id": "task:03-07.3",
+      "kind": "task",
+      "parent_local_id": "plan:03-07",
+      "display": "Task 3: Headless playback evaluate/switch command surface (SCEN-06, SCEN-09)",
+      "source": ".planning/phases/03-deterministic-show-programming-and-playback/03-07-PLAN.md"
+    },
+    {
+      "local_id": "phase:04",
+      "kind": "phase",
+      "parent_local_id": "milestone:v1",
+      "display": "Observable Art-Net Live Output",
+      "source": ".planning/ROADMAP.md"
+    },
+    {
+      "local_id": "req:ARTN-01",
+      "kind": "req",
+      "parent_local_id": "phase:04",
+      "display": "An operator can select the Windows network interface used for Art-Net output and see its current status.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:ARTN-02",
+      "kind": "req",
+      "parent_local_id": "phase:04",
+      "display": "An operator can configure Art-Net universes and static unicast targets and discover compatible nodes when discovery is enabled.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:ARTN-03",
+      "kind": "req",
+      "parent_local_id": "phase:04",
+      "display": "The application emits valid Art-Net 4 output with correct addressing, sequence, payload-length, refresh, and target behavior for supported nodes.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:ARTN-04",
+      "kind": "req",
+      "parent_local_id": "phase:04",
+      "display": "Art-Net output consumes complete frames from the deterministic playback engine without being backpressured by the UI, persistence, scripts, API, or LLM operations.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:ARTN-05",
+      "kind": "req",
+      "parent_local_id": "phase:04",
+      "display": "An operator can inspect per-universe final values, frame health, target health, errors, and output enablement.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:ARTN-06",
+      "kind": "req",
+      "parent_local_id": "phase:04",
+      "display": "A release can demonstrate packet and timing compatibility with an independent simulator and real Art-Net hardware.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "plan:04-01",
+      "kind": "plan",
+      "parent_local_id": "phase:04",
+      "display": "Plan 04-01",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-01-PLAN.md"
+    },
+    {
+      "local_id": "task:04-01.1",
+      "kind": "task",
+      "parent_local_id": "plan:04-01",
+      "display": "Task 1: Add additive per-mode DMX channel-order field to the canonical fixture model (D-16/D-17)",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-01-PLAN.md"
+    },
+    {
+      "local_id": "task:04-01.2",
+      "kind": "task",
+      "parent_local_id": "plan:04-01",
+      "display": "Task 2: Byte-exact ArtDMX encoder + universe-to-Port-Address mapping + sequence wrap",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-01-PLAN.md"
+    },
+    {
+      "local_id": "task:04-01.3",
+      "kind": "task",
+      "parent_local_id": "plan:04-01",
+      "display": "Task 3: Semantic-frame-to-DMX channel map using the new Mode.Channels layout",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-01-PLAN.md"
+    },
+    {
+      "local_id": "plan:04-02",
+      "kind": "plan",
+      "parent_local_id": "phase:04",
+      "display": "Plan 04-02",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-02-PLAN.md"
+    },
+    {
+      "local_id": "task:04-02.1",
+      "kind": "task",
+      "parent_local_id": "plan:04-02",
+      "display": "Task 1: Interface enumeration + pinned-by-index loss detection (ARTN-01, D-05)",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-02-PLAN.md"
+    },
+    {
+      "local_id": "task:04-02.2",
+      "kind": "task",
+      "parent_local_id": "plan:04-02",
+      "display": "Task 2: Unicast target model with fan-out, dedupe, and per-target enable/disable (ARTN-02, D-07/D-08/D-12)",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-02-PLAN.md"
+    },
+    {
+      "local_id": "plan:04-03",
+      "kind": "plan",
+      "parent_local_id": "phase:04",
+      "display": "Plan 04-03",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-03-PLAN.md"
+    },
+    {
+      "local_id": "task:04-03.1",
+      "kind": "task",
+      "parent_local_id": "plan:04-03",
+      "display": "Task 1: Non-blocking ticker-driven send loop with bounded per-target fan-out (ARTN-03/ARTN-04)",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-03-PLAN.md"
+    },
+    {
+      "local_id": "task:04-03.2",
+      "kind": "task",
+      "parent_local_id": "plan:04-03",
+      "display": "Task 2: Frame/target health model with stalled-vs-healthy transitions (ARTN-05, D-09/D-10/D-11)",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-03-PLAN.md"
+    },
+    {
+      "local_id": "plan:04-04",
+      "kind": "plan",
+      "parent_local_id": "phase:04",
+      "display": "Plan 04-04",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-04-PLAN.md"
+    },
+    {
+      "local_id": "task:04-04.1",
+      "kind": "task",
+      "parent_local_id": "plan:04-04",
+      "display": "Task 1: Local named-pipe IPC server + client reusing command.Request/Result (D-03/D-04)",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-04-PLAN.md"
+    },
+    {
+      "local_id": "task:04-04.2",
+      "kind": "task",
+      "parent_local_id": "plan:04-04",
+      "display": "Task 2: Long-lived standalone daemon wiring engine + worker + interface + IPC (D-03/D-04)",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-04-PLAN.md"
+    },
+    {
+      "local_id": "plan:04-05",
+      "kind": "plan",
+      "parent_local_id": "phase:04",
+      "display": "Plan 04-05",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-05-PLAN.md"
+    },
+    {
+      "local_id": "task:04-05.1",
+      "kind": "task",
+      "parent_local_id": "plan:04-05",
+      "display": "Task 1: Declare the artnet scope + serve/interface/configure routes (D-01/D-03, ARTN-01/02)",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-05-PLAN.md"
+    },
+    {
+      "local_id": "task:04-05.2",
+      "kind": "task",
+      "parent_local_id": "plan:04-05",
+      "display": "Task 2: `golc artnet status` (watch + snapshot + --json) and `target enable|disable` (ARTN-05, D-02/D-11/D-12)",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-05-PLAN.md"
+    },
+    {
+      "local_id": "plan:04-06",
+      "kind": "plan",
+      "parent_local_id": "phase:04",
+      "display": "Plan 04-06",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-06-PLAN.md"
+    },
+    {
+      "local_id": "task:04-06.1",
+      "kind": "task",
+      "parent_local_id": "plan:04-06",
+      "display": "Task 1: ArtPoll/ArtPollReply codec with strict reply-field bounds checks (ARTN-02, Security V5)",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-06-PLAN.md"
+    },
+    {
+      "local_id": "task:04-06.2",
+      "kind": "task",
+      "parent_local_id": "plan:04-06",
+      "display": "Task 2: Bounded discovery scan + `golc artnet discover` as suggestions only (D-06/D-07)",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-06-PLAN.md"
+    },
+    {
+      "local_id": "plan:04-07",
+      "kind": "plan",
+      "parent_local_id": "phase:04",
+      "display": "Plan 04-07",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-07-PLAN.md"
+    },
+    {
+      "local_id": "task:04-07.1",
+      "kind": "task",
+      "parent_local_id": "plan:04-07",
+      "display": "Task 1: Author the ARTN-06 independent-verification runbook (D-13/D-14/D-15/D-18)",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-07-PLAN.md"
     }
   ],
   "remote_mappings": [
@@ -1812,6 +2302,566 @@
     },
     {
       "repo_id": "task:02-06.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "phase:03",
+      "linear_type": "project_milestone",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PROG-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PROG-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PROG-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PROG-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PROG-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PROG-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PROG-07",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SCEN-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SCEN-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SCEN-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SCEN-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SCEN-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SCEN-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SCEN-07",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SCEN-08",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SCEN-09",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:03-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-01.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-01.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-01.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:03-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-02.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-02.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:03-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-03.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-03.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-03.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:03-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-04.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-04.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-04.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:03-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-05.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-05.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:03-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-06.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-06.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:03-07",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-07.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-07.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:03-07.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "phase:04",
+      "linear_type": "project_milestone",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:ARTN-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:ARTN-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:ARTN-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:ARTN-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:ARTN-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:ARTN-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:04-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-01.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-01.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-01.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:04-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-02.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-02.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:04-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-03.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-03.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:04-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-04.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-04.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:04-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-05.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-05.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:04-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-06.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-06.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:04-07",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-07.1",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,
