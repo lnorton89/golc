@@ -48,7 +48,11 @@ var _ = MustDeclareRoute(CommandRegistration{
 	Route: "pool update",
 	Summary: "Compute and write/print a deterministic pool impact-review plan without mutating the ShowState document: " +
 		"pool update <pool> [--add <fixture_stable_key>|<fixture_content_hash>|<mode>]... [--remove <pool_member_id>]... " +
-		"[--propagate immediate|preview] [--out <path>] [--json] --show <path>.",
+		"[--propagate immediate|preview] [--out <path>] [--json] --show <path>. " +
+		"WARNING: --add's <fixture_stable_key>|<fixture_content_hash> pair is a low-level, unverified reference -- " +
+		"unlike \"pool substitute\", nothing here decodes, pins, or otherwise checks it against a real fixture " +
+		"definition; deriving a trustworthy pair (for example via \"fixture import\"/\"fixture inspect\") is the " +
+		"caller's own responsibility.",
 	Handler: runPoolUpdate,
 })
 
@@ -176,6 +180,19 @@ type poolUpdateArgs struct {
 // "<fixture_stable_key>|<fixture_content_hash>|<mode>" shape. "|" (not
 // ":") is the field separator because a content hash routinely carries
 // its own algorithm prefix (for example "sha256:...").
+//
+// WR-03: this only checks the three fields are present and non-empty --
+// it never decodes, pins, or cross-checks fixture_stable_key/
+// fixture_content_hash against a real fixture.FixtureDefinition the way
+// "pool substitute" (which does read and fixture.Decode/fixture.Pin its
+// --from/--to files) does. A caller can therefore pass a stable
+// key/content hash pair that was never validated, decoded, or even
+// exists; FIXT-05's content-addressed-pinning guarantee is only as
+// trustworthy here as whatever produced the string the caller supplies
+// (for example "fixture import"/"fixture inspect" output). Verifying
+// that pair against an actual fixture definition before it enters a
+// show is the caller's own responsibility until this route is changed
+// to accept a fixture file path directly.
 func parsePoolMemberSpec(raw string) (pool.PoolMemberSpec, error) {
 	parts := strings.SplitN(raw, "|", 3)
 	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
