@@ -76,8 +76,8 @@
 
 ### Art-Net Output
 
-- [ ] **ARTN-01**: An operator can select the Windows network interface used for Art-Net output and see its current status.
-- [ ] **ARTN-02**: An operator can configure Art-Net universes and static unicast targets and discover compatible nodes when discovery is enabled.
+- [x] **ARTN-01**: An operator can select the Windows network interface used for Art-Net output and see its current status.
+- [x] **ARTN-02**: An operator can configure Art-Net universes and static unicast targets and discover compatible nodes when discovery is enabled.
 - [ ] **ARTN-03**: The application emits valid Art-Net 4 output with correct addressing, sequence, payload-length, refresh, and target behavior for supported nodes.
 - [ ] **ARTN-04**: Art-Net output consumes complete frames from the deterministic playback engine without being backpressured by the UI, persistence, scripts, API, or LLM operations.
 - [ ] **ARTN-05**: An operator can inspect per-universe final values, frame health, target health, errors, and output enablement.
@@ -240,8 +240,8 @@ A v1 requirement is complete only when its implementation is committed, automate
 | PLAY-07 | Phase 6 | Pending |
 | PLAY-08 | Phase 6 | Pending |
 | PLAY-09 | Phase 6 | Pending |
-| ARTN-01 | Phase 4 | Pending |
-| ARTN-02 | Phase 4 | Pending |
+| ARTN-01 | Phase 4 | Complete |
+| ARTN-02 | Phase 4 | Complete |
 | ARTN-03 | Phase 4 | Pending |
 | ARTN-04 | Phase 4 | Pending |
 | ARTN-05 | Phase 4 | Pending |
