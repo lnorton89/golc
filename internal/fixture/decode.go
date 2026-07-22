@@ -35,10 +35,21 @@ func Decode(data []byte) (FixtureDefinition, error) {
 		return FixtureDefinition{}, fmt.Errorf("GOLC_FIXTURE_YAML_INVALID: %v", err)
 	}
 
-	if err := validate(def); err != nil {
+	if err := Validate(def); err != nil {
 		return FixtureDefinition{}, err
 	}
 	return def, nil
+}
+
+// Validate enforces FIXT-02's post-decode rules against an already
+// (however sourced) built FixtureDefinition. Decode calls this after its
+// own strict YAML decode; internal/fixture/ofl.Normalize (02-03) calls it
+// directly after mapping OFL's JSON shape onto FixtureDefinition, so
+// hand-authored and OFL-imported fixtures run through the exact same
+// validation logic rather than two independently-evolving copies of it
+// (RESEARCH D-16 risk this repo's own precedent already warns against).
+func Validate(def FixtureDefinition) error {
+	return validate(def)
 }
 
 // supportedCapabilityTypes is the declared enum as a lookup set, built
