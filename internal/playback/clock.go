@@ -69,7 +69,18 @@ func secondsPerBar(bpm float64) float64 {
 // is exactly k in that case, and truncating it toward zero yields k, not
 // k-1 (03-RESEARCH.md Pitfall 1 concerns detecting the transition, not
 // this attribution, which the truncation already gets right).
+//
+// barsPerLoop must be a positive integer (every caller within this repo
+// only ever supplies one already validated by scene.ValidateScene's
+// [1, maxBarsPerLoop] check). A non-positive barsPerLoop is defensively
+// clamped to 1 here (WR-02) rather than left to panic on the integer
+// divide/mod below -- a hand-constructed or otherwise-unvalidated
+// barsPerLoop from a future direct caller of this exported function
+// degrades to a single-bar loop instead of crashing the process.
 func Position(now time.Time, bpm float64, barsPerLoop int, loopStart time.Time) MusicalPosition {
+	if barsPerLoop <= 0 {
+		barsPerLoop = 1
+	}
 	perBar := secondsPerBar(bpm)
 	elapsed := now.Sub(loopStart).Seconds()
 	barsElapsed := elapsed / perBar

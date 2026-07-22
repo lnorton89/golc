@@ -53,6 +53,27 @@ func TestClockPositionAdvancesAndWraps(t *testing.T) {
 	}
 }
 
+// TestClockPositionNonPositiveBarsPerLoopDoesNotPanic proves WR-02:
+// Position defensively clamps a non-positive barsPerLoop to 1 rather than
+// panicking with an integer divide-by-zero -- a future direct caller of
+// this exported function that passes an unvalidated barsPerLoop degrades
+// to a single-bar loop instead of crashing the process.
+func TestClockPositionNonPositiveBarsPerLoopDoesNotPanic(t *testing.T) {
+	loopStart := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	bpm := 120.0 // secondsPerBar = 2s
+
+	for _, barsPerLoop := range []int{0, -1, -100} {
+		now := loopStart.Add(3 * time.Second) // 1.5 bars elapsed
+		pos := playback.Position(now, bpm, barsPerLoop, loopStart)
+		if pos.BarIndex != 0 {
+			t.Errorf("barsPerLoop=%d: expected the clamped single-bar loop to report BarIndex=0, got %d", barsPerLoop, pos.BarIndex)
+		}
+		if diff := pos.BeatFraction - 0.5; diff < -1e-9 || diff > 1e-9 {
+			t.Errorf("barsPerLoop=%d: expected BeatFraction=0.5, got %v", barsPerLoop, pos.BeatFraction)
+		}
+	}
+}
+
 func TestClockPositionDeterministicSameArgs(t *testing.T) {
 	loopStart := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	now := loopStart.Add(1500 * time.Millisecond)
