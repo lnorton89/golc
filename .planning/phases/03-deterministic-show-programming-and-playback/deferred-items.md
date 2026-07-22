@@ -45,3 +45,18 @@ task's changes are auto-fixed).
   `.planning/linear-map.json`, outside this plan's `files_modified` list.
   No new fix attempted — same pre-existing condition already logged under
   03-01/03-03.
+
+## 03-05
+
+- Same `TestScopeLinearMap/real_repository_seed_migrates_end_to_end_offline`
+  drift reproduced again on `go test ./...` after 03-05's changes
+  (`internal/programming/history.go`, `internal/programming/history_test.go`,
+  `internal/command/programming.go`, `internal/command/history_test.go`).
+  Every package this plan touches passes independently
+  (`go test ./internal/programming/... -run TestHistory`,
+  `go test ./internal/command/... -run TestHistory`, and
+  `go test ./internal/show/...` all green, plus a full `go build ./...`
+  and `go vet ./...` clean); the drift is isolated to
+  `internal/trace/catalog` / `.planning/linear-map.json`, outside this
+  plan's `files_modified` list. No new fix attempted — same pre-existing
+  condition already logged under 03-01/03-03/03-04.
