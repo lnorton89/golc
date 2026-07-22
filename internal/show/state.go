@@ -119,8 +119,9 @@ func Save(root, path string, s State) error {
 // validate runs every whole-State invariant Load and Save both enforce
 // before trusting or persisting a State: every pool individually valid,
 // unique pool names, unique deployment names, at most one active
-// deployment, and every instance address within the valid DMX/Art-Net
-// range.
+// deployment, every instance address within the valid DMX/Art-Net range,
+// unique group names, and every group's member refs resolving to an
+// existing pool/pool member (WR-02).
 func validate(s State) error {
 	for _, p := range s.Pools {
 		if err := pool.Validate(p); err != nil {
@@ -142,6 +143,12 @@ func validate(s State) error {
 				return err
 			}
 		}
+	}
+	if err := pool.ValidateUniqueGroupNames(s.Groups); err != nil {
+		return err
+	}
+	if err := pool.ValidateGroupReferences(s.Pools, s.Groups); err != nil {
+		return err
 	}
 	return nil
 }

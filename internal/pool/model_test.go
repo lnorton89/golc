@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/lnorton89/golc/internal/pool"
 )
 
@@ -41,6 +43,53 @@ func TestPoolIdentityStable(t *testing.T) {
 	}
 	if err := pool.ValidateUniqueNames([]pool.Pool{p, other}); err == nil || !strings.Contains(err.Error(), "GOLC_POOL_DUPLICATE_NAME") {
 		t.Fatalf("expected GOLC_POOL_DUPLICATE_NAME for duplicate pool names, got %v", err)
+	}
+}
+
+func TestGroupUniqueNamesRejected(t *testing.T) {
+	first := pool.Group{Name: "Front Wash"}
+	second := pool.Group{Name: "Front Wash"}
+	if err := pool.ValidateUniqueGroupNames([]pool.Group{first, second}); err == nil || !strings.Contains(err.Error(), "GOLC_GROUP_DUPLICATE_NAME") {
+		t.Fatalf("expected GOLC_GROUP_DUPLICATE_NAME for duplicate group names, got %v", err)
+	}
+	if err := pool.ValidateUniqueGroupNames([]pool.Group{first, {Name: "Back Wash"}}); err != nil {
+		t.Fatalf("expected distinctly named groups to be valid, got %v", err)
+	}
+}
+
+func TestGroupReferencesValidated(t *testing.T) {
+	p, err := pool.NewPool("Wash Pool", nil)
+	if err != nil {
+		t.Fatalf("NewPool: %v", err)
+	}
+	member, err := pool.NewPoolMember("fixture:generic-rgb-par", "sha256:deadbeef")
+	if err != nil {
+		t.Fatalf("NewPoolMember: %v", err)
+	}
+	p.Members = append(p.Members, member)
+
+	valid := pool.Group{
+		Name:       "Front Wash",
+		MemberRefs: []pool.MemberRef{{PoolID: p.ID, PoolMemberID: member.ID}},
+	}
+	if err := pool.ValidateGroupReferences([]pool.Pool{p}, []pool.Group{valid}); err != nil {
+		t.Fatalf("expected a group referencing a real pool member to be valid, got %v", err)
+	}
+
+	danglingPool := pool.Group{
+		Name:       "Dangling Pool Ref",
+		MemberRefs: []pool.MemberRef{{PoolID: uuid.Must(uuid.NewV7()), PoolMemberID: member.ID}},
+	}
+	if err := pool.ValidateGroupReferences([]pool.Pool{p}, []pool.Group{danglingPool}); err == nil || !strings.Contains(err.Error(), "GOLC_GROUP_DANGLING_REFERENCE") {
+		t.Fatalf("expected GOLC_GROUP_DANGLING_REFERENCE for a reference to a nonexistent pool, got %v", err)
+	}
+
+	danglingMember := pool.Group{
+		Name:       "Dangling Member Ref",
+		MemberRefs: []pool.MemberRef{{PoolID: p.ID, PoolMemberID: uuid.Must(uuid.NewV7())}},
+	}
+	if err := pool.ValidateGroupReferences([]pool.Pool{p}, []pool.Group{danglingMember}); err == nil || !strings.Contains(err.Error(), "GOLC_GROUP_DANGLING_REFERENCE") {
+		t.Fatalf("expected GOLC_GROUP_DANGLING_REFERENCE for a reference to a nonexistent pool member, got %v", err)
 	}
 }
 

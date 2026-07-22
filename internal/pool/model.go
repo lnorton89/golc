@@ -140,3 +140,50 @@ func ValidateUniqueNames(pools []Pool) error {
 	}
 	return nil
 }
+
+// ValidateUniqueGroupNames rejects any two groups in groups sharing the
+// same Name, mirroring ValidateUniqueNames' duplicate-name guarantee for
+// Pool/Deployment: a duplicate Group name is always rejected with a
+// diagnostic, never silently permitted (WR-02).
+func ValidateUniqueGroupNames(groups []Group) error {
+	seen := make(map[string]bool, len(groups))
+	for _, g := range groups {
+		if seen[g.Name] {
+			return fmt.Errorf("GOLC_GROUP_DUPLICATE_NAME: a group named %q already exists", g.Name)
+		}
+		seen[g.Name] = true
+	}
+	return nil
+}
+
+// ValidateGroupReferences rejects any Group whose MemberRef points at a
+// pool or pool member that does not exist in pools (WR-02): a dangling
+// reference is always rejected with a diagnostic at Load/Save time,
+// never silently permitted to persist.
+func ValidateGroupReferences(pools []Pool, groups []Group) error {
+	membersByPool := make(map[uuid.UUID]map[uuid.UUID]bool, len(pools))
+	for _, p := range pools {
+		members := make(map[uuid.UUID]bool, len(p.Members))
+		for _, m := range p.Members {
+			members[m.ID] = true
+		}
+		membersByPool[p.ID] = members
+	}
+
+	for _, g := range groups {
+		for _, ref := range g.MemberRefs {
+			members, poolExists := membersByPool[ref.PoolID]
+			if !poolExists {
+				return fmt.Errorf(
+					"GOLC_GROUP_DANGLING_REFERENCE: group %q references pool %s, which does not exist",
+					g.Name, ref.PoolID)
+			}
+			if !members[ref.PoolMemberID] {
+				return fmt.Errorf(
+					"GOLC_GROUP_DANGLING_REFERENCE: group %q references pool member %s in pool %s, which does not exist",
+					g.Name, ref.PoolMemberID, ref.PoolID)
+			}
+		}
+	}
+	return nil
+}

@@ -14,10 +14,25 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/lnorton89/golc/internal/deployment"
 	"github.com/lnorton89/golc/internal/pool"
 	"github.com/lnorton89/golc/internal/show"
 )
+
+// mustNewUUID mints a fresh UUIDv7 for use as a deliberately dangling
+// reference in a test fixture, failing the test immediately on mint
+// failure (mirrors the uuid.NewV7 error-handling shape used throughout
+// this package's non-test code).
+func mustNewUUID(t *testing.T) uuid.UUID {
+	t.Helper()
+	id, err := uuid.NewV7()
+	if err != nil {
+		t.Fatalf("uuid.NewV7: %v", err)
+	}
+	return id
+}
 
 func TestShowStateRoundTrip(t *testing.T) {
 	root := t.TempDir()
@@ -84,6 +99,66 @@ func TestShowStateRoundTrip(t *testing.T) {
 	dupState := show.State{Pools: []pool.Pool{p, p2}}
 	if err := show.Save(root, "dup.json", dupState); err == nil || !strings.Contains(err.Error(), "GOLC_SHOW_STATE_INVALID") {
 		t.Fatalf("expected GOLC_SHOW_STATE_INVALID for duplicate pool names, got %v", err)
+	}
+}
+
+func TestShowStateGroupValidation(t *testing.T) {
+	root := t.TempDir()
+
+	p, err := pool.NewPool("Wash Pool", nil)
+	if err != nil {
+		t.Fatalf("NewPool: %v", err)
+	}
+	member, err := pool.NewPoolMember("fixture:generic-rgb-par", "sha256:deadbeef")
+	if err != nil {
+		t.Fatalf("NewPoolMember: %v", err)
+	}
+	p.Members = append(p.Members, member)
+
+	// A duplicate-name Groups slice fails Save (WR-02: never a silent
+	// duplicate, mirroring the Pool/Deployment guarantee).
+	dupGroups := show.State{
+		Pools:  []pool.Pool{p},
+		Groups: []pool.Group{{Name: "Front Wash"}, {Name: "Front Wash"}},
+	}
+	if err := show.Save(root, "dup-groups.json", dupGroups); err == nil || !strings.Contains(err.Error(), "GOLC_SHOW_STATE_INVALID") {
+		t.Fatalf("expected GOLC_SHOW_STATE_INVALID for duplicate group names, got %v", err)
+	}
+
+	// A Group with a MemberRef pointing at a pool member that does not
+	// exist fails Save (WR-02: a dangling reference is never silently
+	// persisted).
+	if err := show.Save(root, "dangling-group.json", show.State{
+		Pools: []pool.Pool{p},
+		Groups: []pool.Group{{
+			Name: "Front Wash",
+			MemberRefs: []pool.MemberRef{{
+				PoolID:       p.ID,
+				PoolMemberID: mustNewUUID(t),
+			}},
+		}},
+	}); err == nil || !strings.Contains(err.Error(), "GOLC_SHOW_STATE_INVALID") {
+		t.Fatalf("expected GOLC_SHOW_STATE_INVALID for a dangling group member reference, got %v", err)
+	}
+
+	// A Group whose MemberRefs all resolve to a real pool/pool member
+	// saves and loads successfully.
+	validGroups := show.State{
+		Pools: []pool.Pool{p},
+		Groups: []pool.Group{{
+			Name:       "Front Wash",
+			MemberRefs: []pool.MemberRef{{PoolID: p.ID, PoolMemberID: member.ID}},
+		}},
+	}
+	if err := show.Save(root, "valid-groups.json", validGroups); err != nil {
+		t.Fatalf("expected a valid group to save, got %v", err)
+	}
+	loaded, err := show.Load(root, "valid-groups.json")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(loaded.Groups) != 1 || loaded.Groups[0].Name != "Front Wash" {
+		t.Fatalf("group did not round-trip: %+v", loaded.Groups)
 	}
 }
 
