@@ -16,15 +16,15 @@ An operator can author a modular show once, adapt its fixture pools to different
 
 - [x] Project requirements, roadmap phases, implementation work, and delivery status are tracked in Linear from the start with durable links back to repository planning artifacts. — *Validated in Phase 1: Offline Foundation and Delivery Traceability (2026-07-21)*
 - [x] Developer tooling, application defaults, runtime configuration, schemas, generation, validation, build, test, and packaging settings are centralized behind one documented project configuration entrypoint and separated into clear concerns. — *Validated in Phase 1: Offline Foundation and Delivery Traceability (2026-07-21)*
+- [x] Fixture definitions are human-readable YAML files validated against a versioned schema and compiled into a canonical typed model before use. — *Validated in Phase 2: Modular Fixtures and Deployments (2026-07-21)*
+- [x] Users can import fixture definitions from Open Fixture Library and create, edit, validate, and share custom YAML fixture definitions. — *Validated in Phase 2: Modular Fixtures and Deployments (2026-07-21)*
+- [x] Show files model reusable fixture pools independently from a deployment's concrete fixture count and addresses. — *Validated in Phase 2: Modular Fixtures and Deployments (2026-07-21)*
+- [x] Users can configure how fixture-pool updates propagate through dependents; the default workflow presents an impact review before applying changes. — *Validated in Phase 2: Modular Fixtures and Deployments (2026-07-21)*
+- [x] Users can replace fixture models by mapping shared semantic capabilities and reviewing unsupported or incompatible capabilities before committing the deployment change. — *Validated in Phase 2: Modular Fixtures and Deployments (2026-07-21)*
 
 ### Active
 
 - [ ] Operators can patch fixtures, organize controllable attributes, create looks/scenes and chases, play them back, save a show, and restore it later.
-- [ ] Fixture definitions are human-readable YAML files validated against a versioned schema and compiled into a canonical typed model before use.
-- [ ] Users can import fixture definitions from Open Fixture Library and create, edit, validate, and share custom YAML fixture definitions.
-- [ ] Show files model reusable fixture pools independently from a deployment's concrete fixture count and addresses.
-- [ ] Users can configure how fixture-pool updates propagate through dependents; the default workflow presents an impact review before applying changes.
-- [ ] Users can replace fixture models by mapping shared semantic capabilities and reviewing unsupported or incompatible capabilities before committing the deployment change.
 - [ ] Scenes can loop for a configured number of musical bars synchronized to a show-wide BPM.
 - [ ] Users can combine and swap color themes, chases, and motion presets within tempo-aware scenes using configurable blending transitions.
 - [ ] Keyboard and on-screen playback expose the complete operator workflow without requiring a MIDI controller.
@@ -142,4 +142,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-21 after Phase 1: Offline Foundation and Delivery Traceability completion*
+*Last updated: 2026-07-21 after Phase 2: Modular Fixtures and Deployments completion*
