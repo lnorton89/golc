@@ -138,7 +138,7 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
   4. Adding or removing pool fixtures produces a deterministic review of every affected group, theme, palette, scene, chase, motion preset, and controller mapping; review-before-apply remains the default even when propagation policy is configurable.
   5. A show author can map replacement fixtures by semantic capability, see every missing or incompatible capability, and accept, revise, or cancel an all-or-nothing change without silent approximation.
 
-**Plans:** 1/6 plans executed
+**Plans:** 3/6 plans executed
 
 Plans:
 **Wave 1**
@@ -147,8 +147,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 02-02-PLAN.md — Fixture identity/hash pinning + provenance, `golc fixture inspect` (FIXT-05/06) [Wave 2]
-- [ ] 02-04-PLAN.md — Pool + deployment domain model + revisioned ShowState, `golc pool/deployment create` (POOL-01/02) [Wave 2]
+- [x] 02-02-PLAN.md — Fixture identity/hash pinning + provenance, `golc fixture inspect` (FIXT-05/06) [Wave 2]
+- [x] 02-04-PLAN.md — Pool + deployment domain model + revisioned ShowState, `golc pool/deployment create` (POOL-01/02) [Wave 2]
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -303,7 +303,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Offline Foundation and Delivery Traceability | 32/32 | Complete    | 2026-07-21 |
-| 2. Modular Fixtures and Deployments | 1/6 | In Progress|  |
+| 2. Modular Fixtures and Deployments | 3/6 | In Progress|  |
 | 3. Deterministic Show Programming and Playback | 0/TBD | Not started | - |
 | 4. Observable Art-Net Live Output | 0/TBD | Not started | - |
 | 5. Durable Shows and Recovery | 0/TBD | Not started | - |
