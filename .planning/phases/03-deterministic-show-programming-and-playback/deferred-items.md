@@ -18,3 +18,16 @@ task's changes are auto-fixed).
   in Phase 1 (01-08/01-09/01-21), long before this phase's work began. Not
   reproduced or investigated further; flagged here for a future phase/plan
   to triage.
+
+## 03-03
+
+- Same `TestScopeLinearMap/real_repository_seed_migrates_end_to_end_offline`
+  drift reproduced again on `go test ./...` after 03-03's changes
+  (`internal/programming/chase.go`, `internal/programming/motion.go`,
+  `internal/show/state.go`, `internal/command/programming.go`). Every
+  package this plan touches passes independently
+  (`go test ./internal/programming/... ./internal/command/... ./internal/show/...`
+  green); the drift is isolated to `internal/trace/catalog` /
+  `.planning/linear-map.json`, outside this plan's `files_modified` list.
+  No new fix attempted — same pre-existing condition already logged under
+  03-01.
