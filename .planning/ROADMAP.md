@@ -220,7 +220,7 @@ Plans:
   3. Playback continues publishing the newest complete frames at its defined cadence while UI, persistence, scripts, API, or LLM work is stalled or overloaded, without those components backpressuring the engine or Art-Net worker.
   4. An operator can inspect per-universe final values, frame health, target health, errors, and output enablement, and a release candidate demonstrates compatibility with both an independent simulator and real Art-Net hardware.
 
-**Plans:** 4/7 plans executed
+**Plans:** 5/7 plans executed
 
 Plans:
 **Wave 1**
@@ -241,7 +241,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 04-05-PLAN.md — CLI operator surface: serve/interface/configure/status (watch+snapshot+--json)/target enable-disable (ARTN-01/02/05, D-01/D-02/D-12) [Wave 5]
+- [x] 04-05-PLAN.md — CLI operator surface: serve/interface/configure/status (watch+snapshot+--json)/target enable-disable (ARTN-01/02/05, D-01/D-02/D-12) [Wave 5]
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
@@ -364,7 +364,7 @@ Plans:
 | 1. Offline Foundation and Delivery Traceability | 32/32 | Complete    | 2026-07-21 |
 | 2. Modular Fixtures and Deployments | 6/6 | Complete    | 2026-07-21 |
 | 3. Deterministic Show Programming and Playback | 7/7 | Complete    | 2026-07-21 |
-| 4. Observable Art-Net Live Output | 4/7 | In Progress|  |
+| 4. Observable Art-Net Live Output | 5/7 | In Progress|  |
 | 5. Durable Shows and Recovery | 0/TBD | Not started | - |
 | 6. Wails Authoring and Operator Surface | 0/TBD | Not started | - |
 | 7. Versioned External Control API | 0/TBD | Not started | - |
