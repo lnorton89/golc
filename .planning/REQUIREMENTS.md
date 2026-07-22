@@ -42,9 +42,9 @@
 
 ### Programming
 
-- [ ] **PROG-01**: A show author can select fixtures by pool, group, deployment instance, or direct fixture selection.
-- [ ] **PROG-02**: A show author can edit semantic intensity, color, position, beam, and supported fixture-specific attributes without working in raw DMX channels.
-- [ ] **PROG-03**: The programmer shows which attributes are touched, their values, their sources, and what will be recorded.
+- [x] **PROG-01**: A show author can select fixtures by pool, group, deployment instance, or direct fixture selection.
+- [x] **PROG-02**: A show author can edit semantic intensity, color, position, beam, and supported fixture-specific attributes without working in raw DMX channels.
+- [x] **PROG-03**: The programmer shows which attributes are touched, their values, their sources, and what will be recorded.
 - [ ] **PROG-04**: A show author can create reusable color themes and intensity, color, position, and beam presets from programmer state.
 - [ ] **PROG-05**: A show author can create reusable chases with ordered steps and tempo-relative timing.
 - [ ] **PROG-06**: A show author can create reusable motion presets using semantic position capabilities.
@@ -215,9 +215,9 @@ A v1 requirement is complete only when its implementation is committed, automate
 | POOL-06 | Phase 2 | Complete |
 | POOL-07 | Phase 2 | Complete |
 | POOL-08 | Phase 2 | Complete |
-| PROG-01 | Phase 3 | Pending |
-| PROG-02 | Phase 3 | Pending |
-| PROG-03 | Phase 3 | Pending |
+| PROG-01 | Phase 3 | Complete |
+| PROG-02 | Phase 3 | Complete |
+| PROG-03 | Phase 3 | Complete |
 | PROG-04 | Phase 3 | Pending |
 | PROG-05 | Phase 3 | Pending |
 | PROG-06 | Phase 3 | Pending |
