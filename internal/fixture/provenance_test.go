@@ -20,6 +20,11 @@ manufacturer: Generic
 model: RGB PAR
 modes:
   - name: Standard
+    channels:
+      - type: intensity
+        occurrence: 0
+      - type: color
+        occurrence: 0
 capabilities:
   - type: intensity
     range: [0, 1]

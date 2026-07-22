@@ -109,6 +109,44 @@ func validate(def FixtureDefinition) error {
 	if err := rejectOverlappingRanges(rangesByType, def); err != nil {
 		return err
 	}
+
+	if err := validateChannelLayouts(def, rangesByType); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateChannelLayouts enforces D-16/D-17's ordered DMX channel-layout
+// rules against every declared Mode, shared by the hand-authored decode
+// path and internal/fixture/ofl.Normalize (both call fixture.Validate,
+// never a second independently-evolving copy of this logic): a Mode with
+// no declared Channels is a hard rejection (GOLC_FIXTURE_CHANNEL_LAYOUT_MISSING,
+// an explicit re-authoring prompt -- GOLC never guesses a channel order
+// from Capabilities' declaration order); a channel slot naming a
+// CapabilityType outside SupportedCapabilityTypes is rejected
+// (GOLC_FIXTURE_CHANNEL_TYPE_UNKNOWN); and a channel slot whose Occurrence
+// has no matching declared Capability of that Type is rejected
+// (GOLC_FIXTURE_CHANNEL_OCCURRENCE_INVALID).
+func validateChannelLayouts(def FixtureDefinition, rangesByType map[CapabilityType][][2]float64) error {
+	for modeIndex, mode := range def.Modes {
+		if len(mode.Channels) == 0 {
+			return fmt.Errorf(
+				"GOLC_FIXTURE_CHANNEL_LAYOUT_MISSING: mode %q (index %d) in %s %s declares no DMX channel layout; declare an ordered channels list (D-17) -- GOLC never guesses channel order from capability declaration order",
+				mode.Name, modeIndex, def.Manufacturer, def.Model)
+		}
+		for slotIndex, slot := range mode.Channels {
+			if !supportedCapabilityTypes[slot.Type] {
+				return fmt.Errorf(
+					"GOLC_FIXTURE_CHANNEL_TYPE_UNKNOWN: channel %d in mode %q (%s %s) names unsupported capability type %q",
+					slotIndex, mode.Name, def.Manufacturer, def.Model, slot.Type)
+			}
+			if slot.Occurrence < 0 || slot.Occurrence >= len(rangesByType[slot.Type]) {
+				return fmt.Errorf(
+					"GOLC_FIXTURE_CHANNEL_OCCURRENCE_INVALID: channel %d in mode %q (%s %s) names occurrence %d of capability type %q, but only %d such capabilities are declared",
+					slotIndex, mode.Name, def.Manufacturer, def.Model, slot.Occurrence, slot.Type, len(rangesByType[slot.Type]))
+			}
+		}
+	}
 	return nil
 }
 

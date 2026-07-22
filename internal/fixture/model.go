@@ -58,12 +58,29 @@ type Capability struct {
 	Comment string         `yaml:"comment,omitempty" json:"comment,omitempty" jsonschema:"description=Optional human-readable note about this capability."`
 }
 
+// ChannelSlot names one entry in a Mode's ordered DMX channel layout
+// (04-01-PLAN.md D-16): Type is the semantic CapabilityType this channel
+// drives, and Occurrence is the 0-based index selecting which of the
+// fixture's possibly-multiple same-Type Capabilities this channel
+// corresponds to (see Capability's own doc comment on same-type
+// sub-ranges); Occurrence: 0 selects the first/only one.
+type ChannelSlot struct {
+	Type       CapabilityType `yaml:"type" json:"type" jsonschema:"required,description=Capability type this channel drives; must be one of the declared CapabilityType enum values."`
+	Occurrence int            `yaml:"occurrence" json:"occurrence" jsonschema:"minimum=0,description=0-based index selecting among the fixture's possibly-multiple same-Type Capabilities."`
+}
+
 // Mode is one named operating mode a fixture definition declares (for
-// example a channel-count variant). v1 does not yet model per-mode
-// capability subsets; capabilities are declared once at the fixture level
-// (this plan's scope).
+// example a channel-count variant). Channels is the fixture's real DMX
+// wiring order (D-16): channel offset i within the mode's addressed span
+// is driven by Channels[i]'s named CapabilityType and Occurrence, in
+// declared order -- GOLC never derives channel order from Capabilities'
+// declaration order. A Mode declaring no Channels is a hard rejection at
+// decode time (D-17, GOLC_FIXTURE_CHANNEL_LAYOUT_MISSING): v1 does not
+// yet model per-mode capability subsets beyond this ordered layout;
+// capabilities themselves are still declared once at the fixture level.
 type Mode struct {
-	Name string `yaml:"name" json:"name" jsonschema:"required,minLength=1,description=Mode name."`
+	Name     string        `yaml:"name" json:"name" jsonschema:"required,minLength=1,description=Mode name."`
+	Channels []ChannelSlot `yaml:"channels" json:"channels" jsonschema:"required,minItems=1,description=Ordered DMX channel layout (D-16); each entry names the CapabilityType and same-type occurrence index this channel drives."`
 }
 
 // FixtureDefinition is the canonical, capability-based fixture model every
