@@ -26,7 +26,7 @@
 - [x] **FIXT-02**: The application rejects duplicate keys, ambiguous YAML constructs, invalid ranges, and unsupported fixture semantics with actionable diagnostics.
 - [x] **FIXT-03**: A user can import an Open Fixture Library definition through GOLC's canonical validation and normalization pipeline.
 - [x] **FIXT-04**: A user can create, edit, validate, and share a custom YAML fixture definition.
-- [ ] **FIXT-05**: A show pins each fixture definition by stable identity, schema version, content revision, and hash so library updates cannot silently change an existing show.
+- [x] **FIXT-05**: A show pins each fixture definition by stable identity, schema version, content revision, and hash so library updates cannot silently change an existing show.
 - [x] **FIXT-06**: A user can inspect a fixture definition's source, provenance, validation result, and unsupported or lossy import details before using it.
 
 ### Pools and Deployments
@@ -36,8 +36,8 @@
 - [x] **POOL-03**: A show author can add or remove fixtures from a pool and receive an impact review covering all dependent groups, themes, palettes, scenes, chases, motion presets, and controller mappings.
 - [x] **POOL-04**: A show author can configure propagation behavior for each pool update while review-before-apply remains the default.
 - [x] **POOL-05**: A reviewed pool update is applied atomically so dependents never observe a partially updated deployment.
-- [ ] **POOL-06**: A show author can replace a fixture model by mapping shared semantic capabilities rather than raw channel positions.
-- [ ] **POOL-07**: A fixture replacement review identifies missing, incompatible, and unsupported capabilities and never silently approximates them.
+- [x] **POOL-06**: A show author can replace a fixture model by mapping shared semantic capabilities rather than raw channel positions.
+- [x] **POOL-07**: A fixture replacement review identifies missing, incompatible, and unsupported capabilities and never silently approximates them.
 - [x] **POOL-08**: A show author can accept, revise, or cancel a pool or fixture-substitution impact plan before it changes the show.
 
 ### Programming
@@ -205,15 +205,15 @@ A v1 requirement is complete only when its implementation is committed, automate
 | FIXT-02 | Phase 2 | Complete |
 | FIXT-03 | Phase 2 | Complete |
 | FIXT-04 | Phase 2 | Complete |
-| FIXT-05 | Phase 2 | Pending |
+| FIXT-05 | Phase 2 | Complete |
 | FIXT-06 | Phase 2 | Complete |
 | POOL-01 | Phase 2 | Complete |
 | POOL-02 | Phase 2 | Complete |
 | POOL-03 | Phase 2 | Complete |
 | POOL-04 | Phase 2 | Complete |
 | POOL-05 | Phase 2 | Complete |
-| POOL-06 | Phase 2 | Pending |
-| POOL-07 | Phase 2 | Pending |
+| POOL-06 | Phase 2 | Complete |
+| POOL-07 | Phase 2 | Complete |
 | POOL-08 | Phase 2 | Complete |
 | PROG-01 | Phase 3 | Pending |
 | PROG-02 | Phase 3 | Pending |
