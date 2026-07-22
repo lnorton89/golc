@@ -52,13 +52,13 @@
 
 ### Tempo-Aware Scenes
 
-- [ ] **SCEN-01**: A show author can create a scene that loops for a configured number of musical bars against the global BPM.
+- [x] **SCEN-01**: A show author can create a scene that loops for a configured number of musical bars against the global BPM.
 - [ ] **SCEN-02**: An operator can set global BPM by entering a numeric value.
 - [ ] **SCEN-03**: An operator can set global BPM through tap tempo.
-- [ ] **SCEN-04**: Exactly one scene is active at a time during normal playback.
-- [ ] **SCEN-05**: A scene can combine independently enabled color-theme, chase, motion-preset, and base-look layers.
+- [x] **SCEN-04**: Exactly one scene is active at a time during normal playback.
+- [x] **SCEN-05**: A scene can combine independently enabled color-theme, chase, motion-preset, and base-look layers.
 - [ ] **SCEN-06**: An operator can switch the active scene or any scene layer immediately.
-- [ ] **SCEN-07**: A show author can create and assign reusable blending presets that define transitions between scene and layer states.
+- [x] **SCEN-07**: A show author can create and assign reusable blending presets that define transitions between scene and layer states.
 - [ ] **SCEN-08**: A show author can configure whether a global BPM change preserves the active loop's musical position or restarts the loop.
 - [ ] **SCEN-09**: Scene timing and layer evaluation remain deterministic when UI rendering, scripts, API clients, or LLM providers are slow or unavailable.
 
@@ -222,13 +222,13 @@ A v1 requirement is complete only when its implementation is committed, automate
 | PROG-05 | Phase 3 | Complete |
 | PROG-06 | Phase 3 | Complete |
 | PROG-07 | Phase 3 | Pending |
-| SCEN-01 | Phase 3 | Pending |
+| SCEN-01 | Phase 3 | Complete |
 | SCEN-02 | Phase 3 | Pending |
 | SCEN-03 | Phase 3 | Pending |
-| SCEN-04 | Phase 3 | Pending |
-| SCEN-05 | Phase 3 | Pending |
+| SCEN-04 | Phase 3 | Complete |
+| SCEN-05 | Phase 3 | Complete |
 | SCEN-06 | Phase 3 | Pending |
-| SCEN-07 | Phase 3 | Pending |
+| SCEN-07 | Phase 3 | Complete |
 | SCEN-08 | Phase 3 | Pending |
 | SCEN-09 | Phase 3 | Pending |
 | PLAY-01 | Phase 6 | Pending |
