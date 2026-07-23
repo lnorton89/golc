@@ -330,3 +330,33 @@ Applied 2026-07-22 (commit `f12d05e`):
 _Reviewed: 2026-07-22T00:00:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
+
+---
+
+## Gap-Closure Review (04-08, 04-09)
+
+**Reviewed:** 2026-07-23T03:35:00Z
+**Depth:** standard
+**Files Reviewed:** 7 (`internal/artnet/health.go`, `internal/artnet/worker.go`, `internal/artnet/health_test.go`, `internal/artnet/daemon.go`, `internal/artnet/daemon_test.go`, `internal/command/artnet.go`, `internal/command/artnet_test.go`)
+**Status:** issues_found (0 critical, 2 warnings, 2 info)
+**Scope:** the two new gap-closure plans only (04-08: per-universe DMX value recording/publishing; 04-09: pinned-interface status surfacing), layered onto the already-reviewed subsystem above. WR-01/WR-03/WR-04 above were confirmed still-known/triaged and are not re-flagged. Full report: [04-REVIEW-gap-closure.md](04-REVIEW-gap-closure.md).
+
+### Warnings
+
+**GC-WR-01: `handleStatus`'s non-atomic `Err()`/`Status()` split read can produce a payload that violates its own documented invariant during an interface-loss transition**
+
+`internal/artnet/daemon.go:314-324` — `handleStatus` calls `d.ifaceMgr.Err()` and `d.ifaceMgr.Status()` as two independent, separately-synchronized loads of the same underlying `atomic.Int32`. If the interface's health poll loop flips OK→Lost between the two calls, the resulting `interfaceStatusPayload` has `Status: "lost"` and `Error: ""` simultaneously — contradicting its own doc comment ("Error is the GOLC_ARTNET_INTERFACE_LOST diagnostic string when lost, else empty"). Fix: read `Status()` once, derive `Error` from that single observed value (the transition is one-directional/terminal per `interfacemgr.go`, so this is safe). Mirrors the single-read discipline `FrameHealth.evaluateFrameHealth` already uses in this same file.
+
+**GC-WR-02: `artnet interface list --json` silently drops the pinned interface's error diagnostic that the plain-text rendering of the same command includes**
+
+`internal/command/artnet.go:394-401,423-455` — `interfaceListEntry` (the `--json` wire shape) has no field for the interface error text, while the plain-text path appends it to the status string when non-empty. A scripting consumer of `--json` sees `"status": "lost"` with no way to learn why without a separate `artnet status --json` call. Fix: add an `Error string \`json:"error"\`` field to `interfaceListEntry` and populate it alongside `Status` in the JSON branch.
+
+### Info
+
+**GC-IN-01: Daemon-side and CLI-side JSON wire structs for the status payload are hand-mirrored with no shared type or compile-time tag-consistency guard** — currently consistent (verified field-by-field against `strictjson.DecodeStrict`), but nothing catches a future one-sided edit at compile time. Consider promoting `UniverseValues`/`InterfaceStatusPayload` to exported `artnet` package types the CLI imports directly, the way `TargetHealth` already is.
+
+**GC-IN-02: `RecordUniverseValues`'s historical-retention behavior on universe removal is undocumented**, unlike the equivalent (and intentional) `Targets` retention behavior it mirrors — a future maintainer reading only its doc comment could incorrectly assume a de-configured universe's stale buffer disappears from `Snapshot().UniverseValues` after a reconfigure; it does not (by omission, not documented design).
+
+_Reviewed: 2026-07-23T03:35:00Z_
+_Reviewer: Claude (gsd-code-reviewer)_
+_Depth: standard_
