@@ -116,6 +116,77 @@ func TestRecoveryPointPruning(t *testing.T) {
 	}
 }
 
+// TestRecoveryReachableViaRealInterruptedSave proves CR-01's fix: an
+// interrupted session is detectable through Save's own real code path
+// (stageRecoveryPoint's commit, then a simulated crash before
+// promoteState ever runs), not only through insertRecoveryPoint's raw-SQL
+// bypass every other test in this file uses. This is the exact shape a
+// genuine process kill between Save's two commits produces.
+func TestRecoveryReachableViaRealInterruptedSave(t *testing.T) {
+	root := t.TempDir()
+	path := "show.golc"
+	state := buildNonTrivialState(t)
+
+	if err := Save(root, path, state); err != nil {
+		t.Fatalf("initial Save: %v", err)
+	}
+	cleanRevision := onDiskRevision(t, root, path)
+
+	interrupted := buildNonTrivialState(t)
+	interrupted.Scenes[0].Name = "Interrupted Edit"
+	interrupted.SchemaVersion = SchemaVersion
+	interrupted.Revision = cleanRevision + 1
+	payload, err := strictjson.CanonicalEncode(interrupted)
+	if err != nil {
+		t.Fatalf("CanonicalEncode: %v", err)
+	}
+
+	db, err := openStore(root, path)
+	if err != nil {
+		t.Fatalf("openStore: %v", err)
+	}
+	// Simulate a process kill between Save's two commits: stage the
+	// recovery point through the exact production code path (not raw SQL),
+	// then close without ever calling promoteState.
+	if err := stageRecoveryPoint(db, "2026-07-23T00:00:01Z", cleanRevision+1, payload); err != nil {
+		t.Fatalf("stageRecoveryPoint: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("closing db after simulated interruption: %v", err)
+	}
+
+	if revisionAfter := onDiskRevision(t, root, path); revisionAfter != cleanRevision {
+		t.Fatalf("show_meta.revision advanced despite promoteState never running: before=%d after=%d", cleanRevision, revisionAfter)
+	}
+
+	points, err := DetectRecoveryPoints(root, path)
+	if err != nil {
+		t.Fatalf("DetectRecoveryPoints: %v", err)
+	}
+	if len(points) != 1 {
+		t.Fatalf("expected the interrupted save's recovery point to be offered, got %d points (%+v)", len(points), points)
+	}
+	if points[0].Revision != cleanRevision+1 {
+		t.Fatalf("expected offered revision %d, got %d", cleanRevision+1, points[0].Revision)
+	}
+
+	if err := AcceptRecoveryPoint(root, path, points[0].ID); err != nil {
+		t.Fatalf("AcceptRecoveryPoint: %v", err)
+	}
+	final, err := Load(root, path)
+	if err != nil {
+		t.Fatalf("Load after accept: %v", err)
+	}
+	// AcceptRecoveryPoint persists through Save, which bumps Revision once
+	// more beyond the recovery blob's own stamped Revision.
+	if final.Revision != cleanRevision+2 {
+		t.Fatalf("expected Revision to advance via Save to %d, got %d", cleanRevision+2, final.Revision)
+	}
+	if len(final.Scenes) == 0 || final.Scenes[0].Name != "Interrupted Edit" {
+		t.Fatalf("expected the recovered working State to equal the interrupted edit's scenes, got %+v", final.Scenes)
+	}
+}
+
 // TestRecoveryOfferedNotApplied proves CONTEXT D-07: DetectRecoveryPoints
 // surfaces recovery rows newer than the last clean save, newest-first, and
 // detection itself never writes -- the on-disk revision and the
