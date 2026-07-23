@@ -1,0 +1,164 @@
+// wailsBridge.ts centralizes this frontend's only two touchpoints with
+// the Wails-injected browser globals: window.go.wails.SafetyService.* (the
+// generated bindings for internal/wails/svc_safety.go's bound methods) and
+// window.runtime.EventsOn (the generated subscription for
+// internal/wails/events.go's throttled "status:update" push). 06-05-
+// PLAN.md's SafetyCluster and LiveStatusBar both import from here rather
+// than referencing window.go/window.runtime directly, so every future
+// Wave 3/4 component (06-06/06-07/06-08) that needs a bound Go call or an
+// EventsOn subscription follows the same one pattern instead of
+// re-declaring ambient globals per file.
+//
+// Every export here degrades gracefully (never throws) when window.go/
+// window.runtime are undefined -- e.g. during `npm run build`'s tsc
+// type-check, a plain browser preview, or a future component test
+// harness with no real Wails webview host. This mirrors D-13's own
+// "safety cluster remains reachable regardless" contract at the bridge
+// layer: a missing bridge degrades to an explicit unreachable/offline
+// result, never a thrown exception that would crash the safety cluster's
+// render tree.
+
+/** WailsResult mirrors internal/wails.Result's JSON shape exactly
+ * (ExitCode/Stdout/Stderr -> exitCode/stdout/stderr) -- every
+ * SafetyService toggle method returns this. */
+export interface WailsResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}
+
+/** StatusSnapshot mirrors internal/wails.StatusSnapshot's JSON shape
+ * exactly (06-05-PLAN.md Task 1, PLAY-07). enabledLayers is always a
+ * present (never undefined/null) array -- the Go side guarantees this
+ * for the identical "never blank/undefined" reason the daemon's own
+ * playbackStatusPayload does. */
+export interface StatusSnapshot {
+  reachable: boolean;
+  active: boolean;
+  sceneId?: string;
+  sceneName?: string;
+  bpm: number;
+  barIndex: number;
+  beatFraction: number;
+  enabledLayers: string[];
+  controllingSource: string;
+  outputState: string;
+}
+
+interface SafetyServiceBinding {
+  Blackout(on: boolean): Promise<WailsResult>;
+  StopReleaseAll(on: boolean): Promise<WailsResult>;
+  RevokeAutomation(on: boolean): Promise<WailsResult>;
+  FetchStatus(): Promise<StatusSnapshot>;
+}
+
+declare global {
+  interface Window {
+    go?: {
+      wails?: {
+        SafetyService?: SafetyServiceBinding;
+      };
+    };
+    runtime?: {
+      EventsOn(
+        eventName: string,
+        callback: (...data: unknown[]) => void,
+      ): () => void;
+    };
+  }
+}
+
+/** bridgeUnavailableResult is the explicit, non-throwing fallback every
+ * SafetyService call returns when window.go.wails.SafetyService is not
+ * present (D-13: the cluster stays interactive/renderable regardless --
+ * it is the daemon connection, not this bridge, that the UI-SPEC
+ * unreachable copy is about). */
+function bridgeUnavailableResult(): WailsResult {
+  return {
+    exitCode: 1,
+    stdout: "",
+    stderr:
+      "GOLC_WAILS_BRIDGE_UNAVAILABLE: not running inside the GOLC desktop shell",
+  };
+}
+
+function safetyService(): SafetyServiceBinding | undefined {
+  return window.go?.wails?.SafetyService;
+}
+
+/** offlineStatusSnapshot mirrors internal/wails.offlineStatusSnapshot's
+ * explicit idle/offline projection -- the same fallback shape FetchStatus
+ * returns Go-side, reused here so a missing bridge and an unreachable
+ * daemon render identically in the frontend. */
+export function offlineStatusSnapshot(): StatusSnapshot {
+  return {
+    reachable: false,
+    active: false,
+    enabledLayers: [],
+    bpm: 0,
+    barIndex: 0,
+    beatFraction: 0,
+    controllingSource: "offline",
+    outputState: "offline",
+  };
+}
+
+/** safetyBlackout dials+forwards "artnet safety blackout --on <on>
+ * --source manual" via the bound SafetyService.Blackout. */
+export async function safetyBlackout(on: boolean): Promise<WailsResult> {
+  const svc = safetyService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.Blackout(on);
+}
+
+/** safetyStopReleaseAll dials+forwards "artnet safety stop-all --on <on>
+ * --source manual" via the bound SafetyService.StopReleaseAll. */
+export async function safetyStopReleaseAll(
+  on: boolean,
+): Promise<WailsResult> {
+  const svc = safetyService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.StopReleaseAll(on);
+}
+
+/** safetyRevokeAutomation dials+forwards "artnet safety
+ * revoke-automation --on <on> --source manual" via the bound
+ * SafetyService.RevokeAutomation. */
+export async function safetyRevokeAutomation(
+  on: boolean,
+): Promise<WailsResult> {
+  const svc = safetyService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.RevokeAutomation(on);
+}
+
+/** fetchSafetyStatus calls the bound SafetyService.FetchStatus,
+ * returning offlineStatusSnapshot() when the bridge is unavailable or the
+ * call itself rejects -- callers never need their own try/catch. */
+export async function fetchSafetyStatus(): Promise<StatusSnapshot> {
+  const svc = safetyService();
+  if (!svc) return offlineStatusSnapshot();
+  try {
+    return await svc.FetchStatus();
+  } catch {
+    return offlineStatusSnapshot();
+  }
+}
+
+/** onStatusUpdate subscribes to the Go host's throttled "status:update"
+ * EventsEmit push (internal/wails/events.go), invoking callback with each
+ * pushed StatusSnapshot. Returns an unsubscribe function; a missing
+ * bridge returns a no-op unsubscribe rather than throwing. This is a
+ * throttled hint stream only (06-RESEARCH.md anti-pattern) -- callers
+ * must still treat fetchSafetyStatus as the authoritative re-query on a
+ * detected gap, never rely on this push alone. */
+export function onStatusUpdate(
+  callback: (snapshot: StatusSnapshot) => void,
+): () => void {
+  const runtime = window.runtime;
+  if (!runtime) return () => {};
+  return runtime.EventsOn("status:update", (...data: unknown[]) => {
+    const snapshot = data[0] as StatusSnapshot | undefined;
+    if (snapshot) callback(snapshot);
+  });
+}
