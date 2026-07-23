@@ -11,7 +11,7 @@ A modern lighting-control application for operators of small live shows — club
 
 GOLC combines a fast, modular show-authoring workflow with TypeScript scripting, autonomous LLM control, and a well-documented API, so people, scripts, external programs, and AI agents can all create and operate fixture patches, scenes, chases, and show playback through the same system. The first release targets Windows and outputs Art-Net.
 
-> **Status: early development.** GOLC is being built in ten dependency-ordered phases. Phase 1 (Offline Foundation and Delivery Traceability) is currently in progress — the conventional lighting workflow, desktop UI, and output paths described below are planned, not yet usable.
+> **Status: early development.** GOLC is being built in dependency-ordered phases. Phases 1–5 are complete: offline configuration and delivery traceability, modular fixtures and deployments, deterministic show programming and playback, observable Art-Net output, and durable show storage/recovery are implemented and tested. Phase 6 (Wails Authoring and Operator Surface) is next — there is no desktop UI yet, so GOLC is not usable end-to-end as a lighting console.
 
 ## Why GOLC
 
@@ -101,16 +101,17 @@ tests/                Acceptance tests and data-only fixtures
 
 | # | Phase | Status |
 |---|-------|--------|
-| 1 | Offline Foundation and Delivery Traceability | **In progress** |
-| 2 | Modular Fixtures and Deployments | Not started |
-| 3 | Deterministic Show Programming and Playback | Not started |
-| 4 | Observable Art-Net Live Output | Not started |
-| 5 | Durable Shows and Recovery | Not started |
-| 6 | Wails Authoring and Operator Surface | Not started |
+| 1 | Offline Foundation and Delivery Traceability | Complete |
+| 2 | Modular Fixtures and Deployments | Complete |
+| 3 | Deterministic Show Programming and Playback | Complete |
+| 4 | Observable Art-Net Live Output | Complete |
+| 5 | Durable Shows and Recovery | Complete |
+| 6 | Wails Authoring and Operator Surface | **Not started (next)** |
 | 7 | Versioned External Control API | Not started |
 | 8 | Isolated TypeScript Automation | Not started |
 | 9 | Provider-Neutral AI and Bounded Autonomy | Not started |
 | 10 | Windows Release Qualification | Not started |
+| 11 | Telemetry, Usage Statistics, and Auto Crash Submission Pipeline | Not started |
 
 Full phase goals and success criteria live in [.planning/ROADMAP.md](.planning/ROADMAP.md).
 
@@ -118,7 +119,8 @@ Full phase goals and success criteria live in [.planning/ROADMAP.md](.planning/R
 
 - **Core:** Go (module `github.com/lnorton89/golc`)
 - **Desktop UI:** Wails (planned, Phase 6)
-- **Output protocol:** Art-Net 4 (planned, Phase 4)
+- **Output protocol:** Art-Net 4 (delivered, Phase 4)
 - **Scripting:** TypeScript in an isolated, capability-limited runtime (planned, Phase 8)
 - **Fixture format:** strict YAML 1.2 subset with versioned schemas
+- **Show storage:** single-file, versioned SQLite `.golc` store with rotating recovery points and verified-backup schema migration (delivered, Phase 5)
 - **Delivery tracking:** Linear, reconciled offline-safe from repository-owned identities
