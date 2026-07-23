@@ -23,13 +23,13 @@ An operator can author a modular show once, adapt its fixture pools to different
 - [x] Users can replace fixture models by mapping shared semantic capabilities and reviewing unsupported or incompatible capabilities before committing the deployment change. — *Validated in Phase 2: Modular Fixtures and Deployments (2026-07-21)*
 - [x] Scenes can loop for a configured number of musical bars synchronized to a show-wide BPM. — *Validated in Phase 3: Deterministic Show Programming and Playback (2026-07-21)*
 - [x] Users can combine and swap color themes, chases, and motion presets within tempo-aware scenes using configurable blending transitions. — *Validated in Phase 3: Deterministic Show Programming and Playback (2026-07-21)*
+- [x] The application sends reliable, observable Art-Net output suitable for running a small live show. — *Validated in Phase 4: Observable Art-Net Live Output (2026-07-23), including gap-closure plans 04-08/04-09 for per-universe status values and pinned-interface degraded status*
 
 ### Active
 
 - [ ] Operators can patch fixtures, organize controllable attributes, create looks/scenes and chases, play them back, save a show, and restore it later. — programming/playback delivered in Phase 3; save/restore/recovery remains Phase 5 scope.
 - [ ] Keyboard and on-screen playback expose the complete operator workflow without requiring a MIDI controller.
 - [ ] Users can prepare a constrained MIDI playback surface that another operator can learn and use quickly without exposing the full authoring interface.
-- [ ] The application sends reliable, observable Art-Net output suitable for running a small live show.
 - [ ] The desktop UI provides a modern, efficient programming and playback workflow that avoids the setup friction and clunky interaction patterns of QLC+.
 - [ ] Users can create, edit, run, and debug TypeScript scripts that interact with the supported application and show-control capabilities.
 - [ ] Users can connect common hosted or local LLMs through an open-source, provider-neutral integration layer.
@@ -142,4 +142,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-21 after Phase 3: Deterministic Show Programming and Playback completion*
+*Last updated: 2026-07-23 after Phase 4: Observable Art-Net Live Output completion*
