@@ -21,6 +21,7 @@ import (
 	"github.com/lnorton89/golc/internal/artnet/ipc"
 	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/show"
+	"github.com/lnorton89/golc/internal/strictjson"
 )
 
 // testDaemonPipeName returns a per-test, per-process, per-nanosecond-unique
@@ -193,6 +194,51 @@ func TestDaemonConfigureThenTargetDisableEnable(t *testing.T) {
 	if !strings.Contains(string(notFoundResult.Stderr), "GOLC_ARTNET_TARGET_NOT_FOUND") {
 		t.Fatalf("expected GOLC_ARTNET_TARGET_NOT_FOUND, got: %s", notFoundResult.Stderr)
 	}
+}
+
+// TestDaemonStatusPayloadIncludesConfiguredUniverseValues proves
+// 04-08-PLAN.md's ARTN-05 gap closure: after configuring universe 1, the
+// daemon's status payload eventually carries a "universes" entry for
+// universe 1 whose Values field decodes to exactly channelsPerUniverse
+// (512) bytes -- an actual populated per-universe values field, not
+// merely a JSON key (correcting 04-05-SUMMARY.md's false-pass substring
+// check).
+func TestDaemonStatusPayloadIncludesConfiguredUniverseValues(t *testing.T) {
+	pipeName, _, _ := startTestDaemon(t)
+
+	configureConn := dialTestDaemon(t, pipeName)
+	defer configureConn.Close()
+	configureResult := ipc.Forward(configureConn, ipc.Request{Route: "artnet configure", Args: []string{
+		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454",
+	}})
+	if configureResult.ExitCode != 0 {
+		t.Fatalf("expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		statusConn := dialTestDaemon(t, pipeName)
+		result := ipc.Forward(statusConn, ipc.Request{Route: "artnet status"})
+		statusConn.Close()
+		if result.ExitCode != 0 {
+			t.Fatalf("expected status ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+		}
+
+		var payload statusPayload
+		if err := strictjson.DecodeStrict(result.Stdout, &payload); err != nil {
+			t.Fatalf("DecodeStrict: %v", err)
+		}
+		for _, u := range payload.Universes {
+			if u.Universe == 1 {
+				if len(u.Values) != channelsPerUniverse {
+					t.Fatalf("expected universe 1's values to be %d bytes, got %d", channelsPerUniverse, len(u.Values))
+				}
+				return
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("expected a populated universe 1 values entry within the deadline")
 }
 
 // TestDaemonMalformedConfigureArgsReturnUsageError proves a malformed

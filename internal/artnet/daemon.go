@@ -233,15 +233,30 @@ func (d *daemon) handle(request ipc.Request) ipc.Result {
 // Universe and Target fields (the exact information targetKey packs), so
 // flattening to a slice loses nothing; the slice is sorted by (Universe,
 // IP, Port) for deterministic, byte-stable output (mirrors this repo's
-// own CanonicalEncode determinism convention).
+// own CanonicalEncode determinism convention). Universes carries each
+// configured universe's final 512-byte DMX buffer (04-08-PLAN.md,
+// HealthSnapshot.UniverseValues flattened the same way, sorted ascending
+// by Universe), closing the gap where the worker's per-tick computed
+// buffer was previously discarded after building the outbound packet.
 type statusPayload struct {
-	Frame   FrameHealth    `json:"frame"`
-	Targets []TargetHealth `json:"targets"`
+	Frame     FrameHealth      `json:"frame"`
+	Targets   []TargetHealth   `json:"targets"`
+	Universes []universeValues `json:"universes"`
+}
+
+// universeValues is the JSON-safe wire rendering of one configured
+// universe's final per-tick DMX buffer (04-08-PLAN.md, ARTN-05). []byte
+// marshals as a base64 string under encoding/json (which strictjson
+// wraps), which is the intended wire form.
+type universeValues struct {
+	Universe int    `json:"universe"`
+	Values   []byte `json:"values"`
 }
 
 // newStatusPayload flattens snapshot's target map into a sorted slice (see
 // statusPayload doc comment for why the map itself cannot be JSON-encoded
-// directly).
+// directly), and flattens snapshot.UniverseValues into a universe-sorted
+// slice the same way.
 func newStatusPayload(snapshot HealthSnapshot) statusPayload {
 	targets := make([]TargetHealth, 0, len(snapshot.Targets))
 	for _, th := range snapshot.Targets {
@@ -257,7 +272,16 @@ func newStatusPayload(snapshot HealthSnapshot) statusPayload {
 		}
 		return effectivePort(targets[i].Target) < effectivePort(targets[j].Target)
 	})
-	return statusPayload{Frame: snapshot.Frame, Targets: targets}
+
+	universes := make([]universeValues, 0, len(snapshot.UniverseValues))
+	for universe, values := range snapshot.UniverseValues {
+		universes = append(universes, universeValues{Universe: universe, Values: values})
+	}
+	sort.Slice(universes, func(i, j int) bool {
+		return universes[i].Universe < universes[j].Universe
+	})
+
+	return statusPayload{Frame: snapshot.Frame, Targets: targets, Universes: universes}
 }
 
 // handleStatus answers "artnet status" with the current Health snapshot
