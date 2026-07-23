@@ -1,95 +1,87 @@
 ---
 phase: 06-wails-authoring-and-operator-surface
-fixed_at: 2026-07-23T21:09:23Z
+fixed_at: 2026-07-23T23:51:00Z
 review_path: .planning/phases/06-wails-authoring-and-operator-surface/06-REVIEW.md
 iteration: 1
-findings_in_scope: 6
-fixed: 6
+findings_in_scope: 5
+fixed: 5
 skipped: 0
 status: all_fixed
 ---
 
-# Phase 6: Code Review Fix Report
+# Phase 06: Code Review Fix Report
 
-**Fixed at:** 2026-07-23T21:09:23Z
+**Fixed at:** 2026-07-23T23:51:00Z
 **Source review:** .planning/phases/06-wails-authoring-and-operator-surface/06-REVIEW.md
 **Iteration:** 1
 
 **Summary:**
-- Findings in scope: 6 (3 Critical, 3 Warning -- `fix_scope: critical_warning`; IN-01 excluded from scope)
-- Fixed: 6
+- Findings in scope: 5 (2 Critical, 3 Warning -- `fix_scope: critical_warning`; IN-01/IN-02 excluded from scope)
+- Fixed: 5
 - Skipped: 0
+
+_Note: this REVIEW.md is scoped to the gap-closure round (06-09..06-12: MIDI safety/master dispatch, FixturePatch/ArtnetConfig/SceneProgramming on-screen surfaces). It supersedes an earlier full-phase REVIEW.md/REVIEW-FIX.md pair for this same phase directory, whose CR-01..CR-03/WR-01..WR-03 findings (a separate set, already fixed in a prior pass) are unrelated to the CR-01/CR-02/WR-01..WR-03 IDs fixed below -- the IDs are reused per-review, not globally unique across review passes._
 
 ## Fixed Issues
 
-### CR-01: Operator-surface authorization is never enforced on any real dispatch path
+### CR-01: MIDI-triggered safety/master dispatch silently discards the daemon's response
 
-**Files modified:** `internal/wails/svc_safety.go`, `internal/wails/svc_safety_test.go`, `internal/wails/svc_playback.go`, `internal/wails/svc_playback_test.go`, `cmd/golc-desktop/main.go`, `frontend/src/lib/wailsBridge.ts`, `frontend/src/components/OperatorSurface/OperatorSurface.tsx`
-**Commit:** 1887035
-**Applied fix:** Added an `activeSurface` concept to `SafetyService` and `PlaybackService`, mirroring `MidiService`'s existing pattern: a new `SetActiveSurface(surfaceName string)` bound method on each, and an `authorizeSafety`/`authorizeControl` helper that calls `command.Authorize` (the same server-side D-04 enforcement point `SurfaceService.AuthorizeControl` and `MidiService.StartLearn` already use) before dispatching. `Blackout`/`StopReleaseAll`/`RevokeAutomation` now authorize against `operatorsurface.SafetyControlRef`; `SwitchScene`/`SetLayerEnabled` now authorize against the resolved scene/layer `ControlRef`. When no active surface is set (the default), dispatch is unrestricted -- identical to pre-fix behavior, so every existing test passes unmodified. `SafetyService`'s constructor gained `root`/`showPath` parameters (previously IPC-only) so it can load `ShowState` to resolve the active surface; all call sites (`main.go`, all 9 test constructions) were updated. Wired the frontend: `OperatorSurface.tsx`'s existing "Preview as Operator" toggle (previously "a UI affordance only, never the actual enforcement" per its own doc comment) now calls the new `setSafetyActiveSurface`/`setPlaybackActiveSurface` bridge helpers on entering/leaving operate mode, so the one existing "operate mode" affordance in this codebase now actually scopes real dispatch, not just rendering.
+**Files modified:** `internal/wails/svc_midi.go`
+**Commit:** 3cb0d73
+**Applied fix:** Applied the review's minimum-bar suggested fix exactly: `dispatchSafetyTrigger` and `dispatchMasterSet` now capture the `ipc.Result` their direct daemon dial returns and `log.Printf` a `GOLC_WAILS_MIDI_SAFETY_DISPATCH_FAILED`/`GOLC_WAILS_MIDI_MASTER_DISPATCH_FAILED` diagnostic (route/ref plus the daemon's own `Stderr`) whenever `ExitCode != 0`, instead of discarding the result outright. This mirrors `app.go`'s existing `log.Printf("GOLC_WAILS_..._FAILED: ...")` convention (hotkey registration/daemon spawn failures) rather than inventing a new diagnostic format. Did not implement the review's "Better" alternative (a new operator-visible feedback/banner push) -- that would require a new event schema and frontend wiring, a materially larger change than a narrow bug fix; flagged below for human follow-up.
 
-**Scope note:** `SetBPM`/`TapTempo`/`Evaluate` are intentionally NOT gated -- `internal/operatorsurface/model.go`'s `ControlKind` enum has no "tempo" member (only scene/layer/master/safety are individually-assignable controls), so there is structurally nothing for those three methods to authorize against. This mirrors the CR-01 finding's own caveat and is a pre-existing domain-model constraint, not something this fix could close.
+**Verification:** `go build ./...` / `go vet ./...` pass. `TestMidiServiceFaderTakeoverCrossToCatchAndButtonActsImmediately` (an existing test that exercises both `dispatchSafetyTrigger` and `dispatchMasterSet` against an unreachable daemon in the test environment) now visibly emits both new log lines (`GOLC_WAILS_MIDI_MASTER_DISPATCH_FAILED: ref=grand_master: ...` and `GOLC_WAILS_MIDI_SAFETY_DISPATCH_FAILED: route=artnet safety blackout: ...`) confirming the fix fires exactly as intended, with the test itself still passing unmodified.
 
-**Verification:** Added `TestSafetyServiceBlackoutRejectsWhenActiveSurfaceDoesNotAssignControl`, `TestSafetyServiceBlackoutDispatchesWhenActiveSurfaceAssignsControl`, `TestSafetyServiceSetActiveSurfaceEmptyClearsRestriction`, `TestPlaybackServiceSwitchSceneRejectsWhenActiveSurfaceDoesNotAssignScene`, `TestPlaybackServiceSwitchSceneDispatchesWhenActiveSurfaceAssignsScene`, `TestPlaybackServiceSetActiveSurfaceEmptyClearsRestriction`. `go build ./...`, `go vet ./...`, `go test ./...`, and `npm run build` all pass.
+### CR-02: `AddPoolMemberPreview`'s pipe-delimited spec construction has no delimiter guard
 
-### CR-02: `MidiService.CancelLearn` panics on a double call ("close of closed channel")
+**Files modified:** `internal/wails/svc_fixturepatch.go`, `internal/wails/svc_fixturepatch_test.go`
+**Commit:** 0ec1e4a
+**Applied fix:** Applied the review's suggested fix exactly: `AddPoolMemberPreview` now rejects (before ever building the `"%s|%s|%s"` spec string) any of `stableKey`/`contentHash`/`mode` that contains the `|` delimiter `internal/command/pool.go`'s `parsePoolMemberSpec` splits on, returning `Result{ExitCode: 2, Stderr: "GOLC_WAILS_POOL_MEMBER_FIELD_INVALID: ..."}` instead of silently constructing a spec that mis-splits into the wrong three fields.
 
-**Files modified:** `internal/wails/svc_midi.go`, `internal/wails/svc_midi_test.go`
-**Commit:** 3d69a45
-**Applied fix:** Applied exactly the guard the review suggested: moved the `s.learning == nil` check and the `close(session.cancel)` call under the same mutex, nil-ing `s.learning` before releasing the lock and closing the channel -- a second concurrent/sequential `CancelLearn` now observes `s.learning == nil` and returns `GOLC_MIDI_LEARN_NOT_ACTIVE` instead of racing into a double-close. Matches `StartLearn`'s own `if s.learning == session` deferred-cleanup guard, so no conflict with that path.
+**Verification:** Added `TestFixturePatchServiceRejectsEmbeddedDelimiterInMemberFields` (three subtests: an embedded `|` in `stableKey`, `contentHash`, and `mode` respectively, each asserting the new `GOLC_WAILS_POOL_MEMBER_FIELD_INVALID` diagnostic). Full `internal/wails` package test suite passes.
 
-**Verification:** Added `TestMidiServiceCancelLearnDoubleCallDoesNotPanic` (sequential double call) and `TestMidiServiceCancelLearnConcurrentDoubleCallDoesNotPanic` (two goroutines calling `CancelLearn` concurrently, exactly reproducing the reported double-click race) -- both pass under `go test -race`.
+### WR-01: `FixturePatch.tsx` re-implements its own Wails binding layer instead of using `wailsBridge.ts`
 
-### CR-03: Safety cluster (hotkeys + on-screen buttons) has no in-app release path
+**Files modified:** `frontend/src/lib/wailsBridge.ts`, `frontend/src/components/FixturePatch/FixturePatch.tsx`
+**Commit:** 1b36642
+**Applied fix:** Applied the review's suggested fix: added `createPool`/`addPoolMemberPreview`/`removePoolMemberPreview`/`applyPatch`/`createDeployment`/`activateDeployment`/`listPatch` wrapper functions (plus `offlinePatchView`, mirroring `offlineArtnetStatus`/`offlineProgrammingView`'s "never blank" fallback contract) and exported `PatchView`/`PatchPoolView`/`PatchPoolMemberView`/`PatchInstanceView`/`PatchDeploymentView` to `wailsBridge.ts`. `FixturePatch.tsx` now imports these instead of declaring its own local `FixturePatchServiceBinding`/`GoResult`/`fixturePatchService()`/`PatchView`-family types, removing the `as unknown as` cast entirely (the bridge's `FixturePatchServiceBinding` now structurally matches the already-declared global `window.go.wails.FixturePatchService` shape, so no cast is needed). `refreshPatch`'s initial `ListPatch` load also converges on the same "call the wrapper, let it degrade silently to `offlinePatchView()`" pattern `ArtnetConfig.tsx`/`SceneProgramming.tsx` already use, rather than FixturePatch.tsx's own pre-existing bespoke bridge-unavailable pre-check; mutation handlers (`CreatePool`/`AddPoolMemberPreview`/`ApplyPatch`/`CreateDeployment`/`ActivateDeployment`) are unaffected -- each wrapper's `bridgeUnavailableResult()` fallback carries the identical `GOLC_WAILS_BRIDGE_UNAVAILABLE` stderr text the removed pre-checks used to hardcode, so `assertOk`+`errorMessage` still surface the same banner text on a missing bridge. `removePoolMemberPreview` was added to `wailsBridge.ts` for completeness (mirroring the pre-existing, still-unused `RemovePoolMemberPreview` binding declaration) but is not yet called from any component -- this component has no remove-member control today, unchanged from before this fix.
 
-**Files modified:** `frontend/src/components/SafetyCluster/SafetyCluster.tsx`, `internal/wails/hotkey.go`, `internal/wails/app_test.go`
-**Commit:** a890296
-**Applied fix:** Applied the review's suggested toggle pattern on the frontend: each `HoldButton`'s `onActivate` now calls its `SafetyService` binding with `!blackoutOrStopActive` / `!revokeActive` instead of a hardcoded `true`, and the button label flips to "Hold to Release ..." while active. On the Go side, `hotkey.go`'s `listen` loop gained `nextToggleValue`, which queries `"artnet status"` (reusing `svc_safety.go`'s existing `daemonPlaybackEnvelope` decode type, same package) and forwards the opposite of the currently observed combined state, instead of always forwarding `"--on true"`. A status-query failure defaults to `true` (activate) -- the pre-fix always-activate behavior -- rather than guessing a release the daemon cannot currently confirm. Blackout/Stop-Release-All share one combined `outputState=="blackout"` signal on the wire (no separate per-flag field exists, mirrored from `SafetyCluster.tsx`'s own pre-existing `blackoutOrStopActive` ambiguity note); Revoke Automation toggles off its own unambiguous `controllingSource=="revoked"`. The daemon-side `"artnet safety ... --on true|false"` route (already supporting both) is unchanged -- this fix only changes which value the two trigger paths send.
+**Verification:** `npx tsc --noEmit` (frontend) passes with zero errors. `npm run build` (`tsc --noEmit && vite build`) passes. `go build ./...` / `go vet ./...` / `internal/wails` test suite unaffected (Go-side files untouched by this fix).
 
-**Verification:** Updated `TestHotkeyKeydownForwardsDirectlyToDaemon` (now mocks the status query separately from the toggle forward) and added `TestHotkeyKeydownReleasesWhenAlreadyActive` (daemon reports blackout active -> hotkey forwards `--on false`). `go build ./...`, `go vet ./...`, `go test ./...`, and `npm run build` all pass.
+### WR-02: `EventPusher`'s single-key-per-event-name queue drops concurrent MIDI feedback across mappings
 
-### WR-01: `svc_playback.go`'s `SetLayerEnabled` pre-read failure is silently swallowed
+**Files modified:** `internal/wails/events.go`, `internal/wails/events_test.go` (new)
+**Commit:** 29080f3
+**Applied fix:** Applied the review's suggested fix: added a `midiFeedback map[string]MidiFeedback` field to `EventPusher`, staged separately from `latest`'s single-value-per-event-name map. `QueueMidiFeedback` now keys by `snapshot.MappingID` into this new map instead of overwriting the single `"midi:feedback"` slot in `latest`. `flush` drains both maps each tick: `latest` unchanged (still one push per distinct event name, e.g. `"status:update"`), and `midiFeedback` now emits one `"midi:feedback"` `EventsEmit` call per staged mapping ID -- so a tick in which two distinct mappings (e.g. two faders) both produced feedback now delivers both, instead of only the most-recently-queued mapping's feedback silently overwriting the other. The emitted event name (`"midi:feedback"`) and payload shape (`MidiFeedback`) are unchanged on the wire -- only the server-side staging granularity changed -- so `onMidiFeedback` in `wailsBridge.ts` needed no changes.
 
-**Files modified:** `internal/wails/svc_playback.go`, `internal/wails/svc_playback_test.go`
-**Commit:** ffd8bc9
-**Applied fix:** Applied exactly the fix the review suggested: `currentLayerRef` now returns `(uuid.UUID, error)` instead of folding a `show.Load` failure into the same zero-UUID "no ref assigned" result, and `SetLayerEnabled` returns the pre-read error as its own `Result` rather than proceeding to the mutating call without `--ref`.
+**Verification:** Added `internal/wails/events_test.go` with three new unit tests directly against `EventPusher` (no real Wails runtime needed): `TestEventPusherFlushDeliversEveryStagedMappingsMidiFeedback` (two distinct mapping IDs staged before one flush -> both delivered, reproducing the exact WR-02 scenario), `TestEventPusherFlushOverwritesSameMappingWithLatest` (two updates to the SAME mapping ID within one tick still coalesce to the latest value only -- proving the fix doesn't turn per-mapping staging into an unbounded backlog), and `TestEventPusherFlushKeepsStatusUpdateSingleValueBehavior` (proving `QueueStatus`'s pre-existing single-value `"status:update"` slot is unaffected). All three pass; full `internal/wails` package suite (including the pre-existing `TestMidiServiceFaderTakeoverCrossToCatchAndButtonActsImmediately`, which the review noted does not itself exercise the multi-mapping-per-tick scenario) passes under `-race`.
 
-**Verification:** Added `TestPlaybackServiceSetLayerEnabledPropagatesPreReadFailure` (points `showPath` at a directory so the pre-read `show.Load` fails to open the store) proving `SetLayerEnabled` now fails loudly instead of silently omitting `--ref`. All existing `SetLayerEnabled` tests still pass unmodified.
+### WR-03: Duplicated ad-hoc bridge-helper boilerplate across the three new components
 
-### WR-02: Desktop app loads Google Fonts over the network on every launch
+**Files modified:** `frontend/src/lib/wailsBridge.ts`, `frontend/src/components/FixturePatch/FixturePatch.tsx`, `frontend/src/components/ArtnetConfig/ArtnetConfig.tsx`, `frontend/src/components/SceneProgramming/SceneProgramming.tsx`
+**Commit:** e5b56e4
+**Applied fix:** Applied the review's suggested fix: moved `errorMessage(err: unknown): string` and `assertOk(result: WailsResult, action: string): void` into `wailsBridge.ts` as exported functions (using the file's own existing `WailsResult` type rather than `SceneProgramming.tsx`'s previously locally-duplicated structural type), and removed the byte-for-byte-identical local copies from all three components, importing from `wailsBridge.ts` instead. `ArtnetConfig.tsx` only duplicated `errorMessage` (it never had its own `assertOk`, using inline `throw new Error(...)` instead) -- only that one import was added there.
 
-**Files modified:** `frontend/index.html`, `frontend/src/main.tsx`, `frontend/package.json`, `frontend/package-lock.json`
-**Commit:** 17016c9
-**Applied fix:** Applied the review's suggested fix: removed the `<link rel="stylesheet" href="https://fonts.googleapis.com/...">` tag from `index.html` and self-hosted Archivo/JetBrains Mono via `@fontsource/archivo` and `@fontsource/jetbrains-mono` (pinned to exact version `5.3.0`, matching this repo's exact-pin convention), imported per-weight in `main.tsx` for the identical weight set the Google Fonts request specified (Archivo 400/500/600/700/800/900, JetBrains Mono 400/500/600). `vite build` now bundles every font file as a local hashed asset under `dist/assets/`; confirmed the built `index.html` contains zero external `href`/`src` references.
-
-**Verification:** `npm run build` succeeds and produces a fully self-contained `dist/` with no `fonts.googleapis.com` reference in the built output.
-
-### WR-03: `PlaybackControls.tsx` polls `GetState` every second unconditionally, including while the daemon is unreachable
-
-**Files modified:** `frontend/src/components/PlaybackControls/PlaybackControls.tsx`
-**Commit:** 9b2ced8
-**Applied fix:** Applied the review's suggested fix: the polling effect now skips starting/continuing the `setInterval` loop while `connectionStatus !== "connected"`, and re-runs (via `connectionStatus` now in the effect's dependency array) the moment the daemon reconnects -- so polling resumes immediately rather than waiting up to `STATE_POLL_INTERVAL_MS` for the next already-scheduled tick. Matches `LiveStatusBar.tsx`'s `STATUS_GAP_MS` and `SafetyService`'s throttled-push convention of changing cadence/behavior on a disconnected daemon.
-
-**Verification:** `npm run build` (`tsc --noEmit && vite build`) passes with no type errors.
+**Verification:** `npx tsc --noEmit` (frontend) passes with zero errors. `npm run build` (`tsc --noEmit && vite build`) passes.
 
 ## Skipped Issues
 
-None -- all in-scope findings were fixed. IN-01 (`frontend/package.json` version pins) was excluded by `fix_scope: critical_warning` and left untouched.
+None -- all in-scope findings were fixed. IN-01 (`findConflictingMapping` pass-through wrapper) and IN-02 (orphaned cached impact plan on preview-target switch) were excluded by `fix_scope: critical_warning` and left untouched.
 
 ## Full Verification (run after every fix in this report)
 
 - `go build ./...` -- pass
 - `go vet ./...` -- pass
-- `go test ./...` -- pass (all packages, including `internal/wails` under `-race` for the CR-02/CR-01 concurrency-sensitive paths)
+- `go test ./internal/wails/... -race` -- pass (all tests, including the 3 new `events_test.go` tests and the existing `svc_fixturepatch_test.go`/`svc_midi_test.go` suites)
 - `cd frontend && npm run build` (`tsc --noEmit && vite build`) -- pass
 
 ## Notes for Human Review
 
-- **CR-01** introduces new bound methods (`SafetyService.SetActiveSurface`, `PlaybackService.SetActiveSurface`) and changes `NewSafetyService`'s constructor signature (added `root`, `showPath`). This is a genuine architectural addition (an "active operator surface" concept previously only `MidiService` had) rather than a narrow bug patch -- recommend a human confirm the "unrestricted when no active surface is set, scoped only while `OperatorSurface.tsx`'s 'Preview as Operator' toggle is engaged" design matches the intended D-04 threat model, since `PlaybackControls.tsx`/`SafetyCluster.tsx` themselves still never set an active surface on their own (they remain full-author-mode controls by design in this phase) -- only `OperatorSurface.tsx`'s own operator-preview toggle currently exercises the new lock.
-- **CR-03**'s Blackout/Stop-Release-All toggle share one combined `outputState` signal on the wire (pre-existing constraint, not introduced by this fix) -- releasing "Hold to Blackout" while only Stop-Release-All is actually active will appear to have no visible effect (Blackout's own flag was already off). This ambiguity is inherited from `SafetyCluster.tsx`'s own pre-existing `blackoutOrStopActive` derivation and was out of scope for CR-03 to resolve (would require a new daemon-side per-flag status field).
+- **CR-01** implemented the review's minimum-bar fix (server-side logging) only, not the review's "Better" alternative (a distinct operator-visible "dispatch failed" push/banner so a live-show operator -- not just a log file -- learns a MIDI-triggered Blackout/master-level change never reached the daemon). That richer fix would need a new feedback event schema and frontend wiring (a new component, not a narrow bug patch) and was judged out of scope for an atomic code-review fix; recommend a human/product decision on whether the richer operator-visible signal is warranted before the next live-show use of MIDI-mapped safety controls.
+- **WR-01** changed `FixturePatch.tsx`'s initial `ListPatch` load to silently degrade to an empty `PatchView` on a missing bridge (matching `ArtnetConfig.tsx`/`SceneProgramming.tsx`'s own established convention) rather than the pre-existing FixturePatch-specific behavior of showing an explicit `GOLC_WAILS_BRIDGE_UNAVAILABLE` error banner on initial load. All *mutation* handlers (Create/Add/Apply/Activate) still surface that exact same diagnostic text via `assertOk`+`errorMessage` when the bridge is missing -- only the very first, pre-any-user-action list read's error-banner behavior changed, converging FixturePatch.tsx onto the same pattern its two sibling components already use. Recommend a human confirm this convergence (rather than divergence) is the intended UX before end-of-phase UAT.
 
 ---
 
-_Fixed: 2026-07-23T21:09:23Z_
+_Fixed: 2026-07-23T23:51:00Z_
 _Fixer: Claude (gsd-code-fixer)_
 _Iteration: 1_
