@@ -427,10 +427,12 @@ func (s *MidiService) StartLearn(surfaceName string, controlRef ControlRefInput)
 func (s *MidiService) CancelLearn() Result {
 	s.mu.Lock()
 	session := s.learning
-	s.mu.Unlock()
 	if session == nil {
+		s.mu.Unlock()
 		return Result{ExitCode: 1, Stderr: "GOLC_MIDI_LEARN_NOT_ACTIVE: no learn capture session is in progress\n"}
 	}
+	s.learning = nil
+	s.mu.Unlock()
 	close(session.cancel)
 	return Result{Stdout: "GOLC_MIDI_LEARN_CANCELLED\n"}
 }
