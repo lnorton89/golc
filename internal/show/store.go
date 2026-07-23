@@ -71,23 +71,35 @@ type storeMeta struct {
 	Checksum      string
 }
 
-// readMeta reads the show_meta singleton row. A schema_version of 0 marks
-// a freshly-seeded, never-yet-saved file (openStore's seed row) and is
-// treated identically to sql.ErrNoRows: both mean "no show has been saved
-// at this path yet," mirroring the pre-SQLite Load's not-yet-existing-file
-// short circuit. The bool return reports whether a real (ever-saved)
-// show_meta row was found.
+// readMeta reads the show_meta singleton row alongside show_state's blob
+// length. A schema_version of 0 AND an empty blob marks a freshly-seeded,
+// never-yet-saved file (openStore's seed row, which always leaves
+// show_state.blob as X'') and is treated identically to sql.ErrNoRows:
+// both mean "no show has been saved at this path yet," mirroring the
+// pre-SQLite Load's not-yet-existing-file short circuit. A schema_version
+// of 0 WITH a non-empty blob is a genuinely-saved historical show at that
+// version -- migrate.go's migrationMeta established this exact blob-length
+// signal first (05-03-PLAN.md) because schema_version==0 is this
+// codebase's only "older than current" value while SchemaVersion stays
+// pinned at 1; readMeta reuses the identical signal here so Load/LoadForRead
+// can actually surface ErrSchemaMigrationRequired for such a file instead
+// of silently treating its saved content as "never saved" (the schema_
+// version-only collapse this function used before was dead code from
+// Load's perspective: it made ErrSchemaMigrationRequired unreachable via
+// any real on-disk file). The bool return reports whether a real
+// (ever-saved) show_meta row was found.
 func readMeta(db *sql.DB) (storeMeta, bool, error) {
 	var meta storeMeta
-	err := db.QueryRow(`SELECT schema_version, revision, checksum FROM show_meta WHERE id = 1`).
-		Scan(&meta.SchemaVersion, &meta.Revision, &meta.Checksum)
+	var blobLen int
+	err := db.QueryRow(`SELECT show_meta.schema_version, show_meta.revision, show_meta.checksum, length(show_state.blob) FROM show_meta, show_state WHERE show_meta.id = 1 AND show_state.id = 1`).
+		Scan(&meta.SchemaVersion, &meta.Revision, &meta.Checksum, &blobLen)
 	if errors.Is(err, sql.ErrNoRows) {
 		return storeMeta{}, false, nil
 	}
 	if err != nil {
 		return storeMeta{}, false, fmt.Errorf("GOLC_SHOW_STATE_INVALID: reading show_meta: %v", err)
 	}
-	if meta.SchemaVersion == 0 {
+	if meta.SchemaVersion == 0 && blobLen == 0 {
 		return storeMeta{}, false, nil
 	}
 	return meta, true, nil
