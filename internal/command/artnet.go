@@ -675,12 +675,24 @@ func runArtnetTargetDisable(request Request) Result {
 // artnetStatusPayload mirrors internal/artnet/daemon.go's own
 // statusPayload wire shape exactly (same json tags) so DecodeStrict can
 // parse "artnet status"'s Result.Stdout back into typed
-// artnet.FrameHealth/artnet.TargetHealth/artnetUniverseValues values for
-// rendering.
+// artnet.FrameHealth/artnet.TargetHealth/artnetUniverseValues/
+// artnetInterfaceStatus values for rendering.
 type artnetStatusPayload struct {
 	Frame     artnet.FrameHealth     `json:"frame"`
 	Targets   []artnet.TargetHealth  `json:"targets"`
 	Universes []artnetUniverseValues `json:"universes"`
+	Interface artnetInterfaceStatus  `json:"interface"`
+}
+
+// artnetInterfaceStatus mirrors internal/artnet/daemon.go's own
+// interfaceStatusPayload wire shape exactly (same json tags, 04-09-PLAN.md,
+// ARTN-01/D-05) so DecodeStrict can round-trip the daemon's pinned
+// InterfaceManager's live status for rendering.
+type artnetInterfaceStatus struct {
+	PinnedIndex int    `json:"pinnedIndex"`
+	PinnedName  string `json:"pinnedName"`
+	Status      string `json:"status"`
+	Error       string `json:"error"`
 }
 
 // artnetUniverseValues mirrors internal/artnet/daemon.go's own
@@ -704,9 +716,11 @@ func displayPort(t artnet.Target) int {
 
 // renderArtnetStatusPlain renders payload as the persistent, human-
 // readable per-universe/target status table D-11 requires: frame
-// cadence/staleness on its own summary line, then one row per configured
-// target with send success/error counts, reachability, and the last
-// recorded error (if any), then one GOLC_ARTNET_UNIVERSE line per
+// cadence/staleness on its own summary line, then the pinned interface's
+// live status line (04-09-PLAN.md, ARTN-01/D-05 -- a lost/degraded pinned
+// interface is always visible here, never a silent switch), then one row
+// per configured target with send success/error counts, reachability, and
+// the last recorded error (if any), then one GOLC_ARTNET_UNIVERSE line per
 // configured universe's final DMX values (04-08-PLAN.md, ARTN-05).
 func renderArtnetStatusPlain(payload artnetStatusPayload) []byte {
 	var b strings.Builder
@@ -720,6 +734,13 @@ func renderArtnetStatusPlain(payload artnetStatusPayload) []byte {
 		lastFrameAt = payload.Frame.LastFrameAt.UTC().Format(time.RFC3339Nano)
 	}
 	fmt.Fprintf(&b, "GOLC_ARTNET_STATUS: frame=%s last_frame_at=%s\n", frameStatus, lastFrameAt)
+
+	fmt.Fprintf(&b, "GOLC_ARTNET_INTERFACE_STATUS: index=%d name=%s status=%s",
+		payload.Interface.PinnedIndex, payload.Interface.PinnedName, payload.Interface.Status)
+	if payload.Interface.Error != "" {
+		fmt.Fprintf(&b, " error=%s", payload.Interface.Error)
+	}
+	fmt.Fprintln(&b)
 
 	fmt.Fprintf(&b, "%-6s %-20s %-6s %-8s %-8s %-9s %-6s %s\n",
 		"UNIV", "TARGET", "PORT", "ENABLED", "SEND_OK", "SEND_ERR", "REACH", "LAST_ERROR")

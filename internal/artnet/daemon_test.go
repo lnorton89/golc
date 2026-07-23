@@ -241,6 +241,91 @@ func TestDaemonStatusPayloadIncludesConfiguredUniverseValues(t *testing.T) {
 	t.Fatal("expected a populated universe 1 values entry within the deadline")
 }
 
+// TestDaemonStatusPayloadIncludesPinnedInterfaceStatus proves 04-09-PLAN.md's
+// ARTN-01/D-05 gap closure: against a daemon pinned to the healthy loopback
+// interface, "artnet status" reports the pinned index, status=ok, and an
+// empty error.
+func TestDaemonStatusPayloadIncludesPinnedInterfaceStatus(t *testing.T) {
+	pipeName, _, _ := startTestDaemon(t)
+	loopbackIdx := loopbackInterfaceIndex(t)
+
+	conn := dialTestDaemon(t, pipeName)
+	defer conn.Close()
+
+	result := ipc.Forward(conn, ipc.Request{Route: "artnet status"})
+	if result.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0 from status, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	}
+
+	var payload statusPayload
+	if err := strictjson.DecodeStrict(result.Stdout, &payload); err != nil {
+		t.Fatalf("DecodeStrict: %v", err)
+	}
+	if payload.Interface.PinnedIndex != loopbackIdx {
+		t.Fatalf("expected Interface.PinnedIndex %d, got %d", loopbackIdx, payload.Interface.PinnedIndex)
+	}
+	if payload.Interface.Status != "ok" {
+		t.Fatalf("expected Interface.Status \"ok\", got %q", payload.Interface.Status)
+	}
+	if payload.Interface.Error != "" {
+		t.Fatalf("expected empty Interface.Error, got %q", payload.Interface.Error)
+	}
+}
+
+// TestDaemonStatusPayloadSurfacesLostInterface proves 04-09-PLAN.md's
+// ARTN-01/D-05 gap closure for the degraded path: a daemon pinned to a
+// deliberately-invalid interface index eventually reports Interface.Status
+// "lost" and a GOLC_ARTNET_INTERFACE_LOST error through "artnet status" --
+// the degraded state is genuinely surfaced, not just the healthy path, and
+// Run tolerates the unresolvable pinned interface at startup rather than
+// failing.
+func TestDaemonStatusPayloadSurfacesLostInterface(t *testing.T) {
+	const bogusInterfaceIndex = 999999
+
+	pipeName := testDaemonPipeName(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	runDone := make(chan error, 1)
+	go func() {
+		runDone <- Run(ctx, Config{
+			State:          minimalPlayableState(t),
+			InterfaceIndex: bogusInterfaceIndex,
+			InterfaceName:  "bogus",
+			PipeName:       pipeName,
+		})
+	}()
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case <-runDone:
+		case <-time.After(5 * time.Second):
+			t.Fatal("Run did not return within 5s of ctx cancel")
+		}
+	})
+
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		conn := dialTestDaemon(t, pipeName)
+		result := ipc.Forward(conn, ipc.Request{Route: "artnet status"})
+		conn.Close()
+		if result.ExitCode != 0 {
+			t.Fatalf("expected ExitCode 0 from status, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+		}
+
+		var payload statusPayload
+		if err := strictjson.DecodeStrict(result.Stdout, &payload); err != nil {
+			t.Fatalf("DecodeStrict: %v", err)
+		}
+		if payload.Interface.Status == "lost" {
+			if !strings.Contains(payload.Interface.Error, "GOLC_ARTNET_INTERFACE_LOST") {
+				t.Fatalf("expected Interface.Error to contain GOLC_ARTNET_INTERFACE_LOST, got %q", payload.Interface.Error)
+			}
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatal("expected Interface.Status to become \"lost\" within the deadline")
+}
+
 // TestDaemonMalformedConfigureArgsReturnUsageError proves a malformed
 // "artnet configure" invocation (missing --ip) is rejected as
 // GOLC_ARTNET_USAGE with ExitCode 2, mirroring this repo's two-tier

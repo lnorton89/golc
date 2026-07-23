@@ -342,6 +342,46 @@ func TestArtnetStatusPlainRendersUniverseValues(t *testing.T) {
 	t.Fatal("expected a GOLC_ARTNET_UNIVERSE line for universe=1 channels=512 within the deadline")
 }
 
+// TestArtnetStatusPlainRendersPinnedInterface proves 04-09-PLAN.md's
+// ARTN-01/D-05 gap closure: plain "artnet status" renders a
+// GOLC_ARTNET_INTERFACE_STATUS line naming the pinned loopback index with
+// status=ok.
+func TestArtnetStatusPlainRendersPinnedInterface(t *testing.T) {
+	pipeName := startTestArtnetDaemon(t)
+	loopbackIdx := testArtnetLoopbackInterfaceIndex(t)
+
+	result := runArtnetStatus(Request{Args: []string{"--pipe", pipeName}})
+	if result.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	}
+	body := string(result.Stdout)
+	if !strings.Contains(body, fmt.Sprintf("GOLC_ARTNET_INTERFACE_STATUS: index=%d", loopbackIdx)) {
+		t.Fatalf("expected GOLC_ARTNET_INTERFACE_STATUS: index=%d, got: %s", loopbackIdx, body)
+	}
+	if !strings.Contains(body, "status=ok") {
+		t.Fatalf("expected status=ok, got: %s", body)
+	}
+}
+
+// TestArtnetStatusJSONIncludesInterfaceStatus proves "artnet status --json"
+// decodes an Interface field matching the pinned loopback index with
+// Status "ok" (04-09-PLAN.md, ARTN-01/D-05).
+func TestArtnetStatusJSONIncludesInterfaceStatus(t *testing.T) {
+	pipeName := startTestArtnetDaemon(t)
+	loopbackIdx := testArtnetLoopbackInterfaceIndex(t)
+
+	payload, errResult, ok := fetchArtnetStatus(pipeName, "")
+	if !ok {
+		t.Fatalf("fetchArtnetStatus failed: %+v", errResult)
+	}
+	if payload.Interface.PinnedIndex != loopbackIdx {
+		t.Fatalf("expected Interface.PinnedIndex %d, got %d", loopbackIdx, payload.Interface.PinnedIndex)
+	}
+	if payload.Interface.Status != "ok" {
+		t.Fatalf("expected Interface.Status \"ok\", got %q", payload.Interface.Status)
+	}
+}
+
 // TestArtnetTargetEnableDisableRoundTrip proves "artnet target disable"
 // then "artnet target enable" toggle one target's visible Enabled state
 // in a subsequent status without error (D-12).
