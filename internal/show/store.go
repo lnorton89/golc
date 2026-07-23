@@ -139,12 +139,12 @@ func decodeAndValidate(db *sql.DB) (State, error) {
 // never decode-for-edit); an older one returns
 // ErrSchemaMigrationRequired. Load is read-only: no write ever reaches
 // the database on this path.
-func Load(root, path string) (State, error) {
-	db, err := openStore(root, path)
-	if err != nil {
-		return State{}, err
+func Load(root, path string) (state State, err error) {
+	db, openErr := openStore(root, path)
+	if openErr != nil {
+		return State{}, openErr
 	}
-	defer checkpointAndClose(db)
+	defer closeStoreCheckingErr(db, &err)
 
 	meta, ok, err := readMeta(db)
 	if err != nil {
@@ -170,12 +170,12 @@ func Load(root, path string) (State, error) {
 // reading an unmigrated older document's blob through the current
 // build's validate() would not be a meaningful check. Like Load,
 // LoadForRead never writes.
-func LoadForRead(root, path string) (State, error) {
-	db, err := openStore(root, path)
-	if err != nil {
-		return State{}, err
+func LoadForRead(root, path string) (state State, err error) {
+	db, openErr := openStore(root, path)
+	if openErr != nil {
+		return State{}, openErr
 	}
-	defer checkpointAndClose(db)
+	defer closeStoreCheckingErr(db, &err)
 
 	meta, ok, err := readMeta(db)
 	if err != nil {
@@ -262,7 +262,7 @@ func promoteState(db *sql.DB, schemaVersion, revision int, checksum string, payl
 // after both leaves nothing to offer. s is passed by value and never
 // mutated in place: callers observe the bumped Revision by calling Load
 // again, exactly like the pre-SQLite Save's contract.
-func Save(root, path string, s State) error {
+func Save(root, path string, s State) (err error) {
 	if err := validate(s); err != nil {
 		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: %v", err)
 	}
@@ -279,7 +279,7 @@ func Save(root, path string, s State) error {
 	if err != nil {
 		return err
 	}
-	defer checkpointAndClose(db)
+	defer closeStoreCheckingErr(db, &err)
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	if err := stageRecoveryPoint(db, now, s.Revision, payload); err != nil {

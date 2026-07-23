@@ -153,3 +153,15 @@ func checkpointAndClose(db *sql.DB) error {
 	}
 	return checkpointErr
 }
+
+// closeStoreCheckingErr runs checkpointAndClose and, only when *errp is
+// still nil (the function's other work has not already failed for a more
+// specific reason), sets *errp to the checkpoint/close failure so it
+// actually reaches the caller instead of being silently discarded by a
+// bare `defer checkpointAndClose(db)`. Intended for
+// `defer closeStoreCheckingErr(db, &err)` with a named error return.
+func closeStoreCheckingErr(db *sql.DB, errp *error) {
+	if closeErr := checkpointAndClose(db); closeErr != nil && *errp == nil {
+		*errp = fmt.Errorf("GOLC_SHOW_STATE_INVALID: closing store: %v", closeErr)
+	}
+}
