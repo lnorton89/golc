@@ -112,6 +112,34 @@ var _ = MustDeclareRoute(CommandRegistration{
 	Handler: runArtnetTargetDisable,
 })
 
+var _ = MustDeclareRoute(CommandRegistration{
+	Route: "artnet safety blackout",
+	Summary: "Drive every configured universe's output to zero on the next Art-Net tick, through the daemon's local-priority path independent of show/UI/script/API state (PLAY-06/09): " +
+		"artnet safety blackout [--on true|false] [--pipe <name>].",
+	Handler: runArtnetSafetyBlackout,
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route: "artnet safety stop-all",
+	Summary: "Drive every configured universe's output to the safe/zero state, identical to Blackout, on the next Art-Net tick (PLAY-06/09): " +
+		"artnet safety stop-all [--on true|false] [--pipe <name>].",
+	Handler: runArtnetSafetyStopAll,
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route: "artnet safety revoke-automation",
+	Summary: "Block any command whose Request carries a non-manual source tag and freeze the current look, without waiting for the automation runtime to respond (PLAY-08): " +
+		"artnet safety revoke-automation [--on true|false] [--pipe <name>].",
+	Handler: runArtnetSafetyRevokeAutomation,
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route: "artnet master set",
+	Summary: "Set the grand master or one group's master level; masters compose multiplicatively into every instance's output on the next Art-Net tick (PLAY-06): " +
+		"artnet master set --grand <0..1> | --group <id> --level <0..1> [--pipe <name>].",
+	Handler: runArtnetMasterSet,
+})
+
 // artnetWatchInterval is "artnet status --watch"'s own refresh cadence --
 // independent of the daemon's 40Hz worker tick and 1Hz interface poll,
 // slow enough to be readable, fast enough to feel live (D-02/D-11).
@@ -730,6 +758,107 @@ func runArtnetTargetEnable(request Request) Result {
 func runArtnetTargetDisable(request Request) Result {
 	usage := "artnet target disable --universe <n> --ip <address> [--port <port>] [--pipe <name>]"
 	return runArtnetTargetToggle("artnet target disable", usage, request)
+}
+
+// --- artnet safety / artnet master --------------------------------------
+
+// runArtnetSafetyToggle is shared by "artnet safety blackout", "artnet
+// safety stop-all", and "artnet safety revoke-automation" (06-02-PLAN.md
+// Task 3, PLAY-06/08/09): it parses the optional "--on true|false" flag
+// client-side (GOLC_ARTNET_USAGE on a malformed value, before ever
+// dialing the daemon), then forwards to the matching daemon route with
+// "--source manual" always appended -- every operator-issued CLI safety
+// action is manual by definition (internal/artnet/daemon.go's
+// requestSource convention), so it is never blocked by an active Revoke
+// Automation, even one this same invocation might itself be toggling off.
+func runArtnetSafetyToggle(route, usage string, request Request) Result {
+	values, err := parseArtnetArgs(usage, request.Args, nil)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	on := "true"
+	if raw, ok := values["on"]; ok {
+		if _, parseErr := strconv.ParseBool(raw); parseErr != nil {
+			return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
+				"GOLC_ARTNET_USAGE: --on value %q is not a valid bool; usage: %s\n", raw, usage))}
+		}
+		on = raw
+	}
+
+	return forwardToDaemon(pipeNameFromFlags(values), Request{
+		Route: route,
+		Args:  []string{"--on", on, "--source", "manual"},
+		Root:  request.Root,
+	})
+}
+
+func runArtnetSafetyBlackout(request Request) Result {
+	usage := "artnet safety blackout [--on true|false] [--pipe <name>]"
+	return runArtnetSafetyToggle("artnet safety blackout", usage, request)
+}
+
+func runArtnetSafetyStopAll(request Request) Result {
+	usage := "artnet safety stop-all [--on true|false] [--pipe <name>]"
+	return runArtnetSafetyToggle("artnet safety stop-all", usage, request)
+}
+
+func runArtnetSafetyRevokeAutomation(request Request) Result {
+	usage := "artnet safety revoke-automation [--on true|false] [--pipe <name>]"
+	return runArtnetSafetyToggle("artnet safety revoke-automation", usage, request)
+}
+
+// runArtnetMasterSet serves the self-registered "artnet master set" route
+// (06-02-PLAN.md Task 3, PLAY-06): exactly one of --grand or
+// --group+--level selects which master this call replaces, validated
+// client-side (a malformed value is GOLC_ARTNET_USAGE, ExitCode 2, before
+// ever dialing the daemon; an out-of-range level is instead a
+// GOLC_ARTNET_SAFETY_MASTER_INVALID domain error the daemon itself
+// returns, ExitCode 1). "--source manual" is always appended, mirroring
+// runArtnetSafetyToggle.
+func runArtnetMasterSet(request Request) Result {
+	usage := "artnet master set --grand <0..1> | --group <id> --level <0..1> [--pipe <name>]"
+	values, err := parseArtnetArgs(usage, request.Args, nil)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	if rawGrand, ok := values["grand"]; ok {
+		if _, parseErr := strconv.ParseFloat(rawGrand, 64); parseErr != nil {
+			return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
+				"GOLC_ARTNET_USAGE: --grand value %q is not a valid number; usage: %s\n", rawGrand, usage))}
+		}
+		return forwardToDaemon(pipeNameFromFlags(values), Request{
+			Route: "artnet master set",
+			Args:  []string{"--grand", rawGrand, "--source", "manual"},
+			Root:  request.Root,
+		})
+	}
+
+	rawGroup, ok := values["group"]
+	if !ok {
+		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
+			"GOLC_ARTNET_USAGE: --grand or --group is required; usage: %s\n", usage))}
+	}
+	if _, parseErr := uuid.Parse(rawGroup); parseErr != nil {
+		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
+			"GOLC_ARTNET_USAGE: --group value %q is not a valid UUID; usage: %s\n", rawGroup, usage))}
+	}
+	rawLevel, ok := values["level"]
+	if !ok {
+		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
+			"GOLC_ARTNET_USAGE: --level is required with --group; usage: %s\n", usage))}
+	}
+	if _, parseErr := strconv.ParseFloat(rawLevel, 64); parseErr != nil {
+		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
+			"GOLC_ARTNET_USAGE: --level value %q is not a valid number; usage: %s\n", rawLevel, usage))}
+	}
+
+	return forwardToDaemon(pipeNameFromFlags(values), Request{
+		Route: "artnet master set",
+		Args:  []string{"--group", rawGroup, "--level", rawLevel, "--source", "manual"},
+		Root:  request.Root,
+	})
 }
 
 // --- artnet status ------------------------------------------------------
