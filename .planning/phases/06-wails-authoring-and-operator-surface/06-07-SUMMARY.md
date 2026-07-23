@@ -210,3 +210,7 @@ None - no external service configuration required.
 ---
 *Phase: 06-wails-authoring-and-operator-surface*
 *Completed: 2026-07-23*
+
+## Self-Check: PASSED
+
+All 9 claimed files (5 created, 4 modified) confirmed present via `git ls-files`; all 3 commit hashes (`55a8a93`, `cdb4a69`, `d5d8952`) confirmed present via `git log --oneline --all`.
