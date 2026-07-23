@@ -6,13 +6,13 @@ current_phase: 6
 current_phase_name: Wails Authoring and Operator Surface
 status: executing
 stopped_at: Phase 6 UI-SPEC approved
-last_updated: "2026-07-23T09:11:22.985Z"
+last_updated: "2026-07-23T09:40:48.640Z"
 last_activity: 2026-07-23
-last_activity_desc: Phase 05 complete, transitioned to Phase 6
+last_activity_desc: Phase 6 execution started
 progress:
   total_phases: 7
   completed_phases: 5
-  total_plans: 59
+  total_plans: 67
   completed_plans: 59
 ---
 
@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** An operator can author a modular show once, adapt its fixture pools to different deployments in one or two actions, and hand a simple controller surface to another person for reliable playback.
-**Current focus:** Phase 06 — wails-authoring-and-operator-surface
+**Current focus:** Phase 6 — Wails Authoring and Operator Surface
 
 ## Current Position
 
-Phase: 6 — Wails Authoring and Operator Surface
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-07-23 — Phase 05 complete, transitioned to Phase 6
+Phase: 6 (Wails Authoring and Operator Surface) — EXECUTING
+Plan: 1 of 8
+Status: Executing Phase 6
+Last activity: 2026-07-23 — Phase 6 execution started
 
 Note: `.planning/phases/11-telemetry-usage-statistics-and-auto-crash-submission-pipeline/` exists on disk from earlier out-of-order groundwork, which caused the automated next-phase resolver to briefly point here at Phase 11. Phases 6-10 have no directories yet and are the genuine next work per ROADMAP.md's sequential order; Phase 11 itself declares `Depends on: Phase 10`.
 
