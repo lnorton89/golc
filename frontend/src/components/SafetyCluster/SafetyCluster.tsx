@@ -1,48 +1,193 @@
 // SafetyCluster.tsx is the persistent, visually distinct safety-cluster
 // region (D-13/D-15): Blackout / Revoke Automation / Stop-Release-All, in
 // a fixed screen position present on every view (authoring, programming,
-// playback alike). This Wave 2 stub renders the three labeled
-// placeholders only -- 06-05-PLAN.md replaces this file's contents with
-// the real hold-to-confirm (D-14) controls wired to SafetyService, never
-// changing App.tsx's mount point for this component.
+// playback alike). 06-05-PLAN.md Task 2 fills this Wave 2 stub: each
+// control is a 64px hold-to-confirm target (D-14 -- press and hold
+// roughly 500ms-1s, with a visible fill/progress indicator; releasing
+// early cancels without ever invoking the daemon call) that, on a
+// completed hold, calls the matching SafetyService binding
+// (wailsBridge.ts) with the exact same route+"--source manual" shape
+// hotkey.go's OS-level callback already uses (RESEARCH.md Pitfall 1: this
+// on-screen path is the second, independent trigger into the same daemon
+// override state -- always "on=true", mirroring hotkey.go's own
+// always-activate convention for this phase).
 //
-// D-13 also means this region must remain visible even when the daemon is
-// unreachable (the on-screen path is one of two independent triggers into
-// the same daemon override state, per 06-RESEARCH.md Pitfall 1 -- the
-// other being the OS-level hotkeys internal/wails/hotkey.go registers).
-// This stub therefore never gates its own rendering on connection status.
+// D-13 also means this region must remain visible AND interactive even
+// when the daemon is unreachable (LiveStatusBar.tsx renders the
+// daemon-unreachable copy alongside this always-mounted cluster,
+// 06-UI-SPEC.md error state) -- this component therefore never gates its
+// own rendering or its controls' interactivity on connection status.
 
-import type { CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 
-const clusterStyle: CSSProperties = {
-  display: "flex",
-  gap: "var(--space-md)",
-  padding: "var(--space-md)",
-  border: "2px solid var(--status-revoked)",
-  borderRadius: "4px",
-  background: "var(--panel)",
-};
+import { useGolcStore } from "../../store/store";
+import {
+  safetyBlackout,
+  safetyRevokeAutomation,
+  safetyStopReleaseAll,
+} from "../../lib/wailsBridge";
+import styles from "./SafetyCluster.module.css";
 
-const controlStyle: CSSProperties = {
-  minHeight: "64px",
-  minWidth: "160px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  color: "var(--ink)",
-  fontFamily: "Archivo, system-ui, sans-serif",
-  fontWeight: 600,
-  border: "1px solid var(--line)",
-  borderRadius: "4px",
-  background: "var(--page)",
-};
+// HOLD_DURATION_MS is D-14's press-and-hold window: within the
+// spec'd ~500ms-1s range.
+const HOLD_DURATION_MS = 750;
+
+interface HoldButtonProps {
+  label: string;
+  controlColorVar?: string;
+  textColorVar?: string;
+  active: boolean;
+  onActivate: () => void;
+}
+
+function HoldButton({
+  label,
+  controlColorVar,
+  textColorVar,
+  active,
+  onActivate,
+}: HoldButtonProps) {
+  const [holding, setHolding] = useState(false);
+  const timeoutRef = useRef<number | null>(null);
+
+  const clearHoldTimer = useCallback(() => {
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  const startHold = useCallback(() => {
+    clearHoldTimer();
+    setHolding(true);
+    timeoutRef.current = window.setTimeout(() => {
+      timeoutRef.current = null;
+      setHolding(false);
+      onActivate();
+    }, HOLD_DURATION_MS);
+  }, [clearHoldTimer, onActivate]);
+
+  // cancelHold: releasing early (pointerup/pointerleave/pointercancel/
+  // keyup before HOLD_DURATION_MS elapses) clears the pending timer and
+  // resets the fill instantly (--motion-snap) -- the hold-to-confirm
+  // control's own onActivate is never invoked.
+  const cancelHold = useCallback(() => {
+    clearHoldTimer();
+    setHolding(false);
+  }, [clearHoldTimer]);
+
+  useEffect(() => clearHoldTimer, [clearHoldTimer]);
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    startHold();
+  };
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (event.repeat) return;
+    if (event.key === " " || event.key === "Enter") {
+      event.preventDefault();
+      startHold();
+    }
+  };
+
+  const handleKeyUp = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === " " || event.key === "Enter") {
+      cancelHold();
+    }
+  };
+
+  const style: CSSProperties = {
+    ...(controlColorVar ? { "--control-color": controlColorVar } : {}),
+    ...(textColorVar ? { "--control-text-color": textColorVar } : {}),
+  } as CSSProperties;
+
+  return (
+    <button
+      type="button"
+      className={styles.control}
+      style={style}
+      aria-pressed={holding}
+      onPointerDown={handlePointerDown}
+      onPointerUp={cancelHold}
+      onPointerLeave={cancelHold}
+      onPointerCancel={cancelHold}
+      onKeyDown={handleKeyDown}
+      onKeyUp={handleKeyUp}
+    >
+      <span
+        className={styles.fill}
+        style={{
+          transform: holding ? "scaleX(1)" : "scaleX(0)",
+          transitionProperty: "transform",
+          transitionDuration: holding
+            ? `${HOLD_DURATION_MS}ms`
+            : "var(--motion-snap)",
+          transitionTimingFunction: "linear",
+        }}
+        aria-hidden="true"
+      />
+      {active && (
+        <span className={styles.activeBadge} aria-hidden="true">
+          ACTIVE
+        </span>
+      )}
+      <span className={styles.label}>{label}</span>
+    </button>
+  );
+}
 
 export default function SafetyCluster() {
+  const status = useGolcStore((state) => state.status);
+
+  // Individual per-control "active" indicators are best-effort: the
+  // daemon's PLAY-07 status vocabulary (controllingSource/outputState)
+  // is a single combined descriptor, not three independent flags, so
+  // Blackout and Stop/Release-All (both of which drive outputState to
+  // "blackout" identically, internal/artnet/daemon.go's
+  // newPlaybackStatusPayload) cannot be distinguished from this signal
+  // alone -- both light up together when either is active. Revoke
+  // Automation's own "revoked" controllingSource is unambiguous unless a
+  // blackout is simultaneously active (blackout takes priority in the
+  // combined vocabulary), in which case only the blackout state shows.
+  const blackoutOrStopActive = status.outputState === "blackout";
+  const revokeActive = status.controllingSource === "revoked";
+
   return (
-    <div style={clusterStyle} aria-label="Safety cluster">
-      <div style={controlStyle}>Hold to Blackout</div>
-      <div style={controlStyle}>Hold to Revoke Automation</div>
-      <div style={controlStyle}>Hold to Stop / Release All</div>
+    <div className={styles.cluster} aria-label="Safety cluster">
+      <HoldButton
+        label="Hold to Blackout"
+        controlColorVar="var(--status-blackout)"
+        textColorVar="var(--page)"
+        active={blackoutOrStopActive}
+        onActivate={() => {
+          void safetyBlackout(true);
+        }}
+      />
+      <HoldButton
+        label="Hold to Revoke Automation"
+        controlColorVar="var(--status-revoked)"
+        textColorVar="var(--page)"
+        active={revokeActive}
+        onActivate={() => {
+          void safetyRevokeAutomation(true);
+        }}
+      />
+      <HoldButton
+        label="Hold to Stop / Release All"
+        active={blackoutOrStopActive}
+        onActivate={() => {
+          void safetyStopReleaseAll(true);
+        }}
+      />
     </div>
   );
 }
