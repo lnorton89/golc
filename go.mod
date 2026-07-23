@@ -8,6 +8,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/invopop/jsonschema v0.14.0
 	go.yaml.in/yaml/v4 v4.0.0-rc.6
+	modernc.org/sqlite v1.54.0
 )
 
 require (
@@ -22,5 +23,4 @@ require (
 	modernc.org/libc v1.74.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.54.0 // indirect
 )

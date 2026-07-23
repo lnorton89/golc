@@ -21,8 +21,11 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lnorton89/golc/internal/deployment"
+	"github.com/lnorton89/golc/internal/fixture"
 	"github.com/lnorton89/golc/internal/pool"
+	"github.com/lnorton89/golc/internal/programming"
 	"github.com/lnorton89/golc/internal/scene"
+	"github.com/lnorton89/golc/internal/strictjson"
 )
 
 // buildNonTrivialState constructs a State carrying at least one pool (with
@@ -219,6 +222,65 @@ func TestShowLoadDoesNotMutate(t *testing.T) {
 	revisionAfter := onDiskRevision(t, root, path)
 	if revisionBefore != revisionAfter {
 		t.Fatalf("Load mutated the on-disk revision: before=%d after=%d", revisionBefore, revisionAfter)
+	}
+}
+
+// TestShowLoadRejectsOverScopeMotionCapability proves Load's own
+// validate() step re-checks untrusted disk content (CONTEXT threat
+// T-02-10), not just Save's write-time guard: a MotionPreset carrying an
+// out-of-scope "color" capability keyframe is written directly into
+// show_state's blob via openStore, bypassing Save's validate() entirely
+// (simulating a hand-edited .golc file), and Load must still reject it.
+// This replaces internal/command/chase_motion_test.go's pre-SQLite
+// equivalent, which wrote raw JSON bytes straight to the show path -- a
+// technique the SQLite-backed store's application_id door check now
+// rejects before ever reaching validate(), so the direct-write simulation
+// has to happen at the blob-column level instead (05-01-PLAN.md Task 2
+// deviation).
+func TestShowLoadRejectsOverScopeMotionCapability(t *testing.T) {
+	root := t.TempDir()
+	path := "show.golc"
+
+	tampered := State{
+		SchemaVersion: SchemaVersion,
+		MotionPresets: []programming.MotionPreset{
+			{
+				ID:   uuid.Must(uuid.NewV7()),
+				Name: "Tampered",
+				Keyframes: []programming.MotionKeyframe{
+					{Values: []programming.MotionKeyframeValue{{Capability: fixture.CapabilityColor, Value: 0.5}}},
+				},
+			},
+		},
+	}
+	payload, err := strictjson.CanonicalEncode(tampered)
+	if err != nil {
+		t.Fatalf("CanonicalEncode: %v", err)
+	}
+
+	db, err := openStore(root, path)
+	if err != nil {
+		t.Fatalf("openStore: %v", err)
+	}
+	if _, err := db.Exec(`UPDATE show_meta SET schema_version = ?, revision = 1, checksum = '', updated_at = '2026-01-01T00:00:00Z' WHERE id = 1`,
+		SchemaVersion); err != nil {
+		db.Close()
+		t.Fatalf("seeding tampered show_meta: %v", err)
+	}
+	if _, err := db.Exec(`UPDATE show_state SET blob = ? WHERE id = 1`, payload); err != nil {
+		db.Close()
+		t.Fatalf("seeding tampered show_state: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("closing seeded store: %v", err)
+	}
+
+	_, err = Load(root, path)
+	if err == nil {
+		t.Fatalf("expected Load to reject an over-scope motion capability, got no error")
+	}
+	if !strings.Contains(err.Error(), "GOLC_SHOW_STATE_INVALID") || !strings.Contains(err.Error(), "GOLC_MOTION_PRESET_CAPABILITY_OUT_OF_SCOPE") {
+		t.Fatalf("expected GOLC_SHOW_STATE_INVALID wrapping GOLC_MOTION_PRESET_CAPABILITY_OUT_OF_SCOPE, got %v", err)
 	}
 }
 
