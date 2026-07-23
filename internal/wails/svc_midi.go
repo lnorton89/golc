@@ -42,6 +42,8 @@ import (
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/midi"
 	"github.com/lnorton89/golc/internal/operatorsurface"
+	"github.com/lnorton89/golc/internal/pool"
+	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/show"
 )
 
@@ -456,13 +458,17 @@ func (s *MidiService) RemoveMapping(surfaceName, mappingID string) Result {
 // ListMappings returns surfaceName's current MIDI mapping rows (06-UI-SPEC.md
 // populated/empty states: control name, Note/CC/channel, Remove
 // affordance, armed chip for fader mappings) -- surfaceByName/show.Load
-// mirror svc_surface.go's own read-path convention exactly.
+// mirror svc_surface.go's own read-path convention exactly. Label is
+// computed server-side (layerKindLabel/safetyLabel, svc_surface.go's own
+// helpers, reused verbatim) so the frontend never needs to re-derive a
+// human-readable control name from raw kind/ID pieces.
 type MidiMappingView struct {
 	ID      string          `json:"id"`
 	Channel int             `json:"channel"`
 	Kind    string          `json:"kind"`
 	Number  int             `json:"number"`
 	Target  ControlRefInput `json:"target"`
+	Label   string          `json:"label"`
 }
 
 // ListMappings projects surfaceName's MidiMappings for MidiPanel.tsx.
@@ -482,35 +488,83 @@ func (s *MidiService) ListMappings(surfaceName string) ([]MidiMappingView, error
 			Channel: m.Channel,
 			Kind:    string(m.Kind),
 			Number:  m.Number,
-			Target:  controlRefInputOf(m.Target),
+			Target:  controlRefInputOf(state, m.Target),
+			Label:   controlRefLabel(state, m.Target),
 		})
 	}
 	return views, nil
 }
 
 // controlRefInputOf projects an operatorsurface.ControlRef back into the
-// wire ControlRefInput shape ListMappings returns -- scene/master/safety
-// project their raw identifiers directly (name resolution against the
-// loaded ShowState is svc_surface.go's ShowSurface's job, not repeated
-// here); layer carries its scene ID as a string since resolving it back to
-// a scene name would require the same ShowState this read-only projection
-// intentionally keeps out of scope for a mapping list row.
-func controlRefInputOf(ref operatorsurface.ControlRef) ControlRefInput {
+// wire ControlRefInput shape ListMappings returns. Scene/Group carry
+// NAMES (resolved against state), matching ControlRefInput's established
+// contract everywhere else in this package (svc_surface.go's own
+// cliSelector/resolveSurfaceControlRef round-trip through names, never
+// raw IDs) -- an earlier version of this function returned raw UUIDs
+// here, which would have silently broken AssignItem/UnassignItem-style
+// round-tripping of a mapping's Target back through the frontend (Rule 1
+// fix, caught before any frontend code consumed this method).
+func controlRefInputOf(state show.State, ref operatorsurface.ControlRef) ControlRefInput {
 	switch ref.Kind {
 	case operatorsurface.ControlScene:
-		return ControlRefInput{Kind: "scene", Scene: ref.Scene.String()}
+		return ControlRefInput{Kind: "scene", Scene: sceneNameByID(state.Scenes, ref.Scene)}
 	case operatorsurface.ControlLayer:
-		return ControlRefInput{Kind: "layer", Scene: ref.Layer.SceneID.String(), LayerKind: string(ref.Layer.Kind)}
+		return ControlRefInput{Kind: "layer", Scene: sceneNameByID(state.Scenes, ref.Layer.SceneID), LayerKind: string(ref.Layer.Kind)}
 	case operatorsurface.ControlMaster:
 		if ref.Master.Kind == operatorsurface.GrandMaster {
 			return ControlRefInput{Kind: "master", MasterKind: "grand"}
 		}
-		return ControlRefInput{Kind: "master", MasterKind: "group", Group: ref.Master.GroupID.String()}
+		return ControlRefInput{Kind: "master", MasterKind: "group", Group: groupNameByID(state.Groups, ref.Master.GroupID)}
 	case operatorsurface.ControlSafety:
 		return ControlRefInput{Kind: "safety", Safety: string(ref.Safety)}
 	default:
 		return ControlRefInput{}
 	}
+}
+
+// controlRefLabel computes ref's human-readable label, reusing
+// svc_surface.go's own layerKindLabel/safetyLabel helpers verbatim so
+// there is exactly one label-formatting implementation in this package.
+func controlRefLabel(state show.State, ref operatorsurface.ControlRef) string {
+	switch ref.Kind {
+	case operatorsurface.ControlScene:
+		return sceneNameByID(state.Scenes, ref.Scene)
+	case operatorsurface.ControlLayer:
+		return fmt.Sprintf("%s / %s", sceneNameByID(state.Scenes, ref.Layer.SceneID), layerKindLabel(ref.Layer.Kind))
+	case operatorsurface.ControlMaster:
+		if ref.Master.Kind == operatorsurface.GrandMaster {
+			return "Grand Master"
+		}
+		return fmt.Sprintf("Group Master: %s", groupNameByID(state.Groups, ref.Master.GroupID))
+	case operatorsurface.ControlSafety:
+		return safetyLabel(ref.Safety)
+	default:
+		return ""
+	}
+}
+
+// sceneNameByID returns the Name of the scene in scenes whose ID matches
+// id, or "" if not found (a mapping whose target scene was since deleted
+// -- rendered as an empty label rather than a lookup failure, matching
+// this file's read-only projection contract).
+func sceneNameByID(scenes []scene.Scene, id uuid.UUID) string {
+	for _, sc := range scenes {
+		if sc.ID == id {
+			return sc.Name
+		}
+	}
+	return ""
+}
+
+// groupNameByID returns the Name of the group in groups whose ID matches
+// id, or "" if not found.
+func groupNameByID(groups []pool.Group, id uuid.UUID) string {
+	for _, g := range groups {
+		if g.ID == id {
+			return g.Name
+		}
+	}
+	return ""
 }
 
 // findMapping returns the mapping in mappings whose (Channel, Kind,

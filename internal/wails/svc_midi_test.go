@@ -225,6 +225,63 @@ func TestMidiServiceStartLearnRejectsUnassignedControl(t *testing.T) {
 	}
 }
 
+// TestMidiServiceListMappingsResolvesNamesAndLabels proves ListMappings'
+// Target carries a resolvable NAME (matching ControlRefInput's
+// established name-based contract everywhere else in this package, e.g.
+// svc_surface.go's cliSelector/resolveSurfaceControlRef round-trip) rather
+// than a raw internal ID, and Label is a human-readable string -- the
+// Rule 1 fix this file's own history records (controlRefInputOf originally
+// returned raw UUIDs for scene/group targets).
+func TestMidiServiceListMappingsResolvesNamesAndLabels(t *testing.T) {
+	svc, root, showPath, _ := newMidiTestFixture(t, "test-list-mappings")
+
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	surfaceSvc.CreateSurface("Front of House")
+	grand := ControlRefInput{Kind: "master", MasterKind: "grand"}
+	surfaceSvc.AssignItem("Front of House", grand)
+
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
+	if !found {
+		t.Fatal("surface not found")
+	}
+	grandRef, err := resolveSurfaceControlRef(state, grand)
+	if err != nil {
+		t.Fatalf("resolveSurfaceControlRef: %v", err)
+	}
+	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
+		Channel: 3, Kind: operatorsurface.ControlChange, Number: 74, Target: grandRef,
+	})
+	if err != nil {
+		t.Fatalf("AddMidiMapping: %v", err)
+	}
+	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
+	if err := show.Save(root, showPath, state); err != nil {
+		t.Fatalf("show.Save: %v", err)
+	}
+
+	mappings, err := svc.ListMappings("Front of House")
+	if err != nil {
+		t.Fatalf("ListMappings: %v", err)
+	}
+	if len(mappings) != 1 {
+		t.Fatalf("expected exactly one mapping, got %+v", mappings)
+	}
+	got := mappings[0]
+	if got.Target.Kind != "master" || got.Target.MasterKind != "grand" {
+		t.Fatalf("Target = %+v, want kind=master masterKind=grand", got.Target)
+	}
+	if got.Label != "Grand Master" {
+		t.Fatalf("Label = %q, want %q", got.Label, "Grand Master")
+	}
+	if got.Channel != 3 || got.Kind != "control_change" || got.Number != 74 {
+		t.Fatalf("mapping = %+v, want channel=3 kind=control_change number=74", got)
+	}
+}
+
 // TestMidiServiceFaderTakeoverCrossToCatchAndButtonActsImmediately proves
 // D-09..D-12 together: a mapped fader (ControlChange) does not control
 // before the physical value crosses the ghost/target marker, live
