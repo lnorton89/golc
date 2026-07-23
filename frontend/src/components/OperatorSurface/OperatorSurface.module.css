@@ -1,0 +1,288 @@
+/*
+ * OperatorSurface.module.css is the single shared CSS Module for the
+ * operator-surface feature (06-07-PLAN.md Task 2): OperatorSurface.tsx,
+ * SurfaceList.tsx, and AssignmentToggle.tsx all import these class names
+ * rather than each carrying its own stylesheet, keeping this plan's
+ * frontend footprint to the exact 4 files declared in PLAN.md. Reads the
+ * GOLC brand tokens (frontend/src/index.css custom properties) rather than
+ * repeating hex values (06-UI-SPEC.md Design System).
+ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: "Archivo", system-ui, sans-serif;
+}
+
+.skeleton {
+  padding: var(--space-md);
+  border-radius: 4px;
+  background: var(--line);
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+/* Surface list -- create form */
+
+.createRow {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.createInput {
+  flex: 1;
+  padding: var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.primaryButton {
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primaryButton:hover {
+  background: var(--accent-dp);
+}
+
+/* Surface list -- empty state (06-UI-SPEC.md Copywriting Contract) */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-lg) var(--space-md);
+}
+
+.emptyHeading {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.emptyBody {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text);
+}
+
+/* Surface list -- populated rows */
+
+.countSummary {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.rowScroll {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+}
+
+.rowSelected {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.rowSelectButton {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-xs) var(--space-sm);
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rowName {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rowSelected .rowName {
+  color: var(--accent);
+}
+
+.rowCounts {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.removeButton {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--status-revoked);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--status-revoked);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.removeButton:hover {
+  background: var(--status-revoked);
+  color: #fff;
+}
+
+.errorText {
+  margin: 0;
+  padding: var(--space-sm);
+  border-radius: 4px;
+  background: var(--status-revoked);
+  color: #fff;
+  font-size: 14px;
+}
+
+/* Detail panel -- authoring toggles + operator preview */
+
+.detailPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-md);
+}
+
+.detailHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.detailTitle {
+  margin: 0;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.modeButton {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modeButton:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.controlList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.controlRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+}
+
+/* D-04 visible-but-locked renderer: every control always renders, assigned
+   or not -- assigned is full opacity + Signal Blue indicator, unassigned is
+   reduced opacity + non-interactive. Never hidden (see OperatorSurface.tsx
+   "operate" mode). */
+
+.controlAssigned {
+  opacity: 1;
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.controlLocked {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.controlLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.controlState {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* AssignmentToggle -- in-place per-item "add to this operator surface"
+   control (D-01/D-03: no bulk/category control exists anywhere). */
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+
+.toggleLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+}

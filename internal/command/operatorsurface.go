@@ -1,6 +1,8 @@
 // operatorsurface.go is the operatorsurface command file: it owns the
 // "operatorsurface" routing scope and self-registers create/list/assign/
-// unassign/show (CONTEXT PLAY-03, D-01/D-02/D-03), giving a show author a
+// unassign/show/remove (CONTEXT PLAY-03, D-01/D-02/D-03; "remove" added by
+// 06-07-PLAN.md Task 1 for the destructive Remove-Operator-Surface UI
+// action, T-06-20), giving a show author a
 // CLI-testable surface to build and inspect a named, individually-assigned
 // constrained operator surface entirely from the command line, with no
 // Wails frontend dependency (06-01-PLAN.md Objective). Handlers follow
@@ -63,6 +65,12 @@ var _ = MustDeclareRoute(CommandRegistration{
 	Route:   "operatorsurface show",
 	Summary: "Print a named operator surface's assigned items and MIDI mappings: operatorsurface show --surface <name> --show <path>.",
 	Handler: runOperatorSurfaceShow,
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route:   "operatorsurface remove",
+	Summary: "Delete a named operator surface and all its assignments and MIDI mappings: operatorsurface remove --surface <name> --show <path>.",
+	Handler: runOperatorSurfaceRemove,
 })
 
 // Authorize is the server-side visible-but-locked enforcement point
@@ -578,4 +586,39 @@ func runOperatorSurfaceShow(request Request) Result {
 		fmt.Fprintf(&b, "    - channel=%d kind=%s number=%d\n", m.Channel, m.Kind, m.Number)
 	}
 	return Result{Stdout: []byte(b.String())}
+}
+
+// runOperatorSurfaceRemove serves the self-registered "operatorsurface
+// remove" route (06-07-PLAN.md Task 1: RemoveSurface, T-06-20): load the
+// ShowState at --show, delete the named surface (and, with it, every
+// assignment and MIDI mapping it owned), and save atomically. Removing an
+// unknown surface is rejected -- never a silent no-op.
+func runOperatorSurfaceRemove(request Request) Result {
+	usage := "operatorsurface remove --surface <name> --show <path>"
+	surfaceName, showPath, err := parseOperatorSurfaceNameShowArgs(usage, request.Args)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	state, err := show.Load(request.Root, showPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	if _, found := operatorSurfaceByName(state.OperatorSurfaces, surfaceName); !found {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_OPERATORSURFACE_NOT_FOUND: no operator surface named %q exists\n", surfaceName))}
+	}
+
+	filtered := make([]operatorsurface.Surface, 0, len(state.OperatorSurfaces))
+	for _, s := range state.OperatorSurfaces {
+		if s.Name != surfaceName {
+			filtered = append(filtered, s)
+		}
+	}
+	state.OperatorSurfaces = filtered
+
+	if err := show.Save(request.Root, showPath, state); err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	return Result{Stdout: []byte(fmt.Sprintf("GOLC_OPERATORSURFACE_REMOVED: %s\n", surfaceName))}
 }
