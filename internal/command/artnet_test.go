@@ -382,6 +382,74 @@ func TestArtnetStatusJSONIncludesInterfaceStatus(t *testing.T) {
 	}
 }
 
+// TestArtnetInterfaceListAnnotatesPinnedWhenDaemonRunning proves
+// 04-09-PLAN.md's ARTN-01/D-05 gap closure: with a daemon running,
+// "artnet interface list" marks the loopback candidate as pinned with its
+// live status, in both plain and --json rendering.
+func TestArtnetInterfaceListAnnotatesPinnedWhenDaemonRunning(t *testing.T) {
+	pipeName := startTestArtnetDaemon(t)
+	loopbackIdx := testArtnetLoopbackInterfaceIndex(t)
+
+	plainResult := runArtnetInterfaceList(Request{Args: []string{"--pipe", pipeName}})
+	if plainResult.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", plainResult.ExitCode, plainResult.Stderr)
+	}
+	plainBody := string(plainResult.Stdout)
+	found := false
+	for _, line := range strings.Split(plainBody, "\n") {
+		if strings.HasPrefix(line, strconv.Itoa(loopbackIdx)+" ") || strings.Contains(line, fmt.Sprintf("%-6d", loopbackIdx)) {
+			if strings.Contains(line, "yes") && strings.Contains(line, "ok") {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected the loopback row to be marked pinned=yes status=ok, got: %s", plainBody)
+	}
+
+	jsonResult := runArtnetInterfaceList(Request{Args: []string{"--json", "--pipe", pipeName}})
+	if jsonResult.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", jsonResult.ExitCode, jsonResult.Stderr)
+	}
+	var entries []interfaceListEntry
+	if err := json.Unmarshal(jsonResult.Stdout, &entries); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+	entryFound := false
+	for _, e := range entries {
+		if e.Index == loopbackIdx {
+			if !e.Pinned || e.Status != "ok" {
+				t.Fatalf("expected loopback entry Pinned=true Status=ok, got: %+v", e)
+			}
+			entryFound = true
+		}
+	}
+	if !entryFound {
+		t.Fatalf("expected an entry for loopback index %d, got: %+v", loopbackIdx, entries)
+	}
+}
+
+// TestArtnetInterfaceListWorksWithNoDaemon proves the no-regression
+// requirement (04-09-PLAN.md, ARTN-01/D-05): with no daemon listening,
+// "artnet interface list" still returns ExitCode 0 with the full candidate
+// list and never GOLC_ARTNET_DAEMON_UNREACHABLE.
+func TestArtnetInterfaceListWorksWithNoDaemon(t *testing.T) {
+	pipeName := testArtnetPipeName(t) // nothing ever listens on this pipe
+
+	result := runArtnetInterfaceList(Request{Args: []string{"--pipe", pipeName}})
+	if result.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	}
+	body := string(result.Stdout)
+	if strings.Contains(body, "GOLC_ARTNET_DAEMON_UNREACHABLE") {
+		t.Fatalf("expected no GOLC_ARTNET_DAEMON_UNREACHABLE regression, got: %s", body)
+	}
+	lines := strings.Split(strings.TrimRight(body, "\n"), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected at least a header and one candidate interface row, got: %s", body)
+	}
+}
+
 // TestArtnetTargetEnableDisableRoundTrip proves "artnet target disable"
 // then "artnet target enable" toggle one target's visible Enabled state
 // in a subsequent status without error (D-12).

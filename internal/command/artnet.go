@@ -71,8 +71,9 @@ var _ = MustDeclareRoute(CommandRegistration{
 })
 
 var _ = MustDeclareRoute(CommandRegistration{
-	Route:   "artnet interface list",
-	Summary: "List candidate Windows network interfaces for Art-Net output (ARTN-01): artnet interface list [--json].",
+	Route: "artnet interface list",
+	Summary: "List candidate Windows network interfaces for Art-Net output, annotating the daemon's pinned interface and its live status when reachable (ARTN-01/D-05): " +
+		"artnet interface list [--json] [--pipe <name>].",
 	Handler: runArtnetInterfaceList,
 })
 
@@ -384,12 +385,31 @@ func runArtnetServe(request Request) Result {
 
 // --- artnet interface list ---------------------------------------------
 
+// interfaceListEntry is the self-describing per-candidate JSON rendering
+// for "artnet interface list --json" (04-09-PLAN.md, ARTN-01/D-05):
+// Index/Name/Up/Addrs mirror artnet.InterfaceInfo (Addrs stringified the
+// same way the plain view already renders them), and Pinned/Status
+// annotate the daemon's pinned candidate and its live status when a
+// daemon is reachable -- both zero-valued (false/"") otherwise.
+type interfaceListEntry struct {
+	Index  int      `json:"index"`
+	Name   string   `json:"name"`
+	Up     bool     `json:"up"`
+	Addrs  []string `json:"addrs"`
+	Pinned bool     `json:"pinned"`
+	Status string   `json:"status"`
+}
+
 // runArtnetInterfaceList serves the self-registered "artnet interface
 // list" route (ARTN-01): it calls artnet.ListCandidateInterfaces()
-// directly -- no daemon round trip is needed for OS-level enumeration --
-// and renders either a plain table or (with --json) canonical JSON.
+// directly -- enumeration is still daemon-free -- and then makes a
+// best-effort daemon round trip to annotate which candidate is the
+// daemon's pinned interface and its live status (04-09-PLAN.md,
+// ARTN-01/D-05). When no daemon is reachable, the round trip's error is
+// ignored and the plain candidate list renders exactly as before (ExitCode
+// 0, full enumeration, no GOLC_ARTNET_DAEMON_UNREACHABLE regression).
 func runArtnetInterfaceList(request Request) Result {
-	usage := "artnet interface list [--json]"
+	usage := "artnet interface list [--json] [--pipe <name>]"
 	values, err := parseArtnetArgs(usage, request.Args, map[string]bool{"json": true})
 	if err != nil {
 		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
@@ -400,8 +420,34 @@ func runArtnetInterfaceList(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
+	var (
+		daemonReachable bool
+		pinnedIndex     int
+		pinnedStatus    string
+		pinnedError     string
+	)
+	if statusPayload, _, ok := fetchArtnetStatus(pipeNameFromFlags(values), request.Root); ok {
+		daemonReachable = true
+		pinnedIndex = statusPayload.Interface.PinnedIndex
+		pinnedStatus = statusPayload.Interface.Status
+		pinnedError = statusPayload.Interface.Error
+	}
+
 	if values["json"] == "true" {
-		payload, encodeErr := strictjson.CanonicalEncode(interfaces)
+		entries := make([]interfaceListEntry, 0, len(interfaces))
+		for _, iface := range interfaces {
+			addrs := make([]string, 0, len(iface.Addrs))
+			for _, a := range iface.Addrs {
+				addrs = append(addrs, a.String())
+			}
+			entry := interfaceListEntry{Index: iface.Index, Name: iface.Name, Up: iface.Up, Addrs: addrs}
+			if daemonReachable && iface.Index == pinnedIndex {
+				entry.Pinned = true
+				entry.Status = pinnedStatus
+			}
+			entries = append(entries, entry)
+		}
+		payload, encodeErr := strictjson.CanonicalEncode(entries)
 		if encodeErr != nil {
 			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_ARTNET_INTERFACE_ENCODE_FAILED: %v\n", encodeErr))}
 		}
@@ -409,13 +455,22 @@ func runArtnetInterfaceList(request Request) Result {
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "%-6s %-24s %-6s %s\n", "INDEX", "NAME", "UP", "ADDRS")
+	fmt.Fprintf(&b, "%-6s %-24s %-6s %-8s %-6s %s\n", "INDEX", "NAME", "UP", "PINNED", "STATUS", "ADDRS")
 	for _, iface := range interfaces {
 		addrs := make([]string, 0, len(iface.Addrs))
 		for _, a := range iface.Addrs {
 			addrs = append(addrs, a.String())
 		}
-		fmt.Fprintf(&b, "%-6d %-24s %-6v %s\n", iface.Index, iface.Name, iface.Up, strings.Join(addrs, ","))
+		pinned := ""
+		status := ""
+		if daemonReachable && iface.Index == pinnedIndex {
+			pinned = "yes"
+			status = pinnedStatus
+			if pinnedError != "" {
+				status = status + " " + pinnedError
+			}
+		}
+		fmt.Fprintf(&b, "%-6d %-24s %-6v %-8s %-6s %s\n", iface.Index, iface.Name, iface.Up, pinned, status, strings.Join(addrs, ","))
 	}
 	return Result{Stdout: []byte(b.String())}
 }
