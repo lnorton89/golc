@@ -289,3 +289,23 @@ This places `midicat.exe` at `$(go env GOPATH)/bin/midicat.exe` (already on PATH
 ---
 *Phase: 06-wails-authoring-and-operator-surface*
 *Completed: 2026-07-23*
+
+## Self-Check: PASSED
+
+- FOUND: internal/midi/driver.go
+- FOUND: internal/midi/driver_test.go
+- FOUND: internal/wails/svc_midi.go
+- FOUND: internal/wails/svc_midi_test.go
+- FOUND: cmd/golc-desktop/main.go
+- FOUND: cmd/golc-desktop/midi_driver.go
+- FOUND: frontend/src/components/MidiPanel/MidiPanel.tsx
+- FOUND: frontend/src/components/MidiPanel/MidiLearn.tsx
+- FOUND: frontend/src/components/MidiPanel/SoftTakeoverSlider.tsx
+- FOUND: frontend/src/components/MidiPanel/MidiPanel.module.css
+- FOUND: .planning/phases/06-wails-authoring-and-operator-surface/06-08-SUMMARY.md
+- FOUND commit: a45b978 (feat: internal/midi/driver.go)
+- FOUND commit: a4bb72c (feat: MidiService)
+- FOUND commit: aa15e9e (fix: name/label resolution)
+- FOUND commit: a02b7be (feat: UI-SPEC conflict copy)
+- FOUND commit: 760687a (feat: MidiPanel frontend + main.go wiring)
+- FOUND commit: aeffcb3 (docs: SUMMARY)
