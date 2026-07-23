@@ -11,6 +11,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -20,6 +21,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 
 	"github.com/lnorton89/golc/internal/artnet/ipc"
+	"github.com/lnorton89/golc/internal/midi"
 	golcwails "github.com/lnorton89/golc/internal/wails"
 )
 
@@ -64,7 +66,7 @@ func main() {
 	safetyService := golcwails.NewSafetyService(cfg.PipeName)
 	playbackService := golcwails.NewPlaybackService(cfg.PipeName, cfg.ShowPath, cfg.ProjectRoot)
 	surfaceService := golcwails.NewSurfaceService(cfg.PipeName, cfg.ProjectRoot, cfg.ShowPath)
-	midiService := golcwails.NewMidiService(cfg.PipeName)
+	midiService := golcwails.NewMidiService(cfg.PipeName, cfg.ProjectRoot, cfg.ShowPath)
 
 	err := wails.Run(&options.App{
 		Title:  "GOLC",
@@ -83,10 +85,24 @@ func main() {
 			// app.go itself.
 			app.OnStartup(ctx)
 			safetyService.StartStatusPush(ctx)
+
+			// MIDI hardware remains optional (PROJECT.md): attaching a
+			// live driver never blocks or fails startup. midi_driver.go's
+			// blank import registers midicatdrv (this binary's only
+			// registered driver) before this line runs; a missing/absent
+			// device (GOLC_MIDI_NO_PORTS_AVAILABLE) is logged, not fatal.
+			midiService.StartFeedback(ctx)
+			if driver, driverErr := midi.OpenFirstAvailable(); driverErr != nil {
+				log.Printf("GOLC_WAILS_MIDI_DRIVER_UNAVAILABLE: %v", driverErr)
+			} else if attachErr := midiService.AttachDriver(driver); attachErr != nil {
+				log.Printf("GOLC_WAILS_MIDI_DRIVER_UNAVAILABLE: %v", attachErr)
+			}
 		},
 		OnShutdown: func(ctx context.Context) {
 			// Reverse order: stop the status push before App's own
 			// subsystems (hotkeys, daemon child process) shut down.
+			midiService.DetachDriver()
+			midiService.StopFeedback()
 			safetyService.StopStatusPush()
 			app.OnShutdown(ctx)
 		},

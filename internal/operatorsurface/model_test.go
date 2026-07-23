@@ -183,6 +183,56 @@ func TestSurfaceModelMidiMappingConflictRejected(t *testing.T) {
 	}
 }
 
+// TestSurfaceModelRemoveMidiMapping proves RemoveMidiMapping (06-08-PLAN.md
+// Task 2's RemoveMapping) removes exactly the mapping matching mappingID,
+// leaves every other mapping untouched, and is an idempotent no-op when
+// the ID is not present -- mirroring every other Unassign* mutator's
+// idempotent-if-absent discipline.
+func TestSurfaceModelRemoveMidiMapping(t *testing.T) {
+	s, err := operatorsurface.NewSurface("Front of House")
+	if err != nil {
+		t.Fatalf("NewSurface: %v", err)
+	}
+	sceneID := mustNewUUID(t)
+	s = operatorsurface.AssignScene(s, sceneID)
+
+	withFirst, err := operatorsurface.AddMidiMapping(s, operatorsurface.MidiMapping{
+		Channel: 1, Kind: operatorsurface.Note, Number: 36, Target: operatorsurface.SceneControlRef(sceneID),
+	})
+	if err != nil {
+		t.Fatalf("AddMidiMapping (first): %v", err)
+	}
+	withBoth, err := operatorsurface.AddMidiMapping(withFirst, operatorsurface.MidiMapping{
+		Channel: 1, Kind: operatorsurface.Note, Number: 37, Target: operatorsurface.SceneControlRef(sceneID),
+	})
+	if err != nil {
+		t.Fatalf("AddMidiMapping (second): %v", err)
+	}
+	if len(withBoth.MidiMappings) != 2 {
+		t.Fatalf("expected two mappings before removal, got %+v", withBoth.MidiMappings)
+	}
+
+	removedID := withBoth.MidiMappings[0].ID
+	keptID := withBoth.MidiMappings[1].ID
+
+	afterRemove := operatorsurface.RemoveMidiMapping(withBoth, removedID)
+	if len(afterRemove.MidiMappings) != 1 {
+		t.Fatalf("expected exactly one mapping remaining, got %+v", afterRemove.MidiMappings)
+	}
+	if afterRemove.MidiMappings[0].ID != keptID {
+		t.Fatalf("expected the kept mapping's ID to be %v, got %v", keptID, afterRemove.MidiMappings[0].ID)
+	}
+	if len(withBoth.MidiMappings) != 2 {
+		t.Fatalf("expected the caller's own Surface value to be unaffected, got %+v", withBoth.MidiMappings)
+	}
+
+	// Removing an ID not present is an idempotent no-op.
+	noop := operatorsurface.RemoveMidiMapping(afterRemove, mustNewUUID(t))
+	if len(noop.MidiMappings) != 1 {
+		t.Fatalf("expected removing an absent ID to be a no-op, got %+v", noop.MidiMappings)
+	}
+}
+
 func TestSurfaceModelMutationsCopyReturning(t *testing.T) {
 	s, err := operatorsurface.NewSurface("Front of House")
 	if err != nil {
