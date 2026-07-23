@@ -106,6 +106,33 @@ func seedOlderSchemaShow(t *testing.T, registry *command.CommandRegistry, root, 
 	return older
 }
 
+// seedTooNewSchemaShow creates a valid .golc file at root/showPath (via the
+// "pool create" route) then bumps show_meta.schema_version past
+// show.SchemaVersion via raw SQL, simulating a file saved by a newer GOLC
+// build (D-10). Mirrors show_diagnose_test.go's
+// TestShowExportTooNewReadOnly seeding technique, including the forced
+// checkpoint(TRUNCATE) so a byte-unchanged assertion is not confused by
+// WAL-sidecar noise.
+func seedTooNewSchemaShow(t *testing.T, registry *command.CommandRegistry, root, showPath string) {
+	t.Helper()
+	createPool := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash Pool", "--show", showPath}})
+	if createPool.ExitCode != 0 {
+		t.Fatalf("pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
+	}
+
+	db, err := sql.Open("sqlite", filepath.Join(root, showPath))
+	if err != nil {
+		t.Fatalf("sql.Open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`UPDATE show_meta SET schema_version = ? WHERE id = 1`, show.SchemaVersion+1); err != nil {
+		t.Fatalf("bumping schema_version: %v", err)
+	}
+	if _, err := db.Exec(`PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
+		t.Fatalf("checkpoint: %v", err)
+	}
+}
+
 // TestShowSaveRoute proves "show save" loads and re-saves a ShowState,
 // bumping Revision (via show.Save's own recovery-point-write-in-the-same-
 // transaction contract, CONTEXT D-04) and reporting the new revision.
@@ -535,5 +562,110 @@ func TestShowOpenMigrationWithConfirm(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected a %s.backup-* file after a confirmed migration, found none in %v", showPath, entries)
+	}
+}
+
+// TestShowSaveRefusesNewerFormat proves D-10: "show save" against a
+// too-new .golc file is refused with GOLC_SHOW_SCHEMA_TOO_NEW and the file
+// is left byte-unchanged (never re-saved).
+func TestShowSaveRefusesNewerFormat(t *testing.T) {
+	registry, err := command.NewDefaultCommandRegistry()
+	if err != nil {
+		t.Fatalf("NewDefaultCommandRegistry: %v", err)
+	}
+	root := t.TempDir()
+	showPath := "future.golc"
+	seedTooNewSchemaShow(t, registry, root, showPath)
+
+	resolved := filepath.Join(root, showPath)
+	before, err := os.ReadFile(resolved)
+	if err != nil {
+		t.Fatalf("reading fixture bytes: %v", err)
+	}
+
+	saveResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "save", "--show", showPath}})
+	if saveResult.ExitCode != 1 || !strings.Contains(string(saveResult.Stderr), "GOLC_SHOW_SCHEMA_TOO_NEW") {
+		t.Fatalf("expected exit 1 GOLC_SHOW_SCHEMA_TOO_NEW for show save against a too-new file, got exit=%d stderr=%s", saveResult.ExitCode, saveResult.Stderr)
+	}
+
+	saveAsResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "save-as", "--show", showPath, "--to", "dest.golc"}})
+	if saveAsResult.ExitCode != 1 || !strings.Contains(string(saveAsResult.Stderr), "GOLC_SHOW_SCHEMA_TOO_NEW") {
+		t.Fatalf("expected exit 1 GOLC_SHOW_SCHEMA_TOO_NEW for show save-as against a too-new source, got exit=%d stderr=%s", saveAsResult.ExitCode, saveAsResult.Stderr)
+	}
+	if _, err := os.Stat(filepath.Join(root, "dest.golc")); err == nil {
+		t.Fatalf("expected show save-as to never write a destination for a too-new source")
+	}
+
+	after, err := os.ReadFile(resolved)
+	if err != nil {
+		t.Fatalf("re-reading fixture bytes: %v", err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatalf("show save/save-as rewrote a too-new source file; expected byte-for-byte unchanged")
+	}
+}
+
+// TestShowOpenRefusesNewerFormat proves D-10: "show open" (the edit path)
+// against a too-new .golc file is refused with GOLC_SHOW_SCHEMA_TOO_NEW and
+// the file is left byte-unchanged.
+func TestShowOpenRefusesNewerFormat(t *testing.T) {
+	registry, err := command.NewDefaultCommandRegistry()
+	if err != nil {
+		t.Fatalf("NewDefaultCommandRegistry: %v", err)
+	}
+	root := t.TempDir()
+	showPath := "future.golc"
+	seedTooNewSchemaShow(t, registry, root, showPath)
+
+	resolved := filepath.Join(root, showPath)
+	before, err := os.ReadFile(resolved)
+	if err != nil {
+		t.Fatalf("reading fixture bytes: %v", err)
+	}
+
+	openResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "open", "--show", showPath}})
+	if openResult.ExitCode != 1 || !strings.Contains(string(openResult.Stderr), "GOLC_SHOW_SCHEMA_TOO_NEW") {
+		t.Fatalf("expected exit 1 GOLC_SHOW_SCHEMA_TOO_NEW for show open against a too-new file, got exit=%d stderr=%s", openResult.ExitCode, openResult.Stderr)
+	}
+
+	after, err := os.ReadFile(resolved)
+	if err != nil {
+		t.Fatalf("re-reading fixture bytes: %v", err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatalf("show open rewrote a too-new file; expected byte-for-byte unchanged")
+	}
+}
+
+// TestShowCurrentVersionOpensNormally proves a current-version file is
+// unaffected by the D-08/D-10 refusal machinery: it opens and saves
+// normally with no false migration-required or too-new refusal.
+func TestShowCurrentVersionOpensNormally(t *testing.T) {
+	registry, err := command.NewDefaultCommandRegistry()
+	if err != nil {
+		t.Fatalf("NewDefaultCommandRegistry: %v", err)
+	}
+	root := t.TempDir()
+	showPath := "show.golc"
+
+	createPool := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash Pool", "--show", showPath}})
+	if createPool.ExitCode != 0 {
+		t.Fatalf("pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
+	}
+
+	openResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "open", "--show", showPath}})
+	if openResult.ExitCode != 0 {
+		t.Fatalf("show open failed for a current-version file: exit=%d stderr=%s", openResult.ExitCode, openResult.Stderr)
+	}
+	if strings.Contains(string(openResult.Stdout), "GOLC_SHOW_MIGRATION_REQUIRED") || strings.Contains(string(openResult.Stderr), "GOLC_SHOW_MIGRATION_REQUIRED") {
+		t.Fatalf("expected no migration-required notice for a current-version file, got stdout=%s stderr=%s", openResult.Stdout, openResult.Stderr)
+	}
+	if strings.Contains(string(openResult.Stdout), "GOLC_SHOW_SCHEMA_TOO_NEW") || strings.Contains(string(openResult.Stderr), "GOLC_SHOW_SCHEMA_TOO_NEW") {
+		t.Fatalf("expected no too-new refusal for a current-version file, got stdout=%s stderr=%s", openResult.Stdout, openResult.Stderr)
+	}
+
+	saveResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "save", "--show", showPath}})
+	if saveResult.ExitCode != 0 {
+		t.Fatalf("show save failed for a current-version file: exit=%d stderr=%s", saveResult.ExitCode, saveResult.Stderr)
 	}
 }
