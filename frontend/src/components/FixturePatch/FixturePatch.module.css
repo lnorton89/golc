@@ -264,6 +264,17 @@
   color: var(--text);
 }
 
+.previewWarning {
+  font-size: 14px;
+  color: var(--status-armed);
+}
+
+.previewError {
+  font-size: 14px;
+  color: var(--status-revoked);
+  font-weight: 600;
+}
+
 .errorText {
   margin: 0;
   padding: var(--space-sm);
