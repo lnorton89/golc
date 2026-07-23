@@ -8,6 +8,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"os"
@@ -73,8 +74,22 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 19, G: 20, B: 25, A: 1},
-		OnStartup:        app.OnStartup,
-		OnShutdown:       app.OnShutdown,
+		OnStartup: func(ctx context.Context) {
+			// App's own daemon-supervision/hotkey lifecycle (app.go,
+			// unmodified by this plan) starts first, then this
+			// service's own throttled PLAY-07 "status:update" push
+			// (svc_safety.go) -- mirroring app.go's own documented
+			// ordered-start discipline without this plan touching
+			// app.go itself.
+			app.OnStartup(ctx)
+			safetyService.StartStatusPush(ctx)
+		},
+		OnShutdown: func(ctx context.Context) {
+			// Reverse order: stop the status push before App's own
+			// subsystems (hotkeys, daemon child process) shut down.
+			safetyService.StopStatusPush()
+			app.OnShutdown(ctx)
+		},
 		Bind: []interface{}{
 			app,
 			safetyService,

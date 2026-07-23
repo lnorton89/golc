@@ -68,6 +68,14 @@ type Engine struct {
 	activePlan  atomic.Pointer[CompiledPlan]
 	pendingPlan atomic.Pointer[CompiledPlan]
 	lastState   atomic.Pointer[show.State]
+	// position is the most recently computed MusicalPosition (06-05-PLAN.md
+	// PLAY-07), published via the same lock-free atomic.Pointer discipline
+	// as activeFrame -- every tick (and NewEngine's own first position
+	// computation) Stores a fresh value here so CurrentPosition() never
+	// needs to re-derive "now" against loopStart itself (loopStart is
+	// mutated by the tick goroutine alone; re-deriving from a reader
+	// goroutine would race).
+	position atomic.Pointer[MusicalPosition]
 
 	loopStart time.Time
 	lastBar   int
@@ -93,6 +101,7 @@ func NewEngine(state show.State) (*Engine, error) {
 	pos := Position(e.loopStart, plan.BPM, plan.BarsPerLoop, e.loopStart)
 	frame := Evaluate(plan, pos)
 	e.activeFrame.Store(&frame)
+	e.position.Store(&pos)
 	e.lastBar = pos.BarIndex
 
 	return e, nil
@@ -157,6 +166,7 @@ func (e *Engine) tick(now time.Time) {
 	e.lastBar = pos.BarIndex
 	frame := Evaluate(*plan, pos)
 	e.activeFrame.Store(&frame)
+	e.position.Store(&pos)
 }
 
 // StageEdit compiles state and, on success, stages the result as
@@ -209,6 +219,54 @@ func (e *Engine) SwitchScene(name string) error {
 // adapter may backpressure playback).
 func (e *Engine) CurrentFrame() *Frame {
 	return e.activeFrame.Load()
+}
+
+// CurrentPlan returns the most recently adopted CompiledPlan via a
+// non-blocking atomic Load, matching CurrentFrame's own lock-free read
+// discipline (06-05-PLAN.md PLAY-07 status projection: SceneID/BPM/
+// BarsPerLoop/Layers). Returns nil only for a defensive zero-value Engine
+// (e.g. constructed directly by a test rather than via NewEngine) --
+// every Engine returned by NewEngine has already Stored its first plan
+// before returning. Callers must treat a nil result as "no active plan"
+// (PLAY-07 idle edge) rather than assuming one always exists.
+func (e *Engine) CurrentPlan() *CompiledPlan {
+	return e.activePlan.Load()
+}
+
+// CurrentPosition returns the most recently published MusicalPosition via
+// a non-blocking atomic Load (06-05-PLAN.md PLAY-07: BPM/bar position).
+// Returns the zero MusicalPosition (BarIndex 0, BeatFraction 0) for a
+// defensive zero-value Engine that has never ticked or been constructed
+// via NewEngine.
+func (e *Engine) CurrentPosition() MusicalPosition {
+	if p := e.position.Load(); p != nil {
+		return *p
+	}
+	return MusicalPosition{}
+}
+
+// ActiveSceneName resolves CurrentPlan()'s SceneID against the most
+// recently staged show.State's Scenes (06-05-PLAN.md PLAY-07). Returns
+// ("", false) when there is no current plan, no staged state, or the
+// referenced scene can no longer be found in that state (e.g. a
+// concurrent edit removed it) -- callers must render this as an explicit
+// idle/unknown-scene state (PLAY-07 idle edge), never a blank name
+// standing in for "found, but empty."
+func (e *Engine) ActiveSceneName() (string, bool) {
+	plan := e.activePlan.Load()
+	if plan == nil {
+		return "", false
+	}
+	statePtr := e.lastState.Load()
+	if statePtr == nil {
+		return "", false
+	}
+	for _, s := range statePtr.Scenes {
+		if s.ID == plan.SceneID {
+			return s.Name, true
+		}
+	}
+	return "", false
 }
 
 // Start drives tick via a time.Ticker at tickInterval until ctx is
