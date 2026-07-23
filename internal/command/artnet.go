@@ -867,12 +867,35 @@ func runArtnetMasterSet(request Request) Result {
 // statusPayload wire shape exactly (same json tags) so DecodeStrict can
 // parse "artnet status"'s Result.Stdout back into typed
 // artnet.FrameHealth/artnet.TargetHealth/artnetUniverseValues/
-// artnetInterfaceStatus values for rendering.
+// artnetInterfaceStatus/artnetPlaybackStatus values for rendering.
+// Playback must stay field-for-field/tag-for-tag in sync with
+// internal/artnet/daemon.go's own playbackStatusPayload (06-05-PLAN.md
+// Task 1, PLAY-07): strictjson.DecodeStrict rejects any JSON member with
+// no matching Go field (encoding/json.Decoder.DisallowUnknownFields), so
+// this mirror falling behind the daemon's wire shape would break every
+// "artnet status" CLI invocation, not merely leave the new fields unread.
 type artnetStatusPayload struct {
 	Frame     artnet.FrameHealth     `json:"frame"`
 	Targets   []artnet.TargetHealth  `json:"targets"`
 	Universes []artnetUniverseValues `json:"universes"`
 	Interface artnetInterfaceStatus  `json:"interface"`
+	Playback  artnetPlaybackStatus   `json:"playback"`
+}
+
+// artnetPlaybackStatus mirrors internal/artnet/daemon.go's own
+// playbackStatusPayload wire shape exactly (same json tags, 06-05-PLAN.md
+// Task 1, PLAY-07) so DecodeStrict can round-trip the daemon's live
+// scene/layer/BPM/bar/controlling-source/output-state projection.
+type artnetPlaybackStatus struct {
+	Active            bool     `json:"active"`
+	SceneID           string   `json:"sceneId,omitempty"`
+	SceneName         string   `json:"sceneName,omitempty"`
+	BPM               float64  `json:"bpm"`
+	BarIndex          int      `json:"barIndex"`
+	BeatFraction      float64  `json:"beatFraction"`
+	EnabledLayers     []string `json:"enabledLayers"`
+	ControllingSource string   `json:"controllingSource"`
+	OutputState       string   `json:"outputState"`
 }
 
 // artnetInterfaceStatus mirrors internal/artnet/daemon.go's own
@@ -932,6 +955,15 @@ func renderArtnetStatusPlain(payload artnetStatusPayload) []byte {
 		fmt.Fprintf(&b, " error=%s", payload.Interface.Error)
 	}
 	fmt.Fprintln(&b)
+
+	if payload.Playback.Active {
+		fmt.Fprintf(&b, "GOLC_ARTNET_PLAYBACK_STATUS: scene=%s bpm=%v bar=%d beat=%.2f layers=%s source=%s output=%s\n",
+			payload.Playback.SceneName, payload.Playback.BPM, payload.Playback.BarIndex, payload.Playback.BeatFraction,
+			strings.Join(payload.Playback.EnabledLayers, ","), payload.Playback.ControllingSource, payload.Playback.OutputState)
+	} else {
+		fmt.Fprintf(&b, "GOLC_ARTNET_PLAYBACK_STATUS: idle source=%s output=%s\n",
+			payload.Playback.ControllingSource, payload.Playback.OutputState)
+	}
 
 	fmt.Fprintf(&b, "%-6s %-20s %-6s %-8s %-8s %-9s %-6s %s\n",
 		"UNIV", "TARGET", "PORT", "ENABLED", "SEND_OK", "SEND_ERR", "REACH", "LAST_ERROR")

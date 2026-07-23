@@ -58,10 +58,13 @@ func NewEventPusher() *EventPusher {
 	return &EventPusher{latest: map[string]interface{}{}}
 }
 
-// QueueStatus stages the latest status snapshot for the next throttled
-// push under the "status:update" event name. 06-05 fills the real payload
-// shape; this scaffold accepts any JSON-safe value.
-func (p *EventPusher) QueueStatus(snapshot interface{}) {
+// QueueStatus stages the latest PLAY-07 status snapshot (StatusSnapshot,
+// svc_safety.go) for the next throttled push under the "status:update"
+// event name -- SafetyService.pollStatus (svc_safety.go) is this event's
+// own producer, calling QueueStatus once per statusPollInterval poll so a
+// burst of polls between flushes coalesces into a single EventsEmit
+// rather than one per poll.
+func (p *EventPusher) QueueStatus(snapshot StatusSnapshot) {
 	p.queue("status:update", snapshot)
 }
 

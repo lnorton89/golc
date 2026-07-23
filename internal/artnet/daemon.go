@@ -314,12 +314,174 @@ func (d *daemon) handle(request ipc.Request) ipc.Result {
 // Interface carries the daemon's own InterfaceManager's live pinned-
 // interface status (04-09-PLAN.md, ARTN-01/D-05) so a lost/degraded
 // pinned interface is visible to any status caller, never a silent
-// switch.
+// switch. Playback carries the PLAY-07 live status projection (06-05-
+// PLAN.md Task 1): active scene, enabled layers, BPM/bar position,
+// controlling source, and final output state, read from the daemon's own
+// playback.Engine and safetyState -- the exact data source the Wails Go
+// host's SafetyService.FetchStatus (internal/wails/svc_safety.go) and the
+// throttled status:update push (internal/wails/events.go) both project to
+// the frontend's LiveStatusBar.
 type statusPayload struct {
 	Frame     FrameHealth            `json:"frame"`
 	Targets   []TargetHealth         `json:"targets"`
 	Universes []universeValues       `json:"universes"`
 	Interface interfaceStatusPayload `json:"interface"`
+	Playback  playbackStatusPayload  `json:"playback"`
+}
+
+// playbackStatusPayload is the JSON-safe wire rendering of PLAY-07's live
+// status fields (06-05-PLAN.md Task 1). Active is false only when the
+// daemon's playback.Engine has no current plan -- a defensive edge this
+// package's own Compile requirement makes unreachable through normal
+// operation (every successfully constructed Engine always has an active
+// scene), but newPlaybackStatusPayload still handles a nil plan
+// explicitly (never a blank/zero-valued Active:true payload) so a future
+// caller building a daemon around a differently-constructed Engine, or a
+// unit test exercising this transform directly, observes an explicit
+// idle projection rather than undefined-looking zero values (PLAY-07 idle
+// edge, D-04 "visible not hidden"). SceneID/SceneName use `omitempty` so
+// the idle case omits them entirely rather than serializing an empty
+// string that could be mistaken for "found, but nameless."
+// ControllingSource is one of "live" (default: manual, nothing overriding
+// it), "revoked" (Revoke Automation active), or "blackout" (Blackout or
+// Stop/Release-All active -- blackout takes priority over revoked, since
+// blacked-out output is the more severe/visible state).
+// OutputState is one of "frame-lock" (on-cadence), "stalled" (frame
+// health past frameStaleAfter), or "blackout" (Blackout or Stop/
+// Release-All active -- takes priority over a stalled read, since a
+// commanded blackout is never confused with an unintended stall).
+// EnabledLayers is never nil (an idle/no-plan payload still serializes
+// "enabledLayers":[] rather than "enabledLayers":null, matching the "not
+// blank/undefined" contract this whole payload exists to satisfy).
+type playbackStatusPayload struct {
+	Active            bool     `json:"active"`
+	SceneID           string   `json:"sceneId,omitempty"`
+	SceneName         string   `json:"sceneName,omitempty"`
+	BPM               float64  `json:"bpm"`
+	BarIndex          int      `json:"barIndex"`
+	BeatFraction      float64  `json:"beatFraction"`
+	EnabledLayers     []string `json:"enabledLayers"`
+	ControllingSource string   `json:"controllingSource"`
+	OutputState       string   `json:"outputState"`
+}
+
+// layerKindOrder fixes the deterministic ordering enabledLayerNames sorts
+// its output into -- the same four layer kinds scene.LayerKind declares
+// (scene.BaseLook/ColorTheme/Chase/Motion), spelled out here as plain
+// strings so this file never needs to import internal/scene solely for
+// this ordering constant.
+var layerKindOrder = []string{"base_look", "color_theme", "chase", "motion"}
+
+// enabledLayerNames returns plan's enabled layer Kinds as plain strings,
+// sorted by layerKindOrder for deterministic, byte-stable output (mirrors
+// this repo's own CanonicalEncode determinism convention). A nil plan or a
+// plan with no enabled layers returns an empty (never nil) slice, so the
+// wire payload always serializes "enabledLayers":[] rather than null.
+func enabledLayerNames(plan *playback.CompiledPlan) []string {
+	names := make([]string, 0, len(layerKindOrder))
+	if plan == nil {
+		return names
+	}
+	enabled := make(map[string]bool, len(plan.Layers))
+	for kind, layer := range plan.Layers {
+		if layer.Enabled {
+			enabled[string(kind)] = true
+		}
+	}
+	for _, kind := range layerKindOrder {
+		if enabled[kind] {
+			names = append(names, kind)
+		}
+	}
+	return names
+}
+
+// playbackEngineSnapshot isolates the exact playback.Engine values
+// newPlaybackStatusPayload needs behind a small struct so the pure
+// transform -- and its unit tests -- never need a real *playback.Engine
+// (a zero-value playbackEngineSnapshot{} directly exercises the "no
+// active plan" idle path).
+type playbackEngineSnapshot struct {
+	plan      *playback.CompiledPlan
+	position  playback.MusicalPosition
+	sceneName string
+	sceneOK   bool
+}
+
+// snapshotEngine extracts engine's current plan/position/scene-name into
+// a playbackEngineSnapshot via engine's own lock-free accessors
+// (CurrentPlan/CurrentPosition/ActiveSceneName, 06-05-PLAN.md Task 1). A
+// nil engine (defensive) returns the zero playbackEngineSnapshot, which
+// newPlaybackStatusPayload treats identically to "no active plan."
+func snapshotEngine(engine *playback.Engine) playbackEngineSnapshot {
+	if engine == nil {
+		return playbackEngineSnapshot{}
+	}
+	name, ok := engine.ActiveSceneName()
+	return playbackEngineSnapshot{
+		plan:      engine.CurrentPlan(),
+		position:  engine.CurrentPosition(),
+		sceneName: name,
+		sceneOK:   ok,
+	}
+}
+
+// newPlaybackStatusPayload is the pure transform from a
+// playbackEngineSnapshot + the daemon's own safetyState + the current
+// frame health into the JSON-safe playbackStatusPayload (see that type's
+// own doc comment for the exact ControllingSource/OutputState vocabulary
+// and priority rules). A nil safety is treated as "no override active"
+// (identity behavior), matching safetyState's own nil-receiver defaults
+// elsewhere in this file (e.g. revokeActive()).
+func newPlaybackStatusPayload(snap playbackEngineSnapshot, safety *safetyState, frame FrameHealth) playbackStatusPayload {
+	blackoutActive := false
+	revokeActive := false
+	if safety != nil {
+		blackoutActive = safety.blackout.Load() || safety.stopAll.Load()
+		revokeActive = safety.revokeActive()
+	}
+
+	controllingSource := "live"
+	switch {
+	case blackoutActive:
+		controllingSource = "blackout"
+	case revokeActive:
+		controllingSource = "revoked"
+	}
+
+	outputState := "frame-lock"
+	switch {
+	case blackoutActive:
+		outputState = "blackout"
+	case !frame.OnCadence:
+		outputState = "stalled"
+	}
+
+	if snap.plan == nil {
+		return playbackStatusPayload{
+			Active:            false,
+			EnabledLayers:     enabledLayerNames(nil),
+			ControllingSource: controllingSource,
+			OutputState:       outputState,
+		}
+	}
+
+	sceneName := ""
+	if snap.sceneOK {
+		sceneName = snap.sceneName
+	}
+
+	return playbackStatusPayload{
+		Active:            true,
+		SceneID:           snap.plan.SceneID.String(),
+		SceneName:         sceneName,
+		BPM:               snap.plan.BPM,
+		BarIndex:          snap.position.BarIndex,
+		BeatFraction:      snap.position.BeatFraction,
+		EnabledLayers:     enabledLayerNames(snap.plan),
+		ControllingSource: controllingSource,
+		OutputState:       outputState,
+	}
 }
 
 // interfaceStatusPayload is the JSON-safe wire rendering of the daemon's
@@ -349,8 +511,10 @@ type universeValues struct {
 // directly), and flattens snapshot.UniverseValues into a universe-sorted
 // slice the same way. iface is the daemon's own InterfaceManager status
 // (04-09-PLAN.md), read separately from the HealthSnapshot since interface
-// health is not tracked by Health.
-func newStatusPayload(snapshot HealthSnapshot, iface interfaceStatusPayload) statusPayload {
+// health is not tracked by Health. pb is the PLAY-07 live status
+// projection (06-05-PLAN.md Task 1), already computed by the caller via
+// newPlaybackStatusPayload.
+func newStatusPayload(snapshot HealthSnapshot, iface interfaceStatusPayload, pb playbackStatusPayload) statusPayload {
 	targets := make([]TargetHealth, 0, len(snapshot.Targets))
 	for _, th := range snapshot.Targets {
 		targets = append(targets, th)
@@ -374,7 +538,7 @@ func newStatusPayload(snapshot HealthSnapshot, iface interfaceStatusPayload) sta
 		return universes[i].Universe < universes[j].Universe
 	})
 
-	return statusPayload{Frame: snapshot.Frame, Targets: targets, Universes: universes, Interface: iface}
+	return statusPayload{Frame: snapshot.Frame, Targets: targets, Universes: universes, Interface: iface, Playback: pb}
 }
 
 // handleStatus answers "artnet status" with the current Health snapshot
@@ -407,7 +571,10 @@ func (d *daemon) handleStatus() ipc.Result {
 		Error:       ifaceErr,
 	}
 
-	payload, err := strictjson.CanonicalEncode(newStatusPayload(d.health.Snapshot(), iface))
+	snapshot := d.health.Snapshot()
+	pb := newPlaybackStatusPayload(snapshotEngine(d.engine), &d.safety, snapshot.Frame)
+
+	payload, err := strictjson.CanonicalEncode(newStatusPayload(snapshot, iface, pb))
 	if err != nil {
 		return ipc.Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
 			"GOLC_ARTNET_STATUS_ENCODE_FAILED: %v\n", err))}
