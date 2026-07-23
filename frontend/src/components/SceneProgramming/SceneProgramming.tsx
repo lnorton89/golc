@@ -49,11 +49,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   activateScene,
+  assertOk,
   createBlend,
   createChase,
   createMotion,
   createScene,
   createTheme,
+  errorMessage,
   listProgramming,
   offlineProgrammingView,
   programmerSet,
@@ -85,16 +87,6 @@ function layerKindLabel(kind: string): string {
       return "Motion";
     default:
       return kind;
-  }
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
-function assertOk(result: { exitCode: number; stderr: string }, action: string): void {
-  if (result.exitCode !== 0) {
-    throw new Error(result.stderr || `${action} failed (exit ${result.exitCode})`);
   }
 }
 

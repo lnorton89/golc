@@ -391,6 +391,29 @@ function bridgeUnavailableResult(): WailsResult {
   };
 }
 
+/** errorMessage normalizes a caught value (from a rejected bridge call or a
+ * thrown assertOk) into a renderable string -- `err.message` for a real
+ * Error, otherwise its String() coercion. Was independently, identically
+ * re-declared in FixturePatch.tsx/ArtnetConfig.tsx/SceneProgramming.tsx
+ * (WR-03); centralized here so a future change to "how do we render a
+ * caught error" only has to be made once. */
+export function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/** assertOk throws (carrying the route's own stderr diagnostic verbatim,
+ * or a generic "<action> failed (exit <code>)" fallback when stderr is
+ * empty) when result.exitCode is non-zero -- the one place a component's
+ * try/catch around a mutating bridge call needs to convert a non-throwing
+ * WailsResult into a thrown error errorMessage can then render. Was
+ * independently, identically re-declared in FixturePatch.tsx/
+ * SceneProgramming.tsx (WR-03); centralized here alongside errorMessage. */
+export function assertOk(result: WailsResult, action: string): void {
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr || `${action} failed (exit ${result.exitCode})`);
+  }
+}
+
 function safetyService(): SafetyServiceBinding | undefined {
   return window.go?.wails?.SafetyService;
 }

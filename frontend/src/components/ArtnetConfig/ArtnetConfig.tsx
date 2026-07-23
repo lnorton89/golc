@@ -39,6 +39,7 @@ import {
   configureArtnetTarget,
   disableArtnetTarget,
   enableArtnetTarget,
+  errorMessage,
   fetchArtnetStatus,
   listArtnetInterfaces,
   type ArtnetInterfaceView,
@@ -46,10 +47,6 @@ import {
   type ArtnetTargetView,
 } from "../../lib/wailsBridge";
 import styles from "./ArtnetConfig.module.css";
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
 
 export default function ArtnetConfig() {
   const [interfaces, setInterfaces] = useState<ArtnetInterfaceView[]>([]);
