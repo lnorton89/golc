@@ -308,7 +308,7 @@ Plans:
   4. An operator can control group masters, Grand Master, stop/release-all, and immediate blackout through local priority paths that do not wait for UI, script, API, or model work to complete.
   5. Revoke Automation immediately blocks scripts and AI, cancels their queued actions, freezes the current look, and returns manual control even when an automation runtime is hung or disconnected.
 
-**Plans:** 7/8 plans executed
+**Plans:** 8/8 plans executed
 
 Plans:
 **Wave 1**
@@ -329,7 +329,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 06-08-PLAN.md — MIDI driver + per-control learn UI + soft-takeover sliders (PLAY-04/05; D-05/D-08/D-09/D-10)
+- [x] 06-08-PLAN.md — MIDI driver + per-control learn UI + soft-takeover sliders (PLAY-04/05; D-05/D-08/D-09/D-10)
 
 **Waves:** W1: 06-01, 06-02, 06-03 · W2: 06-04 · W3: 06-05, 06-06, 06-07 · W4: 06-08
 **UI hint:** yes
@@ -412,7 +412,7 @@ Plans:
 | 3. Deterministic Show Programming and Playback | 7/7 | Complete    | 2026-07-21 |
 | 4. Observable Art-Net Live Output | 9/9 | Complete    | 2026-07-22 |
 | 5. Durable Shows and Recovery | 5/5 | Complete    | 2026-07-23 |
-| 6. Wails Authoring and Operator Surface | 7/8 | In Progress|  |
+| 6. Wails Authoring and Operator Surface | 8/8 | In Progress|  |
 | 7. Versioned External Control API | 0/TBD | Not started | - |
 | 8. Isolated TypeScript Automation | 0/TBD | Not started | - |
 | 9. Provider-Neutral AI and Bounded Autonomy | 0/TBD | Not started | - |
