@@ -499,3 +499,95 @@ func TestDaemonMalformedConfigureArgsReturnUsageError(t *testing.T) {
 		t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
 	}
 }
+
+// TestDaemonStatusPayloadIncludesPlaybackFields proves 06-05-PLAN.md Task
+// 1's daemon-side wiring: a real daemon running minimalPlayableState's
+// scene reports it as the "artnet status" payload's Playback.SceneName,
+// with the scene's BPM and an explicit (never nil) EnabledLayers slice,
+// and that activating Blackout flips both ControllingSource and
+// OutputState to "blackout" on the very next status read -- the same
+// daemon-resident safety state (06-02-PLAN.md) the on-screen safety
+// cluster and OS-level hotkeys both drive.
+func TestDaemonStatusPayloadIncludesPlaybackFields(t *testing.T) {
+	pipeName, _, _ := startTestDaemon(t)
+
+	statusConn := dialTestDaemon(t, pipeName)
+	result := ipc.Forward(statusConn, ipc.Request{Route: "artnet status"})
+	statusConn.Close()
+	if result.ExitCode != 0 {
+		t.Fatalf("expected status ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	}
+
+	var payload statusPayload
+	if err := strictjson.DecodeStrict(result.Stdout, &payload); err != nil {
+		t.Fatalf("DecodeStrict: %v", err)
+	}
+	if !payload.Playback.Active {
+		t.Fatal("expected Playback.Active=true against a daemon running a valid active-scene state")
+	}
+	if payload.Playback.SceneName != "Test Scene" {
+		t.Fatalf("Playback.SceneName = %q, want %q", payload.Playback.SceneName, "Test Scene")
+	}
+	if payload.Playback.BPM != 120 {
+		t.Fatalf("Playback.BPM = %v, want 120", payload.Playback.BPM)
+	}
+	if payload.Playback.EnabledLayers == nil {
+		t.Fatal("expected a non-nil (never null) EnabledLayers slice")
+	}
+	if payload.Playback.ControllingSource != "live" {
+		t.Fatalf("Playback.ControllingSource = %q, want %q before any override is active", payload.Playback.ControllingSource, "live")
+	}
+	if payload.Playback.OutputState == "" {
+		t.Fatal("expected a non-empty OutputState")
+	}
+
+	blackoutConn := dialTestDaemon(t, pipeName)
+	blackoutResult := ipc.Forward(blackoutConn, ipc.Request{Route: "artnet safety blackout", Args: []string{"--on", "true"}})
+	blackoutConn.Close()
+	if blackoutResult.ExitCode != 0 {
+		t.Fatalf("expected blackout toggle to succeed, got ExitCode %d stderr %s", blackoutResult.ExitCode, blackoutResult.Stderr)
+	}
+
+	statusConn2 := dialTestDaemon(t, pipeName)
+	result2 := ipc.Forward(statusConn2, ipc.Request{Route: "artnet status"})
+	statusConn2.Close()
+	if result2.ExitCode != 0 {
+		t.Fatalf("expected status ExitCode 0 after blackout, got %d (stderr: %s)", result2.ExitCode, result2.Stderr)
+	}
+	var payload2 statusPayload
+	if err := strictjson.DecodeStrict(result2.Stdout, &payload2); err != nil {
+		t.Fatalf("DecodeStrict (after blackout): %v", err)
+	}
+	if payload2.Playback.ControllingSource != "blackout" {
+		t.Fatalf("Playback.ControllingSource after blackout = %q, want %q", payload2.Playback.ControllingSource, "blackout")
+	}
+	if payload2.Playback.OutputState != "blackout" {
+		t.Fatalf("Playback.OutputState after blackout = %q, want %q", payload2.Playback.OutputState, "blackout")
+	}
+}
+
+// TestNewPlaybackStatusPayloadIdleWhenNoActivePlan proves the pure
+// transform's PLAY-07 idle edge directly (no real Engine/daemon
+// required): a zero-value playbackEngineSnapshot (nil plan) yields
+// Active=false, a non-nil-but-empty EnabledLayers slice, and explicit
+// (never blank) ControllingSource/OutputState values -- never a
+// zero-valued payload indistinguishable from "no data."
+func TestNewPlaybackStatusPayloadIdleWhenNoActivePlan(t *testing.T) {
+	payload := newPlaybackStatusPayload(playbackEngineSnapshot{}, nil, FrameHealth{OnCadence: true})
+
+	if payload.Active {
+		t.Fatal("expected Active=false for a nil plan")
+	}
+	if payload.EnabledLayers == nil || len(payload.EnabledLayers) != 0 {
+		t.Fatalf("expected a non-nil, empty EnabledLayers slice, got %#v", payload.EnabledLayers)
+	}
+	if payload.ControllingSource != "live" {
+		t.Fatalf("ControllingSource = %q, want %q (no override active)", payload.ControllingSource, "live")
+	}
+	if payload.OutputState != "frame-lock" {
+		t.Fatalf("OutputState = %q, want %q (on-cadence frame health, no override)", payload.OutputState, "frame-lock")
+	}
+	if payload.SceneID != "" || payload.SceneName != "" {
+		t.Fatalf("expected empty SceneID/SceneName for the idle payload, got %q/%q", payload.SceneID, payload.SceneName)
+	}
+}
