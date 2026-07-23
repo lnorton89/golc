@@ -388,9 +388,14 @@ func runArtnetServe(request Request) Result {
 // interfaceListEntry is the self-describing per-candidate JSON rendering
 // for "artnet interface list --json" (04-09-PLAN.md, ARTN-01/D-05):
 // Index/Name/Up/Addrs mirror artnet.InterfaceInfo (Addrs stringified the
-// same way the plain view already renders them), and Pinned/Status
-// annotate the daemon's pinned candidate and its live status when a
-// daemon is reachable -- both zero-valued (false/"") otherwise.
+// same way the plain view already renders them), and Pinned/Status/Error
+// annotate the daemon's pinned candidate, its live status, and (when
+// lost) its error diagnostic when a daemon is reachable -- all
+// zero-valued (false/""/"") otherwise. Error mirrors the plain-text
+// rendering below, which already appends the same diagnostic to the
+// status column (GC-WR-02: a scripting consumer of --json previously had
+// no way to learn why a pinned interface was lost without a separate
+// "artnet status --json" call).
 type interfaceListEntry struct {
 	Index  int      `json:"index"`
 	Name   string   `json:"name"`
@@ -398,6 +403,7 @@ type interfaceListEntry struct {
 	Addrs  []string `json:"addrs"`
 	Pinned bool     `json:"pinned"`
 	Status string   `json:"status"`
+	Error  string   `json:"error"`
 }
 
 // runArtnetInterfaceList serves the self-registered "artnet interface
@@ -444,6 +450,7 @@ func runArtnetInterfaceList(request Request) Result {
 			if daemonReachable && iface.Index == pinnedIndex {
 				entry.Pinned = true
 				entry.Status = pinnedStatus
+				entry.Error = pinnedError
 			}
 			entries = append(entries, entry)
 		}
