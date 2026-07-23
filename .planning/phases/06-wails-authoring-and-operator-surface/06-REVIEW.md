@@ -1,403 +1,272 @@
 ---
 phase: 06-wails-authoring-and-operator-surface
-reviewed: 2026-07-23T20:44:45Z
+reviewed: 2026-07-23T16:33:02-07:00
 depth: standard
-files_reviewed: 45
+files_reviewed: 17
 files_reviewed_list:
-  - cmd/golc-desktop/main.go
-  - cmd/golc-desktop/midi_driver.go
-  - frontend/index.html
-  - frontend/package.json
-  - frontend/src/App.tsx
-  - frontend/src/components/KeyboardShortcuts/KeyboardShortcuts.module.css
-  - frontend/src/components/KeyboardShortcuts/KeyboardShortcuts.tsx
-  - frontend/src/components/LiveStatusBar/LiveStatusBar.module.css
-  - frontend/src/components/LiveStatusBar/LiveStatusBar.tsx
-  - frontend/src/components/MidiPanel/MidiLearn.tsx
-  - frontend/src/components/MidiPanel/MidiPanel.tsx
-  - frontend/src/components/MidiPanel/SoftTakeoverSlider.tsx
-  - frontend/src/components/OperatorSurface/AssignmentToggle.tsx
-  - frontend/src/components/OperatorSurface/OperatorSurface.tsx
-  - frontend/src/components/OperatorSurface/SurfaceList.tsx
-  - frontend/src/components/PlaybackControls/PlaybackControls.tsx
-  - frontend/src/components/SafetyCluster/SafetyCluster.module.css
-  - frontend/src/components/SafetyCluster/SafetyCluster.tsx
-  - frontend/src/hooks/useKeyboardWorkflow.ts
-  - frontend/src/index.css
-  - frontend/src/lib/wailsBridge.ts
-  - frontend/src/main.tsx
-  - frontend/src/store/store.ts
-  - frontend/vite.config.ts
-  - internal/artnet/daemon.go
-  - internal/artnet/safety.go
-  - internal/artnet/safety_test.go
-  - internal/artnet/worker.go
-  - internal/command/artnet.go
-  - internal/command/operatorsurface.go
-  - internal/midi/driver.go
-  - internal/midi/learn.go
-  - internal/midi/takeover.go
-  - internal/operatorsurface/model.go
-  - internal/operatorsurface/validate.go
-  - internal/playback/engine.go
-  - internal/show/migrate.go
-  - internal/show/state.go
-  - internal/wails/app.go
-  - internal/wails/app_test.go
-  - internal/wails/events.go
-  - internal/wails/hotkey.go
   - internal/wails/svc_midi.go
   - internal/wails/svc_midi_test.go
-  - internal/wails/svc_playback.go
-  - internal/wails/svc_playback_test.go
-  - internal/wails/svc_safety.go
-  - internal/wails/svc_safety_test.go
-  - internal/wails/svc_surface.go
-  - internal/wails/svc_surface_test.go
+  - internal/wails/svc_fixturepatch.go
+  - internal/wails/svc_fixturepatch_test.go
+  - internal/wails/svc_artnetconfig.go
+  - internal/wails/svc_artnetconfig_test.go
+  - internal/wails/svc_programming.go
+  - internal/wails/svc_programming_test.go
+  - frontend/src/lib/wailsBridge.ts
+  - frontend/src/components/FixturePatch/FixturePatch.tsx
+  - frontend/src/components/FixturePatch/FixturePatch.module.css
+  - frontend/src/components/ArtnetConfig/ArtnetConfig.tsx
+  - frontend/src/components/ArtnetConfig/ArtnetConfig.module.css
+  - frontend/src/components/SceneProgramming/SceneProgramming.tsx
+  - frontend/src/components/SceneProgramming/SceneProgramming.module.css
+  - frontend/src/App.tsx
+  - cmd/golc-desktop/main.go
 findings:
-  critical: 3
+  critical: 2
   warning: 3
-  info: 1
+  info: 2
   total: 7
 status: issues_found
 ---
 
-# Phase 6: Code Review Report
+# Phase 06: Code Review Report (gap-closure scope: 06-09..06-12)
 
-**Reviewed:** 2026-07-23T20:44:45Z
+**Reviewed:** 2026-07-23T16:33:02-07:00
 **Depth:** standard
-**Files Reviewed:** 49 (see `files_reviewed_list`)
+**Files Reviewed:** 17
 **Status:** issues_found
 
 ## Summary
 
-Phase 6 delivers a Wails v2 desktop shell, a generic MIDI Note/CC learn +
-soft-takeover surface, and a local-priority daemon safety-override system,
-built across four executor waves and merged. The Art-Net-daemon-resident
-safety path itself (`internal/artnet/safety.go`, `worker.go`, `daemon.go`)
-is solid: blackout/stop-all/revoke-automation are lock-free atomics read
-every tick, `applyOverrides` is a pure copy-returning transform with good
-edge-case tests (empty frame, nil safety state, concurrent Set/Load under
-`-race`), and `requestSource`'s automation-revocation gate runs before
-route dispatch independent of any UI/script/API path exactly as designed.
-The MIDI cross-to-catch crossing logic (`internal/midi/takeover.go`) is
-correctly direction-aware (`crossedUp`/`crossedDown`, NaN-seeded
-`LastPhysical` to avoid a spurious first-message arm) — no
-proximity/threshold check exists anywhere in that file, matching the
-explicit design mandate.
+This review is scoped to the four gap-closure plans that closed VERIFICATION.md's two
+FAILED truths (MIDI dispatch, plus the FixturePatch/ArtnetConfig/SceneProgramming on-screen
+surfaces); the phase's original 8 plans were already reviewed/fixed in the prior pass
+(superseded by this file for this narrowed scope). The three new services
+(`FixturePatchService`, `ArtnetConfigService`, `ProgrammingService`) correctly mirror
+`svc_playback.go`/`svc_surface.go`'s build-a-fresh-registry-and-`Execute`-through-it
+pattern for every mutation — no second, GUI-only mutation path was found for
+scene/theme/chase/motion/preset/blend/pool/deployment mutations. `svc_midi.go`'s new
+dispatch logic (Gap B[1]) also routes scene/layer mutations through the same registry.
 
-However, two areas the review was specifically asked to scrutinize turned
-up real defects, plus a third, independently discovered, safety-cluster
-usability defect that a reviewer of a "must never depend on UI completion"
-subsystem should not let pass:
+Two things did not hold up under closer inspection:
 
-1. **The server-side operator-surface authorization enforcement point
-   (`AuthorizeControl`/`command.Authorize`) is built and unit-tested in
-   isolation, but is never actually invoked by any of the real dispatch
-   paths it exists to gate** (`SafetyService`, `PlaybackService`, and the
-   frontend itself). A crafted/replayed Wails-bound call to
-   `SwitchScene`, `SetLayerEnabled`, `SetBPM`, `TapTempo`, `Blackout`,
-   `StopReleaseAll`, or `RevokeAutomation` succeeds regardless of what the
-   active operator surface has assigned — the entire D-04
-   visible-but-locked access-control story described in this codebase's
-   own doc comments does not currently exist at the enforcement layer.
-   This is exactly the bypass the review was asked to verify is
-   impossible.
-2. **`MidiService.CancelLearn` double-closes a channel and panics** if
-   called twice while a learn session is active — a crash reachable from
-   the frontend's own Cancel button.
-3. **The safety cluster (on-screen hold buttons and the three OS-level
-   global hotkeys) can only ever turn Blackout / Stop-Release-All /
-   Revoke Automation *on* — there is no in-app way to turn any of them
-   back off.** Once activated, recovery requires dropping to a separate
-   CLI process, which is likely unavailable to an on-site operator during
-   a live show.
+1. **`svc_midi.go`'s new safety/master dispatch path** (the one part of this round that
+   deliberately bypasses the command registry and dials the daemon directly, mirroring
+   `svc_safety.go`'s `toggle`) discards the daemon's response entirely, with no synchronous
+   caller and no logging to surface a failure — unlike every other mutation path in this
+   package, a MIDI-triggered Blackout/Stop-Release-All/Revoke-Automation/master-level
+   change that fails to reach the daemon has **no operator-visible or log-visible failure
+   signal anywhere**.
+2. **`FixturePatchService.AddPoolMemberPreview`** builds the `pool update --add` spec via
+   raw `fmt.Sprintf("%s|%s|%s", ...)` string concatenation without validating that the
+   three GUI-supplied fields (`stableKey`/`contentHash`/`mode`) don't themselves contain the
+   `|` delimiter the backend route splits on — a value containing an embedded `|` is
+   silently misattributed to the wrong field rather than rejected.
+
+The three components' shared files (`wailsBridge.ts`, `App.tsx`, `cmd/golc-desktop/main.go`)
+are consistent for `App.tsx` (each panel mounted exactly once) and `main.go` (all three
+services constructed and bound once, names matching the TS binding declarations), but
+`wailsBridge.ts` itself is asymmetric across the three passes: `ArtnetConfigService` and
+`ProgrammingService` both get exported, centrally-typed helper functions (the pattern the
+file's own header comment prescribes), while `FixturePatchService` gets only a bare
+interface declaration — `FixturePatch.tsx` re-declares its own local, structurally-similar-
+but-independent binding types and casts through `as unknown as` instead.
 
 ## Critical Issues
 
-### CR-01: Operator-surface authorization is never enforced on any real dispatch path
+### CR-01: MIDI-triggered safety/master dispatch silently discards the daemon's response
 
-**File:** `internal/wails/svc_safety.go:130-166`, `internal/wails/svc_playback.go:81-158`, `internal/wails/svc_surface.go:256-283`, `frontend/src/components/OperatorSurface/OperatorSurface.tsx:14-18`
-
-**Issue:** `SurfaceService.AuthorizeControl` (`svc_surface.go:266`) resolves
-a control against the loaded `ShowState` and calls `command.Authorize`,
-and its own doc comment states plainly: *"Every operator-mode dispatch
-path (06-05 SafetyService, 06-06 PlaybackService) is expected to call
-this same check... a crafted/replayed call against an unassigned control
-is rejected here, in Go, exactly like the CLI's own `command.Authorize`."*
-`06-07-SUMMARY.md` (the plan that built it) explicitly records: *"ready
-for 06-05 (SafetyService) and 06-06 (PlaybackService) to call directly
-before any operator-mode dispatch action."*
-
-Neither promise was kept:
-
-- `SafetyService.toggle` (`svc_safety.go:130`, called by `Blackout`,
-  `StopReleaseAll`, `RevokeAutomation`) dials the daemon directly with no
-  authorization check at all.
-- `PlaybackService.SwitchScene`, `SetLayerEnabled`, `SetBPM`, `TapTempo`
-  (`svc_playback.go:81-145`) each call `s.execute(...)` directly against
-  the command registry — none call `command.Authorize` or
-  `AuthorizeControl`.
-- The frontend never calls `AuthorizeControl` either: it is declared in
-  `wailsBridge.ts`'s `SurfaceServiceBinding` and in
-  `OperatorSurface.tsx`'s local binding interface, but a repo-wide search
-  (`grep -rn '\.AuthorizeControl\('`) finds **zero** call sites outside
-  test files. `OperatorSurface.tsx`'s own "operate" mode is confirmed
-  (by its own doc comment) to be "a UI affordance only, never the actual
-  enforcement" — but nothing else enforces it either.
-- `06-05-SUMMARY.md` and `06-06-SUMMARY.md` (the plans that built
-  `SafetyService`/`PlaybackService`) never mention `Authorize` at all —
-  this was not a documented, deliberately-deferred decision; it is a
-  dropped cross-plan integration point.
-
-The only place `command.Authorize` is actually invoked outside tests is
-`MidiService.StartLearn` (`svc_midi.go:339`), which gates *learning* a
-new MIDI mapping — it does not gate exercising an existing one, and it
-has no bearing on the on-screen Playback/Safety controls at all.
-
-Net effect: the entire "operator surface" access-control feature this
-phase's D-04 requirement centers on is decorative. Any process capable of
-calling a bound Wails method (which includes anything running inside the
-webview's JS context, or a replayed/scripted call) can drive playback and
-safety state without regard to which controls are assigned to which
-surface. This is precisely the threat T-06-18 was written to mitigate,
-and precisely what the review brief asked to be verified as impossible.
-
-**Fix:** Every mutating method on `SafetyService` and `PlaybackService`
-that corresponds to an operator-assignable control must resolve the
-active surface + control ref and call `command.Authorize` (or
-`AuthorizeControl`'s equivalent logic) before dispatching, returning the
-`GOLC_OPERATORSURFACE_LOCKED` rejection Result on failure — mirroring
-`MidiService.StartLearn`'s own pattern:
+**File:** `internal/wails/svc_midi.go:373-420`
+**Issue:** `dispatchSafetyTrigger` and `dispatchMasterSet` are the two dispatch paths this
+gap-closure round added that intentionally bypass the command registry and dial the daemon
+directly (mirroring `SafetyService.toggle`'s established pattern for safety-critical
+actions). Unlike `SafetyService.toggle`, which returns the `ipc.Result` to a synchronous
+Wails-bound caller that can render it as an error banner, these two methods are called from
+`dispatchMapping`, itself called from `dispatchToActiveSurface` inside the background
+`dispatchLoop` goroutine — there is no caller left to hand a failure to:
 
 ```go
-func (s *SafetyService) Blackout(on bool) Result {
-    if err := s.authorizeSafety(operatorsurface.Blackout); err != nil {
-        return Result{ExitCode: 1, Stderr: err.Error()}
-    }
-    return s.toggle(string(routeBlackout), on)
+func (s *MidiService) dispatchSafetyTrigger(control operatorsurface.SafetyControl) {
+	route := safetyRouteFor(control)
+	if route == "" {
+		return
+	}
+	s.dialFn()(s.pipeName, ipc.Request{
+		Route: string(route),
+		Args:  []string{"--on", "true", "--source", "manual"},
+	})
 }
 ```
 
-This requires `SafetyService`/`PlaybackService` to know which surface is
-"active" the same way `MidiService.activeSurface` already does (or to
-accept an explicit surface name/ID from the frontend on every call). At
-minimum, this gap needs to be either closed or explicitly, visibly
-descoped in a follow-up plan — it should not ship silently as "done."
+The returned `ipc.Result` (which would carry `ExitCode`/`Stderr` on a failed dial, e.g.
+daemon offline) is discarded outright. `dispatchMasterSet` has the identical pattern. Both
+are invoked from `dispatchToActiveSurface`, which unconditionally calls `emitMidiFeedback`
+right after `dispatchMapping` regardless of whether the dial succeeded — so a MIDI-mapped
+Blackout button press while the daemon is unreachable produces zero indication anywhere
+(no console log, no pushed event, no error banner) that the safety action never reached the
+daemon. Every other mutation path added in this same round (`FixturePatchService`,
+`ArtnetConfigService`, `ProgrammingService`, and `svc_midi.go`'s own
+`dispatchSceneSwitch`/`dispatchLayerToggle`, which go through `executeWithRetry`) at least
+returns a `Result` a caller could inspect; this is the one path in the newly-reviewed code
+that cannot fail loudly anywhere.
 
----
+**Fix:** At minimum, log the failure server-side so it is diagnosable (`ipc.Result` already
+carries `Stderr`):
+```go
+func (s *MidiService) dispatchSafetyTrigger(control operatorsurface.SafetyControl) {
+	route := safetyRouteFor(control)
+	if route == "" {
+		return
+	}
+	result := s.dialFn()(s.pipeName, ipc.Request{
+		Route: string(route),
+		Args:  []string{"--on", "true", "--source", "manual"},
+	})
+	if result.ExitCode != 0 {
+		log.Printf("GOLC_WAILS_MIDI_SAFETY_DISPATCH_FAILED: route=%s: %s", route, result.Stderr)
+	}
+}
+```
+Better: surface a distinct "dispatch failed" push (a new/extended feedback event, or a
+`QueueStatus`-style banner) so the operator — not just a log file nobody is tailing during a
+live show — learns the Blackout press did not take effect, rather than seeing the on-screen
+fader/button state update as if it had.
 
-### CR-02: `MidiService.CancelLearn` panics on a double call ("close of closed channel")
+### CR-02: `AddPoolMemberPreview`'s pipe-delimited spec construction has no delimiter guard
 
-**File:** `internal/wails/svc_midi.go:427-436`
-
+**File:** `internal/wails/svc_fixturepatch.go:117-127`
 **Issue:**
-
 ```go
-func (s *MidiService) CancelLearn() Result {
-	s.mu.Lock()
-	session := s.learning
-	s.mu.Unlock()
-	if session == nil {
-		return Result{ExitCode: 1, Stderr: "GOLC_MIDI_LEARN_NOT_ACTIVE: ...\n"}
-	}
-	close(session.cancel)
-	return Result{Stdout: "GOLC_MIDI_LEARN_CANCELLED\n"}
-}
+func (s *FixturePatchService) AddPoolMemberPreview(poolName, stableKey, contentHash, mode string) Result {
+	spec := fmt.Sprintf("%s|%s|%s", stableKey, contentHash, mode)
+	result := s.execute([]string{
+		"pool", "update", poolName,
+		"--add", spec,
+		...
 ```
+`internal/command/pool.go`'s `parsePoolMemberSpec` splits this value with
+`strings.SplitN(raw, "|", 3)` and only checks that exactly 3 non-empty parts resulted — it
+has no way to detect that one of the *original* three fields itself contained a `|`. If a
+GUI author pastes a `stableKey` or `contentHash` value that contains an embedded `|` (e.g.
+`"acme|par64"`), the resulting spec `"acme|par64|sha256:...|Standard"` still splits into
+exactly 3 non-empty parts — just the *wrong* ones: `FixtureStableKey="acme"`,
+`FixtureContentHash="par64"`, `Mode="sha256:...|Standard"`. No error is raised anywhere;
+the pool member is silently created with a corrupted stable key / content hash / mode
+triple. Once `ApplyPatch` commits it, this bad fixture identity is now the on-disk source
+of truth for that pool member with no diagnostic ever having fired.
 
-`s.learning` is only set to `nil` by `StartLearn`'s own deferred cleanup,
-which runs only after `StartLearn` itself returns (i.e., after
-`CaptureCandidate` unblocks). If `CancelLearn` is called twice while a
-learn session is still open — e.g. a user double-clicking the frontend's
-"Cancel" button in `MidiLearn.tsx` before the first click's async result
-resolves and the button's status flips away from `"listening"` (nothing
-in `MidiLearn.tsx.handleCancel` disables the button or de-dupes the
-call) — both calls read the same non-nil `session` and both call
-`close(session.cancel)`. The second `close` on an already-closed channel
-panics. Nothing recovers from a panic inside a Wails-bound method call,
-so this crashes the whole desktop process, not just the request.
-
-This is confirmed unguarded by any test: `svc_midi_test.go` never
-exercises `CancelLearn` at all, let alone a concurrent double call.
-
-**Fix:** Guard the close with the same mutex that already protects
-`s.learning`, and nil out `s.learning` (or a `cancelled` flag) at the
-point of cancellation so a second call sees the already-cancelled state
-instead of double-closing:
-
+**Fix:** Reject (client-side, before ever building the spec) any of the three inputs that
+contain the delimiter, surfacing an explicit error instead of silently mis-splitting:
 ```go
-func (s *MidiService) CancelLearn() Result {
-	s.mu.Lock()
-	session := s.learning
-	if session == nil {
-		s.mu.Unlock()
-		return Result{ExitCode: 1, Stderr: "GOLC_MIDI_LEARN_NOT_ACTIVE: ...\n"}
+func (s *FixturePatchService) AddPoolMemberPreview(poolName, stableKey, contentHash, mode string) Result {
+	for _, field := range []string{stableKey, contentHash, mode} {
+		if strings.Contains(field, "|") {
+			return Result{ExitCode: 2, Stderr: "GOLC_WAILS_POOL_MEMBER_FIELD_INVALID: fixture stable key/content hash/mode must not contain \"|\"\n"}
+		}
 	}
-	s.learning = nil
-	s.mu.Unlock()
-	close(session.cancel)
-	return Result{Stdout: "GOLC_MIDI_LEARN_CANCELLED\n"}
-}
+	spec := fmt.Sprintf("%s|%s|%s", stableKey, contentHash, mode)
+	...
 ```
-(`StartLearn`'s own deferred cleanup already tolerates `s.learning`
-having been changed out from under it via its `if s.learning == session`
-guard, so this does not conflict with it.)
-
----
-
-### CR-03: The safety cluster (hotkeys + on-screen buttons) can activate Blackout/Stop-Release-All/Revoke Automation but has no in-app way to release them
-
-**File:** `frontend/src/components/SafetyCluster/SafetyCluster.tsx:171-189`, `internal/wails/hotkey.go:176-180`
-
-**Issue:** All three on-screen hold-to-confirm controls call their
-matching `SafetyService` binding with a hardcoded `true`:
-
-```tsx
-<HoldButton label="Hold to Blackout" ... onActivate={() => { void safetyBlackout(true); }} />
-<HoldButton label="Hold to Revoke Automation" ... onActivate={() => { void safetyRevokeAutomation(true); }} />
-<HoldButton label="Hold to Stop / Release All" ... onActivate={() => { void safetyStopReleaseAll(true); }} />
-```
-
-The three OS-level global hotkeys (`hotkey.go:176-180`) do the same:
-`Args: []string{"--on", "true", "--source", "manual"}`, always `true`,
-never conditioned on current state.
-
-`SafetyService`/the daemon route both support `--on false` (used by the
-CLI: `artnet safety blackout --on false`), but nothing in the desktop
-shell — no button, no hotkey, no other affordance anywhere in
-`App.tsx`'s component tree — ever calls any of the three toggles with
-`false`. Once an operator engages Blackout, Stop/Release-All, or Revoke
-Automation from inside the desktop app (via mouse or the documented
-emergency hotkeys), there is no way back to a live state from within the
-app itself; recovery requires shelling out to `golc-project.exe artnet
-safety blackout --on false` from a separate terminal. `06-UI-SPEC.md` and
-`06-CONTEXT.md` (D-13/D-14/D-15/D-16) describe activation in detail but
-never mention a release/deactivate flow, and `deferred-items.md` does not
-track this as a known, deliberately-scoped gap either — it appears to
-have simply never been designed.
-
-For a subsystem whose entire premise is "must never depend on UI/script/
-API/LLM completion" and must be reachable "regardless of what screen an
-author or operator is on" (D-13), shipping an activate-only control with
-no symmetric release path is a serious operational risk: a live show can
-be driven into a Blackout/Stop-All state by a stray hold, a misfired
-hotkey, or a deliberate emergency stop, and the on-screen safety cluster
-that got it there cannot get it back out.
-
-**Fix:** Make the hold buttons toggle against the currently observed
-state (already available via `useGolcStore`'s `status.outputState` /
-`status.controllingSource`, exactly as `SafetyCluster.tsx`'s own `active`
-computation already derives), and give `hotkey.go`'s callbacks the same
-toggle semantics (e.g. query current state via a lightweight daemon round
-trip before forwarding, or have the daemon's own toggle route flip rather
-than always set):
-
-```tsx
-onActivate={() => { void safetyBlackout(!blackoutOrStopActive); }}
-```
-
-At minimum, if "activate-only, CLI-recovers" is an intentional Phase 6
-scope cut, it needs to be documented as a tracked, visible limitation
-(e.g. in `deferred-items.md` and in the UI copy itself), not left
-silently undiscoverable.
 
 ## Warnings
 
-### WR-01: `svc_playback.go`'s `SetLayerEnabled` pre-read failure is silently swallowed
+### WR-01: `FixturePatch.tsx` re-implements its own Wails binding layer instead of using `wailsBridge.ts`
 
-**File:** `internal/wails/svc_playback.go:89-103`
-
-**Issue:** `currentLayerRef` returns `uuid.Nil` both when the layer
-genuinely has no `Ref` and when `show.Load` itself fails (e.g. a
-transient I/O error). In the latter case, `SetLayerEnabled` proceeds to
-call the mutating route *without* `--ref`, silently discarding
-whichever `Ref` was actually on disk if the subsequent `s.execute(...)`
-call's own `show.Load` (inside the registry route) happens to succeed
-where the first, pre-read `show.Load` failed. This is a narrow race
-(two back-to-back loads of the same file, one failing and one
-succeeding), but it directly contradicts this same method's own stated
-purpose ("an enable/disable toggle that omitted this pre-read would
-silently null out a previously assigned ... reference on every flip").
-
-**Fix:** Propagate the pre-read error instead of treating it identically
-to "no ref assigned":
-
-```go
-func (s *PlaybackService) currentLayerRef(sceneName, kind string) (uuid.UUID, error) {
-	state, err := show.Load(s.root, s.showPath)
-	if err != nil {
-		return uuid.Nil, err
-	}
-	...
+**File:** `frontend/src/components/FixturePatch/FixturePatch.tsx:117-157`; `frontend/src/lib/wailsBridge.ts:129-142`
+**Issue:** `wailsBridge.ts`'s own header comment states the project convention explicitly:
+"every component imports its binding call through this file's helper functions ... rather
+than re-declaring `declare global {...}` itself." `ArtnetConfig.tsx` and
+`SceneProgramming.tsx` (06-11/06-12, written after 06-10) both follow this: they import
+`configureArtnetTarget`/`fetchArtnetStatus`/... and `createScene`/`listProgramming`/... from
+`wailsBridge.ts`, which exports typed, graceful-degradation wrapper functions for every
+bound method. `FixturePatch.tsx` (06-10) does not — it declares its own local, independent
+copy of the binding shape and a locally-duplicated `GoResult` type (structurally identical
+to `wailsBridge.ts`'s exported `WailsResult`, but a separate declaration two files can drift
+apart on), and reaches into the global directly:
+```ts
+function fixturePatchService(): FixturePatchServiceBinding | undefined {
+  return window.go?.wails?.FixturePatchService as unknown as
+    | FixturePatchServiceBinding
+    | undefined;
 }
 ```
-and have `SetLayerEnabled` return the pre-read error as its own `Result`
-rather than proceeding.
+The `as unknown as` cast bypasses TypeScript's structural checking entirely, so if
+`svc_fixturepatch.go`'s bound method signatures ever change, `FixturePatch.tsx`'s local
+interface would silently go stale with no compiler error — exactly the risk
+`wailsBridge.ts`'s single-source-of-truth convention exists to prevent, and exactly the
+"three separate executor passes" drift this round should have caught since 06-11/06-12
+landed after 06-10 and had the correct pattern already in front of them.
+**Fix:** Add `createPool`/`addPoolMemberPreview`/`removePoolMemberPreview`/`applyPatch`/
+`createDeployment`/`activateDeployment`/`listPatch` wrapper functions to `wailsBridge.ts`
+(mirroring `listArtnetInterfaces`/`configureArtnetTarget`'s shape), export `PatchView` and
+friends from there, and have `FixturePatch.tsx` import them instead of declaring its own
+`FixturePatchServiceBinding`/`GoResult`.
 
-### WR-02: Desktop app loads Google Fonts over the network on every launch
+### WR-02: `EventPusher`'s single-key-per-event-name queue drops concurrent MIDI feedback across mappings
 
-**File:** `frontend/index.html:6-9`
+**File:** `internal/wails/svc_midi.go:528-539`; `internal/wails/events.go:80-88` (referenced, not in this round's file list)
+**Issue:** `dispatchToActiveSurface` calls `emitMidiFeedback` → `QueueMidiFeedback` once per
+arbitrated MIDI message, for whichever mapping just received a message. `EventPusher.queue`
+stages snapshots in `map[string]interface{}` keyed by **event name** only
+(`"midi:feedback"`), not per-mapping-ID:
+```go
+func (p *EventPusher) queue(eventName string, snapshot interface{}) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.latest[eventName] = snapshot
+}
+```
+Every 25ms tick flushes at most one `MidiFeedback` value total, system-wide, regardless of
+how many distinct mappings produced feedback in that window. A surface with more than one
+active mapping (e.g. two faders, or a fader plus a button) will only ever have the
+most-recently-queued mapping's feedback survive to the next flush — the other mapping(s)'
+feedback for that tick is silently overwritten and never delivered, so their on-screen
+slider/armed indicators go stale whenever another control is touched in the same ~25ms
+window. `svc_midi_test.go`'s own `TestMidiServiceFaderTakeoverCrossToCatchAndButtonActsImmediately`
+does not catch this because it spaces out each `out.Send` with a `waitForCondition` that lets
+one control's feedback flush before the next control is touched — the test never exercises
+two mappings updating within the same tick. `events.go` is not part of this round's changed
+files, but `svc_midi.go`'s per-mapping feedback design (new in this round) is the first
+caller to actually depend on multi-mapping delivery, and it cannot get it from this queue.
+**Fix:** Key `EventPusher.latest`'s MIDI slot by mapping ID (e.g.
+`"midi:feedback:" + mappingID`, or a `map[string]MidiFeedback` staged separately from the
+single-value `status:update` slot) and flush every staged mapping's feedback each tick.
 
-**Issue:** The only external network dependency in the entire desktop
-shell is a `<link rel="stylesheet" href="https://fonts.googleapis.com/...">`
-tag. A lighting-control desktop app is a plausible candidate for running
-on an isolated/offline show network (the rest of this codebase goes to
-considerable lengths to keep the Art-Net daemon, MIDI, and safety paths
-fully local and dependency-free). If the venue network has no outbound
-internet access, or DNS/TLS to `fonts.googleapis.com` is blocked or slow,
-this stylesheet request will fail or stall page load/paint on every
-startup, and it silently sends the user's IP to Google on every launch
-where the network is available. Nothing in this phase's docs discusses
-this as an accepted trade-off.
+### WR-03: Duplicated ad-hoc bridge-helper boilerplate across the three new components
 
-**Fix:** Self-host the Archivo/JetBrains Mono font files under
-`frontend/public/fonts/` (or `@font-face` them via a bundled asset) so
-the desktop shell has zero runtime network dependency for its own chrome.
-
-### WR-03: `PlaybackControls.tsx` polls `GetState` every second unconditionally, including while the daemon is unreachable
-
-**File:** `frontend/src/components/PlaybackControls/PlaybackControls.tsx:169-175`
-
-**Issue:** The 1s `setInterval` polling loop runs regardless of
-`connectionStatus`; when the bridge/daemon is unavailable,
-`dispatch.getState()` resolves to `undefined` every second forever, and
-the loop keeps firing indefinitely with no backoff. This is not
-incorrect, but every other slice in this codebase (`LiveStatusBar`'s
-`STATUS_GAP_MS` re-query, `SafetyService`'s throttled push) treats a
-disconnected daemon as a reason to change cadence or state; this poller
-is the one outlier that just keeps hammering at a fixed 1s cadence with
-no distinguishing behavior when `connectionStatus === "unreachable"`.
-Low severity (out of the stated performance-issue exclusion, this is a
-consistency/robustness note, not a perf complaint) but worth aligning
-with the rest of the codebase's "explicit connection-state handling"
-convention.
-
-**Fix:** Skip the poll (or fall back to a slower cadence) while
-`connectionStatus !== "connected"`.
+**File:** `frontend/src/components/FixturePatch/FixturePatch.tsx:155-157`; `frontend/src/components/ArtnetConfig/ArtnetConfig.tsx:50-52`; `frontend/src/components/SceneProgramming/SceneProgramming.tsx:91-99`
+**Issue:** `errorMessage(err: unknown): string` is defined identically (byte-for-byte) in
+all three components; `assertOk` is defined identically in `FixturePatch.tsx` and
+`SceneProgramming.tsx`. None of these are exported from `wailsBridge.ts`, so any future
+change to the "how do we render a caught error" convention has to be applied in three
+places by hand.
+**Fix:** Move `errorMessage`/`assertOk` into `wailsBridge.ts` (or a small shared
+`frontend/src/lib/wailsResult.ts`) and import from there.
 
 ## Info
 
-### IN-01: `frontend/package.json` pins unusually high major versions with no way to verify they resolve
+### IN-01: `findConflictingMapping` is a same-signature pass-through wrapper around `findMapping`
 
-**File:** `frontend/package.json:11-22`
+**File:** `internal/wails/svc_midi.go:874-880`
+**Issue:** `findConflictingMapping(mappings, candidate)` is `return findMapping(mappings, candidate)` verbatim — a distinct name for the exact same call, kept only so call sites read differently. Harmless, but it's an extra indirection a reader has to chase to confirm it isn't doing anything different.
+**Fix:** Either inline the call at its one call site in `StartLearn`, or leave as-is with a one-line comment noting it's purely a readability alias (the current doc comment already gestures at this but a future reader may still expect divergent behavior from the distinct name).
 
-**Issue:** `typescript: "7.0.2"` and `vite: "8.1.4"` are pinned as exact
-versions. These may be legitimate as of this repo's stated "current
-date," but no lockfile was in scope for this review to cross-check
-against, and a reviewer cannot independently confirm these resolve to
-real, installable npm packages without network access. If either version
-string is a typo or was pinned against a pre-release/beta tag that later
-got yanked, `npm ci`/`npm install` would fail outright for every
-contributor and CI run. Worth a one-time sanity check (`npm view
-typescript@7.0.2 version`, `npm view vite@8.1.4 version`) if not already
-verified in CI.
+### IN-02: Orphaned cached impact plan when an operator switches "Add Fixture" target mid-preview
 
-**Fix:** Confirm both resolve on the npm registry, or pin to a caret
-range if exact-pin was not a deliberate choice.
+**File:** `frontend/src/components/FixturePatch/FixturePatch.tsx:236-242`
+**Issue:** `handleStartAddMember` unconditionally resets `pendingPreview` to `null` whenever
+the operator clicks "Add Fixture" on a (possibly different) pool row, discarding any
+already-computed preview without calling `ApplyPatch` or otherwise releasing it. The plan
+remains cached server-side in `FixturePatchService.plans` (keyed by `PlanID`) indefinitely —
+harmless functionally (it can never be applied again since the frontend lost its `PlanID`
+reference), but it is dead memory that accumulates with normal "start a preview, then decide
+to add a different fixture instead" usage.
+**Fix:** Not required for correctness; if `FixturePatchService.plans` growth becomes a
+concern, consider an explicit `DiscardPlan(planId)` call from `handleStartAddMember`/
+`handleCancelPreview`, or a bounded/TTL'd cache.
 
 ---
 
-_Reviewed: 2026-07-23T20:44:45Z_
+_Reviewed: 2026-07-23T16:33:02-07:00_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
