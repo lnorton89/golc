@@ -114,6 +114,33 @@ interface MidiServiceBinding {
   SetActiveSurface(surfaceName: string): Promise<WailsResult>;
 }
 
+/** FixturePatchServiceBinding mirrors internal/wails/svc_fixturepatch.go's
+ * bound methods field-for-field (06-10-PLAN.md, PLAY-10/VERIFICATION.md
+ * Gap B[0]): every method forwards to the existing "pool"/"deployment"
+ * command routes -- CreatePool/AddPoolMemberPreview/
+ * RemovePoolMemberPreview/ApplyPatch/CreateDeployment/ActivateDeployment
+ * -- and ListPatch returns the full pool/deployment/instance projection
+ * (read from show.Load, not the instance_count-only "show inspect"
+ * view) FixturePatch.tsx renders. AddPoolMemberPreview/
+ * RemovePoolMemberPreview never mutate the ShowState document -- the
+ * returned Result's stdout carries the impact-preview JSON, which the
+ * frontend parses and renders before an ApplyPatch(planId) commit
+ * (review-before-apply, POOL-04/D-15). */
+interface FixturePatchServiceBinding {
+  CreatePool(name: string, requires: string[]): Promise<WailsResult>;
+  AddPoolMemberPreview(
+    poolName: string,
+    stableKey: string,
+    contentHash: string,
+    mode: string,
+  ): Promise<WailsResult>;
+  RemovePoolMemberPreview(poolName: string, memberId: string): Promise<WailsResult>;
+  ApplyPatch(planId: string): Promise<WailsResult>;
+  CreateDeployment(name: string): Promise<WailsResult>;
+  ActivateDeployment(name: string): Promise<WailsResult>;
+  ListPatch(): Promise<unknown>;
+}
+
 // Single, centralized `window.go.wails` shape (Wails v2's runtime-injected
 // bridge, one property per struct bound in cmd/golc-desktop/main.go's
 // options.App{Bind: [...]}). Every component imports its binding call
@@ -134,6 +161,7 @@ declare global {
         PlaybackService?: PlaybackServiceBinding;
         SurfaceService?: SurfaceServiceBinding;
         MidiService?: MidiServiceBinding;
+        FixturePatchService?: FixturePatchServiceBinding;
       };
     };
     runtime?: {
