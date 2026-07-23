@@ -4,9 +4,9 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 6
 current_phase_name: Wails Authoring and Operator Surface
-status: planning
-stopped_at: Phase 6 context gathered
-last_updated: "2026-07-23T07:59:27.353Z"
+status: executing
+stopped_at: Phase 6 UI-SPEC approved
+last_updated: "2026-07-23T09:11:22.985Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 05 complete, transitioned to Phase 6
 progress:
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 Phase: 6 — Wails Authoring and Operator Surface
 Plan: Not started
-Status: Ready to plan
+Status: Ready to execute
 Last activity: 2026-07-23 — Phase 05 complete, transitioned to Phase 6
 
 Note: `.planning/phases/11-telemetry-usage-statistics-and-auto-crash-submission-pipeline/` exists on disk from earlier out-of-order groundwork, which caused the automated next-phase resolver to briefly point here at Phase 11. Phases 6-10 have no directories yet and are the genuine next work per ROADMAP.md's sequential order; Phase 11 itself declares `Depends on: Phase 10`.
@@ -130,6 +130,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-23T07:59:27.340Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-wails-authoring-and-operator-surface/06-CONTEXT.md
+Last session: 2026-07-23T08:37:08.433Z
+Stopped at: Phase 6 UI-SPEC approved
+Resume file: .planning/phases/06-wails-authoring-and-operator-surface/06-UI-SPEC.md
