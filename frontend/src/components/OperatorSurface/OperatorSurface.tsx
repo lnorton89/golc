@@ -79,32 +79,33 @@ interface GoResult {
   stderr: string;
 }
 
-declare global {
-  interface Window {
-    go?: {
-      wails?: {
-        SurfaceService?: {
-          CreateSurface(name: string): Promise<GoResult>;
-          ListSurfaces(): Promise<SurfaceSummary[]>;
-          AssignItem(surfaceName: string, controlRef: ControlRefInput): Promise<GoResult>;
-          UnassignItem(surfaceName: string, controlRef: ControlRefInput): Promise<GoResult>;
-          ShowSurface(surfaceName: string): Promise<SurfaceDetail>;
-          RemoveSurface(surfaceName: string): Promise<GoResult>;
-          AuthorizeControl(surfaceName: string, controlRef: ControlRefInput): Promise<GoResult>;
-        };
-      };
-    };
-  }
+interface SurfaceServiceBinding {
+  CreateSurface(name: string): Promise<GoResult>;
+  ListSurfaces(): Promise<SurfaceSummary[]>;
+  AssignItem(surfaceName: string, controlRef: ControlRefInput): Promise<GoResult>;
+  UnassignItem(surfaceName: string, controlRef: ControlRefInput): Promise<GoResult>;
+  ShowSurface(surfaceName: string): Promise<SurfaceDetail>;
+  RemoveSurface(surfaceName: string): Promise<GoResult>;
+  AuthorizeControl(surfaceName: string, controlRef: ControlRefInput): Promise<GoResult>;
 }
 
-function surfaceService() {
+// The `Window.go.wails` global shape itself is declared once, centrally,
+// in src/lib/wailsBridge.ts (see that file's comment) -- declaring it here
+// too would collide with wailsBridge.ts's declaration under TypeScript's
+// declaration-merging rules for the same inline-typed `go` property. Cast
+// through that shared shape locally instead.
+function surfaceService(): SurfaceServiceBinding {
   const service = window.go?.wails?.SurfaceService;
   if (!service) {
     throw new Error(
       "GOLC_WAILS_BINDING_UNAVAILABLE: SurfaceService is not available on window.go.wails -- this component must run inside the golc-desktop Wails webview.",
     );
   }
-  return service;
+  // wailsBridge.ts's shared ambient declaration types this binding's return
+  // values loosely (unknown) since it can't import this component's own
+  // SurfaceSummary/SurfaceDetail shapes without an awkward reverse
+  // dependency; narrow to this file's precise local shape here instead.
+  return service as unknown as SurfaceServiceBinding;
 }
 
 function assertOk(result: GoResult, action: string): void {

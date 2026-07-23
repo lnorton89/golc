@@ -52,11 +52,53 @@ interface SafetyServiceBinding {
   FetchStatus(): Promise<StatusSnapshot>;
 }
 
+interface PlaybackServiceBinding {
+  SwitchScene(sceneName: string): Promise<WailsResult>;
+  SetLayerEnabled(sceneName: string, kind: string, enabled: boolean): Promise<WailsResult>;
+  SetBPM(bpm: number): Promise<WailsResult>;
+  TapTempo(timestamps: string[]): Promise<WailsResult>;
+  Evaluate(at: number): Promise<WailsResult>;
+  GetState(): Promise<WailsResult>;
+}
+
+interface SurfaceControlRefInput {
+  kind: "scene" | "layer" | "master" | "safety";
+  scene?: string;
+  layerKind?: string;
+  masterKind?: "grand" | "group";
+  group?: string;
+  safety?: string;
+}
+
+interface SurfaceServiceBinding {
+  CreateSurface(name: string): Promise<WailsResult>;
+  ListSurfaces(): Promise<unknown[]>;
+  AssignItem(surfaceName: string, controlRef: SurfaceControlRefInput): Promise<WailsResult>;
+  UnassignItem(surfaceName: string, controlRef: SurfaceControlRefInput): Promise<WailsResult>;
+  ShowSurface(surfaceName: string): Promise<unknown>;
+  RemoveSurface(surfaceName: string): Promise<WailsResult>;
+  AuthorizeControl(surfaceName: string, controlRef: SurfaceControlRefInput): Promise<WailsResult>;
+}
+
+// Single, centralized `window.go.wails` shape (Wails v2's runtime-injected
+// bridge, one property per struct bound in cmd/golc-desktop/main.go's
+// options.App{Bind: [...]}). Every component imports its binding call
+// through this file's helper functions -- or, for a service without a
+// helper yet, casts through `window.go?.wails?.<Service>` -- rather than
+// re-declaring `declare global { interface Window {...} } }` itself:
+// TypeScript's declaration merging requires every `declare global`
+// augmentation of the SAME inline-typed property (`go`) to be structurally
+// identical, so multiple per-component declarations of different shapes
+// for `go.wails` collide at compile time (#Wave3 post-merge gate finding).
+// Add a new service's binding interface above and a property below when a
+// future plan (06-08's MidiService) needs one.
 declare global {
   interface Window {
     go?: {
       wails?: {
         SafetyService?: SafetyServiceBinding;
+        PlaybackService?: PlaybackServiceBinding;
+        SurfaceService?: SurfaceServiceBinding;
       };
     };
     runtime?: {

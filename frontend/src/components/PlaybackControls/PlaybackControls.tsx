@@ -72,16 +72,10 @@ interface PlaybackServiceBinding {
 // Wails v2 injects window.go.<goPackageName>.<StructName> at runtime for
 // every struct bound via cmd/golc-desktop/main.go's options.App{Bind:
 // [...]} -- internal/wails.PlaybackService's Go package name is "wails".
-declare global {
-  interface Window {
-    go?: {
-      wails?: {
-        PlaybackService?: PlaybackServiceBinding;
-      };
-    };
-  }
-}
-
+// The `Window.go.wails` global shape itself is declared once, centrally,
+// in src/lib/wailsBridge.ts (see that file's comment) -- declaring it here
+// too would collide with wailsBridge.ts's declaration under TypeScript's
+// declaration-merging rules for the same inline-typed `go` property.
 function playbackService(): PlaybackServiceBinding | undefined {
   return typeof window !== "undefined" ? window.go?.wails?.PlaybackService : undefined;
 }
