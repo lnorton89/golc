@@ -11,7 +11,20 @@ A modern lighting-control application for operators of small live shows — club
 
 GOLC combines a fast, modular show-authoring workflow with TypeScript scripting, autonomous LLM control, and a well-documented API, so people, scripts, external programs, and AI agents can all create and operate fixture patches, scenes, chases, and show playback through the same system. The first release targets Windows and outputs Art-Net.
 
-> **Status: early development.** GOLC is being built in dependency-ordered phases. Phases 1–5 are complete: offline configuration and delivery traceability, modular fixtures and deployments, deterministic show programming and playback, observable Art-Net output, and durable show storage/recovery are implemented and tested. Phase 6 (Wails Authoring and Operator Surface) is next — there is no desktop UI yet, so GOLC is not usable end-to-end as a lighting console.
+> **Status: early development, pre-alpha.** GOLC is being built in dependency-ordered phases; see [Roadmap](#roadmap). Phases 1–5 are complete: offline configuration and delivery traceability, modular fixtures and deployments, deterministic show programming and playback, observable Art-Net output, and durable show storage/recovery are implemented and tested. Phase 6 (Wails Authoring and Operator Surface) is in progress — the show-state/playback loader, Art-Net daemon supervision, MIDI soft-takeover state machine, and the Wails desktop scaffold (React shell, OS-level safety hotkeys) are done; the authoring UI itself is not yet built, so GOLC is not usable end-to-end as a lighting console.
+
+## Contents
+
+- [Why GOLC](#why-golc)
+- [Planned capabilities (v1)](#planned-capabilities-v1)
+- [Architecture principles](#architecture-principles)
+- [Getting started (contributors)](#getting-started-contributors)
+- [Configuration model](#configuration-model)
+- [Repository layout](#repository-layout)
+- [Roadmap](#roadmap)
+- [Tech stack](#tech-stack)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Why GOLC
 
@@ -86,15 +99,25 @@ Machine-local overrides live in `golc.local.toml` (git-ignored, atomically writt
 ## Repository layout
 
 ```
-cmd/golc-project/     Project CLI that golc.ps1 delegates to
-config/               Committed configuration concern files
-docs/                 Contributor documentation
-internal/bootstrap    Pinned-toolchain bootstrap (checksum-verified, atomic)
-internal/command      Command router, config and test routes
+cmd/golc-project/       Project CLI that golc.ps1 delegates to
+cmd/golc-desktop/       Wails desktop entrypoint
+frontend/               React/TypeScript operator surface (Wails UI)
+config/                 Committed configuration concern files
+docs/                   Contributor documentation
+internal/bootstrap      Pinned-toolchain bootstrap (checksum-verified, atomic)
+internal/command        Command router, config and test routes
 internal/projectconfig  Strict concern decoding, layered resolution
-internal/trace        Planning identity catalog (Linear traceability)
-tests/                Acceptance tests and data-only fixtures
-.planning/            GSD planning artifacts (project, roadmap, state, phases)
+internal/trace          Planning identity catalog (Linear traceability)
+internal/fixture        Fixture definitions, pools, deployments
+internal/show           Show authoring, storage, and recovery
+internal/programming    Scenes, chases, and playback programming
+internal/playback       Deterministic show-state and playback loader
+internal/artnet         Art-Net output and daemon supervision
+internal/midi           Generic MIDI Note/CC learn and soft takeover
+internal/operatorsurface  Shared operator-facing command surface
+internal/wails          Wails host lifecycle and daemon supervision
+tests/                  Acceptance tests and data-only fixtures
+.planning/              GSD planning artifacts (project, roadmap, state, phases)
 ```
 
 ## Roadmap
@@ -106,7 +129,7 @@ tests/                Acceptance tests and data-only fixtures
 | 3 | Deterministic Show Programming and Playback | Complete |
 | 4 | Observable Art-Net Live Output | Complete |
 | 5 | Durable Shows and Recovery | Complete |
-| 6 | Wails Authoring and Operator Surface | **Not started (next)** |
+| 6 | Wails Authoring and Operator Surface | **In progress (4/8 plans)** |
 | 7 | Versioned External Control API | Not started |
 | 8 | Isolated TypeScript Automation | Not started |
 | 9 | Provider-Neutral AI and Bounded Autonomy | Not started |
@@ -118,9 +141,18 @@ Full phase goals and success criteria live in [.planning/ROADMAP.md](.planning/R
 ## Tech stack
 
 - **Core:** Go (module `github.com/lnorton89/golc`)
-- **Desktop UI:** Wails (planned, Phase 6)
+- **Desktop UI:** Wails, React, TypeScript, Zustand (in progress, Phase 6 — scaffold and daemon supervision delivered, authoring UI not yet built)
 - **Output protocol:** Art-Net 4 (delivered, Phase 4)
+- **Operator input:** generic MIDI Note/CC learn with soft takeover (in progress, Phase 6)
 - **Scripting:** TypeScript in an isolated, capability-limited runtime (planned, Phase 8)
 - **Fixture format:** strict YAML 1.2 subset with versioned schemas
 - **Show storage:** single-file, versioned SQLite `.golc` store with rotating recovery points and verified-backup schema migration (delivered, Phase 5)
 - **Delivery tracking:** Linear, reconciled offline-safe from repository-owned identities
+
+## Contributing
+
+Bug reports and design discussion are welcome via issues. GOLC is pre-alpha and the architecture is still settling each phase, so please open an issue before sending a large pull request. See [docs/development.md](docs/development.md) for the contributor walkthrough and [AGENTS.md](AGENTS.md) for repository conventions.
+
+## License
+
+GOLC is licensed under the [GNU General Public License v3.0](LICENSE).
