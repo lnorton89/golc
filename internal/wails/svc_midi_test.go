@@ -18,7 +18,9 @@ package wails
 
 import (
 	"context"
+	"math"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -27,8 +29,10 @@ import (
 	gomidi "gitlab.com/gomidi/midi/v2"
 	"gitlab.com/gomidi/midi/v2/drivers/testdrv"
 
+	"github.com/lnorton89/golc/internal/artnet/ipc"
 	"github.com/lnorton89/golc/internal/midi"
 	"github.com/lnorton89/golc/internal/operatorsurface"
+	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/show"
 )
 
@@ -552,4 +556,756 @@ func waitForCondition(t *testing.T, cond func() bool) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatal("timed out waiting for expected MIDI feedback")
+}
+
+// The tests below (06-09-PLAN.md Gap B[1] closure) prove
+// dispatchToActiveSurface builds and executes the command implied by a
+// matched mapping's ControlRef Target -- not merely feedback state:
+// TestMidiServiceDispatchSceneNoteSwitchesActiveScene,
+// TestMidiServiceDispatchLayerNoteTogglesEnabledPreservingRef,
+// TestMidiServiceDispatchMasterCcForwardsOnlyAfterCrossing,
+// TestMidiServiceDispatchSafetyNoteForwardsDaemonRoute, and
+// TestMidiServiceDispatchUnmappedEventDoesNothing (Task 1), plus the edge
+// coverage in TestMidiServiceDispatchSceneEdgeFiresPerPressNotPerMessage,
+// TestMidiServiceDispatchMasterCcContinuesWhileArmed, and
+// TestMidiServiceDispatchDeletedTargetIsSilentNoOp (Task 3). These fail
+// against the pre-Task-2 feedback-only dispatchToActiveSurface: scene/layer
+// assertions fail because state never changes, and master/safety
+// assertions fail because the injected dial never captures a Request.
+
+// dispatchCapture collects every ipc.Request forwarded during a test,
+// guarded by a mutex since dispatchLoop delivers driver events from its own
+// goroutine (unlike svc_safety_test.go's synchronous call-under-test).
+type dispatchCapture struct {
+	mu       sync.Mutex
+	requests []ipc.Request
+}
+
+func (c *dispatchCapture) dial(_ string, request ipc.Request) ipc.Result {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.requests = append(c.requests, request)
+	return ipc.Result{}
+}
+
+func (c *dispatchCapture) all() []ipc.Request {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]ipc.Request(nil), c.requests...)
+}
+
+func (c *dispatchCapture) count() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.requests)
+}
+
+// waitForDispatchCount polls capture until it holds at least want requests.
+func waitForDispatchCount(t *testing.T, capture *dispatchCapture, want int) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if capture.count() >= want {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for at least %d dispatched requests, got %d", want, capture.count())
+}
+
+// waitForSceneActive polls the ShowState at root/showPath until sceneName
+// is the active scene.
+func waitForSceneActive(t *testing.T, root, showPath, sceneName string) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		state, err := show.Load(root, showPath)
+		if err == nil {
+			for _, sc := range state.Scenes {
+				if sc.Name == sceneName && sc.Active {
+					return
+				}
+			}
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for scene %q to become active", sceneName)
+}
+
+// waitForLayerEnabled polls the ShowState at root/showPath until
+// sceneName/kind's layer Enabled flag matches want.
+func waitForLayerEnabled(t *testing.T, root, showPath, sceneName, kind string, want bool) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		state, err := show.Load(root, showPath)
+		if err == nil {
+			for _, sc := range state.Scenes {
+				if sc.Name != sceneName {
+					continue
+				}
+				for _, l := range sc.Layers {
+					if string(l.Kind) == kind && l.Enabled == want {
+						return
+					}
+				}
+			}
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s/%s Enabled=%v", sceneName, kind, want)
+}
+
+// assertMasterSetForward asserts got is an "artnet master set" Request
+// carrying --grand wantLevel and --source manual.
+func assertMasterSetForward(t *testing.T, got ipc.Request, wantLevel float64) {
+	t.Helper()
+	if got.Route != "artnet master set" {
+		t.Fatalf("forwarded route = %q, want %q", got.Route, "artnet master set")
+	}
+	idx := -1
+	for i, a := range got.Args {
+		if a == "--grand" {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 || idx+1 >= len(got.Args) {
+		t.Fatalf("expected --grand in forwarded args, got %v", got.Args)
+	}
+	gotLevel, err := strconv.ParseFloat(got.Args[idx+1], 64)
+	if err != nil {
+		t.Fatalf("--grand value %q is not a valid number: %v", got.Args[idx+1], err)
+	}
+	if math.Abs(gotLevel-wantLevel) > 1e-6 {
+		t.Fatalf("forwarded --grand level = %v, want %v", gotLevel, wantLevel)
+	}
+	found := false
+	for i := 0; i < len(got.Args)-1; i++ {
+		if got.Args[i] == "--source" && got.Args[i+1] == "manual" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected --source manual in forwarded args, got %v", got.Args)
+	}
+}
+
+// TestMidiServiceDispatchSceneNoteSwitchesActiveScene proves Gap B[1]'s
+// scene half: a Note mapping whose Target is a scene switches the show's
+// active scene when pressed (Value>0) -- not merely the on-screen
+// armed/ghost marker -- and a following Note-off does not re-switch or
+// error.
+func TestMidiServiceDispatchSceneNoteSwitchesActiveScene(t *testing.T) {
+	svc, root, showPath, out := newMidiTestFixture(t, "test-dispatch-scene-note")
+
+	execRegistry(t, root, "scene", "create", "Bridge", "--bars", "4", "--show", showPath)
+	execRegistry(t, root, "scene", "create", "Chorus", "--bars", "4", "--show", showPath)
+	execRegistry(t, root, "scene", "activate", "Bridge", "--show", showPath)
+
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+	chorus := ControlRefInput{Kind: "scene", Scene: "Chorus"}
+	if r := surfaceSvc.AssignItem("Front of House", chorus); r.ExitCode != 0 {
+		t.Fatalf("AssignItem: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
+	if !found {
+		t.Fatal("surface not found")
+	}
+	chorusRef, err := resolveSurfaceControlRef(state, chorus)
+	if err != nil {
+		t.Fatalf("resolveSurfaceControlRef: %v", err)
+	}
+	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
+		Channel: 1, Kind: operatorsurface.Note, Number: 40, Target: chorusRef,
+	})
+	if err != nil {
+		t.Fatalf("AddMidiMapping: %v", err)
+	}
+	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
+	if err := show.Save(root, showPath, state); err != nil {
+		t.Fatalf("show.Save: %v", err)
+	}
+
+	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	if err := out.Send(gomidi.NoteOn(1, 40, 100).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	waitForSceneActive(t, root, showPath, "Chorus")
+
+	// A following Note-off must not error, re-switch, or revert.
+	if err := out.Send(gomidi.NoteOff(1, 40).Bytes()); err != nil {
+		t.Fatalf("Send (note-off): %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	after, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load (after note-off): %v", err)
+	}
+	for _, sc := range after.Scenes {
+		if sc.Name == "Chorus" && !sc.Active {
+			t.Fatalf("expected Chorus to remain active after a Note-off, got Active=%v", sc.Active)
+		}
+		if sc.Name == "Bridge" && sc.Active {
+			t.Fatal("expected Bridge to remain inactive after a Note-off on the Chorus mapping")
+		}
+	}
+}
+
+// TestMidiServiceDispatchLayerNoteTogglesEnabledPreservingRef proves Gap
+// B[1]'s layer half: a Note mapping whose Target is a layer flips that
+// layer's Enabled flag when pressed while preserving its existing Ref
+// (mirrors PlaybackService.SetLayerEnabled's WR-01/WR-03 discipline).
+func TestMidiServiceDispatchLayerNoteTogglesEnabledPreservingRef(t *testing.T) {
+	svc, root, showPath, out := newMidiTestFixture(t, "test-dispatch-layer-note")
+
+	execRegistry(t, root, "scene", "create", "Verse", "--bars", "4", "--show", showPath)
+	execRegistry(t, root, "theme", "create", "Warm", "--show", showPath)
+
+	seeded, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load (seed): %v", err)
+	}
+	if len(seeded.Themes) != 1 {
+		t.Fatalf("expected exactly one seeded theme, got %d", len(seeded.Themes))
+	}
+	themeID := seeded.Themes[0].ID
+	execRegistry(t, root, "scene", "layer", "set", "Verse", "--kind", "color_theme", "--ref", themeID.String(), "--show", showPath)
+
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+	layerInput := ControlRefInput{Kind: "layer", Scene: "Verse", LayerKind: "color_theme"}
+	if r := surfaceSvc.AssignItem("Front of House", layerInput); r.ExitCode != 0 {
+		t.Fatalf("AssignItem: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
+	if !found {
+		t.Fatal("surface not found")
+	}
+	layerRef, err := resolveSurfaceControlRef(state, layerInput)
+	if err != nil {
+		t.Fatalf("resolveSurfaceControlRef: %v", err)
+	}
+	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
+		Channel: 1, Kind: operatorsurface.Note, Number: 41, Target: layerRef,
+	})
+	if err != nil {
+		t.Fatalf("AddMidiMapping: %v", err)
+	}
+	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
+	if err := show.Save(root, showPath, state); err != nil {
+		t.Fatalf("show.Save: %v", err)
+	}
+
+	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	beforeLayer := findLayer(t, state, "Verse", "color_theme")
+	if !beforeLayer.Enabled {
+		t.Fatal("expected the seeded layer to start enabled")
+	}
+	if beforeLayer.Ref != themeID {
+		t.Fatalf("expected the seeded layer Ref=%v, got %v", themeID, beforeLayer.Ref)
+	}
+
+	if err := out.Send(gomidi.NoteOn(1, 41, 100).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	waitForLayerEnabled(t, root, showPath, "Verse", "color_theme", false)
+
+	after, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load (after toggle): %v", err)
+	}
+	toggled := findLayer(t, after, "Verse", "color_theme")
+	if toggled.Ref != themeID {
+		t.Fatalf("expected Ref to be preserved across the MIDI-driven toggle, got %v want %v", toggled.Ref, themeID)
+	}
+}
+
+// TestMidiServiceDispatchMasterCcForwardsOnlyAfterCrossing proves Gap B[1]'s
+// master half: a CC mapping whose Target is the grand master forwards
+// exactly one "artnet master set" daemon Request once the fader crosses the
+// seeded ghost/target marker (cross-to-catch, D-11), and forwards nothing
+// for pre-arm messages that have not yet crossed.
+func TestMidiServiceDispatchMasterCcForwardsOnlyAfterCrossing(t *testing.T) {
+	svc, root, showPath, out := newMidiTestFixture(t, "test-dispatch-master-cc")
+
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+	grand := ControlRefInput{Kind: "master", MasterKind: "grand"}
+	if r := surfaceSvc.AssignItem("Front of House", grand); r.ExitCode != 0 {
+		t.Fatalf("AssignItem: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
+	if !found {
+		t.Fatal("surface not found")
+	}
+	grandRef, err := resolveSurfaceControlRef(state, grand)
+	if err != nil {
+		t.Fatalf("resolveSurfaceControlRef: %v", err)
+	}
+	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
+		Channel: 1, Kind: operatorsurface.ControlChange, Number: 7, Target: grandRef,
+	})
+	if err != nil {
+		t.Fatalf("AddMidiMapping: %v", err)
+	}
+	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
+	if err := show.Save(root, showPath, state); err != nil {
+		t.Fatalf("show.Save: %v", err)
+	}
+
+	capture := &dispatchCapture{}
+	svc.dial = capture.dial
+
+	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	// Below the 0.5 default ghost/target: not yet crossed, must forward
+	// nothing.
+	if err := out.Send(gomidi.ControlChange(1, 7, 20).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if got := capture.count(); got != 0 {
+		t.Fatalf("expected zero forwards before crossing, got %d: %+v", got, capture.all())
+	}
+
+	// Cross the marker: exactly one forward with the crossed value.
+	if err := out.Send(gomidi.ControlChange(1, 7, 100).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	waitForDispatchCount(t, capture, 1)
+	requests := capture.all()
+	if len(requests) != 1 {
+		t.Fatalf("expected exactly one forward after crossing, got %d: %+v", len(requests), requests)
+	}
+	assertMasterSetForward(t, requests[0], float64(100)/127)
+}
+
+// TestMidiServiceDispatchSafetyNoteForwardsDaemonRoute proves Gap B[1]'s
+// safety half: a Note mapping whose Target is a safety control forwards the
+// matching "artnet safety ..." daemon route with "--source manual" when
+// pressed, and a following Note-off does not re-forward.
+func TestMidiServiceDispatchSafetyNoteForwardsDaemonRoute(t *testing.T) {
+	svc, root, showPath, out := newMidiTestFixture(t, "test-dispatch-safety-note")
+
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+	blackout := ControlRefInput{Kind: "safety", Safety: "blackout"}
+	if r := surfaceSvc.AssignItem("Front of House", blackout); r.ExitCode != 0 {
+		t.Fatalf("AssignItem: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
+	if !found {
+		t.Fatal("surface not found")
+	}
+	blackoutRef, err := resolveSurfaceControlRef(state, blackout)
+	if err != nil {
+		t.Fatalf("resolveSurfaceControlRef: %v", err)
+	}
+	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
+		Channel: 1, Kind: operatorsurface.Note, Number: 50, Target: blackoutRef,
+	})
+	if err != nil {
+		t.Fatalf("AddMidiMapping: %v", err)
+	}
+	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
+	if err := show.Save(root, showPath, state); err != nil {
+		t.Fatalf("show.Save: %v", err)
+	}
+
+	capture := &dispatchCapture{}
+	svc.dial = capture.dial
+
+	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	if err := out.Send(gomidi.NoteOn(1, 50, 100).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	waitForDispatchCount(t, capture, 1)
+	requests := capture.all()
+	if len(requests) != 1 {
+		t.Fatalf("expected exactly one forward, got %d: %+v", len(requests), requests)
+	}
+	assertSafetyForward(t, requests[0], "artnet safety blackout", []string{"--on", "true", "--source", "manual"})
+
+	if err := out.Send(gomidi.NoteOff(1, 50).Bytes()); err != nil {
+		t.Fatalf("Send (note-off): %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if got := capture.count(); got != 1 {
+		t.Fatalf("expected no additional forward on Note-off, got %d: %+v", got, capture.all())
+	}
+}
+
+// TestMidiServiceDispatchUnmappedEventDoesNothing proves Gap B[1]'s
+// unchanged-behavior guarantee: a message matching no mapping on the active
+// surface dispatches nothing and changes no state.
+func TestMidiServiceDispatchUnmappedEventDoesNothing(t *testing.T) {
+	svc, root, showPath, out := newMidiTestFixture(t, "test-dispatch-unmapped")
+
+	execRegistry(t, root, "scene", "create", "Verse", "--bars", "4", "--show", showPath)
+
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	capture := &dispatchCapture{}
+	svc.dial = capture.dial
+
+	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	before, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load (before): %v", err)
+	}
+
+	if err := out.Send(gomidi.NoteOn(1, 99, 100).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+
+	after, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load (after): %v", err)
+	}
+	if len(after.Scenes) != len(before.Scenes) {
+		t.Fatalf("expected no scene-count change, before=%d after=%d", len(before.Scenes), len(after.Scenes))
+	}
+	for _, sc := range after.Scenes {
+		if sc.Active {
+			t.Fatalf("expected no scene to become active from an unmapped event, got %+v", sc)
+		}
+	}
+	if got := capture.count(); got != 0 {
+		t.Fatalf("expected zero daemon forwards from an unmapped event, got %d: %+v", got, capture.all())
+	}
+}
+
+// TestMidiServiceDispatchSceneEdgeFiresPerPressNotPerMessage proves a scene
+// Note mapping fires its switch on each activation edge (each Note-on
+// press) without erroring on a repeated press, while a Note-off between
+// presses dispatches nothing, and the dispatch loop keeps processing
+// subsequent mapped events afterward.
+func TestMidiServiceDispatchSceneEdgeFiresPerPressNotPerMessage(t *testing.T) {
+	svc, root, showPath, out := newMidiTestFixture(t, "test-dispatch-scene-edge")
+
+	execRegistry(t, root, "scene", "create", "Alpha", "--bars", "4", "--show", showPath)
+	execRegistry(t, root, "scene", "create", "Beta", "--bars", "4", "--show", showPath)
+	execRegistry(t, root, "scene", "create", "Gamma", "--bars", "4", "--show", showPath)
+	execRegistry(t, root, "scene", "activate", "Alpha", "--show", showPath)
+
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+	beta := ControlRefInput{Kind: "scene", Scene: "Beta"}
+	gamma := ControlRefInput{Kind: "scene", Scene: "Gamma"}
+	if r := surfaceSvc.AssignItem("Front of House", beta); r.ExitCode != 0 {
+		t.Fatalf("AssignItem(beta): exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+	if r := surfaceSvc.AssignItem("Front of House", gamma); r.ExitCode != 0 {
+		t.Fatalf("AssignItem(gamma): exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
+	if !found {
+		t.Fatal("surface not found")
+	}
+	betaRef, err := resolveSurfaceControlRef(state, beta)
+	if err != nil {
+		t.Fatalf("resolveSurfaceControlRef(beta): %v", err)
+	}
+	gammaRef, err := resolveSurfaceControlRef(state, gamma)
+	if err != nil {
+		t.Fatalf("resolveSurfaceControlRef(gamma): %v", err)
+	}
+	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
+		Channel: 1, Kind: operatorsurface.Note, Number: 10, Target: betaRef,
+	})
+	if err != nil {
+		t.Fatalf("AddMidiMapping(beta): %v", err)
+	}
+	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
+		Channel: 1, Kind: operatorsurface.Note, Number: 11, Target: gammaRef,
+	})
+	if err != nil {
+		t.Fatalf("AddMidiMapping(gamma): %v", err)
+	}
+	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
+	if err := show.Save(root, showPath, state); err != nil {
+		t.Fatalf("show.Save: %v", err)
+	}
+
+	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	// Repeated press without release: fires each time, never errors.
+	if err := out.Send(gomidi.NoteOn(1, 10, 100).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	waitForSceneActive(t, root, showPath, "Beta")
+	if err := out.Send(gomidi.NoteOn(1, 10, 100).Bytes()); err != nil {
+		t.Fatalf("Send (repeat press): %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	stillBeta, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	for _, sc := range stillBeta.Scenes {
+		if sc.Name == "Beta" && !sc.Active {
+			t.Fatal("expected Beta to remain active after a repeated press")
+		}
+	}
+
+	// A Note-off between presses dispatches nothing.
+	if err := out.Send(gomidi.NoteOff(1, 10).Bytes()); err != nil {
+		t.Fatalf("Send (note-off): %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+
+	// The dispatch loop keeps processing a subsequent mapped press.
+	if err := out.Send(gomidi.NoteOn(1, 11, 100).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	waitForSceneActive(t, root, showPath, "Gamma")
+}
+
+// TestMidiServiceDispatchMasterCcContinuesWhileArmed proves the deliberate
+// asymmetry between a continuous master CC (forwards on every armed
+// update) and a discrete scene CC (fires its switch once on the arming
+// edge and never re-switches on subsequent armed messages).
+func TestMidiServiceDispatchMasterCcContinuesWhileArmed(t *testing.T) {
+	svc, root, showPath, out := newMidiTestFixture(t, "test-dispatch-master-continues")
+
+	execRegistry(t, root, "scene", "create", "Alpha", "--bars", "4", "--show", showPath)
+	execRegistry(t, root, "scene", "create", "Beta", "--bars", "4", "--show", showPath)
+	execRegistry(t, root, "scene", "activate", "Alpha", "--show", showPath)
+
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+	grand := ControlRefInput{Kind: "master", MasterKind: "grand"}
+	beta := ControlRefInput{Kind: "scene", Scene: "Beta"}
+	if r := surfaceSvc.AssignItem("Front of House", grand); r.ExitCode != 0 {
+		t.Fatalf("AssignItem(grand): exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+	if r := surfaceSvc.AssignItem("Front of House", beta); r.ExitCode != 0 {
+		t.Fatalf("AssignItem(beta): exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
+	if !found {
+		t.Fatal("surface not found")
+	}
+	grandRef, err := resolveSurfaceControlRef(state, grand)
+	if err != nil {
+		t.Fatalf("resolveSurfaceControlRef(grand): %v", err)
+	}
+	betaRef, err := resolveSurfaceControlRef(state, beta)
+	if err != nil {
+		t.Fatalf("resolveSurfaceControlRef(beta): %v", err)
+	}
+	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
+		Channel: 1, Kind: operatorsurface.ControlChange, Number: 7, Target: grandRef,
+	})
+	if err != nil {
+		t.Fatalf("AddMidiMapping(grand): %v", err)
+	}
+	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
+		Channel: 1, Kind: operatorsurface.ControlChange, Number: 8, Target: betaRef,
+	})
+	if err != nil {
+		t.Fatalf("AddMidiMapping(beta): %v", err)
+	}
+	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
+	if err := show.Save(root, showPath, state); err != nil {
+		t.Fatalf("show.Save: %v", err)
+	}
+
+	capture := &dispatchCapture{}
+	svc.dial = capture.dial
+
+	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	// Cross the grand master's ghost/target marker, then hold past it with
+	// two further updates -- each must independently forward (continuous).
+	if err := out.Send(gomidi.ControlChange(1, 7, 100).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	waitForDispatchCount(t, capture, 1)
+	if err := out.Send(gomidi.ControlChange(1, 7, 110).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	waitForDispatchCount(t, capture, 2)
+	if err := out.Send(gomidi.ControlChange(1, 7, 120).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	waitForDispatchCount(t, capture, 3)
+
+	// Cross the scene CC's own ghost/target marker once: fires the switch
+	// exactly once, then never re-switches on further armed messages, and
+	// never dials through the master-set path.
+	if err := out.Send(gomidi.ControlChange(1, 8, 100).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	waitForSceneActive(t, root, showPath, "Beta")
+	if err := out.Send(gomidi.ControlChange(1, 8, 110).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if err := out.Send(gomidi.ControlChange(1, 8, 120).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+
+	if got := capture.count(); got != 3 {
+		t.Fatalf("expected exactly 3 master-set forwards (scene dispatch never dials), got %d: %+v", got, capture.all())
+	}
+	final, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	for _, sc := range final.Scenes {
+		if sc.Name == "Beta" && !sc.Active {
+			t.Fatal("expected Beta to remain active (no re-switch needed/attempted)")
+		}
+	}
+}
+
+// TestMidiServiceDispatchDeletedTargetIsSilentNoOp proves a mapping whose
+// Target scene was deleted from the show dispatches nothing and does not
+// panic, and the dispatch loop continues processing a subsequent, still
+// valid mapped event afterward.
+func TestMidiServiceDispatchDeletedTargetIsSilentNoOp(t *testing.T) {
+	svc, root, showPath, out := newMidiTestFixture(t, "test-dispatch-deleted-target")
+
+	execRegistry(t, root, "scene", "create", "Ghost", "--bars", "4", "--show", showPath)
+	execRegistry(t, root, "scene", "create", "Alive", "--bars", "4", "--show", showPath)
+
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+	ghost := ControlRefInput{Kind: "scene", Scene: "Ghost"}
+	alive := ControlRefInput{Kind: "scene", Scene: "Alive"}
+	if r := surfaceSvc.AssignItem("Front of House", ghost); r.ExitCode != 0 {
+		t.Fatalf("AssignItem(ghost): exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+	if r := surfaceSvc.AssignItem("Front of House", alive); r.ExitCode != 0 {
+		t.Fatalf("AssignItem(alive): exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
+	if !found {
+		t.Fatal("surface not found")
+	}
+	ghostRef, err := resolveSurfaceControlRef(state, ghost)
+	if err != nil {
+		t.Fatalf("resolveSurfaceControlRef(ghost): %v", err)
+	}
+	aliveRef, err := resolveSurfaceControlRef(state, alive)
+	if err != nil {
+		t.Fatalf("resolveSurfaceControlRef(alive): %v", err)
+	}
+	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
+		Channel: 1, Kind: operatorsurface.Note, Number: 60, Target: ghostRef,
+	})
+	if err != nil {
+		t.Fatalf("AddMidiMapping(ghost): %v", err)
+	}
+	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
+		Channel: 1, Kind: operatorsurface.Note, Number: 61, Target: aliveRef,
+	})
+	if err != nil {
+		t.Fatalf("AddMidiMapping(alive): %v", err)
+	}
+	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
+
+	// Delete the Ghost scene directly from the show, leaving the mapping's
+	// Target (the now-nonexistent scene's ID) on the surface untouched --
+	// the same read-only projection tolerance sceneNameByID already extends
+	// elsewhere in this package.
+	filtered := make([]scene.Scene, 0, len(state.Scenes))
+	for _, sc := range state.Scenes {
+		if sc.Name != "Ghost" {
+			filtered = append(filtered, sc)
+		}
+	}
+	state.Scenes = filtered
+	if err := show.Save(root, showPath, state); err != nil {
+		t.Fatalf("show.Save: %v", err)
+	}
+
+	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	if err := out.Send(gomidi.NoteOn(1, 60, 100).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+
+	// The dispatch loop must keep working afterward.
+	if err := out.Send(gomidi.NoteOn(1, 61, 100).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	waitForSceneActive(t, root, showPath, "Alive")
 }
