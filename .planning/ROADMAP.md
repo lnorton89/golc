@@ -18,6 +18,7 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
 - [ ] **Phase 8: Isolated TypeScript Automation** - Users can author and debug capability-limited TypeScript automation without scripts owning or blocking playback or Art-Net.
 - [ ] **Phase 9: Provider-Neutral AI and Bounded Autonomy** - Users can use hosted or local models for reviewed authoring and explicitly armed live control while retaining auditable limits and immediate override.
 - [ ] **Phase 10: Windows Release Qualification** - Operators can install and run a self-contained Windows release with measured timing, recovery, and hardware evidence under concurrent load.
+- [ ] **Phase 11: Telemetry, Usage Statistics, and Auto Crash Submission Pipeline** - Users can opt into anonymized usage/telemetry collection and crashes are automatically captured and submitted for diagnosis without blocking playback or requiring manual repro steps.
 
 ## Phase Details
 
@@ -393,6 +394,17 @@ Plans:
 | 8. Isolated TypeScript Automation | 0/TBD | Not started | - |
 | 9. Provider-Neutral AI and Bounded Autonomy | 0/TBD | Not started | - |
 | 10. Windows Release Qualification | 0/TBD | Not started | - |
+
+### Phase 11: Telemetry, Usage Statistics, and Auto Crash Submission Pipeline
+
+**Goal:** Users can opt into anonymized usage/telemetry collection and crashes are automatically captured and submitted for diagnosis without blocking playback or requiring manual repro steps.
+**Requirements**: TBD
+**Depends on:** Phase 10
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 11 to break down)
 
 ---
 *Roadmap created: 2026-07-17*

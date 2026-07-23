@@ -97,6 +97,10 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent roadmap constrain
 - [Phase ?]: The D-11 authority split is a fixed typed registry: repository fields (scope, local_id, requirement_text, structure) and Linear operational fields (status, assignee, priority, estimate, completed_at) cannot be reassigned in either direction, and comment/discussion fields cannot be stored at all (D-12).
 - [Phase ?]: Catalog entity sources must be repository-relative slash paths inside .planning/; near-miss plan filenames and drifted frontmatter fail the whole catalog build loudly instead of being skipped.
 
+### Roadmap Evolution
+
+- Phase 11 added: Telemetry, Usage Statistics, and Auto Crash Submission Pipeline — users can opt into anonymized usage/telemetry collection and crashes are automatically captured and submitted for diagnosis without blocking playback or requiring manual repro steps.
+
 ### Pending Todos
 
 None yet.
