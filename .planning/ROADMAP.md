@@ -2,7 +2,7 @@
 
 ## Overview
 
-GOLC v1 grows through ten dependency-ordered MVP slices. The first slice makes configuration and delivery traceability discoverable and offline-safe; the next four prove modular fixture authoring, deterministic playback, real Art-Net output, and recoverable shows without depending on a desktop adapter. The Wails slice then turns those proven capabilities into the complete operator workflow before the same command model is exposed through the public API, an isolated TypeScript runtime, and bounded AI autonomy. Final qualification supports Windows only. Across every phase, UI, persistence, scripts, API, LLM providers, and Linear remain outside the deterministic playback and Art-Net timing path.
+GOLC v1 grows through eleven dependency-ordered MVP slices. The first slice makes configuration and delivery traceability discoverable and offline-safe; the next four prove modular fixture authoring, deterministic playback, real Art-Net output, and recoverable shows without depending on a desktop adapter. The Wails slice then turns those proven capabilities into the complete operator workflow before the same command model is exposed through the public API, an isolated TypeScript runtime, and bounded AI autonomy. Final qualification supports Windows only. Across every phase, UI, persistence, scripts, API, LLM providers, and Linear remain outside the deterministic playback and Art-Net timing path.
 
 Linear traceability is established in Phase 1 and remains a delivery gate for every later phase. Repository planning artifacts and runtime operation remain complete offline; remote mappings are reconciled only through credential-external tooling, and no pending remote identifier is treated as evidence of synchronization.
 
