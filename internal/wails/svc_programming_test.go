@@ -157,6 +157,12 @@ func TestProgrammingServiceCreateAndListScene(t *testing.T) {
 func TestProgrammingServiceCreateEachLookKind(t *testing.T) {
 	svc, root, showPath := newTestProgrammingService(t)
 
+	// Seed the pool/deployment instance FIRST: seedProgrammingInstance
+	// saves a fresh ShowState directly (show.Save), which would otherwise
+	// overwrite any scene/theme/motion/chase already appended through the
+	// CLI-route-backed CreateTheme/CreateMotion/CreateChase calls below.
+	instanceID := seedProgrammingInstance(t, root, showPath)
+
 	if result := svc.CreateTheme("Warm"); result.ExitCode != 0 {
 		t.Fatalf("CreateTheme failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
 	}
@@ -167,7 +173,6 @@ func TestProgrammingServiceCreateEachLookKind(t *testing.T) {
 		t.Fatalf("CreateChase failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
 	}
 
-	instanceID := seedProgrammingInstance(t, root, showPath)
 	if result := svc.ProgrammerSet([]string{instanceID.String()}, []string{"intensity=0.8"}); result.ExitCode != 0 {
 		t.Fatalf("ProgrammerSet failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
 	}
@@ -200,6 +205,10 @@ func TestProgrammingServiceCreateEachLookKind(t *testing.T) {
 func TestProgrammingServiceSetEachLayerKind(t *testing.T) {
 	svc, root, showPath := newTestProgrammingService(t)
 
+	// Seed the pool/deployment instance FIRST (see identical note in
+	// TestProgrammingServiceCreateEachLookKind).
+	instanceID := seedProgrammingInstance(t, root, showPath)
+
 	if result := svc.CreateScene("Verse", 4); result.ExitCode != 0 {
 		t.Fatalf("CreateScene failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
 	}
@@ -212,7 +221,6 @@ func TestProgrammingServiceSetEachLayerKind(t *testing.T) {
 	if result := svc.CreateChase("Strobe", "bar", 1); result.ExitCode != 0 {
 		t.Fatalf("CreateChase failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
 	}
-	instanceID := seedProgrammingInstance(t, root, showPath)
 	if result := svc.ProgrammerSet([]string{instanceID.String()}, []string{"intensity=0.8"}); result.ExitCode != 0 {
 		t.Fatalf("ProgrammerSet failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
 	}

@@ -213,6 +213,86 @@ interface ArtnetConfigServiceBinding {
   FetchArtnetStatus(): Promise<ArtnetStatusView>;
 }
 
+/** ProgLayerView mirrors internal/wails.ProgLayerView's JSON shape exactly
+ * (06-12-PLAN.md, PLAY-12/VERIFICATION.md Gap B[0]): one of a scene's four
+ * fixed layer slots. */
+export interface ProgLayerView {
+  kind: string;
+  enabled: boolean;
+  ref?: string;
+}
+
+/** ProgSceneView mirrors internal/wails.ProgSceneView's JSON shape exactly:
+ * one scene row, always carrying exactly four layers. */
+export interface ProgSceneView {
+  name: string;
+  active: boolean;
+  barsPerLoop: number;
+  layers: ProgLayerView[];
+}
+
+/** ProgLookView mirrors internal/wails.ProgLookView's JSON shape exactly --
+ * the shared id+name row shape for themes/chases/motion presets/blend
+ * presets. */
+export interface ProgLookView {
+  id: string;
+  name: string;
+}
+
+/** ProgPresetView mirrors internal/wails.ProgPresetView's JSON shape
+ * exactly: a look plus its recorded PresetKind (intensity/color/position/
+ * beam). */
+export interface ProgPresetView {
+  id: string;
+  name: string;
+  kind: string;
+}
+
+/** ProgInstanceView mirrors internal/wails.ProgInstanceView's JSON shape
+ * exactly: the minimal id+label row the simplified-subset "programmer set"
+ * instance picker needs (see svc_programming.go's package doc comment). */
+export interface ProgInstanceView {
+  id: string;
+  label: string;
+}
+
+/** ProgrammingView mirrors internal/wails.ProgrammingView's JSON shape
+ * exactly -- ListProgramming's full return payload. Every array field is
+ * always present (never undefined/null), mirroring
+ * PatchView/ArtnetStatusView's identical "never blank" contract. */
+export interface ProgrammingView {
+  scenes: ProgSceneView[];
+  themes: ProgLookView[];
+  presets: ProgPresetView[];
+  chases: ProgLookView[];
+  motions: ProgLookView[];
+  blends: ProgLookView[];
+  instances: ProgInstanceView[];
+}
+
+/** ProgrammingServiceBinding mirrors internal/wails/svc_programming.go's
+ * bound methods field-for-field (06-12-PLAN.md, PLAY-12/VERIFICATION.md
+ * Gap B[0]): every mutation forwards to the existing "scene"/"theme"/
+ * "chase"/"motion"/"programmer"/"preset"/"blend" command routes, and
+ * ListProgramming is a read-only projection of the loaded ShowState. */
+interface ProgrammingServiceBinding {
+  CreateScene(name: string, bars: number): Promise<WailsResult>;
+  ActivateScene(name: string): Promise<WailsResult>;
+  SetSceneLayer(
+    sceneName: string,
+    kind: string,
+    refId: string,
+    enabled: boolean,
+  ): Promise<WailsResult>;
+  CreateTheme(name: string): Promise<WailsResult>;
+  CreateMotion(name: string): Promise<WailsResult>;
+  CreateChase(name: string, unit: string, stepDuration: number): Promise<WailsResult>;
+  ProgrammerSet(instanceIds: string[], attrs: string[]): Promise<WailsResult>;
+  RecordPreset(name: string, kind: string): Promise<WailsResult>;
+  CreateBlend(name: string, durationBars: number, curve: string): Promise<WailsResult>;
+  ListProgramming(): Promise<ProgrammingView>;
+}
+
 // Single, centralized `window.go.wails` shape (Wails v2's runtime-injected
 // bridge, one property per struct bound in cmd/golc-desktop/main.go's
 // options.App{Bind: [...]}). Every component imports its binding call
@@ -235,6 +315,7 @@ declare global {
         MidiService?: MidiServiceBinding;
         FixturePatchService?: FixturePatchServiceBinding;
         ArtnetConfigService?: ArtnetConfigServiceBinding;
+        ProgrammingService?: ProgrammingServiceBinding;
       };
     };
     runtime?: {
@@ -472,4 +553,142 @@ export async function fetchArtnetStatus(): Promise<ArtnetStatusView> {
   } catch {
     return offlineArtnetStatus();
   }
+}
+
+function programmingService(): ProgrammingServiceBinding | undefined {
+  return window.go?.wails?.ProgrammingService;
+}
+
+/** offlineProgrammingView mirrors internal/wails.ProgrammingView's own
+ * "never blank" contract: every array field is a present, empty array
+ * rather than undefined, so a missing bridge and a genuinely empty show
+ * render identically in SceneProgramming.tsx (mirrors
+ * offlineArtnetStatus/offlineStatusSnapshot's identical fallback shape). */
+export function offlineProgrammingView(): ProgrammingView {
+  return {
+    scenes: [],
+    themes: [],
+    presets: [],
+    chases: [],
+    motions: [],
+    blends: [],
+    instances: [],
+  };
+}
+
+/** listProgramming calls the bound ProgrammingService.ListProgramming,
+ * returning offlineProgrammingView() when the bridge is unavailable or the
+ * call itself rejects -- callers never need their own try/catch (mirrors
+ * fetchSafetyStatus/fetchArtnetStatus's identical contract). */
+export async function listProgramming(): Promise<ProgrammingView> {
+  const svc = programmingService();
+  if (!svc) return offlineProgrammingView();
+  try {
+    return await svc.ListProgramming();
+  } catch {
+    return offlineProgrammingView();
+  }
+}
+
+/** createScene calls the bound ProgrammingService.CreateScene (PLAY-12:
+ * create a bar-loop scene via "scene create"). */
+export async function createScene(
+  name: string,
+  bars: number,
+): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.CreateScene(name, bars);
+}
+
+/** activateScene calls the bound ProgrammingService.ActivateScene
+ * (PLAY-12: mark exactly one scene active via "scene activate"). */
+export async function activateScene(name: string): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.ActivateScene(name);
+}
+
+/** setSceneLayer calls the bound ProgrammingService.SetSceneLayer
+ * (PLAY-12: enable+point one of a scene's four fixed layers via
+ * "scene layer set"). Pass an empty refId to preserve the layer's
+ * currently assigned ref (e.g. a pure enable/disable toggle) -- the Go
+ * side re-supplies it server-side (WR-01/WR-03), so this call never nulls
+ * out a previously assigned reference. */
+export async function setSceneLayer(
+  sceneName: string,
+  kind: string,
+  refId: string,
+  enabled: boolean,
+): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.SetSceneLayer(sceneName, kind, refId, enabled);
+}
+
+/** createTheme calls the bound ProgrammingService.CreateTheme (PLAY-12:
+ * create a reusable color theme via "theme create"). */
+export async function createTheme(name: string): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.CreateTheme(name);
+}
+
+/** createMotion calls the bound ProgrammingService.CreateMotion (PLAY-12:
+ * create a reusable motion preset via "motion create"). */
+export async function createMotion(name: string): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.CreateMotion(name);
+}
+
+/** createChase calls the bound ProgrammingService.CreateChase (PLAY-12:
+ * create a reusable chase via "chase create"). unit must be "bar" or
+ * "beat". */
+export async function createChase(
+  name: string,
+  unit: string,
+  stepDuration: number,
+): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.CreateChase(name, unit, stepDuration);
+}
+
+/** programmerSet calls the bound ProgrammingService.ProgrammerSet
+ * (PLAY-12: the minimal selection+attribute grammar needed before
+ * recordPreset -- instance selectors and "capability=value" attribute
+ * pairs only; see svc_programming.go's simplified-subset doc comment). */
+export async function programmerSet(
+  instanceIds: string[],
+  attrs: string[],
+): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.ProgrammerSet(instanceIds, attrs);
+}
+
+/** recordPreset calls the bound ProgrammingService.RecordPreset (PLAY-12:
+ * record a base-look/color/position/beam preset from the persisted
+ * Programmer buffer via "preset record"). */
+export async function recordPreset(
+  name: string,
+  kind: string,
+): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.RecordPreset(name, kind);
+}
+
+/** createBlend calls the bound ProgrammingService.CreateBlend (PLAY-12/
+ * SCEN-07: create a reusable blend preset via "blend create"). An empty
+ * curve lets the route default to its own linear curve. */
+export async function createBlend(
+  name: string,
+  durationBars: number,
+  curve: string,
+): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.CreateBlend(name, durationBars, curve);
 }
