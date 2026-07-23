@@ -613,6 +613,35 @@ func waitForDispatchCount(t *testing.T, capture *dispatchCapture, want int) {
 	t.Fatalf("timed out waiting for at least %d dispatched requests, got %d", want, capture.count())
 }
 
+// loadShowWithRetry re-reads the ShowState at root/showPath, retrying a
+// transient "database is locked" (SQLITE_BUSY) diagnostic before failing.
+// This is observed even for a single show.Load immediately following a
+// polling loop's own successful read: the show store's SQLite backend sets
+// no busy_timeout and performs no retry of its own (internal/show/
+// schema.go), and Windows' file-locking semantics can leave a just-closed
+// handle's lock briefly outstanding -- mirrors svc_midi.go's own
+// showLoadWithRetry production-side rationale, applied here so a test's own
+// post-wait assertion read isn't itself a source of flakiness distinct from
+// the dispatch behavior under test.
+func loadShowWithRetry(t *testing.T, root, showPath string) show.State {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		state, err := show.Load(root, showPath)
+		if err == nil {
+			return state
+		}
+		lastErr = err
+		if !strings.Contains(err.Error(), "database is locked") {
+			t.Fatalf("show.Load: %v", err)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("show.Load: repeated database-is-locked retries exhausted: %v", lastErr)
+	return show.State{}
+}
+
 // waitForSceneActive polls the ShowState at root/showPath until sceneName
 // is the active scene.
 func waitForSceneActive(t *testing.T, root, showPath, sceneName string) {
@@ -749,10 +778,7 @@ func TestMidiServiceDispatchSceneNoteSwitchesActiveScene(t *testing.T) {
 		t.Fatalf("Send (note-off): %v", err)
 	}
 	time.Sleep(50 * time.Millisecond)
-	after, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load (after note-off): %v", err)
-	}
+	after := loadShowWithRetry(t, root, showPath)
 	for _, sc := range after.Scenes {
 		if sc.Name == "Chorus" && !sc.Active {
 			t.Fatalf("expected Chorus to remain active after a Note-off, got Active=%v", sc.Active)
@@ -832,10 +858,7 @@ func TestMidiServiceDispatchLayerNoteTogglesEnabledPreservingRef(t *testing.T) {
 	}
 	waitForLayerEnabled(t, root, showPath, "Verse", "color_theme", false)
 
-	after, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load (after toggle): %v", err)
-	}
+	after := loadShowWithRetry(t, root, showPath)
 	toggled := findLayer(t, after, "Verse", "color_theme")
 	if toggled.Ref != themeID {
 		t.Fatalf("expected Ref to be preserved across the MIDI-driven toggle, got %v want %v", toggled.Ref, themeID)
@@ -996,20 +1019,14 @@ func TestMidiServiceDispatchUnmappedEventDoesNothing(t *testing.T) {
 		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
 	}
 
-	before, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load (before): %v", err)
-	}
+	before := loadShowWithRetry(t, root, showPath)
 
 	if err := out.Send(gomidi.NoteOn(1, 99, 100).Bytes()); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	time.Sleep(50 * time.Millisecond)
 
-	after, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load (after): %v", err)
-	}
+	after := loadShowWithRetry(t, root, showPath)
 	if len(after.Scenes) != len(before.Scenes) {
 		t.Fatalf("expected no scene-count change, before=%d after=%d", len(before.Scenes), len(after.Scenes))
 	}
@@ -1095,10 +1112,7 @@ func TestMidiServiceDispatchSceneEdgeFiresPerPressNotPerMessage(t *testing.T) {
 		t.Fatalf("Send (repeat press): %v", err)
 	}
 	time.Sleep(50 * time.Millisecond)
-	stillBeta, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	stillBeta := loadShowWithRetry(t, root, showPath)
 	for _, sc := range stillBeta.Scenes {
 		if sc.Name == "Beta" && !sc.Active {
 			t.Fatal("expected Beta to remain active after a repeated press")
@@ -1182,8 +1196,18 @@ func TestMidiServiceDispatchMasterCcContinuesWhileArmed(t *testing.T) {
 		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
 	}
 
-	// Cross the grand master's ghost/target marker, then hold past it with
-	// two further updates -- each must independently forward (continuous).
+	// A control's very first message can never arm (TakeoverState seeds
+	// LastPhysical to NaN, so no crossing check can pass yet) -- establish
+	// a below-threshold physical position first, then cross the marker, then
+	// hold past it with two further updates -- each must independently
+	// forward (continuous).
+	if err := out.Send(gomidi.ControlChange(1, 7, 20).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if got := capture.count(); got != 0 {
+		t.Fatalf("expected zero forwards before crossing, got %d: %+v", got, capture.all())
+	}
 	if err := out.Send(gomidi.ControlChange(1, 7, 100).Bytes()); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
@@ -1197,9 +1221,15 @@ func TestMidiServiceDispatchMasterCcContinuesWhileArmed(t *testing.T) {
 	}
 	waitForDispatchCount(t, capture, 3)
 
-	// Cross the scene CC's own ghost/target marker once: fires the switch
-	// exactly once, then never re-switches on further armed messages, and
-	// never dials through the master-set path.
+	// Cross the scene CC's own ghost/target marker once (again establishing
+	// a below-threshold position first, since its own TakeoverState is
+	// independent -- keyed per mapping ID -- and equally cannot arm on its
+	// own first message): fires the switch exactly once, then never
+	// re-switches on further armed messages, and never dials through the
+	// master-set path.
+	if err := out.Send(gomidi.ControlChange(1, 8, 20).Bytes()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
 	if err := out.Send(gomidi.ControlChange(1, 8, 100).Bytes()); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
@@ -1215,10 +1245,7 @@ func TestMidiServiceDispatchMasterCcContinuesWhileArmed(t *testing.T) {
 	if got := capture.count(); got != 3 {
 		t.Fatalf("expected exactly 3 master-set forwards (scene dispatch never dials), got %d: %+v", got, capture.all())
 	}
-	final, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	final := loadShowWithRetry(t, root, showPath)
 	for _, sc := range final.Scenes {
 		if sc.Name == "Beta" && !sc.Active {
 			t.Fatal("expected Beta to remain active (no re-switch needed/attempted)")
@@ -1240,11 +1267,15 @@ func TestMidiServiceDispatchDeletedTargetIsSilentNoOp(t *testing.T) {
 	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
 		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
 	}
+	// Ghost is deliberately never assigned to the surface's SceneRefs: the
+	// MIDI mapping is added directly (via operatorsurface.AddMidiMapping,
+	// mirroring this file's other direct-mapping fixtures), and show.Save
+	// itself rejects a surface whose SceneRefs dangle on a deleted scene
+	// (GOLC_OPERATORSURFACE_DANGLING_REFERENCE) -- this test is about a
+	// mapping's Target outliving its scene, not about surface assignment
+	// membership.
 	ghost := ControlRefInput{Kind: "scene", Scene: "Ghost"}
 	alive := ControlRefInput{Kind: "scene", Scene: "Alive"}
-	if r := surfaceSvc.AssignItem("Front of House", ghost); r.ExitCode != 0 {
-		t.Fatalf("AssignItem(ghost): exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
 	if r := surfaceSvc.AssignItem("Front of House", alive); r.ExitCode != 0 {
 		t.Fatalf("AssignItem(alive): exit=%d stderr=%s", r.ExitCode, r.Stderr)
 	}
