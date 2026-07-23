@@ -400,3 +400,74 @@ func TestCrossedBarBoundarySentinelAndWraparound(t *testing.T) {
 		t.Fatalf("expected a transition when BarIndex changes")
 	}
 }
+
+// TestEngineCurrentPlanPositionAndSceneName proves 06-05-PLAN.md's PLAY-07
+// status-projection accessors: CurrentPlan/CurrentPosition/ActiveSceneName
+// reflect the engine's real running state (including the switch-adopted
+// scene's own name, resolved from the most recently staged show.State),
+// and CurrentPosition tracks a fresh tick, mirroring CurrentFrame's own
+// lock-free read discipline.
+func TestEngineCurrentPlanPositionAndSceneName(t *testing.T) {
+	state, _, sceneBName := newEngineTestState(t)
+
+	e, err := NewEngine(state)
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+	pinLoopStart(e)
+	e.tick(fixedEngineLoopStart)
+
+	plan := e.CurrentPlan()
+	if plan == nil {
+		t.Fatal("expected a non-nil CurrentPlan for a running Engine")
+	}
+	if plan.SceneID != state.Scenes[0].ID {
+		t.Fatalf("CurrentPlan().SceneID = %v, want %v (sceneA)", plan.SceneID, state.Scenes[0].ID)
+	}
+
+	name, ok := e.ActiveSceneName()
+	if !ok || name != state.Scenes[0].Name {
+		t.Fatalf("ActiveSceneName() = (%q, %v), want (%q, true)", name, ok, state.Scenes[0].Name)
+	}
+
+	pos := e.CurrentPosition()
+	if pos.BarIndex != 0 {
+		t.Fatalf("CurrentPosition().BarIndex = %d, want 0 immediately after the baseline tick", pos.BarIndex)
+	}
+
+	// Cross into bar 1 and switch to sceneB -- both CurrentPosition and
+	// ActiveSceneName must reflect the newly adopted state, never a stale
+	// snapshot from before the crossing tick.
+	if err := e.SwitchScene(sceneBName); err != nil {
+		t.Fatalf("SwitchScene: %v", err)
+	}
+	e.tick(fixedEngineLoopStart.Add(2 * time.Second))
+
+	if got := e.CurrentPosition().BarIndex; got != 1 {
+		t.Fatalf("CurrentPosition().BarIndex after crossing = %d, want 1", got)
+	}
+	if name, ok := e.ActiveSceneName(); !ok || name != sceneBName {
+		t.Fatalf("ActiveSceneName() after switch = (%q, %v), want (%q, true)", name, ok, sceneBName)
+	}
+}
+
+// TestEngineDefensiveZeroValueAccessorsReportIdle proves the PLAY-07 idle
+// edge at the accessor level: a defensive zero-value Engine (never
+// constructed via NewEngine, e.g. a struct literal a future caller might
+// build in error) reports CurrentPlan()==nil, an explicit
+// ActiveSceneName()==("", false), and CurrentPosition()==the zero
+// MusicalPosition -- never a panic, and never indistinguishable from a
+// genuinely running Engine at bar 0.
+func TestEngineDefensiveZeroValueAccessorsReportIdle(t *testing.T) {
+	var e Engine
+
+	if plan := e.CurrentPlan(); plan != nil {
+		t.Fatalf("expected CurrentPlan() == nil for a zero-value Engine, got %+v", plan)
+	}
+	if name, ok := e.ActiveSceneName(); ok || name != "" {
+		t.Fatalf("expected ActiveSceneName() == (\"\", false) for a zero-value Engine, got (%q, %v)", name, ok)
+	}
+	if pos := e.CurrentPosition(); pos != (MusicalPosition{}) {
+		t.Fatalf("expected CurrentPosition() == zero value for a zero-value Engine, got %+v", pos)
+	}
+}

@@ -29,6 +29,7 @@
   --status-offline: #8a887f;
 
   /* Motion (.planning/brand/GOLC-Brand-Tokens.md) */
+  --motion-snap: 0ms;
   --motion-tap: 120ms ease-out;
   --motion-settle: 200ms ease;
 

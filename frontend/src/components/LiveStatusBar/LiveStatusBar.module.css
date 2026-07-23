@@ -1,0 +1,93 @@
+/*
+ * LiveStatusBar.module.css -- fixed-height, locked chrome region
+ * (06-UI-SPEC.md "Live status bar ... fixed height, not built from the
+ * standard scale -- treat as a locked chrome region"). Every truncating
+ * field uses a fixed max-width + overflow:hidden so a long scene/layer
+ * name never grows .bar's own height (06-UI-SPEC.md overflow rule); the
+ * native `title` attribute (set in LiveStatusBar.tsx) supplies the
+ * hover/tooltip full text.
+ */
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  height: 48px;
+  padding: 0 var(--space-md);
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.field {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.fieldLabel {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fieldValue {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.layersValue {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+  padding: 2px var(--space-sm);
+  border-radius: 999px;
+  background: var(--page);
+  border: 1px solid var(--line);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.chipDot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--chip-color, var(--muted));
+}
+
+.unreachableCopy {
+  flex-shrink: 0;
+  color: var(--status-offline);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: 13px;
+}
