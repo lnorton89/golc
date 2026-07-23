@@ -48,14 +48,27 @@ type EventPusher struct {
 
 	mu     sync.Mutex
 	latest map[string]interface{}
-	cancel context.CancelFunc
-	done   chan struct{}
+	// midiFeedback stages one MidiFeedback snapshot per mapping ID (WR-02
+	// gap-closure-review fix), separate from latest's single-value-per-
+	// event-name slot: latest can only ever remember the single
+	// most-recently-queued MidiFeedback across ALL mappings, silently
+	// dropping every other mapping's feedback staged in the same
+	// eventsTickInterval window (e.g. two faders touched within the same
+	// ~25ms tick). Keying by mapping ID here lets flush emit every
+	// distinct mapping's feedback each tick, still under the one
+	// unchanged "midi:feedback" event name the frontend subscribes to.
+	midiFeedback map[string]MidiFeedback
+	cancel       context.CancelFunc
+	done         chan struct{}
 }
 
 // NewEventPusher constructs an idle EventPusher; call Start to begin the
 // emit loop.
 func NewEventPusher() *EventPusher {
-	return &EventPusher{latest: map[string]interface{}{}}
+	return &EventPusher{
+		latest:       map[string]interface{}{},
+		midiFeedback: map[string]MidiFeedback{},
+	}
 }
 
 // QueueStatus stages the latest PLAY-07 status snapshot (StatusSnapshot,
@@ -76,9 +89,15 @@ func (p *EventPusher) QueueStatus(snapshot StatusSnapshot) {
 // eventsTickInterval-spaced pushes rather than one EventsEmit per message
 // (06-RESEARCH.md Open Question 3: the crossing/arming decision itself
 // stays unthrottled -- TakeoverState.Update runs on every message; only
-// this visual-feedback push is throttled).
+// this visual-feedback push is throttled). Staged per mapping ID (WR-02),
+// not under the single "midi:feedback" key latest's own queue() uses, so
+// a surface with more than one active mapping (e.g. two faders touched
+// within the same tick) has every distinct mapping's feedback survive to
+// the next flush, instead of only the most-recently-queued mapping's.
 func (p *EventPusher) QueueMidiFeedback(snapshot MidiFeedback) {
-	p.queue("midi:feedback", snapshot)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.midiFeedback[snapshot.MappingID] = snapshot
 }
 
 func (p *EventPusher) queue(eventName string, snapshot interface{}) {
@@ -125,11 +144,21 @@ func (p *EventPusher) flush(ctx context.Context) {
 	p.mu.Lock()
 	pending := p.latest
 	p.latest = map[string]interface{}{}
+	pendingMidi := p.midiFeedback
+	p.midiFeedback = map[string]MidiFeedback{}
 	emit := p.emit
 	p.mu.Unlock()
 
 	for name, snapshot := range pending {
 		emit(ctx, name, snapshot)
+	}
+	// Every staged mapping's MidiFeedback is emitted individually under
+	// the same "midi:feedback" event name (WR-02) -- the frontend's
+	// onMidiFeedback subscribes once and expects one MidiFeedback per
+	// EventsEmit call, so a tick with N distinct mappings staged now
+	// produces N pushes instead of silently keeping only the last one.
+	for _, snapshot := range pendingMidi {
+		emit(ctx, "midi:feedback", snapshot)
 	}
 }
 
