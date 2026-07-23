@@ -67,6 +67,7 @@ func main() {
 	playbackService := golcwails.NewPlaybackService(cfg.PipeName, cfg.ShowPath, cfg.ProjectRoot)
 	surfaceService := golcwails.NewSurfaceService(cfg.PipeName, cfg.ProjectRoot, cfg.ShowPath)
 	midiService := golcwails.NewMidiService(cfg.PipeName, cfg.ProjectRoot, cfg.ShowPath)
+	fixturePatchService := golcwails.NewFixturePatchService(cfg.PipeName, cfg.ProjectRoot, cfg.ShowPath)
 
 	err := wails.Run(&options.App{
 		Title:  "GOLC",
@@ -112,6 +113,7 @@ func main() {
 			playbackService,
 			surfaceService,
 			midiService,
+			fixturePatchService,
 		},
 	})
 	if err != nil {

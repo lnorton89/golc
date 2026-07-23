@@ -14,6 +14,7 @@ import LiveStatusBar from "./components/LiveStatusBar/LiveStatusBar";
 import PlaybackControls from "./components/PlaybackControls/PlaybackControls";
 import OperatorSurface from "./components/OperatorSurface/OperatorSurface";
 import MidiPanel from "./components/MidiPanel/MidiPanel";
+import FixturePatch from "./components/FixturePatch/FixturePatch";
 
 const shellStyle: CSSProperties = {
   display: "flex",
@@ -37,6 +38,7 @@ export default function App() {
       <main style={featureRegionStyle}>
         <PlaybackControls />
         <OperatorSurface />
+        <FixturePatch />
         <MidiPanel />
       </main>
     </div>
