@@ -27,6 +27,20 @@
 // (proposed_universe/proposed_address) and in the deployment/instance list
 // (persisted Instance.Universe/Address) -- never a second, GUI-owned
 // addressing calculation.
+//
+// State coverage (Task 3, 06-UI-SPEC.md-style backstop): listLoading
+// renders a skeleton placeholder; a failed bridge call's own stderr
+// diagnostic (e.g. a stale/unknown-plan-id ApplyPatch rejection,
+// GOLC_POOL_PLAN_STALE/GOLC_WAILS_PLAN_UNKNOWN) surfaces verbatim in the
+// error banner, never a silent failure; pool/deployment lists render an
+// explicit empty state with correct singular/plural counts; and the pool/
+// deployment/member/preview lists all scroll within a fixed-height panel
+// (FixturePatch.module.css's rowScroll/memberList/previewList) rather than
+// growing the window against a representative large show. The full
+// create-pool -> preview -> apply -> create/activate-deployment click-
+// through against a real golc-desktop build is queued as a human-check
+// for end-of-phase UAT (workflow.human_verify_mode=end-of-phase) rather
+// than an interactive mid-execution checkpoint.
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -508,11 +522,38 @@ export default function FixturePatch() {
                                   </li>
                                 )}
                               </ul>
+                              {(pendingPreview.plan.warnings ?? []).length > 0 && (
+                                <ul className={styles.previewList}>
+                                  {pendingPreview.plan.warnings?.map((warning, index) => (
+                                    <li
+                                      key={`warning-${index}`}
+                                      className={styles.previewWarning}
+                                    >
+                                      {warning.code}: {warning.message}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                              {(pendingPreview.plan.errors ?? []).length > 0 && (
+                                <ul className={styles.previewList}>
+                                  {pendingPreview.plan.errors?.map((planError, index) => (
+                                    <li
+                                      key={`error-${index}`}
+                                      className={styles.previewError}
+                                    >
+                                      {planError.code}: {planError.message}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
                               <div className={styles.formActions}>
                                 <button
                                   type="button"
                                   className={styles.primaryButton}
-                                  disabled={applyLoading}
+                                  disabled={
+                                    applyLoading ||
+                                    (pendingPreview.plan.errors ?? []).length > 0
+                                  }
                                   onClick={() => void handleApplyPreview()}
                                 >
                                   {applyLoading ? "Applying…" : "Apply"}
