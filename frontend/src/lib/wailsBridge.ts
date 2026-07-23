@@ -114,6 +114,56 @@ interface MidiServiceBinding {
   SetActiveSurface(surfaceName: string): Promise<WailsResult>;
 }
 
+/** PatchPoolMemberView mirrors internal/wails.PatchPoolMemberView's JSON
+ * shape exactly -- one fixture reference (stable key/content hash) within
+ * a PatchPoolView. */
+export interface PatchPoolMemberView {
+  id: string;
+  fixtureStableKey: string;
+  fixtureContentHash: string;
+}
+
+/** PatchPoolView mirrors internal/wails.PatchPoolView's JSON shape
+ * exactly -- one logical fixture pool plus its members, as ListPatch
+ * projects it. */
+export interface PatchPoolView {
+  id: string;
+  name: string;
+  requiredCapabilities?: string[];
+  members: PatchPoolMemberView[];
+}
+
+/** PatchInstanceView mirrors internal/wails.PatchInstanceView's JSON shape
+ * exactly -- one deployment instance's persisted pool/member/mode/
+ * universe/address, always the backend's own system-computed addressing
+ * (06-10-PLAN.md's flagged assumption: never a second, GUI-owned
+ * addressing calculation). */
+export interface PatchInstanceView {
+  id: string;
+  poolId: string;
+  poolMemberId: string;
+  mode: string;
+  universe: number;
+  address: number;
+}
+
+/** PatchDeploymentView mirrors internal/wails.PatchDeploymentView's JSON
+ * shape exactly -- one deployment plus its instances. */
+export interface PatchDeploymentView {
+  id: string;
+  name: string;
+  active: boolean;
+  instances: PatchInstanceView[];
+}
+
+/** PatchView mirrors internal/wails.PatchView's JSON shape exactly --
+ * ListPatch's full return value (read from show.Load directly, not the
+ * instance_count-only "show inspect" projection). */
+export interface PatchView {
+  pools: PatchPoolView[];
+  deployments: PatchDeploymentView[];
+}
+
 /** FixturePatchServiceBinding mirrors internal/wails/svc_fixturepatch.go's
  * bound methods field-for-field (06-10-PLAN.md, PLAY-10/VERIFICATION.md
  * Gap B[0]): every method forwards to the existing "pool"/"deployment"
@@ -138,7 +188,7 @@ interface FixturePatchServiceBinding {
   ApplyPatch(planId: string): Promise<WailsResult>;
   CreateDeployment(name: string): Promise<WailsResult>;
   ActivateDeployment(name: string): Promise<WailsResult>;
-  ListPatch(): Promise<unknown>;
+  ListPatch(): Promise<PatchView>;
 }
 
 /** ArtnetInterfaceView mirrors internal/wails.ArtnetInterfaceView's JSON
@@ -691,4 +741,100 @@ export async function createBlend(
   const svc = programmingService();
   if (!svc) return bridgeUnavailableResult();
   return svc.CreateBlend(name, durationBars, curve);
+}
+
+function fixturePatchService(): FixturePatchServiceBinding | undefined {
+  return window.go?.wails?.FixturePatchService;
+}
+
+/** offlinePatchView mirrors internal/wails.PatchView's own "never blank"
+ * contract: pools/deployments are always present (never undefined/null)
+ * empty arrays, so a missing bridge and a genuinely empty show render
+ * identically in FixturePatch.tsx (mirrors offlineArtnetStatus/
+ * offlineProgrammingView's identical fallback shape). */
+export function offlinePatchView(): PatchView {
+  return { pools: [], deployments: [] };
+}
+
+/** createPool calls the bound FixturePatchService.CreatePool (PLAY-10:
+ * create a new logical fixture pool via "pool create"). */
+export async function createPool(
+  name: string,
+  requires: string[],
+): Promise<WailsResult> {
+  const svc = fixturePatchService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.CreatePool(name, requires);
+}
+
+/** addPoolMemberPreview calls the bound
+ * FixturePatchService.AddPoolMemberPreview (PLAY-10: the backend's
+ * non-committing impact preview for adding one fixture reference to a
+ * pool at a mode via "pool update --add ... --propagate preview --json").
+ * Never mutates the ShowState document -- the returned Result's stdout
+ * carries the impact-preview JSON for the frontend to parse and render
+ * before an applyPatch(planId) commit (review-before-apply, POOL-04/
+ * D-15). */
+export async function addPoolMemberPreview(
+  poolName: string,
+  stableKey: string,
+  contentHash: string,
+  mode: string,
+): Promise<WailsResult> {
+  const svc = fixturePatchService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.AddPoolMemberPreview(poolName, stableKey, contentHash, mode);
+}
+
+/** removePoolMemberPreview calls the bound
+ * FixturePatchService.RemovePoolMemberPreview (PLAY-10: the backend's
+ * non-committing impact preview for removing a member from a pool via
+ * "pool update --remove ... --propagate preview --json"). */
+export async function removePoolMemberPreview(
+  poolName: string,
+  memberId: string,
+): Promise<WailsResult> {
+  const svc = fixturePatchService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.RemovePoolMemberPreview(poolName, memberId);
+}
+
+/** applyPatch calls the bound FixturePatchService.ApplyPatch (PLAY-10:
+ * commits a previously-previewed pool.ImpactPlan, identified by planId,
+ * via "pool apply"). */
+export async function applyPatch(planId: string): Promise<WailsResult> {
+  const svc = fixturePatchService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.ApplyPatch(planId);
+}
+
+/** createDeployment calls the bound FixturePatchService.CreateDeployment
+ * (PLAY-10: create a new deployment via "deployment create"). */
+export async function createDeployment(name: string): Promise<WailsResult> {
+  const svc = fixturePatchService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.CreateDeployment(name);
+}
+
+/** activateDeployment calls the bound
+ * FixturePatchService.ActivateDeployment (PLAY-10: mark exactly one
+ * deployment active via "deployment activate"). */
+export async function activateDeployment(name: string): Promise<WailsResult> {
+  const svc = fixturePatchService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.ActivateDeployment(name);
+}
+
+/** listPatch calls the bound FixturePatchService.ListPatch, returning
+ * offlinePatchView() when the bridge is unavailable or the call itself
+ * rejects -- callers never need their own try/catch (mirrors
+ * fetchArtnetStatus/listProgramming's identical contract). */
+export async function listPatch(): Promise<PatchView> {
+  const svc = fixturePatchService();
+  if (!svc) return offlinePatchView();
+  try {
+    return await svc.ListPatch();
+  } catch {
+    return offlinePatchView();
+  }
 }
