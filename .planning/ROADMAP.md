@@ -220,7 +220,7 @@ Plans:
   3. Playback continues publishing the newest complete frames at its defined cadence while UI, persistence, scripts, API, or LLM work is stalled or overloaded, without those components backpressuring the engine or Art-Net worker.
   4. An operator can inspect per-universe final values, frame health, target health, errors, and output enablement, and a release candidate demonstrates compatibility with both an independent simulator and real Art-Net hardware.
 
-**Plans:** 6/7 plans executed
+**Plans:** 7/7 plans executed
 
 Plans:
 **Wave 1**
@@ -249,7 +249,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 04-07-PLAN.md — ARTN-06 release-candidate verification: Wireshark/OLA runbook + human-verify checkpoint (ARTN-06, D-13/D-14/D-15/D-18) [Wave 7]
+- [x] 04-07-PLAN.md — ARTN-06 release-candidate verification: Wireshark/OLA runbook + human-verify checkpoint (ARTN-06, D-13/D-14/D-15/D-18) [Wave 7]
 
 **Waves:** W1: 04-01 · W2: 04-02 · W3: 04-03 · W4: 04-04 · W5: 04-05 · W6: 04-06 · W7: 04-07
 **UI hint:** yes (resolved to CLI-only per D-01; no Wails GUI until Phase 6)
@@ -364,7 +364,7 @@ Plans:
 | 1. Offline Foundation and Delivery Traceability | 32/32 | Complete    | 2026-07-21 |
 | 2. Modular Fixtures and Deployments | 6/6 | Complete    | 2026-07-21 |
 | 3. Deterministic Show Programming and Playback | 7/7 | Complete    | 2026-07-21 |
-| 4. Observable Art-Net Live Output | 6/7 | In Progress|  |
+| 4. Observable Art-Net Live Output | 7/7 | In Progress|  |
 | 5. Durable Shows and Recovery | 0/TBD | Not started | - |
 | 6. Wails Authoring and Operator Surface | 0/TBD | Not started | - |
 | 7. Versioned External Control API | 0/TBD | Not started | - |
