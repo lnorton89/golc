@@ -3,25 +3,29 @@
 // saves, rejecting a duplicate name through the existing
 // GOLC_SHOW_STATE_INVALID wrapping diagnostic; "motion create" appends a
 // new MotionPreset and saves; show.Load/Save round-trips a State carrying
-// Chases and MotionPresets without loss, and a hand-edited State with an
-// over-scope motion capability fails Load with GOLC_SHOW_STATE_INVALID.
-// Mirrors theme_preset_test.go's seed-a-ShowState-directly-then-exercise-
-// CLI-routes convention.
+// Chases and MotionPresets without loss. Mirrors theme_preset_test.go's
+// seed-a-ShowState-directly-then-exercise-CLI-routes convention.
+//
+// The former "a hand-edited State with an over-scope motion capability
+// fails Load" coverage now lives in
+// internal/show/store_test.go's TestShowLoadRejectsOverScopeMotionCapability
+// (05-01-PLAN.md Task 2 deviation): that test wrote raw JSON bytes
+// directly to the show path to simulate a hand-edited document, a
+// technique the Phase 5 SQLite-backed store's application_id door check
+// now rejects before ever reaching validate() -- the equivalent
+// direct-write simulation has to happen at the show_state blob-column
+// level, which requires internal/show's unexported openStore.
 package command_test
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/google/uuid"
 
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/fixture"
 	"github.com/lnorton89/golc/internal/programming"
 	"github.com/lnorton89/golc/internal/show"
-	"github.com/lnorton89/golc/internal/strictjson"
 )
 
 func TestChaseMotionRoutes(t *testing.T) {
@@ -142,45 +146,5 @@ func TestChaseMotionShowStateRoundTrip(t *testing.T) {
 	}
 	if len(reloaded.MotionPresets) != 1 || reloaded.MotionPresets[0].ID != motionPreset.ID {
 		t.Fatalf("motion preset did not round-trip: %+v", reloaded.MotionPresets)
-	}
-}
-
-func TestChaseMotionLoadRejectsOverScopeMotionCapability(t *testing.T) {
-	root := t.TempDir()
-	showPath := filepath.Join(root, "show.json")
-
-	// Build an invalid MotionPreset directly (bypassing NewMotionPreset's
-	// own construction-time validation) to simulate a hand-edited show
-	// document smuggling an out-of-scope "color" capability into a
-	// keyframe (CONTEXT threat T-02-10 / T-03-05 analog), then write it to
-	// disk directly -- bypassing show.Save's own validate() call entirely
-	// -- so this test proves show.Load itself re-validates untrusted disk
-	// content rather than only proving show.Save's write-time guard.
-	tampered := show.State{
-		SchemaVersion: show.SchemaVersion,
-		MotionPresets: []programming.MotionPreset{
-			{
-				ID:   uuid.Must(uuid.NewV7()),
-				Name: "Tampered",
-				Keyframes: []programming.MotionKeyframe{
-					{Values: []programming.MotionKeyframeValue{{Capability: fixture.CapabilityColor, Value: 0.5}}},
-				},
-			},
-		},
-	}
-	payload, err := strictjson.CanonicalEncode(tampered)
-	if err != nil {
-		t.Fatalf("CanonicalEncode: %v", err)
-	}
-	if err := os.WriteFile(showPath, payload, 0o644); err != nil {
-		t.Fatalf("os.WriteFile: %v", err)
-	}
-
-	_, err = show.Load(root, showPath)
-	if err == nil {
-		t.Fatalf("expected show.Load to reject an over-scope motion capability, got no error")
-	}
-	if !strings.Contains(err.Error(), "GOLC_SHOW_STATE_INVALID") || !strings.Contains(err.Error(), "GOLC_MOTION_PRESET_CAPABILITY_OUT_OF_SCOPE") {
-		t.Fatalf("expected GOLC_SHOW_STATE_INVALID wrapping GOLC_MOTION_PRESET_CAPABILITY_OUT_OF_SCOPE, got %v", err)
 	}
 }
