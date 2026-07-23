@@ -67,8 +67,8 @@
 - [ ] **PLAY-01**: An operator can access the complete playback workflow through on-screen controls.
 - [ ] **PLAY-02**: An operator can access the complete playback workflow through documented keyboard controls.
 - [ ] **PLAY-03**: A show author can create a constrained operator surface that exposes only assigned scenes, layers, masters, and safety controls.
-- [ ] **PLAY-04**: A show author can map generic MIDI Note and Control Change input to supported playback commands.
-- [ ] **PLAY-05**: MIDI fader mappings support soft takeover so connecting or moving a controller does not cause unintended value jumps.
+- [x] **PLAY-04**: A show author can map generic MIDI Note and Control Change input to supported playback commands.
+- [x] **PLAY-05**: MIDI fader mappings support soft takeover so connecting or moving a controller does not cause unintended value jumps.
 - [ ] **PLAY-06**: An operator can control group masters, a Grand Master, stop/release-all, and an immediate blackout.
 - [ ] **PLAY-07**: An operator can see the active scene, enabled layers, current BPM/bar position, controlling source, and final output state.
 - [ ] **PLAY-08**: Revoke Automation immediately blocks AI and scripts, cancels their queued actions, freezes the current look, and returns control to manual operation without requiring those runtimes to respond.
@@ -234,8 +234,8 @@ A v1 requirement is complete only when its implementation is committed, automate
 | PLAY-01 | Phase 6 | Pending |
 | PLAY-02 | Phase 6 | Pending |
 | PLAY-03 | Phase 6 | Pending |
-| PLAY-04 | Phase 6 | Pending |
-| PLAY-05 | Phase 6 | Pending |
+| PLAY-04 | Phase 6 | Complete |
+| PLAY-05 | Phase 6 | Complete |
 | PLAY-06 | Phase 6 | Pending |
 | PLAY-07 | Phase 6 | Pending |
 | PLAY-08 | Phase 6 | Pending |
