@@ -152,3 +152,7 @@ None - no external service configuration required.
 ---
 *Phase: 05-durable-shows-and-recovery*
 *Completed: 2026-07-23*
+
+## Self-Check: PASSED
+
+All created files verified present on disk (internal/show/recovery.go, internal/show/recovery_test.go, internal/command/show.go, internal/command/show_test.go, this SUMMARY.md); all task/metadata commits (5818321, 7a8b55c, 11c99b6) verified present in `git log`.
