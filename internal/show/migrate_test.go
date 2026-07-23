@@ -110,6 +110,43 @@ func TestMigrateAppliesRegisteredTransforms(t *testing.T) {
 	}
 }
 
+// TestMigrateAppliesOperatorSurfacesAdditiveMigration proves 06-01-PLAN.md
+// Task 2's real production migration (schema_version 1 -> 2, CONTEXT
+// PLAY-03): a genuinely pre-OperatorSurfaces-field v1 blob (buildNonTrivialState's
+// fixture never sets OperatorSurfaces, so its encoded JSON carries no
+// "operator_surfaces" key at all) still opens after Migrate, decoding with
+// an empty OperatorSurfaces slice rather than failing -- this exercises
+// the production migrations[1] entry directly (not a test-injected
+// synthetic one), unlike every other test in this file.
+func TestMigrateAppliesOperatorSurfacesAdditiveMigration(t *testing.T) {
+	root := t.TempDir()
+	path := "show.golc"
+
+	seedRawShow(t, root, path, 1, fixturePayload(t, 1))
+
+	backupPath, err := Migrate(root, path)
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	if backupPath == "" {
+		t.Fatalf("expected a non-empty backupPath")
+	}
+
+	migrated, err := Load(root, path)
+	if err != nil {
+		t.Fatalf("Load after migration: %v", err)
+	}
+	if migrated.SchemaVersion != SchemaVersion {
+		t.Fatalf("expected schema_version %d after migration, got %d", SchemaVersion, migrated.SchemaVersion)
+	}
+	if len(migrated.OperatorSurfaces) != 0 {
+		t.Fatalf("expected a pre-field v1 blob to migrate with an empty OperatorSurfaces slice, got %+v", migrated.OperatorSurfaces)
+	}
+	if err := validate(migrated); err != nil {
+		t.Fatalf("migrated State failed validate(): %v", err)
+	}
+}
+
 // TestMigrateProducesVerifiedBackup proves Migrate's backup itself
 // opens+validates before the swap -- not merely that Migrate reports a
 // backupPath string.

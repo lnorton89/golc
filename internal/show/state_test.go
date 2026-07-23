@@ -17,7 +17,9 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lnorton89/golc/internal/deployment"
+	"github.com/lnorton89/golc/internal/operatorsurface"
 	"github.com/lnorton89/golc/internal/pool"
+	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/show"
 )
 
@@ -159,6 +161,64 @@ func TestShowStateGroupValidation(t *testing.T) {
 	}
 	if len(loaded.Groups) != 1 || loaded.Groups[0].Name != "Front Wash" {
 		t.Fatalf("group did not round-trip: %+v", loaded.Groups)
+	}
+}
+
+// TestShowStateOperatorSurfaceValidation proves the operatorsurface.Validate
+// wiring into show.validate() (06-01-PLAN.md Task 2): a surface with a
+// dangling scene/layer/group reference fails Save, and a surface whose
+// refs all resolve against real scenes/groups round-trips byte-stably
+// through Save/Load.
+func TestShowStateOperatorSurfaceValidation(t *testing.T) {
+	root := t.TempDir()
+
+	sc, err := scene.NewScene("Opener", 4)
+	if err != nil {
+		t.Fatalf("NewScene: %v", err)
+	}
+	groupID := mustNewUUID(t)
+	group := pool.Group{ID: groupID, Name: "Front Wash"}
+
+	// A dangling scene reference fails Save (T-06-02: never a silent
+	// persist of an unresolvable assignment).
+	danglingSurface := operatorsurface.Surface{
+		ID:        mustNewUUID(t),
+		Name:      "Front of House",
+		SceneRefs: []uuid.UUID{mustNewUUID(t)},
+	}
+	if err := show.Save(root, "dangling-surface.golc", show.State{
+		OperatorSurfaces: []operatorsurface.Surface{danglingSurface},
+	}); err == nil || !strings.Contains(err.Error(), "GOLC_SHOW_STATE_INVALID") {
+		t.Fatalf("expected GOLC_SHOW_STATE_INVALID for a dangling operator surface reference, got %v", err)
+	}
+
+	// A surface whose refs all resolve against real scenes/groups saves
+	// and loads successfully, round-tripping byte-stably.
+	validSurface := operatorsurface.Surface{
+		ID:         mustNewUUID(t),
+		Name:       "Front of House",
+		SceneRefs:  []uuid.UUID{sc.ID},
+		LayerRefs:  []operatorsurface.LayerRef{{SceneID: sc.ID, Kind: scene.ColorTheme}},
+		MasterRefs: []operatorsurface.MasterRef{{Kind: operatorsurface.GroupMaster, GroupID: groupID}},
+		SafetyRefs: []operatorsurface.SafetyControl{operatorsurface.RevokeAutomation},
+	}
+	validState := show.State{
+		Scenes:           []scene.Scene{sc},
+		Groups:           []pool.Group{group},
+		OperatorSurfaces: []operatorsurface.Surface{validSurface},
+	}
+	if err := show.Save(root, "valid-surface.golc", validState); err != nil {
+		t.Fatalf("expected a valid operator surface to save, got %v", err)
+	}
+	loaded, err := show.Load(root, "valid-surface.golc")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(loaded.OperatorSurfaces) != 1 || loaded.OperatorSurfaces[0].Name != "Front of House" {
+		t.Fatalf("operator surface did not round-trip: %+v", loaded.OperatorSurfaces)
+	}
+	if len(loaded.OperatorSurfaces[0].SceneRefs) != 1 || loaded.OperatorSurfaces[0].SceneRefs[0] != sc.ID {
+		t.Fatalf("operator surface scene ref did not round-trip: %+v", loaded.OperatorSurfaces[0].SceneRefs)
 	}
 }
 
