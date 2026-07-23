@@ -1613,6 +1613,27 @@
       "source": ".planning/REQUIREMENTS.md"
     },
     {
+      "local_id": "req:PLAY-10",
+      "kind": "req",
+      "parent_local_id": "phase:06",
+      "display": "A show author can patch fixtures — assigning pool fixtures to concrete modes, universes, addresses, and deployment instances — through on-screen controls.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:PLAY-11",
+      "kind": "req",
+      "parent_local_id": "phase:06",
+      "display": "A show author can configure deployment interfaces and Art-Net universes/targets through on-screen controls.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:PLAY-12",
+      "kind": "req",
+      "parent_local_id": "phase:06",
+      "display": "A show author can program scenes and looks — base-look, color-theme, chase, and motion layers — through on-screen controls.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
       "local_id": "plan:06-01",
       "kind": "plan",
       "parent_local_id": "phase:06",
@@ -1800,6 +1821,125 @@
       "parent_local_id": "plan:06-08",
       "display": "Task 3: MidiPanel — per-control Learn affordance, mapping list, soft-takeover slider",
       "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-08-PLAN.md"
+    },
+    {
+      "local_id": "plan:06-09",
+      "kind": "plan",
+      "parent_local_id": "phase:06",
+      "display": "Plan 06-09",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-09-PLAN.md"
+    },
+    {
+      "local_id": "task:06-09.1",
+      "kind": "task",
+      "parent_local_id": "plan:06-09",
+      "display": "Task 1: Failing dispatch tests — a mapped MIDI event must change playback/safety state, not only feedback",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-09-PLAN.md"
+    },
+    {
+      "local_id": "task:06-09.2",
+      "kind": "task",
+      "parent_local_id": "plan:06-09",
+      "display": "Task 2: Implement command dispatch in dispatchToActiveSurface (scene/layer in-process, master/safety over daemon IPC)",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-09-PLAN.md"
+    },
+    {
+      "local_id": "task:06-09.3",
+      "kind": "task",
+      "parent_local_id": "plan:06-09",
+      "display": "Task 3: Edge coverage — release/no-op, double-press idempotency, and unassigned-target tolerance",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-09-PLAN.md"
+    },
+    {
+      "local_id": "plan:06-10",
+      "kind": "plan",
+      "parent_local_id": "phase:06",
+      "display": "Plan 06-10",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-10-PLAN.md"
+    },
+    {
+      "local_id": "task:06-10.1",
+      "kind": "task",
+      "parent_local_id": "plan:06-10",
+      "display": "Task 1: Failing end-to-end test — create pool, add a member with preview, apply, and see it via inspect",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-10-PLAN.md"
+    },
+    {
+      "local_id": "task:06-10.2",
+      "kind": "task",
+      "parent_local_id": "plan:06-10",
+      "display": "Task 2: Thinnest end-to-end slice — FixturePatchService + FixturePatch component + bridge + mount + bind",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-10-PLAN.md"
+    },
+    {
+      "local_id": "task:06-10.3",
+      "kind": "task",
+      "parent_local_id": "plan:06-10",
+      "display": "Task 3: Validation, error/empty states, and end-of-phase visual check",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-10-PLAN.md"
+    },
+    {
+      "local_id": "plan:06-11",
+      "kind": "plan",
+      "parent_local_id": "phase:06",
+      "display": "Plan 06-11",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-11-PLAN.md"
+    },
+    {
+      "local_id": "task:06-11.1",
+      "kind": "task",
+      "parent_local_id": "plan:06-11",
+      "display": "Task 1: Failing end-to-end test — validation-before-forward, offline state, and (via the command harness) a configure/status round trip",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-11-PLAN.md"
+    },
+    {
+      "local_id": "task:06-11.2",
+      "kind": "task",
+      "parent_local_id": "plan:06-11",
+      "display": "Task 2: Thinnest end-to-end slice — ArtnetConfigService + ArtnetConfig component + bridge + mount + bind",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-11-PLAN.md"
+    },
+    {
+      "local_id": "task:06-11.3",
+      "kind": "task",
+      "parent_local_id": "plan:06-11",
+      "display": "Task 3: Validation, daemon-unreachable state, empty/overflow states, and end-of-phase visual check",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-11-PLAN.md"
+    },
+    {
+      "local_id": "plan:06-12",
+      "kind": "plan",
+      "parent_local_id": "phase:06",
+      "display": "Plan 06-12",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-12-PLAN.md"
+    },
+    {
+      "local_id": "task:06-12.1",
+      "kind": "task",
+      "parent_local_id": "plan:06-12",
+      "display": "Task 1: Failing end-to-end test — create scene + all four look kinds, point all four layers, activate, and read back",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-12-PLAN.md"
+    },
+    {
+      "local_id": "task:06-12.2",
+      "kind": "task",
+      "parent_local_id": "plan:06-12",
+      "display": "Task 2: Thinnest end-to-end slice — ProgrammingService + SceneProgramming component + bridge + mount + bind (all four layer kinds)",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-12-PLAN.md"
+    },
+    {
+      "local_id": "task:06-12.3",
+      "kind": "task",
+      "parent_local_id": "plan:06-12",
+      "display": "Task 3: Validation, empty/error/overflow states, simplified-subset boundary, and end-of-phase visual check",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-12-PLAN.md"
+    },
+    {
+      "local_id": "task:06-12.4",
+      "kind": "task",
+      "parent_local_id": "plan:06-12",
+      "display": "Task 4: Documentation accuracy — correct REQUIREMENTS.md status for PLAY-01..09",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-12-PLAN.md"
     },
     {
       "local_id": "phase:11",
@@ -3663,6 +3803,30 @@
       "url": null
     },
     {
+      "repo_id": "req:PLAY-10",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PLAY-11",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PLAY-12",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
       "repo_id": "plan:06-01",
       "linear_type": "issue",
       "status": "pending",
@@ -3872,6 +4036,142 @@
     },
     {
       "repo_id": "task:06-08.4",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:06-09",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-09.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-09.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-09.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:06-10",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-10.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-10.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-10.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:06-11",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-11.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-11.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-11.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:06-12",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-12.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-12.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-12.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-12.4",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,
