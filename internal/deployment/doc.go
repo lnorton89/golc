@@ -1,0 +1,7 @@
+// Package deployment models concrete fixture deployments (CONTEXT
+// POOL-02/D-09): a Deployment is a named, saved mapping of logical pool
+// members to concrete fixture Instances (mode, universe, address), with
+// exactly one Deployment marked Active at a time. Identity for both
+// Deployment and Instance is a durable UUIDv7 minted once at creation and
+// never derived from or re-minted by a display name (POOL-01/POOL-02).
+package deployment

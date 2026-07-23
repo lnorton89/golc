@@ -1,0 +1,12 @@
+// Package contracts is GOLC's single deterministic JSON Schema generation
+// and drift-check registry (CONTEXT D-08): the authoritative Go type
+// behind every config concern, the fixture definition, and each Linear
+// contract self-registers a SchemaDescriptor through MustRegisterSchema
+// from a package-level var initializer, mirroring internal/command's own
+// MustDeclareRoute/MustDeclareScope self-registration idiom. GenerateAll
+// writes every registered schema to its committed schemas/*.json path;
+// CheckDrift generates the same bytes into a disposable directory and
+// compares them against the committed files without ever writing to the
+// real repository, so a later contract becomes part of both without
+// editing this package or any central switch.
+package contracts
