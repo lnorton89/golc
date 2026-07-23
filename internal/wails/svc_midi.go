@@ -34,11 +34,14 @@ package wails
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/lnorton89/golc/internal/artnet/ipc"
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/midi"
 	"github.com/lnorton89/golc/internal/operatorsurface"
@@ -98,6 +101,7 @@ type MidiService struct {
 	showPath string
 
 	events *EventPusher
+	dial   dialForwardFunc
 
 	mu             sync.Mutex
 	driver         *midi.Driver
@@ -201,13 +205,19 @@ func (s *MidiService) route(evt midi.Event) {
 }
 
 // dispatchToActiveSurface matches evt against the active surface's cached
-// mapping set (refreshed by SetActiveSurface/StartLearn/RemoveMapping) and
-// arbitrates it: Note-kind mappings report Armed=true immediately (D-12,
-// no pickup/arming state); ControlChange-kind mappings run
-// midi.TakeoverState.Update with the unthrottled physical value (D-11) and
-// report the resulting armed state + controlling/ghost value (D-09/D-10).
-// A message matching no mapping on the active surface is silently
-// dropped -- there is nothing to arbitrate or feed back for it.
+// mapping set (refreshed by SetActiveSurface/StartLearn/RemoveMapping),
+// arbitrates it, and now dispatches the ControlRef-implied command in
+// addition to feedback (06-09-PLAN.md, Gap B[1] closure -- previously this
+// method only computed arming state and pushed feedback, never actually
+// operating the show): Note-kind mappings report Armed=true immediately
+// (D-12, no pickup/arming state) and their activation edge is Value>0 (a
+// Note-off never (re-)dispatches); ControlChange-kind mappings run
+// midi.TakeoverState.Update with the unthrottled physical value (D-11),
+// report the resulting armed state + controlling/ghost value (D-09/D-10),
+// and their activation edge is the not-armed-to-armed transition on this
+// message (never re-firing on a later armed message). A message matching no
+// mapping on the active surface is silently dropped -- there is nothing to
+// arbitrate, feed back, or dispatch for it.
 func (s *MidiService) dispatchToActiveSurface(evt midi.Event) {
 	s.mu.Lock()
 	surfaceName := s.activeSurface
@@ -222,14 +232,282 @@ func (s *MidiService) dispatchToActiveSurface(evt midi.Event) {
 		return
 	}
 
+	var armed, edge bool
+	var controlValue float64
+
 	if mapping.Kind == operatorsurface.Note {
-		s.emitMidiFeedback(surfaceName, mapping, true, evt.Value, evt.Value)
+		armed = true
+		controlValue = evt.Value
+		edge = evt.Value > 0
+	} else {
+		state := s.takeoverStateFor(mapping.ID)
+		wasArmed := state.Armed
+		armed, controlValue = state.Update(evt.Value)
+		edge = !wasArmed && armed
+	}
+
+	s.dispatchMapping(mapping, armed, edge, controlValue, evt.Value)
+	s.emitMidiFeedback(surfaceName, mapping, armed, controlValue, evt.Value)
+}
+
+// dispatchMapping executes the command implied by mapping's Target once
+// armed/edge indicate the control should act: a discrete scene/layer/safety
+// action fires only on the activation edge (a Note press, or a CC's first
+// arming crossing) -- never on every held/armed message (Task 3's
+// once-per-press/once-per-crossing contract) -- while a master level
+// forwards on every armed message (continuous for a CC, D-11's "one
+// deliberately-repeating dispatch"; a Note-kind master toggles level
+// 1.0/0.0 on both press and release since armed is unconditionally true for
+// Note, D-12). rawValue is evt.Value verbatim, needed for the Note-kind
+// master's press/release level, distinct from controlValue (the
+// takeover-tracked value a CC master forwards instead).
+func (s *MidiService) dispatchMapping(mapping operatorsurface.MidiMapping, armed, edge bool, controlValue, rawValue float64) {
+	switch mapping.Target.Kind {
+	case operatorsurface.ControlScene:
+		if !edge {
+			return
+		}
+		s.dispatchSceneSwitch(mapping.Target.Scene)
+	case operatorsurface.ControlLayer:
+		if !edge {
+			return
+		}
+		s.dispatchLayerToggle(mapping.Target.Layer)
+	case operatorsurface.ControlSafety:
+		if !edge {
+			return
+		}
+		s.dispatchSafetyTrigger(mapping.Target.Safety)
+	case operatorsurface.ControlMaster:
+		if !armed {
+			return
+		}
+		level := controlValue
+		if mapping.Kind == operatorsurface.Note {
+			if rawValue > 0 {
+				level = 1
+			} else {
+				level = 0
+			}
+		}
+		s.dispatchMasterSet(mapping.Target.Master, level)
+	}
+}
+
+// dispatchSceneSwitch runs "playback switch <scene> --show <path>" through
+// a freshly built default command registry (mirrors
+// PlaybackService.SwitchScene/execute's exact in-process dispatch path, so
+// a MIDI-driven switch and a CLI/PlaybackService-driven switch behave
+// identically -- no second, divergent playback-authority path). A target
+// scene since deleted from the show resolves to "" (sceneNameByID's
+// existing read-only projection tolerance) and dispatches nothing rather
+// than risk executing against an empty/garbled scene name.
+func (s *MidiService) dispatchSceneSwitch(sceneID uuid.UUID) {
+	state, err := showLoadWithRetry(s.root, s.showPath)
+	if err != nil {
+		return
+	}
+	name := sceneNameByID(state.Scenes, sceneID)
+	if name == "" {
+		return
+	}
+	s.executeWithRetry("playback", "switch", name, "--show", s.showPath)
+}
+
+// dispatchLayerToggle flips ref's Enabled flag via "scene layer set <scene>
+// --kind <kind> [--ref <preserved>] [--disable if currently enabled] --show
+// <path>", re-supplying the layer's existing Ref so the toggle never
+// discards it -- mirrors PlaybackService.SetLayerEnabled's WR-01/WR-03
+// discipline exactly (the same pre-read-then-preserve pattern, not a second
+// divergent copy). A target scene/layer since deleted from the show
+// resolves to no match and dispatches nothing.
+func (s *MidiService) dispatchLayerToggle(ref operatorsurface.LayerRef) {
+	state, err := showLoadWithRetry(s.root, s.showPath)
+	if err != nil {
+		return
+	}
+	sceneName := sceneNameByID(state.Scenes, ref.SceneID)
+	if sceneName == "" {
 		return
 	}
 
-	state := s.takeoverStateFor(mapping.ID)
-	armed, controlValue := state.Update(evt.Value)
-	s.emitMidiFeedback(surfaceName, mapping, armed, controlValue, evt.Value)
+	var (
+		found      bool
+		currentRef uuid.UUID
+		enabled    bool
+	)
+	for _, sc := range state.Scenes {
+		if sc.ID != ref.SceneID {
+			continue
+		}
+		layer, ok := sc.LayerByKind(ref.Kind)
+		if !ok {
+			return
+		}
+		found = true
+		currentRef = layer.Ref
+		enabled = layer.Enabled
+		break
+	}
+	if !found {
+		return
+	}
+
+	args := []string{"scene", "layer", "set", sceneName, "--kind", string(ref.Kind)}
+	if currentRef != uuid.Nil {
+		args = append(args, "--ref", currentRef.String())
+	}
+	if enabled {
+		args = append(args, "--disable")
+	}
+	args = append(args, "--show", s.showPath)
+	s.executeWithRetry(args...)
+}
+
+// dispatchSafetyTrigger dials+forwards the daemon safety route matching
+// control with "--on true --source manual" -- the identical daemon path
+// SafetyService.toggle already uses (hotkey.go's routeBlackout/routeStopAll/
+// routeRevokeAutomation constants), so a MIDI-triggered safety action and an
+// on-screen/hotkey-triggered one are indistinguishable to the daemon, never
+// a slow show.Save-backed path (threat T-06-26).
+func (s *MidiService) dispatchSafetyTrigger(control operatorsurface.SafetyControl) {
+	route := safetyRouteFor(control)
+	if route == "" {
+		return
+	}
+	s.dialFn()(s.pipeName, ipc.Request{
+		Route: string(route),
+		Args:  []string{"--on", "true", "--source", "manual"},
+	})
+}
+
+// safetyRouteFor maps an operatorsurface.SafetyControl to its daemon route
+// constant, or "" for an unrecognized value (never reached in practice --
+// operatorsurface.SafetyControl is a closed enum per model.go's own doc
+// comment).
+func safetyRouteFor(control operatorsurface.SafetyControl) safetyRoute {
+	switch control {
+	case operatorsurface.Blackout:
+		return routeBlackout
+	case operatorsurface.StopReleaseAll:
+		return routeStopAll
+	case operatorsurface.RevokeAutomation:
+		return routeRevokeAutomation
+	default:
+		return ""
+	}
+}
+
+// dispatchMasterSet dials+forwards "artnet master set --grand <level>
+// --source manual" or "--group <id> --level <level> --source manual" -- the
+// exact daemon route/arg grammar runArtnetMasterSet
+// (internal/command/artnet.go) and the daemon's own handleMasterSet
+// (internal/artnet/daemon.go) both expect. This dials the daemon directly
+// (mirrors SafetyService.toggle), bypassing the CLI route's own
+// text-argument validation layer, since level/GroupID here are already
+// typed/validated values sourced from the show document and the takeover
+// state machine, never raw user text -- master/safety dispatch always takes
+// this daemon path, never show.Save (threat T-06-26).
+func (s *MidiService) dispatchMasterSet(ref operatorsurface.MasterRef, level float64) {
+	rawLevel := strconv.FormatFloat(level, 'f', -1, 64)
+	var args []string
+	if ref.Kind == operatorsurface.GrandMaster {
+		args = []string{"--grand", rawLevel, "--source", "manual"}
+	} else {
+		args = []string{"--group", ref.GroupID.String(), "--level", rawLevel, "--source", "manual"}
+	}
+	s.dialFn()(s.pipeName, ipc.Request{Route: "artnet master set", Args: args})
+}
+
+// execute runs a full route-plus-args word sequence through a freshly built
+// default command registry -- mirrors PlaybackService.execute exactly, so
+// scene/layer dispatch here and a CLI/PlaybackService invocation of the
+// identical route behave identically (there is only one in-process
+// playback-authority implementation, never a second one duplicated here).
+func (s *MidiService) execute(args ...string) Result {
+	registry, err := command.NewDefaultCommandRegistry()
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: "GOLC_WAILS_REGISTRY_BUILD_FAILED: " + err.Error()}
+	}
+	result := registry.Execute(command.Request{Root: s.root, Args: args})
+	return Result{ExitCode: result.ExitCode, Stdout: string(result.Stdout), Stderr: string(result.Stderr)}
+}
+
+// dispatchLockRetries/dispatchLockRetryDelay bound the retry this file
+// applies around the show store's transient "database is locked"
+// contention (internal/show/schema.go sets no busy_timeout and performs no
+// retry of its own -- it documents a single-writer-per-process model, but
+// MidiService's own dispatch loop is a persistent background goroutine that
+// can race a concurrent, independently-triggered show.Load from another
+// service, e.g. PlaybackService.GetState()/SurfaceService.ListMappings()
+// polled by the frontend at the same moment as a physical MIDI press).
+// [Rule 2]: without this retry, a transient lock would silently drop the
+// operator's button press (dispatchSceneSwitch/dispatchLayerToggle already
+// discard a show.Load error as "nothing to dispatch," and the underlying
+// GOLC_SHOW_STATE_INVALID mutation failure carries no automatic retry of
+// its own) rather than switch the scene/toggle the layer as pressed. Five
+// attempts at a 5ms backoff bound the added worst-case latency to ~25ms,
+// well inside a physical control's perceived response budget.
+const (
+	dispatchLockRetries   = 5
+	dispatchLockRetryWait = 5 * time.Millisecond
+)
+
+// isTransientShowLockError reports whether err is the show store's own
+// "database is locked" (SQLite SQLITE_BUSY) diagnostic -- the one show.Load/
+// mutation failure mode this file retries; every other error (a genuinely
+// corrupt/missing store, GOLC_SHOW_NOT_GOLC_FORMAT, etc.) is not transient
+// and is returned to the caller immediately, unretried.
+func isTransientShowLockError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "database is locked")
+}
+
+// showLoadWithRetry retries show.Load up to dispatchLockRetries times when
+// the failure is isTransientShowLockError, so dispatchSceneSwitch/
+// dispatchLayerToggle's pre-read does not silently treat a transient lock
+// as "nothing to dispatch."
+func showLoadWithRetry(root, showPath string) (show.State, error) {
+	var lastErr error
+	for attempt := 0; attempt < dispatchLockRetries; attempt++ {
+		state, err := show.Load(root, showPath)
+		if err == nil {
+			return state, nil
+		}
+		lastErr = err
+		if !isTransientShowLockError(err) {
+			return show.State{}, err
+		}
+		time.Sleep(dispatchLockRetryWait)
+	}
+	return show.State{}, lastErr
+}
+
+// executeWithRetry runs execute, retrying up to dispatchLockRetries times
+// when the registry route's own Result surfaces the show store's transient
+// "database is locked" diagnostic in Stderr -- the mutating counterpart to
+// showLoadWithRetry, so a scene switch/layer toggle is not silently dropped
+// by the same transient contention on its own internal Load-mutate-Save
+// call.
+func (s *MidiService) executeWithRetry(args ...string) Result {
+	var result Result
+	for attempt := 0; attempt < dispatchLockRetries; attempt++ {
+		result = s.execute(args...)
+		if result.ExitCode == 0 || !isTransientShowLockError(fmt.Errorf("%s", result.Stderr)) {
+			return result
+		}
+		time.Sleep(dispatchLockRetryWait)
+	}
+	return result
+}
+
+// dialFn returns s.dial, defaulting to defaultDialForward for a MidiService
+// constructed via a bare struct literal (e.g. Wails' own binding-reflection
+// scan) rather than NewMidiService -- mirrors SafetyService.dialFn exactly.
+func (s *MidiService) dialFn() dialForwardFunc {
+	if s.dial != nil {
+		return s.dial
+	}
+	return defaultDialForward
 }
 
 // takeoverStateFor returns the TakeoverState for mappingID, constructing
