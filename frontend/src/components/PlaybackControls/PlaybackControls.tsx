@@ -166,13 +166,25 @@ export default function PlaybackControls() {
     }
   }, []);
 
+  // WR-03 fix: only poll while the bridge/daemon is actually connected --
+  // previously this ran unconditionally, so a disconnected daemon meant
+  // dispatch.getState() resolved to undefined every second forever with no
+  // backoff, the one outlier in this codebase that never changed cadence/
+  // state for a disconnected daemon (LiveStatusBar's STATUS_GAP_MS re-query
+  // and SafetyService's throttled push both do). Re-running this effect on
+  // every connectionStatus change also means polling resumes immediately
+  // (not up to STATE_POLL_INTERVAL_MS late) the moment the daemon
+  // reconnects, rather than waiting for the next already-scheduled tick.
   useEffect(() => {
+    if (connectionStatus !== "connected") {
+      return;
+    }
     void refreshState();
     const interval = window.setInterval(() => {
       void refreshState();
     }, STATE_POLL_INTERVAL_MS);
     return () => window.clearInterval(interval);
-  }, [refreshState]);
+  }, [refreshState, connectionStatus]);
 
   const activeScene = state?.scenes.find((s) => s.active) ?? state?.scenes[0];
   const activeSceneName = activeScene?.name ?? null;

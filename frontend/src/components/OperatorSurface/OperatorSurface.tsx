@@ -15,7 +15,13 @@
 // The lock is enforced server-side by internal/wails/svc_surface.go's
 // AuthorizeControl/command.Authorize (D-04/ASVS V4) -- this component's own
 // dimmed/disabled rendering is a UI affordance only, never the actual
-// enforcement.
+// enforcement. Entering "operate" mode for a surface also calls
+// SafetyService/PlaybackService's own SetActiveSurface (CR-01 fix,
+// wailsBridge.ts's setSafetyActiveSurface/setPlaybackActiveSurface) so the
+// real dispatch paths those two services own are scoped to this surface's
+// assignments for as long as the preview is active -- leaving "operate"
+// mode (or switching/deselecting the surface) clears both back to
+// unrestricted/author-mode dispatch.
 //
 // All Go-bound calls go through window.go.wails.SurfaceService (Wails v2's
 // runtime-injected bridge for the internal/wails.SurfaceService struct);
@@ -31,6 +37,10 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { useGolcStore } from "../../store/store";
+import {
+  setPlaybackActiveSurface,
+  setSafetyActiveSurface,
+} from "../../lib/wailsBridge";
 import AssignmentToggle from "./AssignmentToggle";
 import SurfaceList from "./SurfaceList";
 import styles from "./OperatorSurface.module.css";
@@ -194,6 +204,25 @@ export default function OperatorSurface() {
       setControls([]);
     }
   }, [selectedName, refreshDetail]);
+
+  // CR-01 fix: while previewing this surface in "operate" mode, scope the
+  // real SafetyService/PlaybackService dispatch paths to it server-side
+  // (SetActiveSurface) so the D-04 lock this component's own rendering
+  // implies is actually enforced, not just displayed. Any change that ends
+  // the preview -- switching modes, switching/deselecting the surface, or
+  // unmounting entirely -- clears both back to unrestricted/author-mode
+  // dispatch via this same effect's cleanup.
+  useEffect(() => {
+    if (mode !== "operate" || !selectedName) {
+      return;
+    }
+    void setSafetyActiveSurface(selectedName);
+    void setPlaybackActiveSurface(selectedName);
+    return () => {
+      void setSafetyActiveSurface("");
+      void setPlaybackActiveSurface("");
+    };
+  }, [mode, selectedName]);
 
   const handleSelect = (name: string) => {
     setSelectedName(name);
