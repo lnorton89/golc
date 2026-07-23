@@ -32,6 +32,25 @@ import (
 // never leaks between tests.
 var migrations = map[int]func([]byte) ([]byte, error){}
 
+// RegisterTestMigration registers fn as this build's migration transform
+// for fromVersion in the package-level migrations registry. Production
+// ships this registry empty since only SchemaVersion=1 has ever existed
+// (05-03-PLAN.md/05-03-SUMMARY.md); this exported seam exists solely so
+// tests outside this package (05-05-PLAN.md's internal/command/show_test.go)
+// can exercise Migrate's verifiedBackup -> migrate-temp -> atomic-replace
+// sequence end-to-end through the "show open --confirm-migration" CLI
+// route, without this package needing to ship a real historical migration
+// function it does not otherwise have. It mirrors migrate_test.go's own
+// package-internal registerIdentityMigration helper, exported here because
+// that helper lives in a _test.go file and is therefore invisible to other
+// packages' tests. Callers MUST invoke the returned cleanup (for example
+// via t.Cleanup) so the package-level registry never leaks state between
+// tests.
+func RegisterTestMigration(fromVersion int, fn func([]byte) ([]byte, error)) (cleanup func()) {
+	migrations[fromVersion] = fn
+	return func() { delete(migrations, fromVersion) }
+}
+
 // migrationMeta reads show_meta.schema_version and show_state.blob
 // directly, bypassing store.go's readMeta -- readMeta deliberately
 // collapses schema_version==0 into "never saved" for the Load/Save
