@@ -6,13 +6,15 @@
 // LoadForRead both preserve state.go's original "nothing from disk is
 // trusted before validate() passes" doctrine (CONTEXT threat T-02-10):
 // every returned State has been through strictjson.DecodeStrict and
-// validate() first. Save's single transaction folds the recovery-point
-// write and prune into the same commit as the state save (CONTEXT D-04:
-// so a crash mid-command commits both atomically, or neither), piggy-
-// backing on the existing every-command Save trigger rather than adding a
-// background writer, timer, or dirty-flag -- this is structurally why
-// storage can never enter the playback timing path (internal/show does
-// not, and must not, import internal/playback).
+// validate() first. Save commits the recovery-point write/prune and the
+// state save as two immediately-sequential transactions (CONTEXT D-04),
+// piggybacking on the existing every-command Save trigger rather than
+// adding a background writer, timer, or dirty-flag -- this is structurally
+// why storage can never enter the playback timing path (internal/show
+// does not, and must not, import internal/playback). The two-transaction
+// split (rather than one combined transaction) is what makes an
+// interrupted session between them detectable: see stageRecoveryPoint's
+// doc comment.
 package show
 
 import (
@@ -188,17 +190,78 @@ func LoadForRead(root, path string) (State, error) {
 	return decodeAndValidate(db)
 }
 
+// stageRecoveryPoint durably records s's about-to-be-saved revision as a
+// recovery point, committed as its own transaction BEFORE promoteState
+// commits that same revision to the canonical show_meta/show_state row
+// (SHOW-03/SHOW-04, CONTEXT D-04/D-06/D-07). If the process is interrupted
+// after this commits but before promoteState's commits, this row's
+// revision is strictly greater than show_meta's (still-old) revision --
+// the exact signal DetectRecoveryPoints looks for. Splitting the write
+// into two sequential transactions (rather than one combined transaction)
+// is what makes an interrupted session detectable at all: a single shared
+// transaction can only ever leave the two values in lockstep, never one
+// ahead of the other, since SQLite guarantees it commits wholly or not at
+// all. This still fires on every command mutation via the same
+// Load-mutate-Save call site (D-04's "no separate timer/background-writer/
+// dirty-flag mechanism"), it just does so as two immediately-sequential
+// commits instead of one.
+func stageRecoveryPoint(db *sql.DB, now string, revision int, payload []byte) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: beginning recovery-point transaction: %v", err)
+	}
+	defer tx.Rollback() // no-op once Commit has succeeded
+
+	if _, err := tx.Exec(`INSERT INTO recovery_points (created_at, revision, blob) VALUES (?, ?, ?)`,
+		now, revision, payload); err != nil {
+		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: inserting recovery point: %v", err)
+	}
+	// CONTEXT D-06: keep only the newest 5 recovery points, oldest pruned
+	// first, in the same transaction as the insert above.
+	if _, err := tx.Exec(`DELETE FROM recovery_points WHERE id NOT IN (SELECT id FROM recovery_points ORDER BY id DESC LIMIT 5)`); err != nil {
+		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: pruning recovery points: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: committing recovery-point transaction: %v", err)
+	}
+	return nil
+}
+
+// promoteState commits the revision stageRecoveryPoint already staged to
+// the canonical show_meta/show_state row. Once this commits, that
+// revision is no longer "newer than the last clean save" --
+// DetectRecoveryPoints stops offering it.
+func promoteState(db *sql.DB, schemaVersion, revision int, checksum string, payload []byte, now string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: beginning save transaction: %v", err)
+	}
+	defer tx.Rollback() // no-op once Commit has succeeded
+
+	if _, err := tx.Exec(`UPDATE show_meta SET schema_version = ?, revision = ?, checksum = ?, updated_at = ? WHERE id = 1`,
+		schemaVersion, revision, checksum, now); err != nil {
+		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: updating show_meta: %v", err)
+	}
+	if _, err := tx.Exec(`UPDATE show_state SET blob = ? WHERE id = 1`, payload); err != nil {
+		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: updating show_state: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: committing save transaction: %v", err)
+	}
+	return nil
+}
+
 // Save validates s, stamps the current SchemaVersion, increments
 // Revision, canonically encodes it, and commits it to the .golc SQLite
-// database at path (resolved against root) inside one transaction that
-// also writes and prunes a recovery point (CONTEXT D-04/D-05/D-06):
-// UPDATE show_meta, UPDATE show_state, INSERT INTO recovery_points, then
-// DELETE recovery points beyond the newest 5, COMMIT. Because the
-// recovery-point write shares this single transaction, a crash mid-save
-// commits both the state save and its recovery point atomically, or
-// neither (SHOW-03). s is passed by value and never mutated in place:
-// callers observe the bumped Revision by calling Load again, exactly like
-// the pre-SQLite Save's contract.
+// database at path (resolved against root) via two sequential
+// transactions (CONTEXT D-04/D-05/D-06): stageRecoveryPoint commits the
+// recovery-point insert and prune first, then promoteState commits the
+// show_meta/show_state update. A crash between the two leaves a
+// recovery_points row strictly newer than show_meta.revision -- the
+// interrupted-session signal SHOW-03/SHOW-04 require; a crash before or
+// after both leaves nothing to offer. s is passed by value and never
+// mutated in place: callers observe the bumped Revision by calling Load
+// again, exactly like the pre-SQLite Save's contract.
 func Save(root, path string, s State) error {
 	if err := validate(s); err != nil {
 		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: %v", err)
@@ -218,34 +281,9 @@ func Save(root, path string, s State) error {
 	}
 	defer checkpointAndClose(db)
 
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: beginning save transaction: %v", err)
-	}
-	defer tx.Rollback() // no-op once Commit has succeeded
-
 	now := time.Now().UTC().Format(time.RFC3339)
-	if _, err := tx.Exec(`UPDATE show_meta SET schema_version = ?, revision = ?, checksum = ?, updated_at = ? WHERE id = 1`,
-		s.SchemaVersion, s.Revision, checksum, now); err != nil {
-		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: updating show_meta: %v", err)
+	if err := stageRecoveryPoint(db, now, s.Revision, payload); err != nil {
+		return err
 	}
-	if _, err := tx.Exec(`UPDATE show_state SET blob = ? WHERE id = 1`, payload); err != nil {
-		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: updating show_state: %v", err)
-	}
-	// SHOW-03 (CONTEXT D-04): the recovery-point write shares this exact
-	// transaction, so a crash mid-command commits both the state save
-	// and its recovery point atomically, or neither.
-	if _, err := tx.Exec(`INSERT INTO recovery_points (created_at, revision, blob) VALUES (?, ?, ?)`,
-		now, s.Revision, payload); err != nil {
-		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: inserting recovery point: %v", err)
-	}
-	// CONTEXT D-06: keep only the newest 5 recovery points, oldest pruned
-	// first, in the same transaction as the insert above.
-	if _, err := tx.Exec(`DELETE FROM recovery_points WHERE id NOT IN (SELECT id FROM recovery_points ORDER BY id DESC LIMIT 5)`); err != nil {
-		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: pruning recovery points: %v", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: committing save transaction: %v", err)
-	}
-	return nil
+	return promoteState(db, s.SchemaVersion, s.Revision, checksum, payload, now)
 }
