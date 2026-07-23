@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 05
-current_phase_name: durable-shows-and-recovery
-status: executing
-stopped_at: Phase 5 context gathered
-last_updated: "2026-07-23T05:20:06.304Z"
-last_activity: 2026-07-22
-last_activity_desc: Phase 05 execution started
+current_phase: 6
+current_phase_name: Wails Authoring and Operator Surface
+status: planning
+stopped_at: Phase 5 complete
+last_updated: "2026-07-23T07:36:04.510Z"
+last_activity: 2026-07-23
+last_activity_desc: Phase 05 complete, transitioned to Phase 6
 progress:
-  total_phases: 5
-  completed_phases: 4
+  total_phases: 11
+  completed_phases: 5
   total_plans: 59
-  completed_plans: 54
+  completed_plans: 59
 ---
 
 # Project State
@@ -23,14 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** An operator can author a modular show once, adapt its fixture pools to different deployments in one or two actions, and hand a simple controller surface to another person for reliable playback.
-**Current focus:** Phase 05 — durable-shows-and-recovery
+**Current focus:** Phase 06 — wails-authoring-and-operator-surface
 
 ## Current Position
 
-Phase: 05 (durable-shows-and-recovery) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 05
-Last activity: 2026-07-22 — Phase 05 execution started
+Phase: 6 — Wails Authoring and Operator Surface
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-07-23 — Phase 05 complete, transitioned to Phase 6
+
+Note: `.planning/phases/11-telemetry-usage-statistics-and-auto-crash-submission-pipeline/` exists on disk from earlier out-of-order groundwork, which caused the automated next-phase resolver to briefly point here at Phase 11. Phases 6-10 have no directories yet and are the genuine next work per ROADMAP.md's sequential order; Phase 11 itself declares `Depends on: Phase 10`.
 
 Progress: [██░░░░░░░░] 24%
 
@@ -38,7 +40,7 @@ Progress: [██░░░░░░░░] 24%
 
 **Velocity:**
 
-- Total plans completed: 54
+- Total plans completed: 59
 - Average duration: -
 - Total execution time: 0 hours
 
@@ -50,6 +52,7 @@ Progress: [██░░░░░░░░] 24%
 | 02 | 6 | - | - |
 | 03 | 7 | - | - |
 | 04 | 9 | - | - |
+| 05 | 5 | - | - |
 
 **Recent Trend:**
 
