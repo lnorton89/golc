@@ -398,7 +398,7 @@ Plans:
 ### Phase 11: Telemetry, Usage Statistics, and Auto Crash Submission Pipeline
 
 **Goal:** Users can opt into anonymized usage/telemetry collection and crashes are automatically captured and submitted for diagnosis without blocking playback or requiring manual repro steps.
-**Requirements**: TBD
+**Requirements:** TBD
 **Depends on:** Phase 10
 **Plans:** 0 plans
 
