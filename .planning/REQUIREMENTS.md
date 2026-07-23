@@ -73,6 +73,9 @@
 - [ ] **PLAY-07**: An operator can see the active scene, enabled layers, current BPM/bar position, controlling source, and final output state.
 - [ ] **PLAY-08**: Revoke Automation immediately blocks AI and scripts, cancels their queued actions, freezes the current look, and returns control to manual operation without requiring those runtimes to respond.
 - [ ] **PLAY-09**: Blackout remains a separate local priority control that does not depend on the UI, script runtime, API, or LLM provider completing work.
+- [ ] **PLAY-10**: A show author can patch fixtures — assigning pool fixtures to concrete modes, universes, addresses, and deployment instances — through on-screen controls.
+- [ ] **PLAY-11**: A show author can configure deployment interfaces and Art-Net universes/targets through on-screen controls.
+- [ ] **PLAY-12**: A show author can program scenes and looks — base-look, color-theme, chase, and motion layers — through on-screen controls.
 
 ### Art-Net Output
 
@@ -247,6 +250,9 @@ A v1 requirement is complete only when its implementation is committed, automate
 | PLAY-07 | Phase 6 | Pending |
 | PLAY-08 | Phase 6 | Pending |
 | PLAY-09 | Phase 6 | Pending |
+| PLAY-10 | Phase 6 | Pending |
+| PLAY-11 | Phase 6 | Pending |
+| PLAY-12 | Phase 6 | Pending |
 | ARTN-01 | Phase 4 | Complete |
 | ARTN-02 | Phase 4 | Complete |
 | ARTN-03 | Phase 4 | Complete |
