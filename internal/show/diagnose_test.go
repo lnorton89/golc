@@ -92,8 +92,8 @@ func TestDiagnoseStructurallyInvalid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("openStore: %v", err)
 	}
-	if _, err := db.Exec(`UPDATE show_meta SET schema_version = ?, revision = 1, checksum = '', updated_at = '2026-01-01T00:00:00Z' WHERE id = 1`,
-		SchemaVersion); err != nil {
+	if _, err := db.Exec(`UPDATE show_meta SET schema_version = ?, revision = 1, checksum = ?, updated_at = '2026-01-01T00:00:00Z' WHERE id = 1`,
+		SchemaVersion, sha256Hex(payload)); err != nil {
 		db.Close()
 		t.Fatalf("seeding tampered show_meta: %v", err)
 	}
