@@ -43,8 +43,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/lnorton89/golc/internal/deployment"
 	"github.com/lnorton89/golc/internal/playback"
+	"github.com/lnorton89/golc/internal/pool"
 )
 
 // workerTickHz is the Art-Net worker's own independent send cadence
@@ -85,15 +88,44 @@ type artNetSender interface {
 // out to multiple unicast targets simultaneously); Instances is the full
 // deployment instance list the worker groups by Instance.Universe at
 // construction time so one universe's channelmap.Encode call never sees
-// another universe's instances.
+// another universe's instances. Groups is the show's pool.Group set (the
+// daemon's own show.State.Groups); NewWorker builds a one-time instance ->
+// group-ID membership map from Instances + Groups (06-02-PLAN.md Task 2)
+// so applyOverrides can compose group masters per-instance without a
+// per-tick lookup cost. Safety is the daemon-resident safetyState the tick
+// goroutine reads lock-free every tick (PLAY-06/08/09); a nil Safety
+// behaves as identity (no override), preserving every existing caller's
+// behavior from before this field existed.
 type WorkerConfig struct {
 	Frames      FrameSource
 	Instances   []deployment.Instance
+	Groups      []pool.Group
 	Resolve     ResolveFunc
 	Targets     map[int][]Target
+	Safety      *safetyState
 	LocalIP     net.IP
 	SendTimeout time.Duration
 	Health      *Health
+}
+
+// buildMembership maps each instance's ID to the pool.Group IDs it belongs
+// to (06-02-PLAN.md Task 2, PLAY-06 group-master composition): an instance
+// belongs to a group when that group carries a MemberRef whose (PoolID,
+// PoolMemberID) pair matches the instance's own (PoolID, PoolMemberID).
+// Built once at Worker construction time, never per-tick.
+func buildMembership(instances []deployment.Instance, groups []pool.Group) map[uuid.UUID][]uuid.UUID {
+	membership := make(map[uuid.UUID][]uuid.UUID, len(instances))
+	for _, instance := range instances {
+		for _, group := range groups {
+			for _, ref := range group.MemberRefs {
+				if ref.PoolID == instance.PoolID && ref.PoolMemberID == instance.PoolMemberID {
+					membership[instance.ID] = append(membership[instance.ID], group.ID)
+					break
+				}
+			}
+		}
+	}
+	return membership
 }
 
 // targetState is one configured target's live send state: the dialed
@@ -116,6 +148,9 @@ type Worker struct {
 	instancesByUniverse map[int][]deployment.Instance
 	universes           []int
 	targetStates        map[int][]*targetState
+
+	safety     *safetyState
+	membership map[uuid.UUID][]uuid.UUID
 
 	localIP     net.IP
 	sendTimeout time.Duration
@@ -164,6 +199,8 @@ func NewWorker(cfg WorkerConfig) *Worker {
 		instancesByUniverse: instancesByUniverse,
 		universes:           universes,
 		targetStates:        map[int][]*targetState{},
+		safety:              cfg.Safety,
+		membership:          buildMembership(cfg.Instances, cfg.Groups),
 		localIP:             cfg.LocalIP,
 		sendTimeout:         sendTimeout,
 		health:              health,
@@ -269,22 +306,35 @@ func (w *Worker) nextSeq(universe int) uint8 {
 }
 
 // tick reads frame (via CurrentFrame(), called by Start's own goroutine
-// -- never blocking) and, for each configured universe, builds that
-// universe's own DMX buffer (scoped to only that universe's instances, so
-// an encode error in one universe never blocks another's tick), records
-// that final buffer into Health via RecordUniverseValues (ARTN-05: the
-// per-universe final values surfaced through "golc artnet status" -- this
-// is the exact per-tick buffer that would otherwise be discarded after
-// EncodeArtDMX), and fans out to its enabled targets via dispatchSend,
-// which never blocks tick itself (ARTN-04).
+// -- never blocking), applies the daemon-resident safety/master overrides
+// (06-02-PLAN.md Task 2, PLAY-06/08/09) via a single lock-free
+// applyOverrides call before any per-universe work, and then, for each
+// configured universe, builds that universe's own DMX buffer (scoped to
+// only that universe's instances, so an encode error in one universe never
+// blocks another's tick), records that final buffer into Health via
+// RecordUniverseValues (ARTN-05: the per-universe final values surfaced
+// through "golc artnet status" -- this is the exact per-tick buffer that
+// would otherwise be discarded after EncodeArtDMX), and fans out to its
+// enabled targets via dispatchSend, which never blocks tick itself
+// (ARTN-04).
+//
+// applyOverrides is called exactly once per tick, before the per-universe
+// loop, not once per universe: it is a single atomic-load path (never a
+// lock shared with a slow IPC/config path), so a Blackout/Stop-All/master
+// change set via the daemon's IPC handler takes effect for every universe
+// on the very next tick, with no Worker restart (06-PATTERNS.md's "daemon
+// as single owner of runtime-mutable state" -- safety flags are the one
+// exception read outside d.mu, by design).
 func (w *Worker) tick(frame *playback.Frame) {
 	if frame == nil {
 		return
 	}
 	w.health.RecordFrame(time.Now())
 
+	overridden := applyOverrides(*frame, w.safety, w.membership)
+
 	for _, u := range w.universes {
-		buffers, err := Encode(*frame, w.instancesByUniverse[u], w.resolve)
+		buffers, err := Encode(overridden, w.instancesByUniverse[u], w.resolve)
 		if err != nil {
 			w.health.RecordEncodeError(u, err)
 			continue
