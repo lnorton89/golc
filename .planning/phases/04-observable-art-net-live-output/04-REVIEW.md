@@ -318,6 +318,15 @@ similar) to match the mask.
 
 ---
 
+## Resolution
+
+Applied 2026-07-22 (commit `f12d05e`):
+
+- **CR-01 — FIXED.** `ValidateTarget` now rejects `Universe > 255`; regression tests added (`TestTargetValidateTargetRejectsUniverseAboveMaxRepresentable`, `TestTargetValidateTargetAcceptsMaxRepresentableUniverse`, `TestPortAddressAliasesAboveMaxRepresentableUniverse`).
+- **WR-02 — FIXED.** `channelmap.go`'s `Encode` doc comment corrected from "round-half-up" to "truncating toward zero" to match `scaleToByte` and actual/tested behavior.
+- **IN-01 — FIXED.** `packet.go`'s Net-byte mask comment corrected from "top 7 bits" to "low 7 bits."
+- **WR-01, WR-03, WR-04 — left open**, tracked as follow-up (not blocking Phase 4 completion): multicast/directed-broadcast target rejection gap, daemon local-IP re-resolution on reconfigure, and `Worker.Stop()` not draining in-flight send goroutines before shared `Health` handoff. None are reachable-by-default correctness bugs on the order of CR-01; each requires a slightly more invasive change to already-tested subsystems and is better scoped as its own follow-up than bundled into phase completion.
+
 _Reviewed: 2026-07-22T00:00:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
