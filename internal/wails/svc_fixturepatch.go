@@ -115,6 +115,11 @@ func (s *FixturePatchService) cachePlan(previewResult Result) Result {
 // review-before-apply). The pool's members remain unchanged until a
 // matching ApplyPatch(planId) call commits the returned plan.
 func (s *FixturePatchService) AddPoolMemberPreview(poolName, stableKey, contentHash, mode string) Result {
+	for _, field := range []string{stableKey, contentHash, mode} {
+		if strings.Contains(field, "|") {
+			return Result{ExitCode: 2, Stderr: "GOLC_WAILS_POOL_MEMBER_FIELD_INVALID: fixture stable key/content hash/mode must not contain \"|\"\n"}
+		}
+	}
 	spec := fmt.Sprintf("%s|%s|%s", stableKey, contentHash, mode)
 	result := s.execute([]string{
 		"pool", "update", poolName,

@@ -270,6 +270,35 @@ func TestFixturePatchServiceRejectsMalformedMember(t *testing.T) {
 	}
 }
 
+// TestFixturePatchServiceRejectsEmbeddedDelimiterInMemberFields proves
+// AddPoolMemberPreview rejects a stableKey/contentHash/mode field containing
+// the "|" delimiter internal/command/pool.go's parsePoolMemberSpec splits
+// the constructed spec string on, instead of silently mis-splitting the
+// spec into the wrong three fields (CR-02).
+func TestFixturePatchServiceRejectsEmbeddedDelimiterInMemberFields(t *testing.T) {
+	root := t.TempDir()
+	showPath := filepath.Join(t.TempDir(), "show.golc")
+	poolName, _ := seedFixturePatchShowState(t, root, showPath)
+	svc := NewFixturePatchService("", root, showPath)
+
+	cases := []struct {
+		name                  string
+		stableKey, hash, mode string
+	}{
+		{"stableKey", "acme|par64", "sha256:22222222", "Standard"},
+		{"contentHash", "acme/par64", "sha256:2222|2222", "Standard"},
+		{"mode", "acme/par64", "sha256:22222222", "Standard|Extended"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := svc.AddPoolMemberPreview(poolName, tc.stableKey, tc.hash, tc.mode)
+			if result.ExitCode == 0 || !strings.Contains(result.Stderr, "GOLC_WAILS_POOL_MEMBER_FIELD_INVALID") {
+				t.Fatalf("expected GOLC_WAILS_POOL_MEMBER_FIELD_INVALID for an embedded delimiter in %s, got exit=%d stderr=%s", tc.name, result.ExitCode, result.Stderr)
+			}
+		})
+	}
+}
+
 // TestFixturePatchServiceEmptyAndCountStates proves ListPatch on a show
 // with no pools returns an empty projection, and singular/plural pool
 // counts read correctly once pools exist.
