@@ -6,10 +6,10 @@ import (
 	"time"
 )
 
-// TestProposeMappingAcceptsNonCollidingCandidate covers the base accept
-// path: a candidate whose (channel, kind, number) tuple is not already
-// in the existing set is accepted (nil error).
-func TestProposeMappingAcceptsNonCollidingCandidate(t *testing.T) {
+// TestLearnProposeMappingAcceptsNonCollidingCandidate covers the base
+// accept path: a candidate whose (channel, kind, number) tuple is not
+// already in the existing set is accepted (nil error).
+func TestLearnProposeMappingAcceptsNonCollidingCandidate(t *testing.T) {
 	existing := []ControlKey{
 		{Channel: 1, Kind: ControlChange, Number: 20},
 	}
@@ -20,9 +20,9 @@ func TestProposeMappingAcceptsNonCollidingCandidate(t *testing.T) {
 	}
 }
 
-// TestProposeMappingAcceptsIntoEmptySet covers proposing against an
+// TestLearnProposeMappingAcceptsIntoEmptySet covers proposing against an
 // empty surface's mapping set.
-func TestProposeMappingAcceptsIntoEmptySet(t *testing.T) {
+func TestLearnProposeMappingAcceptsIntoEmptySet(t *testing.T) {
 	var existing []ControlKey
 	candidate := ControlKey{Channel: 1, Kind: Note, Number: 60}
 
@@ -31,11 +31,11 @@ func TestProposeMappingAcceptsIntoEmptySet(t *testing.T) {
 	}
 }
 
-// TestProposeMappingRejectsConflictAndLeavesExistingUntouched is the D-06
-// core guarantee: a candidate colliding with an already-mapped
+// TestLearnProposeMappingRejectsConflictAndLeavesExistingUntouched is the
+// D-06 core guarantee: a candidate colliding with an already-mapped
 // (channel, kind, number) tuple is rejected outright with
 // GOLC_MIDI_MAPPING_CONFLICT, and the existing set is never mutated.
-func TestProposeMappingRejectsConflictAndLeavesExistingUntouched(t *testing.T) {
+func TestLearnProposeMappingRejectsConflictAndLeavesExistingUntouched(t *testing.T) {
 	existing := []ControlKey{
 		{Channel: 2, Kind: ControlChange, Number: 74},
 		{Channel: 2, Kind: Note, Number: 36},
@@ -61,11 +61,11 @@ func TestProposeMappingRejectsConflictAndLeavesExistingUntouched(t *testing.T) {
 	}
 }
 
-// TestProposeMappingScopedPerSurface proves D-07: the same
+// TestLearnProposeMappingScopedPerSurface proves D-07: the same
 // (channel, kind, number) tuple that conflicts against one surface's set
 // is freely accepted against a different (here, empty) surface's set --
 // the check is scoped to whatever `existing` slice the caller passes in.
-func TestProposeMappingScopedPerSurface(t *testing.T) {
+func TestLearnProposeMappingScopedPerSurface(t *testing.T) {
 	surfaceA := []ControlKey{
 		{Channel: 3, Kind: ControlChange, Number: 7},
 	}
@@ -81,10 +81,10 @@ func TestProposeMappingScopedPerSurface(t *testing.T) {
 	}
 }
 
-// TestProposeMappingKindIsPartOfIdentity proves a Note and a
+// TestLearnProposeMappingKindIsPartOfIdentity proves a Note and a
 // ControlChange sharing the same channel/number are distinct keys: one
 // being mapped does not block the other.
-func TestProposeMappingKindIsPartOfIdentity(t *testing.T) {
+func TestLearnProposeMappingKindIsPartOfIdentity(t *testing.T) {
 	existing := []ControlKey{
 		{Channel: 1, Kind: Note, Number: 60},
 	}
@@ -95,10 +95,10 @@ func TestProposeMappingKindIsPartOfIdentity(t *testing.T) {
 	}
 }
 
-// TestCaptureCandidateReturnsFirstReceived covers the accept path of the
-// bounded capture window (D-05): the first ControlKey sent on next is
+// TestLearnCaptureCandidateReturnsFirstReceived covers the accept path of
+// the bounded capture window (D-05): the first ControlKey sent on next is
 // returned before the timeout fires.
-func TestCaptureCandidateReturnsFirstReceived(t *testing.T) {
+func TestLearnCaptureCandidateReturnsFirstReceived(t *testing.T) {
 	next := make(chan ControlKey, 1)
 	timeout := make(chan struct{})
 
@@ -114,10 +114,10 @@ func TestCaptureCandidateReturnsFirstReceived(t *testing.T) {
 	}
 }
 
-// TestCaptureCandidateTimesOut covers the D-05 bound: if the capture
+// TestLearnCaptureCandidateTimesOut covers the D-05 bound: if the capture
 // window's timeout fires before any ControlKey is received, capture ends
 // with GOLC_MIDI_LEARN_TIMEOUT rather than hanging indefinitely.
-func TestCaptureCandidateTimesOut(t *testing.T) {
+func TestLearnCaptureCandidateTimesOut(t *testing.T) {
 	next := make(chan ControlKey)
 	timeout := make(chan struct{})
 	close(timeout)
@@ -131,11 +131,11 @@ func TestCaptureCandidateTimesOut(t *testing.T) {
 	}
 }
 
-// TestCaptureCandidateDoesNotHangWithoutEitherChannel guards against a
-// regression to an unbounded select (e.g. accidentally dropping the
+// TestLearnCaptureCandidateDoesNotHangWithoutEitherChannel guards against
+// a regression to an unbounded select (e.g. accidentally dropping the
 // timeout case): capture must return well within a generous deadline
 // once the timeout channel closes, even under test-runner load.
-func TestCaptureCandidateDoesNotHangWithoutEitherChannel(t *testing.T) {
+func TestLearnCaptureCandidateDoesNotHangWithoutEitherChannel(t *testing.T) {
 	next := make(chan ControlKey)
 	timeout := make(chan struct{})
 
