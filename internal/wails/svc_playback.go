@@ -29,11 +29,14 @@
 package wails
 
 import (
+	"fmt"
 	"strconv"
+	"sync"
 
 	"github.com/google/uuid"
 
 	"github.com/lnorton89/golc/internal/command"
+	"github.com/lnorton89/golc/internal/operatorsurface"
 	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/show"
 	"github.com/lnorton89/golc/internal/strictjson"
@@ -48,6 +51,9 @@ type PlaybackService struct {
 	pipeName string
 	showPath string
 	root     string
+
+	mu            sync.Mutex
+	activeSurface string
 }
 
 // NewPlaybackService constructs a PlaybackService targeting pipeName (kept
@@ -56,6 +62,112 @@ type PlaybackService struct {
 // showPath, and root.
 func NewPlaybackService(pipeName, showPath, root string) *PlaybackService {
 	return &PlaybackService{pipeName: pipeName, showPath: showPath, root: root}
+}
+
+// SetActiveSurface selects surfaceName as the operator surface
+// PlaybackService's mutating methods (SwitchScene/SetLayerEnabled)
+// authorize against (CR-01 fix): while an active surface is set, a call
+// against a scene/layer control not assigned to it is rejected
+// server-side by authorizeControl, mirroring MidiService's own
+// activeSurface pattern and SafetyService's identical CR-01 fix. Passing
+// "" clears the active surface, returning to unrestricted/author-mode
+// dispatch. SetBPM/TapTempo/Evaluate are never gated: BPM/tempo has no
+// corresponding operatorsurface.ControlKind (only scene/layer/master/
+// safety are individually-assignable controls, internal/operatorsurface/
+// model.go), so there is nothing for those methods to authorize against.
+func (s *PlaybackService) SetActiveSurface(surfaceName string) Result {
+	if surfaceName == "" {
+		s.mu.Lock()
+		s.activeSurface = ""
+		s.mu.Unlock()
+		return Result{Stdout: "GOLC_PLAYBACK_ACTIVE_SURFACE_CLEARED\n"}
+	}
+
+	state, err := show.Load(s.root, s.showPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: err.Error()}
+	}
+	if _, found := surfaceByName(state.OperatorSurfaces, surfaceName); !found {
+		return Result{ExitCode: 1, Stderr: fmt.Sprintf("GOLC_OPERATORSURFACE_NOT_FOUND: no operator surface named %q exists\n", surfaceName)}
+	}
+
+	s.mu.Lock()
+	s.activeSurface = surfaceName
+	s.mu.Unlock()
+	return Result{Stdout: fmt.Sprintf("GOLC_PLAYBACK_ACTIVE_SURFACE_SET: %s\n", surfaceName)}
+}
+
+// authorizeControl is CR-01's server-side visible-but-locked enforcement
+// point for scene/layer playback actions: when an active operator surface
+// has been set (SetActiveSurface), ref must be a member of that surface's
+// assignment set (command.Authorize, internal/command/operatorsurface.go's
+// D-04 enforcement) before the mutating call may dispatch. No active
+// surface (the default) means unrestricted/author-mode dispatch --
+// matching this service's pre-CR-01 behavior exactly, so a caller that
+// never opts into operator-surface scoping never regresses.
+func (s *PlaybackService) authorizeControl(state show.State, ref operatorsurface.ControlRef) error {
+	s.mu.Lock()
+	surfaceName := s.activeSurface
+	s.mu.Unlock()
+	if surfaceName == "" {
+		return nil
+	}
+	surface, found := surfaceByName(state.OperatorSurfaces, surfaceName)
+	if !found {
+		return fmt.Errorf("GOLC_OPERATORSURFACE_NOT_FOUND: no operator surface named %q exists", surfaceName)
+	}
+	return command.Authorize(surface, ref)
+}
+
+// authorizeScene loads the show, resolves sceneName to its ControlRef, and
+// calls authorizeControl (CR-01). An unknown scene name is never treated
+// as an authorization failure here -- it is left for the underlying
+// registry route's own GOLC_PLAYBACK_SWITCH_UNKNOWN_SCENE diagnostic to
+// surface, exactly as it did before this fix, so authorization only ever
+// adds a new rejection reason, never changes an existing one.
+func (s *PlaybackService) authorizeScene(sceneName string) error {
+	s.mu.Lock()
+	surfaceName := s.activeSurface
+	s.mu.Unlock()
+	if surfaceName == "" {
+		return nil
+	}
+	state, err := show.Load(s.root, s.showPath)
+	if err != nil {
+		return err
+	}
+	for _, sc := range state.Scenes {
+		if sc.Name == sceneName {
+			return s.authorizeControl(state, operatorsurface.SceneControlRef(sc.ID))
+		}
+	}
+	return nil
+}
+
+// authorizeLayer loads the show, resolves sceneName/kind to its
+// ControlRef, and calls authorizeControl (CR-01). An unknown scene/layer
+// kind is left for the underlying registry route's own diagnostic,
+// mirroring authorizeScene's identical discipline.
+func (s *PlaybackService) authorizeLayer(sceneName, kind string) error {
+	s.mu.Lock()
+	surfaceName := s.activeSurface
+	s.mu.Unlock()
+	if surfaceName == "" {
+		return nil
+	}
+	state, err := show.Load(s.root, s.showPath)
+	if err != nil {
+		return err
+	}
+	for _, sc := range state.Scenes {
+		if sc.Name != sceneName {
+			continue
+		}
+		if _, ok := sc.LayerByKind(scene.LayerKind(kind)); ok {
+			return s.authorizeControl(state, operatorsurface.LayerControlRef(operatorsurface.LayerRef{SceneID: sc.ID, Kind: scene.LayerKind(kind)}))
+		}
+	}
+	return nil
 }
 
 // execute runs a full route-plus-args word sequence (e.g. "playback",
@@ -78,7 +190,11 @@ func (s *PlaybackService) execute(args ...string) Result {
 // SwitchScene issues "playback switch <scene> --show <path>" (PLAY-01
 // scene switch). An unknown scene name surfaces the route's own
 // GOLC_PLAYBACK_SWITCH_UNKNOWN_SCENE diagnostic, never a panic.
+// authorizeScene (CR-01) gates dispatch first.
 func (s *PlaybackService) SwitchScene(sceneName string) Result {
+	if err := s.authorizeScene(sceneName); err != nil {
+		return Result{ExitCode: 1, Stderr: err.Error() + "\n"}
+	}
 	return s.execute("playback", "switch", sceneName, "--show", s.showPath)
 }
 
@@ -109,8 +225,11 @@ func (s *PlaybackService) currentLayerRef(sceneName, kind string) uuid.UUID {
 // Selection is left unmentioned entirely -- the route's own WR-03 merge
 // behavior carries the existing Selection forward automatically. An
 // unknown scene name or layer kind surfaces the route's own diagnostic,
-// never a panic.
+// never a panic. authorizeLayer (CR-01) gates dispatch first.
 func (s *PlaybackService) SetLayerEnabled(sceneName, kind string, enabled bool) Result {
+	if err := s.authorizeLayer(sceneName, kind); err != nil {
+		return Result{ExitCode: 1, Stderr: err.Error() + "\n"}
+	}
 	args := []string{"scene", "layer", "set", sceneName, "--kind", kind}
 	if ref := s.currentLayerRef(sceneName, kind); ref != uuid.Nil {
 		args = append(args, "--ref", ref.String())

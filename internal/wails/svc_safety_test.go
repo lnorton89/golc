@@ -5,12 +5,18 @@
 // projection is an explicit idle/offline value -- never a blank/zero one
 // a caller has to guess the meaning of -- both when the daemon reports no
 // active plan and when the daemon cannot be reached at all
-// (TestStatusPayload*).
+// (TestStatusPayload*). TestSafetyServiceAuthorize* prove CR-01's fix:
+// once an active operator surface is set (SetActiveSurface), a safety
+// toggle against a control not assigned to it is rejected before ever
+// dialing the daemon, and a toggle against an assigned control still
+// dispatches exactly as before.
 package wails
 
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,7 +31,7 @@ import (
 func TestSafetyServiceBlackoutForwardsManualSource(t *testing.T) {
 	var captured ipc.Request
 	var capturedPipe string
-	svc := NewSafetyService("test-pipe")
+	svc := NewSafetyService("test-pipe", "", "")
 	svc.dial = func(pipeName string, request ipc.Request) ipc.Result {
 		capturedPipe = pipeName
 		captured = request
@@ -44,7 +50,7 @@ func TestSafetyServiceBlackoutForwardsManualSource(t *testing.T) {
 // Blackout test for StopReleaseAll(false).
 func TestSafetyServiceStopReleaseAllForwardsManualSource(t *testing.T) {
 	var captured ipc.Request
-	svc := NewSafetyService("test-pipe")
+	svc := NewSafetyService("test-pipe", "", "")
 	svc.dial = func(pipeName string, request ipc.Request) ipc.Result {
 		captured = request
 		return ipc.Result{}
@@ -61,7 +67,7 @@ func TestSafetyServiceStopReleaseAllForwardsManualSource(t *testing.T) {
 // itself blocked by the revoke it is about to activate.
 func TestSafetyServiceRevokeAutomationForwardsManualSource(t *testing.T) {
 	var captured ipc.Request
-	svc := NewSafetyService("test-pipe")
+	svc := NewSafetyService("test-pipe", "", "")
 	svc.dial = func(pipeName string, request ipc.Request) ipc.Result {
 		captured = request
 		return ipc.Result{}
@@ -70,6 +76,99 @@ func TestSafetyServiceRevokeAutomationForwardsManualSource(t *testing.T) {
 	svc.RevokeAutomation(true)
 
 	assertSafetyForward(t, captured, "artnet safety revoke-automation", []string{"--on", "true", "--source", "manual"})
+}
+
+// TestSafetyServiceBlackoutRejectsWhenActiveSurfaceDoesNotAssignControl
+// proves CR-01's fix: once SetActiveSurface has scoped SafetyService to a
+// surface that does not have Blackout in its SafetyRefs, Blackout is
+// rejected with GOLC_OPERATORSURFACE_LOCKED and never reaches dial.
+func TestSafetyServiceBlackoutRejectsWhenActiveSurfaceDoesNotAssignControl(t *testing.T) {
+	root := t.TempDir()
+	showPath := filepath.Join(t.TempDir(), "show.golc")
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	if result := surfaceSvc.CreateSurface("Operator A"); result.ExitCode != 0 {
+		t.Fatalf("CreateSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	svc := NewSafetyService("test-pipe", root, showPath)
+	svc.dial = func(pipeName string, request ipc.Request) ipc.Result {
+		t.Fatal("dial must never be reached when authorization rejects the call")
+		return ipc.Result{}
+	}
+
+	if result := svc.SetActiveSurface("Operator A"); result.ExitCode != 0 {
+		t.Fatalf("SetActiveSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	got := svc.Blackout(true)
+	if got.ExitCode == 0 {
+		t.Fatal("expected Blackout to be rejected when the active surface has no Blackout SafetyRef assigned")
+	}
+	if !strings.Contains(got.Stderr, "GOLC_OPERATORSURFACE_LOCKED") {
+		t.Fatalf("expected GOLC_OPERATORSURFACE_LOCKED in stderr, got %q", got.Stderr)
+	}
+}
+
+// TestSafetyServiceBlackoutDispatchesWhenActiveSurfaceAssignsControl
+// proves the counterpart: once Blackout is assigned to the active surface,
+// the call authorizes and dispatches exactly as before CR-01.
+func TestSafetyServiceBlackoutDispatchesWhenActiveSurfaceAssignsControl(t *testing.T) {
+	root := t.TempDir()
+	showPath := filepath.Join(t.TempDir(), "show.golc")
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	if result := surfaceSvc.CreateSurface("Operator A"); result.ExitCode != 0 {
+		t.Fatalf("CreateSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := surfaceSvc.AssignItem("Operator A", ControlRefInput{Kind: "safety", Safety: "blackout"}); result.ExitCode != 0 {
+		t.Fatalf("AssignItem failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	svc := NewSafetyService("test-pipe", root, showPath)
+	var captured ipc.Request
+	svc.dial = func(pipeName string, request ipc.Request) ipc.Result {
+		captured = request
+		return ipc.Result{}
+	}
+
+	if result := svc.SetActiveSurface("Operator A"); result.ExitCode != 0 {
+		t.Fatalf("SetActiveSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	got := svc.Blackout(true)
+	if got.ExitCode != 0 {
+		t.Fatalf("expected Blackout to dispatch once assigned, got exit=%d stderr=%s", got.ExitCode, got.Stderr)
+	}
+	assertSafetyForward(t, captured, "artnet safety blackout", []string{"--on", "true", "--source", "manual"})
+}
+
+// TestSafetyServiceSetActiveSurfaceEmptyClearsRestriction proves
+// SetActiveSurface("") always returns to unrestricted/author-mode
+// dispatch, even after a prior SetActiveSurface locked the service to a
+// surface that did not assign the control under test.
+func TestSafetyServiceSetActiveSurfaceEmptyClearsRestriction(t *testing.T) {
+	root := t.TempDir()
+	showPath := filepath.Join(t.TempDir(), "show.golc")
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	if result := surfaceSvc.CreateSurface("Operator A"); result.ExitCode != 0 {
+		t.Fatalf("CreateSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	svc := NewSafetyService("test-pipe", root, showPath)
+	svc.dial = func(pipeName string, request ipc.Request) ipc.Result {
+		return ipc.Result{}
+	}
+
+	if result := svc.SetActiveSurface("Operator A"); result.ExitCode != 0 {
+		t.Fatalf("SetActiveSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.SetActiveSurface(""); result.ExitCode != 0 {
+		t.Fatalf("SetActiveSurface(\"\") failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	got := svc.Blackout(true)
+	if got.ExitCode != 0 {
+		t.Fatalf("expected Blackout to dispatch after the active surface was cleared, got exit=%d stderr=%s", got.ExitCode, got.Stderr)
+	}
 }
 
 func assertSafetyForward(t *testing.T, got ipc.Request, wantRoute string, wantArgs []string) {
@@ -92,7 +191,7 @@ func assertSafetyForward(t *testing.T, got ipc.Request, wantRoute string, wantAr
 // the frontend's hold-to-confirm control must be able to distinguish
 // success from a rejected/failed daemon call.
 func TestSafetyServiceToggleSurfacesResultShape(t *testing.T) {
-	svc := NewSafetyService("test-pipe")
+	svc := NewSafetyService("test-pipe", "", "")
 	svc.dial = func(pipeName string, request ipc.Request) ipc.Result {
 		return ipc.Result{ExitCode: 1, Stderr: []byte("GOLC_ARTNET_SAFETY_REVOKED: rejected")}
 	}
@@ -126,7 +225,7 @@ func daemonStatusJSON(t *testing.T, playback map[string]interface{}) []byte {
 // Reachable=true and every PLAY-07 field populated from the decoded
 // payload, never a zero/blank value standing in for real data.
 func TestStatusPayloadReflectsActiveScene(t *testing.T) {
-	svc := NewSafetyService("test-pipe")
+	svc := NewSafetyService("test-pipe", "", "")
 	svc.dial = func(pipeName string, request ipc.Request) ipc.Result {
 		if request.Route != "artnet status" {
 			t.Fatalf("FetchStatus dialed route %q, want %q", request.Route, "artnet status")
@@ -176,7 +275,7 @@ func TestStatusPayloadReflectsActiveScene(t *testing.T) {
 // (never empty-string) ControllingSource/OutputState values -- never a
 // blank/undefined-looking payload.
 func TestStatusPayloadExplicitIdleWhenNoActiveScene(t *testing.T) {
-	svc := NewSafetyService("test-pipe")
+	svc := NewSafetyService("test-pipe", "", "")
 	svc.dial = func(pipeName string, request ipc.Request) ipc.Result {
 		return ipc.Result{Stdout: daemonStatusJSON(t, map[string]interface{}{
 			"active":            false,
@@ -215,7 +314,7 @@ func TestStatusPayloadExplicitIdleWhenNoActiveScene(t *testing.T) {
 // interactive regardless, but the status bar's own copy must clearly say
 // "can't reach the playback engine," never render blank fields).
 func TestStatusPayloadOfflineWhenDaemonUnreachable(t *testing.T) {
-	svc := NewSafetyService("test-pipe")
+	svc := NewSafetyService("test-pipe", "", "")
 	svc.dial = func(pipeName string, request ipc.Request) ipc.Result {
 		return ipc.Result{ExitCode: 1, Stderr: []byte("GOLC_ARTNET_DAEMON_UNREACHABLE: is the GOLC background process running?")}
 	}
@@ -237,7 +336,7 @@ func TestStatusPayloadOfflineWhenDaemonUnreachable(t *testing.T) {
 // offline fallback applies to a malformed/undecodable daemon response,
 // not merely a dial failure.
 func TestStatusPayloadOfflineWhenDecodeFails(t *testing.T) {
-	svc := NewSafetyService("test-pipe")
+	svc := NewSafetyService("test-pipe", "", "")
 	svc.dial = func(pipeName string, request ipc.Request) ipc.Result {
 		return ipc.Result{Stdout: []byte("not json")}
 	}
@@ -259,7 +358,7 @@ func TestStatusPayloadOfflineWhenDecodeFails(t *testing.T) {
 // -- the exact key_link 06-05-PLAN.md declares between this file and
 // LiveStatusBar.tsx.
 func TestSafetyServiceStartStatusPushEmitsStatusUpdate(t *testing.T) {
-	svc := NewSafetyService("test-pipe")
+	svc := NewSafetyService("test-pipe", "", "")
 	svc.dial = func(pipeName string, request ipc.Request) ipc.Result {
 		return ipc.Result{Stdout: daemonStatusJSON(t, map[string]interface{}{
 			"active":            true,
