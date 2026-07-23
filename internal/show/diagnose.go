@@ -15,6 +15,7 @@
 package show
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -22,13 +23,20 @@ import (
 // Diagnose returns. SchemaVersion/Revision are read directly from the
 // show_meta row (independent of whether the structural check below
 // succeeds), so a structurally-invalid file still reports what
-// schema_version/revision it claims to be at.
+// schema_version/revision it claims to be at. MigrationRequired is a
+// distinct signal from StructuralOK=false/StructuralError (WR-06): an
+// older-schema file that simply needs `show open --confirm-migration` is
+// an expected, recoverable state, not the same thing as a genuine
+// validate() failure -- an operator reading StructuralError alone
+// shouldn't have to distinguish "corrupted" from "just needs migrating"
+// by parsing error text.
 type DiagnosticReport struct {
-	FileLevelIssues []string `json:"file_level_issues,omitempty"`
-	StructuralOK    bool     `json:"structural_ok"`
-	StructuralError string   `json:"structural_error,omitempty"`
-	SchemaVersion   int      `json:"schema_version"`
-	Revision        int      `json:"revision"`
+	FileLevelIssues   []string `json:"file_level_issues,omitempty"`
+	StructuralOK      bool     `json:"structural_ok"`
+	StructuralError   string   `json:"structural_error,omitempty"`
+	MigrationRequired bool     `json:"migration_required,omitempty"`
+	SchemaVersion     int      `json:"schema_version"`
+	Revision          int      `json:"revision"`
 }
 
 // Diagnose runs the full PRAGMA integrity_check (not the lighter
@@ -43,12 +51,16 @@ type DiagnosticReport struct {
 // query-level error here means the file could not even be opened for
 // inspection -- reported as GOLC_SHOW_DIAGNOSE_FAILED, the one case
 // Diagnose returns a non-nil error instead of a report.
-func Diagnose(root, path string) (DiagnosticReport, error) {
-	db, err := openStore(root, path)
-	if err != nil {
-		return DiagnosticReport{}, fmt.Errorf("GOLC_SHOW_DIAGNOSE_FAILED: %v", err)
+func Diagnose(root, path string) (report DiagnosticReport, err error) {
+	db, openErr := openStore(root, path)
+	if openErr != nil {
+		return DiagnosticReport{}, fmt.Errorf("GOLC_SHOW_DIAGNOSE_FAILED: %v", openErr)
 	}
-	defer checkpointAndClose(db)
+	defer func() {
+		if closeErr := checkpointAndClose(db); closeErr != nil && err == nil {
+			err = fmt.Errorf("GOLC_SHOW_DIAGNOSE_FAILED: closing store: %v", closeErr)
+		}
+	}()
 
 	rows, err := db.Query(`PRAGMA integrity_check`)
 	if err != nil {
@@ -90,11 +102,13 @@ func Diagnose(root, path string) (DiagnosticReport, error) {
 	// read-only rather than refused outright.
 	_, structuralErr := LoadForRead(root, path)
 
-	report := DiagnosticReport{
-		FileLevelIssues: fileLevelIssues,
-		StructuralOK:    structuralErr == nil,
-		SchemaVersion:   schemaVersion,
-		Revision:        revision,
+	var migrationRequired ErrSchemaMigrationRequired
+	report = DiagnosticReport{
+		FileLevelIssues:   fileLevelIssues,
+		StructuralOK:      structuralErr == nil,
+		MigrationRequired: errors.As(structuralErr, &migrationRequired),
+		SchemaVersion:     schemaVersion,
+		Revision:          revision,
 	}
 	if structuralErr != nil {
 		report.StructuralError = structuralErr.Error()

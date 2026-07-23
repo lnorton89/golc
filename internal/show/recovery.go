@@ -59,12 +59,12 @@ func offeredRecoveryRevision(db *sql.DB) (int, error) {
 // always lands at exactly the revision it just committed to show_meta in
 // the same transaction, never ahead of it. Detection never writes: it
 // never bumps Revision and never mutates show_state or recovery_points.
-func DetectRecoveryPoints(root, path string) ([]RecoveryPoint, error) {
-	db, err := openStore(root, path)
-	if err != nil {
-		return nil, err
+func DetectRecoveryPoints(root, path string) (points []RecoveryPoint, err error) {
+	db, openErr := openStore(root, path)
+	if openErr != nil {
+		return nil, openErr
 	}
-	defer checkpointAndClose(db)
+	defer closeStoreCheckingErr(db, &err)
 
 	threshold, err := offeredRecoveryRevision(db)
 	if err != nil {
@@ -77,7 +77,6 @@ func DetectRecoveryPoints(root, path string) ([]RecoveryPoint, error) {
 	}
 	defer rows.Close()
 
-	var points []RecoveryPoint
 	for rows.Next() {
 		var point RecoveryPoint
 		if err := rows.Scan(&point.ID, &point.CreatedAt, &point.Revision); err != nil {
@@ -98,12 +97,12 @@ func DetectRecoveryPoints(root, path string) ([]RecoveryPoint, error) {
 // D-07; 05-RESEARCH.md Security row 5 / threat T-05-05). This is always a
 // separate, explicit caller action -- never invoked implicitly by
 // DetectRecoveryPoints or Load.
-func DiscardRecoveryPoints(root, path string) error {
-	db, err := openStore(root, path)
-	if err != nil {
-		return err
+func DiscardRecoveryPoints(root, path string) (err error) {
+	db, openErr := openStore(root, path)
+	if openErr != nil {
+		return openErr
 	}
-	defer checkpointAndClose(db)
+	defer closeStoreCheckingErr(db, &err)
 
 	threshold, err := offeredRecoveryRevision(db)
 	if err != nil {
@@ -117,30 +116,48 @@ func DiscardRecoveryPoints(root, path string) error {
 }
 
 // AcceptRecoveryPoint promotes the recovery_points row identified by id
-// into the working State: it decodes the chosen blob with
-// strictjson.DecodeStrict and runs the same whole-State validate() every
-// Load/Save already enforces (CONTEXT threat T-02-10, extended to
-// recovery blobs as T-05-01) before ever calling Save. An invalid or
-// missing recovery blob is refused with GOLC_SHOW_STATE_INVALID and
-// Save is never reached -- a recovery point is either fully applied
-// (validated, then persisted through the existing Save path, which itself
-// re-validates, stamps SchemaVersion, and bumps Revision exactly as any
-// other edit would) or not applied at all, never partially. Like
-// DiscardRecoveryPoints, this is only ever invoked by an explicit caller
-// id -- this package has no auto-apply path.
+// into the working State. It first confirms id is among the rows
+// currently offered -- its revision is strictly greater than the last
+// clean save's revision, the identical predicate DetectRecoveryPoints
+// uses -- refusing a stale, already-superseded, or non-existent id with
+// GOLC_SHOW_RECOVERY_NOT_FOUND before ever decoding anything (WR-03: this
+// package must not rely solely on a caller, such as the CLI layer, to
+// enforce its own "never silently overwrite the user's explicitly-saved
+// .golc contents" prohibition -- recovery.go's header doc). It then
+// decodes the chosen blob with strictjson.DecodeStrict and runs the same
+// whole-State validate() every Load/Save already enforces (CONTEXT threat
+// T-02-10, extended to recovery blobs as T-05-01) before ever calling
+// Save. An invalid or missing recovery blob is refused with
+// GOLC_SHOW_STATE_INVALID and Save is never reached -- a recovery point
+// is either fully applied (validated, then persisted through the existing
+// Save path, which itself re-validates, stamps SchemaVersion, and bumps
+// Revision exactly as any other edit would) or not applied at all, never
+// partially. Like DiscardRecoveryPoints, this is only ever invoked by an
+// explicit caller id -- this package has no auto-apply path.
 func AcceptRecoveryPoint(root, path string, id int) error {
 	db, err := openStore(root, path)
 	if err != nil {
 		return err
 	}
+
+	threshold, thresholdErr := offeredRecoveryRevision(db)
+	if thresholdErr != nil {
+		checkpointAndClose(db)
+		return thresholdErr
+	}
+
 	var blob []byte
-	scanErr := db.QueryRow(`SELECT blob FROM recovery_points WHERE id = ?`, id).Scan(&blob)
+	var revision int
+	scanErr := db.QueryRow(`SELECT blob, revision FROM recovery_points WHERE id = ?`, id).Scan(&blob, &revision)
 	closeErr := checkpointAndClose(db)
 	if scanErr != nil {
 		if errors.Is(scanErr, sql.ErrNoRows) {
-			return fmt.Errorf("GOLC_SHOW_STATE_INVALID: recovery point %d not found", id)
+			return fmt.Errorf("GOLC_SHOW_RECOVERY_NOT_FOUND: recovery point %d not found", id)
 		}
 		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: reading recovery point %d: %v", id, scanErr)
+	}
+	if revision <= threshold {
+		return fmt.Errorf("GOLC_SHOW_RECOVERY_NOT_FOUND: recovery point %d is not currently offered", id)
 	}
 	if closeErr != nil {
 		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: closing store after reading recovery point %d: %v", id, closeErr)

@@ -25,11 +25,11 @@ import (
 // GOLC_SHOW_BACKUP_FAILED; a backup that copies successfully but fails
 // read-back-and-validate is GOLC_SHOW_BACKUP_UNVERIFIABLE.
 func verifiedBackup(root, path string) (backupPath string, err error) {
-	db, err := openStore(root, path)
-	if err != nil {
-		return "", err
+	db, openErr := openStore(root, path)
+	if openErr != nil {
+		return "", openErr
 	}
-	defer checkpointAndClose(db)
+	defer closeStoreCheckingErr(db, &err)
 
 	backupPath = path + ".backup-" + time.Now().UTC().Format("20060102T150405Z")
 	resolvedBackup := resolvePath(root, backupPath)
@@ -51,12 +51,16 @@ func verifiedBackup(root, path string) (backupPath string, err error) {
 // deliberately-corrupted backup file, proving GOLC_SHOW_BACKUP_UNVERIFIABLE
 // is actually returned for an invalid backup, not merely claimed by a
 // round-trip test alone.
-func verifyBackupReadBack(root, backupPath string) error {
-	verifyDB, err := openStore(root, backupPath)
-	if err != nil {
-		return fmt.Errorf("GOLC_SHOW_BACKUP_UNVERIFIABLE: opening backup %s for verification: %v", backupPath, err)
+func verifyBackupReadBack(root, backupPath string) (err error) {
+	verifyDB, openErr := openStore(root, backupPath)
+	if openErr != nil {
+		return fmt.Errorf("GOLC_SHOW_BACKUP_UNVERIFIABLE: opening backup %s for verification: %v", backupPath, openErr)
 	}
-	defer checkpointAndClose(verifyDB)
+	defer func() {
+		if closeErr := checkpointAndClose(verifyDB); closeErr != nil && err == nil {
+			err = fmt.Errorf("GOLC_SHOW_BACKUP_UNVERIFIABLE: closing backup %s: %v", backupPath, closeErr)
+		}
+	}()
 
 	var blob []byte
 	if err := verifyDB.QueryRow(`SELECT blob FROM show_state WHERE id = 1`).Scan(&blob); err != nil {

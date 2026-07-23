@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/lnorton89/golc/internal/strictjson"
@@ -29,8 +30,14 @@ import (
 // schema_version=1 exists today (05-RESEARCH.md's Recommended Project
 // Structure note); tests inject synthetic entries to exercise the engine
 // end-to-end and MUST remove them via t.Cleanup so package-level state
-// never leaks between tests.
-var migrations = map[int]func([]byte) ([]byte, error){}
+// never leaks between tests. migrationsMu guards every read (migrateTemp)
+// and write (RegisterTestMigration) so a test run with t.Parallel() (or,
+// were this ever misused outside tests, concurrent production callers)
+// cannot race on the map (WR-04).
+var (
+	migrationsMu sync.Mutex
+	migrations   = map[int]func([]byte) ([]byte, error){}
+)
 
 // RegisterTestMigration registers fn as this build's migration transform
 // for fromVersion in the package-level migrations registry. Production
@@ -46,9 +53,22 @@ var migrations = map[int]func([]byte) ([]byte, error){}
 // packages' tests. Callers MUST invoke the returned cleanup (for example
 // via t.Cleanup) so the package-level registry never leaks state between
 // tests.
+//
+// This is a test-only seam despite being exported: Go has no
+// test-only-visibility mechanism that would let an external package's
+// _test.go file reach an unexported symbol here, so the registry and this
+// function are both real (mutex-guarded, WR-04), importable API surface.
+// Calling it outside a test is unsupported: it mutates process-wide
+// package state that migrateTemp reads on every migration.
 func RegisterTestMigration(fromVersion int, fn func([]byte) ([]byte, error)) (cleanup func()) {
+	migrationsMu.Lock()
 	migrations[fromVersion] = fn
-	return func() { delete(migrations, fromVersion) }
+	migrationsMu.Unlock()
+	return func() {
+		migrationsMu.Lock()
+		delete(migrations, fromVersion)
+		migrationsMu.Unlock()
+	}
 }
 
 // migrationMeta reads show_meta.schema_version and show_state.blob
@@ -147,12 +167,12 @@ func Migrate(root, path string) (backupPath string, err error) {
 // SchemaVersion inside one transaction, re-validates the migrated result,
 // bumps schema_version, and commits. The original working file is never
 // touched by this step -- it operates entirely on tempPath.
-func migrateTemp(root, tempPath string, fromVersion int) error {
-	db, err := openStore(root, tempPath)
-	if err != nil {
-		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: opening temp migration copy: %v", err)
+func migrateTemp(root, tempPath string, fromVersion int) (err error) {
+	db, openErr := openStore(root, tempPath)
+	if openErr != nil {
+		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: opening temp migration copy: %v", openErr)
 	}
-	defer checkpointAndClose(db)
+	defer closeStoreCheckingErr(db, &err)
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -166,7 +186,9 @@ func migrateTemp(root, tempPath string, fromVersion int) error {
 	}
 
 	for v := fromVersion; v < SchemaVersion; v++ {
+		migrationsMu.Lock()
 		fn, ok := migrations[v]
+		migrationsMu.Unlock()
 		if !ok {
 			return fmt.Errorf("GOLC_SHOW_STATE_INVALID: no migration registered for schema_version %d", v)
 		}
@@ -209,7 +231,11 @@ func migrateTemp(root, tempPath string, fromVersion int) error {
 // migrateTemp's defer and Migrate's earlier checkpointAndClose guarantee
 // that here. Any stray -wal/-shm sidecars left at the destination from a
 // prior WAL session are removed so the next Open never mixes old and new
-// content.
+// content. os.Rename only moves the temp db file itself, not its own
+// -wal/-shm sidecars (WR-05): if migrateTemp's checkpoint-then-close did
+// not fully drain them, they would otherwise be orphaned on disk under
+// the old tempPath name after the rename succeeds, so those are
+// best-effort removed too.
 func atomicReplace(root, destPath, tempPath string) error {
 	resolvedDest := resolvePath(root, destPath)
 	resolvedTemp := resolvePath(root, tempPath)
@@ -219,6 +245,8 @@ func atomicReplace(root, destPath, tempPath string) error {
 	}
 	_ = os.Remove(resolvedDest + "-wal")
 	_ = os.Remove(resolvedDest + "-shm")
+	_ = os.Remove(resolvedTemp + "-wal")
+	_ = os.Remove(resolvedTemp + "-shm")
 	return nil
 }
 
