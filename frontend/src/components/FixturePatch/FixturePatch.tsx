@@ -48,12 +48,13 @@ import {
   activateDeployment,
   addPoolMemberPreview,
   applyPatch,
+  assertOk,
   createDeployment,
   createPool,
+  errorMessage,
   listPatch,
   offlinePatchView,
   type PatchView,
-  type WailsResult,
 } from "../../lib/wailsBridge";
 // NOTE: FixturePatchService.RemovePoolMemberPreview has a bridge wrapper
 // (removePoolMemberPreview) in wailsBridge.ts, but this component has no
@@ -94,16 +95,6 @@ interface ImpactPlan {
   warnings?: { code: string; message: string }[];
   errors?: { code: string; message: string }[];
   plan_id: string;
-}
-
-function assertOk(result: WailsResult, action: string): void {
-  if (result.exitCode !== 0) {
-    throw new Error(result.stderr || `${action} failed (exit ${result.exitCode})`);
-  }
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 function parseRequires(raw: string): string[] {
