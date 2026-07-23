@@ -24,19 +24,34 @@ import (
 	"github.com/lnorton89/golc/internal/strictjson"
 )
 
+// migrateOperatorSurfacesAdditive is the schema_version 1->2 migration
+// (06-01-PLAN.md Task 2, CONTEXT PLAY-03): OperatorSurfaces was added to
+// State as an optional/omitempty field, so a genuine v1 blob (lacking the
+// "operator_surfaces" key entirely) already decodes cleanly with a nil
+// slice -- no byte transform is required, only the schema_version stamp
+// itself needs to advance, which migrateTemp already does once every
+// registered transform in the fromVersion..SchemaVersion range has run.
+func migrateOperatorSurfacesAdditive(blob []byte) ([]byte, error) {
+	return blob, nil
+}
+
 // migrations is the ordered blob-shape migration function registry keyed
 // by the schema_version a function migrates FROM (its return value is
-// the bytes at version+1). The production registry ships empty -- only
-// schema_version=1 exists today (05-RESEARCH.md's Recommended Project
-// Structure note); tests inject synthetic entries to exercise the engine
-// end-to-end and MUST remove them via t.Cleanup so package-level state
-// never leaks between tests. migrationsMu guards every read (migrateTemp)
-// and write (RegisterTestMigration) so a test run with t.Parallel() (or,
-// were this ever misused outside tests, concurrent production callers)
-// cannot race on the map (WR-04).
+// the bytes at version+1). Until this plan, the production registry
+// shipped empty -- only schema_version=1 had ever existed
+// (05-RESEARCH.md's Recommended Project Structure note); this plan
+// registers the first real production entry (1 -> 2, additive/identity).
+// Tests inject additional synthetic entries at other version slots to
+// exercise the engine end-to-end and MUST remove them via t.Cleanup so
+// package-level state never leaks between tests. migrationsMu guards
+// every read (migrateTemp) and write (RegisterTestMigration) so a test
+// run with t.Parallel() (or, were this ever misused outside tests,
+// concurrent production callers) cannot race on the map (WR-04).
 var (
 	migrationsMu sync.Mutex
-	migrations   = map[int]func([]byte) ([]byte, error){}
+	migrations   = map[int]func([]byte) ([]byte, error){
+		1: migrateOperatorSurfacesAdditive,
+	}
 )
 
 // RegisterTestMigration registers fn as this build's migration transform
