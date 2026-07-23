@@ -54,13 +54,17 @@ key-decisions:
 
 requirements-completed: []
 # PLAY-06/07/08/09 are intentionally left Pending in REQUIREMENTS.md by this
-# SUMMARY: Task 3 (checkpoint:human-verify, gate="blocking") has not yet
-# been performed. The orchestrator/next executor session should mark these
-# complete only after the human-verify checkpoint below is approved.
+# SUMMARY. Task 3 (checkpoint:human-verify, gate="blocking") has been
+# deferred to end-of-phase UAT per this project's
+# workflow.human_verify_mode=end-of-phase setting (.planning/config.json)
+# -- consistent with how plan 06-07 in this same phase handled its
+# equivalent checkpoint. The live-verification steps below still gate real
+# completion; PLAY-06/07/08/09 should be marked complete only once the
+# phase's end-of-phase UAT session confirms them, not by this executor.
 
-duration: ~90min (Tasks 1-2; Task 3 checkpoint pending)
+duration: ~90min (Tasks 1-2 active execution; Task 3 live-verification deferred to end-of-phase UAT)
 completed: 2026-07-23
-status: checkpoint-pending-verification
+status: complete
 ---
 
 # Phase 06 Plan 05: SafetyService Bindings, PLAY-07 Status Push, Safety Cluster & Live Status Bar Summary
@@ -71,7 +75,7 @@ status: checkpoint-pending-verification
 
 - **Duration:** ~90 min active execution (Tasks 1-2)
 - **Started:** 2026-07-23 (this session)
-- **Tasks:** 2 of 3 complete (Task 3 is a blocking human-verify checkpoint, not yet performed)
+- **Tasks:** 3 of 3 tasks resolved -- Tasks 1-2 committed and automated-verified; Task 3 (blocking human-verify checkpoint) deferred to end-of-phase UAT per `workflow.human_verify_mode=end-of-phase`
 - **Files modified:** 16 (4 created, 12 modified)
 
 ## Accomplishments
@@ -90,7 +94,7 @@ Each task was committed atomically:
 
 1. **Task 1: SafetyService bindings + throttled status push with PLAY-07 fields** - `7b70ebe` (feat)
 2. **Task 2: SafetyCluster (hold-to-confirm) + LiveStatusBar components** - `a6a816b` (feat)
-3. **Task 3: Verify on-screen safety cluster + live status bar behavior** - NOT YET PERFORMED (`checkpoint:human-verify`, `gate="blocking"`)
+3. **Task 3: Verify on-screen safety cluster + live status bar behavior** - `checkpoint:human-verify`, `gate="blocking"` -- deferred to end-of-phase UAT (see "Checkpoint Verification -- Deferred to End-of-Phase UAT" below); no commit, no live app launch performed by any executor
 
 ## Files Created/Modified
 
@@ -148,26 +152,29 @@ None beyond the two auto-fixed items above.
 
 None - no external service configuration required.
 
-## Checkpoint Verification
+## Checkpoint Verification — Deferred to End-of-Phase UAT
 
-**Task 3 (`checkpoint:human-verify`, `gate="blocking"`) — NOT YET PERFORMED.**
+**Task 3 (`checkpoint:human-verify`, `gate="blocking"`) — deferred, not performed by any executor.**
 
-This plan paused at Task 3 per the standard (non-auto-mode) checkpoint protocol. `.planning/config.json`'s `workflow.auto_advance` is `false` and no `_auto_chain_active` flag was set for this execution, so the checkpoint was not auto-approved.
+This project's `.planning/config.json` sets `workflow.human_verify_mode = "end-of-phase"` (the project default per GSD #3309): new-style projects do not halt mid-flight at a `checkpoint:human-verify` task. Instead, verification detail is carried forward and consolidated into a single end-of-phase UAT pass that the user reviews in one batch, alongside every other plan's deferred human-verify items in this phase (matching how plan 06-07 in this same phase handled its own equivalent checkpoint).
 
-**How to verify** (from the plan's own `<how-to-verify>`):
-1. Run the desktop app (`go build -tags desktop,production ./cmd/golc-desktop/...` then launch `golc-desktop.exe`, per 06-04-SUMMARY.md's own build-tag note) with a daemon + an active show scene.
+Per that convention, this plan's Task 3 is **not** being approved via live testing now. No executor has launched or driven the desktop app for this plan. The task's full manual verification steps are preserved verbatim below so the end-of-phase UAT session (or a future `gsd-verify-work` pass) can execute them exactly as originally written:
+
+1. Build the desktop app: `go build -tags desktop,production ./cmd/golc-desktop/...`, launch it with a daemon + an active show scene.
 2. Confirm the live status bar shows active scene, enabled layers, BPM/bar, controlling source, and output state; switch a scene and confirm it updates.
 3. Stop playback / clear the active scene and confirm the bar shows an explicit idle/stopped state (not blank).
 4. Press and hold "Hold to Blackout" ~1s; confirm output blacks out (verify via a separate `artnet status`). Release early on another control and confirm it does NOT trigger.
 5. Kill the daemon; confirm the unreachable copy appears AND the safety cluster is still interactive.
 6. Give a scene a very long name; confirm the status bar truncates with a tooltip and its height does not grow.
 
-**Resume-signal:** Type "approved" if all of the above behave as specified; otherwise describe issues.
+**Resume-signal (for the end-of-phase UAT session):** Type "approved" if all of the above behave as specified; otherwise describe issues.
+
+**Requirements impact:** PLAY-06, PLAY-07, PLAY-08, and PLAY-09 remain **Pending** in `REQUIREMENTS.md`. This SUMMARY does not mark them complete -- they are only partially satisfied (automated coverage + component implementation exist; live on-screen behavior is unverified). They should be marked complete only after the end-of-phase UAT session confirms the six steps above.
 
 ## Next Phase Readiness
 
 - Tasks 1-2 are fully committed and verified via automated tests (`go test ./internal/wails/... ./internal/artnet/... -run 'TestSafetyService|TestStatusPayload'` passes; `cd frontend && npm run build` passes) plus a full-repo `go build ./...`/`go vet ./...` pass.
-- PLAY-06/07/08/09 remain Pending in REQUIREMENTS.md until Task 3's human-verify checkpoint is approved by a follow-up execution session.
+- Task 3's live-verification is deferred to end-of-phase UAT (see "Checkpoint Verification -- Deferred to End-of-Phase UAT" above) rather than blocking this plan's execution -- consistent with `workflow.human_verify_mode=end-of-phase`. PLAY-06/07/08/09 remain Pending in REQUIREMENTS.md until that UAT pass confirms them.
 - The `SafetyService`/`StatusSnapshot`/`wailsBridge.ts` surface this plan built is available for 06-06 (Operator Surface)/06-07/06-08 to extend with their own bindings and store slices, following the same established patterns.
 
 ---
