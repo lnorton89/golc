@@ -5,12 +5,12 @@ milestone_name: milestone
 current_phase: 6
 current_phase_name: Wails Authoring and Operator Surface
 status: planning
-stopped_at: Phase 5 complete
-last_updated: "2026-07-23T07:36:04.510Z"
+stopped_at: Phase 6 context gathered
+last_updated: "2026-07-23T07:59:27.353Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 05 complete, transitioned to Phase 6
 progress:
-  total_phases: 11
+  total_phases: 7
   completed_phases: 5
   total_plans: 59
   completed_plans: 59
@@ -130,6 +130,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-23T04:23:26.937Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-durable-shows-and-recovery/05-CONTEXT.md
+Last session: 2026-07-23T07:59:27.340Z
+Stopped at: Phase 6 context gathered
+Resume file: .planning/phases/06-wails-authoring-and-operator-surface/06-CONTEXT.md
