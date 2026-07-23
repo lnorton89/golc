@@ -10,13 +10,13 @@
 // UI-binding exercise against a stable backend, architecturally identical
 // to 06-07's OperatorSurface.tsx/SurfaceService wiring.
 //
-// All Go-bound calls go through window.go.wails.FixturePatchService
-// (Wails v2's runtime-injected bridge for internal/wails.FixturePatchService);
-// this file owns every FixturePatchService call in the component tree, and
-// casts through wailsBridge.ts's shared `window.go.wails` ambient
-// declaration -- never re-declares `declare global` itself (the same
-// Wave-3 post-merge collision OperatorSurface.tsx/MidiPanel.tsx's own
-// comments document).
+// All Go-bound calls go through frontend/src/lib/wailsBridge.ts's
+// FixturePatchService helpers (createPool/addPoolMemberPreview/
+// removePoolMemberPreview/applyPatch/createDeployment/activateDeployment/
+// listPatch) -- this file never re-declares `declare global` itself (the
+// same Wave-3 post-merge collision ArtnetConfig.tsx/SceneProgramming.tsx's
+// own comments document) and never adds a second pool/deployment mutation
+// path.
 //
 // Universe/address are never manually entered anywhere in this component
 // (06-10-PLAN.md's flagged assumption): the add-fixture control only
@@ -44,50 +44,32 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import {
+  activateDeployment,
+  addPoolMemberPreview,
+  applyPatch,
+  createDeployment,
+  createPool,
+  listPatch,
+  offlinePatchView,
+  type PatchView,
+  type WailsResult,
+} from "../../lib/wailsBridge";
+// NOTE: FixturePatchService.RemovePoolMemberPreview has a bridge wrapper
+// (removePoolMemberPreview) in wailsBridge.ts, but this component has no
+// remove-member control yet -- matching the pre-existing binding
+// declaration's own scope (declared, never called).
 import styles from "./FixturePatch.module.css";
 
 // ---------------------------------------------------------------------------
-// Types (mirror internal/wails/svc_fixturepatch.go's JSON shapes field-for-
-// field; ImpactPlan/ImpactOperation mirror internal/pool/impact.go's own
+// Types (ImpactPlan/ImpactOperation mirror internal/pool/impact.go's own
 // snake_case json tags exactly, since AddPoolMemberPreview/
 // RemovePoolMemberPreview return that plan's raw canonical encoding
 // verbatim in Result.stdout -- never re-cased through the camelCase
-// convention this file's own PatchView types use)
+// convention wailsBridge.ts's PatchView/etc. types use); PatchView and its
+// nested view types are declared once, centrally, in wailsBridge.ts (WR-01)
+// -- imported above rather than re-declared here.
 // ---------------------------------------------------------------------------
-
-interface PatchPoolMemberView {
-  id: string;
-  fixtureStableKey: string;
-  fixtureContentHash: string;
-}
-
-interface PatchPoolView {
-  id: string;
-  name: string;
-  requiredCapabilities?: string[];
-  members: PatchPoolMemberView[];
-}
-
-interface PatchInstanceView {
-  id: string;
-  poolId: string;
-  poolMemberId: string;
-  mode: string;
-  universe: number;
-  address: number;
-}
-
-interface PatchDeploymentView {
-  id: string;
-  name: string;
-  active: boolean;
-  instances: PatchInstanceView[];
-}
-
-interface PatchView {
-  pools: PatchPoolView[];
-  deployments: PatchDeploymentView[];
-}
 
 interface ImpactOperation {
   dependent_kind: string;
@@ -114,39 +96,7 @@ interface ImpactPlan {
   plan_id: string;
 }
 
-interface GoResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
-interface FixturePatchServiceBinding {
-  CreatePool(name: string, requires: string[]): Promise<GoResult>;
-  AddPoolMemberPreview(
-    poolName: string,
-    stableKey: string,
-    contentHash: string,
-    mode: string,
-  ): Promise<GoResult>;
-  RemovePoolMemberPreview(poolName: string, memberId: string): Promise<GoResult>;
-  ApplyPatch(planId: string): Promise<GoResult>;
-  CreateDeployment(name: string): Promise<GoResult>;
-  ActivateDeployment(name: string): Promise<GoResult>;
-  ListPatch(): Promise<PatchView>;
-}
-
-// The `Window.go.wails` global shape itself is declared once, centrally, in
-// src/lib/wailsBridge.ts -- declaring it here too would collide with that
-// file's declaration under TypeScript's declaration-merging rules (see
-// OperatorSurface.tsx's identical comment). Cast through that shared shape
-// locally instead.
-function fixturePatchService(): FixturePatchServiceBinding | undefined {
-  return window.go?.wails?.FixturePatchService as unknown as
-    | FixturePatchServiceBinding
-    | undefined;
-}
-
-function assertOk(result: GoResult, action: string): void {
+function assertOk(result: WailsResult, action: string): void {
   if (result.exitCode !== 0) {
     throw new Error(result.stderr || `${action} failed (exit ${result.exitCode})`);
   }
@@ -169,7 +119,7 @@ interface PendingPreview {
 }
 
 export default function FixturePatch() {
-  const [patch, setPatch] = useState<PatchView | null>(null);
+  const [patch, setPatch] = useState<PatchView>(offlinePatchView());
   const [listLoading, setListLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -187,16 +137,8 @@ export default function FixturePatch() {
   const [newDeploymentName, setNewDeploymentName] = useState("");
 
   const refreshPatch = useCallback(async (): Promise<void> => {
-    const svc = fixturePatchService();
-    if (!svc) {
-      setError(
-        "GOLC_WAILS_BRIDGE_UNAVAILABLE: not running inside the GOLC desktop shell",
-      );
-      setListLoading(false);
-      return;
-    }
     try {
-      const view = await svc.ListPatch();
+      const view = await listPatch();
       setPatch(view);
       setError(null);
     } catch (err) {
@@ -215,15 +157,8 @@ export default function FixturePatch() {
     if (trimmed === "") {
       return;
     }
-    const svc = fixturePatchService();
-    if (!svc) {
-      setError(
-        "GOLC_WAILS_BRIDGE_UNAVAILABLE: not running inside the GOLC desktop shell",
-      );
-      return;
-    }
     try {
-      const result = await svc.CreatePool(trimmed, parseRequires(newPoolRequires));
+      const result = await createPool(trimmed, parseRequires(newPoolRequires));
       assertOk(result, "CreatePool");
       setNewPoolName("");
       setNewPoolRequires("");
@@ -245,16 +180,9 @@ export default function FixturePatch() {
     if (!addPoolTarget) {
       return;
     }
-    const svc = fixturePatchService();
-    if (!svc) {
-      setError(
-        "GOLC_WAILS_BRIDGE_UNAVAILABLE: not running inside the GOLC desktop shell",
-      );
-      return;
-    }
     setPreviewLoading(true);
     try {
-      const result = await svc.AddPoolMemberPreview(
+      const result = await addPoolMemberPreview(
         addPoolTarget,
         addStableKey.trim(),
         addContentHash.trim(),
@@ -275,16 +203,9 @@ export default function FixturePatch() {
     if (!pendingPreview) {
       return;
     }
-    const svc = fixturePatchService();
-    if (!svc) {
-      setError(
-        "GOLC_WAILS_BRIDGE_UNAVAILABLE: not running inside the GOLC desktop shell",
-      );
-      return;
-    }
     setApplyLoading(true);
     try {
-      const result = await svc.ApplyPatch(pendingPreview.plan.plan_id);
+      const result = await applyPatch(pendingPreview.plan.plan_id);
       assertOk(result, "ApplyPatch");
       setPendingPreview(null);
       setAddPoolTarget(null);
@@ -305,15 +226,8 @@ export default function FixturePatch() {
     if (trimmed === "") {
       return;
     }
-    const svc = fixturePatchService();
-    if (!svc) {
-      setError(
-        "GOLC_WAILS_BRIDGE_UNAVAILABLE: not running inside the GOLC desktop shell",
-      );
-      return;
-    }
     try {
-      const result = await svc.CreateDeployment(trimmed);
+      const result = await createDeployment(trimmed);
       assertOk(result, "CreateDeployment");
       setNewDeploymentName("");
       await refreshPatch();
@@ -323,15 +237,8 @@ export default function FixturePatch() {
   };
 
   const handleActivateDeployment = async (name: string) => {
-    const svc = fixturePatchService();
-    if (!svc) {
-      setError(
-        "GOLC_WAILS_BRIDGE_UNAVAILABLE: not running inside the GOLC desktop shell",
-      );
-      return;
-    }
     try {
-      const result = await svc.ActivateDeployment(name);
+      const result = await activateDeployment(name);
       assertOk(result, "ActivateDeployment");
       await refreshPatch();
     } catch (err) {
@@ -339,8 +246,8 @@ export default function FixturePatch() {
     }
   };
 
-  const pools = patch?.pools ?? [];
-  const deployments = patch?.deployments ?? [];
+  const pools = patch.pools;
+  const deployments = patch.deployments;
 
   return (
     <section
