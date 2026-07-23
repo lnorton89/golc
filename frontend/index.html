@@ -3,10 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
-    />
+    <!-- WR-02 fix: Archivo/JetBrains Mono are self-hosted via
+         @fontsource/archivo and @fontsource/jetbrains-mono (imported by
+         main.tsx), bundled by vite build -- this desktop shell has no
+         runtime network dependency for its own chrome (a lighting-console
+         app is a plausible candidate for an isolated/offline show
+         network). This tag intentionally no longer points at
+         fonts.googleapis.com. -->
     <title>GOLC</title>
   </head>
   <body>
