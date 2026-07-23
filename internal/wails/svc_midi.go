@@ -384,6 +384,19 @@ func (s *MidiService) StartLearn(surfaceName string, controlRef ControlRefInput)
 	}
 
 	if err := midi.ProposeMapping(controlKeysOf(surface.MidiMappings), candidate); err != nil {
+		// Look up which existing mapping collided so the diagnostic can
+		// embed the exact 06-UI-SPEC.md mapping-conflict copy ("That
+		// Note/CC is already mapped to {control name}. Remove the
+		// existing mapping before assigning it here.") verbatim after the
+		// GOLC_MIDI_MAPPING_CONFLICT prefix -- the frontend strips the
+		// prefix and renders the remainder as-is, rather than needing to
+		// re-derive a control name from the raw error alone.
+		if conflicting, found := findConflictingMapping(surface.MidiMappings, candidate); found {
+			return Result{ExitCode: 1, Stderr: fmt.Sprintf(
+				"GOLC_MIDI_MAPPING_CONFLICT: That Note/CC is already mapped to %q. Remove the existing mapping before assigning it here.\n",
+				controlRefLabel(state, conflicting.Target),
+			)}
+		}
 		return Result{ExitCode: 1, Stderr: err.Error() + "\n"}
 	}
 
@@ -576,6 +589,14 @@ func findMapping(mappings []operatorsurface.MidiMapping, key midi.ControlKey) (o
 		}
 	}
 	return operatorsurface.MidiMapping{}, false
+}
+
+// findConflictingMapping returns the mapping in mappings whose (Channel,
+// Kind, Number) tuple matches candidate -- the same equality
+// midi.ProposeMapping checks, used here only to recover the conflicting
+// mapping's Target for the UI-SPEC mapping-conflict copy (StartLearn).
+func findConflictingMapping(mappings []operatorsurface.MidiMapping, candidate midi.ControlKey) (operatorsurface.MidiMapping, bool) {
+	return findMapping(mappings, candidate)
 }
 
 // controlKeysOf converts surface mappings into midi.ControlKey values for

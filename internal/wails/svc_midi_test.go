@@ -185,6 +185,11 @@ func TestMidiServiceStartLearnRejectsConflictOnSameSurfaceButNotOther(t *testing
 	if second.ExitCode == 0 || !strings.Contains(second.Stderr, "GOLC_MIDI_MAPPING_CONFLICT") {
 		t.Fatalf("expected GOLC_MIDI_MAPPING_CONFLICT, got exit=%d stderr=%s", second.ExitCode, second.Stderr)
 	}
+	// 06-UI-SPEC.md's exact mapping-conflict copy embeds the conflicting
+	// control's own label ("Blackout"), not the newly-attempted target's.
+	if !strings.Contains(second.Stderr, "already mapped to \"Blackout\"") {
+		t.Fatalf("expected the UI-SPEC mapping-conflict copy naming the existing control, got stderr=%s", second.Stderr)
+	}
 	mappings, err := svc.ListMappings("Front of House")
 	if err != nil {
 		t.Fatalf("ListMappings: %v", err)
