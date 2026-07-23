@@ -353,6 +353,23 @@ func AddMidiMapping(s Surface, candidate MidiMapping) (Surface, error) {
 	return clone, nil
 }
 
+// RemoveMidiMapping returns a copy of s with the mapping whose ID matches
+// mappingID removed from MidiMappings (06-08-PLAN.md Task 2's
+// RemoveMapping). Removing a mapping not present is a no-op, mirroring
+// every other Unassign* mutator's idempotent-if-absent discipline in this
+// file.
+func RemoveMidiMapping(s Surface, mappingID uuid.UUID) Surface {
+	clone := cloneSurface(s)
+	filtered := make([]MidiMapping, 0, len(clone.MidiMappings))
+	for _, m := range clone.MidiMappings {
+		if m.ID != mappingID {
+			filtered = append(filtered, m)
+		}
+	}
+	clone.MidiMappings = filtered
+	return clone
+}
+
 // IsAssigned reports whether ref is currently a member of s's assignment
 // set (SceneRefs/LayerRefs/MasterRefs/SafetyRefs, selected by ref.Kind).
 // This is the membership check internal/command/operatorsurface.go's
