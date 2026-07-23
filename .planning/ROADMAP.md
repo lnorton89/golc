@@ -417,11 +417,12 @@ Plans:
 | 8. Isolated TypeScript Automation | 0/TBD | Not started | - |
 | 9. Provider-Neutral AI and Bounded Autonomy | 0/TBD | Not started | - |
 | 10. Windows Release Qualification | 0/TBD | Not started | - |
+| 11. Telemetry, Usage Statistics, and Auto Crash Submission Pipeline | 0/TBD | Not started | - |
 
 ### Phase 11: Telemetry, Usage Statistics, and Auto Crash Submission Pipeline
 
 **Goal:** Users can opt into anonymized usage/telemetry collection and crashes are automatically captured and submitted for diagnosis without blocking playback or requiring manual repro steps.
-**Requirements:** TBD
+**Requirements:** TELE-01, TELE-02, TELE-03, TELE-04
 **Depends on:** Phase 10
 **Plans:** 0 plans
 

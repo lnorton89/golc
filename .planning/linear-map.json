@@ -1541,6 +1541,300 @@
       "parent_local_id": "plan:05-05",
       "display": "Task 2: Newer-format refusal across mutating show routes (D-10)",
       "source": ".planning/phases/05-durable-shows-and-recovery/05-05-PLAN.md"
+    },
+    {
+      "local_id": "phase:06",
+      "kind": "phase",
+      "parent_local_id": "milestone:v1",
+      "display": "Wails Authoring and Operator Surface",
+      "source": ".planning/ROADMAP.md"
+    },
+    {
+      "local_id": "req:PLAY-01",
+      "kind": "req",
+      "parent_local_id": "phase:06",
+      "display": "An operator can access the complete playback workflow through on-screen controls.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:PLAY-02",
+      "kind": "req",
+      "parent_local_id": "phase:06",
+      "display": "An operator can access the complete playback workflow through documented keyboard controls.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:PLAY-03",
+      "kind": "req",
+      "parent_local_id": "phase:06",
+      "display": "A show author can create a constrained operator surface that exposes only assigned scenes, layers, masters, and safety controls.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:PLAY-04",
+      "kind": "req",
+      "parent_local_id": "phase:06",
+      "display": "A show author can map generic MIDI Note and Control Change input to supported playback commands.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:PLAY-05",
+      "kind": "req",
+      "parent_local_id": "phase:06",
+      "display": "MIDI fader mappings support soft takeover so connecting or moving a controller does not cause unintended value jumps.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:PLAY-06",
+      "kind": "req",
+      "parent_local_id": "phase:06",
+      "display": "An operator can control group masters, a Grand Master, stop/release-all, and an immediate blackout.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:PLAY-07",
+      "kind": "req",
+      "parent_local_id": "phase:06",
+      "display": "An operator can see the active scene, enabled layers, current BPM/bar position, controlling source, and final output state.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:PLAY-08",
+      "kind": "req",
+      "parent_local_id": "phase:06",
+      "display": "Revoke Automation immediately blocks AI and scripts, cancels their queued actions, freezes the current look, and returns control to manual operation without requiring those runtimes to respond.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:PLAY-09",
+      "kind": "req",
+      "parent_local_id": "phase:06",
+      "display": "Blackout remains a separate local priority control that does not depend on the UI, script runtime, API, or LLM provider completing work.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "plan:06-01",
+      "kind": "plan",
+      "parent_local_id": "phase:06",
+      "display": "Plan 06-01",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-01-PLAN.md"
+    },
+    {
+      "local_id": "task:06-01.1",
+      "kind": "task",
+      "parent_local_id": "plan:06-01",
+      "display": "Task 1: operatorsurface model — named surfaces, individual-item refs, per-surface MIDI mappings",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-01-PLAN.md"
+    },
+    {
+      "local_id": "task:06-01.2",
+      "kind": "task",
+      "parent_local_id": "plan:06-01",
+      "display": "Task 2: operatorsurface validation wired into show.State, with additive schema migration",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-01-PLAN.md"
+    },
+    {
+      "local_id": "task:06-01.3",
+      "kind": "task",
+      "parent_local_id": "plan:06-01",
+      "display": "Task 3: operatorsurface CLI routes + server-side visible-but-locked authorization",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-01-PLAN.md"
+    },
+    {
+      "local_id": "plan:06-02",
+      "kind": "plan",
+      "parent_local_id": "phase:06",
+      "display": "Plan 06-02",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-02-PLAN.md"
+    },
+    {
+      "local_id": "task:06-02.1",
+      "kind": "task",
+      "parent_local_id": "plan:06-02",
+      "display": "Task 1: safety.go — atomic override state + pure applyOverrides transform",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-02-PLAN.md"
+    },
+    {
+      "local_id": "task:06-02.2",
+      "kind": "task",
+      "parent_local_id": "plan:06-02",
+      "display": "Task 2: wire applyOverrides into the Worker tick + daemon IPC routes (local-priority path)",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-02-PLAN.md"
+    },
+    {
+      "local_id": "task:06-02.3",
+      "kind": "task",
+      "parent_local_id": "plan:06-02",
+      "display": "Task 3: CLI client routes for safety + masters",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-02-PLAN.md"
+    },
+    {
+      "local_id": "plan:06-03",
+      "kind": "plan",
+      "parent_local_id": "phase:06",
+      "display": "Plan 06-03",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-03-PLAN.md"
+    },
+    {
+      "local_id": "task:06-03.1",
+      "kind": "task",
+      "parent_local_id": "plan:06-03",
+      "display": "Task 1: takeover.go — cross-to-catch soft-takeover state machine",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-03-PLAN.md"
+    },
+    {
+      "local_id": "task:06-03.2",
+      "kind": "task",
+      "parent_local_id": "plan:06-03",
+      "display": "Task 2: learn.go — bounded capture candidate + conflict rejection",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-03-PLAN.md"
+    },
+    {
+      "local_id": "plan:06-04",
+      "kind": "plan",
+      "parent_local_id": "phase:06",
+      "display": "Plan 06-04",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-04-PLAN.md"
+    },
+    {
+      "local_id": "task:06-04.2",
+      "kind": "task",
+      "parent_local_id": "plan:06-04",
+      "display": "Task 1: Go host — Wails lifecycle, daemon supervision, OS-level safety hotkeys, binding stubs",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-04-PLAN.md"
+    },
+    {
+      "local_id": "task:06-04.3",
+      "kind": "task",
+      "parent_local_id": "plan:06-04",
+      "display": "Task 2: Wails scaffold + entrypoint + React shell with region-component stubs",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-04-PLAN.md"
+    },
+    {
+      "local_id": "plan:06-05",
+      "kind": "plan",
+      "parent_local_id": "phase:06",
+      "display": "Plan 06-05",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-05-PLAN.md"
+    },
+    {
+      "local_id": "task:06-05.1",
+      "kind": "task",
+      "parent_local_id": "plan:06-05",
+      "display": "Task 1: SafetyService bindings + throttled status push with PLAY-07 fields",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-05-PLAN.md"
+    },
+    {
+      "local_id": "task:06-05.2",
+      "kind": "task",
+      "parent_local_id": "plan:06-05",
+      "display": "Task 2: SafetyCluster (hold-to-confirm) + LiveStatusBar components",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-05-PLAN.md"
+    },
+    {
+      "local_id": "plan:06-06",
+      "kind": "plan",
+      "parent_local_id": "phase:06",
+      "display": "Plan 06-06",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-06-PLAN.md"
+    },
+    {
+      "local_id": "task:06-06.1",
+      "kind": "task",
+      "parent_local_id": "plan:06-06",
+      "display": "Task 1: PlaybackService bindings over the existing command registry",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-06-PLAN.md"
+    },
+    {
+      "local_id": "task:06-06.2",
+      "kind": "task",
+      "parent_local_id": "plan:06-06",
+      "display": "Task 2: On-screen playback controls + in-webview keyboard workflow + shortcut reference",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-06-PLAN.md"
+    },
+    {
+      "local_id": "plan:06-07",
+      "kind": "plan",
+      "parent_local_id": "phase:06",
+      "display": "Plan 06-07",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-07-PLAN.md"
+    },
+    {
+      "local_id": "task:06-07.1",
+      "kind": "task",
+      "parent_local_id": "plan:06-07",
+      "display": "Task 1: SurfaceService bindings with server-side visible-but-locked authorization",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-07-PLAN.md"
+    },
+    {
+      "local_id": "task:06-07.2",
+      "kind": "task",
+      "parent_local_id": "plan:06-07",
+      "display": "Task 2: SurfaceList + in-place AssignmentToggle + visible-but-locked OperatorSurface renderer",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-07-PLAN.md"
+    },
+    {
+      "local_id": "plan:06-08",
+      "kind": "plan",
+      "parent_local_id": "phase:06",
+      "display": "Plan 06-08",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-08-PLAN.md"
+    },
+    {
+      "local_id": "task:06-08.2",
+      "kind": "task",
+      "parent_local_id": "plan:06-08",
+      "display": "Task 1: internal/midi/driver.go — gomidi + midicatdrv device I/O",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-08-PLAN.md"
+    },
+    {
+      "local_id": "task:06-08.3",
+      "kind": "task",
+      "parent_local_id": "plan:06-08",
+      "display": "Task 2: MidiService — per-control learn, per-surface conflict-checked persistence, takeover arbitration",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-08-PLAN.md"
+    },
+    {
+      "local_id": "task:06-08.4",
+      "kind": "task",
+      "parent_local_id": "plan:06-08",
+      "display": "Task 3: MidiPanel — per-control Learn affordance, mapping list, soft-takeover slider",
+      "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-08-PLAN.md"
+    },
+    {
+      "local_id": "phase:11",
+      "kind": "phase",
+      "parent_local_id": "milestone:v1",
+      "display": "Telemetry, Usage Statistics, and Auto Crash Submission Pipeline",
+      "source": ".planning/ROADMAP.md"
+    },
+    {
+      "local_id": "req:TELE-01",
+      "kind": "req",
+      "parent_local_id": "phase:11",
+      "display": "A user can explicitly opt into usage/telemetry collection; collection stays off by default and nothing is sent before that opt-in.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:TELE-02",
+      "kind": "req",
+      "parent_local_id": "phase:11",
+      "display": "Collected usage/telemetry data is anonymized before it ever leaves the device.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:TELE-03",
+      "kind": "req",
+      "parent_local_id": "phase:11",
+      "display": "A crash is automatically captured and submitted for diagnosis without the user having to manually reproduce or describe it.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:TELE-04",
+      "kind": "req",
+      "parent_local_id": "phase:11",
+      "display": "Telemetry and crash submission never block or degrade live playback or Art-Net output.",
+      "source": ".planning/REQUIREMENTS.md"
     }
   ],
   "remote_mappings": [
@@ -3282,6 +3576,342 @@
     },
     {
       "repo_id": "task:05-05.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "phase:06",
+      "linear_type": "project_milestone",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PLAY-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PLAY-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PLAY-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PLAY-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PLAY-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PLAY-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PLAY-07",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PLAY-08",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:PLAY-09",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:06-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-01.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-01.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-01.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:06-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-02.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-02.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-02.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:06-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-03.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-03.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:06-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-04.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-04.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:06-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-05.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-05.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:06-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-06.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-06.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:06-07",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-07.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-07.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:06-08",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-08.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-08.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:06-08.4",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "phase:11",
+      "linear_type": "project_milestone",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:TELE-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:TELE-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:TELE-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:TELE-04",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,

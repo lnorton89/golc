@@ -136,6 +136,13 @@
 - [x] **LINR-03**: A contributor can preview and run an idempotent reconciliation that creates or updates the intended Linear project, milestones, issues, and sub-issues without duplicating retried work.
 - [x] **LINR-04**: Linear synchronization reports ambiguity, partial GraphQL errors, pagination, and rate limiting without blocking local planning, builds, tests, or application runtime.
 
+### Telemetry and Crash Reporting
+
+- [ ] **TELE-01**: A user can explicitly opt into usage/telemetry collection; collection stays off by default and nothing is sent before that opt-in.
+- [ ] **TELE-02**: Collected usage/telemetry data is anonymized before it ever leaves the device.
+- [ ] **TELE-03**: A crash is automatically captured and submitted for diagnosis without the user having to manually reproduce or describe it.
+- [ ] **TELE-04**: Telemetry and crash submission never block or degrade live playback or Art-Net output.
+
 ## v1.x Requirements
 
 ### Cross-Show Modules
@@ -281,11 +288,15 @@ A v1 requirement is complete only when its implementation is committed, automate
 | LINR-02 | Phase 1 | Complete |
 | LINR-03 | Phase 1 | Complete |
 | LINR-04 | Phase 1 | Complete |
+| TELE-01 | Phase 11 | Pending |
+| TELE-02 | Phase 11 | Pending |
+| TELE-03 | Phase 11 | Pending |
+| TELE-04 | Phase 11 | Pending |
 
 **Coverage:**
 
-- v1 requirements: 84
-- Mapped to phases: 84
+- v1 requirements: 88
+- Mapped to phases: 88
 - Unmapped: 0
 
 ---
