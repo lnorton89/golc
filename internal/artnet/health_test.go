@@ -201,3 +201,66 @@ func TestHealthRecordEncodeErrorEmitsStructuredLogLine(t *testing.T) {
 		t.Fatalf("expected log line to contain universe=7, got %q", logLine)
 	}
 }
+
+// TestHealthRecordUniverseValuesSnapshotReflectsConfiguredUniverse proves
+// the ARTN-05 gap-closure contract: RecordUniverseValues on a configured
+// universe is reflected verbatim in the next Snapshot's UniverseValues.
+func TestHealthRecordUniverseValuesSnapshotReflectsConfiguredUniverse(t *testing.T) {
+	target := Target{Universe: 1, IP: net.ParseIP("10.0.0.5"), Port: artNetPort, Enabled: true}
+	h := NewHealth()
+	h.Configure(map[int][]Target{1: {target}})
+
+	buf := make([]byte, channelsPerUniverse)
+	buf[0] = 42
+	buf[10] = 200
+	h.RecordUniverseValues(1, buf)
+
+	snap := h.Snapshot()
+	got, ok := snap.UniverseValues[1]
+	if !ok {
+		t.Fatal("expected a tracked UniverseValues entry for configured universe 1")
+	}
+	if !bytes.Equal(got, buf) {
+		t.Fatalf("expected recorded universe values to equal %v, got %v", buf, got)
+	}
+}
+
+// TestHealthUnconfiguredUniverseValuesNeverTracked proves the Security
+// Domain T-04-04 DoS bound extended to per-universe values: an
+// unconfigured universe never gains a UniverseValues tracking entry.
+func TestHealthUnconfiguredUniverseValuesNeverTracked(t *testing.T) {
+	target := Target{Universe: 1, IP: net.ParseIP("10.0.0.5"), Port: artNetPort, Enabled: true}
+	h := NewHealth()
+	h.Configure(map[int][]Target{1: {target}})
+
+	h.RecordUniverseValues(2, make([]byte, channelsPerUniverse))
+
+	snap := h.Snapshot()
+	if _, ok := snap.UniverseValues[2]; ok {
+		t.Fatal("expected an unconfigured universe to never gain a UniverseValues tracking entry")
+	}
+	if len(snap.UniverseValues) != 0 {
+		t.Fatalf("expected exactly 0 tracked universe values (universe 1 never recorded), got %d", len(snap.UniverseValues))
+	}
+}
+
+// TestHealthRecordUniverseValuesIsDefensivelyCopied proves
+// RecordUniverseValues takes a defensive copy: mutating the caller's
+// buffer after recording must never change the published snapshot.
+func TestHealthRecordUniverseValuesIsDefensivelyCopied(t *testing.T) {
+	target := Target{Universe: 1, IP: net.ParseIP("10.0.0.5"), Port: artNetPort, Enabled: true}
+	h := NewHealth()
+	h.Configure(map[int][]Target{1: {target}})
+
+	buf := make([]byte, channelsPerUniverse)
+	buf[0] = 5
+	h.RecordUniverseValues(1, buf)
+
+	buf[0] = 250
+
+	snap := h.Snapshot()
+	got := snap.UniverseValues[1]
+	if got[0] != 5 {
+		t.Fatalf("expected the recorded snapshot to be unaffected by a later mutation of the caller's buffer, got byte %d", got[0])
+	}
+}

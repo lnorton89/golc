@@ -675,10 +675,21 @@ func runArtnetTargetDisable(request Request) Result {
 // artnetStatusPayload mirrors internal/artnet/daemon.go's own
 // statusPayload wire shape exactly (same json tags) so DecodeStrict can
 // parse "artnet status"'s Result.Stdout back into typed
-// artnet.FrameHealth/artnet.TargetHealth values for rendering.
+// artnet.FrameHealth/artnet.TargetHealth/artnetUniverseValues values for
+// rendering.
 type artnetStatusPayload struct {
-	Frame   artnet.FrameHealth    `json:"frame"`
-	Targets []artnet.TargetHealth `json:"targets"`
+	Frame     artnet.FrameHealth     `json:"frame"`
+	Targets   []artnet.TargetHealth  `json:"targets"`
+	Universes []artnetUniverseValues `json:"universes"`
+}
+
+// artnetUniverseValues mirrors internal/artnet/daemon.go's own
+// universeValues wire shape exactly (same json tags) so DecodeStrict can
+// round-trip the daemon's per-universe final DMX buffer (04-08-PLAN.md,
+// ARTN-05).
+type artnetUniverseValues struct {
+	Universe int    `json:"universe"`
+	Values   []byte `json:"values"`
 }
 
 // displayPort mirrors internal/artnet's own unexported default-port
@@ -695,7 +706,8 @@ func displayPort(t artnet.Target) int {
 // readable per-universe/target status table D-11 requires: frame
 // cadence/staleness on its own summary line, then one row per configured
 // target with send success/error counts, reachability, and the last
-// recorded error (if any).
+// recorded error (if any), then one GOLC_ARTNET_UNIVERSE line per
+// configured universe's final DMX values (04-08-PLAN.md, ARTN-05).
 func renderArtnetStatusPlain(payload artnetStatusPayload) []byte {
 	var b strings.Builder
 
@@ -716,6 +728,18 @@ func renderArtnetStatusPlain(payload artnetStatusPayload) []byte {
 			t.Universe, t.Target.IP.String(), displayPort(t.Target), t.Target.Enabled,
 			t.SendOK, t.SendErr, t.Reachable, t.LastError)
 	}
+
+	for _, u := range payload.Universes {
+		pairs := make([]string, 0)
+		for i, v := range u.Values {
+			if v != 0 {
+				pairs = append(pairs, fmt.Sprintf("%d=%d", i+1, v))
+			}
+		}
+		fmt.Fprintf(&b, "GOLC_ARTNET_UNIVERSE: universe=%d channels=%d nonzero=%d values=[%s]\n",
+			u.Universe, len(u.Values), len(pairs), strings.Join(pairs, " "))
+	}
+
 	return []byte(b.String())
 }
 

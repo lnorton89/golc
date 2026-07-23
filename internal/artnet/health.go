@@ -103,31 +103,39 @@ type TargetHealth struct {
 // HealthSnapshot is the immutable, concurrently-readable status Snapshot
 // publishes (D-11).
 type HealthSnapshot struct {
-	Frame   FrameHealth
-	Targets map[targetKey]TargetHealth
+	Frame          FrameHealth
+	Targets        map[targetKey]TargetHealth
+	UniverseValues map[int][]byte
 }
 
 // Health accumulates frame/target health (D-09/D-10) from the worker's
 // concurrent tick/send goroutines. See package doc comment for the
 // bounded-tracking and lock-free-read design.
 type Health struct {
-	lastFrameAtNano atomic.Int64
-	targetsPtr      atomic.Pointer[map[targetKey]TargetHealth]
+	lastFrameAtNano   atomic.Int64
+	targetsPtr        atomic.Pointer[map[targetKey]TargetHealth]
+	universeValuesPtr atomic.Pointer[map[int][]byte]
 
-	mu         sync.Mutex
-	targets    map[targetKey]TargetHealth
-	configured map[targetKey]bool
+	mu                  sync.Mutex
+	targets             map[targetKey]TargetHealth
+	configured          map[targetKey]bool
+	universeValues      map[int][]byte
+	configuredUniverses map[int]bool
 }
 
 // NewHealth returns a Health with no configured targets and no recorded
 // frame yet (frame health starts stalled until the first RecordFrame).
 func NewHealth() *Health {
 	h := &Health{
-		targets:    map[targetKey]TargetHealth{},
-		configured: map[targetKey]bool{},
+		targets:             map[targetKey]TargetHealth{},
+		configured:          map[targetKey]bool{},
+		universeValues:      map[int][]byte{},
+		configuredUniverses: map[int]bool{},
 	}
 	empty := map[targetKey]TargetHealth{}
 	h.targetsPtr.Store(&empty)
+	emptyValues := map[int][]byte{}
+	h.universeValuesPtr.Store(&emptyValues)
 	return h
 }
 
@@ -169,6 +177,12 @@ func (h *Health) Configure(targets map[int][]Target) {
 		}
 	}
 	h.publishTargetsLocked()
+
+	h.configuredUniverses = map[int]bool{}
+	for universe := range targets {
+		h.configuredUniverses[universe] = true
+	}
+	h.publishUniverseValuesLocked()
 }
 
 // RecordFrame records that the worker read a frame at readAt (D-09).
@@ -236,6 +250,35 @@ func (h *Health) publishTargetsLocked() {
 	h.targetsPtr.Store(&fresh)
 }
 
+// RecordUniverseValues records universe's final per-tick DMX buffer
+// (the worker's already-computed buffer, previously discarded after
+// building the outbound ArtDMX packet). Bounded to the configured
+// universe set (Security Domain T-04-04): a universe never declared via
+// Configure is silently dropped, never allocating a new tracking entry.
+// data is defensively copied before storage -- the published snapshot
+// must never alias a caller buffer a later tick could reuse or a
+// concurrent reader could observe mid-mutation.
+func (h *Health) RecordUniverseValues(universe int, data []byte) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if !h.configuredUniverses[universe] {
+		return
+	}
+	h.universeValues[universe] = append([]byte(nil), data...)
+	h.publishUniverseValuesLocked()
+}
+
+// publishUniverseValuesLocked republishes a fresh copy of
+// h.universeValues into universeValuesPtr. Callers must hold h.mu.
+func (h *Health) publishUniverseValuesLocked() {
+	fresh := make(map[int][]byte, len(h.universeValues))
+	for k, v := range h.universeValues {
+		fresh[k] = v
+	}
+	h.universeValuesPtr.Store(&fresh)
+}
+
 // Snapshot returns the current health status via non-blocking reads --
 // safe to call from any goroutine (e.g. a concurrent CLI/IPC status
 // handler) without ever taking the send path's own mutex.
@@ -245,8 +288,14 @@ func (h *Health) Snapshot() HealthSnapshot {
 	if ptr != nil {
 		targets = *ptr
 	}
+	valuesPtr := h.universeValuesPtr.Load()
+	universeValues := map[int][]byte{}
+	if valuesPtr != nil {
+		universeValues = *valuesPtr
+	}
 	return HealthSnapshot{
-		Frame:   evaluateFrameHealth(h.loadLastFrameAt(), time.Now()),
-		Targets: targets,
+		Frame:          evaluateFrameHealth(h.loadLastFrameAt(), time.Now()),
+		Targets:        targets,
+		UniverseValues: universeValues,
 	}
 }

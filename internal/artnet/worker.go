@@ -271,9 +271,12 @@ func (w *Worker) nextSeq(universe int) uint8 {
 // tick reads frame (via CurrentFrame(), called by Start's own goroutine
 // -- never blocking) and, for each configured universe, builds that
 // universe's own DMX buffer (scoped to only that universe's instances, so
-// an encode error in one universe never blocks another's tick) and fans
-// out to its enabled targets via dispatchSend, which never blocks tick
-// itself (ARTN-04).
+// an encode error in one universe never blocks another's tick), records
+// that final buffer into Health via RecordUniverseValues (ARTN-05: the
+// per-universe final values surfaced through "golc artnet status" -- this
+// is the exact per-tick buffer that would otherwise be discarded after
+// EncodeArtDMX), and fans out to its enabled targets via dispatchSend,
+// which never blocks tick itself (ARTN-04).
 func (w *Worker) tick(frame *playback.Frame) {
 	if frame == nil {
 		return
@@ -290,6 +293,7 @@ func (w *Worker) tick(frame *playback.Frame) {
 		if !ok {
 			data = make([]byte, channelsPerUniverse)
 		}
+		w.health.RecordUniverseValues(u, data)
 
 		pkt, err := EncodeArtDMX(w.nextSeq(u), 0, PortAddress(u), data)
 		if err != nil {

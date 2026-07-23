@@ -15,6 +15,7 @@ package command
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -263,6 +264,82 @@ func TestArtnetStatusPlainRendersPersistentTable(t *testing.T) {
 	if !strings.Contains(body, "127.0.0.1") {
 		t.Fatalf("expected the configured target's IP in the persistent table, got: %s", body)
 	}
+}
+
+// TestArtnetStatusJSONContainsUniverseValues proves 04-08-PLAN.md's
+// ARTN-05 gap closure: after configuring universe 1, polling "artnet
+// status --json" eventually yields a "universes" entry for universe 1
+// whose decoded Values field is exactly 512 bytes -- the corrected
+// acceptance test that decodes and length-checks the actual bytes rather
+// than asserting substring presence (directly replacing 04-05-SUMMARY.md's
+// false-pass mechanism).
+func TestArtnetStatusJSONContainsUniverseValues(t *testing.T) {
+	pipeName := startTestArtnetDaemon(t)
+
+	configureResult := runArtnetConfigure(Request{Args: []string{
+		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454", "--pipe", pipeName,
+	}})
+	if configureResult.ExitCode != 0 {
+		t.Fatalf("expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
+	}
+
+	type universeEntry struct {
+		Universe int    `json:"universe"`
+		Values   []byte `json:"values"`
+	}
+	type jsonStatusPayload struct {
+		Universes []universeEntry `json:"universes"`
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		result := runArtnetStatus(Request{Args: []string{"--json", "--pipe", pipeName}})
+		if result.ExitCode != 0 {
+			t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+		}
+		var payload jsonStatusPayload
+		if err := json.Unmarshal(result.Stdout, &payload); err != nil {
+			t.Fatalf("json.Unmarshal: %v", err)
+		}
+		for _, u := range payload.Universes {
+			if u.Universe == 1 {
+				if len(u.Values) != 512 {
+					t.Fatalf("expected universe 1's values to be 512 bytes, got %d", len(u.Values))
+				}
+				return
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("expected a populated universe 1 values entry within the deadline")
+}
+
+// TestArtnetStatusPlainRendersUniverseValues proves plain "artnet status"
+// eventually renders a GOLC_ARTNET_UNIVERSE line for a configured
+// universe with the correct channel count.
+func TestArtnetStatusPlainRendersUniverseValues(t *testing.T) {
+	pipeName := startTestArtnetDaemon(t)
+
+	configureResult := runArtnetConfigure(Request{Args: []string{
+		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454", "--pipe", pipeName,
+	}})
+	if configureResult.ExitCode != 0 {
+		t.Fatalf("expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		statusResult := runArtnetStatus(Request{Args: []string{"--pipe", pipeName}})
+		if statusResult.ExitCode != 0 {
+			t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", statusResult.ExitCode, statusResult.Stderr)
+		}
+		body := string(statusResult.Stdout)
+		if strings.Contains(body, "GOLC_ARTNET_UNIVERSE: universe=1") && strings.Contains(body, "channels=512") {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("expected a GOLC_ARTNET_UNIVERSE line for universe=1 channels=512 within the deadline")
 }
 
 // TestArtnetTargetEnableDisableRoundTrip proves "artnet target disable"
