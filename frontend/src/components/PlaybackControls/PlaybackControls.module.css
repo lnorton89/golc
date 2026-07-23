@@ -1,0 +1,163 @@
+/*
+ * PlaybackControls.module.css (06-06-PLAN.md Task 2, PLAY-01): component-
+ * scoped CSS Module reading GOLC's brand-token CSS custom properties
+ * (frontend/src/index.css) -- no Tailwind, no shadcn theme layer
+ * (06-UI-SPEC.md Design System). BPM/bar readouts use JetBrains Mono per
+ * the UI-SPEC Typography table's "Technical readout" row; everything else
+ * uses Archivo.
+ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: "Archivo", system-ui, sans-serif;
+}
+
+.heading {
+  margin: 0;
+  font-family: "Archivo", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text2);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.sceneList {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.sceneButton {
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+  color: var(--ink);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.sceneButtonActive {
+  composes: sceneButton;
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.layerGrid {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.layerToggle {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+  color: var(--muted);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.layerToggleOn {
+  composes: layerToggle;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.layerToggle:disabled,
+.sceneButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.bpmInput {
+  width: 96px;
+  min-height: 44px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+  color: var(--ink);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 14px;
+}
+
+.readout {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.button {
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+  color: var(--ink);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.buttonPrimary {
+  composes: button;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.previewOutput {
+  max-height: 160px;
+  overflow: auto;
+  padding: var(--space-sm);
+  background: var(--page);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 14px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.emptyState {
+  color: var(--muted);
+  font-size: 14px;
+}
