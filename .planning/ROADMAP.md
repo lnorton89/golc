@@ -220,7 +220,7 @@ Plans:
   3. Playback continues publishing the newest complete frames at its defined cadence while UI, persistence, scripts, API, or LLM work is stalled or overloaded, without those components backpressuring the engine or Art-Net worker.
   4. An operator can inspect per-universe final values, frame health, target health, errors, and output enablement, and a release candidate demonstrates compatibility with both an independent simulator and real Art-Net hardware.
 
-**Plans:** 7/7 plans executed
+**Plans:** 7/7 executed + 2 gap-closure plans (04-08, 04-09) planned
 
 Plans:
 **Wave 1**
@@ -251,7 +251,12 @@ Plans:
 
 - [x] 04-07-PLAN.md — ARTN-06 release-candidate verification: Wireshark/OLA runbook + human-verify checkpoint (ARTN-06, D-13/D-14/D-15/D-18) [Wave 7]
 
-**Waves:** W1: 04-01 · W2: 04-02 · W3: 04-03 · W4: 04-04 · W5: 04-05 · W6: 04-06 · W7: 04-07
+**Gap Closure** *(post-verification; closes 04-VERIFICATION.md's 2 gaps, does not touch 04-01…04-07)*
+
+- [ ] 04-08-PLAN.md — Surface per-universe final DMX values through `artnet status` (ARTN-05 / Success Criterion 4; VERIFICATION Gap 1) [gap wave 1]
+- [ ] 04-09-PLAN.md — Surface pinned-interface degraded/lost status via `artnet status` + `interface list` (ARTN-01/D-05 / Success Criterion 1; VERIFICATION Gap 2; depends on 04-08) [gap wave 2]
+
+**Waves:** W1: 04-01 · W2: 04-02 · W3: 04-03 · W4: 04-04 · W5: 04-05 · W6: 04-06 · W7: 04-07 · gap W1: 04-08 · gap W2: 04-09
 **UI hint:** yes (resolved to CLI-only per D-01; no Wails GUI until Phase 6)
 **Research:** Deeper phase research required for actual first-user nodes, subscriber/unicast behavior, multi-NIC and VPN cases, static-target workflow, compatibility policy, packet captures, and the physical hardware matrix.
 
