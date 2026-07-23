@@ -273,7 +273,7 @@ Plans:
   3. A schema migration creates and verifies a backup, commits atomically, and refuses unsupported newer formats without rewriting them.
   4. A user can run integrity diagnostics and export a versioned human-readable JSON representation for troubleshooting and interchange.
 
-**Plans:** 1/5 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 **Wave 1**
@@ -282,9 +282,9 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 05-02-PLAN.md — show open/save/save-as CLI + session recovery detect/offer/discard (SHOW-02/04) [Wave 2]
-- [ ] 05-03-PLAN.md — verified backup (VACUUM INTO + read-back-validate) + migration engine (SHOW-05) [Wave 2]
-- [ ] 05-04-PLAN.md — integrity diagnostics + versioned JSON export (SHOW-06) [Wave 2]
+- [x] 05-02-PLAN.md — show open/save/save-as CLI + session recovery detect/offer/discard (SHOW-02/04) [Wave 2]
+- [x] 05-03-PLAN.md — verified backup (VACUUM INTO + read-back-validate) + migration engine (SHOW-05) [Wave 2]
+- [x] 05-04-PLAN.md — integrity diagnostics + versioned JSON export (SHOW-06) [Wave 2]
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -387,7 +387,7 @@ Plans:
 | 2. Modular Fixtures and Deployments | 6/6 | Complete    | 2026-07-21 |
 | 3. Deterministic Show Programming and Playback | 7/7 | Complete    | 2026-07-21 |
 | 4. Observable Art-Net Live Output | 9/9 | Complete    | 2026-07-22 |
-| 5. Durable Shows and Recovery | 1/5 | In Progress|  |
+| 5. Durable Shows and Recovery | 4/5 | In Progress|  |
 | 6. Wails Authoring and Operator Surface | 0/TBD | Not started | - |
 | 7. Versioned External Control API | 0/TBD | Not started | - |
 | 8. Isolated TypeScript Automation | 0/TBD | Not started | - |
