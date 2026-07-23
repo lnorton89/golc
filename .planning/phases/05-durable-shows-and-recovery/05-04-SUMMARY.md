@@ -152,3 +152,14 @@ None - no external service configuration required.
 ---
 *Phase: 05-durable-shows-and-recovery*
 *Completed: 2026-07-23*
+
+## Self-Check: PASSED
+
+- FOUND: internal/show/diagnose.go
+- FOUND: internal/show/diagnose_test.go
+- FOUND: internal/command/show_diagnose.go
+- FOUND: internal/command/show_diagnose_test.go
+- FOUND: .planning/phases/05-durable-shows-and-recovery/05-04-SUMMARY.md
+- FOUND commit: fd51008 (feat(05-04): combined file-level + structural show diagnose (SHOW-06))
+- FOUND commit: 1a14f94 (feat(05-04): show diagnose / show export CLI routes (SHOW-06))
+- FOUND commit: 10cdac5 (docs(05-04): complete on-demand show diagnostics and export plan)
