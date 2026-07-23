@@ -198,24 +198,31 @@ func (s *PlaybackService) SwitchScene(sceneName string) Result {
 	return s.execute("playback", "switch", sceneName, "--show", s.showPath)
 }
 
-// currentLayerRef reads the target scene/kind's currently assigned Ref
-// (the zero UUID if none, or if the scene/show cannot be read) via a
-// read-only show.Load -- see the package doc comment for why
-// SetLayerEnabled needs this before its mutating call.
-func (s *PlaybackService) currentLayerRef(sceneName, kind string) uuid.UUID {
+// currentLayerRef reads the target scene/kind's currently assigned Ref (the
+// zero UUID if the scene/layer simply does not exist) via a read-only
+// show.Load -- see the package doc comment for why SetLayerEnabled needs
+// this before its mutating call. WR-01 fix: a genuine show.Load failure
+// (e.g. a transient I/O error) is returned as an error rather than folded
+// into the same "no ref assigned" zero-UUID result -- SetLayerEnabled must
+// be able to tell "no ref assigned" (safe to proceed without --ref) apart
+// from "couldn't read the show at all" (unsafe to proceed, since a
+// concurrent second show.Load inside the mutating registry call succeeding
+// where this one failed would otherwise silently discard whatever Ref was
+// actually on disk).
+func (s *PlaybackService) currentLayerRef(sceneName, kind string) (uuid.UUID, error) {
 	state, err := show.Load(s.root, s.showPath)
 	if err != nil {
-		return uuid.Nil
+		return uuid.Nil, err
 	}
 	for _, sc := range state.Scenes {
 		if sc.Name != sceneName {
 			continue
 		}
 		if layer, ok := sc.LayerByKind(scene.LayerKind(kind)); ok {
-			return layer.Ref
+			return layer.Ref, nil
 		}
 	}
-	return uuid.Nil
+	return uuid.Nil, nil
 }
 
 // SetLayerEnabled toggles one scene layer's Enabled flag via
@@ -225,13 +232,19 @@ func (s *PlaybackService) currentLayerRef(sceneName, kind string) uuid.UUID {
 // Selection is left unmentioned entirely -- the route's own WR-03 merge
 // behavior carries the existing Selection forward automatically. An
 // unknown scene name or layer kind surfaces the route's own diagnostic,
-// never a panic. authorizeLayer (CR-01) gates dispatch first.
+// never a panic. authorizeLayer (CR-01) gates dispatch first. WR-01 fix: a
+// pre-read failure from currentLayerRef is returned as this call's own
+// Result rather than silently proceeding as if no Ref were assigned.
 func (s *PlaybackService) SetLayerEnabled(sceneName, kind string, enabled bool) Result {
 	if err := s.authorizeLayer(sceneName, kind); err != nil {
 		return Result{ExitCode: 1, Stderr: err.Error() + "\n"}
 	}
+	ref, err := s.currentLayerRef(sceneName, kind)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: err.Error()}
+	}
 	args := []string{"scene", "layer", "set", sceneName, "--kind", kind}
-	if ref := s.currentLayerRef(sceneName, kind); ref != uuid.Nil {
+	if ref != uuid.Nil {
 		args = append(args, "--ref", ref.String())
 	}
 	if !enabled {
