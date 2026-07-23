@@ -20,6 +20,8 @@
 package wails
 
 import (
+	"encoding/json"
+	"strconv"
 	"sync"
 
 	"golang.design/x/hotkey"
@@ -168,20 +170,51 @@ func (m *HotkeyManager) RegisterAll() []HotkeyFailure {
 // internal event channel as part of unregistering, so calling hk.Keydown()
 // again inside the loop after UnregisterAll has started would race against
 // that field reset -- capturing it once here reads it exactly once, before
-// any concurrent Unregister could run.
+// any concurrent Unregister could run. nextToggleValue (CR-03 fix) queries
+// the daemon's current state first so a second press of the same hotkey
+// releases the control instead of re-activating it -- the OS-level
+// counterpart to SafetyCluster.tsx's own hold-button toggle fix.
 func (m *HotkeyManager) listen(hk registerer, binding hotkeyBinding, stop <-chan struct{}) {
 	keydown := hk.Keydown()
 	for {
 		select {
 		case <-keydown:
+			on := m.nextToggleValue(binding.route)
 			m.dial(m.pipeName, ipc.Request{
 				Route: string(binding.route),
-				Args:  []string{"--on", "true", "--source", "manual"},
+				Args:  []string{"--on", strconv.FormatBool(on), "--source", "manual"},
 			})
 		case <-stop:
 			return
 		}
 	}
+}
+
+// nextToggleValue queries "artnet status" and returns the opposite of
+// route's currently observed active state (CR-03 fix): Blackout and
+// Stop-All share one daemon-side combined "blackout" outputState signal
+// (safety.go's own doc comment: tracked as independent flags, but
+// applyOverrides/newPlaybackStatusPayload treat them identically for
+// output purposes, and there is no separate per-flag field on the wire --
+// mirrors SafetyCluster.tsx's own blackoutOrStopActive derivation and its
+// documented ambiguity), while Revoke Automation toggles off its own
+// unambiguous "revoked" controllingSource. A status query failure (daemon
+// unreachable, non-zero exit, or an undecodable response) defaults to true
+// (activate) -- the pre-CR-03 always-activate behavior -- rather than
+// guessing a release the daemon cannot currently confirm.
+func (m *HotkeyManager) nextToggleValue(route safetyRoute) bool {
+	result := m.dial(m.pipeName, ipc.Request{Route: "artnet status"})
+	if result.ExitCode != 0 {
+		return true
+	}
+	var envelope daemonPlaybackEnvelope
+	if err := json.Unmarshal(result.Stdout, &envelope); err != nil {
+		return true
+	}
+	if route == routeRevokeAutomation {
+		return envelope.Playback.ControllingSource != "revoked"
+	}
+	return envelope.Playback.OutputState != "blackout"
 }
 
 // Failures returns the most recent RegisterAll outcome.

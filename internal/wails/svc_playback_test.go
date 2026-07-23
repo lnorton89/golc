@@ -5,10 +5,19 @@
 // CLI route expects (TestPlaybackServiceEnumeratesEveryPlaybackAction),
 // and a binding called with a bad argument surfaces the underlying
 // registry's own diagnostic rather than panicking.
+// TestPlaybackServiceAuthorize* prove CR-01's fix: once an active operator
+// surface is set (SetActiveSurface), SwitchScene/SetLayerEnabled against a
+// scene/layer not assigned to it are rejected before dispatching, and the
+// same calls against an assigned control still dispatch exactly as before.
+// TestPlaybackServiceSetLayerEnabledPropagatesPreReadFailure proves WR-01's
+// fix: a genuine currentLayerRef pre-read failure is surfaced as
+// SetLayerEnabled's own Result rather than silently treated as "no ref
+// assigned."
 package wails
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -162,6 +171,128 @@ func TestPlaybackServiceSetLayerEnabledPreservesRefAcrossToggle(t *testing.T) {
 	}
 	if layer.Ref != themeID {
 		t.Fatalf("expected Ref to be preserved across re-enable, got %v want %v", layer.Ref, themeID)
+	}
+}
+
+// TestPlaybackServiceSwitchSceneRejectsWhenActiveSurfaceDoesNotAssignScene
+// proves CR-01's fix: once SetActiveSurface scopes PlaybackService to a
+// surface that does not have the target scene in SceneRefs, SwitchScene is
+// rejected with GOLC_OPERATORSURFACE_LOCKED and the show is left
+// unmodified.
+func TestPlaybackServiceSwitchSceneRejectsWhenActiveSurfaceDoesNotAssignScene(t *testing.T) {
+	svc, root, showPath := newTestPlaybackService(t)
+	execRegistry(t, root, "scene", "create", "Verse", "--bars", "4", "--show", showPath)
+	execRegistry(t, root, "scene", "create", "Chorus", "--bars", "4", "--show", showPath)
+
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	if result := surfaceSvc.CreateSurface("Operator A"); result.ExitCode != 0 {
+		t.Fatalf("CreateSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.SetActiveSurface("Operator A"); result.ExitCode != 0 {
+		t.Fatalf("SetActiveSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	result := svc.SwitchScene("Chorus")
+	if result.ExitCode == 0 {
+		t.Fatal("expected SwitchScene to be rejected when the active surface has no matching SceneRef assigned")
+	}
+	if !strings.Contains(result.Stderr, "GOLC_OPERATORSURFACE_LOCKED") {
+		t.Fatalf("expected GOLC_OPERATORSURFACE_LOCKED in stderr, got %q", result.Stderr)
+	}
+
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	for _, sc := range state.Scenes {
+		if sc.Name == "Chorus" && sc.Active {
+			t.Fatal("expected Chorus to remain inactive after a rejected SwitchScene")
+		}
+	}
+}
+
+// TestPlaybackServiceSwitchSceneDispatchesWhenActiveSurfaceAssignsScene
+// proves the counterpart: once the target scene is assigned to the active
+// surface, SwitchScene authorizes and dispatches exactly as before CR-01.
+func TestPlaybackServiceSwitchSceneDispatchesWhenActiveSurfaceAssignsScene(t *testing.T) {
+	svc, root, showPath := newTestPlaybackService(t)
+	execRegistry(t, root, "scene", "create", "Verse", "--bars", "4", "--show", showPath)
+	execRegistry(t, root, "scene", "create", "Chorus", "--bars", "4", "--show", showPath)
+
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	if result := surfaceSvc.CreateSurface("Operator A"); result.ExitCode != 0 {
+		t.Fatalf("CreateSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := surfaceSvc.AssignItem("Operator A", ControlRefInput{Kind: "scene", Scene: "Chorus"}); result.ExitCode != 0 {
+		t.Fatalf("AssignItem failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.SetActiveSurface("Operator A"); result.ExitCode != 0 {
+		t.Fatalf("SetActiveSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	result := svc.SwitchScene("Chorus")
+	if result.ExitCode != 0 {
+		t.Fatalf("expected SwitchScene to dispatch once Chorus is assigned, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	for _, sc := range state.Scenes {
+		if sc.Name == "Chorus" && !sc.Active {
+			t.Fatal("expected Chorus to be active after an authorized SwitchScene")
+		}
+	}
+}
+
+// TestPlaybackServiceSetActiveSurfaceEmptyClearsRestriction proves
+// SetActiveSurface("") always returns to unrestricted/author-mode
+// dispatch, even after a prior SetActiveSurface locked the service to a
+// surface that did not assign the scene under test.
+func TestPlaybackServiceSetActiveSurfaceEmptyClearsRestriction(t *testing.T) {
+	svc, root, showPath := newTestPlaybackService(t)
+	execRegistry(t, root, "scene", "create", "Verse", "--bars", "4", "--show", showPath)
+
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	if result := surfaceSvc.CreateSurface("Operator A"); result.ExitCode != 0 {
+		t.Fatalf("CreateSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.SetActiveSurface("Operator A"); result.ExitCode != 0 {
+		t.Fatalf("SetActiveSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.SetActiveSurface(""); result.ExitCode != 0 {
+		t.Fatalf("SetActiveSurface(\"\") failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	result := svc.SwitchScene("Verse")
+	if result.ExitCode != 0 {
+		t.Fatalf("expected SwitchScene to dispatch after the active surface was cleared, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+}
+
+// TestPlaybackServiceSetLayerEnabledPropagatesPreReadFailure proves WR-01's
+// fix: when currentLayerRef's pre-read show.Load fails (here, showPath
+// points at a directory rather than a valid .golc file, so opening the
+// store errors), SetLayerEnabled returns that error as its own Result
+// rather than silently proceeding as if no Ref were assigned -- proceeding
+// would risk omitting --ref and discarding whatever Ref actually exists on
+// disk if a subsequent show.Load inside the mutating registry call happens
+// to succeed where this pre-read failed.
+func TestPlaybackServiceSetLayerEnabledPropagatesPreReadFailure(t *testing.T) {
+	root := t.TempDir()
+	showPath := filepath.Join(t.TempDir(), "not-a-file.golc")
+	if err := os.Mkdir(showPath, 0o755); err != nil {
+		t.Fatalf("failed to seed a directory at showPath: %v", err)
+	}
+	svc := NewPlaybackService("", showPath, root)
+
+	result := svc.SetLayerEnabled("Verse", "color_theme", false)
+	if result.ExitCode == 0 {
+		t.Fatal("expected SetLayerEnabled to fail when the pre-read show.Load cannot open the store")
+	}
+	if result.Stderr == "" {
+		t.Fatal("expected a non-empty diagnostic when the pre-read fails")
 	}
 }
 

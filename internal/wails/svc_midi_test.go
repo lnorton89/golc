@@ -122,6 +122,105 @@ func startLearnAndSend(t *testing.T, svc *MidiService, surfaceName string, ref C
 // StartLearn blocks until a matching MIDI message arrives, then persists
 // the mapping (operatorsurface.AddMidiMapping -> show.Save) reflected by
 // ListMappings.
+// TestMidiServiceCancelLearnDoubleCallDoesNotPanic proves CR-02's fix:
+// calling CancelLearn twice in succession while a learn session is active
+// never double-closes session.cancel (which previously panicked with
+// "close of closed channel") -- the second call instead observes the
+// already-cancelled state (s.learning nil'd under the lock by the first
+// call) and returns GOLC_MIDI_LEARN_NOT_ACTIVE.
+func TestMidiServiceCancelLearnDoubleCallDoesNotPanic(t *testing.T) {
+	svc, root, showPath, _ := newMidiTestFixture(t, "test-cancel-learn-double")
+
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+	blackout := ControlRefInput{Kind: "safety", Safety: "blackout"}
+	if r := surfaceSvc.AssignItem("Front of House", blackout); r.ExitCode != 0 {
+		t.Fatalf("AssignItem: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	resultCh := make(chan Result, 1)
+	go func() {
+		resultCh <- svc.StartLearn("Front of House", blackout)
+	}()
+	waitForLearningActive(t, svc)
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("CancelLearn panicked on a double call: %v", r)
+		}
+	}()
+
+	first := svc.CancelLearn()
+	if first.ExitCode != 0 {
+		t.Fatalf("first CancelLearn failed: exit=%d stderr=%s", first.ExitCode, first.Stderr)
+	}
+	second := svc.CancelLearn()
+	if second.ExitCode == 0 {
+		t.Fatal("expected the second CancelLearn to fail (no session active), got success")
+	}
+	if !strings.Contains(second.Stderr, "GOLC_MIDI_LEARN_NOT_ACTIVE") {
+		t.Fatalf("expected GOLC_MIDI_LEARN_NOT_ACTIVE in stderr, got %q", second.Stderr)
+	}
+
+	select {
+	case r := <-resultCh:
+		if r.ExitCode == 0 {
+			t.Fatalf("expected StartLearn to fail after cancellation, got success: %+v", r)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for StartLearn to return after CancelLearn")
+	}
+}
+
+// TestMidiServiceCancelLearnConcurrentDoubleCallDoesNotPanic proves the
+// exact double-click race CR-02 describes (MidiLearn.tsx's Cancel button
+// not de-duping/disabling itself before the first click's async result
+// resolves): two goroutines calling CancelLearn concurrently while a learn
+// session is active must never race into a double close(session.cancel)
+// panic -- the mutex-guarded nil-out in CancelLearn (mirroring StartLearn's
+// own deferred cleanup discipline) ensures only one of the two ever
+// observes a non-nil session and actually closes it.
+func TestMidiServiceCancelLearnConcurrentDoubleCallDoesNotPanic(t *testing.T) {
+	svc, root, showPath, _ := newMidiTestFixture(t, "test-cancel-learn-concurrent")
+
+	surfaceSvc := NewSurfaceService("", root, showPath)
+	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
+		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+	blackout := ControlRefInput{Kind: "safety", Safety: "blackout"}
+	if r := surfaceSvc.AssignItem("Front of House", blackout); r.ExitCode != 0 {
+		t.Fatalf("AssignItem: exit=%d stderr=%s", r.ExitCode, r.Stderr)
+	}
+
+	go func() {
+		svc.StartLearn("Front of House", blackout)
+	}()
+	waitForLearningActive(t, svc)
+
+	var wg sync.WaitGroup
+	results := make([]Result, 2)
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			results[i] = svc.CancelLearn()
+		}(i)
+	}
+	wg.Wait()
+
+	successes := 0
+	for _, r := range results {
+		if r.ExitCode == 0 {
+			successes++
+		}
+	}
+	if successes != 1 {
+		t.Fatalf("expected exactly one of the two concurrent CancelLearn calls to succeed, got %d successes: %+v", successes, results)
+	}
+}
+
 func TestMidiServiceStartLearnPersistsMapping(t *testing.T) {
 	svc, root, showPath, out := newMidiTestFixture(t, "test-learn-accept")
 
