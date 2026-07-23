@@ -24,10 +24,10 @@ An operator can author a modular show once, adapt its fixture pools to different
 - [x] Scenes can loop for a configured number of musical bars synchronized to a show-wide BPM. — *Validated in Phase 3: Deterministic Show Programming and Playback (2026-07-21)*
 - [x] Users can combine and swap color themes, chases, and motion presets within tempo-aware scenes using configurable blending transitions. — *Validated in Phase 3: Deterministic Show Programming and Playback (2026-07-21)*
 - [x] The application sends reliable, observable Art-Net output suitable for running a small live show. — *Validated in Phase 4: Observable Art-Net Live Output (2026-07-23), including gap-closure plans 04-08/04-09 for per-universe status values and pinned-interface degraded status*
+- [x] Operators can patch fixtures, organize controllable attributes, create looks/scenes and chases, play them back, save a show, and restore it later. — *Validated in Phase 5: Durable Shows and Recovery (2026-07-23): SQLite-backed `.golc` store, rotating recovery points genuinely reachable from an interrupted session (post-review structural fix), verified-backup schema migration, and integrity diagnostics/export*
 
 ### Active
 
-- [ ] Operators can patch fixtures, organize controllable attributes, create looks/scenes and chases, play them back, save a show, and restore it later. — programming/playback delivered in Phase 3; save/restore/recovery remains Phase 5 scope.
 - [ ] Keyboard and on-screen playback expose the complete operator workflow without requiring a MIDI controller.
 - [ ] Users can prepare a constrained MIDI playback surface that another operator can learn and use quickly without exposing the full authoring interface.
 - [ ] The desktop UI provides a modern, efficient programming and playback workflow that avoids the setup friction and clunky interaction patterns of QLC+.
@@ -142,4 +142,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-23 after Phase 4: Observable Art-Net Live Output completion*
+*Last updated: 2026-07-23 after Phase 5: Durable Shows and Recovery completion*
