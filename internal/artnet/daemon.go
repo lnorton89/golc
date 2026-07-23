@@ -312,14 +312,27 @@ func newStatusPayload(snapshot HealthSnapshot, iface interfaceStatusPayload) sta
 // (internal/strictjson) into Result.Stdout via the JSON-safe statusPayload
 // rendering.
 func (d *daemon) handleStatus() ipc.Result {
+	// Read Status() exactly once and derive Error from that single
+	// observed value (GC-WR-01): calling d.ifaceMgr.Err() and
+	// d.ifaceMgr.Status() as two separate loads of the same underlying
+	// atomic.Int32 could observe an OK->Lost transition in between,
+	// producing Status: "lost" with Error: "" -- contradicting this
+	// payload's own doc comment. Safe because the transition is
+	// one-directional/terminal (interfacemgr.go's markLost never
+	// reverts), so re-deriving Err() from an already-Lost status can
+	// never race back to OK. Mirrors evaluateFrameHealth's single-read
+	// discipline in health.go.
+	status := d.ifaceMgr.Status()
 	ifaceErr := ""
-	if err := d.ifaceMgr.Err(); err != nil {
-		ifaceErr = err.Error()
+	if status == InterfaceStatusLost {
+		if err := d.ifaceMgr.Err(); err != nil {
+			ifaceErr = err.Error()
+		}
 	}
 	iface := interfaceStatusPayload{
 		PinnedIndex: d.ifaceMgr.PinnedIndex(),
 		PinnedName:  d.ifaceMgr.PinnedName(),
-		Status:      d.ifaceMgr.Status().String(),
+		Status:      status.String(),
 		Error:       ifaceErr,
 	}
 
