@@ -86,9 +86,9 @@
 ### Show Storage and Recovery
 
 - [ ] **SHOW-01**: A user can save a complete show and its deployment data as one portable versioned `.golc` file.
-- [ ] **SHOW-02**: A user can open, save, and save-as a show without stopping deterministic output unexpectedly.
+- [x] **SHOW-02**: A user can open, save, and save-as a show without stopping deterministic output unexpectedly.
 - [ ] **SHOW-03**: The application autosaves recoverable authoring changes without performing storage work in the playback timing path.
-- [ ] **SHOW-04**: A user can recover from an interrupted or failed session using clearly identified rotating recovery points.
+- [x] **SHOW-04**: A user can recover from an interrupted or failed session using clearly identified rotating recovery points.
 - [ ] **SHOW-05**: Schema migration creates a verified backup, applies atomically, and refuses unsupported newer formats without rewriting them.
 - [ ] **SHOW-06**: A user can run integrity diagnostics and export a versioned human-readable JSON representation for interchange and troubleshooting.
 
@@ -247,9 +247,9 @@ A v1 requirement is complete only when its implementation is committed, automate
 | ARTN-05 | Phase 4 | Complete |
 | ARTN-06 | Phase 4 | Complete |
 | SHOW-01 | Phase 5 | Pending |
-| SHOW-02 | Phase 5 | Pending |
+| SHOW-02 | Phase 5 | Complete |
 | SHOW-03 | Phase 5 | Pending |
-| SHOW-04 | Phase 5 | Pending |
+| SHOW-04 | Phase 5 | Complete |
 | SHOW-05 | Phase 5 | Pending |
 | SHOW-06 | Phase 5 | Pending |
 | API-01 | Phase 7 | Pending |
