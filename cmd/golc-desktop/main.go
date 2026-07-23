@@ -62,7 +62,7 @@ func main() {
 
 	app := golcwails.NewApp(cfg)
 	safetyService := golcwails.NewSafetyService(cfg.PipeName)
-	playbackService := golcwails.NewPlaybackService(cfg.PipeName)
+	playbackService := golcwails.NewPlaybackService(cfg.PipeName, cfg.ShowPath, cfg.ProjectRoot)
 	surfaceService := golcwails.NewSurfaceService(cfg.PipeName)
 	midiService := golcwails.NewMidiService(cfg.PipeName)
 
