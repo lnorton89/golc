@@ -12,7 +12,7 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
 - [x] **Phase 2: Modular Fixtures and Deployments** - Authors can validate fixture definitions and safely adapt logical pools to concrete deployments through reviewable atomic changes. (completed 2026-07-21)
 - [x] **Phase 3: Deterministic Show Programming and Playback** - Authors can build tempo-aware shows whose compiled playback remains deterministic without any adapter owning musical or frame time. (completed 2026-07-21)
 - [x] **Phase 4: Observable Art-Net Live Output** - Operators can send and inspect correct Art-Net frames from the independent playback engine through simulated and physical receivers. (completed 2026-07-22)
-- [ ] **Phase 5: Durable Shows and Recovery** - Users can save, restore, migrate, recover, inspect, and export shows without storage work disturbing live output.
+- [x] **Phase 5: Durable Shows and Recovery** - Users can save, restore, migrate, recover, inspect, and export shows without storage work disturbing live output. (completed 2026-07-23)
 - [ ] **Phase 6: Wails Authoring and Operator Surface** - Users can complete authoring and playback on screen or by keyboard, with constrained generic MIDI control and independent local safety actions.
 - [ ] **Phase 7: Versioned External Control API** - External programs can safely inspect and control every public capability through the same typed command model as the desktop application.
 - [ ] **Phase 8: Isolated TypeScript Automation** - Users can author and debug capability-limited TypeScript automation without scripts owning or blocking playback or Art-Net.
@@ -274,7 +274,7 @@ Plans:
   3. A schema migration creates and verifies a backup, commits atomically, and refuses unsupported newer formats without rewriting them.
   4. A user can run integrity diagnostics and export a versioned human-readable JSON representation for troubleshooting and interchange.
 
-**Plans:** 5/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 **Wave 1**
@@ -388,7 +388,7 @@ Plans:
 | 2. Modular Fixtures and Deployments | 6/6 | Complete    | 2026-07-21 |
 | 3. Deterministic Show Programming and Playback | 7/7 | Complete    | 2026-07-21 |
 | 4. Observable Art-Net Live Output | 9/9 | Complete    | 2026-07-22 |
-| 5. Durable Shows and Recovery | 5/5 | In Progress|  |
+| 5. Durable Shows and Recovery | 5/5 | Complete    | 2026-07-23 |
 | 6. Wails Authoring and Operator Surface | 0/TBD | Not started | - |
 | 7. Versioned External Control API | 0/TBD | Not started | - |
 | 8. Isolated TypeScript Automation | 0/TBD | Not started | - |
