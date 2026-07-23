@@ -215,6 +215,45 @@ func TestOperatorSurfaceAssignLayerAndMasterAndSafety(t *testing.T) {
 	}
 }
 
+// TestOperatorSurfaceRemove proves the "operatorsurface remove" route
+// (06-07-PLAN.md Task 1, T-06-20) deletes a named surface and every
+// assignment/MIDI mapping it owned, and rejects removing an unknown
+// surface rather than silently no-op-ing.
+func TestOperatorSurfaceRemove(t *testing.T) {
+	root := t.TempDir()
+	registry, err := command.NewDefaultCommandRegistry()
+	if err != nil {
+		t.Fatalf("NewDefaultCommandRegistry: %v", err)
+	}
+	showPath := filepath.Join(t.TempDir(), "show.golc")
+	seedOperatorSurfaceShow(t, root, showPath)
+
+	removeResult := registry.Execute(command.Request{Root: root, Args: []string{
+		"operatorsurface", "remove", "--surface", "Front of House", "--show", showPath,
+	}})
+	if removeResult.ExitCode != 0 {
+		t.Fatalf("operatorsurface remove failed: exit=%d stderr=%s", removeResult.ExitCode, removeResult.Stderr)
+	}
+	if !strings.Contains(string(removeResult.Stdout), "GOLC_OPERATORSURFACE_REMOVED") {
+		t.Fatalf("expected GOLC_OPERATORSURFACE_REMOVED in stdout, got %s", removeResult.Stdout)
+	}
+
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	if len(state.OperatorSurfaces) != 0 {
+		t.Fatalf("expected zero surfaces after remove, got %+v", state.OperatorSurfaces)
+	}
+
+	unknownResult := registry.Execute(command.Request{Root: root, Args: []string{
+		"operatorsurface", "remove", "--surface", "Nonexistent Surface", "--show", showPath,
+	}})
+	if unknownResult.ExitCode == 0 || !strings.Contains(string(unknownResult.Stderr), "GOLC_OPERATORSURFACE_NOT_FOUND") {
+		t.Fatalf("expected GOLC_OPERATORSURFACE_NOT_FOUND for an unknown surface, got exit=%d stderr=%s", unknownResult.ExitCode, unknownResult.Stderr)
+	}
+}
+
 func TestOperatorSurfaceAuthorizeRejectsUnassignedControl(t *testing.T) {
 	surface, err := operatorsurface.NewSurface("Front of House")
 	if err != nil {
