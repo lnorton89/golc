@@ -45,7 +45,7 @@ type ResolveFunc func(instance deployment.Instance) (InstanceFixture, error)
 // per-universe 512-byte DMX buffers by walking each instance's resolved
 // Mode.Channels layout in declared order and scaling each channel's
 // normalized [0,1] value to an 8-bit [0,255] byte deterministically
-// (round-half-up). It is a pure function of its arguments: no I/O, no
+// (truncating toward zero). It is a pure function of its arguments: no I/O, no
 // time dependency, and it never mutates frame or instances.
 //
 // An instance entirely absent from frame.Values (no AttributeSet recorded

@@ -52,14 +52,24 @@ func keyOf(t Target) targetKey {
 	return targetKey{Universe: t.Universe, IP: t.IP.String(), Port: effectivePort(t)}
 }
 
-// ValidateTarget rejects a non-positive Universe, a nil/unspecified/
-// broadcast IP, and a Port outside 1..65535 (after defaulting), each as
-// GOLC_ARTNET_TARGET_INVALID with a specific message -- mirrors
-// internal/deployment/model.go's ValidateInstanceAddress bounds-check-
-// then-diagnostic shape.
+// artNetMaxUniverse is the highest Universe value PortAddress's locked
+// Net=0-fixed mapping (packet.go) can represent without aliasing onto a
+// lower universe's Port-Address: Sub-Net (4 bits) + Universe (4 bits) = 8
+// usable bits, so only 1..255 map uniquely -- PortAddress(257) and
+// PortAddress(1) both mask down to the identical 0x0001 Port-Address.
+const artNetMaxUniverse = 255
+
+// ValidateTarget rejects a non-positive or out-of-range Universe, a
+// nil/unspecified/broadcast IP, and a Port outside 1..65535 (after
+// defaulting), each as GOLC_ARTNET_TARGET_INVALID with a specific message
+// -- mirrors internal/deployment/model.go's ValidateInstanceAddress
+// bounds-check-then-diagnostic shape.
 func ValidateTarget(t Target) error {
 	if t.Universe < 1 {
 		return fmt.Errorf("GOLC_ARTNET_TARGET_INVALID: universe %d must be at least 1", t.Universe)
+	}
+	if t.Universe > artNetMaxUniverse {
+		return fmt.Errorf("GOLC_ARTNET_TARGET_INVALID: universe %d exceeds the maximum representable Port-Address universe %d (Net=0-fixed mapping would alias onto a lower universe)", t.Universe, artNetMaxUniverse)
 	}
 	if t.IP == nil || t.IP.IsUnspecified() {
 		return fmt.Errorf("GOLC_ARTNET_TARGET_INVALID: IP must be a specific unicast address, got %v", t.IP)

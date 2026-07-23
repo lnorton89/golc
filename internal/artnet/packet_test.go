@@ -90,6 +90,18 @@ func TestPortAddressDistinct(t *testing.T) {
 	}
 }
 
+// TestPortAddressAliasesAboveMaxRepresentableUniverse documents (rather
+// than silently assumes) that PortAddress's Net=0-fixed mapping only has
+// 8 usable bits (Sub-Net 4 + Universe 4), so universes above
+// artNetMaxUniverse (255) alias onto a lower universe's Port-Address --
+// this is exactly why ValidateTarget (target.go) rejects Universe > 255
+// before a Target ever reaches PortAddress.
+func TestPortAddressAliasesAboveMaxRepresentableUniverse(t *testing.T) {
+	if got, want := PortAddress(257), PortAddress(1); got != want {
+		t.Fatalf("expected PortAddress(257) to alias PortAddress(1) (0x%04x), got 0x%04x -- if this changed, artNetMaxUniverse/ValidateTarget's bound may need revisiting", want, got)
+	}
+}
+
 func TestPortAddressPacking(t *testing.T) {
 	cases := []struct {
 		universe int

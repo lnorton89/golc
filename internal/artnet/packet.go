@@ -54,7 +54,7 @@ func EncodeArtDMX(seq, physical uint8, portAddress uint16, data []byte) ([]byte,
 	buf[12] = seq
 	buf[13] = physical
 	buf[14] = byte(portAddress & 0xff)        // SubUni: low nibble Sub-Net, high nibble Universe
-	buf[15] = byte((portAddress >> 8) & 0x7f) // Net: top 7 bits, bit 7 reserved/zero
+	buf[15] = byte((portAddress >> 8) & 0x7f) // Net: low 7 bits of this byte, bit 7 reserved/zero
 	binary.BigEndian.PutUint16(buf[16:18], uint16(len(data)))
 	copy(buf[18:], data)
 	return buf, nil

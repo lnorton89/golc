@@ -26,6 +26,22 @@ func TestTargetValidateTargetRejectsNonPositiveUniverse(t *testing.T) {
 	}
 }
 
+func TestTargetValidateTargetRejectsUniverseAboveMaxRepresentable(t *testing.T) {
+	for _, universe := range []int{256, 257} {
+		target := Target{Universe: universe, IP: net.ParseIP("10.0.0.5"), Port: artNetPort}
+		if err := ValidateTarget(target); err == nil {
+			t.Fatalf("expected error for universe %d (exceeds artNetMaxUniverse=%d, would alias onto a lower universe's Port-Address), got nil", universe, artNetMaxUniverse)
+		}
+	}
+}
+
+func TestTargetValidateTargetAcceptsMaxRepresentableUniverse(t *testing.T) {
+	target := Target{Universe: artNetMaxUniverse, IP: net.ParseIP("10.0.0.5"), Port: artNetPort}
+	if err := ValidateTarget(target); err != nil {
+		t.Fatalf("expected universe %d (the maximum representable) to pass, got error: %v", artNetMaxUniverse, err)
+	}
+}
+
 func TestTargetValidateTargetRejectsNilIP(t *testing.T) {
 	target := Target{Universe: 1, Port: artNetPort}
 	if err := ValidateTarget(target); err == nil {
