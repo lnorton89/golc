@@ -555,22 +555,25 @@ func Diagnose(root, path string) (DiagnosticReport, error) {
 
 **If this table is empty:** N/A — see entries above; none are release-blocking on their own, but A1 and A2 in particular should be confirmed with the user or explicitly decided by the planner before implementation, since they affect concrete PRAGMA values and package dependencies.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **`synchronous=FULL` vs `synchronous=NORMAL` — final call**
    - What we know: `WAL+NORMAL` already satisfies D-04's literal requirement ("survive an unexpected process kill") per SQLite's own documented guarantee. `WAL+FULL` additionally survives OS-level crashes/power loss, at the cost of an extra fsync per transaction commit.
    - What's unclear: Whether that extra fsync cost is perceptible in this app's per-command-process usage pattern (each command already pays process-startup overhead, so an extra fsync may be genuinely negligible in relative terms) — not benchmarked this session.
    - Recommendation: Default to `FULL` (stronger guarantee, likely negligible relative cost given process-per-command overhead already dominates); confirm with a Wave-0 timing test comparing `FULL` vs `NORMAL` on a representative save, and downgrade to `NORMAL` only if `FULL` shows a measurable, user-visible latency regression.
+   - **RESOLVED:** Adopted `synchronous=FULL` as the default — implemented in 05-01-PLAN.md Task 2 (PRAGMA configuration on the store connection).
 
 2. **Migration support window policy (ROADMAP.md's explicit "N-version-back" question)**
    - What we know: This is a pre-1.0 desktop app; only `schema_version=1` exists today. D-10 already handles the "too new" direction (hard refuse). Nothing in CONTEXT.md locks a "too old" cutoff.
    - What's unclear: Whether to build an explicit oldest-supported-version floor now (e.g., "refuse to migrate anything older than schema_version N-3") or support migrating from any historical version indefinitely until a real support-window policy is needed post-1.0.
    - Recommendation: Support migration from **any** older `schema_version` up to current for v1 (there is currently only one version to support, so this costs nothing today) — defer a formal N-version-back deprecation policy until 1.0 ships and real user files with old schema versions actually exist to reason about. Document this explicitly as a deferred policy decision so it isn't silently forgotten.
+   - **RESOLVED:** Adopted no N-version-back floor — 05-03-PLAN.md Task 2's bounds-check accepts any on-disk `schema_version` in [1, SchemaVersion] and migrates it forward; the formal deprecation-window policy is deferred to post-1.0.
 
 3. **Whether `goose` should still be adopted for any part of this phase (table DDL only, not blob content)**
    - What we know: This phase's three tables (`show_meta`, `show_state`, `recovery_points`) are created once, idempotently, via plain `CREATE TABLE IF NOT EXISTS` in `schema.go` — there is no DDL evolution need yet.
    - What's unclear: Whether the planner wants to establish the `goose`-based DDL-migration convention now (even with zero real migrations to run) for consistency with the project's prior stack research, or defer it entirely until a real DDL change is needed.
    - Recommendation: Skip `goose` entirely for this phase; the `CREATE TABLE IF NOT EXISTS` pattern is sufficient and avoids an unused dependency. Revisit if/when a genuine DDL migration is needed.
+   - **RESOLVED:** Skipped `goose` — 05-03-PLAN.md Task 2 uses a plain Go function-map registry (`map[int]func([]byte) ([]byte, error)`) instead of a SQL migration framework, introducing no new dependency.
 
 ## Environment Availability
 
