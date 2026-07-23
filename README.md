@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/golc-card-dark.svg">
+    <img src="docs/brand/golc-card-light.svg" alt="GOLC — Go Lighting Control" width="440">
+  </picture>
+</p>
+
 # GOLC
 
 A modern lighting-control application for operators of small live shows — clubs, churches, schools, and community venues — built in Go with a Wails desktop interface.
