@@ -34,6 +34,7 @@ package wails
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -375,10 +376,13 @@ func (s *MidiService) dispatchSafetyTrigger(control operatorsurface.SafetyContro
 	if route == "" {
 		return
 	}
-	s.dialFn()(s.pipeName, ipc.Request{
+	result := s.dialFn()(s.pipeName, ipc.Request{
 		Route: string(route),
 		Args:  []string{"--on", "true", "--source", "manual"},
 	})
+	if result.ExitCode != 0 {
+		log.Printf("GOLC_WAILS_MIDI_SAFETY_DISPATCH_FAILED: route=%s: %s", route, result.Stderr)
+	}
 }
 
 // safetyRouteFor maps an operatorsurface.SafetyControl to its daemon route
@@ -416,7 +420,10 @@ func (s *MidiService) dispatchMasterSet(ref operatorsurface.MasterRef, level flo
 	} else {
 		args = []string{"--group", ref.GroupID.String(), "--level", rawLevel, "--source", "manual"}
 	}
-	s.dialFn()(s.pipeName, ipc.Request{Route: "artnet master set", Args: args})
+	result := s.dialFn()(s.pipeName, ipc.Request{Route: "artnet master set", Args: args})
+	if result.ExitCode != 0 {
+		log.Printf("GOLC_WAILS_MIDI_MASTER_DISPATCH_FAILED: ref=%s: %s", ref.Kind, result.Stderr)
+	}
 }
 
 // execute runs a full route-plus-args word sequence through a freshly built
