@@ -1,0 +1,76 @@
+/*
+ * index.css declares the GOLC brand tokens as CSS custom properties
+ * (06-UI-SPEC.md "Design System": component-scoped CSS Modules + CSS
+ * custom properties for brand tokens -- no Tailwind, no shadcn theme
+ * layer). Values are copied verbatim from
+ * .planning/brand/GOLC-Brand-Tokens.md; every component's own .module.css
+ * (added by Wave 3/4 plans) reads these variables rather than repeating
+ * hex values.
+ */
+
+:root {
+  /* Light theme (default) */
+  --page: #e4e0d8;
+  --panel: #f4f1eb;
+  --ink: #17181c;
+  --text: #4a4941;
+  --text2: #57564e;
+  --muted: #8a887f;
+  --line: #d2ccc0;
+  --accent: #1b44d9;
+  --accent-dp: #1233a8;
+
+  /* Status vocabulary (semantic, not part of the 60/30/10 split) */
+  --status-live: #1b44d9;
+  --status-frame-lock: #5ac26a;
+  --status-armed: #c8a24b;
+  --status-revoked: #e23a2e;
+  --status-blackout: #17181c;
+  --status-offline: #8a887f;
+
+  /* Motion (.planning/brand/GOLC-Brand-Tokens.md) */
+  --motion-tap: 120ms ease-out;
+  --motion-settle: 200ms ease;
+
+  /* Spacing scale (06-UI-SPEC.md) */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #131419;
+    --panel: #1e2027;
+    --ink: #ecead3;
+    --text: #b7b5ac;
+    --text2: #a6a49b;
+    --muted: #87857d;
+    --line: #2e3038;
+    --accent: #1b44d9;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: "Archivo", system-ui, sans-serif;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+code,
+.technical {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
