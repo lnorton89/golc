@@ -1,0 +1,87 @@
+/*
+ * KeyboardShortcuts.module.css (06-06-PLAN.md Task 2, PLAY-02): the
+ * documented keyboard-shortcut reference panel's styling. UI-SPEC overflow
+ * backstop: "Panel scrolls or groups shortcuts by category once content
+ * exceeds one screen" -- .scrollArea below caps at a fixed viewport
+ * fraction and scrolls internally rather than growing the panel/window
+ * unbounded, while .group/.groupHeading provide the category grouping.
+ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: "Archivo", system-ui, sans-serif;
+}
+
+.heading {
+  margin: 0;
+  font-family: "Archivo", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.scrollArea {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  max-height: min(60vh, 480px);
+  overflow-y: auto;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.groupHeading {
+  margin: 0;
+  font-family: "Archivo", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+}
+
+.keys {
+  min-width: 72px;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--page);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 14px;
+  color: var(--ink);
+  text-align: center;
+}
+
+.description {
+  font-size: 14px;
+  color: var(--text);
+}
