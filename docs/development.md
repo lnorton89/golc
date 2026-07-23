@@ -107,6 +107,24 @@ command twice and comparing all three output files byte-for-byte.
 This command makes **no Wails or NSIS product-packaging claim** — see the
 boundary below.
 
+## 7. Generate the package reference docs
+
+```powershell
+powershell -NoProfile -File .\golc.ps1 docs
+```
+
+`docs` (internal/docgen) walks every `internal/**` package, extracts the
+one file whose leading comment starts with `Package <name> ...`, and
+writes a Markdown reference page per documented package to
+`docs/reference/` plus an identical copy to `site/src/content/reference/`
+so the marketing site's Docs page can render the same content
+statically. A package with no such comment is silently skipped, and a
+package that disappears (or loses its comment) has its stale page
+removed on the next run — the command is safe to re-run at any time and
+always reflects only the current source. Because `site/` is a separate
+git repository checked out as a submodule, its copy needs its own commit
+there before the parent repository's submodule pointer is updated.
+
 ## What this walking skeleton is (and is not)
 
 The Phase 1 adaptation of GOLC's architecture is deliberately narrow:
