@@ -40,9 +40,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/lnorton89/golc/internal/artnet/ipc"
 	"github.com/lnorton89/golc/internal/deployment"
 	"github.com/lnorton89/golc/internal/playback"
+	"github.com/lnorton89/golc/internal/pool"
 	"github.com/lnorton89/golc/internal/show"
 	"github.com/lnorton89/golc/internal/strictjson"
 )
@@ -76,7 +79,14 @@ func pipeNameOrDefault(cfg Config) string {
 // daemon holds every piece of state a golc artnet ... IPC request can read
 // or mutate (CONTEXT D-03). mu guards targets/worker so a configure/
 // enable/disable request and a concurrent status read never race, even
-// though Health's own Snapshot stays lock-free internally.
+// though Health's own Snapshot stays lock-free internally. safety is the
+// one piece of daemon-resident state deliberately NOT guarded by mu
+// (06-02-PLAN.md Task 2, PLAY-06/08/09): its own atomic fields are read
+// lock-free by the Worker's tick goroutine every ~25ms, so a Blackout/
+// Stop-All/Revoke-Automation/master mutation must never contend with mu
+// (which a slow configure/status path can hold) or wait for a Worker
+// restart -- see handleSafetyToggle/handleMasterSet's own doc comments for
+// why they never call reconfigureLocked().
 type daemon struct {
 	baseCtx context.Context
 
@@ -85,6 +95,9 @@ type daemon struct {
 
 	resolve   ResolveFunc
 	instances []deployment.Instance
+	groups    []pool.Group
+
+	safety safetyState
 
 	mu          sync.Mutex
 	targets     map[int][]Target
@@ -111,8 +124,10 @@ func (d *daemon) startWorkerLocked() {
 	d.worker = NewWorker(WorkerConfig{
 		Frames:      d.engine,
 		Instances:   d.instances,
+		Groups:      d.groups,
 		Resolve:     d.resolve,
 		Targets:     d.targets,
+		Safety:      &d.safety,
 		LocalIP:     d.localIP,
 		SendTimeout: d.sendTimeout,
 		Health:      d.health,
@@ -172,11 +187,17 @@ func Run(ctx context.Context, cfg Config) error {
 		ifaceMgr:    ifaceMgr,
 		resolve:     cfg.Resolve,
 		instances:   cfg.Instances,
+		groups:      cfg.State.Groups,
 		targets:     copyTargets(cfg.Targets),
 		health:      NewHealth(),
 		localIP:     localIP,
 		sendTimeout: cfg.SendTimeout,
 	}
+	// d.safety starts at its identity values (no blackout/stop-all/revoke,
+	// grand master 1.0, no group overrides) so a freshly started daemon's
+	// very first tick behaves exactly as it did before Task 2 introduced
+	// this field.
+	d.safety.masters.Store(identityMasterLevels())
 
 	d.mu.Lock()
 	d.startWorkerLocked()
@@ -203,11 +224,53 @@ func Run(ctx context.Context, cfg Config) error {
 	return serveErr
 }
 
+// requestSource reads the "--source manual|automation" wire-arg convention
+// (06-02-PLAN.md Task 2) directly out of args, without going through
+// parseFlags' full validation -- every existing route's own args (which
+// never declared a --source flag before this task) must keep parsing
+// exactly as before even when a caller now appends --source, and a
+// request that omits --source entirely must default to "manual" (every
+// pre-Task-2 caller, and every operator-issued CLI action, is manual by
+// definition -- see internal/command/artnet.go's client routes). Returns
+// "manual" for any args value other than exactly "automation".
+func requestSource(args []string) string {
+	for i, arg := range args {
+		if arg == "--source" && i+1 < len(args) {
+			if args[i+1] == "automation" {
+				return "automation"
+			}
+			return "manual"
+		}
+		if strings.HasPrefix(arg, "--source=") {
+			if strings.TrimPrefix(arg, "--source=") == "automation" {
+				return "automation"
+			}
+			return "manual"
+		}
+	}
+	return "manual"
+}
+
 // handle dispatches one IPC-forwarded ipc.Request to a daemon-side
 // operation (CONTEXT D-03). Every route mutates only this daemon's own
 // in-memory state -- no CLI invocation ever owns a separate output
 // process.
+//
+// The revoke-automation gate (PLAY-08) runs first, before route dispatch:
+// while d.safety.revokeActive() is true, any Request whose args tag it as
+// "--source automation" is rejected with GOLC_ARTNET_SAFETY_REVOKED,
+// regardless of route -- this blocks a script/AI-issued command (queued or
+// new) from reaching any handler without depending on that automation
+// runtime ever acknowledging or responding (CONTEXT: "Revoke Automation
+// must not depend on an AI provider, script runtime, or queued application
+// command completing"). A manual (operator/CLI-issued, the default when
+// --source is absent) Request is never blocked by this gate.
 func (d *daemon) handle(request ipc.Request) ipc.Result {
+	if d.safety.revokeActive() && requestSource(request.Args) == "automation" {
+		return ipc.Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
+			"GOLC_ARTNET_SAFETY_REVOKED: automation is revoked; route %q rejected for a non-manual source\n", request.Route))}
+	}
+
 	switch request.Route {
 	case "artnet status":
 		return d.handleStatus()
@@ -217,6 +280,14 @@ func (d *daemon) handle(request ipc.Request) ipc.Result {
 		return d.handleSetEnabled(request.Args, true)
 	case "artnet target disable":
 		return d.handleSetEnabled(request.Args, false)
+	case "artnet safety blackout":
+		return d.handleSafetyToggle(request.Args, d.safety.setBlackout, "GOLC_ARTNET_SAFETY_BLACKOUT")
+	case "artnet safety stop-all":
+		return d.handleSafetyToggle(request.Args, d.safety.setStopAll, "GOLC_ARTNET_SAFETY_STOP_ALL")
+	case "artnet safety revoke-automation":
+		return d.handleSafetyToggle(request.Args, d.safety.setRevokeAutomation, "GOLC_ARTNET_SAFETY_REVOKE_AUTOMATION")
+	case "artnet master set":
+		return d.handleMasterSet(request.Args)
 	default:
 		return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
 			"GOLC_ARTNET_ROUTE_UNKNOWN: the daemon has no operation for route %q\n", request.Route))}
@@ -431,6 +502,97 @@ func (d *daemon) handleSetEnabled(args []string, enabled bool) ipc.Result {
 
 	return ipc.Result{Stdout: []byte(fmt.Sprintf(
 		"GOLC_ARTNET_TARGET_SET_ENABLED: universe %d target %s:%d enabled=%v\n", universe, ip, port, enabled))}
+}
+
+const safetyToggleUsage = "artnet safety blackout|stop-all|revoke-automation [--on true|false] [--source manual|automation]"
+
+// handleSafetyToggle answers "artnet safety blackout"/"artnet safety
+// stop-all"/"artnet safety revoke-automation" (06-02-PLAN.md Task 2,
+// PLAY-06/08/09): it parses the optional "--on true|false" flag
+// (defaulting to true -- "artnet safety blackout" alone means "turn it
+// on"), then calls setter directly against d.safety's own atomic field and
+// returns immediately.
+//
+// This handler deliberately never touches d.mu and never calls
+// d.reconfigureLocked() -- unlike handleConfigure/handleSetEnabled above,
+// which mutate the target map and therefore must stop/rebuild/start the
+// Worker (worker.go has no dynamic reconfigure API by design), a safety
+// flag is an atomic the Worker's tick goroutine already reads lock-free
+// every tick (daemon.go's own doc comment on the daemon struct's safety
+// field). Routing this through reconfigureLocked would reintroduce exactly
+// the Worker-restart latency PLAY-06/09 require this path to avoid.
+func (d *daemon) handleSafetyToggle(args []string, setter func(bool), label string) ipc.Result {
+	flags, err := parseFlags(safetyToggleUsage, args)
+	if err != nil {
+		return ipc.Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	on := true
+	if raw, ok := flags["on"]; ok {
+		parsed, parseErr := strconv.ParseBool(raw)
+		if parseErr != nil {
+			return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
+				"GOLC_ARTNET_USAGE: --on value %q is not a valid bool; usage: %s\n", raw, safetyToggleUsage))}
+		}
+		on = parsed
+	}
+
+	setter(on)
+
+	return ipc.Result{Stdout: []byte(fmt.Sprintf("%s: on=%v\n", label, on))}
+}
+
+const masterSetUsage = "artnet master set --grand <0..1> | --group <id> --level <0..1> [--source manual|automation]"
+
+// handleMasterSet answers "artnet master set" (06-02-PLAN.md Task 2,
+// PLAY-06): exactly one of --grand or --group+--level selects which
+// master this call replaces. Like handleSafetyToggle, this never touches
+// d.mu or reconfigureLocked -- d.safety.setGrandMaster/setGroupMaster
+// atomically swap an immutable masterLevels snapshot (safety.go) the
+// Worker's tick goroutine reads lock-free, taking effect on the very next
+// tick with no Worker restart.
+func (d *daemon) handleMasterSet(args []string) ipc.Result {
+	flags, err := parseFlags(masterSetUsage, args)
+	if err != nil {
+		return ipc.Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	if rawGrand, ok := flags["grand"]; ok {
+		level, parseErr := strconv.ParseFloat(rawGrand, 64)
+		if parseErr != nil {
+			return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
+				"GOLC_ARTNET_USAGE: --grand value %q is not a valid number; usage: %s\n", rawGrand, masterSetUsage))}
+		}
+		if err := d.safety.setGrandMaster(level); err != nil {
+			return ipc.Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+		}
+		return ipc.Result{Stdout: []byte(fmt.Sprintf("GOLC_ARTNET_MASTER_SET: grand=%v\n", level))}
+	}
+
+	rawGroup, ok := flags["group"]
+	if !ok {
+		return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
+			"GOLC_ARTNET_USAGE: --grand or --group is required; usage: %s\n", masterSetUsage))}
+	}
+	groupID, parseErr := uuid.Parse(rawGroup)
+	if parseErr != nil {
+		return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
+			"GOLC_ARTNET_USAGE: --group value %q is not a valid UUID; usage: %s\n", rawGroup, masterSetUsage))}
+	}
+	rawLevel, ok := flags["level"]
+	if !ok {
+		return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
+			"GOLC_ARTNET_USAGE: --level is required with --group; usage: %s\n", masterSetUsage))}
+	}
+	level, parseErr := strconv.ParseFloat(rawLevel, 64)
+	if parseErr != nil {
+		return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
+			"GOLC_ARTNET_USAGE: --level value %q is not a valid number; usage: %s\n", rawLevel, masterSetUsage))}
+	}
+	if err := d.safety.setGroupMaster(groupID, level); err != nil {
+		return ipc.Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	return ipc.Result{Stdout: []byte(fmt.Sprintf("GOLC_ARTNET_MASTER_SET: group=%s level=%v\n", groupID, level))}
 }
 
 // parseFlags parses args as a sequence of "--flag value" or "--flag=value"
