@@ -50,6 +50,11 @@ interface SafetyServiceBinding {
   StopReleaseAll(on: boolean): Promise<WailsResult>;
   RevokeAutomation(on: boolean): Promise<WailsResult>;
   FetchStatus(): Promise<StatusSnapshot>;
+  /** SetActiveSurface (CR-01 fix): scopes Blackout/StopReleaseAll/
+   * RevokeAutomation to surfaceName's assigned SafetyRefs server-side
+   * (internal/wails/svc_safety.go's authorizeSafety); "" clears the
+   * active surface, returning to unrestricted/author-mode dispatch. */
+  SetActiveSurface(surfaceName: string): Promise<WailsResult>;
 }
 
 interface PlaybackServiceBinding {
@@ -59,6 +64,11 @@ interface PlaybackServiceBinding {
   TapTempo(timestamps: string[]): Promise<WailsResult>;
   Evaluate(at: number): Promise<WailsResult>;
   GetState(): Promise<WailsResult>;
+  /** SetActiveSurface (CR-01 fix): scopes SwitchScene/SetLayerEnabled to
+   * surfaceName's assigned scene/layer refs server-side
+   * (internal/wails/svc_playback.go's authorizeControl); "" clears the
+   * active surface, returning to unrestricted/author-mode dispatch. */
+  SetActiveSurface(surfaceName: string): Promise<WailsResult>;
 }
 
 interface SurfaceControlRefInput {
@@ -151,6 +161,38 @@ function bridgeUnavailableResult(): WailsResult {
 
 function safetyService(): SafetyServiceBinding | undefined {
   return window.go?.wails?.SafetyService;
+}
+
+function playbackServiceBridge(): PlaybackServiceBinding | undefined {
+  return window.go?.wails?.PlaybackService;
+}
+
+/** setSafetyActiveSurface (CR-01 fix) calls the bound
+ * SafetyService.SetActiveSurface, scoping Blackout/StopReleaseAll/
+ * RevokeAutomation to surfaceName's assigned SafetyRefs server-side; pass
+ * "" to clear the active surface and return to unrestricted/author-mode
+ * dispatch. OperatorSurface.tsx's "Preview as Operator" toggle is the one
+ * caller today. */
+export async function setSafetyActiveSurface(
+  surfaceName: string,
+): Promise<WailsResult> {
+  const svc = safetyService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.SetActiveSurface(surfaceName);
+}
+
+/** setPlaybackActiveSurface (CR-01 fix) calls the bound
+ * PlaybackService.SetActiveSurface, scoping SwitchScene/SetLayerEnabled to
+ * surfaceName's assigned scene/layer refs server-side; pass "" to clear
+ * the active surface and return to unrestricted/author-mode dispatch.
+ * OperatorSurface.tsx's "Preview as Operator" toggle is the one caller
+ * today. */
+export async function setPlaybackActiveSurface(
+  surfaceName: string,
+): Promise<WailsResult> {
+  const svc = playbackServiceBridge();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.SetActiveSurface(surfaceName);
 }
 
 /** offlineStatusSnapshot mirrors internal/wails.offlineStatusSnapshot's

@@ -17,11 +17,15 @@ package wails
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/lnorton89/golc/internal/artnet/ipc"
+	"github.com/lnorton89/golc/internal/command"
+	"github.com/lnorton89/golc/internal/operatorsurface"
+	"github.com/lnorton89/golc/internal/show"
 )
 
 // statusPollInterval is how often StartStatusPush re-fetches the daemon's
@@ -50,18 +54,83 @@ const statusPollInterval = eventsTickInterval
 // hooks.
 type SafetyService struct {
 	pipeName string
+	root     string
+	showPath string
 	dial     dialForwardFunc
 	events   *EventPusher
 
-	mu         sync.Mutex
-	pollCancel context.CancelFunc
-	pollDone   chan struct{}
+	mu            sync.Mutex
+	pollCancel    context.CancelFunc
+	pollDone      chan struct{}
+	activeSurface string
 }
 
 // NewSafetyService constructs a SafetyService targeting pipeName, wired to
 // the production ipc.Dial/ipc.Forward pair and its own idle EventPusher.
-func NewSafetyService(pipeName string) *SafetyService {
-	return &SafetyService{pipeName: pipeName, dial: defaultDialForward, events: NewEventPusher()}
+// root/showPath are the exact ShowState location authorizeSafety (D-04/
+// ASVS V4, CR-01) resolves an active operator surface's SafetyRefs
+// against -- mirrored from PlaybackService/SurfaceService's identical
+// fields rather than a second, divergent copy.
+func NewSafetyService(pipeName, root, showPath string) *SafetyService {
+	return &SafetyService{pipeName: pipeName, root: root, showPath: showPath, dial: defaultDialForward, events: NewEventPusher()}
+}
+
+// SetActiveSurface selects surfaceName as the operator surface
+// SafetyService's mutating methods (Blackout/StopReleaseAll/
+// RevokeAutomation) authorize against (CR-01 fix): while an active surface
+// is set, a call against a safety control not assigned to it is rejected
+// server-side by authorizeSafety, exactly mirroring MidiService's own
+// activeSurface pattern. Passing "" clears the active surface, returning
+// to unrestricted/author-mode dispatch (the frontend's OperatorSurface.tsx
+// "Preview as Operator" toggle is the one caller that ever sets a non-empty
+// value here, clearing it again on exit).
+func (s *SafetyService) SetActiveSurface(surfaceName string) Result {
+	if surfaceName == "" {
+		s.mu.Lock()
+		s.activeSurface = ""
+		s.mu.Unlock()
+		return Result{Stdout: "GOLC_SAFETY_ACTIVE_SURFACE_CLEARED\n"}
+	}
+
+	state, err := show.Load(s.root, s.showPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: err.Error()}
+	}
+	if _, found := surfaceByName(state.OperatorSurfaces, surfaceName); !found {
+		return Result{ExitCode: 1, Stderr: fmt.Sprintf("GOLC_OPERATORSURFACE_NOT_FOUND: no operator surface named %q exists\n", surfaceName)}
+	}
+
+	s.mu.Lock()
+	s.activeSurface = surfaceName
+	s.mu.Unlock()
+	return Result{Stdout: fmt.Sprintf("GOLC_SAFETY_ACTIVE_SURFACE_SET: %s\n", surfaceName)}
+}
+
+// authorizeSafety is CR-01's server-side visible-but-locked enforcement
+// point for the safety cluster: when an active operator surface has been
+// set (SetActiveSurface), control must be a member of that surface's
+// SafetyRefs (command.Authorize, internal/command/operatorsurface.go's D-04
+// enforcement) before Blackout/StopReleaseAll/RevokeAutomation may
+// dispatch. No active surface (the default) means unrestricted/author-mode
+// dispatch -- matching this service's pre-CR-01 behavior exactly, so a
+// caller that never opts into operator-surface scoping never regresses.
+func (s *SafetyService) authorizeSafety(control operatorsurface.SafetyControl) error {
+	s.mu.Lock()
+	surfaceName := s.activeSurface
+	s.mu.Unlock()
+	if surfaceName == "" {
+		return nil
+	}
+
+	state, err := show.Load(s.root, s.showPath)
+	if err != nil {
+		return err
+	}
+	surface, found := surfaceByName(state.OperatorSurfaces, surfaceName)
+	if !found {
+		return fmt.Errorf("GOLC_OPERATORSURFACE_NOT_FOUND: no operator surface named %q exists", surfaceName)
+	}
+	return command.Authorize(surface, operatorsurface.SafetyControlRef(control))
 }
 
 // StartStatusPush begins this service's own throttled "status:update"
@@ -148,20 +217,29 @@ func (s *SafetyService) dialFn() dialForwardFunc {
 // Blackout dials+forwards "artnet safety blackout --on <on> --source
 // manual" -- the same daemon route hotkey.go's OS-level Blackout callback
 // forwards directly (RESEARCH.md Pitfall 1: two independent triggers into
-// one override state).
+// one override state). authorizeSafety (CR-01) gates dispatch first.
 func (s *SafetyService) Blackout(on bool) Result {
+	if err := s.authorizeSafety(operatorsurface.Blackout); err != nil {
+		return Result{ExitCode: 1, Stderr: err.Error() + "\n"}
+	}
 	return s.toggle(string(routeBlackout), on)
 }
 
 // StopReleaseAll dials+forwards "artnet safety stop-all --on <on>
-// --source manual".
+// --source manual". authorizeSafety (CR-01) gates dispatch first.
 func (s *SafetyService) StopReleaseAll(on bool) Result {
+	if err := s.authorizeSafety(operatorsurface.StopReleaseAll); err != nil {
+		return Result{ExitCode: 1, Stderr: err.Error() + "\n"}
+	}
 	return s.toggle(string(routeStopAll), on)
 }
 
 // RevokeAutomation dials+forwards "artnet safety revoke-automation --on
-// <on> --source manual".
+// <on> --source manual". authorizeSafety (CR-01) gates dispatch first.
 func (s *SafetyService) RevokeAutomation(on bool) Result {
+	if err := s.authorizeSafety(operatorsurface.RevokeAutomation); err != nil {
+		return Result{ExitCode: 1, Stderr: err.Error() + "\n"}
+	}
 	return s.toggle(string(routeRevokeAutomation), on)
 }
 
