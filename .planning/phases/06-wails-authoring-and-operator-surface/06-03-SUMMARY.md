@@ -169,3 +169,16 @@ None - no external service configuration required.
 ---
 *Phase: 06-wails-authoring-and-operator-surface*
 *Completed: 2026-07-23*
+
+## Self-Check: PASSED
+
+- FOUND: internal/midi/takeover.go
+- FOUND: internal/midi/takeover_test.go
+- FOUND: internal/midi/learn.go
+- FOUND: internal/midi/learn_test.go
+- FOUND: .planning/phases/06-wails-authoring-and-operator-surface/06-03-SUMMARY.md
+- FOUND commit: 20668b8 (test: takeover RED)
+- FOUND commit: e8765d7 (feat: takeover GREEN)
+- FOUND commit: cb9dc30 (test: learn RED)
+- FOUND commit: 4abc849 (feat: learn GREEN)
+- FOUND commit: 8cce040 (docs: SUMMARY)
