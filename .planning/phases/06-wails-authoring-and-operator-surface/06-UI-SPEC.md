@@ -22,7 +22,7 @@ created: 2026-07-23
 | Component library | Radix UI Primitives, unstyled (`@radix-ui/react-dialog` 1.1.19 and sibling packages, exact per-package pins per `.planning/research/STACK.md`) |
 | Styling approach | Component-scoped CSS Modules + CSS custom properties for brand tokens (`--page`, `--panel`, `--ink`, `--text`, `--accent`, status-color set). No Tailwind, no shadcn theme layer. **[DEFAULT — not locked upstream, but directly follows STACK.md's explicit instruction: "Use unstyled primitives under a GOLC design system. Avoid a theme framework that dictates console density."]** |
 | Icon library | `lucide-react` **[DEFAULT — not locked upstream]**. MIT-licensed, tree-shakeable, stroke-based icon set that pairs cleanly with Radix primitives and the brand's technical/mono aesthetic; no icon library was specified in RESEARCH.md or CONTEXT.md. Confirm or override during planning. |
-| Font | Archivo (400/500/600/700/800/900) — UI text, labels, headings, display. JetBrains Mono (400/500/600) — technical/numeric readouts (BPM, bar position, MIDI Note/CC values, diagnostic codes). Both from `.planning/brand/GOLC-Brand-Tokens.md` (Google Fonts, locked). |
+| Font | Archivo — UI text, labels, headings, display (full family available per `.planning/brand/GOLC-Brand-Tokens.md`; this phase's typography contract uses only Regular 400 and Semibold 600, see Typography). JetBrains Mono — technical/numeric readouts (BPM, bar position, MIDI Note/CC values, diagnostic codes); this phase's contract uses only Regular 400. Both families from `.planning/brand/GOLC-Brand-Tokens.md` (Google Fonts, locked). |
 
 **Why no shadcn:** `.planning/research/STACK.md`'s Supporting Libraries table explicitly instructs "Use unstyled primitives under a GOLC design system. Avoid a theme framework that dictates console density" for Radix UI Primitives. shadcn ships a fixed Tailwind-driven visual/density system that this instruction directly rules out for a dense, real-time lighting console. The GOLC brand system (`.planning/brand/GOLC-Brand-Tokens.md`) already supplies a complete, locked token set (color, type, motion) to build custom Radix-based components against instead.
 
@@ -57,11 +57,11 @@ Exceptions:
 | Label | 14px | Archivo Regular (400) | 1.4 |
 | Heading | 20px | Archivo Semibold (600) | 1.2 |
 | Display | 28px | Archivo Semibold (600) | 1.2 |
-| Technical readout *(brand-locked exception, see below)* | 14px | JetBrains Mono Medium (500) | 1.4 |
+| Technical readout | 14px | JetBrains Mono Regular (400) | 1.4 |
 
-Declared weight set: **Archivo Regular (400) + Archivo Semibold (600)** — the two-weight contract required for this phase's UI text and headings.
+Declared weight set: **Regular (400) + Semibold (600)** — exactly two weights, used across both font families. Body/Label/Technical readout use Regular (400); Heading/Display use Semibold (600). No third weight is declared anywhere in this table.
 
-**Documented exception:** JetBrains Mono at weight 500 is a third, brand-locked weight reserved exclusively for technical/numeric readouts — BPM value, bar position, MIDI Note/CC numbers, diagnostic/error codes (`GOLC_*` strings), and mapping identifiers. This is not a new discretionary weight; it is `.planning/brand/GOLC-Brand-Tokens.md`'s pre-existing two-family system (Archivo for prose/UI, JetBrains Mono for technical values), scoped narrowly so it never substitutes for the Archivo body/heading pair above.
+**Technical/numeric distinction:** BPM value, bar position, MIDI Note/CC numbers, diagnostic/error codes (`GOLC_*` strings), and mapping identifiers are visually distinguished from prose/UI text by **font family alone** (JetBrains Mono vs. Archivo), not by weight — both use Regular (400). This keeps `.planning/brand/GOLC-Brand-Tokens.md`'s two-family system (Archivo for prose/UI, JetBrains Mono for technical values) intact while holding the phase's typography contract to two declared weights total.
 
 ---
 
