@@ -9,10 +9,15 @@
 // surface is set (SetActiveSurface), SwitchScene/SetLayerEnabled against a
 // scene/layer not assigned to it are rejected before dispatching, and the
 // same calls against an assigned control still dispatch exactly as before.
+// TestPlaybackServiceSetLayerEnabledPropagatesPreReadFailure proves WR-01's
+// fix: a genuine currentLayerRef pre-read failure is surfaced as
+// SetLayerEnabled's own Result rather than silently treated as "no ref
+// assigned."
 package wails
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -263,6 +268,31 @@ func TestPlaybackServiceSetActiveSurfaceEmptyClearsRestriction(t *testing.T) {
 	result := svc.SwitchScene("Verse")
 	if result.ExitCode != 0 {
 		t.Fatalf("expected SwitchScene to dispatch after the active surface was cleared, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+}
+
+// TestPlaybackServiceSetLayerEnabledPropagatesPreReadFailure proves WR-01's
+// fix: when currentLayerRef's pre-read show.Load fails (here, showPath
+// points at a directory rather than a valid .golc file, so opening the
+// store errors), SetLayerEnabled returns that error as its own Result
+// rather than silently proceeding as if no Ref were assigned -- proceeding
+// would risk omitting --ref and discarding whatever Ref actually exists on
+// disk if a subsequent show.Load inside the mutating registry call happens
+// to succeed where this pre-read failed.
+func TestPlaybackServiceSetLayerEnabledPropagatesPreReadFailure(t *testing.T) {
+	root := t.TempDir()
+	showPath := filepath.Join(t.TempDir(), "not-a-file.golc")
+	if err := os.Mkdir(showPath, 0o755); err != nil {
+		t.Fatalf("failed to seed a directory at showPath: %v", err)
+	}
+	svc := NewPlaybackService("", showPath, root)
+
+	result := svc.SetLayerEnabled("Verse", "color_theme", false)
+	if result.ExitCode == 0 {
+		t.Fatal("expected SetLayerEnabled to fail when the pre-read show.Load cannot open the store")
+	}
+	if result.Stderr == "" {
+		t.Fatal("expected a non-empty diagnostic when the pre-read fails")
 	}
 }
 
