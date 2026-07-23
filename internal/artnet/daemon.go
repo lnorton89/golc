@@ -159,9 +159,11 @@ func Run(ctx context.Context, cfg Config) error {
 
 	// A not-yet-resolvable pinned interface at startup is a degraded
 	// health state (D-05), not a fatal daemon error: the worker binds to
-	// no specific local address until the interface is reachable, and
-	// ifaceMgr.Status()/Err() already surface the loss to any status
-	// caller.
+	// no specific local address until the interface is reachable. Its
+	// live Status()/Err() is read by handleStatus into the status
+	// payload's `interface` field (04-09-PLAN.md), so a caller of
+	// "artnet status" can see the degraded state even when this initial
+	// LocalIP resolution fails.
 	localIP, _ := ifaceMgr.LocalIP()
 
 	d := &daemon{
@@ -238,10 +240,28 @@ func (d *daemon) handle(request ipc.Request) ipc.Result {
 // HealthSnapshot.UniverseValues flattened the same way, sorted ascending
 // by Universe), closing the gap where the worker's per-tick computed
 // buffer was previously discarded after building the outbound packet.
+// Interface carries the daemon's own InterfaceManager's live pinned-
+// interface status (04-09-PLAN.md, ARTN-01/D-05) so a lost/degraded
+// pinned interface is visible to any status caller, never a silent
+// switch.
 type statusPayload struct {
-	Frame     FrameHealth      `json:"frame"`
-	Targets   []TargetHealth   `json:"targets"`
-	Universes []universeValues `json:"universes"`
+	Frame     FrameHealth            `json:"frame"`
+	Targets   []TargetHealth         `json:"targets"`
+	Universes []universeValues       `json:"universes"`
+	Interface interfaceStatusPayload `json:"interface"`
+}
+
+// interfaceStatusPayload is the JSON-safe wire rendering of the daemon's
+// pinned InterfaceManager status (04-09-PLAN.md, ARTN-01/D-05):
+// PinnedIndex/PinnedName identify the pinned interface (Index is the
+// durable identity, Name is display-only -- 04-PATTERNS.md Pitfall 4),
+// Status is InterfaceStatus.String() ("ok"/"lost"), and Error is the
+// GOLC_ARTNET_INTERFACE_LOST diagnostic string when lost, else empty.
+type interfaceStatusPayload struct {
+	PinnedIndex int    `json:"pinnedIndex"`
+	PinnedName  string `json:"pinnedName"`
+	Status      string `json:"status"`
+	Error       string `json:"error"`
 }
 
 // universeValues is the JSON-safe wire rendering of one configured
@@ -256,8 +276,10 @@ type universeValues struct {
 // newStatusPayload flattens snapshot's target map into a sorted slice (see
 // statusPayload doc comment for why the map itself cannot be JSON-encoded
 // directly), and flattens snapshot.UniverseValues into a universe-sorted
-// slice the same way.
-func newStatusPayload(snapshot HealthSnapshot) statusPayload {
+// slice the same way. iface is the daemon's own InterfaceManager status
+// (04-09-PLAN.md), read separately from the HealthSnapshot since interface
+// health is not tracked by Health.
+func newStatusPayload(snapshot HealthSnapshot, iface interfaceStatusPayload) statusPayload {
 	targets := make([]TargetHealth, 0, len(snapshot.Targets))
 	for _, th := range snapshot.Targets {
 		targets = append(targets, th)
@@ -281,14 +303,27 @@ func newStatusPayload(snapshot HealthSnapshot) statusPayload {
 		return universes[i].Universe < universes[j].Universe
 	})
 
-	return statusPayload{Frame: snapshot.Frame, Targets: targets, Universes: universes}
+	return statusPayload{Frame: snapshot.Frame, Targets: targets, Universes: universes, Interface: iface}
 }
 
 // handleStatus answers "artnet status" with the current Health snapshot
-// (ARTN-05), canonically encoded (internal/strictjson) into Result.Stdout
-// via the JSON-safe statusPayload rendering.
+// (ARTN-05) plus the daemon's own InterfaceManager's live pinned-interface
+// status (04-09-PLAN.md, ARTN-01/D-05), canonically encoded
+// (internal/strictjson) into Result.Stdout via the JSON-safe statusPayload
+// rendering.
 func (d *daemon) handleStatus() ipc.Result {
-	payload, err := strictjson.CanonicalEncode(newStatusPayload(d.health.Snapshot()))
+	ifaceErr := ""
+	if err := d.ifaceMgr.Err(); err != nil {
+		ifaceErr = err.Error()
+	}
+	iface := interfaceStatusPayload{
+		PinnedIndex: d.ifaceMgr.PinnedIndex(),
+		PinnedName:  d.ifaceMgr.PinnedName(),
+		Status:      d.ifaceMgr.Status().String(),
+		Error:       ifaceErr,
+	}
+
+	payload, err := strictjson.CanonicalEncode(newStatusPayload(d.health.Snapshot(), iface))
 	if err != nil {
 		return ipc.Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
 			"GOLC_ARTNET_STATUS_ENCODE_FAILED: %v\n", err))}
