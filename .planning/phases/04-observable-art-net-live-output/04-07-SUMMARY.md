@@ -14,6 +14,7 @@ requires:
     provides: "artnet discover" and the completed ARTN-02 CLI surface referenced alongside the other artnet routes in the runbook's context
 provides:
   - docs/artnet/ARTN-06-verification-runbook.md -- the ARTN-06 independent-verification checklist (Wireshark packet inspection, OLA-on-separate-host setup, evidence bar, open real-hardware tracking entry)
+  - .planning/artnet/ARTN-06-verification-2026-07-22.md -- recorded verification evidence (Task 2 checkpoint resolution) and its accompanying .pcapng capture
 affects: []
 
 # Tech tracking
@@ -25,17 +26,20 @@ tech-stack:
 key-files:
   created:
     - docs/artnet/ARTN-06-verification-runbook.md
+    - .planning/artnet/ARTN-06-verification-2026-07-22.md
+    - .planning/artnet/ARTN-06-verification-2026-07-22.pcapng
   modified: []
 
 key-decisions:
   - "The runbook documents OLA running on a separate Linux/macOS host or a bridged-adapter Linux VM (never NAT/WSL2 default), since OLA has no first-class native Windows build (D-18/Pitfall 6) -- this is a verification-environment setup instruction, not a GOLC feature change."
   - "The runbook explicitly separates what Sections 2-3 (simulator + packet) currently prove from what Section 4/5 (a named real-hardware claim) would require, per D-14/D-15, so no reader could mistake simulator-only verification for a hardware compatibility claim."
 
-requirements-completed: []
+requirements-completed: [ARTN-06]
 
-# Task 2 (human-verify checkpoint) has not yet been performed -- see "Checkpoint Status" below.
-# requirements-completed intentionally left empty until the human-verify checkpoint is resolved
-# and this plan's ARTN-06 requirement can be marked complete by the orchestrator.
+# Task 2's human-verify checkpoint was resolved by the operator accepting
+# recorded verification evidence (.planning/artnet/ARTN-06-verification-2026-07-22.md)
+# in place of a self-operated manual run, with documented topology/scope
+# caveats. See "Checkpoint Status" below for the full resolution record.
 
 coverage:
   - id: D1
@@ -48,27 +52,30 @@ coverage:
     human_judgment: false
   - id: D2
     description: "A release candidate demonstrates packet + timing compatibility against the independent simulator (OLA) with a recorded Wireshark capture, following the runbook, before the phase is marked complete (backstop truth in PLAN.md must_haves)"
-    verification: []
+    verification:
+      - kind: other
+        ref: ".planning/artnet/ARTN-06-verification-2026-07-22.md + accompanying .pcapng capture"
+        status: pass
     human_judgment: true
-    rationale: "This is Task 2's checkpoint:human-verify -- it requires real Wireshark + OLA hardware/VM setup that only a human operator can perform (no CI substitute exists per 04-RESEARCH.md's Validation Architecture table). Not yet performed in this execution; recorded here as pending, not silently assumed complete."
+    rationale: "Task 2's checkpoint:human-verify was resolved by the operator (2026-07-22): recorded independent verification (OLA + Wireshark, run via Docker rather than a manually-operated separate host) confirmed all Section 2 packet fields and Section 3's received-value cross-check. The operator explicitly accepted this evidence in place of a self-operated manual run, with topology (loopback+Docker vs. separate-host/bridged-VM) and full-CLI-flow gaps documented rather than silently closed. Real hardware (D-14) remains untouched and open."
 
 # Metrics
-duration: ~15min (Task 1 only; Task 2 pending)
+duration: ~55min (Task 1 ~15min + Task 2 verification ~40min)
 completed: 2026-07-22
-status: blocked
+status: complete
 ---
 
 # Phase 4 Plan 07: ARTN-06 Independent-Verification Runbook Summary
 
-**Authored the ARTN-06 verification runbook (Wireshark packet checklist + OLA-on-separate-host setup + D-15 evidence bar + D-14 open real-hardware item); Task 2's human-verify checkpoint (running the actual Wireshark capture and OLA cross-check against a release candidate) remains pending and requires human execution with real hardware/VM setup.**
+**Authored the ARTN-06 verification runbook (Wireshark packet checklist + OLA-on-separate-host setup + D-15 evidence bar + D-14 open real-hardware item); Task 2's human-verify checkpoint was resolved by the operator accepting a recorded, independently-verified Docker/Wireshark/OLA evidence run against golc's real production encoder, with topology and CLI-flow scope caveats documented rather than silently closed.**
 
 ## Performance
 
-- **Duration:** ~15 min (Task 1 only)
+- **Duration:** ~55 min (Task 1 ~15 min + Task 2 verification ~40 min)
 - **Started:** 2026-07-22T09:40:00Z (approximate)
-- **Completed:** Task 1 complete; Task 2 (checkpoint) not yet started
-- **Tasks:** 1 of 2 complete
-- **Files modified:** 1 (created)
+- **Completed:** Both tasks complete
+- **Tasks:** 2 of 2 complete
+- **Files modified:** 3 (created)
 
 ## Accomplishments
 
@@ -85,11 +92,13 @@ status: blocked
 Each task was committed atomically:
 
 1. **Task 1: Author the ARTN-06 independent-verification runbook (D-13/D-14/D-15/D-18)** - `f037a36` (docs)
-2. **Task 2: Human-verify ARTN-06 packet + simulator compatibility (D-13/D-15)** - **NOT STARTED** (blocking human-verify checkpoint, gate="blocking")
+2. **Task 2: Human-verify ARTN-06 packet + simulator compatibility (D-13/D-15)** - `8886fc9` (docs — verification evidence record + capture)
 
 ## Files Created/Modified
 
 - `docs/artnet/ARTN-06-verification-runbook.md` - Five-section ARTN-06 verification checklist (environment setup, packet-level, independent-receiver, evidence bar, open real-hardware item)
+- `.planning/artnet/ARTN-06-verification-2026-07-22.md` - Written record of the Task 2 checkpoint resolution: what was verified, results, and honest scope caveats
+- `.planning/artnet/ARTN-06-verification-2026-07-22.pcapng` - Raw Wireshark capture of 240 ArtDMX packets, the recorded evidence per runbook Section 4
 
 ## Decisions Made
 
@@ -98,20 +107,25 @@ Each task was committed atomically:
 
 ## Deviations from Plan
 
-None — Task 1 executed exactly as written. The plan's own structure (Task 1 `type="auto"`, Task 2 `type="checkpoint:human-verify" gate="blocking"`) required this executor to stop after Task 1 and return the checkpoint rather than attempting or simulating Task 2's manual verification.
+Task 1 executed exactly as written. For Task 2, the executor correctly stopped and returned the checkpoint per plan (the plan's Task 2 is `type="checkpoint:human-verify" gate="blocking"`, and the executor must never attempt or simulate it). The orchestrator then, at the operator's explicit direction ("you have access to hyper-v, qemu, docker, whatever tools you need to test this yourself"), performed a real independent verification using Docker (OLA) and Wireshark/tshark rather than the operator personally running the runbook on a separate host. This substitutes automated-but-genuine tooling for the originally-envisioned fully-manual process; the operator was shown the results, including honest scope caveats (topology and CLI-flow gaps), and explicitly chose to accept this evidence as satisfying the checkpoint rather than requiring a fully manual re-run.
 
 ## Issues Encountered
 
-None for Task 1. Task 2 cannot be completed by this executor: it requires an operator with access to real Wireshark + OLA hardware/VM infrastructure (see Checkpoint Status below and the CHECKPOINT REACHED block returned alongside this summary).
+None for Task 1. For Task 2: no dedicated second host/VM was available in this session, so the verification ran OLA in a local Docker container with its Art-Net UDP port published to loopback, rather than the runbook's recommended separate-host/bridged-VM topology (D-18/Pitfall 6's concern). The full `golc artnet serve/configure/status` CLI flow was also not exercised (no show/fixture file exists in the repo yet) — the verification called golc's production `EncodeArtDMX`/`PortAddress` functions directly instead. Both gaps are documented in `.planning/artnet/ARTN-06-verification-2026-07-22.md` and were disclosed to the operator before they accepted the checkpoint resolution.
 
 ## Checkpoint Status
 
-**Task 2 is a `checkpoint:human-verify` with `gate="blocking"` and has NOT been performed in this execution.** Per this plan's own instructions and the orchestrator's spawn context for this worktree agent, the executor must not attempt or simulate the manual Wireshark/OLA verification — it requires:
-- A second host (Linux/macOS or bridged-adapter Linux VM) running OLA, reachable from GOLC's pinned Windows interface.
-- Wireshark installed on a capture-capable machine.
-- A human operator to run the verification steps in `docs/artnet/ARTN-06-verification-runbook.md` Sections 2-3, save the Wireshark capture (Section 4), and confirm the open real-hardware item (Section 5) remains correctly un-claimed.
+**Task 2's `checkpoint:human-verify` (`gate="blocking"`) is RESOLVED.** Resolution path:
 
-This SUMMARY intentionally does not mark `requirements-completed: [ARTN-06]` and sets frontmatter `status: blocked` (not `complete`) because Task 2's coverage item (D2) has `human_judgment: true` and has not yet been resolved. The orchestrator should treat this plan as paused at a blocking checkpoint, not finished, until a human runs the checkpoint and the result (approved / discrepancy) is recorded.
+1. The executor reached the checkpoint and returned it without attempting Task 2, exactly per plan.
+2. The orchestrator, explicitly authorized by the operator to use available local virtualization/testing tools, performed a real (not simulated) verification: OLA running in Docker with its Art-Net plugin enabled and universe 0 patched to receive; golc's actual production `internal/artnet.EncodeArtDMX`/`PortAddress` driven at the real 40Hz worker cadence for 6 seconds (240 frames) to `127.0.0.1:6454`; a simultaneous `tshark` capture on loopback filtered to `udp port 6454`.
+3. **Results:** Wireshark's own (independent, unmodified) Art-Net dissector confirmed every required Section 2 field across all 240 packets (Art-Net ID, OpDMX `0x5000`, ProtVer 14, correct Port-Address, sequence advancing 1→240 never 0, 512-byte payload, exact 40Hz cadence). OLA's own HTTP API independently confirmed it received and held the exact final sent values (`251,10,20,30`).
+4. **Scope caveats disclosed and accepted:** topology used loopback+Docker port-publish rather than a genuinely separate host/bridged VM over a real pinned interface; the full CLI flow (`serve`/`configure`/`status`) was not exercised end-to-end (no show/fixture file exists yet in this repo — a pre-existing gap, not introduced here); D-14's real-hardware open item remains untouched and open.
+5. The operator was presented with all of the above, including the caveats, and explicitly chose **"Accept — close Wave 7 now"** over the alternative options (full manual runbook first, or closing the CLI-flow gap first).
+
+Full record: `.planning/artnet/ARTN-06-verification-2026-07-22.md` (commit `8886fc9`), with the raw capture at `.planning/artnet/ARTN-06-verification-2026-07-22.pcapng`.
+
+This SUMMARY marks `requirements-completed: [ARTN-06]` and frontmatter `status: complete` on that basis. The topology and full-CLI-flow gaps remain legitimate follow-up items (not hidden — see the verification record's "What was NOT verified" section) should a stronger claim be wanted later; they do not block this plan or phase from completing.
 
 ## User Setup Required
 
@@ -122,14 +136,18 @@ This SUMMARY intentionally does not mark `requirements-completed: [ARTN-06]` and
 
 ## Next Phase Readiness
 
-- Task 1's runbook is complete and self-contained; it does not block any other phase-4 plan (this is the phase's final wave/plan).
-- Task 2's checkpoint must be resolved (human runs the runbook against a release candidate, records the Wireshark capture, and confirms OLA-received values) before ARTN-06 can be marked complete and before the phase gate closes, per the plan's own `<verification>`/`<success_criteria>` blocks.
-- No blockers for other phases — Phase 4's automated coverage (ARTN-01 through ARTN-05, Plans 01-06) is already complete and independent of this plan's pending checkpoint.
+- Both tasks complete; this is the phase's final wave/plan. ARTN-06 is marked complete.
+- Follow-up (optional, not blocking): a fuller manual pass on a genuinely separate host/bridged VM, and/or building a minimal show/fixture file to drive the full `golc artnet serve/configure/status` CLI end-to-end, would close the topology and CLI-flow gaps noted in `.planning/artnet/ARTN-06-verification-2026-07-22.md` if a stronger claim is wanted later.
+- Real Art-Net hardware (D-14) remains an explicit, open, un-claimed item — untouched by this plan, exactly as designed.
+- No blockers for other phases — Phase 4's automated coverage (ARTN-01 through ARTN-05, Plans 01-06) plus this plan's ARTN-06 resolution completes the phase's requirement set.
 
 ## Self-Check: PASSED
 - FOUND: docs/artnet/ARTN-06-verification-runbook.md
+- FOUND: .planning/artnet/ARTN-06-verification-2026-07-22.md
+- FOUND: .planning/artnet/ARTN-06-verification-2026-07-22.pcapng
 - FOUND commit: f037a36 (Task 1)
+- FOUND commit: 8886fc9 (Task 2 checkpoint resolution)
 
 ---
 *Phase: 04-observable-art-net-live-output*
-*Completed: Task 1 only — Task 2 checkpoint pending human verification*
+*Completed: both tasks — Task 2 checkpoint resolved by operator-accepted recorded evidence*
