@@ -7,6 +7,7 @@ package wails
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -184,10 +185,29 @@ func TestHotkeyRegisterSurfaced(t *testing.T) {
 	}
 }
 
+// hotkeyStatusJSON builds a minimal "artnet status" JSON response body
+// mirroring daemonStatusJSON (svc_safety_test.go) -- used here to control
+// nextToggleValue's (CR-03 fix) query response independent of the actual
+// toggle request under test.
+func hotkeyStatusJSON(t *testing.T, controllingSource, outputState string) []byte {
+	t.Helper()
+	encoded, err := json.Marshal(map[string]interface{}{"playback": map[string]interface{}{
+		"controllingSource": controllingSource,
+		"outputState":       outputState,
+	}})
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	return encoded
+}
+
 // TestHotkeyKeydownForwardsDirectlyToDaemon proves a safety hotkey's
-// Keydown event dials+forwards the matching daemon route directly
-// (RESEARCH.md Pitfall 1: never a JS-mediated path) -- the callback lives
-// entirely in hotkey.go's listen goroutine, never in frontend JS.
+// Keydown event queries the daemon's current state (CR-03's
+// nextToggleValue) and then dials+forwards the matching daemon route
+// directly (RESEARCH.md Pitfall 1: never a JS-mediated path) -- the
+// callback lives entirely in hotkey.go's listen goroutine, never in
+// frontend JS. The daemon here reports no active override, so the toggle
+// activates ("--on true"), mirroring this test's pre-CR-03 behavior.
 func TestHotkeyKeydownForwardsDirectlyToDaemon(t *testing.T) {
 	pipeName := testWailsPipeName(t)
 	manager := NewHotkeyManager(pipeName)
@@ -203,6 +223,9 @@ func TestHotkeyKeydownForwardsDirectlyToDaemon(t *testing.T) {
 	manager.dial = func(name string, request ipc.Request) ipc.Result {
 		if name != pipeName {
 			t.Errorf("dial called with pipe %q, want %q", name, pipeName)
+		}
+		if request.Route == "artnet status" {
+			return ipc.Result{Stdout: hotkeyStatusJSON(t, "live", "frame-lock")}
 		}
 		forwardedCh <- request
 		return ipc.Result{}
@@ -222,6 +245,56 @@ func TestHotkeyKeydownForwardsDirectlyToDaemon(t *testing.T) {
 			t.Fatalf("forwarded route = %q, want %q", request.Route, routeBlackout)
 		}
 		want := []string{"--on", "true", "--source", "manual"}
+		if len(request.Args) != len(want) {
+			t.Fatalf("forwarded args = %v, want %v", request.Args, want)
+		}
+		for i := range want {
+			if request.Args[i] != want[i] {
+				t.Fatalf("forwarded args = %v, want %v", request.Args, want)
+			}
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for the hotkey Keydown callback to dial+forward the daemon route")
+	}
+}
+
+// TestHotkeyKeydownReleasesWhenAlreadyActive proves CR-03's fix: when the
+// daemon reports Blackout/Stop-All's combined "blackout" outputState
+// already active, a second Keydown on the same hotkey forwards "--on
+// false" (release) instead of re-forwarding "--on true" -- there is now an
+// OS-level release path, mirroring SafetyCluster.tsx's identical toggle
+// fix for the on-screen hold buttons.
+func TestHotkeyKeydownReleasesWhenAlreadyActive(t *testing.T) {
+	pipeName := testWailsPipeName(t)
+	manager := NewHotkeyManager(pipeName)
+
+	fakes := map[hotkey.Key]*fakeRegisterer{}
+	manager.factory = func(mods []hotkey.Modifier, key hotkey.Key) registerer {
+		f := &fakeRegisterer{keydown: make(chan hotkey.Event, 1)}
+		fakes[key] = f
+		return f
+	}
+
+	forwardedCh := make(chan ipc.Request, 1)
+	manager.dial = func(name string, request ipc.Request) ipc.Result {
+		if request.Route == "artnet status" {
+			return ipc.Result{Stdout: hotkeyStatusJSON(t, "blackout", "blackout")}
+		}
+		forwardedCh <- request
+		return ipc.Result{}
+	}
+
+	failures := manager.RegisterAll()
+	defer manager.UnregisterAll()
+	if len(failures) != 0 {
+		t.Fatalf("expected all three bindings to register successfully with a fake registerer, got failures: %+v", failures)
+	}
+
+	fakes[blackoutKey].keydown <- hotkey.Event{}
+
+	select {
+	case request := <-forwardedCh:
+		want := []string{"--on", "false", "--source", "manual"}
 		if len(request.Args) != len(want) {
 			t.Fatalf("forwarded args = %v, want %v", request.Args, want)
 		}

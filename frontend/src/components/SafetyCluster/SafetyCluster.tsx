@@ -9,8 +9,16 @@
 // (wailsBridge.ts) with the exact same route+"--source manual" shape
 // hotkey.go's OS-level callback already uses (RESEARCH.md Pitfall 1: this
 // on-screen path is the second, independent trigger into the same daemon
-// override state -- always "on=true", mirroring hotkey.go's own
-// always-activate convention for this phase).
+// override state).
+//
+// CR-03 fix: each hold-to-confirm control TOGGLES against the currently
+// observed combined state (status.outputState/status.controllingSource,
+// the same signal this file's own active/blackoutOrStopActive/revokeActive
+// derivation already reads) rather than always forwarding "on=true" --
+// without this, activating Blackout/Stop-Release-All/Revoke Automation
+// from the desktop shell had no in-app release path at all (recovery
+// required a separate CLI invocation). hotkey.go's OS-level callbacks
+// carry the identical toggle fix (HotkeyManager.nextToggleValue).
 //
 // D-13 also means this region must remain visible AND interactive even
 // when the daemon is unreachable (LiveStatusBar.tsx renders the
@@ -164,28 +172,28 @@ export default function SafetyCluster() {
   return (
     <div className={styles.cluster} aria-label="Safety cluster">
       <HoldButton
-        label="Hold to Blackout"
+        label={blackoutOrStopActive ? "Hold to Release Blackout" : "Hold to Blackout"}
         controlColorVar="var(--status-blackout)"
         textColorVar="var(--page)"
         active={blackoutOrStopActive}
         onActivate={() => {
-          void safetyBlackout(true);
+          void safetyBlackout(!blackoutOrStopActive);
         }}
       />
       <HoldButton
-        label="Hold to Revoke Automation"
+        label={revokeActive ? "Hold to Restore Automation" : "Hold to Revoke Automation"}
         controlColorVar="var(--status-revoked)"
         textColorVar="var(--page)"
         active={revokeActive}
         onActivate={() => {
-          void safetyRevokeAutomation(true);
+          void safetyRevokeAutomation(!revokeActive);
         }}
       />
       <HoldButton
-        label="Hold to Stop / Release All"
+        label={blackoutOrStopActive ? "Hold to Release Stop / Release All" : "Hold to Stop / Release All"}
         active={blackoutOrStopActive}
         onActivate={() => {
-          void safetyStopReleaseAll(true);
+          void safetyStopReleaseAll(!blackoutOrStopActive);
         }}
       />
     </div>
