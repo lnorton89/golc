@@ -16,6 +16,7 @@ import OperatorSurface from "./components/OperatorSurface/OperatorSurface";
 import MidiPanel from "./components/MidiPanel/MidiPanel";
 import FixturePatch from "./components/FixturePatch/FixturePatch";
 import ArtnetConfig from "./components/ArtnetConfig/ArtnetConfig";
+import SceneProgramming from "./components/SceneProgramming/SceneProgramming";
 
 const shellStyle: CSSProperties = {
   display: "flex",
@@ -41,6 +42,7 @@ export default function App() {
         <OperatorSurface />
         <FixturePatch />
         <ArtnetConfig />
+        <SceneProgramming />
         <MidiPanel />
       </main>
     </div>
