@@ -7,7 +7,10 @@ require (
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/google/uuid v1.6.0
 	github.com/invopop/jsonschema v0.14.0
+	github.com/wailsapp/wails/v2 v2.13.0
+	gitlab.com/gomidi/midi/v2 v2.3.24
 	go.yaml.in/yaml/v4 v4.0.0-rc.6
+	golang.design/x/hotkey v0.6.1
 	modernc.org/sqlite v1.54.0
 )
 
@@ -41,8 +44,6 @@ require (
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/wailsapp/go-webview2 v1.0.22 // indirect
 	github.com/wailsapp/mimetype v1.4.1 // indirect
-	github.com/wailsapp/wails/v2 v2.13.0 // indirect
-	golang.design/x/hotkey v0.6.1 // indirect
 	golang.org/x/crypto v0.51.0 // indirect
 	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect

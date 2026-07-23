@@ -68,9 +68,16 @@ func (p *EventPusher) QueueStatus(snapshot StatusSnapshot) {
 	p.queue("status:update", snapshot)
 }
 
-// QueueMidiFeedback stages the latest MIDI/soft-takeover feedback under
-// "midi:feedback" -- 06-08 fills the real payload shape.
-func (p *EventPusher) QueueMidiFeedback(snapshot interface{}) {
+// QueueMidiFeedback stages the latest D-09/D-10/D-11 soft-takeover
+// feedback (MidiFeedback, svc_midi.go) for the next throttled push under
+// the "midi:feedback" event name -- MidiService.dispatchToActiveSurface
+// (svc_midi.go) is this event's own producer, calling QueueMidiFeedback
+// once per arbitrated MIDI message so a fast fader sweep coalesces into
+// eventsTickInterval-spaced pushes rather than one EventsEmit per message
+// (06-RESEARCH.md Open Question 3: the crossing/arming decision itself
+// stays unthrottled -- TakeoverState.Update runs on every message; only
+// this visual-feedback push is throttled).
+func (p *EventPusher) QueueMidiFeedback(snapshot MidiFeedback) {
 	p.queue("midi:feedback", snapshot)
 }
 

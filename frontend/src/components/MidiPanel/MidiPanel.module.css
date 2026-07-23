@@ -1,0 +1,318 @@
+/*
+ * MidiPanel.module.css is the single shared CSS Module for the generic
+ * MIDI feature (06-08-PLAN.md Task 3): MidiPanel.tsx, MidiLearn.tsx, and
+ * SoftTakeoverSlider.tsx all import these class names, mirroring
+ * OperatorSurface.module.css's identical one-stylesheet-per-feature
+ * convention (06-UI-SPEC.md Design System). Reads the GOLC brand tokens
+ * (frontend/src/index.css custom properties) rather than repeating hex
+ * values; the armed chip specifically uses --status-armed (#C8A24B),
+ * 06-UI-SPEC.md's locked color for the soft-takeover "armed" state.
+ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: "Archivo", system-ui, sans-serif;
+}
+
+.skeleton {
+  padding: var(--space-md);
+  border-radius: 4px;
+  background: var(--line);
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.errorText {
+  margin: 0;
+  padding: var(--space-sm);
+  border-radius: 4px;
+  background: var(--status-revoked);
+  color: #fff;
+  font-size: 14px;
+}
+
+/* Surface selector */
+
+.surfaceSelectRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.surfaceSelectLabel {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.surfaceSelect {
+  padding: var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.sectionHeading {
+  margin: 0 0 var(--space-xs) 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Assigned-controls list -- one per-control Learn affordance each (D-05,
+   D-08: exactly the surface's own assignment set, never a separate
+   fixed list). */
+
+.controlList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.controlRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+}
+
+.controlLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+/* MidiLearn -- per-control Learn affordance (D-05), 44px minimum
+   icon-affordance touch target (06-UI-SPEC.md Spacing Scale exception). */
+
+.learnControl {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-xs);
+}
+
+.learnButton {
+  min-height: 44px;
+  padding: var(--space-xs) var(--space-md);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.learnButton:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.learnListening {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+}
+
+.cancelButton {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid #fff;
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.learnError {
+  margin: 0;
+  max-width: 260px;
+  font-size: 14px;
+  color: var(--status-revoked);
+  text-align: right;
+}
+
+/* Mapping list -- empty/populated states (06-UI-SPEC.md Copywriting
+   Contract). */
+
+.mappingSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-md);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-lg) var(--space-md);
+}
+
+.emptyHeading {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.emptyBody {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.mappingList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.mappingRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+}
+
+.mappingInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.mappingLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.mappingTechnical {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.removeButton {
+  min-height: 44px;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--status-revoked);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--status-revoked);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.removeButton:hover {
+  background: var(--status-revoked);
+  color: #fff;
+}
+
+/* Armed chip -- 06-UI-SPEC.md "armed/not-armed chip using the armed
+   status color" (--status-armed, #C8A24B). */
+
+.armedChip {
+  padding: 2px var(--space-sm);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.armedChipOn {
+  background: var(--status-armed);
+  color: #17181c;
+}
+
+.armedChipOff {
+  background: transparent;
+  border: 1px solid var(--muted);
+  color: var(--muted);
+}
+
+/* SoftTakeoverSlider -- live-position slider + ghost/target marker
+   (D-09/D-10), distinct not-armed/pickup vs armed/controlling visual
+   state (D-11). */
+
+.takeoverTrack {
+  position: relative;
+  flex: 1;
+  min-width: 100px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: visible;
+}
+
+.takeoverFill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  border-radius: 999px;
+  transition: width var(--motion-tap);
+}
+
+.takeoverPickup .takeoverFill {
+  background: var(--muted);
+  opacity: 0.6;
+}
+
+.takeoverArmed .takeoverFill {
+  background: var(--status-armed);
+}
+
+.takeoverGhost {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--accent);
+}
+
+.takeoverRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1;
+}

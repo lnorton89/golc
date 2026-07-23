@@ -80,6 +80,30 @@ interface SurfaceServiceBinding {
   AuthorizeControl(surfaceName: string, controlRef: SurfaceControlRefInput): Promise<WailsResult>;
 }
 
+/** MidiFeedback mirrors internal/wails.MidiFeedback's JSON shape exactly
+ * (06-08-PLAN.md Task 2, D-09/D-10/D-11): Physical is the live physical
+ * fader/button position (drives the on-screen slider even while not
+ * armed), AppValue is the fixed ghost/target marker while unarmed or the
+ * tracked controlling value once armed, and Armed reports whether the
+ * cross-to-catch crossing has occurred -- always true for a Note/button
+ * mapping (D-12: no arming delay). */
+export interface MidiFeedback {
+  surfaceName: string;
+  mappingId: string;
+  kind: string;
+  armed: boolean;
+  appValue: number;
+  physical: number;
+}
+
+interface MidiServiceBinding {
+  StartLearn(surfaceName: string, controlRef: SurfaceControlRefInput): Promise<WailsResult>;
+  CancelLearn(): Promise<WailsResult>;
+  RemoveMapping(surfaceName: string, mappingId: string): Promise<WailsResult>;
+  ListMappings(surfaceName: string): Promise<unknown[]>;
+  SetActiveSurface(surfaceName: string): Promise<WailsResult>;
+}
+
 // Single, centralized `window.go.wails` shape (Wails v2's runtime-injected
 // bridge, one property per struct bound in cmd/golc-desktop/main.go's
 // options.App{Bind: [...]}). Every component imports its binding call
@@ -99,6 +123,7 @@ declare global {
         SafetyService?: SafetyServiceBinding;
         PlaybackService?: PlaybackServiceBinding;
         SurfaceService?: SurfaceServiceBinding;
+        MidiService?: MidiServiceBinding;
       };
     };
     runtime?: {
@@ -202,5 +227,24 @@ export function onStatusUpdate(
   return runtime.EventsOn("status:update", (...data: unknown[]) => {
     const snapshot = data[0] as StatusSnapshot | undefined;
     if (snapshot) callback(snapshot);
+  });
+}
+
+/** onMidiFeedback subscribes to the Go host's throttled "midi:feedback"
+ * EventsEmit push (internal/wails/events.go's QueueMidiFeedback,
+ * 06-08-PLAN.md Task 2), invoking callback with each pushed MidiFeedback
+ * (D-09/D-10/D-11). Returns an unsubscribe function; a missing bridge
+ * returns a no-op unsubscribe rather than throwing -- mirrors
+ * onStatusUpdate's identical contract. The crossing/arming decision
+ * itself runs unthrottled Go-side (06-RESEARCH.md Open Question 3); this
+ * push is only the throttled visual reflection. */
+export function onMidiFeedback(
+  callback: (feedback: MidiFeedback) => void,
+): () => void {
+  const runtime = window.runtime;
+  if (!runtime) return () => {};
+  return runtime.EventsOn("midi:feedback", (...data: unknown[]) => {
+    const feedback = data[0] as MidiFeedback | undefined;
+    if (feedback) callback(feedback);
   });
 }
