@@ -15,13 +15,19 @@ import (
 	"path/filepath"
 
 	"github.com/lnorton89/golc/internal/deployment"
+	"github.com/lnorton89/golc/internal/operatorsurface"
 	"github.com/lnorton89/golc/internal/pool"
 	"github.com/lnorton89/golc/internal/programming"
 	"github.com/lnorton89/golc/internal/scene"
 )
 
 // SchemaVersion is the current State schema version Save always writes.
-const SchemaVersion = 1
+// Bumped to 2 by 06-01-PLAN.md Task 2 for the additive OperatorSurfaces
+// field (PLAY-03): the field is optional/omitempty, so a v1 blob decodes
+// cleanly with an empty slice -- the registered migrations[1] transform
+// (internal/show/migrate.go) is therefore an identity transform, only the
+// stamped schema_version itself advances.
+const SchemaVersion = 2
 
 // State is the ShowState container: a working, JSON-persisted document
 // carrying every logical Pool, Group, and concrete Deployment for one
@@ -30,19 +36,20 @@ const SchemaVersion = 1
 // bumps; 02-05's impact-plan freshness guard (D-16) compares an expected
 // Revision against this field to detect a stale plan.
 type State struct {
-	SchemaVersion int                          `json:"schema_version"`
-	Revision      int                          `json:"revision"`
-	Pools         []pool.Pool                  `json:"pools"`
-	Deployments   []deployment.Deployment      `json:"deployments"`
-	Groups        []pool.Group                 `json:"groups"`
-	Programmer    *programming.ProgrammerState `json:"programmer,omitempty"`
-	Themes        []programming.Theme          `json:"themes"`
-	Presets       []programming.Preset         `json:"presets"`
-	Chases        []programming.Chase          `json:"chases"`
-	MotionPresets []programming.MotionPreset   `json:"motion_presets"`
-	Scenes        []scene.Scene                `json:"scenes"`
-	BlendPresets  []scene.BlendPreset           `json:"blend_presets"`
-	Tempo         Tempo                         `json:"tempo"`
+	SchemaVersion    int                          `json:"schema_version"`
+	Revision         int                          `json:"revision"`
+	Pools            []pool.Pool                  `json:"pools"`
+	Deployments      []deployment.Deployment      `json:"deployments"`
+	Groups           []pool.Group                 `json:"groups"`
+	Programmer       *programming.ProgrammerState `json:"programmer,omitempty"`
+	Themes           []programming.Theme          `json:"themes"`
+	Presets          []programming.Preset         `json:"presets"`
+	Chases           []programming.Chase          `json:"chases"`
+	MotionPresets    []programming.MotionPreset   `json:"motion_presets"`
+	Scenes           []scene.Scene                `json:"scenes"`
+	BlendPresets     []scene.BlendPreset          `json:"blend_presets"`
+	Tempo            Tempo                        `json:"tempo"`
+	OperatorSurfaces []operatorsurface.Surface    `json:"operator_surfaces,omitempty"`
 }
 
 // Tempo is the show-wide musical tempo (SCEN-02/SCEN-03): a single BPM
@@ -79,8 +86,11 @@ func resolvePath(root, path string) string {
 // supported capability type (PROG-02/PROG-03). Every Chase's step order/
 // unit/duration/count ceiling and unique name (PROG-05, D-09/D-10), and
 // every MotionPreset's position/beam capability scope and unique name
-// (PROG-06, D-04), are re-checked here too -- the single validate() entry
-// point every new object type extends rather than a parallel path.
+// (PROG-06, D-04), are re-checked here too. Every operator surface's
+// unique name and every SceneRef/LayerRef/GroupMaster ref resolving to an
+// existing scene/layer-slot/group (PLAY-03, CONTEXT threat T-06-02) is
+// checked last -- the single validate() entry point every new object type
+// extends rather than a parallel path.
 func validate(s State) error {
 	for _, p := range s.Pools {
 		if err := pool.Validate(p); err != nil {
@@ -161,6 +171,9 @@ func validate(s State) error {
 		return err
 	}
 	if err := scene.ValidateLayerReferences(s.Scenes, s.Themes, s.Presets, s.Chases, s.MotionPresets); err != nil {
+		return err
+	}
+	if err := operatorsurface.Validate(s.OperatorSurfaces, s.Scenes, s.Groups); err != nil {
 		return err
 	}
 	return nil

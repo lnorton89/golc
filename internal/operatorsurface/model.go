@@ -82,10 +82,10 @@ type MasterRef struct {
 type ControlKind string
 
 const (
-	ControlScene   ControlKind = "scene"
-	ControlLayer   ControlKind = "layer"
-	ControlMaster  ControlKind = "master"
-	ControlSafety  ControlKind = "safety"
+	ControlScene  ControlKind = "scene"
+	ControlLayer  ControlKind = "layer"
+	ControlMaster ControlKind = "master"
+	ControlSafety ControlKind = "safety"
 )
 
 // ControlRef names exactly one individually-assignable control by
@@ -109,10 +109,14 @@ type ControlRef struct {
 // construct a ControlRef of the named kind -- the only supported way to
 // build one, so a ControlRef can never end up with more than one of its
 // value fields meaningfully populated.
-func SceneControlRef(sceneID uuid.UUID) ControlRef { return ControlRef{Kind: ControlScene, Scene: sceneID} }
-func LayerControlRef(ref LayerRef) ControlRef      { return ControlRef{Kind: ControlLayer, Layer: ref} }
-func MasterControlRef(ref MasterRef) ControlRef    { return ControlRef{Kind: ControlMaster, Master: ref} }
-func SafetyControlRef(sc SafetyControl) ControlRef { return ControlRef{Kind: ControlSafety, Safety: sc} }
+func SceneControlRef(sceneID uuid.UUID) ControlRef {
+	return ControlRef{Kind: ControlScene, Scene: sceneID}
+}
+func LayerControlRef(ref LayerRef) ControlRef   { return ControlRef{Kind: ControlLayer, Layer: ref} }
+func MasterControlRef(ref MasterRef) ControlRef { return ControlRef{Kind: ControlMaster, Master: ref} }
+func SafetyControlRef(sc SafetyControl) ControlRef {
+	return ControlRef{Kind: ControlSafety, Safety: sc}
+}
 
 // layerRefEqual reports whether a and b select the same scene layer slot.
 func layerRefEqual(a, b LayerRef) bool {
