@@ -299,7 +299,7 @@ Plans:
 **Goal:** Authors and playback operators can complete the conventional show workflow through a responsive Wails application, keyboard, and constrained generic MIDI controls without the frontend becoming runtime authority.
 **Mode:** mvp
 **Depends on:** Phases 2, 3, 4, and 5
-**Requirements:** PLAY-01, PLAY-02, PLAY-03, PLAY-04, PLAY-05, PLAY-06, PLAY-07, PLAY-08, PLAY-09
+**Requirements:** PLAY-01, PLAY-02, PLAY-03, PLAY-04, PLAY-05, PLAY-06, PLAY-07, PLAY-08, PLAY-09, PLAY-10, PLAY-11, PLAY-12
 **Success Criteria** (what must be TRUE):
 
   1. A user can complete fixture, deployment, programming, scene, and playback workflows through on-screen controls, and a documented keyboard workflow exposes every playback action without requiring MIDI hardware.
@@ -308,7 +308,7 @@ Plans:
   4. An operator can control group masters, Grand Master, stop/release-all, and immediate blackout through local priority paths that do not wait for UI, script, API, or model work to complete.
   5. Revoke Automation immediately blocks scripts and AI, cancels their queued actions, freezes the current look, and returns manual control even when an automation runtime is hung or disconnected.
 
-**Plans:** 8/8 plans executed
+**Plans:** 12 plans (8 executed + 4 gap-closure pending)
 
 Plans:
 **Wave 1**
@@ -331,7 +331,14 @@ Plans:
 
 - [x] 06-08-PLAN.md — MIDI driver + per-control learn UI + soft-takeover sliders (PLAY-04/05; D-05/D-08/D-09/D-10)
 
-**Waves:** W1: 06-01, 06-02, 06-03 · W2: 06-04 · W3: 06-05, 06-06, 06-07 · W4: 06-08
+**Gap Closure** *(post-verification; closes 06-VERIFICATION.md's 2 gaps, does not touch 06-01…06-08)*
+
+- [ ] 06-09-PLAN.md — MIDI dispatch wiring: a mapped Note/CC actually switches scenes / toggles layers / sets master level / triggers safety, not only feedback (PLAY-04/05; VERIFICATION Gap B[1]) [gap wave 1]
+- [ ] 06-10-PLAN.md — On-screen fixture-patch UI: pool create/update-preview/apply + deployment create/activate (PLAY-10; SC1; VERIFICATION Gap B[0]) [gap wave 1]
+- [ ] 06-11-PLAN.md — On-screen deployment-interface + Art-Net universe/target config UI over the supervised daemon (PLAY-11; SC1; VERIFICATION Gap B[0]; depends on 06-10) [gap wave 2]
+- [ ] 06-12-PLAN.md — On-screen scene/look programming UI: scenes + base-look/color-theme/chase/motion layers (PLAY-12; SC1; VERIFICATION Gap B[0]; depends on 06-11) [gap wave 3]
+
+**Waves:** W1: 06-01, 06-02, 06-03 · W2: 06-04 · W3: 06-05, 06-06, 06-07 · W4: 06-08 · gap W1: 06-09, 06-10 · gap W2: 06-11 · gap W3: 06-12
 **UI hint:** yes
 **Validation:** Operator validation required for information density, navigation, patch-to-playback speed versus QLC+, constrained-surface learnability, cue-list needs, and the Wails/MIDI workflow.
 **Blocker:** `MIDI-HW-01` RESOLVED 2026-07-19: Akai MIDImix, Novation Launch Control XL Mk2, and Worlde EasyControl 9 together are the selected Phase 6 physical acceptance set for generic MIDI Note/CC learn and soft takeover. `MIDI-HW-02` OPEN: each device requires independent physical evidence for its exact hardware revision, firmware, Windows version, and GOLC build before any named compatibility or support claim; device-specific profiles and feedback remain v1.x work under EXTN-04.
@@ -412,7 +419,7 @@ Plans:
 | 3. Deterministic Show Programming and Playback | 7/7 | Complete    | 2026-07-21 |
 | 4. Observable Art-Net Live Output | 9/9 | Complete    | 2026-07-22 |
 | 5. Durable Shows and Recovery | 5/5 | Complete    | 2026-07-23 |
-| 6. Wails Authoring and Operator Surface | 8/8 | In Progress|  |
+| 6. Wails Authoring and Operator Surface | 8/12 | In Progress|  |
 | 7. Versioned External Control API | 0/TBD | Not started | - |
 | 8. Isolated TypeScript Automation | 0/TBD | Not started | - |
 | 9. Provider-Neutral AI and Bounded Autonomy | 0/TBD | Not started | - |
