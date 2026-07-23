@@ -141,6 +141,78 @@ interface FixturePatchServiceBinding {
   ListPatch(): Promise<unknown>;
 }
 
+/** ArtnetInterfaceView mirrors internal/wails.ArtnetInterfaceView's JSON
+ * shape exactly (06-11-PLAN.md, PLAY-11/VERIFICATION.md Gap B[0]): one
+ * candidate Windows network interface, annotated with the daemon's pinned
+ * interface/status/error when a daemon happens to be reachable (all
+ * zero-valued otherwise -- this is OS-level enumeration, never an error
+ * standing in for "the daemon is offline"). */
+export interface ArtnetInterfaceView {
+  index: number;
+  name: string;
+  up: boolean;
+  addrs: string[];
+  pinned: boolean;
+  status: string;
+  error: string;
+}
+
+/** ArtnetTargetView mirrors internal/wails.ArtnetTargetView's JSON shape
+ * exactly: one configured universe -> unicast target's live send/
+ * reachability counters. */
+export interface ArtnetTargetView {
+  universe: number;
+  ip: string;
+  port: number;
+  enabled: boolean;
+  sendOk: number;
+  sendErr: number;
+  reachable: boolean;
+  lastError: string;
+}
+
+/** ArtnetPinnedInterfaceView mirrors internal/wails.ArtnetPinnedInterfaceView's
+ * JSON shape exactly: the daemon's own pinned-interface health (04-09-
+ * PLAN.md, ARTN-01/D-05), read here as "artnet status --json"'s
+ * "interface" member. */
+export interface ArtnetPinnedInterfaceView {
+  pinnedIndex: number;
+  pinnedName: string;
+  status: string;
+  error: string;
+}
+
+/** ArtnetStatusView mirrors internal/wails.ArtnetStatusView's JSON shape
+ * exactly -- FetchArtnetStatus's full return value. Reachable=false is
+ * the explicit daemon-unreachable projection (offlineArtnetStatus,
+ * mirrored client-side by this file's own offlineArtnetStatus() below);
+ * Targets is always a present (never undefined/null) array. */
+export interface ArtnetStatusView {
+  reachable: boolean;
+  interface: ArtnetPinnedInterfaceView;
+  targets: ArtnetTargetView[];
+}
+
+/** ArtnetConfigServiceBinding mirrors internal/wails/svc_artnetconfig.go's
+ * bound methods field-for-field (06-11-PLAN.md, PLAY-11/VERIFICATION.md
+ * Gap B[0]): every mutation forwards to the existing "artnet configure"/
+ * "artnet target enable"/"artnet target disable" command routes (the
+ * route's own artnet.ValidateTarget-before-forward discipline runs
+ * unmodified), and ListInterfaces/FetchArtnetStatus are read-only
+ * projections of "artnet interface list"/"artnet status". */
+interface ArtnetConfigServiceBinding {
+  ListInterfaces(): Promise<ArtnetInterfaceView[]>;
+  Configure(
+    universe: number,
+    ip: string,
+    port: number,
+    enabled: boolean,
+  ): Promise<WailsResult>;
+  EnableTarget(universe: number, ip: string, port: number): Promise<WailsResult>;
+  DisableTarget(universe: number, ip: string, port: number): Promise<WailsResult>;
+  FetchArtnetStatus(): Promise<ArtnetStatusView>;
+}
+
 // Single, centralized `window.go.wails` shape (Wails v2's runtime-injected
 // bridge, one property per struct bound in cmd/golc-desktop/main.go's
 // options.App{Bind: [...]}). Every component imports its binding call
@@ -162,6 +234,7 @@ declare global {
         SurfaceService?: SurfaceServiceBinding;
         MidiService?: MidiServiceBinding;
         FixturePatchService?: FixturePatchServiceBinding;
+        ArtnetConfigService?: ArtnetConfigServiceBinding;
       };
     };
     runtime?: {
@@ -317,4 +390,86 @@ export function onMidiFeedback(
     const feedback = data[0] as MidiFeedback | undefined;
     if (feedback) callback(feedback);
   });
+}
+
+/** offlineArtnetStatus mirrors internal/wails.offlineArtnetStatus's
+ * explicit idle/offline projection -- the same fallback shape
+ * FetchArtnetStatus returns Go-side, reused here so a missing bridge and
+ * an unreachable daemon render identically in ArtnetConfig.tsx. */
+export function offlineArtnetStatus(): ArtnetStatusView {
+  return {
+    reachable: false,
+    interface: { pinnedIndex: 0, pinnedName: "", status: "", error: "" },
+    targets: [],
+  };
+}
+
+function artnetConfigService(): ArtnetConfigServiceBinding | undefined {
+  return window.go?.wails?.ArtnetConfigService;
+}
+
+/** listArtnetInterfaces calls the bound ArtnetConfigService.ListInterfaces
+ * (PLAY-11: list available network interfaces on screen). A missing
+ * bridge or a rejected call both degrade to an explicit empty array --
+ * never a thrown exception the caller has to guard against. */
+export async function listArtnetInterfaces(): Promise<ArtnetInterfaceView[]> {
+  const svc = artnetConfigService();
+  if (!svc) return [];
+  try {
+    return await svc.ListInterfaces();
+  } catch {
+    return [];
+  }
+}
+
+/** configureArtnetTarget calls the bound ArtnetConfigService.Configure
+ * (PLAY-11: configure a universe -> unicast target). port<=0 omits the
+ * port entirely, meaning "use the daemon's default Art-Net port." */
+export async function configureArtnetTarget(
+  universe: number,
+  ip: string,
+  port: number,
+  enabled: boolean,
+): Promise<WailsResult> {
+  const svc = artnetConfigService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.Configure(universe, ip, port, enabled);
+}
+
+/** enableArtnetTarget calls the bound ArtnetConfigService.EnableTarget
+ * (PLAY-11: re-enable a configured target without stopping the rig). */
+export async function enableArtnetTarget(
+  universe: number,
+  ip: string,
+  port: number,
+): Promise<WailsResult> {
+  const svc = artnetConfigService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.EnableTarget(universe, ip, port);
+}
+
+/** disableArtnetTarget calls the bound ArtnetConfigService.DisableTarget
+ * (PLAY-11: take a configured target offline without stopping the rig). */
+export async function disableArtnetTarget(
+  universe: number,
+  ip: string,
+  port: number,
+): Promise<WailsResult> {
+  const svc = artnetConfigService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.DisableTarget(universe, ip, port);
+}
+
+/** fetchArtnetStatus calls the bound ArtnetConfigService.FetchArtnetStatus,
+ * returning offlineArtnetStatus() when the bridge is unavailable or the
+ * call itself rejects -- callers never need their own try/catch (mirrors
+ * fetchSafetyStatus's identical contract). */
+export async function fetchArtnetStatus(): Promise<ArtnetStatusView> {
+  const svc = artnetConfigService();
+  if (!svc) return offlineArtnetStatus();
+  try {
+    return await svc.FetchArtnetStatus();
+  } catch {
+    return offlineArtnetStatus();
+  }
 }

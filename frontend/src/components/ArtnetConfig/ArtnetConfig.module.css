@@ -1,0 +1,279 @@
+/*
+ * ArtnetConfig.module.css is the single CSS Module for the Art-Net
+ * configuration feature (06-11-PLAN.md Task 2/3): network interfaces,
+ * the add-target form, and the configured-target list all read from this
+ * one file. Reads the GOLC brand tokens (frontend/src/index.css custom
+ * properties) rather than repeating hex values (06-UI-SPEC.md Design
+ * System) -- mirrors FixturePatch.module.css's class-naming and token
+ * usage exactly so this feature reads as the same visual system, not a
+ * new one.
+ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: "Archivo", system-ui, sans-serif;
+}
+
+.sectionHeading {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.subsection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-md);
+}
+
+.subsectionHeading {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.skeleton {
+  padding: var(--space-md);
+  border-radius: 4px;
+  background: var(--line);
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+/* Daemon-unreachable panel (D-13/06-UI-SPEC.md): explicit, never a blank
+   status -- uses the `offline` status color exactly. */
+
+.offlinePanel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--status-offline);
+  border-radius: 4px;
+  background: var(--page);
+}
+
+.offlineChip {
+  padding: 2px var(--space-sm);
+  border-radius: 4px;
+  background: var(--status-offline);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.offlineText {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+/* Add-target form */
+
+.createRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.createInput {
+  flex: 1;
+  min-width: 160px;
+  padding: var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.createInputNarrow {
+  width: 96px;
+  padding: var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.primaryButton {
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primaryButton:hover {
+  background: var(--accent-dp);
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.secondaryButton {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondaryButton:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.secondaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Empty states (zero-one-many backstop) */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-lg) var(--space-md);
+}
+
+.emptyHeading {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.emptyBody {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.countSummary {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* Fixed-height scroll panel (overflow backstop): interface/target lists
+   scroll within a bounded panel rather than growing the window when many
+   universes/targets are configured. */
+
+.rowScroll {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+}
+
+.rowHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.rowName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rowCounts {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.pinnedChip {
+  padding: 2px var(--space-sm);
+  border-radius: 4px;
+  background: var(--status-live);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.enabledChip {
+  padding: 2px var(--space-sm);
+  border-radius: 4px;
+  background: var(--status-frame-lock);
+  color: #17181c;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.disabledChip {
+  padding: 2px var(--space-sm);
+  border-radius: 4px;
+  background: var(--status-offline);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.technical {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.errorText {
+  margin: 0;
+  padding: var(--space-sm);
+  border-radius: 4px;
+  background: var(--status-revoked);
+  color: #fff;
+  font-size: 14px;
+}
