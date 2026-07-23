@@ -64,15 +64,15 @@
 
 ### Playback and Operator Safety
 
-- [ ] **PLAY-01**: An operator can access the complete playback workflow through on-screen controls.
-- [ ] **PLAY-02**: An operator can access the complete playback workflow through documented keyboard controls.
+- [x] **PLAY-01**: An operator can access the complete playback workflow through on-screen controls.
+- [x] **PLAY-02**: An operator can access the complete playback workflow through documented keyboard controls.
 - [x] **PLAY-03**: A show author can create a constrained operator surface that exposes only assigned scenes, layers, masters, and safety controls.
 - [x] **PLAY-04**: A show author can map generic MIDI Note and Control Change input to supported playback commands.
 - [x] **PLAY-05**: MIDI fader mappings support soft takeover so connecting or moving a controller does not cause unintended value jumps.
-- [ ] **PLAY-06**: An operator can control group masters, a Grand Master, stop/release-all, and an immediate blackout.
-- [ ] **PLAY-07**: An operator can see the active scene, enabled layers, current BPM/bar position, controlling source, and final output state.
-- [ ] **PLAY-08**: Revoke Automation immediately blocks AI and scripts, cancels their queued actions, freezes the current look, and returns control to manual operation without requiring those runtimes to respond.
-- [ ] **PLAY-09**: Blackout remains a separate local priority control that does not depend on the UI, script runtime, API, or LLM provider completing work.
+- [x] **PLAY-06**: An operator can control group masters, a Grand Master, stop/release-all, and an immediate blackout.
+- [x] **PLAY-07**: An operator can see the active scene, enabled layers, current BPM/bar position, controlling source, and final output state.
+- [x] **PLAY-08**: Revoke Automation immediately blocks AI and scripts, cancels their queued actions, freezes the current look, and returns control to manual operation without requiring those runtimes to respond.
+- [x] **PLAY-09**: Blackout remains a separate local priority control that does not depend on the UI, script runtime, API, or LLM provider completing work.
 - [ ] **PLAY-10**: A show author can patch fixtures — assigning pool fixtures to concrete modes, universes, addresses, and deployment instances — through on-screen controls.
 - [ ] **PLAY-11**: A show author can configure deployment interfaces and Art-Net universes/targets through on-screen controls.
 - [ ] **PLAY-12**: A show author can program scenes and looks — base-look, color-theme, chase, and motion layers — through on-screen controls.
@@ -241,15 +241,15 @@ A v1 requirement is complete only when its implementation is committed, automate
 | SCEN-07 | Phase 3 | Complete |
 | SCEN-08 | Phase 3 | Complete |
 | SCEN-09 | Phase 3 | Complete |
-| PLAY-01 | Phase 6 | Pending |
-| PLAY-02 | Phase 6 | Pending |
+| PLAY-01 | Phase 6 | Complete |
+| PLAY-02 | Phase 6 | Complete |
 | PLAY-03 | Phase 6 | Complete |
 | PLAY-04 | Phase 6 | Complete |
 | PLAY-05 | Phase 6 | Complete |
-| PLAY-06 | Phase 6 | Pending |
-| PLAY-07 | Phase 6 | Pending |
-| PLAY-08 | Phase 6 | Pending |
-| PLAY-09 | Phase 6 | Pending |
+| PLAY-06 | Phase 6 | Complete |
+| PLAY-07 | Phase 6 | Complete |
+| PLAY-08 | Phase 6 | Complete |
+| PLAY-09 | Phase 6 | Complete |
 | PLAY-10 | Phase 6 | Pending |
 | PLAY-11 | Phase 6 | Pending |
 | PLAY-12 | Phase 6 | Pending |
@@ -308,3 +308,4 @@ A v1 requirement is complete only when its implementation is committed, automate
 ---
 *Requirements defined: 2026-07-17*
 *Last updated: 2026-07-21 after Phase 1 gap-closure: LINR-01/LINR-02 checked off to match delivered internal/trace/catalog implementation; LINR-03/LINR-04 certified Complete against CR-01/CR-02 resolution (plans 01-30/01-31)*
+*Last updated: 2026-07-23 after Phase 6 gap-closure plans 06-09..06-12: PLAY-01/02/06/07/08/09 corrected from Pending to Complete (both the checklist and the Traceability status table) to match 06-VERIFICATION.md's Requirements Coverage determination once 06-09..06-12 closed the MIDI-dispatch and on-screen fixture/deployment/programming gaps. PLAY-03/04/05 were already checked Complete but were marked prematurely at 06-01/06-03 (before the Wave 3/4 UI and MIDI-dispatch-fix plans existed); PLAY-04/05's completion is now genuinely satisfied because 06-09 closed the dispatch gap 06-VERIFICATION.md's FAILED truth #9 identified. PLAY-10/11/12 remain Pending here, tracked by their own gap-closure plans' SUMMARYs. The live/visual UAT items 06-VERIFICATION.md's `human_verification` frontmatter lists for Phase 6 (06-05/06-06/06-07/06-08/06-10/06-11/06-12 checkpoint scripts) remain deferred to end-of-phase UAT per `workflow.human_verify_mode=end-of-phase` and are not claimed as satisfied by this correction.*

@@ -1,0 +1,324 @@
+/*
+ * SceneProgramming.module.css is the single CSS Module for the scene/look
+ * programming feature (06-12-PLAN.md Task 2/3): scenes, layer toggles/
+ * pickers, look lists, the base-look preset form, and blend presets all
+ * read from this one file. Reads the GOLC brand tokens
+ * (frontend/src/index.css custom properties) rather than repeating hex
+ * values (06-UI-SPEC.md Design System) -- mirrors FixturePatch.module.css/
+ * ArtnetConfig.module.css's class-naming and token usage exactly so this
+ * feature reads as the same visual system, not a new one.
+ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: "Archivo", system-ui, sans-serif;
+}
+
+.sectionHeading {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.subsetNote {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.subsection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-md);
+}
+
+.subsectionHeading {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.skeleton {
+  padding: var(--space-md);
+  border-radius: 4px;
+  background: var(--line);
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+/* Create forms */
+
+.createRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.createInput {
+  flex: 1;
+  min-width: 160px;
+  padding: var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.createInputNarrow {
+  width: 96px;
+  padding: var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.primaryButton {
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primaryButton:hover {
+  background: var(--accent-dp);
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.secondaryButton {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondaryButton:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Empty states (zero-one-many backstop) */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-lg) var(--space-md);
+}
+
+.emptyHeading {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.emptyBody {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.countSummary {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* Fixed-height scroll panels (overflow backstop): scene/look lists scroll
+   within a bounded panel rather than growing the window when a
+   representative large show is loaded. */
+
+.sceneScroll {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.lookScroll {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+}
+
+.rowHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.rowName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rowCounts {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.activeChip {
+  padding: 2px var(--space-sm);
+  border-radius: 4px;
+  background: var(--status-live);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Layer toggle + look picker (per-scene, per-layer-kind row) */
+
+.layerList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.layerRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.layerToggleOn {
+  min-width: 120px;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.layerToggleOff {
+  min-width: 120px;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lookSelect {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+/* Look list rows */
+
+.lookRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 2px var(--space-xs);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.lookKind {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* Base-look preset recording form */
+
+.lookCreateGrid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.presetForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+}
+
+.presetFormHeading {
+  margin: 0;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.errorText {
+  margin: 0;
+  padding: var(--space-sm);
+  border-radius: 4px;
+  background: var(--status-revoked);
+  color: #fff;
+  font-size: 14px;
+}
