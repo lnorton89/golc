@@ -90,6 +90,24 @@ export default function ArtnetConfig() {
       setError("An IP address is required to configure a target.");
       return;
     }
+    // Client-side shape guard only (Task 3 backstop: "out-of-range input
+    // rejected on screen"): rejects an obviously invalid universe/port
+    // before a round trip. The backend route's own artnet.ValidateTarget
+    // remains the sole authority for the real validation rule (T-04-07) --
+    // this never replaces or duplicates that check, it only avoids a
+    // pointless call for input that could not possibly be numeric.
+    if (!Number.isInteger(universeNum) || universeNum < 1) {
+      setError(
+        `GOLC_ARTNET_USAGE: universe ${universe} is not a valid positive integer.`,
+      );
+      return;
+    }
+    if (port.trim() !== "" && (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)) {
+      setError(
+        `GOLC_ARTNET_USAGE: port ${port} is not a valid integer in the 1-65535 range.`,
+      );
+      return;
+    }
     setActionLoading(true);
     try {
       const result = await configureArtnetTarget(
