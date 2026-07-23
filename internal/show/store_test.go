@@ -193,6 +193,58 @@ func TestShowStoreSaveIsIdempotent(t *testing.T) {
 	assertDomainEqual(t, first, second)
 }
 
+// TestShowLoadRejectsChecksumMismatch proves WR-01's fix: a blob altered
+// after Save wrote it -- without the matching show_meta.checksum also
+// being updated, exactly what a post-write corruption or tamper would
+// look like -- is rejected by Load/LoadForRead instead of being silently
+// trusted just because it still happens to decode and validate.
+func TestShowLoadRejectsChecksumMismatch(t *testing.T) {
+	root := t.TempDir()
+	path := "show.golc"
+	state := buildNonTrivialState(t)
+
+	if err := Save(root, path, state); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	loaded, err := Load(root, path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	loaded.Scenes[0].Name = "Tampered After Save"
+	tamperedPayload, err := strictjson.CanonicalEncode(loaded)
+	if err != nil {
+		t.Fatalf("CanonicalEncode: %v", err)
+	}
+
+	db, err := openStore(root, path)
+	if err != nil {
+		t.Fatalf("openStore: %v", err)
+	}
+	// Rewrite the blob without touching checksum -- simulating corruption
+	// or a hand-edit of the .golc file outside GOLC's own write path,
+	// which never leaves checksum in sync with a tampered blob.
+	if _, err := db.Exec(`UPDATE show_state SET blob = ? WHERE id = 1`, tamperedPayload); err != nil {
+		db.Close()
+		t.Fatalf("tampering show_state: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("closing tampered store: %v", err)
+	}
+
+	if _, err := Load(root, path); err == nil {
+		t.Fatalf("expected Load to reject a checksum mismatch, got no error")
+	} else if !strings.Contains(err.Error(), "GOLC_SHOW_STATE_INVALID") || !strings.Contains(err.Error(), "checksum mismatch") {
+		t.Fatalf("expected a GOLC_SHOW_STATE_INVALID checksum-mismatch error, got %v", err)
+	}
+
+	if _, err := LoadForRead(root, path); err == nil {
+		t.Fatalf("expected LoadForRead to reject a checksum mismatch, got no error")
+	} else if !strings.Contains(err.Error(), "GOLC_SHOW_STATE_INVALID") || !strings.Contains(err.Error(), "checksum mismatch") {
+		t.Fatalf("expected a GOLC_SHOW_STATE_INVALID checksum-mismatch error, got %v", err)
+	}
+}
+
 // TestShowLoadDoesNotMutate proves the SHOW-02 idempotency probe: Load is
 // read-only -- repeated Loads return identical State and never mutate the
 // file (never bump the on-disk Revision, never write a recovery point).
@@ -262,8 +314,8 @@ func TestShowLoadRejectsOverScopeMotionCapability(t *testing.T) {
 	if err != nil {
 		t.Fatalf("openStore: %v", err)
 	}
-	if _, err := db.Exec(`UPDATE show_meta SET schema_version = ?, revision = 1, checksum = '', updated_at = '2026-01-01T00:00:00Z' WHERE id = 1`,
-		SchemaVersion); err != nil {
+	if _, err := db.Exec(`UPDATE show_meta SET schema_version = ?, revision = 1, checksum = ?, updated_at = '2026-01-01T00:00:00Z' WHERE id = 1`,
+		SchemaVersion, sha256Hex(payload)); err != nil {
 		db.Close()
 		t.Fatalf("seeding tampered show_meta: %v", err)
 	}

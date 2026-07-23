@@ -107,15 +107,26 @@ func readMeta(db *sql.DB) (storeMeta, bool, error) {
 	return meta, true, nil
 }
 
-// decodeAndValidate reads show_state's blob and returns the strictly
+// decodeAndValidate reads show_state's blob, verifies it against
+// expectedChecksum (show_meta.checksum, WR-01), and returns the strictly
 // decoded, whole-State-validated State -- the same "nothing from disk is
 // trusted before validate() passes" doctrine state.go's original Load
 // established (CONTEXT threat T-02-10), now applied to a SQLite blob
-// column instead of a JSON file's raw bytes.
-func decodeAndValidate(db *sql.DB) (State, error) {
+// column instead of a JSON file's raw bytes. checksum was previously
+// written on every Save/Migrate but never read back and compared, so it
+// detected nothing (05-REVIEW.md WR-01); a blob whose bytes were altered
+// after being written -- but which still happened to decode and validate
+// -- would have been silently trusted. The comparison runs before
+// decoding so a checksum mismatch is reported as such, rather than
+// surfacing as a decode/validate error that would misdirect the caller
+// toward the wrong kind of corruption.
+func decodeAndValidate(db *sql.DB, expectedChecksum string) (State, error) {
 	var blob []byte
 	if err := db.QueryRow(`SELECT blob FROM show_state WHERE id = 1`).Scan(&blob); err != nil {
 		return State{}, fmt.Errorf("GOLC_SHOW_STATE_INVALID: reading show_state: %v", err)
+	}
+	if sha256Hex(blob) != expectedChecksum {
+		return State{}, fmt.Errorf("GOLC_SHOW_STATE_INVALID: checksum mismatch -- stored content does not match show_meta.checksum")
 	}
 	var state State
 	if err := strictjson.DecodeStrict(blob, &state); err != nil {
@@ -159,7 +170,7 @@ func Load(root, path string) (state State, err error) {
 	if meta.SchemaVersion < SchemaVersion {
 		return State{}, ErrSchemaMigrationRequired{Found: meta.SchemaVersion, Supported: SchemaVersion}
 	}
-	return decodeAndValidate(db)
+	return decodeAndValidate(db, meta.Checksum)
 }
 
 // LoadForRead is identical to Load except a newer-than-supported
@@ -187,7 +198,7 @@ func LoadForRead(root, path string) (state State, err error) {
 	if meta.SchemaVersion < SchemaVersion {
 		return State{}, ErrSchemaMigrationRequired{Found: meta.SchemaVersion, Supported: SchemaVersion}
 	}
-	return decodeAndValidate(db)
+	return decodeAndValidate(db, meta.Checksum)
 }
 
 // stageRecoveryPoint durably records s's about-to-be-saved revision as a
