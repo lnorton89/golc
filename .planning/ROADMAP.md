@@ -273,7 +273,7 @@ Plans:
   3. A schema migration creates and verifies a backup, commits atomically, and refuses unsupported newer formats without rewriting them.
   4. A user can run integrity diagnostics and export a versioned human-readable JSON representation for troubleshooting and interchange.
 
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans executed
 
 Plans:
 **Wave 1**
@@ -288,7 +288,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 05-05-PLAN.md — migration-on-open confirm flow + newer-format refusal (SHOW-05, D-08/D-10) [Wave 3]
+- [x] 05-05-PLAN.md — migration-on-open confirm flow + newer-format refusal (SHOW-05, D-08/D-10) [Wave 3]
 
 **Waves:** W1: 05-01 · W2: 05-02, 05-03, 05-04 · W3: 05-05
 **Research:** Targeted phase research required for SQLite durability settings, verified backup and retention policy, portable file/export rules, migration support window, read-only recovery, and Windows atomic replacement behavior.
@@ -387,7 +387,7 @@ Plans:
 | 2. Modular Fixtures and Deployments | 6/6 | Complete    | 2026-07-21 |
 | 3. Deterministic Show Programming and Playback | 7/7 | Complete    | 2026-07-21 |
 | 4. Observable Art-Net Live Output | 9/9 | Complete    | 2026-07-22 |
-| 5. Durable Shows and Recovery | 4/5 | In Progress|  |
+| 5. Durable Shows and Recovery | 5/5 | In Progress|  |
 | 6. Wails Authoring and Operator Surface | 0/TBD | Not started | - |
 | 7. Versioned External Control API | 0/TBD | Not started | - |
 | 8. Isolated TypeScript Automation | 0/TBD | Not started | - |
