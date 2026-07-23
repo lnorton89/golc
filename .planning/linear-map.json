@@ -1345,6 +1345,202 @@
       "parent_local_id": "plan:04-07",
       "display": "Task 1: Author the ARTN-06 independent-verification runbook (D-13/D-14/D-15/D-18)",
       "source": ".planning/phases/04-observable-art-net-live-output/04-07-PLAN.md"
+    },
+    {
+      "local_id": "plan:04-08",
+      "kind": "plan",
+      "parent_local_id": "phase:04",
+      "display": "Plan 04-08",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-08-PLAN.md"
+    },
+    {
+      "local_id": "task:04-08.1",
+      "kind": "task",
+      "parent_local_id": "plan:04-08",
+      "display": "Task 1: Record and publish per-universe final DMX values in the Health model (ARTN-05)",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-08-PLAN.md"
+    },
+    {
+      "local_id": "task:04-08.2",
+      "kind": "task",
+      "parent_local_id": "plan:04-08",
+      "display": "Task 2: Surface per-universe final values through the daemon status payload and the CLI (ARTN-05, D-02)",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-08-PLAN.md"
+    },
+    {
+      "local_id": "plan:04-09",
+      "kind": "plan",
+      "parent_local_id": "phase:04",
+      "display": "Plan 04-09",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-09-PLAN.md"
+    },
+    {
+      "local_id": "task:04-09.1",
+      "kind": "task",
+      "parent_local_id": "plan:04-09",
+      "display": "Task 1: Surface the pinned interface's live Status()/Err() through the daemon status payload and CLI status rendering (ARTN-01/D-05)",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-09-PLAN.md"
+    },
+    {
+      "local_id": "task:04-09.2",
+      "kind": "task",
+      "parent_local_id": "plan:04-09",
+      "display": "Task 2: Annotate `golc artnet interface list` with the pinned interface + graceful no-daemon fallback (ARTN-01/D-05)",
+      "source": ".planning/phases/04-observable-art-net-live-output/04-09-PLAN.md"
+    },
+    {
+      "local_id": "phase:05",
+      "kind": "phase",
+      "parent_local_id": "milestone:v1",
+      "display": "Durable Shows and Recovery",
+      "source": ".planning/ROADMAP.md"
+    },
+    {
+      "local_id": "req:SHOW-01",
+      "kind": "req",
+      "parent_local_id": "phase:05",
+      "display": "A user can save a complete show and its deployment data as one portable versioned `.golc` file.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:SHOW-02",
+      "kind": "req",
+      "parent_local_id": "phase:05",
+      "display": "A user can open, save, and save-as a show without stopping deterministic output unexpectedly.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:SHOW-03",
+      "kind": "req",
+      "parent_local_id": "phase:05",
+      "display": "The application autosaves recoverable authoring changes without performing storage work in the playback timing path.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:SHOW-04",
+      "kind": "req",
+      "parent_local_id": "phase:05",
+      "display": "A user can recover from an interrupted or failed session using clearly identified rotating recovery points.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:SHOW-05",
+      "kind": "req",
+      "parent_local_id": "phase:05",
+      "display": "Schema migration creates a verified backup, applies atomically, and refuses unsupported newer formats without rewriting them.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:SHOW-06",
+      "kind": "req",
+      "parent_local_id": "phase:05",
+      "display": "A user can run integrity diagnostics and export a versioned human-readable JSON representation for interchange and troubleshooting.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "plan:05-01",
+      "kind": "plan",
+      "parent_local_id": "phase:05",
+      "display": "Plan 05-01",
+      "source": ".planning/phases/05-durable-shows-and-recovery/05-01-PLAN.md"
+    },
+    {
+      "local_id": "task:05-01.1",
+      "kind": "task",
+      "parent_local_id": "plan:05-01",
+      "display": "Task 1: Failing SQLite round-trip test scaffold + driver install (RED)",
+      "source": ".planning/phases/05-durable-shows-and-recovery/05-01-PLAN.md"
+    },
+    {
+      "local_id": "task:05-01.2",
+      "kind": "task",
+      "parent_local_id": "plan:05-01",
+      "display": "Task 2: SQLite-backed schema + Load/Save/LoadForRead (GREEN)",
+      "source": ".planning/phases/05-durable-shows-and-recovery/05-01-PLAN.md"
+    },
+    {
+      "local_id": "plan:05-02",
+      "kind": "plan",
+      "parent_local_id": "phase:05",
+      "display": "Plan 05-02",
+      "source": ".planning/phases/05-durable-shows-and-recovery/05-02-PLAN.md"
+    },
+    {
+      "local_id": "task:05-02.1",
+      "kind": "task",
+      "parent_local_id": "plan:05-02",
+      "display": "Task 1: Recovery detect / accept / discard (read side of SHOW-04)",
+      "source": ".planning/phases/05-durable-shows-and-recovery/05-02-PLAN.md"
+    },
+    {
+      "local_id": "task:05-02.2",
+      "kind": "task",
+      "parent_local_id": "plan:05-02",
+      "display": "Task 2: show open / save / save-as CLI routes with recovery offer",
+      "source": ".planning/phases/05-durable-shows-and-recovery/05-02-PLAN.md"
+    },
+    {
+      "local_id": "plan:05-03",
+      "kind": "plan",
+      "parent_local_id": "phase:05",
+      "display": "Plan 05-03",
+      "source": ".planning/phases/05-durable-shows-and-recovery/05-03-PLAN.md"
+    },
+    {
+      "local_id": "task:05-03.1",
+      "kind": "task",
+      "parent_local_id": "plan:05-03",
+      "display": "Task 1: Verified backup (VACUUM INTO + read-back-and-validate)",
+      "source": ".planning/phases/05-durable-shows-and-recovery/05-03-PLAN.md"
+    },
+    {
+      "local_id": "task:05-03.2",
+      "kind": "task",
+      "parent_local_id": "plan:05-03",
+      "display": "Task 2: Migration registry + transactional migrate + atomic replace",
+      "source": ".planning/phases/05-durable-shows-and-recovery/05-03-PLAN.md"
+    },
+    {
+      "local_id": "plan:05-04",
+      "kind": "plan",
+      "parent_local_id": "phase:05",
+      "display": "Plan 05-04",
+      "source": ".planning/phases/05-durable-shows-and-recovery/05-04-PLAN.md"
+    },
+    {
+      "local_id": "task:05-04.1",
+      "kind": "task",
+      "parent_local_id": "plan:05-04",
+      "display": "Task 1: Diagnose (PRAGMA integrity_check + structural validate)",
+      "source": ".planning/phases/05-durable-shows-and-recovery/05-04-PLAN.md"
+    },
+    {
+      "local_id": "task:05-04.2",
+      "kind": "task",
+      "parent_local_id": "plan:05-04",
+      "display": "Task 2: show diagnose / show export CLI routes",
+      "source": ".planning/phases/05-durable-shows-and-recovery/05-04-PLAN.md"
+    },
+    {
+      "local_id": "plan:05-05",
+      "kind": "plan",
+      "parent_local_id": "phase:05",
+      "display": "Plan 05-05",
+      "source": ".planning/phases/05-durable-shows-and-recovery/05-05-PLAN.md"
+    },
+    {
+      "local_id": "task:05-05.1",
+      "kind": "task",
+      "parent_local_id": "plan:05-05",
+      "display": "Task 1: Migration-on-open confirm flow in show open",
+      "source": ".planning/phases/05-durable-shows-and-recovery/05-05-PLAN.md"
+    },
+    {
+      "local_id": "task:05-05.2",
+      "kind": "task",
+      "parent_local_id": "plan:05-05",
+      "display": "Task 2: Newer-format refusal across mutating show routes (D-10)",
+      "source": ".planning/phases/05-durable-shows-and-recovery/05-05-PLAN.md"
     }
   ],
   "remote_mappings": [
@@ -2862,6 +3058,230 @@
     },
     {
       "repo_id": "task:04-07.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:04-08",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-08.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-08.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:04-09",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-09.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:04-09.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "phase:05",
+      "linear_type": "project_milestone",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SHOW-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SHOW-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SHOW-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SHOW-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SHOW-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SHOW-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:05-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:05-01.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:05-01.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:05-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:05-02.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:05-02.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:05-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:05-03.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:05-03.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:05-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:05-04.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:05-04.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:05-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:05-05.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:05-05.2",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,
