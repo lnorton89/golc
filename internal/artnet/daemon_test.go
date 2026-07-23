@@ -7,6 +7,14 @@
 // target selector fails with GOLC_ARTNET_TARGET_NOT_FOUND (c); and ctx
 // cancel triggers Run to return with the worker stopped, no goroutine leak
 // (d).
+//
+// 06-02-PLAN.md Task 2 adds: "artnet safety blackout"/"stop-all"/
+// "revoke-automation" round-trip and reject a malformed --on value (e);
+// while Revoke Automation is active, a "--source automation" Request is
+// rejected with GOLC_ARTNET_SAFETY_REVOKED regardless of route, while a
+// manual (or --source-omitting) Request still succeeds (f, PLAY-08); and
+// "artnet master set" accepts --grand/--group+--level, rejecting an
+// out-of-range level and a malformed invocation (g, PLAY-06).
 package artnet
 
 import (
@@ -17,6 +25,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/lnorton89/golc/internal/artnet/ipc"
 	"github.com/lnorton89/golc/internal/scene"
@@ -324,6 +334,151 @@ func TestDaemonStatusPayloadSurfacesLostInterface(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	t.Fatal("expected Interface.Status to become \"lost\" within the deadline")
+}
+
+// TestDaemonSafetyBlackoutRoundTrip proves 06-02-PLAN.md Task 2's "artnet
+// safety blackout" route: it round-trips on and off with ExitCode 0, and a
+// malformed --on value is rejected as GOLC_ARTNET_USAGE, ExitCode 2.
+func TestDaemonSafetyBlackoutRoundTrip(t *testing.T) {
+	pipeName, _, _ := startTestDaemon(t)
+
+	onConn := dialTestDaemon(t, pipeName)
+	defer onConn.Close()
+	onResult := ipc.Forward(onConn, ipc.Request{Route: "artnet safety blackout", Args: []string{"--on", "true"}})
+	if onResult.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", onResult.ExitCode, onResult.Stderr)
+	}
+
+	offConn := dialTestDaemon(t, pipeName)
+	defer offConn.Close()
+	offResult := ipc.Forward(offConn, ipc.Request{Route: "artnet safety blackout", Args: []string{"--on", "false"}})
+	if offResult.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", offResult.ExitCode, offResult.Stderr)
+	}
+
+	malformedConn := dialTestDaemon(t, pipeName)
+	defer malformedConn.Close()
+	malformedResult := ipc.Forward(malformedConn, ipc.Request{Route: "artnet safety blackout", Args: []string{"--on", "not-a-bool"}})
+	if malformedResult.ExitCode != 2 {
+		t.Fatalf("expected ExitCode 2, got %d", malformedResult.ExitCode)
+	}
+	if !strings.Contains(string(malformedResult.Stderr), "GOLC_ARTNET_USAGE") {
+		t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", malformedResult.Stderr)
+	}
+}
+
+// TestDaemonSafetyStopAllAndRevokeAutomationRoundTrip proves "artnet
+// safety stop-all" and "artnet safety revoke-automation" both round-trip
+// with ExitCode 0, and that omitting --on defaults to on=true.
+func TestDaemonSafetyStopAllAndRevokeAutomationRoundTrip(t *testing.T) {
+	pipeName, _, _ := startTestDaemon(t)
+
+	stopAllConn := dialTestDaemon(t, pipeName)
+	defer stopAllConn.Close()
+	stopAllResult := ipc.Forward(stopAllConn, ipc.Request{Route: "artnet safety stop-all"})
+	if stopAllResult.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", stopAllResult.ExitCode, stopAllResult.Stderr)
+	}
+	if !strings.Contains(string(stopAllResult.Stdout), "on=true") {
+		t.Fatalf("expected omitted --on to default to on=true, got: %s", stopAllResult.Stdout)
+	}
+
+	revokeConn := dialTestDaemon(t, pipeName)
+	defer revokeConn.Close()
+	revokeResult := ipc.Forward(revokeConn, ipc.Request{Route: "artnet safety revoke-automation", Args: []string{"--on", "true"}})
+	if revokeResult.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", revokeResult.ExitCode, revokeResult.Stderr)
+	}
+}
+
+// TestRevokeAutomationBlocksNonManualSource proves PLAY-08's
+// daemon-side gate: while Revoke Automation is active, a Request tagged
+// "--source automation" is rejected with GOLC_ARTNET_SAFETY_REVOKED
+// (ExitCode 1) regardless of route, while a "--source manual" Request (or
+// one that omits --source entirely, the default) still succeeds.
+func TestRevokeAutomationBlocksNonManualSource(t *testing.T) {
+	pipeName, _, _ := startTestDaemon(t)
+
+	revokeConn := dialTestDaemon(t, pipeName)
+	defer revokeConn.Close()
+	revokeResult := ipc.Forward(revokeConn, ipc.Request{Route: "artnet safety revoke-automation", Args: []string{"--on", "true"}})
+	if revokeResult.ExitCode != 0 {
+		t.Fatalf("expected revoke-automation to succeed, got ExitCode %d (stderr: %s)", revokeResult.ExitCode, revokeResult.Stderr)
+	}
+
+	automationConn := dialTestDaemon(t, pipeName)
+	defer automationConn.Close()
+	automationResult := ipc.Forward(automationConn, ipc.Request{Route: "artnet configure", Args: []string{
+		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454", "--source", "automation",
+	}})
+	if automationResult.ExitCode != 1 {
+		t.Fatalf("expected ExitCode 1 for an automation-sourced request while revoked, got %d (stdout: %s)", automationResult.ExitCode, automationResult.Stdout)
+	}
+	if !strings.Contains(string(automationResult.Stderr), "GOLC_ARTNET_SAFETY_REVOKED") {
+		t.Fatalf("expected GOLC_ARTNET_SAFETY_REVOKED, got: %s", automationResult.Stderr)
+	}
+
+	manualConn := dialTestDaemon(t, pipeName)
+	defer manualConn.Close()
+	manualResult := ipc.Forward(manualConn, ipc.Request{Route: "artnet configure", Args: []string{
+		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454", "--source", "manual",
+	}})
+	if manualResult.ExitCode != 0 {
+		t.Fatalf("expected a manual-sourced request to succeed while revoked, got ExitCode %d (stderr: %s)", manualResult.ExitCode, manualResult.Stderr)
+	}
+
+	defaultSourceConn := dialTestDaemon(t, pipeName)
+	defer defaultSourceConn.Close()
+	defaultSourceResult := ipc.Forward(defaultSourceConn, ipc.Request{Route: "artnet status"})
+	if defaultSourceResult.ExitCode != 0 {
+		t.Fatalf("expected a Request with no --source (default manual) to succeed while revoked, got ExitCode %d (stderr: %s)", defaultSourceResult.ExitCode, defaultSourceResult.Stderr)
+	}
+}
+
+// TestDaemonMasterSetGrandAndGroup proves "artnet master set" accepts
+// --grand and --group/--level, rejects an out-of-range level as
+// GOLC_ARTNET_SAFETY_MASTER_INVALID (ExitCode 1), and rejects a malformed
+// invocation (neither --grand nor --group) as GOLC_ARTNET_USAGE
+// (ExitCode 2).
+func TestDaemonMasterSetGrandAndGroup(t *testing.T) {
+	pipeName, _, _ := startTestDaemon(t)
+
+	grandConn := dialTestDaemon(t, pipeName)
+	defer grandConn.Close()
+	grandResult := ipc.Forward(grandConn, ipc.Request{Route: "artnet master set", Args: []string{"--grand", "0.5"}})
+	if grandResult.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", grandResult.ExitCode, grandResult.Stderr)
+	}
+
+	groupID := uuid.New()
+	groupConn := dialTestDaemon(t, pipeName)
+	defer groupConn.Close()
+	groupResult := ipc.Forward(groupConn, ipc.Request{Route: "artnet master set", Args: []string{
+		"--group", groupID.String(), "--level", "0.5",
+	}})
+	if groupResult.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", groupResult.ExitCode, groupResult.Stderr)
+	}
+
+	invalidConn := dialTestDaemon(t, pipeName)
+	defer invalidConn.Close()
+	invalidResult := ipc.Forward(invalidConn, ipc.Request{Route: "artnet master set", Args: []string{"--grand", "1.5"}})
+	if invalidResult.ExitCode != 1 {
+		t.Fatalf("expected ExitCode 1, got %d", invalidResult.ExitCode)
+	}
+	if !strings.Contains(string(invalidResult.Stderr), "GOLC_ARTNET_SAFETY_MASTER_INVALID") {
+		t.Fatalf("expected GOLC_ARTNET_SAFETY_MASTER_INVALID, got: %s", invalidResult.Stderr)
+	}
+
+	malformedConn := dialTestDaemon(t, pipeName)
+	defer malformedConn.Close()
+	malformedResult := ipc.Forward(malformedConn, ipc.Request{Route: "artnet master set"})
+	if malformedResult.ExitCode != 2 {
+		t.Fatalf("expected ExitCode 2, got %d", malformedResult.ExitCode)
+	}
+	if !strings.Contains(string(malformedResult.Stderr), "GOLC_ARTNET_USAGE") {
+		t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", malformedResult.Stderr)
+	}
 }
 
 // TestDaemonMalformedConfigureArgsReturnUsageError proves a malformed

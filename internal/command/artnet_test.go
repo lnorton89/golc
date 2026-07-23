@@ -11,6 +11,17 @@
 // own startTestDaemon helper, built here entirely against artnet's
 // exported surface) to exercise "artnet status" and "artnet target
 // enable|disable" end-to-end.
+//
+// 06-02-PLAN.md Task 3 adds: "artnet safety blackout|stop-all|
+// revoke-automation" and "artnet master set" CLI client routes.
+// TestArtnetSafety* tests stand up a real programmed daemon (via
+// startTestArtnetDaemonWithIntensity, a fuller sibling of
+// startTestArtnetDaemon that carries one real base-look-programmed
+// instance at full intensity so "artnet safety blackout" has an actual
+// non-zero value to drive to zero, observed through the daemon's own
+// per-universe status values) and prove each CLI route reaches live
+// Art-Net output end-to-end, and that operator CLI actions carry
+// "--source manual" and are therefore never blocked by an active revoke.
 package command
 
 import (
@@ -24,8 +35,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/lnorton89/golc/internal/artnet"
 	artnetipc "github.com/lnorton89/golc/internal/artnet/ipc"
+	"github.com/lnorton89/golc/internal/deployment"
+	"github.com/lnorton89/golc/internal/fixture"
+	"github.com/lnorton89/golc/internal/programming"
 	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/show"
 )
@@ -115,6 +131,117 @@ func startTestArtnetDaemon(t *testing.T) string {
 	return ""
 }
 
+// intensityInstanceMode is a minimal single-channel fixture mode (one
+// intensity channel at offset 0), mirroring internal/artnet/worker_test.go's
+// own singleChannelMode -- declared separately here since that identifier
+// is unexported in a different package.
+var intensityInstanceMode = fixture.Mode{
+	Name:     "Standard",
+	Channels: []fixture.ChannelSlot{{Type: fixture.CapabilityIntensity, Occurrence: 0}},
+}
+
+// startTestArtnetDaemonWithIntensity starts artnet.Run exactly like
+// startTestArtnetDaemon, except the daemon's show.State carries one real
+// deployment instance whose base-look layer is programmed to full
+// intensity (06-02-PLAN.md Task 3): a Preset with one PresetAttribute at
+// CapabilityIntensity=1.0, a Scene whose BaseLook layer references that
+// Preset and selects the instance by ID, and a static Resolve function
+// (no --fixtures directory needed, mirroring
+// internal/artnet/worker_test.go's staticWorkerResolver). This gives
+// "artnet safety blackout"/"artnet master set" a genuine non-zero
+// programmed value to drive to zero/scale, rather than the always-zero
+// default an empty show.State would trivially satisfy.
+func startTestArtnetDaemonWithIntensity(t *testing.T) (pipeName string, instanceID uuid.UUID, universe int) {
+	t.Helper()
+	pipeName = testArtnetPipeName(t)
+	interfaceIndex := testArtnetLoopbackInterfaceIndex(t)
+	universe = 1
+
+	instanceID = uuid.New()
+	instance := deployment.Instance{ID: instanceID, Mode: "Standard", Universe: universe, Address: 1}
+	dep := deployment.Deployment{ID: uuid.New(), Active: true, Instances: []deployment.Instance{instance}}
+
+	preset, err := programming.NewPreset("Full Intensity", programming.PresetIntensity)
+	if err != nil {
+		t.Fatalf("programming.NewPreset: %v", err)
+	}
+	preset.Attributes = []programming.PresetAttribute{
+		{InstanceID: instanceID, Capability: fixture.CapabilityIntensity, Value: 1.0},
+	}
+
+	sc, err := scene.NewScene("Test Scene", 1)
+	if err != nil {
+		t.Fatalf("scene.NewScene: %v", err)
+	}
+	sc.Active = true
+	baseLook, ok := sc.LayerByKind(scene.BaseLook)
+	if !ok {
+		t.Fatal("expected a BaseLook layer slot")
+	}
+	baseLook.Enabled = true
+	baseLook.Ref = preset.ID
+	baseLook.Selection = programming.Selection{InstanceIDs: []uuid.UUID{instanceID}}
+	sc, err = scene.SetLayer(sc, baseLook)
+	if err != nil {
+		t.Fatalf("scene.SetLayer: %v", err)
+	}
+
+	state := show.State{
+		Deployments: []deployment.Deployment{dep},
+		Presets:     []programming.Preset{preset},
+		Scenes:      []scene.Scene{sc},
+		Tempo:       show.Tempo{BPM: 120},
+	}
+
+	resolve := func(deployment.Instance) (artnet.InstanceFixture, error) {
+		return artnet.InstanceFixture{
+			Definition: fixture.FixtureDefinition{Modes: []fixture.Mode{intensityInstanceMode}},
+			Mode:       intensityInstanceMode,
+		}, nil
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	runDone := make(chan error, 1)
+	go func() {
+		runDone <- artnet.Run(ctx, artnet.Config{
+			State:          state,
+			InterfaceIndex: interfaceIndex,
+			InterfaceName:  "loopback",
+			Instances:      []deployment.Instance{instance},
+			Resolve:        resolve,
+			// A universe key must be present in Targets (even with no
+			// fan-out targets) for the Worker's tick loop to walk that
+			// universe and record its computed buffer at all
+			// (worker.go's universes list is derived from Targets'
+			// keys, not from Instances) -- otherwise "artnet status"
+			// would never report a "universes" entry for universe to
+			// observe blackout/master overrides against.
+			Targets:  map[int][]artnet.Target{universe: {}},
+			PipeName: pipeName,
+		})
+	}()
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case <-runDone:
+		case <-time.After(5 * time.Second):
+			t.Fatal("artnet.Run did not return within 5s of ctx cancel")
+		}
+	})
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		conn, dialErr := artnetipc.Dial(pipeName)
+		if dialErr == nil {
+			conn.Close()
+			return pipeName, instanceID, universe
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("daemon did not come up on pipe %s", pipeName)
+	return "", uuid.UUID{}, 0
+}
+
 // findArtnetTargetHealth returns the TargetHealth entry matching
 // (universe, ip, port) out of payload.Targets, if any.
 func findArtnetTargetHealth(payload artnetStatusPayload, universe int, ip string, port int) (artnet.TargetHealth, bool) {
@@ -170,7 +297,8 @@ func TestScopeArtnet(t *testing.T) {
 		for _, route := range []string{
 			"artnet serve", "artnet interface list", "artnet configure",
 			"artnet status", "artnet target enable", "artnet target disable",
-			"artnet discover",
+			"artnet discover", "artnet safety blackout", "artnet safety stop-all",
+			"artnet safety revoke-automation", "artnet master set",
 		} {
 			if _, _, ok := registry.Lookup(strings.Fields(route)); !ok {
 				t.Fatalf("expected route %q to be registered", route)
@@ -603,5 +731,198 @@ func TestArtnetDiscoverPerformsNoTargetMutation(t *testing.T) {
 	}
 	if beforeTarget.Target.Enabled != afterTarget.Target.Enabled {
 		t.Fatalf("expected the target's Enabled state unchanged by discover: before=%v after=%v", beforeTarget.Target.Enabled, afterTarget.Target.Enabled)
+	}
+}
+
+// waitForUniverseChannel0 polls "artnet status" until universe's channel 0
+// equals want or deadline elapses, returning the last observed value.
+func waitForUniverseChannel0(t *testing.T, pipeName string, universe int, want byte, deadline time.Time) (byte, bool) {
+	t.Helper()
+	var last byte
+	for time.Now().Before(deadline) {
+		payload, errResult, ok := fetchArtnetStatus(pipeName, "")
+		if !ok {
+			t.Fatalf("fetchArtnetStatus failed: %+v", errResult)
+		}
+		for _, u := range payload.Universes {
+			if u.Universe == universe && len(u.Values) > 0 {
+				last = u.Values[0]
+				if last == want {
+					return last, true
+				}
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return last, false
+}
+
+// TestArtnetSafetyBlackoutDrivesUniverseToZero proves "artnet safety
+// blackout --on true" drives the daemon's per-universe values to zero
+// (06-02-PLAN.md Task 3, PLAY-06/09): the daemon starts with one instance
+// genuinely programmed to full intensity (startTestArtnetDaemonWithIntensity),
+// confirmed non-zero first, then blackout drives channel 0 to zero within
+// a bounded deadline, and turning it back off restores the programmed
+// value.
+func TestArtnetSafetyBlackoutDrivesUniverseToZero(t *testing.T) {
+	pipeName, _, universe := startTestArtnetDaemonWithIntensity(t)
+
+	if _, ok := waitForUniverseChannel0(t, pipeName, universe, 255, time.Now().Add(2*time.Second)); !ok {
+		t.Fatal("expected the programmed instance's channel 0 to reach 255 before any override")
+	}
+
+	onResult := runArtnetSafetyBlackout(Request{Args: []string{"--on", "true", "--pipe", pipeName}})
+	if onResult.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", onResult.ExitCode, onResult.Stderr)
+	}
+	if _, ok := waitForUniverseChannel0(t, pipeName, universe, 0, time.Now().Add(2*time.Second)); !ok {
+		t.Fatal("expected channel 0 to reach 0 within the deadline after blackout")
+	}
+
+	offResult := runArtnetSafetyBlackout(Request{Args: []string{"--on", "false", "--pipe", pipeName}})
+	if offResult.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", offResult.ExitCode, offResult.Stderr)
+	}
+	if _, ok := waitForUniverseChannel0(t, pipeName, universe, 255, time.Now().Add(2*time.Second)); !ok {
+		t.Fatal("expected channel 0 to restore to 255 within the deadline after blackout is turned off")
+	}
+}
+
+// TestArtnetSafetyStopAllDrivesUniverseToZero proves "artnet safety
+// stop-all" (no --on, defaulting to true) drives output to the safe/zero
+// state exactly like blackout.
+func TestArtnetSafetyStopAllDrivesUniverseToZero(t *testing.T) {
+	pipeName, _, universe := startTestArtnetDaemonWithIntensity(t)
+
+	if _, ok := waitForUniverseChannel0(t, pipeName, universe, 255, time.Now().Add(2*time.Second)); !ok {
+		t.Fatal("expected the programmed instance's channel 0 to reach 255 before any override")
+	}
+
+	result := runArtnetSafetyStopAll(Request{Args: []string{"--pipe", pipeName}})
+	if result.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	}
+	if _, ok := waitForUniverseChannel0(t, pipeName, universe, 0, time.Now().Add(2*time.Second)); !ok {
+		t.Fatal("expected channel 0 to reach 0 within the deadline after stop-all")
+	}
+}
+
+// TestArtnetSafetyRevokeAutomationDoesNotBlockManualCLI proves every
+// operator-issued CLI safety action carries "--source manual" and is
+// never blocked by an active Revoke Automation (06-02-PLAN.md Task 3,
+// PLAY-08): activating revoke-automation via the CLI, then issuing a
+// further CLI safety action, both succeed with ExitCode 0.
+func TestArtnetSafetyRevokeAutomationDoesNotBlockManualCLI(t *testing.T) {
+	pipeName := startTestArtnetDaemon(t)
+
+	revokeResult := runArtnetSafetyRevokeAutomation(Request{Args: []string{"--on", "true", "--pipe", pipeName}})
+	if revokeResult.ExitCode != 0 {
+		t.Fatalf("expected revoke-automation ExitCode 0, got %d (stderr: %s)", revokeResult.ExitCode, revokeResult.Stderr)
+	}
+
+	blackoutResult := runArtnetSafetyBlackout(Request{Args: []string{"--on", "true", "--pipe", pipeName}})
+	if blackoutResult.ExitCode != 0 {
+		t.Fatalf("expected a manual-sourced CLI blackout to succeed while revoked, got ExitCode %d (stderr: %s)", blackoutResult.ExitCode, blackoutResult.Stderr)
+	}
+
+	masterResult := runArtnetMasterSet(Request{Args: []string{"--grand", "0.5", "--pipe", pipeName}})
+	if masterResult.ExitCode != 0 {
+		t.Fatalf("expected a manual-sourced CLI master set to succeed while revoked, got ExitCode %d (stderr: %s)", masterResult.ExitCode, masterResult.Stderr)
+	}
+}
+
+// TestArtnetSafetyToggleUsageErrors proves a malformed --on value is
+// rejected client-side as GOLC_ARTNET_USAGE, ExitCode 2, without ever
+// dialing a daemon.
+func TestArtnetSafetyToggleUsageErrors(t *testing.T) {
+	for _, route := range []struct {
+		name    string
+		handler func(Request) Result
+	}{
+		{"blackout", runArtnetSafetyBlackout},
+		{"stop-all", runArtnetSafetyStopAll},
+		{"revoke-automation", runArtnetSafetyRevokeAutomation},
+	} {
+		t.Run(route.name, func(t *testing.T) {
+			result := route.handler(Request{Args: []string{"--on", "not-a-bool"}})
+			if result.ExitCode != 2 {
+				t.Fatalf("expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+			}
+			if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_USAGE") {
+				t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
+			}
+		})
+	}
+}
+
+// TestArtnetSafetyMasterSetGrandAndGroupRoundTrip proves "artnet master
+// set" accepts both --grand and --group/--level end-to-end against a real
+// daemon.
+func TestArtnetSafetyMasterSetGrandAndGroupRoundTrip(t *testing.T) {
+	pipeName := startTestArtnetDaemon(t)
+
+	grandResult := runArtnetMasterSet(Request{Args: []string{"--grand", "0.5", "--pipe", pipeName}})
+	if grandResult.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", grandResult.ExitCode, grandResult.Stderr)
+	}
+
+	groupID := uuid.New()
+	groupResult := runArtnetMasterSet(Request{Args: []string{
+		"--group", groupID.String(), "--level", "0.5", "--pipe", pipeName,
+	}})
+	if groupResult.ExitCode != 0 {
+		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", groupResult.ExitCode, groupResult.Stderr)
+	}
+}
+
+// TestArtnetSafetyMasterSetUsageErrors proves malformed "artnet master
+// set" invocations (neither --grand nor --group, a non-numeric --grand, an
+// invalid --group UUID) are rejected client-side as GOLC_ARTNET_USAGE,
+// ExitCode 2, without ever dialing a daemon.
+func TestArtnetSafetyMasterSetUsageErrors(t *testing.T) {
+	t.Run("neither --grand nor --group", func(t *testing.T) {
+		result := runArtnetMasterSet(Request{Args: nil})
+		if result.ExitCode != 2 {
+			t.Fatalf("expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+		}
+		if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_USAGE") {
+			t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
+		}
+	})
+
+	t.Run("non-numeric --grand", func(t *testing.T) {
+		result := runArtnetMasterSet(Request{Args: []string{"--grand", "bogus"}})
+		if result.ExitCode != 2 {
+			t.Fatalf("expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+		}
+		if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_USAGE") {
+			t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
+		}
+	})
+
+	t.Run("invalid --group UUID", func(t *testing.T) {
+		result := runArtnetMasterSet(Request{Args: []string{"--group", "not-a-uuid", "--level", "0.5"}})
+		if result.ExitCode != 2 {
+			t.Fatalf("expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+		}
+		if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_USAGE") {
+			t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
+		}
+	})
+}
+
+// TestArtnetSafetyMasterSetOutOfRangeReturnsDomainError proves a
+// well-formed-but-rejected --grand value (outside [0,1]) fails as a
+// GOLC_ARTNET_SAFETY_MASTER_INVALID domain error, ExitCode 1, once the
+// daemon validates it.
+func TestArtnetSafetyMasterSetOutOfRangeReturnsDomainError(t *testing.T) {
+	pipeName := startTestArtnetDaemon(t)
+
+	result := runArtnetMasterSet(Request{Args: []string{"--grand", "1.5", "--pipe", pipeName}})
+	if result.ExitCode != 1 {
+		t.Fatalf("expected ExitCode 1, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	}
+	if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_SAFETY_MASTER_INVALID") {
+		t.Fatalf("expected GOLC_ARTNET_SAFETY_MASTER_INVALID, got: %s", result.Stderr)
 	}
 }

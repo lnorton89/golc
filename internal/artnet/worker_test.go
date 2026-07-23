@@ -8,6 +8,14 @@
 // its universe's enabled targets keep receiving (c, D-12); sequence
 // advances per universe and never emits 0 (d, Pitfall 2); and ctx cancel
 // stops the tick goroutine cleanly (e, no leak).
+//
+// 06-02-PLAN.md Task 2 adds: setting blackout on a Worker's own
+// safetyState (exactly what the daemon's "artnet safety blackout" handler
+// does) flips a healthy target's received intensity to 0 within a bounded
+// wall-clock time, even while a slow target's Write is in flight (f); and
+// buildMembership-derived group masters compose multiplicatively with the
+// grand master to scale a target's received intensity (g, PLAY-06
+// adjacency).
 package artnet
 
 import (
@@ -23,6 +31,7 @@ import (
 	"github.com/lnorton89/golc/internal/deployment"
 	"github.com/lnorton89/golc/internal/fixture"
 	"github.com/lnorton89/golc/internal/playback"
+	"github.com/lnorton89/golc/internal/pool"
 	"github.com/lnorton89/golc/internal/scene"
 )
 
@@ -290,6 +299,161 @@ func TestWorkerDisabledTargetReceivesNothing(t *testing.T) {
 	}
 	if n, _, err := disabledListener.ReadFromUDP(buf); err == nil {
 		t.Fatalf("expected the disabled target to receive nothing, got %d bytes", n)
+	}
+}
+
+// TestSafetyOverrideBlackoutTakesEffectDespiteSlowTarget proves
+// 06-02-PLAN.md Task 2's local-priority contract (PLAY-06/08/09): setting
+// blackout on a Worker's own safetyState -- exactly what the daemon's
+// "artnet safety blackout" handler does -- flips a healthy target's
+// received intensity to 0 within a bounded wall-clock time (a handful of
+// tick periods), even while a persistently slow/hung target's Write is
+// also in flight on the same tick (reusing worker_test.go's own
+// slowSender fake-sender harness, mirroring
+// TestWorkerSlowTargetDoesNotStallHealthyTarget's non-blocking proof).
+// This demonstrates the override is never delayed by a slow "client" of
+// the tick loop, matching the daemon-side setter's own non-blocking,
+// atomic-only contract (safety.go).
+func TestSafetyOverrideBlackoutTakesEffectDespiteSlowTarget(t *testing.T) {
+	instanceID := mustInstanceID(t)
+	instance := deployment.Instance{ID: instanceID, Mode: "Standard", Universe: 1, Address: 1}
+
+	healthyListener := newLoopbackListener(t)
+	healthyTarget := Target{Universe: 1, IP: net.IPv4(127, 0, 0, 1), Port: listenerPort(t, healthyListener), Enabled: true}
+	slowTarget := Target{Universe: 1, IP: net.IPv4(127, 0, 0, 1), Port: 1, Enabled: true}
+
+	frames := &fakeFrameSource{frame: frameWithIntensity(instanceID, 1.0)}
+	safety := newSafetyState()
+
+	w := NewWorker(WorkerConfig{
+		Frames:    frames,
+		Instances: []deployment.Instance{instance},
+		Resolve:   staticWorkerResolver(singleChannelMode),
+		Targets:   map[int][]Target{1: {healthyTarget, slowTarget}},
+		Safety:    safety,
+	})
+
+	slow := &slowSender{delay: 500 * time.Millisecond}
+	w.dialFunc = func(universe int, target Target) (artNetSender, error) {
+		if target.Port == slowTarget.Port {
+			return slow, nil
+		}
+		return w.dialUDP(universe, target)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	w.Start(ctx)
+	defer func() {
+		cancel()
+		w.Stop()
+	}()
+
+	// Confirm the healthy target first receives the programmed (non-zero)
+	// intensity before any override is set.
+	buf := make([]byte, 600)
+	if err := healthyListener.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		t.Fatalf("SetReadDeadline: %v", err)
+	}
+	n, _, err := healthyListener.ReadFromUDP(buf)
+	if err != nil {
+		t.Fatalf("ReadFromUDP (pre-blackout): %v", err)
+	}
+	if buf[18] != 255 {
+		t.Fatalf("expected pre-blackout channel 0 to be 255 (intensity=1.0), got %d", buf[18])
+	}
+
+	// setBlackout mirrors exactly what the daemon's "artnet safety
+	// blackout" handler calls -- a single non-blocking atomic Store, never
+	// gated on the slow target's in-flight Write.
+	safety.setBlackout(true)
+
+	// Within a bounded wall-clock window (a handful of tick periods), the
+	// healthy target must start receiving zeroed intensity.
+	deadline := time.Now().Add(500 * time.Millisecond)
+	sawZero := false
+	for time.Now().Before(deadline) {
+		if err := healthyListener.SetReadDeadline(deadline); err != nil {
+			t.Fatalf("SetReadDeadline: %v", err)
+		}
+		n, _, err = healthyListener.ReadFromUDP(buf)
+		if err != nil {
+			break
+		}
+		if n >= 19 && buf[18] == 0 {
+			sawZero = true
+			break
+		}
+	}
+	if !sawZero {
+		t.Fatal("expected the healthy target to receive zeroed intensity within the bounded window after setBlackout, despite a slow target in flight")
+	}
+
+	if slow.sends.Load() == 0 {
+		t.Fatal("expected the slow target's Write to have been invoked at least once")
+	}
+}
+
+// TestWorkerGroupMasterComposesWithGrandMaster proves (g, PLAY-06
+// adjacency): a Worker built with WorkerConfig.Groups carrying a
+// MemberRef matching the instance's own (PoolID, PoolMemberID) has that
+// instance's intensity scaled by grand x group master, multiplicatively --
+// grand=0.5, group=0.5, programmed=full -> the healthy target receives
+// intensity 0.25*255 rounded, proving buildMembership's instance -> group
+// mapping reaches applyOverrides end-to-end through the real Worker tick.
+func TestWorkerGroupMasterComposesWithGrandMaster(t *testing.T) {
+	poolID := mustInstanceID(t)
+	poolMemberID := mustInstanceID(t)
+	groupID := mustInstanceID(t)
+	instanceID := mustInstanceID(t)
+
+	instance := deployment.Instance{
+		ID: instanceID, PoolID: poolID, PoolMemberID: poolMemberID,
+		Mode: "Standard", Universe: 1, Address: 1,
+	}
+	group := pool.Group{ID: groupID, Name: "Test Group", MemberRefs: []pool.MemberRef{
+		{PoolID: poolID, PoolMemberID: poolMemberID},
+	}}
+
+	healthyListener := newLoopbackListener(t)
+	healthyTarget := Target{Universe: 1, IP: net.IPv4(127, 0, 0, 1), Port: listenerPort(t, healthyListener), Enabled: true}
+
+	frames := &fakeFrameSource{frame: frameWithIntensity(instanceID, 1.0)}
+	safety := newSafetyState()
+	if err := safety.setGrandMaster(0.5); err != nil {
+		t.Fatalf("setGrandMaster: %v", err)
+	}
+	if err := safety.setGroupMaster(groupID, 0.5); err != nil {
+		t.Fatalf("setGroupMaster: %v", err)
+	}
+
+	w := NewWorker(WorkerConfig{
+		Frames:    frames,
+		Instances: []deployment.Instance{instance},
+		Groups:    []pool.Group{group},
+		Resolve:   staticWorkerResolver(singleChannelMode),
+		Targets:   map[int][]Target{1: {healthyTarget}},
+		Safety:    safety,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	w.Start(ctx)
+	defer func() {
+		cancel()
+		w.Stop()
+	}()
+
+	buf := make([]byte, 600)
+	if err := healthyListener.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		t.Fatalf("SetReadDeadline: %v", err)
+	}
+	if _, _, err := healthyListener.ReadFromUDP(buf); err != nil {
+		t.Fatalf("ReadFromUDP: %v", err)
+	}
+
+	var composed float64 = 0.25
+	wantChannel := byte(composed * 255) // channelmap's own [0,1]->[0,255] scaling (truncating)
+	if buf[18] != wantChannel {
+		t.Fatalf("expected channel 0 to reflect grand(0.5)*group(0.5)=0.25 of full intensity (%d), got %d", wantChannel, buf[18])
 	}
 }
 
