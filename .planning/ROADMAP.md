@@ -220,7 +220,7 @@ Plans:
   3. Playback continues publishing the newest complete frames at its defined cadence while UI, persistence, scripts, API, or LLM work is stalled or overloaded, without those components backpressuring the engine or Art-Net worker.
   4. An operator can inspect per-universe final values, frame health, target health, errors, and output enablement, and a release candidate demonstrates compatibility with both an independent simulator and real Art-Net hardware.
 
-**Plans:** 8/9 plans executed
+**Plans:** 9/9 plans executed
 
 Plans:
 **Wave 1**
@@ -254,7 +254,7 @@ Plans:
 **Gap Closure** *(post-verification; closes 04-VERIFICATION.md's 2 gaps, does not touch 04-01…04-07)*
 
 - [x] 04-08-PLAN.md — Surface per-universe final DMX values through `artnet status` (ARTN-05 / Success Criterion 4; VERIFICATION Gap 1) [gap wave 1]
-- [ ] 04-09-PLAN.md — Surface pinned-interface degraded/lost status via `artnet status` + `interface list` (ARTN-01/D-05 / Success Criterion 1; VERIFICATION Gap 2; depends on 04-08) [gap wave 2]
+- [x] 04-09-PLAN.md — Surface pinned-interface degraded/lost status via `artnet status` + `interface list` (ARTN-01/D-05 / Success Criterion 1; VERIFICATION Gap 2; depends on 04-08) [gap wave 2]
 
 **Waves:** W1: 04-01 · W2: 04-02 · W3: 04-03 · W4: 04-04 · W5: 04-05 · W6: 04-06 · W7: 04-07 · gap W1: 04-08 · gap W2: 04-09
 **UI hint:** yes (resolved to CLI-only per D-01; no Wails GUI until Phase 6)
@@ -369,7 +369,7 @@ Plans:
 | 1. Offline Foundation and Delivery Traceability | 32/32 | Complete    | 2026-07-21 |
 | 2. Modular Fixtures and Deployments | 6/6 | Complete    | 2026-07-21 |
 | 3. Deterministic Show Programming and Playback | 7/7 | Complete    | 2026-07-21 |
-| 4. Observable Art-Net Live Output | 8/9 | In Progress|  |
+| 4. Observable Art-Net Live Output | 9/9 | In Progress|  |
 | 5. Durable Shows and Recovery | 0/TBD | Not started | - |
 | 6. Wails Authoring and Operator Surface | 0/TBD | Not started | - |
 | 7. Versioned External Control API | 0/TBD | Not started | - |
