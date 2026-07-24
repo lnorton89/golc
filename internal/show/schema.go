@@ -89,24 +89,31 @@ func openStore(root, path string) (*sql.DB, error) {
 	db.SetMaxOpenConns(1)
 
 	for _, pragma := range []string{
+		// busy_timeout (Phase 6 finding) must be the FIRST pragma applied on
+		// this connection, before journal_mode/synchronous/foreign_keys:
+		// sqlite3_busy_timeout only affects statements issued after it takes
+		// effect, and journal_mode=WAL itself can require rebuilding the WAL
+		// shared-memory index (walIndexRecover) -- which needs an EXCLUSIVE
+		// lock -- the first time a freshly-started process opens this file.
+		// That recovery races the Wails desktop app's supervised daemon
+		// process (internal/artnet), which keeps this same .golc file open
+		// across its own playback loop while Wails services (SurfaceService,
+		// PlaybackService, etc.) open a separate short-lived connection per
+		// call from the app's own process -- two OS processes, not just two
+		// goroutines in one, so db.SetMaxOpenConns(1) above cannot serialize
+		// them. Applied after journal_mode=WAL, busy_timeout would arrive too
+		// late to cover exactly that recovery step and the lock would
+		// surface immediately as SQLITE_BUSY_RECOVERY (261) instead of
+		// retrying for the ~instant the daemon's own short transaction
+		// actually takes to release the lock (06-09-SUMMARY.md's
+		// svc_midi.go deviation first found this same class of contention
+		// and worked around it with an application-level retry loop scoped
+		// to that one file; this PRAGMA fixes it once for every caller of
+		// Load/Save/LoadForRead, provided it runs first).
+		`PRAGMA busy_timeout = 5000`,
 		`PRAGMA journal_mode = WAL`,
 		`PRAGMA synchronous = FULL`,
 		`PRAGMA foreign_keys = ON`,
-		// busy_timeout (Phase 6 finding): the Wails desktop app runs a
-		// supervised daemon process (internal/artnet) that keeps this same
-		// .golc file open across its own playback loop while Wails
-		// services (SurfaceService, PlaybackService, etc.) open a separate
-		// short-lived connection per call from the app's own process --
-		// two OS processes, not just two goroutines in one, so
-		// db.SetMaxOpenConns(1) above cannot serialize them. Without a
-		// busy_timeout, a write landing mid-transaction on the daemon's
-		// connection fails immediately with SQLITE_BUSY (5) rather than
-		// waiting the ~instant a short daemon transaction actually takes to
-		// release the lock (06-09-SUMMARY.md's svc_midi.go deviation first
-		// found this same class of contention and worked around it with an
-		// application-level retry loop scoped to that one file; this
-		// PRAGMA fixes it once for every caller of Load/Save/LoadForRead).
-		`PRAGMA busy_timeout = 5000`,
 	} {
 		if _, err := db.Exec(pragma); err != nil {
 			db.Close()
