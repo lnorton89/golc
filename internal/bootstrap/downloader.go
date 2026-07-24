@@ -95,30 +95,41 @@ func LoadOfficialSourcePolicy(root string) (OfficialSourcePolicy, error) {
 	return OfficialSourcePolicy{Patterns: patterns}, nil
 }
 
-// githubReleaseAssetRedirectHost is the fixed host GitHub always 302s a
-// "github.com/<owner>/<repo>/releases/download/..." request to: a
-// signed, time-limited CDN URL whose path and query carry a per-request
-// UUID and cryptographic signature that can never be pinned as a static
-// path prefix. URLSource.Fetch's CheckRedirect re-validates every
+// knownOfficialRedirectPatterns are fixed CDN redirect targets that the
+// two official distribution origins config/toolchain.toml pins today
+// (go.dev, github.com releases) unconditionally 302 every archive
+// request through. URLSource.Fetch's CheckRedirect re-validates every
 // redirect hop against this same policy (by design — an unlisted
-// redirect target must never be trusted), so without this exception any
-// tool pinned to a GitHub release archive (for example [toolchain.mage])
-// would fail to install from a clean checkout: the initial request to
-// the committed github.com URL matches its pin, but the mandatory
-// redirect to this CDN host never would. The actual byte-integrity
-// guarantee still comes from the committed SHA-256 check after download,
-// not from which host served the bytes, so trusting this one fixed
-// GitHub-controlled hostname for the CDN hop is safe: an attacker cannot
-// forge a valid signed redirect target without controlling github.com's
-// own TLS-terminated response in the first place.
-const githubReleaseAssetRedirectHost = "release-assets.githubusercontent.com"
+// redirect target must never be trusted), so without these entries any
+// pin using either origin would fail to install from a clean checkout:
+// the initial request matches its committed pin exactly, but the
+// mandatory redirect never would. The actual byte-integrity guarantee
+// still comes from the committed SHA-256 check after download, not from
+// which host served the bytes, so trusting these two fixed,
+// vendor-controlled hostnames for their own unavoidable CDN hop is safe
+// — an attacker cannot forge a redirect to either without controlling
+// go.dev's or github.com's own TLS-terminated response in the first
+// place. Each entry is scoped as tightly as that vendor's redirect shape
+// allows:
+//   - dl.google.com/go/ is go.dev/dl's stable, unsigned release-archive
+//     path (observed: go.dev/dl/goX.Y.Z... -> dl.google.com/go/goX.Y.Z...),
+//     so it is pinned with the same host+path-prefix precision as any
+//     TOML-declared pattern.
+//   - release-assets.githubusercontent.com is GitHub's release-asset CDN;
+//     its path and query carry a per-request UUID and cryptographic
+//     signature that can never be pinned as a static path prefix, so the
+//     whole host is trusted for any path.
+var knownOfficialRedirectPatterns = []SourcePattern{
+	{Host: "dl.google.com", PathPrefix: "/go/"},
+	{Host: "release-assets.githubusercontent.com", PathPrefix: "/"},
+}
 
 // Allows reports whether rawURL is an https URL matching a committed
-// official host and path prefix, or the fixed GitHub release-asset CDN
-// redirect host every github.com/.../releases/download/... pin
-// unavoidably redirects through. Anything else — a different scheme, a
-// different host, or a path outside the pinned prefix — is rejected
-// before any network call is ever made.
+// official host and path prefix, or one of knownOfficialRedirectPatterns
+// every pin using go.dev or a GitHub release unavoidably redirects
+// through. Anything else — a different scheme, a different host, or a
+// path outside the pinned prefix — is rejected before any network call
+// is ever made.
 func (policy OfficialSourcePolicy) Allows(rawURL string) error {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
@@ -127,8 +138,10 @@ func (policy OfficialSourcePolicy) Allows(rawURL string) error {
 	if parsed.Scheme != "https" {
 		return fmt.Errorf("BOOTSTRAP_SOURCE_SCHEME: %q must use https", rawURL)
 	}
-	if strings.EqualFold(parsed.Host, githubReleaseAssetRedirectHost) {
-		return nil
+	for _, pattern := range knownOfficialRedirectPatterns {
+		if strings.EqualFold(parsed.Host, pattern.Host) && strings.HasPrefix(parsed.Path, pattern.PathPrefix) {
+			return nil
+		}
 	}
 	for _, pattern := range policy.Patterns {
 		if strings.EqualFold(parsed.Host, pattern.Host) && strings.HasPrefix(parsed.Path, pattern.PathPrefix) {
