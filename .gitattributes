@@ -1,0 +1,11 @@
+# config/generation.toml declares line_endings = "lf" as the single
+# authoritative policy for every committed generated schema: `generate`
+# always writes LF, so a byte-for-byte drift check only ever passes if
+# the committed bytes stay LF too. Without this file, a Windows Git
+# client's default core.autocrlf behavior converts the committed LF
+# bytes to CRLF on checkout, and `generate --check` then reports drift
+# against content that was never actually regenerated -- purely a
+# checkout-time conversion, not a real difference (observed live in
+# cross-platform-mage.yml run 30075727901 on windows-latest: every
+# committed schema under schemas/ reported as drifted).
+schemas/** text eol=lf
