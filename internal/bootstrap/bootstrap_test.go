@@ -830,6 +830,43 @@ func TestScopeBootstrapArchive(t *testing.T) {
 		}
 	})
 
+	t.Run("OfficialSourcePolicy allows the GitHub release-asset CDN redirect host for any pinned github.com release", func(t *testing.T) {
+		// Regression: config/toolchain.toml's [toolchain.mage] pin is a
+		// github.com/.../releases/download/... URL, which GitHub always
+		// 302s to a signed release-assets.githubusercontent.com CDN URL.
+		// URLSource.Fetch's CheckRedirect re-validates every hop against
+		// this same policy, so without this exception a clean bootstrap
+		// of the mage toolchain fails closed with
+		// BOOTSTRAP_SOURCE_NOT_ALLOWLISTED even though the initial
+		// request matched its committed pin exactly (observed live in
+		// cross-platform-mage.yml run 30072731806 on ubuntu-latest and
+		// windows-latest).
+		root := t.TempDir()
+		writeTestToolchainManifest(t, root, map[string]SourcePattern{
+			"mage": {Host: "github.com", PathPrefix: "/magefile/mage/releases/download/"},
+		})
+		policy, err := LoadOfficialSourcePolicy(root)
+		if err != nil {
+			t.Fatalf("LoadOfficialSourcePolicy failed: %v", err)
+		}
+
+		signedRedirect := "https://release-assets.githubusercontent.com/github-production-release-asset/104261253/" +
+			"02fe83b7-ecdf-4b11-bfbb-6022f5abfb3b?sp=r&sig=example"
+		if err := policy.Allows(signedRedirect); err != nil {
+			t.Fatalf("expected the GitHub release-asset CDN redirect host to be allowed, got: %v", err)
+		}
+
+		for name, rejected := range map[string]string{
+			"look-alike CDN subdomain": "https://release-assets.githubusercontent.com.evil.example.com/x",
+			"unrelated CDN host":       "https://objects.githubusercontent.com/x",
+			"insecure scheme":          "http://release-assets.githubusercontent.com/x",
+		} {
+			if err := policy.Allows(rejected); err == nil {
+				t.Fatalf("%s: expected %q to still be rejected", name, rejected)
+			}
+		}
+	})
+
 	t.Run("LoadOfficialSourcePolicy fails closed when no source is pinned", func(t *testing.T) {
 		root := t.TempDir()
 		writeTestToolchainManifest(t, root, map[string]SourcePattern{
