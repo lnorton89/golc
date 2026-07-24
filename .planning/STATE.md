@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 Phase: 06 (Wails Authoring and Operator Surface) — EXECUTING
 Plan: 1 of 12
 Status: Executing Phase 06
-Last activity: 2026-07-23 — Completed quick task 260723-u0p: Add Mage targets and pin Mage toolchain archives for PowerShell removal Steps 4 and 5
+Last activity: 2026-07-23 — Completed quick task 260723-ule: Improve golc-mcp status freshness and expose Mage migration surfaces
 
 Note: `.planning/phases/11-telemetry-usage-statistics-and-auto-crash-submission-pipeline/` exists on disk from earlier out-of-order groundwork, which caused the automated next-phase resolver to briefly point here at Phase 11. Phases 6-10 have no directories yet and are the genuine next work per ROADMAP.md's sequential order; Phase 11 itself declares `Depends on: Phase 10`.
 
@@ -126,6 +126,7 @@ None yet.
 | 260723-svv | Migrate toolchain configuration and strict project schema for PowerShell removal Step 2 | 2026-07-23 | 2b62b0d | Complete | [260723-svv-migrate-toolchain-configuration-and-stri](./quick/260723-svv-migrate-toolchain-configuration-and-stri/) |
 | 260723-tgd | Replace hardcoded platform strings and propagate project root for PowerShell removal Step 3 | 2026-07-23 | e024305 | Complete | [260723-tgd-replace-hardcoded-platform-strings-and-p](./quick/260723-tgd-replace-hardcoded-platform-strings-and-p/) |
 | 260723-u0p | Add Mage targets and pin Mage toolchain archives for PowerShell removal Steps 4 and 5 | 2026-07-23 | afc4623 | Complete | [260723-u0p-add-mage-targets-and-pin-mage-toolchain-](./quick/260723-u0p-add-mage-targets-and-pin-mage-toolchain-/) |
+| 260723-ule | Improve golc-mcp status freshness and expose Mage migration surfaces | 2026-07-23 | 7ead8ed | Complete | [260723-ule-improve-golc-mcp-status-freshness-and-ex](./quick/260723-ule-improve-golc-mcp-status-freshness-and-ex/) |
 | 260723-sgy | Port the full golc-site design language into all approved UI sketch assets | 2026-07-23 | 5a5a55b | Needs Review | [260723-sgy-port-the-full-golc-site-design-language-](./quick/260723-sgy-port-the-full-golc-site-design-language-/) |
 | 260723-tyl | Make active command-rail accents symmetrical in all four UI sketches | 2026-07-23 | 7889800 | Complete | [260723-tyl-make-active-command-rail-accents-symmetr](./quick/260723-tyl-make-active-command-rail-accents-symmetr/) |
 | 260723-uj9 | Fold the sketch findings skill into .planning/sketches and remove .kimi-code | 2026-07-23 | 549d2cf | Complete | [260723-uj9-fold-the-sketch-findings-skill-into-plan](./quick/260723-uj9-fold-the-sketch-findings-skill-into-plan/) |
