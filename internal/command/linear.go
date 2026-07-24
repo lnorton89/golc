@@ -724,6 +724,7 @@ func newProcessLinearClient(root string, migrated *catalog.Map) (*processLinearC
 		NodeExecutable: nodeExecutable,
 		ScriptPath:     scriptPath,
 		WorkDir:        workDir,
+		ProjectRoot:    root,
 		Env:            os.Environ(),
 		Timeout:        linearTransportCallTimeout(),
 	})

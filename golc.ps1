@@ -37,7 +37,8 @@ if ($args.Count -gt 0) {
     }
 }
 
-$RepoRoot = $PSScriptRoot
+$RepoRoot = [System.IO.Path]::GetFullPath($PSScriptRoot)
+$env:GOLC_PROJECT_ROOT = $RepoRoot
 $ToolchainManifestPath = Join-Path $RepoRoot "config\toolchain.toml"
 $DownloadsDirectory = Join-Path $RepoRoot ".tools\cache\downloads"
 $GoModCacheDirectory = Join-Path $RepoRoot ".tools\cache\go-mod"
@@ -53,7 +54,7 @@ $GoBinDirectory = Join-Path $RepoRoot ".tools\cache\go-bin"
 # internal/bootstrap/cache.go's ProjectCacheLayout.NpmCache exactly.
 $NpmCacheDirectory = Join-Path $RepoRoot ".tools\cache\npm"
 $RecordDirectory = Join-Path $RepoRoot ".tools\manifest"
-$GolcProjectExecutable = Join-Path $RepoRoot ".tools\installs\golc_project\bin\golc-project.exe"
+$GolcProjectExecutable = Join-Path $RepoRoot ".tools\installs\golc_project\windows-amd64\bin\golc-project.exe"
 $InstallManifestName = ".golc-install-manifest.json"
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -773,9 +774,6 @@ try {
             }
             else {
                 Set-ProjectGoEnvironment
-                # Delegation passes the repository root explicitly so command
-                # behavior never depends on the caller's working directory.
-                $env:GOLC_PROJECT_ROOT = $RepoRoot
                 & $GolcProjectExecutable $Command @CommandArguments
                 $shimExitCode = $LASTEXITCODE
             }

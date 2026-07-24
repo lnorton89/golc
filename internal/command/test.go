@@ -178,13 +178,26 @@ func projectGoEnvironment(root string) []string {
 		}
 		environment = append(environment, entry)
 	}
-	return append(environment,
+	environment = append(environment,
 		"GOTOOLCHAIN=local",
 		"GOPROXY=off",
 		"GOMODCACHE="+filepath.Join(root, ".tools", "cache", "go-mod"),
 		"GOCACHE="+filepath.Join(root, ".tools", "cache", "go-build"),
 		"GOFLAGS=-mod=readonly",
 	)
+	return upsertEnvironment(environment, "GOLC_PROJECT_ROOT", root)
+}
+
+func upsertEnvironment(environment []string, name, value string) []string {
+	result := make([]string, 0, len(environment)+1)
+	for _, entry := range environment {
+		existing, _, found := strings.Cut(entry, "=")
+		if found && strings.EqualFold(existing, name) {
+			continue
+		}
+		result = append(result, entry)
+	}
+	return append(result, name+"="+value)
 }
 
 // runProjectGo executes one pinned-toolchain Go invocation inside root.
@@ -233,7 +246,7 @@ func listScopeMarkers(goExecutable, root, marker string) ([]string, error) {
 
 // NodeScopeRegistration declares one project-local Node/npm test scope
 // (CONTEXT D-03/D-10): a project-relative directory containing its own
-// package.json, plus the exact command that runs its
+// package.json, plus the exact arguments that run its
 // TestScope{PascalName} marker. No Node scope exists yet in Phase 1's
 // core graph; this is the registered extension point a later Node-owning
 // plan (for example the tools/linear-sync package) uses so
@@ -241,10 +254,10 @@ func listScopeMarkers(goExecutable, root, marker string) ([]string, error) {
 // Node scope exactly the way they already reach a Go scope, without
 // editing this dispatcher again.
 type NodeScopeRegistration struct {
-	Scope   string
-	Dir     string
-	Marker  string
-	Command []string
+	Scope     string
+	Dir       string
+	Marker    string
+	Arguments []string
 }
 
 // declaredNodeScopes collects every Node scope a command file registers
@@ -263,8 +276,8 @@ func MustDeclareNodeScope(registration NodeScopeRegistration) NodeScopeRegistrat
 	if strings.TrimSpace(registration.Marker) == "" {
 		panic(fmt.Sprintf("GOLC_TEST_NODE_SCOPE_INVALID: %q has a blank marker", registration.Scope))
 	}
-	if len(registration.Command) == 0 {
-		panic(fmt.Sprintf("GOLC_TEST_NODE_SCOPE_INVALID: %q declares no command", registration.Scope))
+	if len(registration.Arguments) == 0 {
+		panic(fmt.Sprintf("GOLC_TEST_NODE_SCOPE_INVALID: %q declares no arguments", registration.Scope))
 	}
 	for _, existing := range declaredNodeScopes {
 		if existing.Scope == registration.Scope {
@@ -285,19 +298,24 @@ func lookupNodeScope(scopeName string) (NodeScopeRegistration, bool) {
 	return NodeScopeRegistration{}, false
 }
 
-// runNodeScopeTest runs one registered Node scope's exact command inside
-// its declared repository-relative directory.
+// runNodeScopeTest resolves pinned Node from root, then runs one
+// registered scope's exact arguments inside its repository-relative
+// directory.
 func runNodeScopeTest(root string, registration NodeScopeRegistration) Result {
-	execution := exec.Command(registration.Command[0], registration.Command[1:]...)
+	nodeExecutable, err := resolvePinnedNodeExecutable(root)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	execution := exec.Command(nodeExecutable, registration.Arguments...)
 	execution.Dir = filepath.Join(root, filepath.FromSlash(registration.Dir))
-	execution.Env = os.Environ()
+	execution.Env = upsertEnvironment(os.Environ(), "GOLC_PROJECT_ROOT", root)
 	var stdoutBuffer, stderrBuffer bytes.Buffer
 	execution.Stdout = &stdoutBuffer
 	execution.Stderr = &stderrBuffer
-	err := execution.Run()
+	err = execution.Run()
 
 	var output bytes.Buffer
-	fmt.Fprintf(&output, "GOLC test: scope %s -> Node command %s\n", registration.Scope, strings.Join(registration.Command, " "))
+	fmt.Fprintf(&output, "GOLC test: scope %s -> Node command %s %s\n", registration.Scope, nodeExecutable, strings.Join(registration.Arguments, " "))
 	output.Write(stdoutBuffer.Bytes())
 	if err != nil {
 		stderr := append(stderrBuffer.Bytes(), []byte(fmt.Sprintf("GOLC_TEST_FAILED: scope %s: %v\n", registration.Scope, err))...)

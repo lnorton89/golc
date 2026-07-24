@@ -120,6 +120,12 @@ func TestScopeBuildArgs(t *testing.T) {
 		if !slices.Contains(got, "PATH=fixture") || !slices.Contains(got, "CACHE=keep") {
 			t.Fatalf("unrelated environment entries were not preserved: %v", got)
 		}
+
+		t.Setenv("GOLC_PROJECT_ROOT", "stale")
+		projectEnvironment := projectGoEnvironment(root)
+		if !slices.Contains(projectEnvironment, "GOLC_PROJECT_ROOT="+root) {
+			t.Fatalf("project Go environment does not contain authoritative root: %v", projectEnvironment)
+		}
 	})
 
 	t.Run("pinned Go and Node resolvers use the runtime platform layout", func(t *testing.T) {

@@ -296,6 +296,7 @@ func runBootstrap(ctx context.Context, root string, options Options, dependencie
 		policy: policy, source: source, runner: runner, goPin: goPin, nodePin: nodePin,
 	}
 	engine.env = mergedEnvironment(layout.Environment().AsMap())
+	setEnvironmentValue(engine.env, "GOLC_PROJECT_ROOT", resolvedRoot)
 	return engine.run(ctx)
 }
 
@@ -582,6 +583,15 @@ func mergedEnvironment(overrides map[string]string) map[string]string {
 		result[key] = value
 	}
 	return result
+}
+
+func setEnvironmentValue(environment map[string]string, name, value string) {
+	for existing := range environment {
+		if strings.EqualFold(existing, name) {
+			delete(environment, existing)
+		}
+	}
+	environment[name] = value
 }
 
 func cloneEnvironment(source map[string]string) map[string]string {

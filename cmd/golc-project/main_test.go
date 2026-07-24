@@ -38,9 +38,18 @@ func TestRunEstablishesResolvedProjectRootBeforeRegistryConstruction(t *testing.
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
 			root := t.TempDir()
+			previousWorkingDirectory, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
 			if err := os.Chdir(root); err != nil {
 				t.Fatal(err)
 			}
+			defer func() {
+				if err := os.Chdir(previousWorkingDirectory); err != nil {
+					t.Errorf("restore working directory: %v", err)
+				}
+			}()
 			environment := testCase.environment(root)
 			if environment == "" {
 				if err := os.Unsetenv(repoRootEnvName); err != nil {

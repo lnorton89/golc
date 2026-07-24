@@ -140,7 +140,7 @@ func runBuildNodeScope(root string, registration NodeBuildScopeRegistration) Res
 
 	execution := exec.Command(nodeExecutable, tscPath, "-p", tsconfigPath)
 	execution.Dir = scopeDir
-	execution.Env = os.Environ()
+	execution.Env = upsertEnvironment(os.Environ(), "GOLC_PROJECT_ROOT", root)
 	var stdoutBuffer, stderrBuffer bytes.Buffer
 	execution.Stdout = &stdoutBuffer
 	execution.Stderr = &stderrBuffer
