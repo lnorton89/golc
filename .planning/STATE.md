@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 Phase: 06 (Wails Authoring and Operator Surface) — EXECUTING
 Plan: 1 of 12
 Status: Executing Phase 06
-Last activity: 2026-07-23 — Phase 06 execution started
+Last activity: 2026-07-23 — Completed quick task 260723-rq4: Add cross-platform transport for internal/artnet/ipc as Step 0 of the PowerShell removal plan
 
 Note: `.planning/phases/11-telemetry-usage-statistics-and-auto-crash-submission-pipeline/` exists on disk from earlier out-of-order groundwork, which caused the automated next-phase resolver to briefly point here at Phase 11. Phases 6-10 have no directories yet and are the genuine next work per ROADMAP.md's sequential order; Phase 11 itself declares `Depends on: Phase 10`.
 
@@ -120,6 +120,7 @@ None yet.
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 260719-pgw | Research and record the Akai MIDImix, Novation Launch Control XL Mk2, and Worlde EasyControl 9 acceptance set; clear the selection blocker; verify Phase 1 readiness | 2026-07-20 | 6af8a48 | Verified | [260719-pgw-research-akai-midimix-novation-launch-co](./quick/260719-pgw-research-akai-midimix-novation-launch-co/) |
+| 260723-rq4 | Add cross-platform transport for internal/artnet/ipc as Step 0 of the PowerShell removal plan | 2026-07-23 | 09d25fc | Complete | [260723-rq4-add-cross-platform-transport-for-interna](./quick/260723-rq4-add-cross-platform-transport-for-interna/) |
 
 ## Deferred Items
 
