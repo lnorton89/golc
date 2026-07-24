@@ -23,12 +23,19 @@ var magePRAuthorityKeys = []string{
 type listMageTargetsInput struct{}
 
 type mageTargetOutput struct {
-	Name      string                 `json:"name"`
-	Kind      string                 `json:"kind"`
-	Route     string                 `json:"route"`
-	Args      []string               `json:"args"`
-	Authority string                 `json:"authority"`
-	PR        *magePRAuthorityOutput `json:"pr,omitempty"`
+	Name               string                        `json:"name"`
+	Kind               string                        `json:"kind"`
+	Route              string                        `json:"route"`
+	Args               []string                      `json:"args"`
+	Authority          string                        `json:"authority"`
+	EnvironmentOptions []mageEnvironmentOptionOutput `json:"environment_options"`
+	PR                 *magePRAuthorityOutput        `json:"pr,omitempty"`
+}
+
+type mageEnvironmentOptionOutput struct {
+	Name          string `json:"name"`
+	EnablingValue string `json:"enabling_value"`
+	Effect        string `json:"effect"`
 }
 
 type magePRAuthorityOutput struct {
@@ -60,11 +67,17 @@ func handleListMageTargets(_ context.Context, _ *mcp.CallToolRequest, _ listMage
 	out := listMageTargetsOutput{Targets: make([]mageTargetOutput, 0, len(descriptors))}
 	for _, descriptor := range descriptors {
 		target := mageTargetOutput{
-			Name:      descriptor.Name,
-			Kind:      string(descriptor.Kind),
-			Route:     descriptor.Route,
-			Args:      append([]string{}, descriptor.Args...),
-			Authority: descriptor.Authority,
+			Name:               descriptor.Name,
+			Kind:               string(descriptor.Kind),
+			Route:              descriptor.Route,
+			Args:               append([]string{}, descriptor.Args...),
+			Authority:          descriptor.Authority,
+			EnvironmentOptions: make([]mageEnvironmentOptionOutput, 0, len(descriptor.EnvironmentOptions)),
+		}
+		for _, option := range descriptor.EnvironmentOptions {
+			target.EnvironmentOptions = append(target.EnvironmentOptions, mageEnvironmentOptionOutput{
+				Name: option.Name, EnablingValue: option.EnablingValue, Effect: option.Effect,
+			})
 		}
 		if descriptor.Kind == delivery.MageTargetKindPR {
 			graph, err := delivery.LoadPRGraph(root)
