@@ -1,5 +1,11 @@
 # Contributor-tool portability observation only. Linux and macOS results do
 # not qualify the GOLC application for either platform.
+#
+# Mage itself is installed from the checksum-pinned archive committed in
+# config/toolchain.toml (scripts/ci/install-pinned-mage.{sh,ps1}), not via
+# an ambient `go install`: that approach is absent an ambient Go on some
+# hosted macOS runners, and even where it succeeds its GOPATH/bin output
+# is not on PATH for later steps by default.
 name: cross-platform Mage observation
 
 on:
@@ -26,8 +32,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install ambient Mage launcher
-        run: go install github.com/magefile/mage@v1.17.2
+      - name: Install pinned Mage (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: bash scripts/ci/install-pinned-mage.sh
+
+      - name: Install pinned Mage (Windows)
+        if: runner.os == 'Windows'
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/ci/install-pinned-mage.ps1
 
       - name: Bootstrap verified project toolchains
         run: mage Bootstrap
