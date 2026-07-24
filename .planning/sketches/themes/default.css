@@ -1,3 +1,27 @@
+@font-face {
+  font-family: "Archivo";
+  src: url("./fonts/Archivo-700.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Archivo";
+  src: url("./fonts/Archivo-800.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./fonts/JetBrainsMono-500.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
   --color-bg: #e4e0d8;
@@ -12,7 +36,7 @@
   --color-text-muted: #8a887f;
   --color-primary: #1b44d9;
   --color-primary-hover: #1233a8;
-  --color-primary-soft: rgba(27, 68, 217, 0.18);
+  --color-primary-soft: color-mix(in srgb, var(--color-primary) 16%, transparent);
   --color-on-primary: #f4f1eb;
   --color-mark-tile: #17181c;
   --color-mark-bar: #f4f1eb;
@@ -41,13 +65,82 @@
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
-  --space-5: 20px;
   --space-6: 24px;
 
-  --radius-sm: 3px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
+  --radius-panel: 12px;
+  --radius-card: 8px;
+  --radius-control: 6px;
+  --radius-pill: 999px;
+  --radius-sm: var(--radius-control);
+  --radius-md: var(--radius-card);
+  --radius-lg: var(--radius-panel);
   --shadow-panel: 0 8px 24px rgba(0, 0, 0, 0.08);
   --transition-tap: 120ms ease-out;
-  --transition-settle: 200ms ease;
+  --transition-settle: 200ms ease-out;
+}
+
+.panel {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+}
+
+.meta-label,
+.panel-header,
+.deck-label,
+.safety-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.primary,
+.button-primary {
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-control);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: 700;
+  transition: background-color var(--transition-tap), border-color var(--transition-tap), color var(--transition-tap);
+}
+
+.secondary,
+.button-secondary,
+button,
+input,
+select {
+  border-radius: var(--radius-control);
+}
+
+.chip,
+.state-chip {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+:where(button, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
