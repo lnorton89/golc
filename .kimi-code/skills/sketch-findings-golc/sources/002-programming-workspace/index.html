@@ -41,7 +41,7 @@
     .deck-label { margin:0 5px 5px; color:var(--color-text-muted); font-size:9px; text-transform:uppercase; letter-spacing:.1em; }
     .deck-nav button { width:100%; padding:7px 8px; border:0; border-radius:3px; background:transparent; color:var(--color-text-secondary); text-align:left; font-size:11px; }
     .deck-nav button:hover,.deck-nav button.active { color:var(--color-text); background:var(--color-surface-raised); }
-    .deck-nav button.active { box-shadow:inset 2px 0 var(--color-primary); }
+    .deck-nav button.active { box-shadow:inset 2px 0 var(--color-primary),inset -2px 0 var(--color-primary); }
     .workspace { grid-row:2; grid-column:2; min-width:0; min-height:0; display:grid; grid-template-rows:42px minmax(0,1fr); }
     .workspace-bar { display:flex; align-items:center; gap:8px; padding:0 10px; background:var(--color-surface-raised); border-bottom:1px solid var(--color-border); }
     .workspace-title { font-weight:600; }
@@ -157,7 +157,7 @@
     .show-title { font-size:14px; font-weight:800; letter-spacing:-0.02em; }
     .save-state,.readout,.scene-number { font-family:var(--font-mono); }
     .deck-nav button { border-radius:var(--radius-control); transition:background-color var(--transition-tap),color var(--transition-tap); }
-    .deck-nav button.active { color:var(--color-primary); background:var(--color-primary-soft); box-shadow:inset 2px 0 var(--color-primary); }
+    .deck-nav button.active { color:var(--color-primary); background:var(--color-primary-soft); box-shadow:inset 2px 0 var(--color-primary),inset -2px 0 var(--color-primary); }
     .workspace-bar { min-height:46px; padding-inline:var(--space-4); }
     .workspace-title { font-weight:800; letter-spacing:-0.01em; }
     .canvas { padding:var(--space-3); }
