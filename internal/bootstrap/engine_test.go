@@ -84,12 +84,12 @@ func platformToolArchive(t *testing.T, root, tool, version string) (path string,
 	switch layout.Format {
 	case ".zip":
 		returnPath, returnDigest := buildZipEntries(t, root, layout.FileName, []testArchiveEntry{
-			{Name: filepath.ToSlash(filepath.Join(layout.Root, layout.Executable)), Body: "executable\n", Mode: 0o755},
+			{Name: filepath.ToSlash(filepath.Join(layout.Root, layout.Executable)), Body: tool + " executable\n", Mode: 0o755},
 		})
 		return returnPath, returnDigest, archiveRoot
 	case ".tar.gz":
 		returnPath, returnDigest := buildTarGzEntries(t, root, layout.FileName, []testArchiveEntry{
-			{Name: filepath.ToSlash(filepath.Join(layout.Root, layout.Executable)), Body: "executable\n", Mode: 0o755},
+			{Name: filepath.ToSlash(filepath.Join(layout.Root, layout.Executable)), Body: tool + " executable\n", Mode: 0o755},
 		})
 		return returnPath, returnDigest, archiveRoot
 	default:
@@ -108,10 +108,12 @@ func writeEngineRepository(t *testing.T) (root string, source *engineFakeSource,
 		t.Fatalf("mkdir command: %v", err)
 	}
 	goArchive, goDigest, _ := platformToolArchive(t, root, "go", "1.26.5")
+	mageArchive, mageDigest, _ := platformToolArchive(t, root, "mage", "1.17.2")
 	fixtureArchive, fixtureDigest := buildZipEntries(t, root, "fixture.zip", []testArchiveEntry{
 		{Name: "bin/fixture", Body: "fixture\n", Mode: 0o755},
 	})
 	goURL = "https://go.dev/dl/" + filepath.Base(goArchive)
+	mageURL := "https://github.com/magefile/mage/releases/download/v1.17.2/" + filepath.Base(mageArchive)
 	fixtureURL := "https://fixtures.example.invalid/tool/" + filepath.Base(fixtureArchive)
 	manifest := fmt.Sprintf(`schema_version = 2
 
@@ -134,7 +136,16 @@ official_path_prefix = "/dl/"
 [toolchain.go.platforms.%q]
 archive_url = %q
 archive_sha256 = %q
-`, fixtureURL, fixtureDigest, PlatformKey(), goURL, goDigest)
+
+[toolchain.mage]
+version = "1.17.2"
+official_host = "github.com"
+official_path_prefix = "/magefile/mage/releases/download/"
+
+[toolchain.mage.platforms.%q]
+archive_url = %q
+archive_sha256 = %q
+`, fixtureURL, fixtureDigest, PlatformKey(), goURL, goDigest, PlatformKey(), mageURL, mageDigest)
 	if err := os.WriteFile(filepath.Join(root, "config", "toolchain.toml"), []byte(manifest), 0o644); err != nil {
 		t.Fatalf("write manifest: %v", err)
 	}
@@ -145,9 +156,11 @@ archive_sha256 = %q
 		t.Fatalf("write go.sum: %v", err)
 	}
 	goBytes, _ := os.ReadFile(goArchive)
+	mageBytes, _ := os.ReadFile(mageArchive)
 	fixtureBytes, _ := os.ReadFile(fixtureArchive)
 	source = &engineFakeSource{payload: map[string][]byte{
 		goURL:      goBytes,
+		mageURL:    mageBytes,
 		fixtureURL: fixtureBytes,
 	}}
 	return root, source, goURL
@@ -168,6 +181,11 @@ func TestScopeBootstrapEngine(t *testing.T) {
 			{"node", "24.18.0", "windows", "amd64", "node-v24.18.0-win-x64.zip", "node-v24.18.0-win-x64", "node.exe"},
 			{"node", "24.18.0", "linux", "amd64", "node-v24.18.0-linux-x64.tar.gz", "node-v24.18.0-linux-x64", filepath.Join("bin", "node")},
 			{"node", "24.18.0", "darwin", "arm64", "node-v24.18.0-darwin-arm64.tar.gz", "node-v24.18.0-darwin-arm64", filepath.Join("bin", "node")},
+			{"mage", "1.17.2", "windows", "amd64", "mage_1.17.2_Windows-64bit.zip", "", "mage.exe"},
+			{"mage", "1.17.2", "linux", "amd64", "mage_1.17.2_Linux-64bit.tar.gz", "", "mage"},
+			{"mage", "1.17.2", "linux", "arm64", "mage_1.17.2_Linux-ARM64.tar.gz", "", "mage"},
+			{"mage", "1.17.2", "darwin", "amd64", "mage_1.17.2_macOS-64bit.tar.gz", "", "mage"},
+			{"mage", "1.17.2", "darwin", "arm64", "mage_1.17.2_macOS-ARM64.tar.gz", "", "mage"},
 		}
 		for _, testCase := range cases {
 			layout, err := platformArchiveLayout(testCase.tool, testCase.version, testCase.goos, testCase.goarch)
@@ -295,7 +313,7 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		})
 	})
 
-	t.Run("production manifest configures only windows-amd64 archives", func(t *testing.T) {
+	t.Run("production manifest configures exact platform authorities", func(t *testing.T) {
 		root := filepath.Join("..", "..")
 		document, _, err := readBootstrapManifest(root)
 		if err != nil {
@@ -313,6 +331,16 @@ func TestScopeBootstrapEngine(t *testing.T) {
 				t.Fatalf("toolchain.%s does not explicitly configure windows-amd64", tool)
 			}
 		}
+		mage := document.Toolchain["mage"]
+		wantMagePlatforms := []string{"windows-amd64", "linux-amd64", "linux-arm64", "darwin-amd64", "darwin-arm64"}
+		if len(mage.Platforms) != len(wantMagePlatforms) {
+			t.Fatalf("toolchain.mage platforms = %v, want %v", mage.Platforms, wantMagePlatforms)
+		}
+		for _, platform := range wantMagePlatforms {
+			if _, ok := mage.Platforms[platform]; !ok {
+				t.Errorf("toolchain.mage missing %s", platform)
+			}
+		}
 	})
 
 	t.Run("complete Go bootstrap uses pinned tools environment and process order", func(t *testing.T) {
@@ -326,8 +354,8 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		if err := runBootstrap(context.Background(), root, Options{}, dependencies); err != nil {
 			t.Fatalf("runBootstrap: %v", err)
 		}
-		if len(source.calls) != 2 {
-			t.Fatalf("source calls = %v, want generic tool plus Go", source.calls)
+		if len(source.calls) != 3 {
+			t.Fatalf("source calls = %v, want generic tool plus Mage plus Go", source.calls)
 		}
 		wantArgs := [][]string{
 			{"mod", "download", "all"},
@@ -370,6 +398,13 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		if _, err := os.Stat(PlatformExecutablePath(filepath.Join(root, ".tools", "installs", "golc_project"), "golc-project")); err != nil {
 			t.Fatalf("built project command missing: %v", err)
 		}
+		mageExecutable, err := ResolveMageExecutable(root)
+		if err != nil {
+			t.Fatalf("ResolveMageExecutable: %v", err)
+		}
+		if want := filepath.Join(root, ".tools", "toolchains", "mage", "1.17.2", PlatformKey(), ExecutableName("mage")); mageExecutable != want {
+			t.Fatalf("ResolveMageExecutable = %q, want %q", mageExecutable, want)
+		}
 
 		source.calls = nil
 		runner.calls = nil
@@ -379,6 +414,72 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		if len(source.calls) != 0 {
 			t.Fatalf("matching manifests consulted source: %v", source.calls)
 		}
+	})
+
+	t.Run("Mage discovery trusts only the current verified install", func(t *testing.T) {
+		runFixture := func(t *testing.T) (string, string) {
+			t.Helper()
+			root, source, _ := writeEngineRepository(t)
+			runner := &engineFakeRunner{moduleGraph: strings.Join([]string{
+				"example.invalid/test",
+				"github.com/BurntSushi/toml v1.6.0",
+				"github.com/invopop/jsonschema v0.14.0",
+			}, "\n") + "\n"}
+			if err := runBootstrap(context.Background(), root, Options{},
+				bootstrapDependencies{Source: source, Runner: runner}); err != nil {
+				t.Fatalf("runBootstrap: %v", err)
+			}
+			executable, err := ResolveMageExecutable(root)
+			if err != nil {
+				t.Fatalf("ResolveMageExecutable: %v", err)
+			}
+			return root, executable
+		}
+
+		t.Run("missing executable", func(t *testing.T) {
+			root, executable := runFixture(t)
+			if err := os.Remove(executable); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ResolveMageExecutable(root); err == nil {
+				t.Fatal("missing Mage executable unexpectedly resolved")
+			}
+		})
+		t.Run("tampered executable", func(t *testing.T) {
+			root, executable := runFixture(t)
+			if err := os.WriteFile(executable, []byte("tampered\n"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ResolveMageExecutable(root); err == nil {
+				t.Fatal("tampered Mage executable unexpectedly resolved")
+			}
+		})
+		t.Run("mismatched manifest", func(t *testing.T) {
+			root, _ := runFixture(t)
+			manifestPath := filepath.Join(root, ".tools", "toolchains", "mage", "1.17.2", PlatformKey(), ManifestName)
+			if err := os.WriteFile(manifestPath, []byte("{}\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ResolveMageExecutable(root); err == nil {
+				t.Fatal("manifest-mismatched Mage executable unexpectedly resolved")
+			}
+		})
+		t.Run("symlink executable", func(t *testing.T) {
+			root, executable := runFixture(t)
+			target := filepath.Join(t.TempDir(), ExecutableName("mage"))
+			if err := os.WriteFile(target, []byte("mage executable\n"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Remove(executable); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(target, executable); err != nil {
+				t.Skipf("symlink creation unavailable: %v", err)
+			}
+			if _, err := ResolveMageExecutable(root); err == nil {
+				t.Fatal("symlinked Mage executable unexpectedly resolved")
+			}
+		})
 	})
 
 	t.Run("Go lock mutation is diagnosed and original bytes are restored", func(t *testing.T) {
@@ -438,6 +539,29 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		}
 		if _, err := os.Stat(filepath.Join(root, ".tools")); !os.IsNotExist(err) {
 			t.Fatalf("missing platform created .tools: %v", err)
+		}
+	})
+
+	t.Run("missing current Mage platform fails before source or install work", func(t *testing.T) {
+		root, source, _ := writeEngineRepository(t)
+		manifestPath := filepath.Join(root, "config", "toolchain.toml")
+		raw, _ := os.ReadFile(manifestPath)
+		current := fmt.Sprintf("[toolchain.mage.platforms.%q]", PlatformKey())
+		raw = bytes.Replace(raw, []byte(current), []byte(`[toolchain.mage.platforms."unconfigured-platform"]`), 1)
+		if err := os.WriteFile(manifestPath, raw, 0o644); err != nil {
+			t.Fatalf("rewrite manifest: %v", err)
+		}
+		err := runBootstrap(context.Background(), root, Options{},
+			bootstrapDependencies{Source: source, Runner: &engineFakeRunner{}})
+		required := fmt.Sprintf(`[toolchain.mage.platforms.%q]`, PlatformKey())
+		if err == nil || !strings.Contains(err.Error(), required) {
+			t.Fatalf("expected missing Mage platform diagnostic naming %s, got %v", required, err)
+		}
+		if len(source.calls) != 0 {
+			t.Fatalf("missing Mage platform consulted source: %v", source.calls)
+		}
+		if _, err := os.Stat(filepath.Join(root, ".tools")); !os.IsNotExist(err) {
+			t.Fatalf("missing Mage platform created .tools: %v", err)
 		}
 	})
 

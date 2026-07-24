@@ -28,7 +28,10 @@ performs zero new archive/module transport (module-cache and GOBIN
 inventories are byte-for-byte unchanged between the two runs).
 #>
 [CmdletBinding()]
-param()
+param(
+    [ValidateSet("full", "local")]
+    [string]$Mode = "full"
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -171,6 +174,28 @@ function New-FixtureToolArchive {
     }
 }
 
+function New-FixtureMageArchive {
+    <# Builds the exact Windows Mage archive layout required by the pin. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Directory
+    )
+
+    New-Item -ItemType Directory -Path $Directory -Force | Out-Null
+    $payloadDir = Join-Path $Directory "mage-payload"
+    New-Item -ItemType Directory -Path $payloadDir -Force | Out-Null
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText((Join-Path $payloadDir "mage.exe"), "fixture mage payload`n", $utf8NoBom)
+
+    $archivePath = Join-Path $Directory "mage_1.17.2_Windows-64bit.zip"
+    Compress-Archive -Path (Join-Path $payloadDir "*") -DestinationPath $archivePath -Force
+    return [pscustomobject]@{
+        ArchivePath = $archivePath
+        Sha256      = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+}
+
 function Write-FixtureToolchainManifest {
     <# Writes a minimal config/toolchain.toml declaring exactly one
        [tools.fixture] archive pin — no [toolchain.go] section and no
@@ -185,12 +210,33 @@ function Write-FixtureToolchainManifest {
         [string]$ArchiveURL,
 
         [Parameter(Mandatory = $true)]
-        [string]$Sha256
+        [string]$Sha256,
+
+        [Parameter(Mandatory = $true)]
+        [string]$MageArchiveURL,
+
+        [Parameter(Mandatory = $true)]
+        [string]$MageSha256
     )
 
     $configDir = Join-Path $RepositoryRoot "config"
     New-Item -ItemType Directory -Path $configDir -Force | Out-Null
-    $body = "schema_version = 2`n`n[tools.fixture]`narchive_url = `"$ArchiveURL`"`narchive_sha256 = `"$Sha256`"`n"
+    $body = @"
+schema_version = 2
+
+[tools.fixture]
+archive_url = "$ArchiveURL"
+archive_sha256 = "$Sha256"
+
+[toolchain.mage]
+version = "1.17.2"
+official_host = "github.com"
+official_path_prefix = "/magefile/mage/releases/download/"
+
+[toolchain.mage.platforms."windows-amd64"]
+archive_url = "$MageArchiveURL"
+archive_sha256 = "$MageSha256"
+"@
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllText((Join-Path $configDir "toolchain.toml"), $body, $utf8NoBom)
 }
@@ -258,12 +304,15 @@ function Invoke-Stage1FixtureArchiveContract {
         Copy-Item -LiteralPath (Join-Path $RepositoryUnderTest "golc.ps1") -Destination (Join-Path $workingRepository "golc.ps1") -Force
 
         $fixture = New-FixtureToolArchive -Directory $fixtureRoot
+        $mageFixture = New-FixtureMageArchive -Directory $fixtureRoot
         $archiveURL = ([System.Uri]::new($fixture.ArchivePath)).AbsoluteUri
+        $mageArchiveURL = ([System.Uri]::new($mageFixture.ArchivePath)).AbsoluteUri
         $wrongSha256 = ("0" * 64)
 
         # 1. A corrupt pin (wrong SHA-256) must fail closed and leave no
         # install directory.
-        Write-FixtureToolchainManifest -RepositoryRoot $workingRepository -ArchiveURL $archiveURL -Sha256 $wrongSha256
+        Write-FixtureToolchainManifest -RepositoryRoot $workingRepository -ArchiveURL $archiveURL -Sha256 $wrongSha256 `
+            -MageArchiveURL $mageArchiveURL -MageSha256 $mageFixture.Sha256
         $corruptResult = Invoke-Golc -RepositoryRoot $workingRepository -CommandArguments @("bootstrap")
         Assert-GolcFailed -Result $corruptResult -Operation "corrupt tool-archive bootstrap" -ExpectedDiagnostic "GOLC_BOOTSTRAP_CHECKSUM_MISMATCH"
         $installDir = Join-Path $workingRepository ".tools\installs\fixture"
@@ -274,12 +323,17 @@ function Invoke-Stage1FixtureArchiveContract {
 
         # 2. Correcting the pin must make an immediate retry succeed and
         # warm the downloads cache plus the promoted install.
-        Write-FixtureToolchainManifest -RepositoryRoot $workingRepository -ArchiveURL $archiveURL -Sha256 $fixture.Sha256
+        Write-FixtureToolchainManifest -RepositoryRoot $workingRepository -ArchiveURL $archiveURL -Sha256 $fixture.Sha256 `
+            -MageArchiveURL $mageArchiveURL -MageSha256 $mageFixture.Sha256
         $retryResult = Invoke-Golc -RepositoryRoot $workingRepository -CommandArguments @("bootstrap")
         Assert-GolcSucceeded -Result $retryResult -Operation "corrected tool-archive bootstrap retry"
         $installedPayload = Join-Path $installDir "bin\fixture-tool.exe"
         if (-not (Test-Path -LiteralPath $installedPayload -PathType Leaf)) {
             throw "BOOTSTRAP_CACHE_RETRY_MISSING_PAYLOAD: expected $installedPayload after the corrected retry"
+        }
+        $installedMage = Join-Path $workingRepository ".tools\toolchains\mage\1.17.2\windows-amd64\mage.exe"
+        if (-not (Test-Path -LiteralPath $installedMage -PathType Leaf)) {
+            throw "BOOTSTRAP_MAGE_MISSING: expected $installedMage after the corrected retry"
         }
         $downloadsCache = Join-Path $workingRepository ".tools\cache\downloads"
         if (-not (Test-Path -LiteralPath $downloadsCache -PathType Container) -or (@(Get-ChildItem -LiteralPath $downloadsCache -File)).Count -eq 0) {
@@ -291,7 +345,9 @@ function Invoke-Stage1FixtureArchiveContract {
         # must still succeed with zero archive-source calls, and the
         # promoted install must be byte-identical (InstalledMatches skip).
         $beforeInstallHash = (Get-FileHash -LiteralPath $installedPayload -Algorithm SHA256).Hash
+        $beforeMageHash = (Get-FileHash -LiteralPath $installedMage -Algorithm SHA256).Hash
         Remove-Item -LiteralPath $fixture.ArchivePath -Force
+        Remove-Item -LiteralPath $mageFixture.ArchivePath -Force
         Remove-Item -LiteralPath $downloadsCache -Recurse -Force
         $idempotentResult = Invoke-Golc -RepositoryRoot $workingRepository -CommandArguments @("bootstrap")
         Assert-GolcSucceeded -Result $idempotentResult -Operation "idempotent tool-archive bootstrap rerun without an archive source"
@@ -301,6 +357,10 @@ function Invoke-Stage1FixtureArchiveContract {
         $afterInstallHash = (Get-FileHash -LiteralPath $installedPayload -Algorithm SHA256).Hash
         if ($afterInstallHash -cne $beforeInstallHash) {
             throw "BOOTSTRAP_CACHE_INSTALL_CHANGED: the idempotent rerun must not alter the promoted install"
+        }
+        $afterMageHash = (Get-FileHash -LiteralPath $installedMage -Algorithm SHA256).Hash
+        if ($afterMageHash -cne $beforeMageHash) {
+            throw "BOOTSTRAP_MAGE_CHANGED: the idempotent rerun must not alter Mage"
         }
         Write-Output "Stage 1 idempotent-rerun confirmed: zero archive-source calls, install unchanged."
     }
@@ -329,7 +389,9 @@ function Invoke-QuotedWindowsPlatformContract {
         Copy-Item -LiteralPath (Join-Path $RepositoryUnderTest "golc.ps1") -Destination (Join-Path $workingRepository "golc.ps1") -Force
 
         $fixture = New-FixtureToolArchive -Directory $fixtureRoot
+        $mageFixture = New-FixtureMageArchive -Directory $fixtureRoot
         $archiveURL = ([System.Uri]::new($fixture.ArchivePath)).AbsoluteUri
+        $mageArchiveURL = ([System.Uri]::new($mageFixture.ArchivePath)).AbsoluteUri
         $configDir = Join-Path $workingRepository "config"
         New-Item -ItemType Directory -Path $configDir -Force | Out-Null
         $manifestPath = Join-Path $configDir "toolchain.toml"
@@ -343,6 +405,13 @@ version = "1.26.5"
 [toolchain.go.platforms."windows-amd64"]
 archive_url = "$archiveURL"
 archive_sha256 = "$($fixture.Sha256)"
+
+[toolchain.mage]
+version = "1.17.2"
+
+[toolchain.mage.platforms."windows-amd64"]
+archive_url = "$mageArchiveURL"
+archive_sha256 = "$($mageFixture.Sha256)"
 "@
         [System.IO.File]::WriteAllText($manifestPath, $body, $utf8NoBom)
 
@@ -354,6 +423,13 @@ schema_version = 2
 
 [toolchain.go]
 version = "1.26.5"
+
+[toolchain.mage]
+version = "1.17.2"
+
+[toolchain.mage.platforms."windows-amd64"]
+archive_url = "$mageArchiveURL"
+archive_sha256 = "$($mageFixture.Sha256)"
 "@
         [System.IO.File]::WriteAllText($manifestPath, $missing, $utf8NoBom)
         $rejected = Invoke-Golc -RepositoryRoot $workingRepository -CommandArguments @("bootstrap")
@@ -441,7 +517,9 @@ try {
 
     Invoke-Stage1FixtureArchiveContract -RepositoryUnderTest $repositoryUnderTest
     Invoke-QuotedWindowsPlatformContract -RepositoryUnderTest $repositoryUnderTest
-    Invoke-Stage2ProjectCacheWarmContract -RepositoryUnderTest $repositoryUnderTest
+    if ($Mode -eq "full") {
+        Invoke-Stage2ProjectCacheWarmContract -RepositoryUnderTest $repositoryUnderTest
+    }
 
     Write-Output "Bootstrap cache-warm contract confirmed: corrupt rejection, correct retry, cache warm, and idempotent rerun."
     $scriptExitCode = 0
