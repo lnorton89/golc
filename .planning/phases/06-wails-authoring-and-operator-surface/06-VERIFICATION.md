@@ -1,8 +1,21 @@
 ---
 phase: 06-wails-authoring-and-operator-surface
-verified: 2026-07-23T23:59:00Z
-status: human_needed
+verified: 2026-07-24T20:15:00Z
+status: passed
 score: 15/15 must-haves verified
+human_verification_resolved: true
+human_verification_resolution: |
+  All 9 items below are now resolved -- see 06-UAT.md for the full record.
+  Tests 1/2/3/5/6/7 passed via mocked-bridge browser harness re-verification.
+  Test 4 (MIDI hardware) passed via real hardware (Novation Launch Control
+  XL) in the native golc-desktop.exe window, surfacing and fixing two real
+  bugs (MIDI driver single-port binding, orphaned midicat.exe helper
+  processes) plus two related fixes found in the same pass (SQLite
+  busy_timeout ordering, show BPM default/backfill) -- all covered by new
+  regression tests. CR-01/WR-01 were human product decisions, both
+  resolved 2026-07-24: server-log-only dispatch-failure signaling is
+  sufficient (no banner needed), and FixturePatch's silent-empty-on-
+  missing-bridge convergence is the intended UX.
 behavior_unverified: 0
 overrides_applied: 0
 re_verification:
@@ -50,8 +63,8 @@ human_verification:
 
 **Phase Goal:** Authors and playback operators can complete the conventional show workflow through a responsive Wails application, keyboard, and constrained generic MIDI controls without the frontend becoming runtime authority.
 **Verified:** 2026-07-23T23:59:00Z
-**Status:** human_needed
-**Re-verification:** Yes — after gap closure (06-09..06-12 + 06-REVIEW-FIX.md)
+**Status:** passed
+**Re-verification:** Yes — after gap closure (06-09..06-12 + 06-REVIEW-FIX.md), then again after end-of-phase UAT (06-UAT.md) closed all 9 human_verification items on 2026-07-24T20:15:00Z
 
 ## Goal Achievement
 

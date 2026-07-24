@@ -13,7 +13,7 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
 - [x] **Phase 3: Deterministic Show Programming and Playback** - Authors can build tempo-aware shows whose compiled playback remains deterministic without any adapter owning musical or frame time. (completed 2026-07-21)
 - [x] **Phase 4: Observable Art-Net Live Output** - Operators can send and inspect correct Art-Net frames from the independent playback engine through simulated and physical receivers. (completed 2026-07-22)
 - [x] **Phase 5: Durable Shows and Recovery** - Users can save, restore, migrate, recover, inspect, and export shows without storage work disturbing live output. (completed 2026-07-23)
-- [ ] **Phase 6: Wails Authoring and Operator Surface** - Users can complete authoring and playback on screen or by keyboard, with constrained generic MIDI control and independent local safety actions.
+- [x] **Phase 6: Wails Authoring and Operator Surface** - Users can complete authoring and playback on screen or by keyboard, with constrained generic MIDI control and independent local safety actions. (completed 2026-07-24)
 - [ ] **Phase 7: Versioned External Control API** - External programs can safely inspect and control every public capability through the same typed command model as the desktop application.
 - [ ] **Phase 8: Isolated TypeScript Automation** - Users can author and debug capability-limited TypeScript automation without scripts owning or blocking playback or Art-Net.
 - [ ] **Phase 9: Provider-Neutral AI and Bounded Autonomy** - Users can use hosted or local models for reviewed authoring and explicitly armed live control while retaining auditable limits and immediate override.
