@@ -12,14 +12,27 @@ import (
 	"time"
 )
 
-func testPipeName(t *testing.T) string {
+// shortTestDir returns a short, per-test directory under /tmp rather than
+// t.TempDir(): a Unix domain socket path is limited to sizeof(sun_path)
+// (~104 bytes on macOS, ~108 on Linux), and t.TempDir()'s own path
+// already embeds the full test name plus the system temp root -- on
+// macOS that root is itself /private/var/folders/<hash>/T/, so the
+// combination routinely exceeds the limit long before any socket
+// filename is even appended (observed live: cross-platform-mage.yml run
+// 30110425773 failed three transport_unix_test.go tests on macos-latest
+// with "bind: invalid argument", the classic oversized-sun_path
+// symptom; linux-amd64's slightly larger limit did not trip it, but the
+// same class of failure could on a longer runner path).
+func shortTestDir(t *testing.T) string {
 	t.Helper()
 	dir := filepath.Join("/tmp", fmt.Sprintf("golc-t-%d-%x", os.Getpid(), time.Now().UnixNano()))
-	endpoint := filepath.Join(dir, "artnet.sock")
-	t.Cleanup(func() {
-		_ = os.Remove(endpoint)
-		_ = os.Remove(dir)
-	})
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return dir
+}
+
+func testPipeName(t *testing.T) string {
+	t.Helper()
+	endpoint := filepath.Join(shortTestDir(t), "artnet.sock")
 	return endpoint
 }
 
@@ -37,7 +50,7 @@ func TestUnixProductionEndpointIsShortStableAndPerUser(t *testing.T) {
 }
 
 func TestUnixListenerUsesOwnerOnlyModesAndUnlinksOnClose(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "ipc")
+	dir := filepath.Join(shortTestDir(t), "ipc")
 	endpoint := filepath.Join(dir, "artnet.sock")
 
 	listener, err := NewListener(endpoint)
@@ -69,7 +82,7 @@ func TestUnixListenerUsesOwnerOnlyModesAndUnlinksOnClose(t *testing.T) {
 }
 
 func TestUnixListenerPreservesActiveSocket(t *testing.T) {
-	endpoint := filepath.Join(t.TempDir(), "active.sock")
+	endpoint := filepath.Join(shortTestDir(t), "active.sock")
 	active, err := NewListener(endpoint)
 	if err != nil {
 		t.Fatalf("first NewListener: %v", err)
@@ -87,7 +100,7 @@ func TestUnixListenerPreservesActiveSocket(t *testing.T) {
 }
 
 func TestUnixListenerRecoversVerifiedStaleSocket(t *testing.T) {
-	endpoint := filepath.Join(t.TempDir(), "stale.sock")
+	endpoint := filepath.Join(shortTestDir(t), "stale.sock")
 	stale, err := net.ListenUnix("unix", &net.UnixAddr{Name: endpoint, Net: "unix"})
 	if err != nil {
 		t.Fatalf("seed stale socket: %v", err)
@@ -120,7 +133,11 @@ func TestUnixListenerPreservesUnsafeEndpointObjects(t *testing.T) {
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			endpoint := filepath.Join(t.TempDir(), "endpoint")
+			dir := shortTestDir(t)
+			if err := os.MkdirAll(dir, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			endpoint := filepath.Join(dir, "endpoint")
 			if err := tc.seed(endpoint); err != nil {
 				t.Fatalf("seed: %v", err)
 			}
@@ -144,7 +161,10 @@ func TestUnixListenerPreservesUnsafeEndpointObjects(t *testing.T) {
 }
 
 func TestUnixListenerRejectsSymlinkParent(t *testing.T) {
-	root := t.TempDir()
+	root := shortTestDir(t)
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	realDir := filepath.Join(root, "real")
 	if err := os.Mkdir(realDir, 0o700); err != nil {
 		t.Fatal(err)
