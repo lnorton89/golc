@@ -53,8 +53,8 @@ func TestScopeCommandParity(t *testing.T) {
 			prefix string
 		}{
 			{
-				name: "missing",
-				data: commandParityWorkflow("Bootstrap", "GenerateCheck", "CheckOffline", "Build", "Test"),
+				name:   "missing",
+				data:   commandParityWorkflow("Bootstrap", "GenerateCheck", "CheckOffline", "Build", "Test"),
 				prefix: "GOLC_CHECK_PARITY_STEP_COUNT:",
 			},
 			{
