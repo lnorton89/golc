@@ -1,8 +1,10 @@
 package bootstrap
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -10,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -84,6 +87,113 @@ func buildArchive(t *testing.T, dir string, entries map[string]string) (string, 
 	}
 	digest := sha256.Sum256(raw)
 	return archivePath, hex.EncodeToString(digest[:])
+}
+
+type testArchiveEntry struct {
+	Name     string
+	Body     string
+	Mode     os.FileMode
+	Typeflag byte
+	Linkname string
+	Dir      bool
+}
+
+func buildZipEntries(t *testing.T, dir, name string, entries []testArchiveEntry) (string, string) {
+	t.Helper()
+	archivePath := filepath.Join(dir, name)
+	file, err := os.Create(archivePath)
+	if err != nil {
+		t.Fatalf("create zip: %v", err)
+	}
+	writer := zip.NewWriter(file)
+	for _, item := range entries {
+		header := &zip.FileHeader{Name: item.Name, Method: zip.Store}
+		mode := item.Mode
+		if mode == 0 {
+			mode = 0o644
+		}
+		if item.Dir {
+			mode |= os.ModeDir
+		}
+		header.SetMode(mode)
+		entry, err := writer.CreateHeader(header)
+		if err != nil {
+			t.Fatalf("create zip entry %q: %v", item.Name, err)
+		}
+		if _, err := entry.Write([]byte(item.Body)); err != nil {
+			t.Fatalf("write zip entry %q: %v", item.Name, err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close zip writer: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close zip file: %v", err)
+	}
+	return archivePath, digestFile(t, archivePath)
+}
+
+func buildTarGzEntries(t *testing.T, dir, name string, entries []testArchiveEntry) (string, string) {
+	t.Helper()
+	archivePath := filepath.Join(dir, name)
+	file, err := os.Create(archivePath)
+	if err != nil {
+		t.Fatalf("create tar.gz: %v", err)
+	}
+	gzipWriter := gzip.NewWriter(file)
+	writer := tar.NewWriter(gzipWriter)
+	for _, item := range entries {
+		typeflag := item.Typeflag
+		if typeflag == 0 {
+			if item.Dir {
+				typeflag = tar.TypeDir
+			} else {
+				typeflag = tar.TypeReg
+			}
+		}
+		mode := int64(item.Mode.Perm())
+		if mode == 0 {
+			mode = 0o644
+		}
+		header := &tar.Header{
+			Name:     item.Name,
+			Mode:     mode,
+			Size:     int64(len(item.Body)),
+			Typeflag: typeflag,
+			Linkname: item.Linkname,
+		}
+		if typeflag != tar.TypeReg && typeflag != tar.TypeRegA {
+			header.Size = 0
+		}
+		if err := writer.WriteHeader(header); err != nil {
+			t.Fatalf("write tar header %q: %v", item.Name, err)
+		}
+		if header.Size > 0 {
+			if _, err := writer.Write([]byte(item.Body)); err != nil {
+				t.Fatalf("write tar entry %q: %v", item.Name, err)
+			}
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close tar writer: %v", err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		t.Fatalf("close gzip writer: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close tar.gz file: %v", err)
+	}
+	return archivePath, digestFile(t, archivePath)
+}
+
+func digestFile(t *testing.T, path string) string {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	digest := sha256.Sum256(raw)
+	return hex.EncodeToString(digest[:])
 }
 
 func TestVerifyArchiveAcceptsMatchingChecksum(t *testing.T) {
@@ -457,6 +567,235 @@ func repositoryRoot(t *testing.T) string {
 // no live network call is ever made, so the registered scope exits 0
 // offline.
 func TestScopeBootstrapArchive(t *testing.T) {
+	t.Run("ZIP and tar.gz install regular files with a current complete manifest", func(t *testing.T) {
+		for _, format := range []string{"zip", "tar.gz"} {
+			t.Run(format, func(t *testing.T) {
+				dir := t.TempDir()
+				entries := []testArchiveEntry{
+					{Name: "tool/", Mode: 0o755, Dir: true},
+					{Name: "tool/bin/run", Body: "payload\n", Mode: 0o755},
+					{Name: "tool/share/readme.txt", Body: "notes\n", Mode: 0o640},
+				}
+				var archivePath, digest string
+				if format == "zip" {
+					archivePath, digest = buildZipEntries(t, dir, "tool.zip", entries)
+				} else {
+					archivePath, digest = buildTarGzEntries(t, dir, "tool.tar.gz", entries)
+				}
+				installDir := filepath.Join(dir, "install")
+				if err := InstallStaged(archivePath, digest, installDir); err != nil {
+					t.Fatalf("InstallStaged(%s): %v", format, err)
+				}
+				var manifest InstallManifest
+				raw, err := os.ReadFile(filepath.Join(installDir, ManifestName))
+				if err != nil {
+					t.Fatalf("read manifest: %v", err)
+				}
+				if err := json.Unmarshal(raw, &manifest); err != nil {
+					t.Fatalf("decode manifest: %v", err)
+				}
+				if manifest.SchemaVersion != InstallManifestSchemaVersion {
+					t.Fatalf("schema_version = %d, want %d", manifest.SchemaVersion, InstallManifestSchemaVersion)
+				}
+				if len(manifest.Files) != 2 {
+					t.Fatalf("manifest files = %d, want 2", len(manifest.Files))
+				}
+				if manifest.Files[0].Path != "tool/bin/run" || manifest.Files[0].Mode != "0755" {
+					t.Fatalf("unexpected executable manifest entry: %+v", manifest.Files[0])
+				}
+				matches, err := InstalledMatches(installDir, digest)
+				if err != nil || !matches {
+					t.Fatalf("InstalledMatches = %v, %v", matches, err)
+				}
+				if runtime.GOOS != "windows" {
+					info, err := os.Stat(filepath.Join(installDir, "tool", "bin", "run"))
+					if err != nil {
+						t.Fatalf("stat executable: %v", err)
+					}
+					if got := info.Mode().Perm(); got != 0o755 {
+						t.Fatalf("executable mode = %04o, want 0755", got)
+					}
+				}
+			})
+		}
+	})
+
+	t.Run("unsafe ZIP and tar.gz entries are rejected before staging", func(t *testing.T) {
+		unsafeNames := []string{"", "/rooted", `C:\rooted`, "../escape", `..\escape`, "safe/../../escape"}
+		for _, format := range []string{"zip", "tar.gz"} {
+			for index, name := range unsafeNames {
+				t.Run(fmt.Sprintf("%s-name-%d", format, index), func(t *testing.T) {
+					dir := t.TempDir()
+					entryName := name
+					if entryName == "" && format == "zip" {
+						entryName = " "
+					}
+					entries := []testArchiveEntry{{Name: entryName, Body: "bad", Mode: 0o644}}
+					var archivePath, digest string
+					if format == "zip" {
+						archivePath, digest = buildZipEntries(t, dir, "bad.zip", entries)
+					} else {
+						archivePath, digest = buildTarGzEntries(t, dir, "bad.tar.gz", entries)
+					}
+					parent := filepath.Join(dir, "parent")
+					if _, err := ExtractVerified(archivePath, digest, parent); err == nil {
+						t.Fatal("expected unsafe path rejection")
+					}
+					if _, err := os.Stat(parent); !os.IsNotExist(err) {
+						t.Fatalf("inspection failure created extraction parent: %v", err)
+					}
+				})
+			}
+		}
+
+		t.Run("normalized duplicate", func(t *testing.T) {
+			for _, format := range []string{"zip", "tar.gz"} {
+				dir := t.TempDir()
+				entries := []testArchiveEntry{
+					{Name: "bin/tool", Body: "one", Mode: 0o755},
+					{Name: `bin\tool`, Body: "two", Mode: 0o755},
+				}
+				var archivePath, digest string
+				if format == "zip" {
+					archivePath, digest = buildZipEntries(t, dir, "duplicate.zip", entries)
+				} else {
+					archivePath, digest = buildTarGzEntries(t, dir, "duplicate.tar.gz", entries)
+				}
+				parent := filepath.Join(dir, "parent")
+				if _, err := ExtractVerified(archivePath, digest, parent); err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_DUPLICATE") {
+					t.Fatalf("%s expected duplicate rejection, got %v", format, err)
+				}
+				if _, err := os.Stat(parent); !os.IsNotExist(err) {
+					t.Fatalf("%s duplicate created extraction parent: %v", format, err)
+				}
+			}
+		})
+	})
+
+	t.Run("tar.gz rejects links and special or unknown entry types", func(t *testing.T) {
+		cases := []struct {
+			name string
+			kind byte
+		}{
+			{"symlink", tar.TypeSymlink},
+			{"hardlink", tar.TypeLink},
+			{"character-device", tar.TypeChar},
+			{"block-device", tar.TypeBlock},
+			{"fifo", tar.TypeFifo},
+			{"unknown", byte('S')},
+		}
+		for _, testCase := range cases {
+			t.Run(testCase.name, func(t *testing.T) {
+				dir := t.TempDir()
+				archivePath, digest := buildTarGzEntries(t, dir, "unsafe.tar.gz", []testArchiveEntry{{
+					Name: "unsafe", Typeflag: testCase.kind, Linkname: "../outside",
+				}})
+				parent := filepath.Join(dir, "parent")
+				if _, err := ExtractVerified(archivePath, digest, parent); err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_UNSAFE_TYPE") {
+					t.Fatalf("expected unsafe type rejection, got %v", err)
+				}
+				if _, err := os.Stat(parent); !os.IsNotExist(err) {
+					t.Fatalf("unsafe tar created extraction parent: %v", err)
+				}
+			})
+		}
+	})
+
+	t.Run("archive suffix and content must agree", func(t *testing.T) {
+		dir := t.TempDir()
+		zipPath, digest := buildZipEntries(t, dir, "tool.tar.gz", []testArchiveEntry{{Name: "tool", Body: "zip"}})
+		if _, err := ExtractVerified(zipPath, digest, filepath.Join(dir, "parent")); err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_FORMAT") {
+			t.Fatalf("expected suffix/content mismatch, got %v", err)
+		}
+		unsupported := filepath.Join(dir, "tool.bin")
+		if err := os.Rename(zipPath, unsupported); err != nil {
+			t.Fatalf("rename fixture: %v", err)
+		}
+		if _, err := ExtractVerified(unsupported, digest, filepath.Join(dir, "other")); err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_FORMAT") {
+			t.Fatalf("expected unsupported suffix rejection, got %v", err)
+		}
+	})
+
+	t.Run("legacy malformed incomplete and tampered manifests never match", func(t *testing.T) {
+		dir := t.TempDir()
+		archivePath, digest := buildZipEntries(t, dir, "tool.zip", []testArchiveEntry{{Name: "bin/tool", Body: "ok", Mode: 0o755}})
+		installDir := filepath.Join(dir, "install")
+		if err := InstallStaged(archivePath, digest, installDir); err != nil {
+			t.Fatalf("install: %v", err)
+		}
+		manifestPath := filepath.Join(installDir, ManifestName)
+		current, err := os.ReadFile(manifestPath)
+		if err != nil {
+			t.Fatalf("read current manifest: %v", err)
+		}
+		cases := map[string]string{
+			"powershell legacy": fmt.Sprintf(`{"archive_sha256":%q,"file_count":1}`, digest),
+			"prior Go shape":    fmt.Sprintf(`{"archive_sha256":%q,"files":[{"path":"bin/tool","sha256":%q}]}`, digest, digestFile(t, filepath.Join(installDir, "bin", "tool"))),
+			"null files":        fmt.Sprintf(`{"schema_version":1,"archive_sha256":%q,"files":null}`, digest),
+			"empty files":       fmt.Sprintf(`{"schema_version":1,"archive_sha256":%q,"files":[]}`, digest),
+			"malformed":         `{`,
+			"duplicate paths":   fmt.Sprintf(`{"schema_version":1,"archive_sha256":%q,"files":[{"path":"bin/tool","sha256":%q,"mode":"0755"},{"path":"bin/tool","sha256":%q,"mode":"0755"}]}`, digest, digestFile(t, filepath.Join(installDir, "bin", "tool")), digestFile(t, filepath.Join(installDir, "bin", "tool"))),
+			"invalid path":      fmt.Sprintf(`{"schema_version":1,"archive_sha256":%q,"files":[{"path":"../tool","sha256":%q,"mode":"0755"}]}`, digest, digestFile(t, filepath.Join(installDir, "bin", "tool"))),
+			"invalid hash":      fmt.Sprintf(`{"schema_version":1,"archive_sha256":%q,"files":[{"path":"bin/tool","sha256":"ABC","mode":"0755"}]}`, digest),
+			"invalid mode":      fmt.Sprintf(`{"schema_version":1,"archive_sha256":%q,"files":[{"path":"bin/tool","sha256":%q,"mode":"4755"}]}`, digest, digestFile(t, filepath.Join(installDir, "bin", "tool"))),
+		}
+		for name, body := range cases {
+			t.Run(name, func(t *testing.T) {
+				if err := os.WriteFile(manifestPath, []byte(body), 0o644); err != nil {
+					t.Fatalf("write manifest: %v", err)
+				}
+				matches, err := InstalledMatches(installDir, digest)
+				if err != nil {
+					t.Fatalf("InstalledMatches: %v", err)
+				}
+				if matches {
+					t.Fatal("invalid manifest matched")
+				}
+			})
+		}
+		if err := os.WriteFile(manifestPath, current, 0o644); err != nil {
+			t.Fatalf("restore current manifest: %v", err)
+		}
+		if err := os.Mkdir(filepath.Join(installDir, "unexpected"), 0o755); err != nil {
+			t.Fatalf("create unexpected directory: %v", err)
+		}
+		if matches, err := InstalledMatches(installDir, digest); err != nil || matches {
+			t.Fatalf("unexpected directory must invalidate manifest: matches=%v err=%v", matches, err)
+		}
+	})
+
+	t.Run("failed replacement preserves an existing install and successful cutover replaces only it", func(t *testing.T) {
+		dir := t.TempDir()
+		installDir := filepath.Join(dir, "installs", "tool")
+		if err := os.MkdirAll(installDir, 0o755); err != nil {
+			t.Fatalf("mkdir old install: %v", err)
+		}
+		canary := filepath.Join(installDir, "old.txt")
+		if err := os.WriteFile(canary, []byte("old"), 0o644); err != nil {
+			t.Fatalf("write old install: %v", err)
+		}
+		sibling := filepath.Join(dir, "installs", "sibling.txt")
+		if err := os.WriteFile(sibling, []byte("keep"), 0o644); err != nil {
+			t.Fatalf("write sibling: %v", err)
+		}
+		archivePath, digest := buildZipEntries(t, dir, "replacement.zip", []testArchiveEntry{{Name: "new.txt", Body: "new"}})
+		if err := InstallStaged(archivePath, strings.Repeat("00", 32), installDir); err == nil {
+			t.Fatal("expected failed replacement")
+		}
+		if body, _ := os.ReadFile(canary); string(body) != "old" {
+			t.Fatalf("failed replacement changed old install: %q", body)
+		}
+		if err := InstallStaged(archivePath, digest, installDir); err != nil {
+			t.Fatalf("successful cutover: %v", err)
+		}
+		if _, err := os.Stat(canary); !os.IsNotExist(err) {
+			t.Fatalf("successful cutover retained old file: %v", err)
+		}
+		if body, _ := os.ReadFile(sibling); string(body) != "keep" {
+			t.Fatalf("cutover changed sibling: %q", body)
+		}
+	})
+
 	t.Run("the committed config/toolchain.toml pins exactly the official go.dev source", func(t *testing.T) {
 		root := repositoryRoot(t)
 		policy, err := LoadOfficialSourcePolicy(root)
