@@ -1,7 +1,8 @@
-// Package ipc implements the named-pipe transport connecting the Art-Net
-// daemon (internal/artnet) to its CLI and UI clients (04-04/04-05-PLAN.md):
-// Dial and Forward on the client side, a Listener and dispatch loop on the
-// daemon side. Request, Result, and Handler are field-for-field identical
+// Package ipc implements build-selected, owner-only local transport
+// connecting the Art-Net daemon (internal/artnet) to its CLI and UI clients:
+// a Windows named pipe or a Unix domain socket. Dial and Forward form the
+// client side; a Listener and dispatch loop form the daemon side. Request,
+// Result, and Handler are field-for-field identical
 // in shape to internal/command's own types, but declared independently
 // here rather than imported: internal/command imports this package
 // directly to build its "artnet ..." client routes, so importing
