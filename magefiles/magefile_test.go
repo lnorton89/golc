@@ -80,6 +80,18 @@ func TestTargetMappingsAndProjectRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// magefile.go's own root resolution runs filepath.EvalSymlinks after
+	// filepath.Abs, so this comparison must too -- otherwise a CI runner
+	// whose temp directory sits behind an OS-level indirection (a
+	// Windows short/8.3 alias for a long account name like GitHub
+	// Actions' "runneradmin" becoming "RUNNER~1") produces two textually
+	// different strings for the exact same directory (observed live in
+	// cross-platform-mage.yml run 30077193060 on windows-latest). This
+	// mirrors the identical fix already applied to
+	// internal/bootstrap/engine_test.go's writeEngineRepository.
+	if resolved, err := filepath.EvalSymlinks(absoluteRoot); err == nil {
+		absoluteRoot = resolved
+	}
 
 	targets := []struct {
 		name string
