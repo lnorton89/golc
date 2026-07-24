@@ -134,6 +134,96 @@ func TestTargetMappingsAndProjectRoot(t *testing.T) {
 	}
 }
 
+func TestBootstrapEnvironmentOption(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "golc.project.toml"), []byte("schema_version = 2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	previous := activeTargetRuntime
+	t.Cleanup(func() { activeTargetRuntime = previous })
+
+	value := ""
+	var options []bootstrap.Options
+	registryCalls := 0
+	graphCalls := 0
+	runCalls := 0
+	activeTargetRuntime = targetRuntime{
+		getenv: func(name string) string {
+			if name == delivery.BootstrapEnvironmentName {
+				return value
+			}
+			return ""
+		},
+		getwd:  func() (string, error) { return root, nil },
+		setenv: func(string, string) error { return nil },
+		bootstrap: func(_ context.Context, _ string, got bootstrap.Options) error {
+			options = append(options, got)
+			return nil
+		},
+		newRegistry: func() (commandExecutor, error) {
+			registryCalls++
+			return &fakeCommandExecutor{}, nil
+		},
+		loadPRGraph: func(gotRoot string) (delivery.Graph, error) {
+			graphCalls++
+			return delivery.Graph{
+				Root:  gotRoot,
+				Steps: []delivery.Step{{Name: "01-bootstrap", Route: "bootstrap"}},
+			}, nil
+		},
+		runGraph: func(graph delivery.Graph, execute delivery.StepExecutor) ([]delivery.StepResult, error) {
+			runCalls++
+			return delivery.Run(graph, execute)
+		},
+		stdout: &bytes.Buffer{},
+		stderr: &bytes.Buffer{},
+	}
+
+	if err := Bootstrap(context.Background()); err != nil {
+		t.Fatalf("unset Bootstrap: %v", err)
+	}
+	if len(options) != 1 || options[0] != (bootstrap.Options{}) {
+		t.Fatalf("unset options = %+v", options)
+	}
+
+	value = delivery.BootstrapEnvironmentEnablingValue
+	if err := Bootstrap(context.Background()); err != nil {
+		t.Fatalf("enabled Bootstrap: %v", err)
+	}
+	if len(options) != 2 || !options[1].IncludeLinearSync {
+		t.Fatalf("enabled options = %+v", options)
+	}
+
+	options = nil
+	graphCalls, runCalls, registryCalls = 0, 0, 0
+	if err := Pr(context.Background()); err != nil {
+		t.Fatalf("enabled Pr: %v", err)
+	}
+	if len(options) != 1 || !options[0].IncludeLinearSync || graphCalls != 1 || runCalls != 1 || registryCalls != 1 {
+		t.Fatalf("Pr effects options=%+v graph=%d run=%d registry=%d", options, graphCalls, runCalls, registryCalls)
+	}
+
+	for _, invalid := range []string{"0", "true", " 1", "1 "} {
+		t.Run("invalid_"+strings.ReplaceAll(invalid, " ", "_"), func(t *testing.T) {
+			value = invalid
+			options = nil
+			graphCalls, runCalls, registryCalls = 0, 0, 0
+			for name, call := range map[string]func() error{
+				"Bootstrap": func() error { return Bootstrap(context.Background()) },
+				"Pr":        func() error { return Pr(context.Background()) },
+			} {
+				err := call()
+				if err == nil || !strings.Contains(err.Error(), "GOLC_MAGE_BOOTSTRAP_OPTION") {
+					t.Fatalf("%s invalid option error = %v", name, err)
+				}
+			}
+			if len(options) != 0 || graphCalls != 0 || runCalls != 0 || registryCalls != 0 {
+				t.Fatalf("invalid option caused effects options=%+v graph=%d run=%d registry=%d", options, graphCalls, runCalls, registryCalls)
+			}
+		})
+	}
+}
+
 func TestTargetOutputFailureAndPRAuthority(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "golc.project.toml"), []byte("schema_version = 2\n"), 0o644); err != nil {

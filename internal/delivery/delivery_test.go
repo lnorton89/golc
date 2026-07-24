@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -81,7 +82,13 @@ func writeFixturePRCommandsToml(t *testing.T, root, steps, network, mutation str
 func TestScopeDelivery(t *testing.T) {
 	t.Run("MageTargets is the defensive deterministic target authority", func(t *testing.T) {
 		want := []delivery.MageTarget{
-			{Name: "bootstrap", Kind: delivery.MageTargetKindBootstrap, Authority: "internal/bootstrap.Bootstrap"},
+			{
+				Name: "bootstrap", Kind: delivery.MageTargetKindBootstrap, Authority: "internal/bootstrap.Bootstrap",
+				EnvironmentOptions: []delivery.MageEnvironmentOption{{
+					Name: delivery.BootstrapEnvironmentName, EnablingValue: delivery.BootstrapEnvironmentEnablingValue,
+					Effect: "bootstrap.Options.IncludeLinearSync",
+				}},
+			},
 			{Name: "build", Kind: delivery.MageTargetKindRoute, Route: "build", Authority: "internal/command registry"},
 			{Name: "check", Kind: delivery.MageTargetKindRoute, Route: "check", Args: []string{"--concern", "project"}, Authority: "internal/command registry"},
 			{Name: "checkoffline", Kind: delivery.MageTargetKindRoute, Route: "check", Args: []string{"--offline"}, Authority: "internal/command registry"},
@@ -102,15 +109,19 @@ func TestScopeDelivery(t *testing.T) {
 				got[i].Kind != want[i].Kind ||
 				got[i].Route != want[i].Route ||
 				got[i].Authority != want[i].Authority ||
-				strings.Join(got[i].Args, "\x00") != strings.Join(want[i].Args, "\x00") {
+				strings.Join(got[i].Args, "\x00") != strings.Join(want[i].Args, "\x00") ||
+				!reflect.DeepEqual(got[i].EnvironmentOptions, want[i].EnvironmentOptions) {
 				t.Fatalf("MageTargets()[%d] = %+v, want %+v", i, got[i], want[i])
 			}
 		}
 
 		got[0].Name = "mutated"
+		got[0].EnvironmentOptions[0].Effect = "mutated"
 		got[2].Args[0] = "--mutated"
 		fresh := delivery.MageTargets()
-		if fresh[0].Name != "bootstrap" || strings.Join(fresh[2].Args, " ") != "--concern project" {
+		if fresh[0].Name != "bootstrap" ||
+			fresh[0].EnvironmentOptions[0].Effect != "bootstrap.Options.IncludeLinearSync" ||
+			strings.Join(fresh[2].Args, " ") != "--concern project" {
 			t.Fatalf("MageTargets returned shared mutable state: %+v", fresh)
 		}
 
@@ -122,6 +133,15 @@ func TestScopeDelivery(t *testing.T) {
 		again, ok := delivery.LookupMageTarget("check")
 		if !ok || strings.Join(again.Args, " ") != "--concern project" {
 			t.Fatalf("LookupMageTarget returned shared mutable state: %+v, %v", again, ok)
+		}
+		bootstrapTarget, ok := delivery.LookupMageTarget("bootstrap")
+		if !ok {
+			t.Fatal("LookupMageTarget(bootstrap) not found")
+		}
+		bootstrapTarget.EnvironmentOptions[0].Name = "mutated"
+		bootstrapAgain, _ := delivery.LookupMageTarget("bootstrap")
+		if bootstrapAgain.EnvironmentOptions[0].Name != delivery.BootstrapEnvironmentName {
+			t.Fatalf("LookupMageTarget returned shared environment option state: %+v", bootstrapAgain)
 		}
 		if _, ok := delivery.LookupMageTarget("Check"); ok {
 			t.Fatal("lookup must use the exact Mage CLI target name")

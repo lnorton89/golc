@@ -18,12 +18,19 @@ import (
 )
 
 type mageProtocolTarget struct {
-	Name      string          `json:"name"`
-	Kind      string          `json:"kind"`
-	Route     string          `json:"route"`
-	Args      []string        `json:"args"`
-	Authority string          `json:"authority"`
-	PR        *mageProtocolPR `json:"pr,omitempty"`
+	Name               string                          `json:"name"`
+	Kind               string                          `json:"kind"`
+	Route              string                          `json:"route"`
+	Args               []string                        `json:"args"`
+	Authority          string                          `json:"authority"`
+	EnvironmentOptions []mageProtocolEnvironmentOption `json:"environment_options"`
+	PR                 *mageProtocolPR                 `json:"pr,omitempty"`
+}
+
+type mageProtocolEnvironmentOption struct {
+	Name          string `json:"name"`
+	EnablingValue string `json:"enabling_value"`
+	Effect        string `json:"effect"`
 }
 
 type mageProtocolPR struct {
@@ -111,7 +118,13 @@ func TestMCPProtocolReadOnlyInventoryAndCalls(t *testing.T) {
 	decodeStructured(t, mageMap, &mage)
 
 	wantTargets := []mageProtocolTarget{
-		{Name: "bootstrap", Kind: "bootstrap", Args: []string{}, Authority: "internal/bootstrap.Bootstrap"},
+		{
+			Name: "bootstrap", Kind: "bootstrap", Args: []string{}, Authority: "internal/bootstrap.Bootstrap",
+			EnvironmentOptions: []mageProtocolEnvironmentOption{{
+				Name: "GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC", EnablingValue: "1",
+				Effect: "bootstrap.Options.IncludeLinearSync",
+			}},
+		},
 		{Name: "build", Kind: "route", Route: "build", Args: []string{}, Authority: "internal/command registry"},
 		{Name: "check", Kind: "route", Route: "check", Args: []string{"--concern", "project"}, Authority: "internal/command registry"},
 		{Name: "checkoffline", Kind: "route", Route: "check", Args: []string{"--offline"}, Authority: "internal/command registry"},
