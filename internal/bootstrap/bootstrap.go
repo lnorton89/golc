@@ -40,12 +40,18 @@ type InstallManifest struct {
 	Files         []InstalledFile `json:"files"`
 }
 
-// InstalledFile is one extracted file with its lowercase hex SHA-256 and
-// ordinary permission bits formatted as a four-digit octal string.
+// InstalledFile is one extracted regular file with its lowercase hex
+// SHA-256 and ordinary permission bits formatted as a four-digit octal
+// string, or one extracted symlink recording its already-validated
+// (validateSymlinkTarget) archive-relative target instead: a symlink has
+// no independent content of its own to hash, so SymlinkTarget is the
+// integrity fact worth recording and re-checking on a later install
+// instead of SHA256/Mode.
 type InstalledFile struct {
-	Path   string `json:"path"`
-	SHA256 string `json:"sha256"`
-	Mode   string `json:"mode"`
+	Path          string `json:"path"`
+	SHA256        string `json:"sha256,omitempty"`
+	Mode          string `json:"mode,omitempty"`
+	SymlinkTarget string `json:"symlink_target,omitempty"`
 }
 
 // EnsureDirectories creates every directory in paths (including parents) if
@@ -158,10 +164,16 @@ func InstallStaged(archivePath, expectedSHA256, installDir string) (err error) {
 
 func inventoryInstalledFiles(root string, archiveEntries []archiveEntry) ([]InstalledFile, error) {
 	archiveModes := make(map[string]os.FileMode, len(archiveEntries))
+	archiveSymlinks := make(map[string]string, len(archiveEntries))
 	for _, entry := range archiveEntries {
-		if !entry.isDir {
-			archiveModes[entry.name] = entry.mode.Perm()
+		if entry.isDir {
+			continue
 		}
+		if entry.symlinkTarget != "" {
+			archiveSymlinks[entry.name] = entry.symlinkTarget
+			continue
+		}
+		archiveModes[entry.name] = entry.mode.Perm()
 	}
 	var files []InstalledFile
 	err := filepath.WalkDir(root, func(current string, entry os.DirEntry, walkErr error) error {
@@ -171,6 +183,26 @@ func inventoryInstalledFiles(root string, archiveEntries []archiveEntry) ([]Inst
 		if current == root || entry.IsDir() {
 			return nil
 		}
+		relative, err := filepath.Rel(root, current)
+		if err != nil {
+			return err
+		}
+		name := filepath.ToSlash(relative)
+		if entry.Type()&os.ModeSymlink != 0 {
+			target, ok := archiveSymlinks[name]
+			if !ok {
+				return fmt.Errorf("archive inventory has no symlink %q", name)
+			}
+			actualTarget, err := os.Readlink(current)
+			if err != nil {
+				return err
+			}
+			if filepath.ToSlash(actualTarget) != target {
+				return fmt.Errorf("BOOTSTRAP_MANIFEST_WRITE: %q symlink target %q does not match extracted %q", name, target, actualTarget)
+			}
+			files = append(files, InstalledFile{Path: name, SymlinkTarget: target})
+			return nil
+		}
 		info, err := entry.Info()
 		if err != nil {
 			return err
@@ -178,11 +210,6 @@ func inventoryInstalledFiles(root string, archiveEntries []archiveEntry) ([]Inst
 		if !info.Mode().IsRegular() {
 			return fmt.Errorf("BOOTSTRAP_MANIFEST_WRITE: %q is not a regular file", current)
 		}
-		relative, err := filepath.Rel(root, current)
-		if err != nil {
-			return err
-		}
-		name := filepath.ToSlash(relative)
 		digest, err := hashFile(current)
 		if err != nil {
 			return err
@@ -240,6 +267,39 @@ func InstalledMatches(installDir, expectedSHA256 string) (bool, error) {
 		if _, exists := expectedFiles[file.Path]; exists {
 			return false, nil
 		}
+
+		if file.SymlinkTarget != "" {
+			if file.SHA256 != "" || file.Mode != "" {
+				return false, nil
+			}
+			if err := validateSymlinkTarget(file.Path, file.SymlinkTarget); err != nil {
+				return false, nil
+			}
+			expectedFiles[file.Path] = file
+			for directory := pathDirectory(file.Path); directory != "."; directory = pathDirectory(directory) {
+				expectedDirs[directory] = struct{}{}
+			}
+			actualPath := filepath.Join(installDir, filepath.FromSlash(file.Path))
+			info, err := os.Lstat(actualPath)
+			if err != nil {
+				if os.IsNotExist(err) {
+					return false, nil
+				}
+				return false, fmt.Errorf("BOOTSTRAP_MANIFEST_READ: %w", err)
+			}
+			if info.Mode()&os.ModeSymlink == 0 {
+				return false, nil
+			}
+			actualTarget, err := os.Readlink(actualPath)
+			if err != nil {
+				return false, fmt.Errorf("BOOTSTRAP_MANIFEST_READ: %w", err)
+			}
+			if filepath.ToSlash(actualTarget) != file.SymlinkTarget {
+				return false, nil
+			}
+			continue
+		}
+
 		if len(file.SHA256) != sha256.Size*2 || strings.ToLower(file.SHA256) != file.SHA256 {
 			return false, nil
 		}
