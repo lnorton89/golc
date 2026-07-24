@@ -259,6 +259,19 @@ func ValidateConcern(root string, spec Spec, concernID string) (map[string]strin
 		}
 		return nil, nil, fmt.Errorf("GOLC_CONFIG_UNKNOWN_KEY: %s declares %q", concern.Path, key)
 	}
+	requiredKeys := make([]string, 0)
+	for key, keySpec := range concern.Keys {
+		if keySpec.Required {
+			requiredKeys = append(requiredKeys, key)
+		}
+	}
+	sort.Strings(requiredKeys)
+	for _, key := range requiredKeys {
+		if _, declared := values[key]; !declared {
+			return nil, nil, fmt.Errorf(
+				"GOLC_CONFIG_REQUIRED_KEY_MISSING: %s must declare %q", concern.Path, key)
+		}
+	}
 	return values, warnings, nil
 }
 

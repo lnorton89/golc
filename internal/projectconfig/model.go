@@ -23,6 +23,10 @@ type KeySpec struct {
 	AllowedValues []string
 	// Pattern is the required value shape when AllowedValues is empty.
 	Pattern *regexp.Regexp
+	// Required makes this canonical key mandatory in its owning concern.
+	// Keys remain optional by default so existing synthetic and partial
+	// concern specs preserve their established validation behavior.
+	Required bool
 }
 
 // ConcernSpec is one logically separated configuration concern: its stable
@@ -90,7 +94,17 @@ var (
 	// origin is ever an acceptable Node download source, mirroring the same
 	// per-tool official-source-allowlist discipline goArchiveURLPattern
 	// already establishes for Go.
-	nodeArchiveURLPattern     = regexp.MustCompile(`^https://nodejs\.org/dist/v[0-9]+(\.[0-9]+)*/[A-Za-z0-9.\-]+\.(zip|tar\.gz)$`)
+	nodeArchiveURLPattern      = regexp.MustCompile(`^https://nodejs\.org/dist/v[0-9]+(\.[0-9]+)*/[A-Za-z0-9.\-]+\.(zip|tar\.gz)$`)
+	mageWindowsAMD64URLPattern = regexp.MustCompile(
+		`^https://github\.com/magefile/mage/releases/download/v1\.17\.2/mage_1\.17\.2_Windows-64bit\.zip$`)
+	mageLinuxAMD64URLPattern = regexp.MustCompile(
+		`^https://github\.com/magefile/mage/releases/download/v1\.17\.2/mage_1\.17\.2_Linux-64bit\.tar\.gz$`)
+	mageLinuxARM64URLPattern = regexp.MustCompile(
+		`^https://github\.com/magefile/mage/releases/download/v1\.17\.2/mage_1\.17\.2_Linux-ARM64\.tar\.gz$`)
+	mageDarwinAMD64URLPattern = regexp.MustCompile(
+		`^https://github\.com/magefile/mage/releases/download/v1\.17\.2/mage_1\.17\.2_macOS-64bit\.tar\.gz$`)
+	mageDarwinARM64URLPattern = regexp.MustCompile(
+		`^https://github\.com/magefile/mage/releases/download/v1\.17\.2/mage_1\.17\.2_macOS-ARM64\.tar\.gz$`)
 	officialHostPattern       = regexp.MustCompile(`^[a-z0-9]+(\.[a-z0-9]+)+$`)
 	officialPathPrefixPattern = regexp.MustCompile(`^/[A-Za-z0-9/_-]*/$`)
 	toolsPathPattern          = regexp.MustCompile(`^\.tools(/[A-Za-z0-9._-]+)+$`)
@@ -128,6 +142,19 @@ func DefaultSpec() Spec {
 					"toolchain.go.platforms.windows-amd64.archive_sha256":   {Pattern: sha256Pattern},
 					"toolchain.go.official_host":                            {Pattern: officialHostPattern},
 					"toolchain.go.official_path_prefix":                     {Pattern: officialPathPrefixPattern},
+					"toolchain.mage.version":                                {AllowedValues: []string{"1.17.2"}, Required: true},
+					"toolchain.mage.platforms.windows-amd64.archive_url":    {Pattern: mageWindowsAMD64URLPattern, Required: true},
+					"toolchain.mage.platforms.windows-amd64.archive_sha256": {Pattern: sha256Pattern, Required: true},
+					"toolchain.mage.platforms.linux-amd64.archive_url":      {Pattern: mageLinuxAMD64URLPattern, Required: true},
+					"toolchain.mage.platforms.linux-amd64.archive_sha256":   {Pattern: sha256Pattern, Required: true},
+					"toolchain.mage.platforms.linux-arm64.archive_url":      {Pattern: mageLinuxARM64URLPattern, Required: true},
+					"toolchain.mage.platforms.linux-arm64.archive_sha256":   {Pattern: sha256Pattern, Required: true},
+					"toolchain.mage.platforms.darwin-amd64.archive_url":     {Pattern: mageDarwinAMD64URLPattern, Required: true},
+					"toolchain.mage.platforms.darwin-amd64.archive_sha256":  {Pattern: sha256Pattern, Required: true},
+					"toolchain.mage.platforms.darwin-arm64.archive_url":     {Pattern: mageDarwinARM64URLPattern, Required: true},
+					"toolchain.mage.platforms.darwin-arm64.archive_sha256":  {Pattern: sha256Pattern, Required: true},
+					"toolchain.mage.official_host":                          {AllowedValues: []string{"github.com"}, Required: true},
+					"toolchain.mage.official_path_prefix":                   {AllowedValues: []string{"/magefile/mage/releases/download/"}, Required: true},
 					"toolchain.node.version":                                {Pattern: dottedVersionPattern},
 					"toolchain.node.platforms.windows-amd64.archive_url":    {Pattern: nodeArchiveURLPattern},
 					"toolchain.node.platforms.windows-amd64.archive_sha256": {Pattern: sha256Pattern},
