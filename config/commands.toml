@@ -10,7 +10,9 @@ schema_version = 2
 
 [commands]
 entrypoint = "golc.ps1"
-cli_binary = ".tools/installs/golc_project/bin/golc-project.exe"
+# Platform-neutral install root. Consumers add the runtime platform,
+# bin directory, and platform-native executable suffix.
+cli_binary = ".tools/installs/golc_project"
 go_version = "ref:toolchain.go.version"
 
 # Windows PR CI policy (D-03/D-10/D-16): the exact ordered root-command

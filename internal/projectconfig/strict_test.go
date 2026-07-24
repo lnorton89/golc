@@ -169,6 +169,9 @@ func TestScopeConfigStrict(t *testing.T) {
 			t.Fatalf("commands.go_version must resolve through its reference to toolchain.go.version %q, got %q",
 				goVersion, values["commands.go_version"])
 		}
+		if got, want := values["commands.cli_binary"], ".tools/installs/golc_project"; got != want {
+			t.Fatalf("commands.cli_binary = %q, want platform-neutral install root %q", got, want)
+		}
 
 		// The commands concern must refer to the toolchain authority, never
 		// repeat the pinned literal (D-05 single authority).
