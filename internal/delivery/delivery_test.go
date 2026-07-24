@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -560,6 +561,24 @@ func TestScopeDelivery(t *testing.T) {
 	})
 
 	t.Run("EncodeManifest is deterministic byte-stable JSON matching the committed golden fixture", func(t *testing.T) {
+		// The committed golden fixture pins the windows-amd64 CLI binary
+		// path. FoundationInventory resolves that path via graph.go's
+		// bootstrap.PlatformExecutablePath, which is keyed off the actual
+		// host runtime.GOOS/GOARCH, not off anything this test's fixture
+		// writer controls -- so on a non-Windows host the production code
+		// looks for (and fails to find) a darwin-arm64/linux-amd64 binary
+		// regardless of what path writeFoundationFixtureForGoldenManifest
+		// wrote to disk (observed live in cross-platform-mage.yml run
+		// 30111784838 on both macos-latest and ubuntu-latest). This exact
+		// byte-for-byte comparison is therefore only meaningful on the one
+		// platform GOLC's foundation bundle targets (see this package's
+		// doc comment: "a reproducible Windows AMD64 developer-tool ZIP");
+		// mage PackageFoundation on other platforms is otherwise still
+		// exercised by cross-platform-mage.yml, just not against this
+		// golden byte comparison.
+		if runtime.GOOS != "windows" {
+			t.Skip("golden foundation manifest fixture pins a windows-amd64 CLI binary path; see internal/delivery/foundation.go's package doc")
+		}
 		root := t.TempDir()
 		writeFoundationFixtureForGoldenManifest(t, root)
 
