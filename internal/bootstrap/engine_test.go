@@ -634,4 +634,51 @@ func TestScopeBootstrapEngine(t *testing.T) {
 			t.Fatalf("obsolete locator created .tools: %v", err)
 		}
 	})
+
+	t.Run("runProcess includes captured output in its error, not just the bare exec error", func(t *testing.T) {
+		// Regression: run 30074378227's GOLC_BOOTSTRAP_PROBE_FAILED
+		// reported zero diagnostic detail beyond "exit status 1" for a
+		// failing `go test ./internal/bootstrap/` invocation, because
+		// runProcess discarded the captured output on failure instead
+		// of including it in the returned error.
+		engine := &bootstrapEngine{
+			root: t.TempDir(),
+			env:  map[string]string{},
+			runner: outputCapturingFakeRunner{
+				output: []byte("--- FAIL: TestSomething\n    some_test.go:12: assertion failed\n"),
+				err:    fmt.Errorf("exit status 1"),
+			},
+		}
+		_, err := engine.runProcess(context.Background(), "go", "GOLC_BOOTSTRAP_PROBE_FAILED", "test", "./...")
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+		if !strings.Contains(err.Error(), "some_test.go:12: assertion failed") {
+			t.Fatalf("expected the captured process output in the error, got: %v", err)
+		}
+
+		emptyOutputEngine := &bootstrapEngine{
+			root:   t.TempDir(),
+			env:    map[string]string{},
+			runner: outputCapturingFakeRunner{output: nil, err: fmt.Errorf("exit status 1")},
+		}
+		_, err = emptyOutputEngine.runProcess(context.Background(), "go", "GOLC_BOOTSTRAP_PROBE_FAILED", "test", "./...")
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+		if strings.Contains(err.Error(), "\n") {
+			t.Fatalf("expected no trailing detail when there is no captured output, got: %v", err)
+		}
+	})
+}
+
+// outputCapturingFakeRunner always returns the given output/err pair,
+// mirroring a failing process that still writes diagnostic output.
+type outputCapturingFakeRunner struct {
+	output []byte
+	err    error
+}
+
+func (runner outputCapturingFakeRunner) Run(context.Context, processRequest) ([]byte, error) {
+	return runner.output, runner.err
 }
