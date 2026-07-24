@@ -185,6 +185,121 @@ func TestScopeBootstrapEngine(t *testing.T) {
 				t.Fatalf("%s/%s: got %+v", testCase.goos, testCase.tool, layout)
 			}
 		}
+		if got, want := ExecutableName("golc-project"), "golc-project"+map[bool]string{true: ".exe"}[runtime.GOOS == "windows"]; got != want {
+			t.Fatalf("ExecutableName(golc-project) = %q, want %q", got, want)
+		}
+		for _, unsafe := range []string{"", ".", "..", "bin/golc-project", `bin\golc-project`} {
+			if got := ExecutableName(unsafe); got != "" {
+				t.Fatalf("ExecutableName(%q) = %q, want rejection", unsafe, got)
+			}
+		}
+		installRoot := filepath.Join("repo", ".tools", "installs", "golc_project")
+		if got, want := PlatformExecutablePath(installRoot, "golc-project"), filepath.Join(installRoot, PlatformKey(), "bin", ExecutableName("golc-project")); got != want {
+			t.Fatalf("PlatformExecutablePath() = %q, want %q", got, want)
+		}
+		if got := PlatformExecutablePath(installRoot, "../golc-project"); got != "" {
+			t.Fatalf("PlatformExecutablePath accepted unsafe base: %q", got)
+		}
+	})
+
+	t.Run("Node installation is discovered by verified filesystem shape", func(t *testing.T) {
+		writeNodePayload := func(t *testing.T, installDir, rootName string) NodeInstallation {
+			t.Helper()
+			layout, err := platformArchiveLayout("node", "24.18.0", runtime.GOOS, runtime.GOARCH)
+			if err != nil {
+				t.Fatalf("node layout: %v", err)
+			}
+			root := filepath.Join(installDir, rootName)
+			executable := filepath.Join(root, layout.Executable)
+			npmCLI := filepath.Join(root, layout.NPMCLI)
+			for _, path := range []string{executable, npmCLI} {
+				if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+					t.Fatalf("mkdir %s: %v", path, err)
+				}
+				if err := os.WriteFile(path, []byte("fixture\n"), 0o755); err != nil {
+					t.Fatalf("write %s: %v", path, err)
+				}
+			}
+			if err := os.WriteFile(filepath.Join(installDir, ManifestName), []byte("{}\n"), 0o644); err != nil {
+				t.Fatalf("write install manifest: %v", err)
+			}
+			return NodeInstallation{Root: root, Executable: executable, NPMCLI: npmCLI}
+		}
+
+		t.Run("accepts one non-derived payload directory", func(t *testing.T) {
+			installDir := t.TempDir()
+			want := writeNodePayload(t, installDir, "verified-payload-with-arbitrary-name")
+			got, err := ResolveNodeInstallation(installDir)
+			if err != nil {
+				t.Fatalf("ResolveNodeInstallation: %v", err)
+			}
+			if got != want {
+				t.Fatalf("ResolveNodeInstallation = %+v, want %+v", got, want)
+			}
+		})
+
+		tests := []struct {
+			name  string
+			setup func(*testing.T, string)
+		}{
+			{"zero directories", func(t *testing.T, installDir string) {
+				if err := os.WriteFile(filepath.Join(installDir, ManifestName), []byte("{}\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}},
+			{"multiple directories", func(t *testing.T, installDir string) {
+				writeNodePayload(t, installDir, "one")
+				if err := os.MkdirAll(filepath.Join(installDir, "two"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}},
+			{"unexpected top-level file", func(t *testing.T, installDir string) {
+				writeNodePayload(t, installDir, "payload")
+				if err := os.WriteFile(filepath.Join(installDir, "unexpected.txt"), []byte("no\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}},
+			{"missing node executable", func(t *testing.T, installDir string) {
+				want := writeNodePayload(t, installDir, "payload")
+				if err := os.Remove(want.Executable); err != nil {
+					t.Fatal(err)
+				}
+			}},
+			{"missing npm cli", func(t *testing.T, installDir string) {
+				want := writeNodePayload(t, installDir, "payload")
+				if err := os.Remove(want.NPMCLI); err != nil {
+					t.Fatal(err)
+				}
+			}},
+		}
+		for _, testCase := range tests {
+			t.Run(testCase.name, func(t *testing.T) {
+				installDir := t.TempDir()
+				testCase.setup(t, installDir)
+				_, err := ResolveNodeInstallation(installDir)
+				if err == nil || !strings.Contains(err.Error(), "GOLC_NODE_TOOLCHAIN_MISSING") {
+					t.Fatalf("expected stable Node diagnostic, got %v", err)
+				}
+			})
+		}
+
+		t.Run("rejects top-level symlink", func(t *testing.T) {
+			installDir := t.TempDir()
+			target := filepath.Join(t.TempDir(), "payload")
+			if err := os.MkdirAll(target, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(target, filepath.Join(installDir, "payload-link")); err != nil {
+				t.Skipf("symlink creation unavailable: %v", err)
+			}
+			if err := os.WriteFile(filepath.Join(installDir, ManifestName), []byte("{}\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			_, err := ResolveNodeInstallation(installDir)
+			if err == nil || !strings.Contains(err.Error(), "GOLC_NODE_TOOLCHAIN_MISSING") {
+				t.Fatalf("expected stable Node diagnostic, got %v", err)
+			}
+		})
 	})
 
 	t.Run("production manifest configures only windows-amd64 archives", func(t *testing.T) {
@@ -256,11 +371,7 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		if err != nil || string(moduleRecord) != runner.moduleGraph {
 			t.Fatalf("module record: err=%v bytes=%q", err, moduleRecord)
 		}
-		suffix := ""
-		if runtime.GOOS == "windows" {
-			suffix = ".exe"
-		}
-		if _, err := os.Stat(filepath.Join(root, ".tools", "installs", "golc_project", "bin", "golc-project"+suffix)); err != nil {
+		if _, err := os.Stat(PlatformExecutablePath(filepath.Join(root, ".tools", "installs", "golc_project"), "golc-project")); err != nil {
 			t.Fatalf("built project command missing: %v", err)
 		}
 
