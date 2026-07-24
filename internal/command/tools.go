@@ -253,18 +253,19 @@ func replaceTOMLTableValue(content []byte, table, key, newValue string) ([]byte,
 	return buf.Bytes(), nil
 }
 
-// readTOMLTableTriple reads one table's version/archive_url/archive_sha256
-// triple without modifying content.
-func readTOMLTableTriple(content []byte, table string) (ToolchainPin, error) {
-	version, err := readTOMLTableValue(content, table, "version")
+// readTOMLTableTriple reads version from the parent tool table and the
+// archive_url/archive_sha256 pair from its exact platform table without
+// modifying content.
+func readTOMLTableTriple(content []byte, versionTable, archiveTable string) (ToolchainPin, error) {
+	version, err := readTOMLTableValue(content, versionTable, "version")
 	if err != nil {
 		return ToolchainPin{}, err
 	}
-	archiveURL, err := readTOMLTableValue(content, table, "archive_url")
+	archiveURL, err := readTOMLTableValue(content, archiveTable, "archive_url")
 	if err != nil {
 		return ToolchainPin{}, err
 	}
-	archiveSHA256, err := readTOMLTableValue(content, table, "archive_sha256")
+	archiveSHA256, err := readTOMLTableValue(content, archiveTable, "archive_sha256")
 	if err != nil {
 		return ToolchainPin{}, err
 	}
@@ -272,19 +273,19 @@ func readTOMLTableTriple(content []byte, table string) (ToolchainPin, error) {
 }
 
 // applyToolchainTOMLProposal returns config/toolchain.toml's proposed
-// bytes: only the six [toolchain.go]/[toolchain.node]
-// version/archive_url/archive_sha256 lines change; every other byte
-// (including comments and the [cache] section) is preserved verbatim.
+// bytes: only the two parent version lines and the four exact
+// windows-amd64 archive_url/archive_sha256 lines change; every other byte
+// (including comments, other platform data, and [cache]) is preserved.
 func applyToolchainTOMLProposal(current []byte, goPin, nodePin ToolchainPin) ([]byte, error) {
 	updated := current
 	var err error
 	for _, edit := range []struct{ table, key, value string }{
 		{"toolchain.go", "version", goPin.Version},
-		{"toolchain.go", "archive_url", goPin.ArchiveURL},
-		{"toolchain.go", "archive_sha256", goPin.ArchiveSHA256},
+		{`toolchain.go.platforms."windows-amd64"`, "archive_url", goPin.ArchiveURL},
+		{`toolchain.go.platforms."windows-amd64"`, "archive_sha256", goPin.ArchiveSHA256},
 		{"toolchain.node", "version", nodePin.Version},
-		{"toolchain.node", "archive_url", nodePin.ArchiveURL},
-		{"toolchain.node", "archive_sha256", nodePin.ArchiveSHA256},
+		{`toolchain.node.platforms."windows-amd64"`, "archive_url", nodePin.ArchiveURL},
+		{`toolchain.node.platforms."windows-amd64"`, "archive_sha256", nodePin.ArchiveSHA256},
 	} {
 		updated, err = replaceTOMLTableValue(updated, edit.table, edit.key, edit.value)
 		if err != nil {
@@ -702,11 +703,19 @@ func newDefaultMetadataSource(current ToolsUpdateCurrentFiles) (MetadataSource, 
 }
 
 func (s defaultMetadataSource) Propose() (ToolsUpdateProposal, error) {
-	goPin, err := readTOMLTableTriple(s.current.ToolchainTOML, "toolchain.go")
+	goPin, err := readTOMLTableTriple(
+		s.current.ToolchainTOML,
+		"toolchain.go",
+		`toolchain.go.platforms."windows-amd64"`,
+	)
 	if err != nil {
 		return ToolsUpdateProposal{}, err
 	}
-	nodePin, err := readTOMLTableTriple(s.current.ToolchainTOML, "toolchain.node")
+	nodePin, err := readTOMLTableTriple(
+		s.current.ToolchainTOML,
+		"toolchain.node",
+		`toolchain.node.platforms."windows-amd64"`,
+	)
 	if err != nil {
 		return ToolsUpdateProposal{}, err
 	}
