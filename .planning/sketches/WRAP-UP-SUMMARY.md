@@ -4,7 +4,7 @@
 **Sketches processed:** 4  
 **Design areas:** Application Shell & Navigation; Programming & Scene Authoring; Live Operation,
 Safety & MIDI; Onboarding, Readiness & Impact Review  
-**Skill output:** `./.kimi-code/skills/sketch-findings-golc/`
+**Skill output:** `.planning/sketches/SKILL.md`
 
 ## Included Sketches
 
@@ -44,11 +44,10 @@ same Go-owned commands and state.
 
 Future frontend planning and implementation agents must load:
 
-1. `.kimi-code/skills/sketch-findings-golc/SKILL.md`
+1. `.planning/sketches/SKILL.md`
 2. `.planning/sketches/UI-RESEARCH.md`
 3. `.planning/sketches/WORKFLOW-MAP.md`
 4. The selected sketch source for the workspace being implemented.
 
 Recommended next workflow: update Phase 6 UI-SPEC using these locked findings, then create explicit
 Phase 6 UI remediation plans before final phase verification.
-
