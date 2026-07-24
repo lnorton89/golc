@@ -23,9 +23,20 @@ import (
 // with "bind: invalid argument", the classic oversized-sun_path
 // symptom; linux-amd64's slightly larger limit did not trip it, but the
 // same class of failure could on a longer runner path).
+//
+// Unlike t.TempDir(), this directory is not created automatically, so it
+// is created here: NewListener's endpoint-directory creation is a single
+// os.Mkdir (production only ever needs one level under the always-present
+// /tmp), and callers that append their own subdirectory rely on this
+// directory already existing (observed live in run 30111784838: without
+// this, NewListener failed with "no such file or directory" on both
+// macos-latest and ubuntu-latest).
 func shortTestDir(t *testing.T) string {
 	t.Helper()
 	dir := filepath.Join("/tmp", fmt.Sprintf("golc-t-%d-%x", os.Getpid(), time.Now().UnixNano()))
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	return dir
 }
