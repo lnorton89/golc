@@ -29,6 +29,7 @@ package midi
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -91,39 +92,68 @@ func (s DriverStatus) String() string {
 	}
 }
 
-// Driver wraps one already-resolved gomidi input port. Construct via Open
-// (an explicit port, e.g. from a test's testdrv instance) or
-// OpenFirstAvailable (production: the first port reported by whichever
-// driver was registered elsewhere in the process).
+// Driver wraps one or more already-resolved gomidi input ports, merging
+// every port's decoded messages onto Listen's single returned channel.
+// Construct via Open (one explicit port, e.g. from a test's testdrv
+// instance) or OpenFirstAvailable (production: every port reported by
+// whichever driver was registered elsewhere in the process -- see that
+// function's own doc comment for why "every port," not just the first).
 type Driver struct {
-	in drivers.In
+	ins []drivers.In
 
 	mu   sync.Mutex
 	stop func()
 
-	status atomic.Int32
+	status       atomic.Int32
+	erroredPorts atomic.Int32
 }
 
-// Open wraps in, an already-resolved gomidi drivers.In port, exposing it
-// through Driver's decode/Status surface. Open does not itself open the
-// port (Listen does, mirroring gomidi.ListenTo's own "opens if not already
-// open" contract) and does not care which driver produced in -- callers
-// resolve the port themselves via whichever driver is registered in the
-// running process.
+// Open wraps in, a single already-resolved gomidi drivers.In port,
+// exposing it through Driver's decode/Status surface. Open does not itself
+// open the port (Listen does, mirroring gomidi.ListenTo's own "opens if
+// not already open" contract) and does not care which driver produced in
+// -- callers resolve the port themselves via whichever driver is
+// registered in the running process.
 func Open(in drivers.In) (*Driver, error) {
 	if in == nil {
 		return nil, fmt.Errorf("GOLC_MIDI_PORT_OPEN_FAILED: nil MIDI input port")
 	}
-	d := &Driver{in: in}
+	return newDriver([]drivers.In{in})
+}
+
+// newDriver wraps every port in ins, backing both Open (a single-element
+// slice) and OpenFirstAvailable (every enumerated port).
+func newDriver(ins []drivers.In) (*Driver, error) {
+	for _, in := range ins {
+		if in == nil {
+			return nil, fmt.Errorf("GOLC_MIDI_PORT_OPEN_FAILED: nil MIDI input port")
+		}
+	}
+	d := &Driver{ins: ins}
 	d.status.Store(int32(DriverStatusOK))
 	return d, nil
 }
 
-// OpenFirstAvailable resolves and wraps the first MIDI input port reported
-// by whichever driver has been registered in the running process
-// (production: midicatdrv, blank-imported by cmd/golc-desktop; tests never
-// call this -- they construct Driver via Open against a testdrv port
-// directly). Returns GOLC_MIDI_NO_PORTS_AVAILABLE when no driver is
+// OpenFirstAvailable resolves and wraps EVERY MIDI input port reported by
+// whichever driver has been registered in the running process (production:
+// midicatdrv, blank-imported by cmd/golc-desktop; tests never call this --
+// they construct Driver via Open against a single testdrv port directly),
+// merging all of their events onto Listen's one channel. This binds every
+// port rather than just the first: a single physical controller can
+// enumerate more than one MIDI input port (e.g. a Novation Launch Control
+// XL reports both "Launch Control XL 0" and "MIDIIN2 (Launch Control XL)
+// 1"), and which port actually carries a given knob/fader/button's
+// messages depends on the device's current hardware template/mode -- not
+// something this process can know in advance. Binding only the first port
+// (this function's original behavior) meant a device in the "wrong" mode
+// sent every message to a port nobody was listening on: MIDI Learn's
+// capture window would see nothing and time out every single time, with
+// no diagnostic pointing at why. Listening on all enumerated ports removes
+// that guesswork entirely; learn.go's ControlKey identity (channel+kind+
+// number) is never port-qualified, so merging is safe -- there is no
+// meaningful case where the same channel/kind/number pair needs to be
+// treated as two different controls just because it arrived on a
+// different port. Returns GOLC_MIDI_NO_PORTS_AVAILABLE when no driver is
 // registered or no input port is present -- an expected, non-fatal
 // condition: MIDI hardware remains optional (PROJECT.md "Keyboard and
 // on-screen controls must provide the full playback workflow while MIDI
@@ -133,40 +163,62 @@ func OpenFirstAvailable() (*Driver, error) {
 	if len(ports) == 0 {
 		return nil, fmt.Errorf("GOLC_MIDI_NO_PORTS_AVAILABLE: no MIDI input ports were found")
 	}
-	return Open(ports[0])
+	return newDriver(ports)
 }
 
-// Listen begins decoding incoming messages from d's port, delivering every
-// Note-on/Note-off/Control-Change message as an Event on the returned
-// channel (buffered midiEventBufferSize; a stalled consumer causes drops,
-// never a block of gomidi's own callback goroutine). The channel is closed
-// when Close is called. A port-level listen error (drivers.ListenConfig's
-// OnErr) marks d DriverStatusClosed -- detected, never silently
-// auto-recovered (CONTEXT D-05 convention). Listen must be called at most
-// once per Driver.
+// portErrored records one of d's ports reporting a listen error. Status
+// only flips to DriverStatusClosed once every one of d's ports has errored
+// -- a single dropped port out of several (e.g. one of a multi-port
+// controller's two ports being unplugged) does not mark the whole Driver
+// unreachable while the others keep delivering events; this collapses to
+// the original single-port "any error closes it" behavior when len(ins)
+// is 1 (CONTEXT D-05 convention).
+func (d *Driver) portErrored() {
+	if int(d.erroredPorts.Add(1)) >= len(d.ins) {
+		d.status.Store(int32(DriverStatusClosed))
+	}
+}
+
+// Listen begins decoding incoming messages from every one of d's ports,
+// delivering every Note-on/Note-off/Control-Change message as an Event on
+// the returned channel (buffered midiEventBufferSize; a stalled consumer
+// causes drops, never a block of gomidi's own callback goroutine). The
+// channel is closed when Close is called. A port-level listen error
+// (drivers.ListenConfig's OnErr) counts toward portErrored -- detected,
+// never silently auto-recovered (CONTEXT D-05 convention). Listen must be
+// called at most once per Driver.
 func (d *Driver) Listen() (<-chan Event, error) {
 	events := make(chan Event, midiEventBufferSize)
+	stops := make([]func(), 0, len(d.ins))
 
-	stop, err := gomidi.ListenTo(d.in, func(msg gomidi.Message, _ int32) {
-		evt, ok := decode(msg)
-		if !ok {
-			return
+	for _, in := range d.ins {
+		stop, err := gomidi.ListenTo(in, func(msg gomidi.Message, _ int32) {
+			evt, ok := decode(msg)
+			if !ok {
+				return
+			}
+			select {
+			case events <- evt:
+			default:
+			}
+		}, gomidi.HandleError(func(error) {
+			d.portErrored()
+		}))
+		if err != nil {
+			for _, s := range stops {
+				s()
+			}
+			d.status.Store(int32(DriverStatusClosed))
+			return nil, fmt.Errorf("GOLC_MIDI_LISTEN_FAILED: %v", err)
 		}
-		select {
-		case events <- evt:
-		default:
-		}
-	}, gomidi.HandleError(func(error) {
-		d.status.Store(int32(DriverStatusClosed))
-	}))
-	if err != nil {
-		d.status.Store(int32(DriverStatusClosed))
-		return nil, fmt.Errorf("GOLC_MIDI_LISTEN_FAILED: %v", err)
+		stops = append(stops, stop)
 	}
 
 	d.mu.Lock()
 	d.stop = func() {
-		stop()
+		for _, s := range stops {
+			s()
+		}
 		close(events)
 	}
 	d.mu.Unlock()
@@ -210,17 +262,20 @@ func (d *Driver) Status() DriverStatus {
 }
 
 // Err returns nil when Status is DriverStatusOK, or a
-// GOLC_MIDI_PORT_CLOSED diagnostic identifying the port otherwise
-// (mirrors internal/artnet/interfacemgr.go's Err() diagnostic
-// convention).
+// GOLC_MIDI_PORT_CLOSED diagnostic identifying every wrapped port otherwise
+// (mirrors internal/artnet/interfacemgr.go's Err() diagnostic convention).
 func (d *Driver) Err() error {
 	if d.Status() == DriverStatusClosed {
-		return fmt.Errorf("GOLC_MIDI_PORT_CLOSED: MIDI input port %q is no longer reachable", d.in.String())
+		names := make([]string, len(d.ins))
+		for i, in := range d.ins {
+			names[i] = in.String()
+		}
+		return fmt.Errorf("GOLC_MIDI_PORT_CLOSED: MIDI input port(s) %s are no longer reachable", strings.Join(names, ", "))
 	}
 	return nil
 }
 
-// Close stops listening (if Listen was called) and closes the underlying
+// Close stops listening (if Listen was called) and closes every wrapped
 // port. No code here ever selects or reconnects to a different port
 // (CONTEXT D-05 convention) -- a caller must construct a fresh Driver via
 // Open/OpenFirstAvailable to retry.
@@ -233,5 +288,15 @@ func (d *Driver) Close() error {
 		stop()
 	}
 	d.status.Store(int32(DriverStatusClosed))
-	return d.in.Close()
+
+	var errs []string
+	for _, in := range d.ins {
+		if err := in.Close(); err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("GOLC_MIDI_PORT_CLOSE_FAILED: %s", strings.Join(errs, "; "))
+	}
+	return nil
 }
