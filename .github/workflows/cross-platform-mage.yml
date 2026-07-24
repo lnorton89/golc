@@ -1,11 +1,15 @@
 # Contributor-tool portability observation only. Linux and macOS results do
 # not qualify the GOLC application for either platform.
 #
-# Mage itself is installed from the checksum-pinned archive committed in
-# config/toolchain.toml (scripts/ci/install-pinned-mage.{sh,ps1}), not via
-# an ambient `go install`: that approach is absent an ambient Go on some
-# hosted macOS runners, and even where it succeeds its GOPATH/bin output
-# is not on PATH for later steps by default.
+# Go and Mage are both installed from the checksum-pinned archives
+# committed in config/toolchain.toml (scripts/ci/install-pinned-mage.
+# {sh,ps1}), not via an ambient `go install`: that approach is absent an
+# ambient Go entirely on some hosted macOS runners, and even where it
+# succeeds its GOPATH/bin output is not on PATH for later steps by
+# default. Go is provisioned alongside Mage (not just Mage) because Mage
+# JIT-compiles the magefile package at every invocation and therefore
+# always needs a Go compiler on PATH, regardless of how the mage binary
+# itself was obtained.
 name: cross-platform Mage observation
 
 on:
