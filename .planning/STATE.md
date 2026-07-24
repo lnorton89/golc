@@ -128,6 +128,7 @@ None yet.
 | 260723-u0p | Add Mage targets and pin Mage toolchain archives for PowerShell removal Steps 4 and 5 | 2026-07-23 | afc4623 | Complete | [260723-u0p-add-mage-targets-and-pin-mage-toolchain-](./quick/260723-u0p-add-mage-targets-and-pin-mage-toolchain-/) |
 | 260723-sgy | Port the full golc-site design language into all approved UI sketch assets | 2026-07-23 | 5a5a55b | Needs Review | [260723-sgy-port-the-full-golc-site-design-language-](./quick/260723-sgy-port-the-full-golc-site-design-language-/) |
 | 260723-tyl | Make active command-rail accents symmetrical in all four UI sketches | 2026-07-23 | 7889800 | Complete | [260723-tyl-make-active-command-rail-accents-symmetr](./quick/260723-tyl-make-active-command-rail-accents-symmetr/) |
+| 260723-uj9 | Fold the sketch findings skill into .planning/sketches and remove .kimi-code | 2026-07-23 | 549d2cf | Complete | [260723-uj9-fold-the-sketch-findings-skill-into-plan](./quick/260723-uj9-fold-the-sketch-findings-skill-into-plan/) |
 
 ## Deferred Items
 
