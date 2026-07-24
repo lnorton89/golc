@@ -9,3 +9,14 @@
 # cross-platform-mage.yml run 30075727901 on windows-latest: every
 # committed schema under schemas/ reported as drifted).
 schemas/** text eol=lf
+
+# Same issue, different files: tests/golden/*.json are byte-for-byte
+# comparison fixtures for deterministic JSON encoders (EncodeManifest
+# and others). Every one is committed LF-only; without this rule a
+# Windows checkout's core.autocrlf conversion makes every such test fail
+# even after the encoder's own platform-key coupling is fixed (observed
+# live: cross-platform-mage.yml run 30110425773 -- tests/golden/
+# foundation-manifest.json failed EncodeManifest's golden-fixture test
+# on windows-latest with visually identical "got"/"want" JSON bodies,
+# because the mismatch was in trailing line-ending bytes, not content).
+tests/golden/** text eol=lf
