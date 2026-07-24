@@ -24,7 +24,7 @@
 
 import { useEffect } from "react";
 
-import { dispatch, LAYER_KINDS, type LayerKind } from "../components/PlaybackControls/PlaybackControls";
+import { dispatch, LAYER_KINDS, type LayerKind } from "../lib/playbackDispatch";
 
 export interface KeyboardShortcut {
   category: string;
