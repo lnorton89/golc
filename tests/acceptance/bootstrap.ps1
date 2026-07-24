@@ -182,7 +182,7 @@ function Write-FixtureToolchainManifest {
         [string]$RepositoryRoot,
 
         [Parameter(Mandatory = $true)]
-        [string]$ArchiveUri,
+        [string]$ArchiveURL,
 
         [Parameter(Mandatory = $true)]
         [string]$Sha256
@@ -190,7 +190,7 @@ function Write-FixtureToolchainManifest {
 
     $configDir = Join-Path $RepositoryRoot "config"
     New-Item -ItemType Directory -Path $configDir -Force | Out-Null
-    $body = "schema_version = 1`n`n[tools.fixture]`narchive_uri = `"$ArchiveUri`"`narchive_sha256 = `"$Sha256`"`n"
+    $body = "schema_version = 2`n`n[tools.fixture]`narchive_url = `"$ArchiveURL`"`narchive_sha256 = `"$Sha256`"`n"
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllText((Join-Path $configDir "toolchain.toml"), $body, $utf8NoBom)
 }
@@ -258,12 +258,12 @@ function Invoke-Stage1FixtureArchiveContract {
         Copy-Item -LiteralPath (Join-Path $RepositoryUnderTest "golc.ps1") -Destination (Join-Path $workingRepository "golc.ps1") -Force
 
         $fixture = New-FixtureToolArchive -Directory $fixtureRoot
-        $archiveUri = ([System.Uri]::new($fixture.ArchivePath)).AbsoluteUri
+        $archiveURL = ([System.Uri]::new($fixture.ArchivePath)).AbsoluteUri
         $wrongSha256 = ("0" * 64)
 
         # 1. A corrupt pin (wrong SHA-256) must fail closed and leave no
         # install directory.
-        Write-FixtureToolchainManifest -RepositoryRoot $workingRepository -ArchiveUri $archiveUri -Sha256 $wrongSha256
+        Write-FixtureToolchainManifest -RepositoryRoot $workingRepository -ArchiveURL $archiveURL -Sha256 $wrongSha256
         $corruptResult = Invoke-Golc -RepositoryRoot $workingRepository -CommandArguments @("bootstrap")
         Assert-GolcFailed -Result $corruptResult -Operation "corrupt tool-archive bootstrap" -ExpectedDiagnostic "GOLC_BOOTSTRAP_CHECKSUM_MISMATCH"
         $installDir = Join-Path $workingRepository ".tools\installs\fixture"
@@ -274,7 +274,7 @@ function Invoke-Stage1FixtureArchiveContract {
 
         # 2. Correcting the pin must make an immediate retry succeed and
         # warm the downloads cache plus the promoted install.
-        Write-FixtureToolchainManifest -RepositoryRoot $workingRepository -ArchiveUri $archiveUri -Sha256 $fixture.Sha256
+        Write-FixtureToolchainManifest -RepositoryRoot $workingRepository -ArchiveURL $archiveURL -Sha256 $fixture.Sha256
         $retryResult = Invoke-Golc -RepositoryRoot $workingRepository -CommandArguments @("bootstrap")
         Assert-GolcSucceeded -Result $retryResult -Operation "corrected tool-archive bootstrap retry"
         $installedPayload = Join-Path $installDir "bin\fixture-tool.exe"
@@ -303,6 +303,65 @@ function Invoke-Stage1FixtureArchiveContract {
             throw "BOOTSTRAP_CACHE_INSTALL_CHANGED: the idempotent rerun must not alter the promoted install"
         }
         Write-Output "Stage 1 idempotent-rerun confirmed: zero archive-source calls, install unchanged."
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporaryRoot) {
+            Remove-Item -LiteralPath $temporaryRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Invoke-QuotedWindowsPlatformContract {
+    <# The compatibility shim must parse and select the one explicitly
+       configured quoted platform table. Removing that exact table must
+       fail rather than falling back to parent fields or another platform. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepositoryUnderTest
+    )
+
+    $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("golc-bootstrap-platform-" + [guid]::NewGuid().ToString("N"))
+    $workingRepository = Join-Path $temporaryRoot "repository"
+    $fixtureRoot = Join-Path $temporaryRoot "fixture"
+    try {
+        New-Item -ItemType Directory -Path $workingRepository -Force | Out-Null
+        Copy-Item -LiteralPath (Join-Path $RepositoryUnderTest "golc.ps1") -Destination (Join-Path $workingRepository "golc.ps1") -Force
+
+        $fixture = New-FixtureToolArchive -Directory $fixtureRoot
+        $archiveURL = ([System.Uri]::new($fixture.ArchivePath)).AbsoluteUri
+        $configDir = Join-Path $workingRepository "config"
+        New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+        $manifestPath = Join-Path $configDir "toolchain.toml"
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        $body = @"
+schema_version = 2
+
+[toolchain.go]
+version = "1.26.5"
+
+[toolchain.go.platforms."windows-amd64"]
+archive_url = "$archiveURL"
+archive_sha256 = "$($fixture.Sha256)"
+"@
+        [System.IO.File]::WriteAllText($manifestPath, $body, $utf8NoBom)
+
+        $selected = Invoke-Golc -RepositoryRoot $workingRepository -CommandArguments @("bootstrap")
+        Assert-GolcSucceeded -Result $selected -Operation "quoted windows-amd64 platform bootstrap"
+
+        $missing = @"
+schema_version = 2
+
+[toolchain.go]
+version = "1.26.5"
+"@
+        [System.IO.File]::WriteAllText($manifestPath, $missing, $utf8NoBom)
+        $rejected = Invoke-Golc -RepositoryRoot $workingRepository -CommandArguments @("bootstrap")
+        Assert-GolcFailed `
+            -Result $rejected `
+            -Operation "missing windows-amd64 platform table" `
+            -ExpectedDiagnostic "GOLC_GO_TOOLCHAIN_PLATFORM_MISSING"
+        Write-Output "Quoted platform contract confirmed: windows-amd64 selected explicitly and missing table rejected."
     }
     finally {
         if (Test-Path -LiteralPath $temporaryRoot) {
@@ -381,6 +440,7 @@ try {
     $repositoryUnderTest = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
 
     Invoke-Stage1FixtureArchiveContract -RepositoryUnderTest $repositoryUnderTest
+    Invoke-QuotedWindowsPlatformContract -RepositoryUnderTest $repositoryUnderTest
     Invoke-Stage2ProjectCacheWarmContract -RepositoryUnderTest $repositoryUnderTest
 
     Write-Output "Bootstrap cache-warm contract confirmed: corrupt rejection, correct retry, cache warm, and idempotent rerun."

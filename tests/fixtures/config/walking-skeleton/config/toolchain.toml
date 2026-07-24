@@ -1,6 +1,6 @@
-schema_version = 1
+schema_version = 2
 
 [tools.golc_project]
 version = "walking-skeleton"
-archive_uri = "__GOLC_FIXTURE_ARCHIVE_URI__"
+archive_url = "__GOLC_FIXTURE_ARCHIVE_URL__"
 archive_sha256 = "__GOLC_FIXTURE_ARCHIVE_SHA256__"

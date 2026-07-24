@@ -192,17 +192,17 @@ function New-ChecksumToolchainFixture {
 
     # The digest is calculated before bootstrap sees the source metadata.
     $sha256 = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
-    $archiveUri = ([System.Uri]::new($archivePath)).AbsoluteUri
+    $archiveURL = ([System.Uri]::new($archivePath)).AbsoluteUri
 
     $toolchainToml = [System.IO.File]::ReadAllText($toolchainPath)
-    if (-not $toolchainToml.Contains("__GOLC_FIXTURE_ARCHIVE_URI__")) {
-        throw "FIXTURE_ARCHIVE_URI_PLACEHOLDER_MISSING"
+    if (-not $toolchainToml.Contains("__GOLC_FIXTURE_ARCHIVE_URL__")) {
+        throw "FIXTURE_ARCHIVE_URL_PLACEHOLDER_MISSING"
     }
     if (-not $toolchainToml.Contains("__GOLC_FIXTURE_ARCHIVE_SHA256__")) {
         throw "FIXTURE_ARCHIVE_SHA256_PLACEHOLDER_MISSING"
     }
 
-    $toolchainToml = $toolchainToml.Replace("__GOLC_FIXTURE_ARCHIVE_URI__", $archiveUri)
+    $toolchainToml = $toolchainToml.Replace("__GOLC_FIXTURE_ARCHIVE_URL__", $archiveURL)
     $toolchainToml = $toolchainToml.Replace("__GOLC_FIXTURE_ARCHIVE_SHA256__", $sha256)
     [System.IO.File]::WriteAllText($toolchainPath, $toolchainToml, $utf8NoBom)
 
