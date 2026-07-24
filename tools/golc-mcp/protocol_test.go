@@ -156,6 +156,11 @@ func TestMCPProtocolReadOnlyInventoryAndCalls(t *testing.T) {
 		},
 		{Name: "test", Kind: "route", Route: "test", Args: []string{}, Authority: "internal/command registry"},
 	}
+	for i := range wantTargets {
+		if wantTargets[i].EnvironmentOptions == nil {
+			wantTargets[i].EnvironmentOptions = []mageProtocolEnvironmentOption{}
+		}
+	}
 	if !reflect.DeepEqual(mage.Targets, wantTargets) {
 		got, _ := json.MarshalIndent(mage.Targets, "", "  ")
 		want, _ := json.MarshalIndent(wantTargets, "", "  ")

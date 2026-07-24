@@ -11,20 +11,37 @@ const (
 	MageTargetKindRoute     MageTargetKind = "route"
 	MageTargetKindBootstrap MageTargetKind = "bootstrap"
 	MageTargetKindPR        MageTargetKind = "pr"
+
+	BootstrapEnvironmentName          = "GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC"
+	BootstrapEnvironmentEnablingValue = "1"
 )
 
+// MageEnvironmentOption documents one closed opt-in understood by a target.
+type MageEnvironmentOption struct {
+	Name          string
+	EnablingValue string
+	Effect        string
+}
+
 // MageTarget is the shared execution and introspection descriptor for one
-// public Mage CLI target. Args is always copied at the API boundary.
+// public Mage CLI target. Nested slices are copied at every API boundary.
 type MageTarget struct {
-	Name      string
-	Kind      MageTargetKind
-	Route     string
-	Args      []string
-	Authority string
+	Name               string
+	Kind               MageTargetKind
+	Route              string
+	Args               []string
+	Authority          string
+	EnvironmentOptions []MageEnvironmentOption
 }
 
 var mageTargets = []MageTarget{
-	{Name: "bootstrap", Kind: MageTargetKindBootstrap, Authority: "internal/bootstrap.Bootstrap"},
+	{
+		Name: "bootstrap", Kind: MageTargetKindBootstrap, Authority: "internal/bootstrap.Bootstrap",
+		EnvironmentOptions: []MageEnvironmentOption{{
+			Name: BootstrapEnvironmentName, EnablingValue: BootstrapEnvironmentEnablingValue,
+			Effect: "bootstrap.Options.IncludeLinearSync",
+		}},
+	},
 	{Name: "build", Kind: MageTargetKindRoute, Route: "build", Authority: "internal/command registry"},
 	{Name: "check", Kind: MageTargetKindRoute, Route: "check", Args: []string{"--concern", "project"}, Authority: "internal/command registry"},
 	{Name: "checkoffline", Kind: MageTargetKindRoute, Route: "check", Args: []string{"--offline"}, Authority: "internal/command registry"},
@@ -63,5 +80,6 @@ func LookupMageTarget(name string) (MageTarget, bool) {
 
 func cloneMageTarget(target MageTarget) MageTarget {
 	target.Args = append([]string(nil), target.Args...)
+	target.EnvironmentOptions = append([]MageEnvironmentOption(nil), target.EnvironmentOptions...)
 	return target
 }

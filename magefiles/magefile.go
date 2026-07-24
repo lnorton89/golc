@@ -101,6 +101,14 @@ func runTarget(name string, ctx context.Context) error {
 		return fmt.Errorf("GOLC_MAGE_TARGET_UNKNOWN: %s", name)
 	}
 	runtime := activeTargetRuntime
+	var bootstrapOptions bootstrap.Options
+	if target.Kind == delivery.MageTargetKindBootstrap || target.Kind == delivery.MageTargetKindPR {
+		var err error
+		bootstrapOptions, err = parseBootstrapOptions(runtime)
+		if err != nil {
+			return err
+		}
+	}
 	root, err := establishProjectRoot(runtime)
 	if err != nil {
 		return err
@@ -108,13 +116,32 @@ func runTarget(name string, ctx context.Context) error {
 
 	switch target.Kind {
 	case delivery.MageTargetKindBootstrap:
-		return runtime.bootstrap(ctx, root, bootstrap.Options{})
+		return runtime.bootstrap(ctx, root, bootstrapOptions)
 	case delivery.MageTargetKindPR:
-		return runPRTarget(ctx, runtime, root)
+		return runPRTarget(ctx, runtime, root, bootstrapOptions)
 	case delivery.MageTargetKindRoute:
 		return runRouteTarget(runtime, root, target)
 	default:
 		return fmt.Errorf("GOLC_MAGE_TARGET_KIND: %s has unsupported kind %q", target.Name, target.Kind)
+	}
+}
+
+func parseBootstrapOptions(runtime targetRuntime) (bootstrap.Options, error) {
+	target, ok := delivery.LookupMageTarget("bootstrap")
+	if !ok || len(target.EnvironmentOptions) != 1 {
+		return bootstrap.Options{}, fmt.Errorf("GOLC_MAGE_BOOTSTRAP_OPTION: Bootstrap descriptor must declare exactly one environment option")
+	}
+	option := target.EnvironmentOptions[0]
+	switch value := runtime.getenv(option.Name); value {
+	case "":
+		return bootstrap.Options{}, nil
+	case option.EnablingValue:
+		return bootstrap.Options{IncludeLinearSync: true}, nil
+	default:
+		return bootstrap.Options{}, fmt.Errorf(
+			"GOLC_MAGE_BOOTSTRAP_OPTION: %s must be unset or %q",
+			option.Name, option.EnablingValue,
+		)
 	}
 }
 
@@ -161,7 +188,7 @@ func PackageFoundation() error { return runTarget("packagefoundation", context.B
 // Pr executes the strict configured PR graph serially.
 func Pr(ctx context.Context) error { return runTarget("pr", ctx) }
 
-func runPRTarget(ctx context.Context, runtime targetRuntime, root string) error {
+func runPRTarget(ctx context.Context, runtime targetRuntime, root string, bootstrapOptions bootstrap.Options) error {
 	graph, err := runtime.loadPRGraph(root)
 	if err != nil {
 		return err
@@ -172,7 +199,7 @@ func runPRTarget(ctx context.Context, runtime targetRuntime, root string) error 
 	}
 	executor := func(route string, args []string) (int, []byte, []byte) {
 		if route == "bootstrap" {
-			if err := runtime.bootstrap(ctx, root, bootstrap.Options{}); err != nil {
+			if err := runtime.bootstrap(ctx, root, bootstrapOptions); err != nil {
 				return 1, nil, []byte(err.Error() + "\n")
 			}
 			return 0, nil, nil
