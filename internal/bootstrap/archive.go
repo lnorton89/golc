@@ -21,9 +21,10 @@ const (
 )
 
 type archiveEntry struct {
-	name  string
-	mode  os.FileMode
-	isDir bool
+	name          string
+	mode          os.FileMode
+	isDir         bool
+	symlinkTarget string // non-empty means this entry is a symlink to this archive-relative target
 }
 
 func archiveFormatFromPath(archivePath string) (archiveFormat, error) {
@@ -158,10 +159,26 @@ func inspectTarGzEntries(archivePath string) ([]archiveEntry, error) {
 			return nil, err
 		}
 		isDir := false
+		symlinkTarget := ""
 		switch header.Typeflag {
 		case tar.TypeDir:
 			isDir = true
 		case tar.TypeReg, tar.TypeRegA:
+		case tar.TypeSymlink:
+			// Official Node.js Linux/macOS release archives ship bin/npm,
+			// bin/npx, and bin/corepack as real symlinks (observed live:
+			// cross-platform-mage.yml run 30074378227 failed installing
+			// node-v24.18.0-linux-x64 with BOOTSTRAP_ARCHIVE_UNSAFE_TYPE
+			// before this case existed). A symlink is only safe once its
+			// *target* is validated to stay contained inside the archive
+			// root -- the same containment guarantee entry names already
+			// get -- so it is checked here before ever being accepted,
+			// mirroring containedDestination's real-path check but
+			// against the archive's own virtual name-space.
+			if err := validateSymlinkTarget(name, header.Linkname); err != nil {
+				return nil, err
+			}
+			symlinkTarget = header.Linkname
 		default:
 			return nil, fmt.Errorf("BOOTSTRAP_ARCHIVE_UNSAFE_TYPE: tar entry %q has rejected type %d", header.Name, header.Typeflag)
 		}
@@ -173,7 +190,7 @@ func inspectTarGzEntries(archivePath string) ([]archiveEntry, error) {
 				perm = 0o644
 			}
 		}
-		entries = append(entries, archiveEntry{name: name, mode: perm, isDir: isDir})
+		entries = append(entries, archiveEntry{name: name, mode: perm, isDir: isDir, symlinkTarget: symlinkTarget})
 	}
 	return entries, nil
 }
@@ -187,6 +204,28 @@ func inspectArchive(archivePath string, format archiveFormat) ([]archiveEntry, e
 	default:
 		return nil, fmt.Errorf("BOOTSTRAP_ARCHIVE_FORMAT: unsupported archive format")
 	}
+}
+
+// validateSymlinkTarget rejects a tar symlink entry whose target would
+// resolve outside the archive's own virtual root: an absolute target, or
+// a relative target that, joined against the symlink's own directory,
+// climbs above the root via "..". This operates purely on the archive's
+// name-space (POSIX-style, forward slashes) — containedDestination
+// performs the equivalent check against real filesystem paths once
+// entries are actually being extracted.
+func validateSymlinkTarget(entryName, linkname string) error {
+	if strings.TrimSpace(linkname) == "" {
+		return fmt.Errorf("BOOTSTRAP_ARCHIVE_TRAVERSAL: empty symlink target for entry %q", entryName)
+	}
+	normalized := strings.ReplaceAll(linkname, "\\", "/")
+	if strings.HasPrefix(normalized, "/") || strings.Contains(normalized, ":") {
+		return fmt.Errorf("BOOTSTRAP_ARCHIVE_TRAVERSAL: symlink %q has an absolute or rooted target %q", entryName, linkname)
+	}
+	resolved := path.Join(path.Dir(entryName), normalized)
+	if resolved == ".." || strings.HasPrefix(resolved, "../") {
+		return fmt.Errorf("BOOTSTRAP_ARCHIVE_TRAVERSAL: symlink %q target %q escapes the archive root", entryName, linkname)
+	}
+	return nil
 }
 
 func containedDestination(root, name string) (string, error) {
@@ -306,6 +345,20 @@ func extractTarGzArchive(archivePath, root string, inspected []archiveEntry) err
 		}
 		if entry.isDir {
 			if err := os.MkdirAll(destination, 0o755); err != nil {
+				return fmt.Errorf("BOOTSTRAP_EXTRACT: %w", err)
+			}
+			continue
+		}
+		if entry.symlinkTarget != "" {
+			// The raw (already validated by validateSymlinkTarget), not
+			// resolved, target is what os.Symlink must receive: it is
+			// interpreted by the OS relative to destination's own
+			// directory at link-follow time, exactly like the original
+			// archive's tar.Header.Linkname is.
+			if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
+				return fmt.Errorf("BOOTSTRAP_EXTRACT: %w", err)
+			}
+			if err := os.Symlink(filepath.FromSlash(entry.symlinkTarget), destination); err != nil {
 				return fmt.Errorf("BOOTSTRAP_EXTRACT: %w", err)
 			}
 			continue
