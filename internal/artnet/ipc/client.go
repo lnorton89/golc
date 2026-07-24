@@ -1,6 +1,6 @@
 // client.go implements the CLI-side half of CONTEXT D-03/D-04's local IPC
 // bridge (04-04-PLAN.md Task 1, 04-RESEARCH.md Pattern 5): Dial connects to
-// the daemon's named pipe, surfacing an unreachable daemon as
+// the daemon's build-selected local endpoint, surfacing an unreachable daemon as
 // GOLC_ARTNET_DAEMON_UNREACHABLE rather than a raw dial error or a hang
 // (CONTEXT: "A CLI client that cannot reach the daemon gets a clear
 // GOLC_ARTNET_DAEMON_UNREACHABLE result"). Forward marshals a Request over
@@ -20,24 +20,21 @@ import (
 	"net"
 	"time"
 
-	winio "github.com/Microsoft/go-winio"
-
 	"github.com/lnorton89/golc/internal/strictjson"
 )
 
-// dialTimeout bounds how long Dial waits for the daemon's named pipe to
+// dialTimeout bounds how long Dial waits for the daemon's local endpoint to
 // accept a connection -- short enough that an unreachable daemon fails
 // fast rather than hanging a short-lived CLI invocation.
 const dialTimeout = 2 * time.Second
 
-// Dial connects to the daemon's named pipe at pipeName (callers pass
+// Dial connects to the daemon's local endpoint at pipeName (callers pass
 // PipeName in production; tests pass a distinct per-test path). An
 // unreachable daemon -- not running, or the pipe not yet created --
 // surfaces as GOLC_ARTNET_DAEMON_UNREACHABLE rather than a raw dial error
 // or a hang.
 func Dial(pipeName string) (net.Conn, error) {
-	timeout := dialTimeout
-	conn, err := winio.DialPipe(pipeName, &timeout)
+	conn, err := dialTransport(pipeName, dialTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("GOLC_ARTNET_DAEMON_UNREACHABLE: is the GOLC background process running? (%v)", err)
 	}

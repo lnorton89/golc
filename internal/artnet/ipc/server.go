@@ -1,11 +1,9 @@
 // server.go implements CONTEXT D-03/D-04's local IPC transport (04-04-
 // PLAN.md Task 1, 04-RESEARCH.md Standard Stack/Pattern 5, 04-PATTERNS.md
 // "No Analog Found": no daemon/IPC listener of any kind existed anywhere
-// in this repo before this file): NewListener opens a Windows named pipe
-// (github.com/Microsoft/go-winio) whose security descriptor restricts
-// connections to the owning principal alone (Security Domain V4:
-// local-only, default-deny other principals) and never binds a routable
-// TCP address. Serve accepts connections on that listener until ctx is
+// in this repo before this file): NewListener opens the build-selected
+// owner-only local IPC transport and never binds a routable TCP address.
+// Serve accepts connections on that listener until ctx is
 // cancelled, decoding one Request per connection (field-for-field
 // identical to this repo's existing internal/command.Request/
 // command.Result shapes, per RESEARCH.md Pattern 5 -- no second wire
@@ -15,11 +13,10 @@
 // encoded/decoded via internal/strictjson's canonical, duplicate-safe
 // convention.
 //
-// Named-pipe byte-mode connections carry no message boundary of their
-// own (04-PATTERNS.md's "No Analog Found" callout: there is no in-repo
-// framing precedent to copy either), so writeFrame/readFrame prefix every
-// request and response with a 4-byte big-endian length so one connection
-// unambiguously carries exactly one request and one response.
+// Local byte-stream connections carry no message boundary of their own,
+// so writeFrame/readFrame prefix every request and response with a 4-byte
+// big-endian length so one connection unambiguously carries exactly one
+// request and one response.
 package ipc
 
 import (
@@ -29,40 +26,19 @@ import (
 	"io"
 	"net"
 
-	winio "github.com/Microsoft/go-winio"
-
 	"github.com/lnorton89/golc/internal/strictjson"
 )
-
-// PipeName is the production named-pipe path the daemon (daemon.go) listens
-// on by default and every golc artnet ... CLI client (Plan 05) dials.
-// NewListener/Dial both accept an explicit pipeName parameter rather than
-// hardcoding this constant internally, so test code (this package's own
-// ipc_test.go, and internal/artnet's daemon_test.go) can exercise the exact
-// same Serve/Dial/Forward machinery against an isolated per-test pipe name
-// without colliding with a real running daemon or with another package's
-// concurrently-running tests on this same well-known path.
-const PipeName = `\\.\pipe\golc-artnet`
-
-// ownerOnlySDDL restricts a named pipe's security descriptor to the owning
-// principal only (Security Domain V4, CONTEXT prohibition: never bind a
-// routable/TCP address by default): "D:P(...)" declares a Protected DACL
-// (no inherited ACEs), granting Generic All ("GA") to the Owner ("OW")
-// alone -- no other principal, including other local users on the same
-// machine, is granted access.
-const ownerOnlySDDL = "D:P(A;;GA;;;OW)"
 
 // maxFrameSize bounds one length-prefixed request/response frame so a
 // malformed or hostile local peer can never force Serve or Forward to
 // allocate an unbounded buffer from a forged length header.
 const maxFrameSize = 4 << 20 // 4 MiB
 
-// NewListener creates a named-pipe listener at pipeName with a security
-// descriptor restricting connections to the owning principal (Security
-// Domain V4) and never binds a routable/TCP address -- the pipe transport
-// itself makes a non-loopback bind structurally impossible.
+// NewListener creates the build-selected local IPC listener at endpoint.
+// Both platform implementations restrict access to the owning principal
+// and structurally avoid a routable control plane.
 func NewListener(pipeName string) (net.Listener, error) {
-	listener, err := winio.ListenPipe(pipeName, &winio.PipeConfig{SecurityDescriptor: ownerOnlySDDL})
+	listener, err := listenTransport(pipeName)
 	if err != nil {
 		return nil, fmt.Errorf("GOLC_ARTNET_IPC_LISTEN_FAILED: %v", err)
 	}
