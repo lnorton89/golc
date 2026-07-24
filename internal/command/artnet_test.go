@@ -26,10 +26,13 @@ package command
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -54,6 +57,18 @@ import (
 func testArtnetPipeName(t *testing.T) string {
 	t.Helper()
 	return platformTestEndpoint(t, "cli")
+}
+
+func platformTestEndpoint(t *testing.T, prefix string) string {
+	t.Helper()
+	nameHash := sha256.Sum256([]byte(t.Name()))
+	suffix := fmt.Sprintf("%s-%d-%d-%x", prefix, os.Getpid(), time.Now().UnixNano(), nameHash[:4])
+	if runtime.GOOS == "windows" {
+		return `\\.\pipe\golc-` + suffix
+	}
+	endpoint := filepath.Join("/tmp", "golc-"+suffix+".sock")
+	t.Cleanup(func() { _ = os.Remove(endpoint) })
+	return endpoint
 }
 
 // testArtnetLoopbackInterfaceIndex finds the IPv4 loopback interface's
