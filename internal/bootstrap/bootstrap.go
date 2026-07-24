@@ -11,7 +11,7 @@
 package bootstrap
 
 import (
-	"archive/zip"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -19,25 +19,33 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 )
 
 // ManifestName is the file recorded inside a promoted install directory that
 // binds the installed bytes to the exact archive pin they came from.
-const ManifestName = ".golc-install-manifest.json"
+const (
+	ManifestName                 = ".golc-install-manifest.json"
+	InstallManifestSchemaVersion = 1
+)
 
 // InstallManifest records the archive pin and per-file integrity of a
 // promoted install.
 type InstallManifest struct {
+	SchemaVersion int             `json:"schema_version"`
 	ArchiveSHA256 string          `json:"archive_sha256"`
 	Files         []InstalledFile `json:"files"`
 }
 
-// InstalledFile is one extracted file with its lowercase hex SHA-256.
+// InstalledFile is one extracted file with its lowercase hex SHA-256 and
+// ordinary permission bits formatted as a four-digit octal string.
 type InstalledFile struct {
 	Path   string `json:"path"`
 	SHA256 string `json:"sha256"`
+	Mode   string `json:"mode"`
 }
 
 // EnsureDirectories creates every directory in paths (including parents) if
@@ -84,50 +92,23 @@ func hashFile(path string) (string, error) {
 // extraction root: absolute paths, drive-qualified paths, and any dot-dot
 // segment, using both slash conventions.
 func checkEntryName(name string) error {
-	if strings.TrimSpace(name) == "" {
-		return fmt.Errorf("BOOTSTRAP_ARCHIVE_TRAVERSAL: empty entry name")
-	}
-	normalized := strings.ReplaceAll(name, "\\", "/")
-	if strings.HasPrefix(normalized, "/") || strings.Contains(normalized, ":") {
-		return fmt.Errorf("BOOTSTRAP_ARCHIVE_TRAVERSAL: rooted entry %q", name)
-	}
-	for _, segment := range strings.Split(normalized, "/") {
-		if segment == ".." {
-			return fmt.Errorf("BOOTSTRAP_ARCHIVE_TRAVERSAL: dot-dot segment in entry %q", name)
-		}
-	}
-	return nil
+	_, err := normalizeArchiveEntryName(name)
+	return err
 }
 
 // VerifyArchive confirms that the archive bytes match the exact SHA-256 pin
 // and that every contained entry name stays inside the extraction root. It
 // must pass before any extraction or promotion happens.
 func VerifyArchive(archivePath, expectedSHA256 string) error {
-	expected, err := normalizeExpectedSHA256(expectedSHA256)
+	if err := VerifySHA256(archivePath, expectedSHA256); err != nil {
+		return err
+	}
+	format, err := archiveFormatFromPath(archivePath)
 	if err != nil {
 		return err
 	}
-
-	actual, err := hashFile(archivePath)
-	if err != nil {
-		return fmt.Errorf("BOOTSTRAP_ARCHIVE_UNREADABLE: %w", err)
-	}
-	if actual != expected {
-		return fmt.Errorf("BOOTSTRAP_CHECKSUM_MISMATCH: archive %s has sha256 %s, pin requires %s", archivePath, actual, expected)
-	}
-
-	reader, err := zip.OpenReader(archivePath)
-	if err != nil {
-		return fmt.Errorf("BOOTSTRAP_ARCHIVE_INVALID: %w", err)
-	}
-	defer reader.Close()
-
-	for _, entry := range reader.File {
-		if err := checkEntryName(entry.Name); err != nil {
-			return err
-		}
-	}
-	return nil
+	_, err = inspectArchive(archivePath, format)
+	return err
 }
 
 // InstallStaged verifies the archive, extracts it into a staging directory
@@ -139,109 +120,85 @@ func InstallStaged(archivePath, expectedSHA256, installDir string) (err error) {
 	if err != nil {
 		return err
 	}
-	if err := VerifyArchive(archivePath, expected); err != nil {
-		return err
-	}
-
 	parent := filepath.Dir(installDir)
-	if err := EnsureDirectories(parent); err != nil {
-		return fmt.Errorf("BOOTSTRAP_INSTALL_PARENT: %w", err)
-	}
-	staging, err := os.MkdirTemp(parent, ".golc-staging-")
+	staging, err := ExtractVerified(archivePath, expected, parent)
 	if err != nil {
-		return fmt.Errorf("BOOTSTRAP_STAGING_CREATE: %w", err)
+		return err
 	}
 	defer func() {
 		if err != nil {
-			os.RemoveAll(staging)
+			_ = os.RemoveAll(staging)
 		}
 	}()
-
-	reader, err := zip.OpenReader(archivePath)
+	format, err := archiveFormatFromPath(archivePath)
 	if err != nil {
-		return fmt.Errorf("BOOTSTRAP_ARCHIVE_INVALID: %w", err)
+		return err
 	}
-	defer reader.Close()
-
-	stagingRoot, err := filepath.Abs(staging)
+	archiveEntries, err := inspectArchive(archivePath, format)
 	if err != nil {
-		return fmt.Errorf("BOOTSTRAP_STAGING_CREATE: %w", err)
+		return err
 	}
-
-	var files []InstalledFile
-	for _, entry := range reader.File {
-		if err := checkEntryName(entry.Name); err != nil {
-			return err
-		}
-		relative := filepath.FromSlash(strings.ReplaceAll(entry.Name, "\\", "/"))
-		destination := filepath.Join(stagingRoot, relative)
-		// Containment double-check after joining, independent of name checks.
-		if destination != stagingRoot && !strings.HasPrefix(destination, stagingRoot+string(os.PathSeparator)) {
-			return fmt.Errorf("BOOTSTRAP_ARCHIVE_TRAVERSAL: entry %q escapes staging root", entry.Name)
-		}
-
-		if entry.FileInfo().IsDir() {
-			if err := os.MkdirAll(destination, 0o755); err != nil {
-				return fmt.Errorf("BOOTSTRAP_EXTRACT: %w", err)
-			}
-			continue
-		}
-		if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
-			return fmt.Errorf("BOOTSTRAP_EXTRACT: %w", err)
-		}
-		if err := extractEntry(entry, destination); err != nil {
-			return err
-		}
-		fileHash, err := hashFile(destination)
-		if err != nil {
-			return fmt.Errorf("BOOTSTRAP_EXTRACT: %w", err)
-		}
-		files = append(files, InstalledFile{
-			Path:   strings.ReplaceAll(strings.ReplaceAll(relative, "\\", "/"), "//", "/"),
-			SHA256: fileHash,
-		})
+	files, err := inventoryInstalledFiles(staging, archiveEntries)
+	if err != nil {
+		return err
 	}
-	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
-
-	manifest := InstallManifest{ArchiveSHA256: expected, Files: files}
+	if len(files) == 0 {
+		return fmt.Errorf("BOOTSTRAP_MANIFEST_WRITE: archive contains no regular files")
+	}
+	manifest := InstallManifest{SchemaVersion: InstallManifestSchemaVersion, ArchiveSHA256: expected, Files: files}
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		return fmt.Errorf("BOOTSTRAP_MANIFEST_WRITE: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(stagingRoot, ManifestName), append(manifestBytes, '\n'), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(staging, ManifestName), append(manifestBytes, '\n'), 0o644); err != nil {
 		return fmt.Errorf("BOOTSTRAP_MANIFEST_WRITE: %w", err)
 	}
-
-	if _, statErr := os.Stat(installDir); statErr == nil {
-		if err := os.RemoveAll(installDir); err != nil {
-			return fmt.Errorf("BOOTSTRAP_PROMOTE: %w", err)
-		}
-	}
-	if err := os.Rename(staging, installDir); err != nil {
-		return fmt.Errorf("BOOTSTRAP_PROMOTE: %w", err)
-	}
-	return nil
+	return PromoteAtomically(staging, installDir)
 }
 
-func extractEntry(entry *zip.File, destination string) error {
-	source, err := entry.Open()
+func inventoryInstalledFiles(root string, archiveEntries []archiveEntry) ([]InstalledFile, error) {
+	archiveModes := make(map[string]os.FileMode, len(archiveEntries))
+	for _, entry := range archiveEntries {
+		if !entry.isDir {
+			archiveModes[entry.name] = entry.mode.Perm()
+		}
+	}
+	var files []InstalledFile
+	err := filepath.WalkDir(root, func(current string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if current == root || entry.IsDir() {
+			return nil
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("BOOTSTRAP_MANIFEST_WRITE: %q is not a regular file", current)
+		}
+		relative, err := filepath.Rel(root, current)
+		if err != nil {
+			return err
+		}
+		name := filepath.ToSlash(relative)
+		digest, err := hashFile(current)
+		if err != nil {
+			return err
+		}
+		mode, ok := archiveModes[name]
+		if !ok {
+			return fmt.Errorf("archive inventory has no regular file %q", name)
+		}
+		files = append(files, InstalledFile{Path: name, SHA256: digest, Mode: fmt.Sprintf("%04o", mode)})
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("BOOTSTRAP_EXTRACT: %w", err)
+		return nil, fmt.Errorf("BOOTSTRAP_MANIFEST_WRITE: %w", err)
 	}
-	defer source.Close()
-
-	target, err := os.OpenFile(destination, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
-	if err != nil {
-		return fmt.Errorf("BOOTSTRAP_EXTRACT: %w", err)
-	}
-	if _, err := io.Copy(target, source); err != nil {
-		target.Close()
-		return fmt.Errorf("BOOTSTRAP_EXTRACT: %w", err)
-	}
-	if err := target.Close(); err != nil {
-		return fmt.Errorf("BOOTSTRAP_EXTRACT: %w", err)
-	}
-	return nil
+	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
+	return files, nil
 }
 
 // InstalledMatches reports whether installDir already holds a promoted
@@ -262,26 +219,104 @@ func InstalledMatches(installDir, expectedSHA256 string) (bool, error) {
 		return false, fmt.Errorf("BOOTSTRAP_MANIFEST_READ: %w", err)
 	}
 	var manifest InstallManifest
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(manifestBytes))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&manifest); err != nil {
 		return false, nil
 	}
-	if manifest.ArchiveSHA256 != expected {
+	if decoder.Decode(&struct{}{}) != io.EOF {
 		return false, nil
 	}
+	if manifest.SchemaVersion != InstallManifestSchemaVersion || manifest.ArchiveSHA256 != expected || len(manifest.Files) == 0 {
+		return false, nil
+	}
+	expectedFiles := make(map[string]InstalledFile, len(manifest.Files))
+	expectedDirs := map[string]struct{}{".": {}}
 	for _, file := range manifest.Files {
-		if err := checkEntryName(file.Path); err != nil {
+		normalized, err := normalizeArchiveEntryName(file.Path)
+		if err != nil || normalized != file.Path {
 			return false, nil
 		}
-		actual, err := hashFile(filepath.Join(installDir, filepath.FromSlash(file.Path)))
+		if _, exists := expectedFiles[file.Path]; exists {
+			return false, nil
+		}
+		if len(file.SHA256) != sha256.Size*2 || strings.ToLower(file.SHA256) != file.SHA256 {
+			return false, nil
+		}
+		if _, err := hex.DecodeString(file.SHA256); err != nil {
+			return false, nil
+		}
+		modeValue, err := strconv.ParseUint(file.Mode, 8, 12)
+		if err != nil || len(file.Mode) != 4 || modeValue > 0o777 {
+			return false, nil
+		}
+		expectedFiles[file.Path] = file
+		for directory := pathDirectory(file.Path); directory != "."; directory = pathDirectory(directory) {
+			expectedDirs[directory] = struct{}{}
+		}
+		actualPath := filepath.Join(installDir, filepath.FromSlash(file.Path))
+		info, err := os.Lstat(actualPath)
 		if err != nil {
 			if os.IsNotExist(err) {
 				return false, nil
 			}
 			return false, fmt.Errorf("BOOTSTRAP_MANIFEST_READ: %w", err)
 		}
+		if !info.Mode().IsRegular() {
+			return false, nil
+		}
+		actual, err := hashFile(actualPath)
+		if err != nil {
+			return false, fmt.Errorf("BOOTSTRAP_MANIFEST_READ: %w", err)
+		}
 		if actual != file.SHA256 {
 			return false, nil
 		}
+		if runtime.GOOS != "windows" && info.Mode().Perm() != os.FileMode(modeValue) {
+			return false, nil
+		}
+	}
+	err = filepath.WalkDir(installDir, func(current string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if current == installDir {
+			return nil
+		}
+		relative, err := filepath.Rel(installDir, current)
+		if err != nil {
+			return err
+		}
+		name := filepath.ToSlash(relative)
+		if name == ManifestName {
+			return nil
+		}
+		if entry.IsDir() {
+			if _, ok := expectedDirs[name]; !ok {
+				return errManifestMismatch
+			}
+			return nil
+		}
+		if _, ok := expectedFiles[name]; !ok {
+			return errManifestMismatch
+		}
+		return nil
+	})
+	if err == errManifestMismatch {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("BOOTSTRAP_MANIFEST_READ: %w", err)
 	}
 	return true, nil
+}
+
+var errManifestMismatch = fmt.Errorf("manifest inventory mismatch")
+
+func pathDirectory(name string) string {
+	index := strings.LastIndex(name, "/")
+	if index < 0 {
+		return "."
+	}
+	return name[:index]
 }

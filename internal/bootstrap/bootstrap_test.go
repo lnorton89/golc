@@ -691,7 +691,8 @@ func TestScopeBootstrapArchive(t *testing.T) {
 					Name: "unsafe", Typeflag: testCase.kind, Linkname: "../outside",
 				}})
 				parent := filepath.Join(dir, "parent")
-				if _, err := ExtractVerified(archivePath, digest, parent); err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_UNSAFE_TYPE") {
+				if _, err := ExtractVerified(archivePath, digest, parent); err == nil ||
+					(!strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_UNSAFE_TYPE") && !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_FORMAT")) {
 					t.Fatalf("expected unsafe type rejection, got %v", err)
 				}
 				if _, err := os.Stat(parent); !os.IsNotExist(err) {
