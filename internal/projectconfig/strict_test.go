@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -53,7 +54,7 @@ func writeStrictRepository(t *testing.T, spec projectconfig.Spec, files map[stri
 	root := t.TempDir()
 
 	var index strings.Builder
-	index.WriteString("schema_version = 1\n")
+	index.WriteString("schema_version = 2\n")
 	for _, concern := range spec.Concerns {
 		index.WriteString("\n[[concerns]]\n")
 		index.WriteString("id = \"" + concern.ID + "\"\n")
@@ -108,10 +109,10 @@ func syntheticSpec() projectconfig.Spec {
 }
 
 // strictRuntimeConcern is the well-formed runtime file for syntheticSpec.
-const strictRuntimeConcern = "schema_version = 1\n\n[runtime]\nlog_level = \"info\"\n"
+const strictRuntimeConcern = "schema_version = 2\n\n[runtime]\nlog_level = \"info\"\n"
 
 // strictToolchainConcern is the well-formed toolchain file for syntheticSpec.
-const strictToolchainConcern = "schema_version = 1\n\n[toolchain.go]\nversion = \"1.26.5\"\n"
+const strictToolchainConcern = "schema_version = 2\n\n[toolchain.go]\nversion = \"1.26.5\"\n"
 
 // TestScopeConfigStrict is the exact quick-test marker for scope
 // "config-strict" (test --quick --scope config-strict).
@@ -196,10 +197,72 @@ func TestScopeConfigStrict(t *testing.T) {
 		}
 	})
 
+	t.Run("production toolchain owns only the exact schema-v2 keys", func(t *testing.T) {
+		spec := projectconfig.DefaultSpec()
+		var got []string
+		for _, concern := range spec.Concerns {
+			if concern.ID != "toolchain" {
+				continue
+			}
+			for key := range concern.Keys {
+				got = append(got, key)
+			}
+		}
+		sort.Strings(got)
+		want := []string{
+			"cache.downloads",
+			"cache.gocache",
+			"cache.gomodcache",
+			"toolchain.go.official_host",
+			"toolchain.go.official_path_prefix",
+			"toolchain.go.platforms.windows-amd64.archive_sha256",
+			"toolchain.go.platforms.windows-amd64.archive_url",
+			"toolchain.go.version",
+			"toolchain.node.official_host",
+			"toolchain.node.official_path_prefix",
+			"toolchain.node.platforms.windows-amd64.archive_sha256",
+			"toolchain.node.platforms.windows-amd64.archive_url",
+			"toolchain.node.version",
+		}
+		if strings.Join(got, "\n") != strings.Join(want, "\n") {
+			t.Fatalf("toolchain keys mismatch:\ngot:  %v\nwant: %v", got, want)
+		}
+	})
+
+	t.Run("quoted windows platform tables flatten exactly and unregistered platforms fail", func(t *testing.T) {
+		spec := projectconfig.DefaultSpec()
+		valid := `schema_version = 2
+
+[toolchain.go]
+version = "1.26.5"
+official_host = "go.dev"
+official_path_prefix = "/dl/"
+
+[toolchain.go.platforms."windows-amd64"]
+archive_url = "https://go.dev/dl/go1.26.5.windows-amd64.zip"
+archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd38"
+`
+		root := writeStrictRepository(t, spec, map[string]string{"config/toolchain.toml": valid})
+		values, _, err := projectconfig.ValidateConcern(root, spec, "toolchain")
+		if err != nil {
+			t.Fatalf("quoted windows-amd64 table must validate: %v", err)
+		}
+		if values["toolchain.go.platforms.windows-amd64.archive_url"] == "" {
+			t.Fatal("quoted platform table did not flatten to its exact registered key")
+		}
+
+		unregistered := strings.Replace(valid, `"windows-amd64"`, `"linux-amd64"`, 1)
+		root = writeStrictRepository(t, spec, map[string]string{"config/toolchain.toml": unregistered})
+		_, _, err = projectconfig.ValidateConcern(root, spec, "toolchain")
+		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_UNKNOWN_KEY") {
+			t.Fatalf("expected unregistered platform to fail closed, got %v", err)
+		}
+	})
+
 	t.Run("unknown keys fail", func(t *testing.T) {
 		spec := syntheticSpec()
 		root := writeStrictRepository(t, spec, map[string]string{
-			"config/runtime.toml":   "schema_version = 1\n\n[runtime]\nlog_level = \"info\"\nmystery = \"x\"\n",
+			"config/runtime.toml":   "schema_version = 2\n\n[runtime]\nlog_level = \"info\"\nmystery = \"x\"\n",
 			"config/toolchain.toml": strictToolchainConcern,
 		})
 		_, _, err := projectconfig.ValidateConcern(root, spec, "runtime")
@@ -211,7 +274,7 @@ func TestScopeConfigStrict(t *testing.T) {
 	t.Run("duplicate toml keys fail distinctly", func(t *testing.T) {
 		spec := syntheticSpec()
 		root := writeStrictRepository(t, spec, map[string]string{
-			"config/runtime.toml":   "schema_version = 1\n\n[runtime]\nlog_level = \"info\"\nlog_level = \"debug\"\n",
+			"config/runtime.toml":   "schema_version = 2\n\n[runtime]\nlog_level = \"info\"\nlog_level = \"debug\"\n",
 			"config/toolchain.toml": strictToolchainConcern,
 		})
 		_, _, err := projectconfig.ValidateConcern(root, spec, "runtime")
@@ -223,7 +286,7 @@ func TestScopeConfigStrict(t *testing.T) {
 	t.Run("invalid values fail", func(t *testing.T) {
 		spec := syntheticSpec()
 		root := writeStrictRepository(t, spec, map[string]string{
-			"config/runtime.toml":   "schema_version = 1\n\n[runtime]\nlog_level = \"verbose\"\n",
+			"config/runtime.toml":   "schema_version = 2\n\n[runtime]\nlog_level = \"verbose\"\n",
 			"config/toolchain.toml": strictToolchainConcern,
 		})
 		_, _, err := projectconfig.ValidateConcern(root, spec, "runtime")
@@ -233,7 +296,7 @@ func TestScopeConfigStrict(t *testing.T) {
 
 		root = writeStrictRepository(t, spec, map[string]string{
 			"config/runtime.toml":   strictRuntimeConcern,
-			"config/toolchain.toml": "schema_version = 1\n\n[toolchain.go]\nversion = \"..\\\\escape\"\n",
+			"config/toolchain.toml": "schema_version = 2\n\n[toolchain.go]\nversion = \"..\\\\escape\"\n",
 		})
 		_, _, err = projectconfig.ValidateConcern(root, spec, "toolchain")
 		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_VALUE_INVALID") {
@@ -241,7 +304,7 @@ func TestScopeConfigStrict(t *testing.T) {
 		}
 
 		root = writeStrictRepository(t, spec, map[string]string{
-			"config/runtime.toml":   "schema_version = 1\n\n[runtime]\nlog_level = 3\n",
+			"config/runtime.toml":   "schema_version = 2\n\n[runtime]\nlog_level = 3\n",
 			"config/toolchain.toml": strictToolchainConcern,
 		})
 		_, _, err = projectconfig.ValidateConcern(root, spec, "runtime")
@@ -253,7 +316,7 @@ func TestScopeConfigStrict(t *testing.T) {
 	t.Run("deprecated-only input warns with migration guidance", func(t *testing.T) {
 		spec := syntheticSpec()
 		root := writeStrictRepository(t, spec, map[string]string{
-			"config/runtime.toml":   "schema_version = 1\n\n[runtime]\nverbosity = \"debug\"\n",
+			"config/runtime.toml":   "schema_version = 2\n\n[runtime]\nverbosity = \"debug\"\n",
 			"config/toolchain.toml": strictToolchainConcern,
 		})
 		values, warnings, err := projectconfig.ValidateConcern(root, spec, "runtime")
@@ -286,7 +349,7 @@ func TestScopeConfigStrict(t *testing.T) {
 	t.Run("deprecated plus replacement input collides", func(t *testing.T) {
 		spec := syntheticSpec()
 		root := writeStrictRepository(t, spec, map[string]string{
-			"config/runtime.toml":   "schema_version = 1\n\n[runtime]\nlog_level = \"info\"\nverbosity = \"debug\"\n",
+			"config/runtime.toml":   "schema_version = 2\n\n[runtime]\nlog_level = \"info\"\nverbosity = \"debug\"\n",
 			"config/toolchain.toml": strictToolchainConcern,
 		})
 		_, _, err := projectconfig.ValidateConcern(root, spec, "runtime")
@@ -307,7 +370,7 @@ func TestScopeConfigStrict(t *testing.T) {
 	t.Run("a concern declaring another concern's key fails as duplicate authority", func(t *testing.T) {
 		spec := syntheticSpec()
 		root := writeStrictRepository(t, spec, map[string]string{
-			"config/runtime.toml":   "schema_version = 1\n\n[runtime]\nlog_level = \"info\"\n\n[toolchain.go]\nversion = \"9.9.9\"\n",
+			"config/runtime.toml":   "schema_version = 2\n\n[runtime]\nlog_level = \"info\"\n\n[toolchain.go]\nversion = \"9.9.9\"\n",
 			"config/toolchain.toml": strictToolchainConcern,
 		})
 		_, _, err := projectconfig.ValidateConcern(root, spec, "runtime")
@@ -320,7 +383,7 @@ func TestScopeConfigStrict(t *testing.T) {
 		spec := syntheticSpec()
 		spec.Concerns[0].Keys["runtime.go_version"] = projectconfig.KeySpec{Pattern: regexp.MustCompile(`^[0-9]+(\.[0-9]+)*$`)}
 		root := writeStrictRepository(t, spec, map[string]string{
-			"config/runtime.toml":   "schema_version = 1\n\n[runtime]\nlog_level = \"info\"\ngo_version = \"ref:toolchain.go.missing\"\n",
+			"config/runtime.toml":   "schema_version = 2\n\n[runtime]\nlog_level = \"info\"\ngo_version = \"ref:toolchain.go.missing\"\n",
 			"config/toolchain.toml": strictToolchainConcern,
 		})
 		if _, _, err := projectconfig.ValidateConcern(root, spec, "runtime"); err != nil {
@@ -337,8 +400,8 @@ func TestScopeConfigStrict(t *testing.T) {
 		spec.Concerns[0].Keys["runtime.go_version"] = projectconfig.KeySpec{Pattern: regexp.MustCompile(`^[0-9]+(\.[0-9]+)*$`)}
 		spec.Concerns[1].Keys["toolchain.go.mirror"] = projectconfig.KeySpec{Pattern: regexp.MustCompile(`^[0-9]+(\.[0-9]+)*$`)}
 		root := writeStrictRepository(t, spec, map[string]string{
-			"config/runtime.toml":   "schema_version = 1\n\n[runtime]\nlog_level = \"info\"\ngo_version = \"ref:toolchain.go.mirror\"\n",
-			"config/toolchain.toml": "schema_version = 1\n\n[toolchain.go]\nversion = \"1.26.5\"\nmirror = \"ref:runtime.go_version\"\n",
+			"config/runtime.toml":   "schema_version = 2\n\n[runtime]\nlog_level = \"info\"\ngo_version = \"ref:toolchain.go.mirror\"\n",
+			"config/toolchain.toml": "schema_version = 2\n\n[toolchain.go]\nversion = \"1.26.5\"\nmirror = \"ref:runtime.go_version\"\n",
 		})
 		_, _, err := projectconfig.ValidateRepository(root, spec)
 		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_REF_CYCLE") {
@@ -352,7 +415,7 @@ func TestScopeConfigStrict(t *testing.T) {
 			"config/runtime.toml":   strictRuntimeConcern,
 			"config/toolchain.toml": strictToolchainConcern,
 		})
-		hidden := "schema_version = 1\n\n[[concerns]]\nid = \"runtime\"\npath = \"config/runtime.toml\"\n"
+		hidden := "schema_version = 2\n\n[[concerns]]\nid = \"runtime\"\npath = \"config/runtime.toml\"\n"
 		if err := os.WriteFile(filepath.Join(root, "golc.project.toml"), []byte(hidden), 0o644); err != nil {
 			t.Fatalf("rewrite root index: %v", err)
 		}

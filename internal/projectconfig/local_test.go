@@ -36,7 +36,7 @@ func newLocalTestRepository(t *testing.T) string {
 	root := t.TempDir()
 
 	rootIndex := strings.Join([]string{
-		"schema_version = 1",
+		"schema_version = 2",
 		"",
 		"[[concerns]]",
 		`id = "runtime"`,
@@ -44,7 +44,7 @@ func newLocalTestRepository(t *testing.T) string {
 		"",
 	}, "\n")
 	runtimeConcern := strings.Join([]string{
-		"schema_version = 1",
+		"schema_version = 2",
 		"",
 		"[runtime]",
 		`log_level = "info"`,
@@ -177,7 +177,12 @@ func TestScopeConfigLocal(t *testing.T) {
 
 	t.Run("locked keys are rejected", func(t *testing.T) {
 		root := newLocalTestRepository(t)
-		for _, key := range []string{"schema_version", "toolchain.go.version", "toolchain.go.archive_sha256"} {
+		for _, key := range []string{
+			"schema_version",
+			"toolchain.go.version",
+			"toolchain.go.platforms.windows-amd64.archive_url",
+			"toolchain.go.platforms.windows-amd64.archive_sha256",
+		} {
 			err := projectconfig.WriteLocal(root, key, "override")
 			if err == nil {
 				t.Fatalf("expected locked key %q to be rejected", key)
@@ -197,6 +202,9 @@ func TestScopeConfigLocal(t *testing.T) {
 			"config/.env",
 			`config\.env`,
 			"runtime..log_level",
+			"runtime.-log_level",
+			"runtime.log_level-",
+			"runtime.log--level",
 			"/runtime.log_level",
 		} {
 			err := projectconfig.WriteLocal(root, key, "debug")
@@ -209,6 +217,14 @@ func TestScopeConfigLocal(t *testing.T) {
 		}
 		if _, statErr := os.Stat(filepath.Join(root, ".env")); !os.IsNotExist(statErr) {
 			t.Fatal("rejected redirect must never create .env")
+		}
+	})
+
+	t.Run("canonical grammar narrowly admits hyphenated platform segments", func(t *testing.T) {
+		root := newLocalTestRepository(t)
+		err := projectconfig.WriteLocal(root, "toolchain.go.platforms.windows-amd64.archive_url", "override")
+		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_LOCAL_KEY_LOCKED") {
+			t.Fatalf("expected registered hyphenated key to pass grammar and fail as locked, got %v", err)
 		}
 	})
 
@@ -226,7 +242,7 @@ func TestScopeConfigLocal(t *testing.T) {
 	t.Run("hand-edited local files with unknown keys fail strictly", func(t *testing.T) {
 		root := newLocalTestRepository(t)
 		edited := strings.Join([]string{
-			"schema_version = 1",
+			"schema_version = 2",
 			"",
 			"[runtime]",
 			`log_level = "debug"`,
@@ -334,7 +350,7 @@ func TestScopeConfigLocal(t *testing.T) {
 	t.Run("a symlinked local destination is rejected", func(t *testing.T) {
 		root := newLocalTestRepository(t)
 		outside := filepath.Join(t.TempDir(), "outside.toml")
-		if err := os.WriteFile(outside, []byte("schema_version = 1\n"), 0o644); err != nil {
+		if err := os.WriteFile(outside, []byte("schema_version = 2\n"), 0o644); err != nil {
 			t.Fatalf("write outside target: %v", err)
 		}
 		if err := os.Symlink(outside, filepath.Join(root, "golc.local.toml")); err != nil {
