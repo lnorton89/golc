@@ -40,26 +40,38 @@ const repoRootEnvName = "GOLC_PROJECT_ROOT"
 // serve" arguments (internal/command/artnet.go's runArtnetServe shape).
 // This scaffold reads them from the environment rather than a first-launch
 // settings UI -- a later plan may add a real configuration flow; for now
-// an operator (or a launcher script) sets these before starting
-// golc-desktop.exe. An empty ShowPath/zero InterfaceIndex still lets the
-// app launch and register the safety-cluster hotkeys (PLAY-09 requires
-// them independent of daemon-spawn success); only the daemon-spawn
-// attempt itself would then fail with a clear diagnostic.
+// an operator (or a launcher script) may override GOLC_DESKTOP_SHOW before
+// starting golc-desktop.exe, but an unset one no longer means "empty
+// string": internal/show.resolvePath joins an empty path onto root and
+// returns root itself, so every service (SurfaceService, PlaybackService,
+// FixturePatchService, MidiService, ProgrammingService -- all constructed
+// with cfg.ShowPath below) would try to open the project root DIRECTORY as
+// a SQLite file and fail with a confusing "GOLC_SHOW_STATE_INVALID:
+// unable to open database file" instead of a working show. defaultShowFileName
+// gives every fresh launch a real, always-openable file (show.Load treats a
+// not-yet-existing file as a fresh empty show, per store.go's own doc
+// comment) so the app works without any manual configuration.
 const (
 	showPathEnvName       = "GOLC_DESKTOP_SHOW"
 	interfaceIndexEnvName = "GOLC_DESKTOP_INTERFACE"
 	interfaceNameEnvName  = "GOLC_DESKTOP_INTERFACE_NAME"
 	fixturesDirEnvName    = "GOLC_DESKTOP_FIXTURES"
+	defaultShowFileName   = "show.golc"
 )
 
 func main() {
+	projectRoot := resolveProjectRoot()
+	showPath := os.Getenv(showPathEnvName)
+	if showPath == "" {
+		showPath = filepath.Join(projectRoot, defaultShowFileName)
+	}
 	cfg := golcwails.Config{
 		PipeName:       ipc.PipeName,
-		ShowPath:       os.Getenv(showPathEnvName),
+		ShowPath:       showPath,
 		InterfaceIndex: envInt(interfaceIndexEnvName, 0),
 		InterfaceName:  os.Getenv(interfaceNameEnvName),
 		FixturesDir:    os.Getenv(fixturesDirEnvName),
-		ProjectRoot:    resolveProjectRoot(),
+		ProjectRoot:    projectRoot,
 	}
 
 	app := golcwails.NewApp(cfg)
