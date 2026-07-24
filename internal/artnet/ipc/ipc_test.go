@@ -1,33 +1,18 @@
 // ipc_test.go proves 04-04-PLAN.md Task 1's contract: a Request
-// round-trips to a Result unchanged over the named pipe (a); a
-// dial to a nonexistent pipe returns GOLC_ARTNET_DAEMON_UNREACHABLE rather
-// than a hang or a raw error (b); and the listener's security descriptor
-// is owner-restricted (c, a cheap source-level sanity check backing the
-// ACL claim reviewed at the NewListener call site).
+// round-trips to a Result unchanged over local IPC (a); a dial to a
+// nonexistent endpoint returns GOLC_ARTNET_DAEMON_UNREACHABLE rather than
+// a hang or a raw error (b); and oversized frames remain bounded (c).
 package ipc
 
 import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"fmt"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 )
-
-// testPipeName returns a per-test, per-process, per-nanosecond-unique pipe
-// path so this package's tests never collide with each other, with a real
-// running daemon, or with internal/artnet's daemon_test.go running
-// concurrently in a sibling package (go test parallelizes across
-// packages by default).
-func testPipeName(t *testing.T) string {
-	t.Helper()
-	sanitized := strings.NewReplacer("/", "-", " ", "-").Replace(t.Name())
-	return fmt.Sprintf(`\\.\pipe\golc-artnet-test-%s-%d-%d`, sanitized, os.Getpid(), time.Now().UnixNano())
-}
 
 // TestIPCRequestRoundTripsToResult proves (a): Forward's Request marshals
 // over the pipe, the stub handler's Result comes back decoded unchanged.
@@ -86,18 +71,6 @@ func TestIPCDialNonexistentPipeReturnsDaemonUnreachable(t *testing.T) {
 	}
 	if elapsed > dialTimeout {
 		t.Fatalf("expected Dial to fail well within dialTimeout (%s), took %s", dialTimeout, elapsed)
-	}
-}
-
-// TestOwnerOnlySDDLRestrictsToOwner is a cheap source-level sanity check
-// backing NewListener's ACL claim: the security descriptor passed to
-// go-winio must be a Protected DACL granting access to the Owner alone.
-func TestOwnerOnlySDDLRestrictsToOwner(t *testing.T) {
-	if !strings.Contains(ownerOnlySDDL, "D:P") {
-		t.Fatalf("expected a Protected DACL (D:P prefix), got %q", ownerOnlySDDL)
-	}
-	if !strings.Contains(ownerOnlySDDL, ";OW)") {
-		t.Fatalf("expected the sole ACE to grant access to the Owner (OW), got %q", ownerOnlySDDL)
 	}
 }
 
