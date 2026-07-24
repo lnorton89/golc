@@ -236,6 +236,10 @@ official_path_prefix = "/magefile/mage/releases/download/"
 [toolchain.mage.platforms."windows-amd64"]
 archive_url = "$MageArchiveURL"
 archive_sha256 = "$MageSha256"
+
+[toolchain.mage.platforms."linux-amd64"]
+archive_url = "$MageArchiveURL"
+archive_sha256 = "$MageSha256"
 "@
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllText((Join-Path $configDir "toolchain.toml"), $body, $utf8NoBom)
