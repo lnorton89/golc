@@ -39,10 +39,7 @@ func init() {
 }
 
 func runLinearSync(ctx context.Context, engine *bootstrapEngine) (resultErr error) {
-	nodePin, ok := engine.document.Toolchain["node"]
-	if !ok {
-		return fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.node]")
-	}
+	nodePin := engine.nodePin
 	nodeInstall := filepath.Join(engine.root, ".tools", "toolchains", "node", nodePin.Version, PlatformKey())
 	if err := engine.installPin(nodePin, nodeInstall); err != nil {
 		return fmt.Errorf("GOLC_NODE_TOOLCHAIN_INSTALL: %w", err)

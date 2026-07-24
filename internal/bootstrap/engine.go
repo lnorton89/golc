@@ -113,24 +113,28 @@ type bootstrapDependencies struct {
 type manifestPin struct {
 	Version            string `toml:"version"`
 	ArchiveURL         string `toml:"archive_url"`
-	ArchiveURI         string `toml:"archive_uri"`
 	ArchiveSHA256      string `toml:"archive_sha256"`
 	OfficialHost       string `toml:"official_host"`
 	OfficialPathPrefix string `toml:"official_path_prefix"`
 }
 
-func (pin manifestPin) sourceURL() string {
-	if pin.ArchiveURL != "" {
-		return pin.ArchiveURL
-	}
-	return pin.ArchiveURI
+type platformArchivePin struct {
+	ArchiveURL    string `toml:"archive_url"`
+	ArchiveSHA256 string `toml:"archive_sha256"`
+}
+
+type toolchainManifestPin struct {
+	Version            string                        `toml:"version"`
+	OfficialHost       string                        `toml:"official_host"`
+	OfficialPathPrefix string                        `toml:"official_path_prefix"`
+	Platforms          map[string]platformArchivePin `toml:"platforms"`
 }
 
 type bootstrapManifest struct {
-	SchemaVersion int                    `toml:"schema_version"`
-	Cache         map[string]string      `toml:"cache"`
-	Tools         map[string]manifestPin `toml:"tools"`
-	Toolchain     map[string]manifestPin `toml:"toolchain"`
+	SchemaVersion int                             `toml:"schema_version"`
+	Cache         map[string]string               `toml:"cache"`
+	Tools         map[string]manifestPin          `toml:"tools"`
+	Toolchain     map[string]toolchainManifestPin `toml:"toolchain"`
 }
 
 type bootstrapEngine struct {
@@ -142,6 +146,8 @@ type bootstrapEngine struct {
 	source   Source
 	runner   processRunner
 	env      map[string]string
+	goPin    manifestPin
+	nodePin  manifestPin
 }
 
 var validToolName = regexp.MustCompile(`^[a-z0-9_]+$`)
@@ -165,7 +171,8 @@ func runBootstrap(ctx context.Context, root string, options Options, dependencie
 	if err != nil {
 		return err
 	}
-	if err := validateManifestForPlatform(document, options); err != nil {
+	goPin, nodePin, err := validateManifestForPlatform(document, options)
+	if err != nil {
 		return err
 	}
 	layout, err := newProjectCacheLayout(resolvedRoot, document.Cache)
@@ -182,7 +189,7 @@ func runBootstrap(ctx context.Context, root string, options Options, dependencie
 	}
 	engine := &bootstrapEngine{
 		root: resolvedRoot, options: options, document: document, layout: layout,
-		policy: policy, source: source, runner: runner,
+		policy: policy, source: source, runner: runner, goPin: goPin, nodePin: nodePin,
 	}
 	engine.env = mergedEnvironment(layout.Environment().AsMap())
 	return engine.run(ctx)
@@ -198,8 +205,8 @@ func readBootstrapManifest(root string) (bootstrapManifest, OfficialSourcePolicy
 	if undecoded := metadata.Undecoded(); len(undecoded) > 0 {
 		return bootstrapManifest{}, OfficialSourcePolicy{}, fmt.Errorf("GOLC_TOOLCHAIN_PARSE: unsupported keys %v", undecoded)
 	}
-	if document.SchemaVersion != 1 {
-		return bootstrapManifest{}, OfficialSourcePolicy{}, fmt.Errorf("GOLC_TOOLCHAIN_PARSE: schema_version must be 1")
+	if document.SchemaVersion != 2 {
+		return bootstrapManifest{}, OfficialSourcePolicy{}, fmt.Errorf("GOLC_TOOLCHAIN_PARSE: schema_version must be 2")
 	}
 	var patterns []SourcePattern
 	collect := func(pins map[string]manifestPin) {
@@ -216,11 +223,21 @@ func readBootstrapManifest(root string) (bootstrapManifest, OfficialSourcePolicy
 		}
 	}
 	collect(document.Tools)
-	collect(document.Toolchain)
+	toolchainNames := make([]string, 0, len(document.Toolchain))
+	for name := range document.Toolchain {
+		toolchainNames = append(toolchainNames, name)
+	}
+	sort.Strings(toolchainNames)
+	for _, name := range toolchainNames {
+		pin := document.Toolchain[name]
+		if pin.OfficialHost != "" && pin.OfficialPathPrefix != "" {
+			patterns = append(patterns, SourcePattern{Host: pin.OfficialHost, PathPrefix: pin.OfficialPathPrefix})
+		}
+	}
 	return document, OfficialSourcePolicy{Patterns: patterns}, nil
 }
 
-func validateManifestForPlatform(document bootstrapManifest, options Options) error {
+func validateManifestForPlatform(document bootstrapManifest, options Options) (manifestPin, manifestPin, error) {
 	names := make([]string, 0, len(document.Tools))
 	for name := range document.Tools {
 		names = append(names, name)
@@ -228,68 +245,82 @@ func validateManifestForPlatform(document bootstrapManifest, options Options) er
 	sort.Strings(names)
 	for _, name := range names {
 		if !validToolName.MatchString(name) {
-			return fmt.Errorf("GOLC_TOOLCHAIN_PARSE: invalid tool name %q", name)
+			return manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_TOOLCHAIN_PARSE: invalid tool name %q", name)
 		}
 		if err := validatePin("tools."+name, document.Tools[name]); err != nil {
-			return err
+			return manifestPin{}, manifestPin{}, err
 		}
 	}
-	goPin, ok := document.Toolchain["go"]
+	goParent, ok := document.Toolchain["go"]
 	if !ok {
-		return fmt.Errorf("GOLC_GO_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.go]")
+		return manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_GO_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.go]")
 	}
-	if err := validatePin("toolchain.go", goPin); err != nil {
-		return err
+	goPin, err := selectPlatformPin("go", goParent)
+	if err != nil {
+		return manifestPin{}, manifestPin{}, err
 	}
-	if err := validatePlatformPin("go", goPin); err != nil {
-		return err
-	}
+	var nodePin manifestPin
 	if options.IncludeLinearSync {
-		nodePin, ok := document.Toolchain["node"]
+		nodeParent, ok := document.Toolchain["node"]
 		if !ok {
-			return fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.node]")
+			return manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.node]")
 		}
-		if err := validatePin("toolchain.node", nodePin); err != nil {
-			return err
-		}
-		if err := validatePlatformPin("node", nodePin); err != nil {
-			return err
+		nodePin, err = selectPlatformPin("node", nodeParent)
+		if err != nil {
+			return manifestPin{}, manifestPin{}, err
 		}
 	}
-	return nil
+	return goPin, nodePin, nil
 }
 
 func validatePin(name string, pin manifestPin) error {
-	if strings.TrimSpace(pin.sourceURL()) == "" || strings.TrimSpace(pin.ArchiveSHA256) == "" {
+	if strings.TrimSpace(pin.ArchiveURL) == "" || strings.TrimSpace(pin.ArchiveSHA256) == "" {
 		return fmt.Errorf("GOLC_TOOLCHAIN_PARSE: [%s] is missing archive URL or archive_sha256", name)
 	}
 	normalized, err := normalizeExpectedSHA256(pin.ArchiveSHA256)
 	if err != nil || normalized != pin.ArchiveSHA256 {
 		return fmt.Errorf("GOLC_TOOLCHAIN_PARSE: [%s] has invalid lowercase archive_sha256", name)
 	}
-	if _, err := archiveSuffix(pin.sourceURL()); err != nil {
+	if _, err := archiveSuffix(pin.ArchiveURL); err != nil {
 		return err
 	}
 	return nil
 }
 
-func validatePlatformPin(tool string, pin manifestPin) error {
-	if strings.TrimSpace(pin.Version) == "" {
-		return fmt.Errorf("GOLC_TOOLCHAIN_PARSE: [toolchain.%s] is missing version", tool)
+func selectPlatformPin(tool string, parent toolchainManifestPin) (manifestPin, error) {
+	if strings.TrimSpace(parent.Version) == "" {
+		return manifestPin{}, fmt.Errorf("GOLC_TOOLCHAIN_PARSE: [toolchain.%s] is missing version", tool)
+	}
+	key := PlatformKey()
+	archive, ok := parent.Platforms[key]
+	if !ok {
+		return manifestPin{}, fmt.Errorf(
+			"GOLC_%s_TOOLCHAIN_PLATFORM_MISSING: config/toolchain.toml must pin [toolchain.%s.platforms.%q]",
+			strings.ToUpper(tool), tool, key)
+	}
+	pin := manifestPin{
+		Version:            parent.Version,
+		ArchiveURL:         archive.ArchiveURL,
+		ArchiveSHA256:      archive.ArchiveSHA256,
+		OfficialHost:       parent.OfficialHost,
+		OfficialPathPrefix: parent.OfficialPathPrefix,
+	}
+	if err := validatePin(fmt.Sprintf("toolchain.%s.platforms.%q", tool, key), pin); err != nil {
+		return manifestPin{}, err
 	}
 	layout, err := platformArchiveLayout(tool, pin.Version, runtime.GOOS, runtime.GOARCH)
 	if err != nil {
-		return err
+		return manifestPin{}, err
 	}
-	parsed, err := url.Parse(pin.sourceURL())
+	parsed, err := url.Parse(pin.ArchiveURL)
 	if err != nil {
-		return fmt.Errorf("GOLC_TOOLCHAIN_PARSE: invalid %s archive URL: %w", tool, err)
+		return manifestPin{}, fmt.Errorf("GOLC_TOOLCHAIN_PARSE: invalid %s archive URL: %w", tool, err)
 	}
 	actual, err := url.PathUnescape(filepath.Base(parsed.Path))
 	if err != nil || actual != layout.FileName {
-		return fmt.Errorf("GOLC_BOOTSTRAP_PLATFORM_MISMATCH: %s pin names %q, running platform %s requires %q", tool, actual, PlatformKey(), layout.FileName)
+		return manifestPin{}, fmt.Errorf("GOLC_BOOTSTRAP_PLATFORM_MISMATCH: %s pin names %q, running platform %s requires %q", tool, actual, key, layout.FileName)
 	}
-	return nil
+	return pin, nil
 }
 
 func (engine *bootstrapEngine) run(ctx context.Context) error {
@@ -308,7 +339,7 @@ func (engine *bootstrapEngine) run(ctx context.Context) error {
 			return fmt.Errorf("GOLC_BOOTSTRAP_TOOL_INSTALL: %s: %w", name, err)
 		}
 	}
-	goPin := engine.document.Toolchain["go"]
+	goPin := engine.goPin
 	goInstall := filepath.Join(engine.root, ".tools", "toolchains", "go", goPin.Version, PlatformKey())
 	if err := engine.installPin(goPin, goInstall); err != nil {
 		return fmt.Errorf("GOLC_GO_TOOLCHAIN_INSTALL: %w", err)
@@ -335,7 +366,7 @@ func (engine *bootstrapEngine) installPin(pin manifestPin, installDir string) er
 	if matches {
 		return nil
 	}
-	archivePath, err := Acquire(engine.policy, engine.source, pin.sourceURL(), pin.ArchiveSHA256, engine.layout.Downloads)
+	archivePath, err := Acquire(engine.policy, engine.source, pin.ArchiveURL, pin.ArchiveSHA256, engine.layout.Downloads)
 	if err != nil {
 		return err
 	}
