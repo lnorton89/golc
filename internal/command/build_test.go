@@ -192,3 +192,49 @@ version = "24.18.0"
 		}
 	})
 }
+
+// TestBuildRouteCompilesTheProductionRepository runs the real bare "build"
+// route against the actual checkout root with the pinned Go toolchain. It
+// exists because every prior build.go test exercised only argument
+// parsing/lookup (TestScopeBuildArgs above) — none of them ever invoked
+// runBuild end to end, so magefiles/magefile.go's lack of func main() (mage
+// supplies its own generated main; the package is never independently
+// buildable) silently broke "go build ./..." for the whole module without
+// any test catching it. buildablePackages excludes the magefiles import
+// path from the bare build sweep for exactly that reason.
+func TestBuildRouteCompilesTheProductionRepository(t *testing.T) {
+	root := commandParityRepositoryRoot(t)
+	if _, err := resolvePinnedGoExecutable(root); err != nil {
+		t.Fatalf("pinned Go toolchain not bootstrapped: %v", err)
+	}
+
+	result := runBuild(Request{Route: "build", Root: root})
+	if result.ExitCode != 0 {
+		t.Fatalf("bare build route exited %d\nstdout: %s\nstderr: %s",
+			result.ExitCode, result.Stdout, result.Stderr)
+	}
+}
+
+// TestBuildablePackagesExcludesMagefiles proves the exclusion directly
+// against the production package graph, independent of how long the full
+// compile above takes.
+func TestBuildablePackagesExcludesMagefiles(t *testing.T) {
+	root := commandParityRepositoryRoot(t)
+	goExecutable, err := resolvePinnedGoExecutable(root)
+	if err != nil {
+		t.Fatalf("pinned Go toolchain not bootstrapped: %v", err)
+	}
+
+	packages, err := buildablePackages(goExecutable, root)
+	if err != nil {
+		t.Fatalf("buildablePackages: %v", err)
+	}
+	if len(packages) == 0 {
+		t.Fatal("expected at least one buildable package")
+	}
+	for _, pkg := range packages {
+		if strings.HasSuffix(pkg, magefilesImportSuffix) {
+			t.Fatalf("expected the magefiles package to be excluded, found %q", pkg)
+		}
+	}
+}
