@@ -79,6 +79,58 @@ func writeFixturePRCommandsToml(t *testing.T, root, steps, network, mutation str
 }
 
 func TestScopeDelivery(t *testing.T) {
+	t.Run("MageTargets is the defensive deterministic target authority", func(t *testing.T) {
+		want := []delivery.MageTarget{
+			{Name: "bootstrap", Kind: delivery.MageTargetKindBootstrap, Authority: "internal/bootstrap.Bootstrap"},
+			{Name: "build", Kind: delivery.MageTargetKindRoute, Route: "build", Authority: "internal/command registry"},
+			{Name: "check", Kind: delivery.MageTargetKindRoute, Route: "check", Args: []string{"--concern", "project"}, Authority: "internal/command registry"},
+			{Name: "checkoffline", Kind: delivery.MageTargetKindRoute, Route: "check", Args: []string{"--offline"}, Authority: "internal/command registry"},
+			{Name: "generate", Kind: delivery.MageTargetKindRoute, Route: "generate", Authority: "internal/command registry"},
+			{Name: "generatecheck", Kind: delivery.MageTargetKindRoute, Route: "generate", Args: []string{"--check"}, Authority: "internal/command registry"},
+			{Name: "package", Kind: delivery.MageTargetKindRoute, Route: "package", Args: []string{"--foundation"}, Authority: "internal/command registry"},
+			{Name: "packagefoundation", Kind: delivery.MageTargetKindRoute, Route: "package", Args: []string{"--foundation"}, Authority: "internal/command registry"},
+			{Name: "pr", Kind: delivery.MageTargetKindPR, Authority: "config/commands.toml: commands.pr.steps, commands.pr.network_steps, commands.pr.mutation_steps"},
+			{Name: "test", Kind: delivery.MageTargetKindRoute, Route: "test", Authority: "internal/command registry"},
+		}
+
+		got := delivery.MageTargets()
+		if len(got) != len(want) {
+			t.Fatalf("MageTargets() = %+v, want %d targets", got, len(want))
+		}
+		for i := range want {
+			if got[i].Name != want[i].Name ||
+				got[i].Kind != want[i].Kind ||
+				got[i].Route != want[i].Route ||
+				got[i].Authority != want[i].Authority ||
+				strings.Join(got[i].Args, "\x00") != strings.Join(want[i].Args, "\x00") {
+				t.Fatalf("MageTargets()[%d] = %+v, want %+v", i, got[i], want[i])
+			}
+		}
+
+		got[0].Name = "mutated"
+		got[2].Args[0] = "--mutated"
+		fresh := delivery.MageTargets()
+		if fresh[0].Name != "bootstrap" || strings.Join(fresh[2].Args, " ") != "--concern project" {
+			t.Fatalf("MageTargets returned shared mutable state: %+v", fresh)
+		}
+
+		check, ok := delivery.LookupMageTarget("check")
+		if !ok {
+			t.Fatal("LookupMageTarget(check) not found")
+		}
+		check.Args[0] = "--mutated"
+		again, ok := delivery.LookupMageTarget("check")
+		if !ok || strings.Join(again.Args, " ") != "--concern project" {
+			t.Fatalf("LookupMageTarget returned shared mutable state: %+v, %v", again, ok)
+		}
+		if _, ok := delivery.LookupMageTarget("Check"); ok {
+			t.Fatal("lookup must use the exact Mage CLI target name")
+		}
+		if _, ok := delivery.LookupMageTarget("unknown"); ok {
+			t.Fatal("unknown target unexpectedly resolved")
+		}
+	})
+
 	t.Run("LoadPRGraph follows strict configured order and policy", func(t *testing.T) {
 		root := t.TempDir()
 		writeFixturePRCommandsToml(t, root,

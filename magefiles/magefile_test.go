@@ -84,16 +84,15 @@ func TestTargetMappingsAndProjectRoot(t *testing.T) {
 	targets := []struct {
 		name string
 		call func() error
-		want string
 	}{
-		{"Generate", Generate, "generate"},
-		{"GenerateCheck", GenerateCheck, "generate --check"},
-		{"Check", Check, "check --concern project"},
-		{"CheckOffline", CheckOffline, "check --offline"},
-		{"Build", Build, "build"},
-		{"Test", Test, "test"},
-		{"Package", Package, "package --foundation"},
-		{"PackageFoundation", PackageFoundation, "package --foundation"},
+		{"generate", Generate},
+		{"generatecheck", GenerateCheck},
+		{"check", Check},
+		{"checkoffline", CheckOffline},
+		{"build", Build},
+		{"test", Test},
+		{"package", Package},
+		{"packagefoundation", PackageFoundation},
 	}
 	for _, target := range targets {
 		t.Run(target.name, func(t *testing.T) {
@@ -105,8 +104,13 @@ func TestTargetMappingsAndProjectRoot(t *testing.T) {
 				t.Fatalf("requests = %+v", fake.requests)
 			}
 			request := fake.requests[0]
-			if got := strings.Join(request.Args, " "); got != target.want {
-				t.Fatalf("invocation = %q, want %q", got, target.want)
+			descriptor, ok := delivery.LookupMageTarget(target.name)
+			if !ok {
+				t.Fatalf("shared descriptor %q not found", target.name)
+			}
+			wantArgs := append([]string{descriptor.Route}, descriptor.Args...)
+			if got, want := strings.Join(request.Args, " "), strings.Join(wantArgs, " "); got != want {
+				t.Fatalf("invocation = %q, want shared descriptor %q", got, want)
 			}
 			if request.Root != absoluteRoot {
 				t.Fatalf("request root = %q, want %q", request.Root, absoluteRoot)
@@ -236,5 +240,33 @@ func TestMagefileExportsAndImports(t *testing.T) {
 	sort.Strings(want)
 	if strings.Join(exports, ",") != strings.Join(want, ",") {
 		t.Fatalf("exported functions = %v, want %v", exports, want)
+	}
+
+	for _, declaration := range parsed.Decls {
+		function, ok := declaration.(*ast.FuncDecl)
+		if !ok || function.Recv != nil || !ast.IsExported(function.Name.Name) {
+			continue
+		}
+		calls := 0
+		var literals []string
+		ast.Inspect(function.Body, func(node ast.Node) bool {
+			switch value := node.(type) {
+			case *ast.CallExpr:
+				if identifier, ok := value.Fun.(*ast.Ident); ok && identifier.Name == "runTarget" {
+					calls++
+				}
+			case *ast.BasicLit:
+				if value.Kind == token.STRING {
+					literals = append(literals, strings.Trim(value.Value, `"`))
+				}
+			}
+			return true
+		})
+		wantName := strings.ToLower(function.Name.Name)
+		if calls != 1 || len(literals) != 1 || literals[0] != wantName {
+			t.Fatalf(
+				"%s must delegate once to runTarget(%q) with no embedded route/argument table; calls=%d literals=%v",
+				function.Name.Name, wantName, calls, literals)
+		}
 	}
 }
