@@ -97,11 +97,13 @@ func addLinearSyncFixture(t *testing.T, root string, source *engineFakeSource) (
 	raw = append(raw, []byte(fmt.Sprintf(`
 [toolchain.node]
 version = "24.18.0"
-archive_url = %q
-archive_sha256 = %q
 official_host = "nodejs.org"
 official_path_prefix = "/dist/"
-`, nodeURL, digest))...)
+
+[toolchain.node.platforms.%q]
+archive_url = %q
+archive_sha256 = %q
+`, PlatformKey(), nodeURL, digest))...)
 	if err := os.WriteFile(filepath.Join(root, "config", "toolchain.toml"), raw, 0o644); err != nil {
 		t.Fatalf("write node pin: %v", err)
 	}
@@ -155,6 +157,32 @@ func TestScopeBootstrapLinearSync(t *testing.T) {
 		}
 		if body, _ := os.ReadFile(canary); string(body) != "not json and intentionally ignored" {
 			t.Fatalf("include-off changed package input: %q", body)
+		}
+	})
+
+	t.Run("missing requested Node platform fails before source or install work", func(t *testing.T) {
+		root, source, _ := writeEngineRepository(t)
+		addLinearSyncFixture(t, root, source)
+		manifestPath := filepath.Join(root, "config", "toolchain.toml")
+		raw, _ := os.ReadFile(manifestPath)
+		current := fmt.Sprintf("[toolchain.node.platforms.%q]", PlatformKey())
+		raw = bytes.Replace(raw, []byte(current), []byte(`[toolchain.node.platforms."unconfigured-platform"]`), 1)
+		if err := os.WriteFile(manifestPath, raw, 0o644); err != nil {
+			t.Fatalf("rewrite manifest: %v", err)
+		}
+		err := runBootstrap(context.Background(), root, Options{IncludeLinearSync: true}, bootstrapDependencies{
+			Source: source,
+			Runner: newLinearRunner(root),
+		})
+		required := fmt.Sprintf(`[toolchain.node.platforms.%q]`, PlatformKey())
+		if err == nil || !strings.Contains(err.Error(), required) {
+			t.Fatalf("expected missing platform diagnostic naming %s, got %v", required, err)
+		}
+		if len(source.calls) != 0 {
+			t.Fatalf("missing Node platform consulted source: %v", source.calls)
+		}
+		if _, err := os.Stat(filepath.Join(root, ".tools")); !os.IsNotExist(err) {
+			t.Fatalf("missing Node platform created .tools: %v", err)
 		}
 	})
 

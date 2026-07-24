@@ -120,7 +120,7 @@ func writeEngineRepository(t *testing.T) (root string, source *engineFakeSource,
 	})
 	goURL = "https://go.dev/dl/" + filepath.Base(goArchive)
 	fixtureURL := "https://fixtures.example.invalid/tool/" + filepath.Base(fixtureArchive)
-	manifest := fmt.Sprintf(`schema_version = 1
+	manifest := fmt.Sprintf(`schema_version = 2
 
 [cache]
 downloads = ".tools/cache/downloads"
@@ -128,18 +128,20 @@ gomodcache = ".tools/cache/go-mod"
 gocache = ".tools/cache/go-build"
 
 [tools.fixture]
-archive_uri = %q
+archive_url = %q
 archive_sha256 = %q
 official_host = "fixtures.example.invalid"
 official_path_prefix = "/tool/"
 
 [toolchain.go]
 version = "1.26.5"
-archive_url = %q
-archive_sha256 = %q
 official_host = "go.dev"
 official_path_prefix = "/dl/"
-`, fixtureURL, fixtureDigest, goURL, goDigest)
+
+[toolchain.go.platforms.%q]
+archive_url = %q
+archive_sha256 = %q
+`, fixtureURL, fixtureDigest, PlatformKey(), goURL, goDigest)
 	if err := os.WriteFile(filepath.Join(root, "config", "toolchain.toml"), []byte(manifest), 0o644); err != nil {
 		t.Fatalf("write manifest: %v", err)
 	}
@@ -181,6 +183,26 @@ func TestScopeBootstrapEngine(t *testing.T) {
 			}
 			if layout.FileName != testCase.file || layout.Root != testCase.root || layout.Executable != testCase.executable {
 				t.Fatalf("%s/%s: got %+v", testCase.goos, testCase.tool, layout)
+			}
+		}
+	})
+
+	t.Run("production manifest configures only windows-amd64 archives", func(t *testing.T) {
+		root := filepath.Join("..", "..")
+		document, _, err := readBootstrapManifest(root)
+		if err != nil {
+			t.Fatalf("read production manifest: %v", err)
+		}
+		for _, tool := range []string{"go", "node"} {
+			parent, ok := document.Toolchain[tool]
+			if !ok {
+				t.Fatalf("production manifest missing toolchain.%s", tool)
+			}
+			if len(parent.Platforms) != 1 {
+				t.Fatalf("toolchain.%s platforms = %v, want only windows-amd64", tool, parent.Platforms)
+			}
+			if _, ok := parent.Platforms["windows-amd64"]; !ok {
+				t.Fatalf("toolchain.%s does not explicitly configure windows-amd64", tool)
 			}
 		}
 	})
@@ -287,6 +309,48 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		}
 		if _, err := os.Stat(filepath.Join(root, ".tools")); !os.IsNotExist(err) {
 			t.Fatalf("platform mismatch created .tools: %v", err)
+		}
+	})
+
+	t.Run("missing current Go platform fails before source or install work", func(t *testing.T) {
+		root, source, _ := writeEngineRepository(t)
+		manifestPath := filepath.Join(root, "config", "toolchain.toml")
+		raw, _ := os.ReadFile(manifestPath)
+		current := fmt.Sprintf("[toolchain.go.platforms.%q]", PlatformKey())
+		raw = bytes.Replace(raw, []byte(current), []byte(`[toolchain.go.platforms."unconfigured-platform"]`), 1)
+		if err := os.WriteFile(manifestPath, raw, 0o644); err != nil {
+			t.Fatalf("rewrite manifest: %v", err)
+		}
+		err := runBootstrap(context.Background(), root, Options{}, bootstrapDependencies{Source: source, Runner: &engineFakeRunner{}})
+		required := fmt.Sprintf(`[toolchain.go.platforms.%q]`, PlatformKey())
+		if err == nil || !strings.Contains(err.Error(), required) {
+			t.Fatalf("expected missing platform diagnostic naming %s, got %v", required, err)
+		}
+		if len(source.calls) != 0 {
+			t.Fatalf("missing platform consulted source: %v", source.calls)
+		}
+		if _, err := os.Stat(filepath.Join(root, ".tools")); !os.IsNotExist(err) {
+			t.Fatalf("missing platform created .tools: %v", err)
+		}
+	})
+
+	t.Run("obsolete generic archive locator is rejected before effects", func(t *testing.T) {
+		root, source, _ := writeEngineRepository(t)
+		manifestPath := filepath.Join(root, "config", "toolchain.toml")
+		raw, _ := os.ReadFile(manifestPath)
+		raw = bytes.Replace(raw, []byte("archive_url"), []byte("archive_uri"), 1)
+		if err := os.WriteFile(manifestPath, raw, 0o644); err != nil {
+			t.Fatalf("rewrite manifest: %v", err)
+		}
+		err := runBootstrap(context.Background(), root, Options{}, bootstrapDependencies{Source: source, Runner: &engineFakeRunner{}})
+		if err == nil || !strings.Contains(err.Error(), "archive_uri") {
+			t.Fatalf("expected unsupported archive_uri diagnostic, got %v", err)
+		}
+		if len(source.calls) != 0 {
+			t.Fatalf("obsolete locator consulted source: %v", source.calls)
+		}
+		if _, err := os.Stat(filepath.Join(root, ".tools")); !os.IsNotExist(err) {
+			t.Fatalf("obsolete locator created .tools: %v", err)
 		}
 	})
 }
