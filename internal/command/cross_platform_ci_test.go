@@ -43,6 +43,7 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 			"    continue-on-error: true",
 			"      fail-fast: false",
 			`      GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC: "1"`,
+			"        if: runner.os == 'Linux'",
 			"        if: runner.os != 'Windows'",
 			"        if: runner.os == 'Windows'",
 		} {
@@ -71,6 +72,7 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 			t.Fatalf("matrix runners = %v, want %v", runners, wantRunners)
 		}
 		wantExecutable := []string{
+			"sudo apt-get update && sudo apt-get install -y libx11-dev",
 			"bash scripts/ci/install-pinned-mage.sh",
 			"pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/ci/install-pinned-mage.ps1",
 			"mage Bootstrap",
