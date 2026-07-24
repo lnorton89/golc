@@ -367,24 +367,26 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read production manifest: %v", err)
 		}
+		wantPlatforms := []string{"windows-amd64", "linux-amd64", "linux-arm64", "darwin-amd64", "darwin-arm64"}
 		for _, tool := range []string{"go", "node"} {
 			parent, ok := document.Toolchain[tool]
 			if !ok {
 				t.Fatalf("production manifest missing toolchain.%s", tool)
 			}
-			if len(parent.Platforms) != 1 {
-				t.Fatalf("toolchain.%s platforms = %v, want only windows-amd64", tool, parent.Platforms)
+			if len(parent.Platforms) != len(wantPlatforms) {
+				t.Fatalf("toolchain.%s platforms = %v, want %v", tool, parent.Platforms, wantPlatforms)
 			}
-			if _, ok := parent.Platforms["windows-amd64"]; !ok {
-				t.Fatalf("toolchain.%s does not explicitly configure windows-amd64", tool)
+			for _, platform := range wantPlatforms {
+				if _, ok := parent.Platforms[platform]; !ok {
+					t.Errorf("toolchain.%s missing %s", tool, platform)
+				}
 			}
 		}
 		mage := document.Toolchain["mage"]
-		wantMagePlatforms := []string{"windows-amd64", "linux-amd64", "linux-arm64", "darwin-amd64", "darwin-arm64"}
-		if len(mage.Platforms) != len(wantMagePlatforms) {
-			t.Fatalf("toolchain.mage platforms = %v, want %v", mage.Platforms, wantMagePlatforms)
+		if len(mage.Platforms) != len(wantPlatforms) {
+			t.Fatalf("toolchain.mage platforms = %v, want %v", mage.Platforms, wantPlatforms)
 		}
-		for _, platform := range wantMagePlatforms {
+		for _, platform := range wantPlatforms {
 			if _, ok := mage.Platforms[platform]; !ok {
 				t.Errorf("toolchain.mage missing %s", platform)
 			}

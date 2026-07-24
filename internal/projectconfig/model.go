@@ -88,13 +88,18 @@ func (d Diagnostic) String() string {
 var (
 	dottedVersionPattern = regexp.MustCompile(`^[0-9]+(\.[0-9]+)*$`)
 	sha256Pattern        = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	goArchiveURLPattern  = regexp.MustCompile(`^https://go\.dev/dl/[A-Za-z0-9.\-]+\.(zip|tar\.gz)$`)
+	goArchiveURLPattern  = func(platform, suffix string) *regexp.Regexp {
+		return regexp.MustCompile(`^https://go\.dev/dl/go[0-9]+(\.[0-9]+)*\.` + regexp.QuoteMeta(platform) + regexp.QuoteMeta(suffix) + `$`)
+	}
 	// nodeArchiveURLPattern is the official Node.js distribution archive
 	// shape (CONTEXT D-01; Plan 01-13): only the official nodejs.org/dist/
 	// origin is ever an acceptable Node download source, mirroring the same
 	// per-tool official-source-allowlist discipline goArchiveURLPattern
 	// already establishes for Go.
-	nodeArchiveURLPattern      = regexp.MustCompile(`^https://nodejs\.org/dist/v[0-9]+(\.[0-9]+)*/[A-Za-z0-9.\-]+\.(zip|tar\.gz)$`)
+	nodeArchiveURLPattern = func(asset, suffix string) *regexp.Regexp {
+		version := `[0-9]+(\.[0-9]+)*`
+		return regexp.MustCompile(`^https://nodejs\.org/dist/v` + version + `/node-v` + version + `-` + regexp.QuoteMeta(asset) + regexp.QuoteMeta(suffix) + `$`)
+	}
 	mageWindowsAMD64URLPattern = regexp.MustCompile(
 		`^https://github\.com/magefile/mage/releases/download/v1\.17\.2/mage_1\.17\.2_Windows-64bit\.zip$`)
 	mageLinuxAMD64URLPattern = regexp.MustCompile(
@@ -137,11 +142,19 @@ func DefaultSpec() Spec {
 				ID:   "toolchain",
 				Path: "config/toolchain.toml",
 				Keys: map[string]KeySpec{
-					"toolchain.go.version":                                  {Pattern: dottedVersionPattern},
-					"toolchain.go.platforms.windows-amd64.archive_url":      {Pattern: goArchiveURLPattern},
-					"toolchain.go.platforms.windows-amd64.archive_sha256":   {Pattern: sha256Pattern},
-					"toolchain.go.official_host":                            {Pattern: officialHostPattern},
-					"toolchain.go.official_path_prefix":                     {Pattern: officialPathPrefixPattern},
+					"toolchain.go.version":                                  {Pattern: dottedVersionPattern, Required: true},
+					"toolchain.go.platforms.windows-amd64.archive_url":      {Pattern: goArchiveURLPattern("windows-amd64", ".zip"), Required: true},
+					"toolchain.go.platforms.windows-amd64.archive_sha256":   {Pattern: sha256Pattern, Required: true},
+					"toolchain.go.platforms.linux-amd64.archive_url":        {Pattern: goArchiveURLPattern("linux-amd64", ".tar.gz"), Required: true},
+					"toolchain.go.platforms.linux-amd64.archive_sha256":     {Pattern: sha256Pattern, Required: true},
+					"toolchain.go.platforms.linux-arm64.archive_url":        {Pattern: goArchiveURLPattern("linux-arm64", ".tar.gz"), Required: true},
+					"toolchain.go.platforms.linux-arm64.archive_sha256":     {Pattern: sha256Pattern, Required: true},
+					"toolchain.go.platforms.darwin-amd64.archive_url":       {Pattern: goArchiveURLPattern("darwin-amd64", ".tar.gz"), Required: true},
+					"toolchain.go.platforms.darwin-amd64.archive_sha256":    {Pattern: sha256Pattern, Required: true},
+					"toolchain.go.platforms.darwin-arm64.archive_url":       {Pattern: goArchiveURLPattern("darwin-arm64", ".tar.gz"), Required: true},
+					"toolchain.go.platforms.darwin-arm64.archive_sha256":    {Pattern: sha256Pattern, Required: true},
+					"toolchain.go.official_host":                            {AllowedValues: []string{"go.dev"}, Required: true},
+					"toolchain.go.official_path_prefix":                     {AllowedValues: []string{"/dl/"}, Required: true},
 					"toolchain.mage.version":                                {AllowedValues: []string{"1.17.2"}, Required: true},
 					"toolchain.mage.platforms.windows-amd64.archive_url":    {Pattern: mageWindowsAMD64URLPattern, Required: true},
 					"toolchain.mage.platforms.windows-amd64.archive_sha256": {Pattern: sha256Pattern, Required: true},
@@ -155,11 +168,19 @@ func DefaultSpec() Spec {
 					"toolchain.mage.platforms.darwin-arm64.archive_sha256":  {Pattern: sha256Pattern, Required: true},
 					"toolchain.mage.official_host":                          {AllowedValues: []string{"github.com"}, Required: true},
 					"toolchain.mage.official_path_prefix":                   {AllowedValues: []string{"/magefile/mage/releases/download/"}, Required: true},
-					"toolchain.node.version":                                {Pattern: dottedVersionPattern},
-					"toolchain.node.platforms.windows-amd64.archive_url":    {Pattern: nodeArchiveURLPattern},
-					"toolchain.node.platforms.windows-amd64.archive_sha256": {Pattern: sha256Pattern},
-					"toolchain.node.official_host":                          {Pattern: officialHostPattern},
-					"toolchain.node.official_path_prefix":                   {Pattern: officialPathPrefixPattern},
+					"toolchain.node.version":                                {Pattern: dottedVersionPattern, Required: true},
+					"toolchain.node.platforms.windows-amd64.archive_url":    {Pattern: nodeArchiveURLPattern("win-x64", ".zip"), Required: true},
+					"toolchain.node.platforms.windows-amd64.archive_sha256": {Pattern: sha256Pattern, Required: true},
+					"toolchain.node.platforms.linux-amd64.archive_url":      {Pattern: nodeArchiveURLPattern("linux-x64", ".tar.gz"), Required: true},
+					"toolchain.node.platforms.linux-amd64.archive_sha256":   {Pattern: sha256Pattern, Required: true},
+					"toolchain.node.platforms.linux-arm64.archive_url":      {Pattern: nodeArchiveURLPattern("linux-arm64", ".tar.gz"), Required: true},
+					"toolchain.node.platforms.linux-arm64.archive_sha256":   {Pattern: sha256Pattern, Required: true},
+					"toolchain.node.platforms.darwin-amd64.archive_url":     {Pattern: nodeArchiveURLPattern("darwin-x64", ".tar.gz"), Required: true},
+					"toolchain.node.platforms.darwin-amd64.archive_sha256":  {Pattern: sha256Pattern, Required: true},
+					"toolchain.node.platforms.darwin-arm64.archive_url":     {Pattern: nodeArchiveURLPattern("darwin-arm64", ".tar.gz"), Required: true},
+					"toolchain.node.platforms.darwin-arm64.archive_sha256":  {Pattern: sha256Pattern, Required: true},
+					"toolchain.node.official_host":                          {AllowedValues: []string{"nodejs.org"}, Required: true},
+					"toolchain.node.official_path_prefix":                   {AllowedValues: []string{"/dist/"}, Required: true},
 					"cache.downloads":                                       {Pattern: toolsPathPattern},
 					"cache.gomodcache":                                      {Pattern: toolsPathPattern},
 					"cache.gocache":                                         {Pattern: toolsPathPattern},

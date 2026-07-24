@@ -432,10 +432,14 @@ func validatePin(name string, pin manifestPin) error {
 }
 
 func selectPlatformPin(tool string, parent toolchainManifestPin) (manifestPin, error) {
+	return selectPlatformPinFor(tool, parent, runtime.GOOS, runtime.GOARCH)
+}
+
+func selectPlatformPinFor(tool string, parent toolchainManifestPin, goos, goarch string) (manifestPin, error) {
 	if strings.TrimSpace(parent.Version) == "" {
 		return manifestPin{}, fmt.Errorf("GOLC_TOOLCHAIN_PARSE: [toolchain.%s] is missing version", tool)
 	}
-	key := PlatformKey()
+	key := goos + "-" + goarch
 	archive, ok := parent.Platforms[key]
 	if !ok {
 		return manifestPin{}, fmt.Errorf(
@@ -452,7 +456,7 @@ func selectPlatformPin(tool string, parent toolchainManifestPin) (manifestPin, e
 	if err := validatePin(fmt.Sprintf("toolchain.%s.platforms.%q", tool, key), pin); err != nil {
 		return manifestPin{}, err
 	}
-	layout, err := platformArchiveLayout(tool, pin.Version, runtime.GOOS, runtime.GOARCH)
+	layout, err := platformArchiveLayout(tool, pin.Version, goos, goarch)
 	if err != nil {
 		return manifestPin{}, err
 	}
