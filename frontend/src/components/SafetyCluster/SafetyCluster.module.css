@@ -66,7 +66,12 @@
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: var(--page);
+  /* Fixed light text, not --page: this badge's own background is a fixed
+     semi-transparent black overlay that never flips with theme (same
+     reasoning as SafetyCluster.tsx's Blackout button label -- --page goes
+     dark in dark mode, which would pair near-black text with this
+     near-black chip and make every ACTIVE badge unreadable). */
+  color: var(--status-blackout-text);
   background: rgba(0, 0, 0, 0.35);
   padding: 1px 4px;
   border-radius: 2px;
