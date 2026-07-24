@@ -95,64 +95,73 @@ func establishProjectRoot(runtime targetRuntime) (string, error) {
 	return root, nil
 }
 
-func runRoute(arguments ...string) error {
+func runTarget(name string, ctx context.Context) error {
+	target, ok := delivery.LookupMageTarget(name)
+	if !ok {
+		return fmt.Errorf("GOLC_MAGE_TARGET_UNKNOWN: %s", name)
+	}
 	runtime := activeTargetRuntime
 	root, err := establishProjectRoot(runtime)
 	if err != nil {
 		return err
 	}
+
+	switch target.Kind {
+	case delivery.MageTargetKindBootstrap:
+		return runtime.bootstrap(ctx, root, bootstrap.Options{})
+	case delivery.MageTargetKindPR:
+		return runPRTarget(ctx, runtime, root)
+	case delivery.MageTargetKindRoute:
+		return runRouteTarget(runtime, root, target)
+	default:
+		return fmt.Errorf("GOLC_MAGE_TARGET_KIND: %s has unsupported kind %q", target.Name, target.Kind)
+	}
+}
+
+func runRouteTarget(runtime targetRuntime, root string, target delivery.MageTarget) error {
 	registry, err := runtime.newRegistry()
 	if err != nil {
 		return err
 	}
+	arguments := append([]string{target.Route}, target.Args...)
 	result := registry.Execute(command.Request{Root: root, Args: append([]string(nil), arguments...)})
 	if exitCode := command.WriteResult(runtime.stdout, runtime.stderr, result); exitCode != 0 {
-		return fmt.Errorf("GOLC_MAGE_TARGET_FAILED: %s exited %d", arguments[0], exitCode)
+		return fmt.Errorf("GOLC_MAGE_TARGET_FAILED: %s exited %d", target.Name, exitCode)
 	}
 	return nil
 }
 
 // Bootstrap provisions every pinned project-local tool through the Go API.
-func Bootstrap(ctx context.Context) error {
-	runtime := activeTargetRuntime
-	root, err := establishProjectRoot(runtime)
-	if err != nil {
-		return err
-	}
-	return runtime.bootstrap(ctx, root, bootstrap.Options{})
-}
+func Bootstrap(ctx context.Context) error { return runTarget("bootstrap", ctx) }
 
 // Generate writes every registered schema.
-func Generate() error { return runRoute("generate") }
+func Generate() error { return runTarget("generate", context.Background()) }
 
 // GenerateCheck checks generated-schema drift without writing.
-func GenerateCheck() error { return runRoute("generate", "--check") }
+func GenerateCheck() error { return runTarget("generatecheck", context.Background()) }
 
 // Check runs the strict project concern.
-func Check() error { return runRoute("check", "--concern", "project") }
+func Check() error { return runTarget("check", context.Background()) }
 
 // CheckOffline runs the network-denied core graph.
-func CheckOffline() error { return runRoute("check", "--offline") }
+func CheckOffline() error { return runTarget("checkoffline", context.Background()) }
 
 // Build compiles every project package.
-func Build() error { return runRoute("build") }
+func Build() error { return runTarget("build", context.Background()) }
 
 // Test runs the complete project test route.
-func Test() error { return runRoute("test") }
+func Test() error { return runTarget("test", context.Background()) }
 
 // Package builds the foundation developer-tool bundle.
-func Package() error { return runRoute("package", "--foundation") }
+func Package() error { return runTarget("package", context.Background()) }
 
 // PackageFoundation is the explicit foundation-package alias.
-func PackageFoundation() error { return runRoute("package", "--foundation") }
+func PackageFoundation() error { return runTarget("packagefoundation", context.Background()) }
 
 // Pr executes the strict configured PR graph serially.
-func Pr(ctx context.Context) error {
-	runtime := activeTargetRuntime
-	root, err := establishProjectRoot(runtime)
-	if err != nil {
-		return err
-	}
+func Pr(ctx context.Context) error { return runTarget("pr", ctx) }
+
+func runPRTarget(ctx context.Context, runtime targetRuntime, root string) error {
 	graph, err := runtime.loadPRGraph(root)
 	if err != nil {
 		return err
