@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -23,6 +22,13 @@ type linearFakeRunner struct {
 }
 
 func (runner *linearFakeRunner) Run(ctx context.Context, request processRequest) ([]byte, error) {
+	// runFrontendBuild's npm ci/npm run build also invoke npm-cli.js, so
+	// this must be scoped to tools/linear-sync specifically -- otherwise
+	// frontend/'s own npm calls would be misidentified as Linear-sync's
+	// and never produce dist/index.html.
+	if filepath.Base(request.Dir) == "frontend" {
+		return runner.goRunner.Run(ctx, request)
+	}
 	if len(request.Args) > 0 && strings.HasSuffix(filepath.ToSlash(request.Args[0]), "/npm/bin/npm-cli.js") {
 		runner.npmCalls++
 		runner.linearCalls = append(runner.linearCalls, processCall{
@@ -66,44 +72,14 @@ func (runner *linearFakeRunner) Run(ctx context.Context, request processRequest)
 	return runner.goRunner.Run(ctx, request)
 }
 
-func addLinearSyncFixture(t *testing.T, root string, source *engineFakeSource) (nodeURL string) {
+// addLinearSyncFixture sets up the tools/linear-sync workspace fixture
+// only. It no longer declares [toolchain.node] or registers a Node
+// archive payload itself: writeEngineRepository now does that
+// unconditionally for every test (runFrontendBuild needs a working Node
+// pin on every bootstrap, not just Linear-sync-enabled ones), so a
+// second declaration here would collide as a duplicate TOML key.
+func addLinearSyncFixture(t *testing.T, root string) {
 	t.Helper()
-	layout, err := platformArchiveLayout("node", "24.18.0", runtime.GOOS, runtime.GOARCH)
-	if err != nil {
-		t.Fatalf("node layout: %v", err)
-	}
-	extractedRoot := "verified-node-payload"
-	entries := []testArchiveEntry{
-		{Name: filepath.ToSlash(filepath.Join(extractedRoot, layout.Executable)), Body: "node\n", Mode: 0o755},
-		{Name: filepath.ToSlash(filepath.Join(extractedRoot, layout.NPMCLI)), Body: "npm\n", Mode: 0o644},
-	}
-	var archivePath, digest string
-	if layout.Format == ".zip" {
-		archivePath, digest = buildZipEntries(t, root, layout.FileName, entries)
-	} else {
-		archivePath, digest = buildTarGzEntries(t, root, layout.FileName, entries)
-	}
-	nodeURL = "https://nodejs.org/dist/v24.18.0/" + filepath.Base(archivePath)
-	raw, err := os.ReadFile(filepath.Join(root, "config", "toolchain.toml"))
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
-	raw = append(raw, []byte(fmt.Sprintf(`
-[toolchain.node]
-version = "24.18.0"
-official_host = "nodejs.org"
-official_path_prefix = "/dist/"
-
-[toolchain.node.platforms.%q]
-archive_url = %q
-archive_sha256 = %q
-`, PlatformKey(), nodeURL, digest))...)
-	if err := os.WriteFile(filepath.Join(root, "config", "toolchain.toml"), raw, 0o644); err != nil {
-		t.Fatalf("write node pin: %v", err)
-	}
-	archiveBytes, _ := os.ReadFile(archivePath)
-	source.payload[nodeURL] = archiveBytes
-
 	linearDir := filepath.Join(root, "tools", "linear-sync")
 	if err := os.MkdirAll(linearDir, 0o755); err != nil {
 		t.Fatalf("mkdir linear-sync: %v", err)
@@ -117,7 +93,6 @@ archive_sha256 = %q
 			t.Fatalf("write %s: %v", name, err)
 		}
 	}
-	return nodeURL
 }
 
 func newLinearRunner(root string) *linearFakeRunner {
@@ -156,7 +131,7 @@ func TestScopeBootstrapLinearSync(t *testing.T) {
 
 	t.Run("missing requested Node platform fails before source or install work", func(t *testing.T) {
 		root, source, _ := writeEngineRepository(t)
-		addLinearSyncFixture(t, root, source)
+		addLinearSyncFixture(t, root)
 		manifestPath := filepath.Join(root, "config", "toolchain.toml")
 		raw, _ := os.ReadFile(manifestPath)
 		current := fmt.Sprintf("[toolchain.node.platforms.%q]", PlatformKey())
@@ -182,7 +157,7 @@ func TestScopeBootstrapLinearSync(t *testing.T) {
 
 	t.Run("first include runs exact-lock npm and tsc then repeat is a zero-call no-op", func(t *testing.T) {
 		root, source, _ := writeEngineRepository(t)
-		addLinearSyncFixture(t, root, source)
+		addLinearSyncFixture(t, root)
 		runner := newLinearRunner(root)
 		dependencies := bootstrapDependencies{Source: source, Runner: runner}
 		if err := runBootstrap(context.Background(), root, Options{IncludeLinearSync: true}, dependencies); err != nil {
@@ -227,7 +202,7 @@ func TestScopeBootstrapLinearSync(t *testing.T) {
 
 	t.Run("missing compiled output fails and writes no success manifest", func(t *testing.T) {
 		root, source, _ := writeEngineRepository(t)
-		addLinearSyncFixture(t, root, source)
+		addLinearSyncFixture(t, root)
 		runner := newLinearRunner(root)
 		runner.missingOutput = "dist/src/adapter.js"
 		err := runBootstrap(context.Background(), root, Options{IncludeLinearSync: true}, bootstrapDependencies{Source: source, Runner: runner})
@@ -242,7 +217,7 @@ func TestScopeBootstrapLinearSync(t *testing.T) {
 
 	t.Run("package lock mutation is restored and writes no success manifest", func(t *testing.T) {
 		root, source, _ := writeEngineRepository(t)
-		addLinearSyncFixture(t, root, source)
+		addLinearSyncFixture(t, root)
 		lockPath := filepath.Join(root, "tools", "linear-sync", "package-lock.json")
 		before, _ := os.ReadFile(lockPath)
 		runner := newLinearRunner(root)
@@ -263,7 +238,7 @@ func TestScopeBootstrapLinearSync(t *testing.T) {
 
 	t.Run("legacy two-hash manifest forces exact-lock revalidation", func(t *testing.T) {
 		root, source, _ := writeEngineRepository(t)
-		addLinearSyncFixture(t, root, source)
+		addLinearSyncFixture(t, root)
 		nodeModules := filepath.Join(root, "tools", "linear-sync", "node_modules")
 		if err := os.MkdirAll(nodeModules, 0o755); err != nil {
 			t.Fatalf("mkdir node_modules: %v", err)

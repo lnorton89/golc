@@ -63,6 +63,24 @@ func (runner *engineFakeRunner) Run(_ context.Context, request processRequest) (
 	if strings.Join(request.Args, " ") == "list -m all" {
 		return []byte(runner.moduleGraph), nil
 	}
+	// runFrontendBuild's "npm run build" (distinguished from tools/
+	// linear-sync's own npm ci/tsc calls, which linearFakeRunner
+	// intercepts before ever reaching this runner, by directory: this
+	// simulates only frontend/'s build). The real frontend/vite.config.ts
+	// sets outDir to ../cmd/golc-desktop/frontend/dist (relative to
+	// frontend/), matching cmd/golc-desktop/main.go's own embed
+	// directive, so the fake output must land there too, not under
+	// frontend/dist itself.
+	if len(request.Args) >= 3 && request.Args[1] == "run" && request.Args[2] == "build" && filepath.Base(request.Dir) == "frontend" {
+		root := filepath.Dir(request.Dir)
+		distIndex := filepath.Join(root, "cmd", "golc-desktop", "frontend", "dist", "index.html")
+		if err := os.MkdirAll(filepath.Dir(distIndex), 0o755); err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(distIndex, []byte("<html></html>\n"), 0o644); err != nil {
+			return nil, err
+		}
+	}
 	return nil, nil
 }
 
@@ -125,9 +143,30 @@ func writeEngineRepository(t *testing.T) (root string, source *engineFakeSource,
 	fixtureArchive, fixtureDigest := buildZipEntries(t, root, "fixture.zip", []testArchiveEntry{
 		{Name: "bin/fixture", Body: "fixture\n", Mode: 0o755},
 	})
+	// Node is pinned here unconditionally, not only by the Linear-sync-
+	// specific addLinearSyncFixture helper: runFrontendBuild now installs
+	// Node and builds frontend/ on every bootstrap (cmd/golc-desktop's
+	// //go:embed all:frontend/dist needs a built frontend/dist to compile
+	// at all), so every test using this helper needs a working Node pin
+	// and archive, whether or not it cares about Linear-sync specifically.
+	nodeLayout, err := platformArchiveLayout("node", "24.18.0", runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		t.Fatalf("node layout: %v", err)
+	}
+	nodeEntries := []testArchiveEntry{
+		{Name: filepath.ToSlash(filepath.Join("verified-node-payload", nodeLayout.Executable)), Body: "node\n", Mode: 0o755},
+		{Name: filepath.ToSlash(filepath.Join("verified-node-payload", nodeLayout.NPMCLI)), Body: "npm\n", Mode: 0o644},
+	}
+	var nodeArchive, nodeDigest string
+	if nodeLayout.Format == ".zip" {
+		nodeArchive, nodeDigest = buildZipEntries(t, root, nodeLayout.FileName, nodeEntries)
+	} else {
+		nodeArchive, nodeDigest = buildTarGzEntries(t, root, nodeLayout.FileName, nodeEntries)
+	}
 	goURL = "https://go.dev/dl/" + filepath.Base(goArchive)
 	mageURL := "https://github.com/magefile/mage/releases/download/v1.17.2/" + filepath.Base(mageArchive)
 	fixtureURL := "https://fixtures.example.invalid/tool/" + filepath.Base(fixtureArchive)
+	nodeURL := "https://nodejs.org/dist/v24.18.0/" + filepath.Base(nodeArchive)
 	manifest := fmt.Sprintf(`schema_version = 2
 
 [cache]
@@ -158,7 +197,16 @@ official_path_prefix = "/magefile/mage/releases/download/"
 [toolchain.mage.platforms.%q]
 archive_url = %q
 archive_sha256 = %q
-`, fixtureURL, fixtureDigest, PlatformKey(), goURL, goDigest, PlatformKey(), mageURL, mageDigest)
+
+[toolchain.node]
+version = "24.18.0"
+official_host = "nodejs.org"
+official_path_prefix = "/dist/"
+
+[toolchain.node.platforms.%q]
+archive_url = %q
+archive_sha256 = %q
+`, fixtureURL, fixtureDigest, PlatformKey(), goURL, goDigest, PlatformKey(), mageURL, mageDigest, PlatformKey(), nodeURL, nodeDigest)
 	if err := os.WriteFile(filepath.Join(root, "config", "toolchain.toml"), []byte(manifest), 0o644); err != nil {
 		t.Fatalf("write manifest: %v", err)
 	}
@@ -168,13 +216,27 @@ archive_sha256 = %q
 	if err := os.WriteFile(filepath.Join(root, "go.sum"), []byte("sum\n"), 0o644); err != nil {
 		t.Fatalf("write go.sum: %v", err)
 	}
+	frontendDir := filepath.Join(root, "frontend")
+	if err := os.MkdirAll(frontendDir, 0o755); err != nil {
+		t.Fatalf("mkdir frontend: %v", err)
+	}
+	for name, body := range map[string]string{
+		"package.json":      `{"name":"fixture-frontend","scripts":{"build":"true"}}` + "\n",
+		"package-lock.json": `{"lockfileVersion":3,"packages":{}}` + "\n",
+	} {
+		if err := os.WriteFile(filepath.Join(frontendDir, name), []byte(body), 0o644); err != nil {
+			t.Fatalf("write frontend/%s: %v", name, err)
+		}
+	}
 	goBytes, _ := os.ReadFile(goArchive)
 	mageBytes, _ := os.ReadFile(mageArchive)
 	fixtureBytes, _ := os.ReadFile(fixtureArchive)
+	nodeBytes, _ := os.ReadFile(nodeArchive)
 	source = &engineFakeSource{payload: map[string][]byte{
 		goURL:      goBytes,
 		mageURL:    mageBytes,
 		fixtureURL: fixtureBytes,
+		nodeURL:    nodeBytes,
 	}}
 	return root, source, goURL
 }
@@ -417,8 +479,8 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		if err := runBootstrap(context.Background(), root, Options{}, dependencies); err != nil {
 			t.Fatalf("runBootstrap: %v", err)
 		}
-		if len(source.calls) != 3 {
-			t.Fatalf("source calls = %v, want generic tool plus Mage plus Go", source.calls)
+		if len(source.calls) != 4 {
+			t.Fatalf("source calls = %v, want generic tool plus Mage plus Go plus Node", source.calls)
 		}
 		wantArgs := [][]string{
 			{"mod", "download", "all"},
@@ -426,8 +488,12 @@ func TestScopeBootstrapEngine(t *testing.T) {
 			{"list", "-m", "all"},
 			{"test", "-count=1", "./internal/bootstrap/"},
 		}
-		if len(runner.calls) != 5 {
-			t.Fatalf("process calls = %d, want 5: %+v", len(runner.calls), runner.calls)
+		// 4 Go module/probe calls + build golc-project + runFrontendBuild's
+		// npm ci and npm run build (unconditional now: cmd/golc-desktop's
+		// //go:embed all:frontend/dist needs frontend/dist to exist on
+		// every bootstrap, not only Linear-sync-enabled ones).
+		if len(runner.calls) != 7 {
+			t.Fatalf("process calls = %d, want 7: %+v", len(runner.calls), runner.calls)
 		}
 		for index, args := range wantArgs {
 			if got := strings.Join(runner.calls[index].args, "\x00"); got != strings.Join(args, "\x00") {
@@ -438,9 +504,22 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		if len(build.args) != 5 || strings.Join(build.args[:3], " ") != "build -trimpath -o" || build.args[4] != "./cmd/golc-project" {
 			t.Fatalf("unexpected build args: %v", build.args)
 		}
-		for _, call := range runner.calls {
-			if call.dir != root {
-				t.Fatalf("working directory = %q, want %q", call.dir, root)
+		frontendDir := filepath.Join(root, "frontend")
+		npmCI := runner.calls[5]
+		if len(npmCI.args) != 4 || strings.Join(npmCI.args[1:], " ") != "ci --no-audit --no-fund" || npmCI.dir != frontendDir {
+			t.Fatalf("unexpected frontend npm ci call: %+v", npmCI)
+		}
+		npmBuild := runner.calls[6]
+		if len(npmBuild.args) != 3 || strings.Join(npmBuild.args[1:], " ") != "run build" || npmBuild.dir != frontendDir {
+			t.Fatalf("unexpected frontend npm run build call: %+v", npmBuild)
+		}
+		for index, call := range runner.calls {
+			wantDir := root
+			if index >= 5 {
+				wantDir = frontendDir
+			}
+			if call.dir != wantDir {
+				t.Fatalf("call %d working directory = %q, want %q", index, call.dir, wantDir)
 			}
 			for _, key := range []string{"GOTOOLCHAIN", "GOMODCACHE", "GOCACHE", "GOBIN", "GOFLAGS"} {
 				if call.env[key] == "" {
@@ -453,6 +532,9 @@ func TestScopeBootstrapEngine(t *testing.T) {
 			if !filepath.IsAbs(call.executable) {
 				t.Fatalf("executable is not absolute: %q", call.executable)
 			}
+		}
+		if _, err := os.Stat(filepath.Join(root, "cmd", "golc-desktop", "frontend", "dist", "index.html")); err != nil {
+			t.Fatalf("expected cmd/golc-desktop/frontend/dist/index.html to be produced: %v", err)
 		}
 		moduleRecord, err := os.ReadFile(filepath.Join(root, ".tools", "manifest", "go-modules.txt"))
 		if err != nil || string(moduleRecord) != runner.moduleGraph {
