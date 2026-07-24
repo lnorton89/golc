@@ -280,12 +280,16 @@ func canaryScanSources(root string, resolved map[string]string) (map[string][]by
 // independently maintained workflow path exists in this repository.
 const prWorkflowPath = ".github/workflows/check.yml"
 
-// prStepInvocationPattern extracts every golc.ps1 invocation from a
-// single-line "run: powershell -NoProfile -File .\golc.ps1 <args>" workflow
-// step, in file order — the same invocation shape every acceptance script
-// (tests/acceptance/*.ps1) and this repository's own documentation already
-// use.
-var prStepInvocationPattern = regexp.MustCompile(`(?m)^\s*run:\s*powershell\s+-NoProfile\s+-File\s+\.\\golc\.ps1\s+(.+?)\s*$`)
+// prRunDirectivePattern recognizes every YAML run key, including spacing
+// variants that the strict invocation pattern below deliberately rejects.
+// Executable workflow content is therefore closed-world.
+var prRunDirectivePattern = regexp.MustCompile(`^\s*run\s*:`)
+
+// prMageInvocationPattern is the only executable step shape permitted in
+// the PR workflow. Mage accepts target spelling case-insensitively, but no
+// target argument, shell operator, prefix, suffix, or multiline body is
+// legal here.
+var prMageInvocationPattern = regexp.MustCompile(`^run:\s+mage\s+([A-Za-z][A-Za-z0-9]*)$`)
 
 // prForbiddenTokens names every substring that must never appear in the
 // committed PR workflow (CONTEXT D-16): a Linear secret reference or an
@@ -306,76 +310,143 @@ var prForbiddenTokens = []string{
 // second trigger path.
 var prForbiddenTriggers = []string{"workflow_dispatch", "schedule:", "push:", "repository_dispatch"}
 
-// parsePRStepPolicy splits resolved["commands.pr.steps"] (already validated
-// against prStepListPattern by projectconfig) into its ordered, trimmed
-// "route [--flag ...]" invocations.
-func parsePRStepPolicy(resolved map[string]string) ([]string, error) {
-	raw, declared := resolved["commands.pr.steps"]
-	if !declared || strings.TrimSpace(raw) == "" {
-		return nil, fmt.Errorf("GOLC_CHECK_PARITY_POLICY_MISSING: config/commands.toml does not declare commands.pr.steps")
-	}
-	rawSteps := strings.Split(raw, ",")
-	steps := make([]string, 0, len(rawSteps))
-	for _, step := range rawSteps {
-		trimmed := strings.TrimSpace(step)
-		if trimmed == "" {
-			return nil, fmt.Errorf("GOLC_CHECK_PARITY_POLICY_INVALID: commands.pr.steps declares a blank step")
+// workflowMageTargets returns every run directive's Mage target in file
+// order and rejects any executable line outside the exact allowed shape.
+func workflowMageTargets(data []byte) ([]string, error) {
+	lines := strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n")
+	targets := make([]string, 0)
+	for lineIndex, line := range lines {
+		if !prRunDirectivePattern.MatchString(line) {
+			continue
 		}
-		steps = append(steps, trimmed)
+		trimmed := strings.TrimSpace(line)
+		match := prMageInvocationPattern.FindStringSubmatch(trimmed)
+		if match == nil {
+			return nil, fmt.Errorf(
+				"GOLC_CHECK_PARITY_RUN_INVALID: %s line %d must be exactly \"run: mage <Target>\", got %q",
+				prWorkflowPath, lineIndex+1, trimmed)
+		}
+		targets = append(targets, match[1])
 	}
-	return steps, nil
+	return targets, nil
 }
 
-// extractWorkflowSteps returns every golc.ps1 invocation prStepInvocationPattern
-// finds in data, in file order.
-func extractWorkflowSteps(data []byte) []string {
-	matches := prStepInvocationPattern.FindAllSubmatch(data, -1)
-	steps := make([]string, 0, len(matches))
-	for _, match := range matches {
-		steps = append(steps, strings.TrimSpace(string(match[1])))
+// projectMageTarget resolves one workflow spelling through the shared
+// descriptor registry and converts it generically to its graph invocation.
+// Route descriptors contribute Route/Args; the bootstrap descriptor uses
+// its registered target name as the graph route. PR is intentionally
+// illegal because invoking it would recursively execute the entire graph.
+func projectMageTarget(position int, spelling string) (delivery.Step, error) {
+	target, found := delivery.LookupMageTarget(strings.ToLower(spelling))
+	if !found {
+		return delivery.Step{}, fmt.Errorf(
+			"GOLC_CHECK_PARITY_TARGET_UNKNOWN: step %d: Mage target %q is not registered",
+			position, spelling)
 	}
-	return steps
+
+	switch target.Kind {
+	case delivery.MageTargetKindRoute:
+		return delivery.Step{Route: target.Route, Args: append([]string(nil), target.Args...)}, nil
+	case delivery.MageTargetKindBootstrap:
+		return delivery.Step{Route: target.Name}, nil
+	default:
+		return delivery.Step{}, fmt.Errorf(
+			"GOLC_CHECK_PARITY_TARGET_KIND: step %d: Mage target %q has invalid workflow kind %q",
+			position, spelling, target.Kind)
+	}
 }
 
-// compareStepSequences reports a stable mismatched/missing-step diagnostic
-// the first time expected (config/commands.toml's commands.pr.steps) and
-// actual (the workflow's own invocation order) diverge in count or content.
-func compareStepSequences(expected, actual []string) error {
-	if len(expected) != len(actual) {
+// validateCommandParity validates one workflow byte snapshot against one
+// already-loaded configured PR graph. Expected behavior comes only from
+// delivery.LoadPRGraph's result; actual behavior comes only from the shared
+// Mage descriptor registry.
+func validateCommandParity(graph delivery.Graph, data []byte) error {
+	targetSpellings, err := workflowMageTargets(data)
+	if err != nil {
+		return err
+	}
+
+	actual := make([]delivery.Step, 0, len(targetSpellings))
+	for index, spelling := range targetSpellings {
+		step, err := projectMageTarget(index+1, spelling)
+		if err != nil {
+			return err
+		}
+		actual = append(actual, step)
+	}
+
+	if len(graph.Steps) != len(actual) {
 		return fmt.Errorf(
 			"GOLC_CHECK_PARITY_STEP_COUNT: config/commands.toml declares %d PR step(s) but %s invokes %d: expected %v, got %v",
-			len(expected), prWorkflowPath, len(actual), expected, actual)
+			len(graph.Steps), prWorkflowPath, len(actual),
+			formatParitySteps(graph.Steps), formatParitySteps(actual))
 	}
-	for i := range expected {
-		if expected[i] != actual[i] {
+	for index := range graph.Steps {
+		expectedStep := graph.Steps[index]
+		actualStep := actual[index]
+		if expectedStep.Route != actualStep.Route || !equalParityArgs(expectedStep.Args, actualStep.Args) {
 			return fmt.Errorf(
-				"GOLC_CHECK_PARITY_STEP_MISMATCH: step %d: config/commands.toml declares %q but %s invokes %q",
-				i+1, expected[i], prWorkflowPath, actual[i])
+				"GOLC_CHECK_PARITY_STEP_MISMATCH: step %d: config/commands.toml declares %q but %s target %q resolves to %q",
+				index+1, formatParityStep(expectedStep), prWorkflowPath,
+				targetSpellings[index], formatParityStep(actualStep))
 		}
+	}
+
+	text := string(data)
+	for _, token := range prForbiddenTokens {
+		if strings.Contains(text, token) {
+			return fmt.Errorf(
+				"GOLC_CHECK_PARITY_SECRET_OR_MUTATION: %s contains forbidden token %q",
+				prWorkflowPath, token)
+		}
+	}
+	for _, trigger := range prForbiddenTriggers {
+		if strings.Contains(text, trigger) {
+			return fmt.Errorf(
+				"GOLC_CHECK_PARITY_TRIGGER_FORBIDDEN: %s declares forbidden trigger %q",
+				prWorkflowPath, trigger)
+		}
+	}
+	if !strings.Contains(text, "pull_request") {
+		return fmt.Errorf(
+			"GOLC_CHECK_PARITY_TRIGGER_MISSING: %s does not declare a pull_request trigger",
+			prWorkflowPath)
 	}
 	return nil
 }
 
+func equalParityArgs(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func formatParityStep(step delivery.Step) string {
+	return strings.TrimSpace(strings.Join(append([]string{step.Route}, step.Args...), " "))
+}
+
+func formatParitySteps(steps []delivery.Step) []string {
+	formatted := make([]string, len(steps))
+	for index, step := range steps {
+		formatted[index] = formatParityStep(step)
+	}
+	return formatted
+}
+
 // runCheckCommandParity serves "check --command-parity" (CONTEXT D-03/
-// D-10/D-16, T-01-19/T-01-20): it re-validates the strict configuration set
-// (so a malformed or missing commands.pr.steps policy fails closed with the
-// same diagnostics runProjectCheck already uses), parses the committed
-// commands.pr.steps policy as the single authoritative PR step graph,
-// parses the committed .github/workflows/check.yml for its own ordered
-// golc.ps1 invocations, and fails on the first mismatch. It then scans the
-// same workflow bytes for a forbidden Linear secret reference, mutation-
-// capable command, or non-pull_request trigger. tests/acceptance/
-// command-parity.ps1 invokes only this route; it never re-parses
-// config/commands.toml or the workflow file itself.
+// D-10/D-16, T-01-19/T-01-20). It loads the configured PR graph exactly
+// once, reads the workflow exactly once, and delegates descriptor-backed
+// sequence comparison plus least-privilege scans to validateCommandParity.
 func runCheckCommandParity(root string) Result {
-	spec := projectconfig.DefaultSpec()
-	resolved, _, err := projectconfig.ValidateRepository(root, spec)
+	graph, err := delivery.LoadPRGraph(root)
 	if err != nil {
 		return Result{ExitCode: 1, Stderr: []byte("GOLC_CHECK_PARITY_CONFIG: " + err.Error() + "\n")}
-	}
-	expectedSteps, err := parsePRStepPolicy(resolved)
-	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
 	workflowPath := filepath.Join(root, filepath.FromSlash(prWorkflowPath))
@@ -385,32 +456,13 @@ func runCheckCommandParity(root string) Result {
 			"GOLC_CHECK_PARITY_WORKFLOW_MISSING: %s: %v\n", prWorkflowPath, err))}
 	}
 
-	actualSteps := extractWorkflowSteps(data)
-	if err := compareStepSequences(expectedSteps, actualSteps); err != nil {
+	if err := validateCommandParity(graph, data); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
-	}
-
-	text := string(data)
-	for _, token := range prForbiddenTokens {
-		if strings.Contains(text, token) {
-			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-				"GOLC_CHECK_PARITY_SECRET_OR_MUTATION: %s contains forbidden token %q\n", prWorkflowPath, token))}
-		}
-	}
-	for _, trigger := range prForbiddenTriggers {
-		if strings.Contains(text, trigger) {
-			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-				"GOLC_CHECK_PARITY_TRIGGER_FORBIDDEN: %s declares forbidden trigger %q\n", prWorkflowPath, trigger))}
-		}
-	}
-	if !strings.Contains(text, "pull_request") {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-			"GOLC_CHECK_PARITY_TRIGGER_MISSING: %s does not declare a pull_request trigger\n", prWorkflowPath))}
 	}
 
 	report := fmt.Sprintf(
 		"check --command-parity: %d PR step(s) in %s exactly match config/commands.toml's commands.pr.steps in "+
 			"order; no Linear secret reference, remote trigger, or apply-capable command was found.\n",
-		len(expectedSteps), prWorkflowPath)
+		len(graph.Steps), prWorkflowPath)
 	return Result{Stdout: []byte(report)}
 }
