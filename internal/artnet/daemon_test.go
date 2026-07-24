@@ -40,8 +40,7 @@ import (
 // running concurrently in a sibling package.
 func testDaemonPipeName(t *testing.T) string {
 	t.Helper()
-	sanitized := strings.NewReplacer("/", "-", " ", "-").Replace(t.Name())
-	return fmt.Sprintf(`\\.\pipe\golc-artnet-daemon-test-%s-%d-%d`, sanitized, os.Getpid(), time.Now().UnixNano())
+	return platformTestEndpoint(t, "daemon")
 }
 
 // minimalPlayableState builds the smallest show.State Compile accepts: one

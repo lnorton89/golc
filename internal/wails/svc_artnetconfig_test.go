@@ -56,8 +56,7 @@ import (
 // offline/unreachable tests.
 func testArtnetConfigPipeName(t *testing.T) string {
 	t.Helper()
-	sanitized := strings.NewReplacer("/", "-", " ", "-").Replace(t.Name())
-	return fmt.Sprintf(`\\.\pipe\golc-artnetconfig-test-%s-%d-%d`, sanitized, os.Getpid(), time.Now().UnixNano())
+	return platformTestEndpoint(t, "config")
 }
 
 // testArtnetConfigLoopbackInterfaceIndex finds the IPv4 loopback
