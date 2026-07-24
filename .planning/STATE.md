@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 Phase: 06 (Wails Authoring and Operator Surface) — EXECUTING
 Plan: 1 of 12
 Status: Executing Phase 06
-Last activity: 2026-07-23 — Completed quick task 260723-s7n: Implement the complete Go bootstrap engine from Step 1 of the PowerShell removal plan
+Last activity: 2026-07-23 — Completed quick task 260723-svv: Migrate toolchain configuration and strict project schema for PowerShell removal Step 2
 
 Note: `.planning/phases/11-telemetry-usage-statistics-and-auto-crash-submission-pipeline/` exists on disk from earlier out-of-order groundwork, which caused the automated next-phase resolver to briefly point here at Phase 11. Phases 6-10 have no directories yet and are the genuine next work per ROADMAP.md's sequential order; Phase 11 itself declares `Depends on: Phase 10`.
 
@@ -123,6 +123,7 @@ None yet.
 | 260723-rq4 | Add cross-platform transport for internal/artnet/ipc as Step 0 of the PowerShell removal plan | 2026-07-23 | 09d25fc | Complete | [260723-rq4-add-cross-platform-transport-for-interna](./quick/260723-rq4-add-cross-platform-transport-for-interna/) |
 | 260723-rym | Update packaged UI sketch assets to match the golc-site light theme | 2026-07-23 | c8dfb9a | Complete | [260723-rym-update-packaged-ui-sketch-assets-to-matc](./quick/260723-rym-update-packaged-ui-sketch-assets-to-matc/) |
 | 260723-s7n | Implement the complete Go bootstrap engine from Step 1 of the PowerShell removal plan | 2026-07-23 | 33b1242 | Complete | [260723-s7n-implement-the-complete-go-bootstrap-engi](./quick/260723-s7n-implement-the-complete-go-bootstrap-engi/) |
+| 260723-svv | Migrate toolchain configuration and strict project schema for PowerShell removal Step 2 | 2026-07-23 | 2b62b0d | Complete | [260723-svv-migrate-toolchain-configuration-and-stri](./quick/260723-svv-migrate-toolchain-configuration-and-stri/) |
 
 ## Deferred Items
 
