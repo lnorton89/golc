@@ -561,7 +561,7 @@ func TestScopeDelivery(t *testing.T) {
 
 	t.Run("EncodeManifest is deterministic byte-stable JSON matching the committed golden fixture", func(t *testing.T) {
 		root := t.TempDir()
-		writeFoundationFixture(t, root)
+		writeFoundationFixtureForGoldenManifest(t, root)
 
 		graph, err := delivery.LoadGraph(root)
 		if err != nil {
@@ -744,6 +744,28 @@ func TestScopeDelivery(t *testing.T) {
 // never drifts when the real repository gains or loses files.
 func writeFoundationFixture(t *testing.T, root string) {
 	t.Helper()
+	writeFoundationFixtureWithBinaryPath(t, root, bootstrap.PlatformExecutablePath(".tools/installs/golc_project", "golc-project"))
+}
+
+// writeFoundationFixtureForGoldenManifest is writeFoundationFixture with
+// the CLI binary path fixed to windows-amd64 regardless of the host
+// platform running the test. tests/golden/foundation-manifest.json is
+// one committed, platform-specific reference file: EncodeManifest's own
+// determinism/byte-stability is what this test verifies, not "the
+// running host happens to be Windows", so the fixture must simulate a
+// Windows install on every host (observed live: cross-platform-mage.yml
+// run 30110425773 failed this test on ubuntu-latest and macos-latest
+// with a linux-amd64/darwin-arm64 path where the golden fixture always
+// expects windows-amd64 -- the plain writeFoundationFixture above uses
+// bootstrap.PlatformExecutablePath, which resolves against the actual
+// running platform, exactly the coupling this test must not have).
+func writeFoundationFixtureForGoldenManifest(t *testing.T, root string) {
+	t.Helper()
+	writeFoundationFixtureWithBinaryPath(t, root, ".tools/installs/golc_project/windows-amd64/bin/golc-project.exe")
+}
+
+func writeFoundationFixtureWithBinaryPath(t *testing.T, root, binaryPath string) {
+	t.Helper()
 	files := map[string]string{
 		"golc.ps1":                            "REM golc.ps1 fixture entrypoint\n",
 		"golc.project.toml":                   "schema_version = 1\n",
@@ -753,7 +775,7 @@ func writeFoundationFixture(t *testing.T, root string) {
 		"config/integrations/linear.toml":     "schema_version = 1\n",
 		"schemas/golc-project.schema.json":    "{}\n",
 		"schemas/config-commands.schema.json": "{}\n",
-		filepath.ToSlash(bootstrap.PlatformExecutablePath(".tools/installs/golc_project", "golc-project")): "fixture binary payload\n",
+		filepath.ToSlash(binaryPath):          "fixture binary payload\n",
 	}
 	for relative, content := range files {
 		fullPath := filepath.Join(root, filepath.FromSlash(relative))
