@@ -51,21 +51,28 @@ func fixtureCurrentFiles() ToolsUpdateCurrentFiles {
 # tools_test.go fixture: comments and unrelated sections must survive a
 # proposal/write untouched.
 
-schema_version = 1
+schema_version = 2
 
 [toolchain.go]
 version = "1.26.5"
-archive_url = "https://go.dev/dl/go1.26.5.windows-amd64.zip"
-archive_sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 official_host = "go.dev"
 official_path_prefix = "/dl/"
 
+[toolchain.go.platforms."windows-amd64"]
+archive_url = "https://go.dev/dl/go1.26.5.windows-amd64.zip"
+archive_sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+[toolchain.go.platforms."fixture-unconfigured"]
+metadata = "preserve this unrelated synthetic platform data"
+
 [toolchain.node]
 version = "24.18.0"
-archive_url = "https://nodejs.org/dist/v24.18.0/node-v24.18.0-win-x64.zip"
-archive_sha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 official_host = "nodejs.org"
 official_path_prefix = "/dist/"
+
+[toolchain.node.platforms."windows-amd64"]
+archive_url = "https://nodejs.org/dist/v24.18.0/node-v24.18.0-win-x64.zip"
+archive_sha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
 [cache]
 downloads = ".tools/cache/downloads"
@@ -552,6 +559,9 @@ func TestScopeToolsUpdate(t *testing.T) {
 		}
 		if !strings.Contains(string(result.Files.ToolchainTOML), `downloads = ".tools/cache/downloads"`) {
 			t.Fatal("expected the [cache] section to survive untouched")
+		}
+		if !strings.Contains(string(result.Files.ToolchainTOML), `metadata = "preserve this unrelated synthetic platform data"`) {
+			t.Fatal("expected unrelated platform data to survive untouched")
 		}
 	})
 
