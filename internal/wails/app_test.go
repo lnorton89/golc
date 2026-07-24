@@ -30,8 +30,7 @@ import (
 // daemon or with each other.
 func testWailsPipeName(t *testing.T) string {
 	t.Helper()
-	sanitized := strings.NewReplacer("/", "-", " ", "-").Replace(t.Name())
-	return fmt.Sprintf(`\\.\pipe\golc-wails-test-%s-%d-%d`, sanitized, os.Getpid(), time.Now().UnixNano())
+	return platformTestEndpoint(t, "wails")
 }
 
 // fakeConn is a minimal net.Conn double: only Close is ever called by

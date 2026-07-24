@@ -53,8 +53,7 @@ import (
 // daemon-backed tests.
 func testArtnetPipeName(t *testing.T) string {
 	t.Helper()
-	sanitized := strings.NewReplacer("/", "-", " ", "-").Replace(t.Name())
-	return fmt.Sprintf(`\\.\pipe\golc-artnet-cli-test-%s-%d-%d`, sanitized, os.Getpid(), time.Now().UnixNano())
+	return platformTestEndpoint(t, "cli")
 }
 
 // testArtnetLoopbackInterfaceIndex finds the IPv4 loopback interface's
