@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "site", "run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "golc-desktop-frontend-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "preview", "--", "--port", "4787", "--strictPort"],
+      "port": 4787
     }
   ]
 }

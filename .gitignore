@@ -111,3 +111,23 @@ Desktop.ini
 
 # Local Netlify folder
 .netlify
+
+# Generated Show Files
+# *.golc (not just the literal "show.golc" default name -- GOLC_DESKTOP_SHOW
+# and "--show" both accept any filename) is a SQLite database in WAL mode,
+# which leaves -wal/-shm sidecar files alongside it during normal operation
+# (internal/show/schema.go's own doc comment: "expected to appear and
+# disappear... this is normal SQLite WAL behavior, not corruption or a
+# leak"). All three must be ignored together, or the sidecars show up as
+# untracked cruft the moment a show file is opened.
+*.golc
+*.golc-wal
+*.golc-shm
+
+# Generated Log Files
+# Ad hoc stdout/stderr redirection targets from manually launching
+# golc-desktop.exe outside Wails' own dev tooling (e.g. `Start-Process
+# -RedirectStandardOutput`/`-RedirectStandardError` for console debugging)
+# -- never written by the app itself, but common enough to land in the repo
+# root by accident to warrant a standing rule.
+golc-desktop-run*.log
