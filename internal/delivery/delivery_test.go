@@ -31,6 +31,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lnorton89/golc/internal/bootstrap"
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/delivery"
 )
@@ -51,7 +52,7 @@ func writeFixtureCommandsToml(t *testing.T, root string) {
 	}
 	body := "schema_version = 1\n\n[commands]\n" +
 		"entrypoint = \"golc.ps1\"\n" +
-		"cli_binary = \".tools/installs/golc_project/bin/golc-project.exe\"\n" +
+		"cli_binary = \".tools/installs/golc_project\"\n" +
 		"go_version = \"1.26.5\"\n"
 	if err := os.WriteFile(filepath.Join(configDir, "commands.toml"), []byte(body), 0o644); err != nil {
 		t.Fatalf("write config/commands.toml: %v", err)
@@ -70,7 +71,8 @@ func TestScopeDelivery(t *testing.T) {
 		if graph.Inventory.Entrypoint != "golc.ps1" {
 			t.Fatalf("Entrypoint = %q, want golc.ps1", graph.Inventory.Entrypoint)
 		}
-		if graph.Inventory.CLIBinary != ".tools/installs/golc_project/bin/golc-project.exe" {
+		wantCLI := filepath.ToSlash(bootstrap.PlatformExecutablePath(".tools/installs/golc_project", "golc-project"))
+		if graph.Inventory.CLIBinary != wantCLI {
 			t.Fatalf("CLIBinary = %q", graph.Inventory.CLIBinary)
 		}
 		if graph.Inventory.GoVersion != "1.26.5" {
@@ -311,7 +313,7 @@ func TestScopeDelivery(t *testing.T) {
 		}
 
 		wantPaths := []string{
-			".tools/installs/golc_project/bin/golc-project.exe",
+			filepath.ToSlash(bootstrap.PlatformExecutablePath(".tools/installs/golc_project", "golc-project")),
 			"config/commands.toml",
 			"config/integrations/linear.toml",
 			"config/toolchain.toml",
@@ -537,7 +539,7 @@ func TestScopeDelivery(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read written checksum sidecar: %v", err)
 		}
-		wantChecksumLine := bundle.ZIPChecksum + "  golc-foundation-windows-amd64.zip\n"
+		wantChecksumLine := bundle.ZIPChecksum + "  golc-foundation-" + bootstrap.PlatformKey() + ".zip\n"
 		if string(checksumBytes) != wantChecksumLine {
 			t.Fatalf("checksum sidecar = %q, want %q", checksumBytes, wantChecksumLine)
 		}
@@ -571,15 +573,15 @@ func TestScopeDelivery(t *testing.T) {
 func writeFoundationFixture(t *testing.T, root string) {
 	t.Helper()
 	files := map[string]string{
-		"golc.ps1":                                          "REM golc.ps1 fixture entrypoint\n",
-		"golc.project.toml":                                 "schema_version = 1\n",
-		"docs/development.md":                               "# Fixture Docs\n",
-		"config/commands.toml":                              "schema_version = 1\n\n[commands]\nentrypoint = \"golc.ps1\"\ncli_binary = \".tools/installs/golc_project/bin/golc-project.exe\"\ngo_version = \"1.26.5\"\n",
-		"config/toolchain.toml":                             "schema_version = 1\n",
-		"config/integrations/linear.toml":                   "schema_version = 1\n",
-		"schemas/golc-project.schema.json":                  "{}\n",
-		"schemas/config-commands.schema.json":               "{}\n",
-		".tools/installs/golc_project/bin/golc-project.exe": "fixture binary payload\n",
+		"golc.ps1":                            "REM golc.ps1 fixture entrypoint\n",
+		"golc.project.toml":                   "schema_version = 1\n",
+		"docs/development.md":                 "# Fixture Docs\n",
+		"config/commands.toml":                "schema_version = 1\n\n[commands]\nentrypoint = \"golc.ps1\"\ncli_binary = \".tools/installs/golc_project\"\ngo_version = \"1.26.5\"\n",
+		"config/toolchain.toml":               "schema_version = 1\n",
+		"config/integrations/linear.toml":     "schema_version = 1\n",
+		"schemas/golc-project.schema.json":    "{}\n",
+		"schemas/config-commands.schema.json": "{}\n",
+		filepath.ToSlash(bootstrap.PlatformExecutablePath(".tools/installs/golc_project", "golc-project")): "fixture binary payload\n",
 	}
 	for relative, content := range files {
 		fullPath := filepath.Join(root, filepath.FromSlash(relative))
