@@ -59,7 +59,101 @@ func writeFixtureCommandsToml(t *testing.T, root string) {
 	}
 }
 
+func writeFixturePRCommandsToml(t *testing.T, root, steps, network, mutation string) {
+	t.Helper()
+	configDir := filepath.Join(root, "config")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("mkdir config: %v", err)
+	}
+	body := "schema_version = 2\n\n[commands]\n" +
+		"entrypoint = \"golc.ps1\"\n" +
+		"cli_binary = \".tools/installs/golc_project\"\n" +
+		"go_version = \"1.26.5\"\n\n" +
+		"[commands.pr]\n" +
+		"steps = \"" + steps + "\"\n" +
+		"network_steps = \"" + network + "\"\n" +
+		"mutation_steps = \"" + mutation + "\"\n"
+	if err := os.WriteFile(filepath.Join(configDir, "commands.toml"), []byte(body), 0o644); err != nil {
+		t.Fatalf("write config/commands.toml: %v", err)
+	}
+}
+
 func TestScopeDelivery(t *testing.T) {
+	t.Run("LoadPRGraph follows strict configured order and policy", func(t *testing.T) {
+		root := t.TempDir()
+		writeFixturePRCommandsToml(t, root,
+			"bootstrap,generate --check,check --offline,build,test,package --foundation",
+			"bootstrap", "none")
+		graph, err := delivery.LoadPRGraph(root)
+		if err != nil {
+			t.Fatalf("LoadPRGraph: %v", err)
+		}
+		want := []struct {
+			route string
+			args  string
+			net   delivery.NetworkPolicy
+		}{
+			{"bootstrap", "", delivery.NetworkAllowed},
+			{"generate", "--check", delivery.NetworkDenied},
+			{"check", "--offline", delivery.NetworkDenied},
+			{"build", "", delivery.NetworkDenied},
+			{"test", "", delivery.NetworkDenied},
+			{"package", "--foundation", delivery.NetworkDenied},
+		}
+		if len(graph.Steps) != len(want) {
+			t.Fatalf("steps = %+v, want %d", graph.Steps, len(want))
+		}
+		for i, expected := range want {
+			step := graph.Steps[i]
+			if step.Route != expected.route || strings.Join(step.Args, " ") != expected.args || step.Network != expected.net {
+				t.Fatalf("step %d = %+v, want route=%q args=%q network=%v", i, step, expected.route, expected.args, expected.net)
+			}
+			if step.Name == "" {
+				t.Fatalf("step %d has blank stable name", i)
+			}
+		}
+	})
+
+	t.Run("LoadPRGraph order is fixture-authoritative", func(t *testing.T) {
+		root := t.TempDir()
+		writeFixturePRCommandsToml(t, root, "test,bootstrap,build", "bootstrap", "none")
+		graph, err := delivery.LoadPRGraph(root)
+		if err != nil {
+			t.Fatalf("LoadPRGraph: %v", err)
+		}
+		var got []string
+		_, err = delivery.Run(graph, func(route string, args []string) (int, []byte, []byte) {
+			got = append(got, route)
+			return 0, nil, nil
+		})
+		if err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+		if joined := strings.Join(got, ","); joined != "test,bootstrap,build" {
+			t.Fatalf("observed order = %q", joined)
+		}
+	})
+
+	t.Run("LoadPRGraph rejects malformed duplicate and orphan policy", func(t *testing.T) {
+		cases := []struct {
+			name, steps, network, mutation string
+		}{
+			{"blank step", "bootstrap,,build", "bootstrap", "none"},
+			{"duplicate invocation", "bootstrap,build,build", "bootstrap", "none"},
+			{"orphan network policy", "bootstrap,build", "bootstrap,test", "none"},
+			{"mutation enabled", "bootstrap,build", "bootstrap", "build"},
+		}
+		for _, testCase := range cases {
+			t.Run(testCase.name, func(t *testing.T) {
+				root := t.TempDir()
+				writeFixturePRCommandsToml(t, root, testCase.steps, testCase.network, testCase.mutation)
+				if _, err := delivery.LoadPRGraph(root); err == nil {
+					t.Fatal("invalid PR graph unexpectedly loaded")
+				}
+			})
+		}
+	})
+
 	t.Run("LoadGraph reads exactly the three canonical commands keys and the fixed core steps", func(t *testing.T) {
 		root := t.TempDir()
 		writeFixtureCommandsToml(t, root)
