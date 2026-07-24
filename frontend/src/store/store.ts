@@ -42,6 +42,19 @@ export interface GolcStoreState {
    * sees explicit idle values, never undefined. */
   status: StatusSnapshot;
   setStatus: (status: StatusSnapshot) => void;
+  /** Bumped by OperatorSurface.tsx whenever its own CreateSurface/
+   * RemoveSurface/AssignItem/UnassignItem calls change the show's operator
+   * surfaces -- App.tsx mounts OperatorSurface.tsx and MidiPanel.tsx
+   * permanently side by side (never as a tab that unmounts), and each owns
+   * an independent SurfaceService.ListSurfaces() fetch with no shared
+   * source of truth, so MidiPanel.tsx's own surface dropdown otherwise goes
+   * stale the moment a surface is created/removed elsewhere on the same
+   * page (only a full app restart re-fetches it). This is an invalidation
+   * signal, not cached Go-pushed data, so it does not conflict with this
+   * store's "never authoritative" rule above -- MidiPanel.tsx still
+   * re-fetches from SurfaceService itself on every bump. */
+  surfaceListVersion: number;
+  bumpSurfaceListVersion: () => void;
 }
 
 export const useGolcStore = create<GolcStoreState>((set) => ({
@@ -49,4 +62,6 @@ export const useGolcStore = create<GolcStoreState>((set) => ({
   setConnectionStatus: (status) => set({ connectionStatus: status }),
   status: offlineStatusSnapshot(),
   setStatus: (status) => set({ status }),
+  surfaceListVersion: 0,
+  bumpSurfaceListVersion: () => set((state) => ({ surfaceListVersion: state.surfaceListVersion + 1 })),
 }));

@@ -156,6 +156,7 @@ type ViewMode = "author" | "operate";
 export default function OperatorSurface() {
   const connectionStatus = useGolcStore((state) => state.connectionStatus);
   const daemonLoading = connectionStatus === "connecting";
+  const bumpSurfaceListVersion = useGolcStore((state) => state.bumpSurfaceListVersion);
 
   const [surfaces, setSurfaces] = useState<SurfaceSummary[]>([]);
   const [selectedName, setSelectedName] = useState<string | null>(null);
@@ -233,6 +234,7 @@ export default function OperatorSurface() {
       const result = await surfaceService().CreateSurface(name);
       assertOk(result, "CreateSurface");
       await refreshSurfaces();
+      bumpSurfaceListVersion();
       setSelectedName(name);
     } catch (err) {
       setError(errorMessage(err));
@@ -247,6 +249,7 @@ export default function OperatorSurface() {
         setSelectedName(null);
       }
       await refreshSurfaces();
+      bumpSurfaceListVersion();
     } catch (err) {
       setError(errorMessage(err));
     }
