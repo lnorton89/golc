@@ -101,12 +101,19 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 		}
 	})
 
-	t.Run("pinned Mage install scripts exist and read the committed toolchain pins", func(t *testing.T) {
+	t.Run("pinned Go/Mage install scripts exist and read the committed toolchain pins", func(t *testing.T) {
 		// This is a structural, network-free check only (D-02: generate/
 		// check/build/test never open a network connection; only the
 		// "bootstrap" route may). Actually downloading and verifying the
-		// pinned Mage archive was validated manually against the real
-		// config/toolchain.toml before these scripts were committed.
+		// pinned Go/Mage archives was validated manually against the
+		// real config/toolchain.toml before these scripts were
+		// committed. Both toolchains are provisioned here, not just
+		// Mage: Mage itself JIT-compiles the magefile package at every
+		// invocation, so it always needs a Go compiler on PATH
+		// regardless of how the mage binary itself was obtained, and
+		// this project never trusts an ambient one for anything else
+		// either (resolvePinnedGoExecutable never does a host PATH
+		// lookup).
 		for _, relative := range []string{
 			filepath.Join("scripts", "ci", "install-pinned-mage.sh"),
 			filepath.Join("scripts", "ci", "install-pinned-mage.ps1"),
@@ -124,7 +131,11 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 				t.Fatalf("read %s: %v", relative, err)
 			}
 			text := string(raw)
-			for _, want := range []string{"toolchain.mage.platforms", "archive_url", "archive_sha256"} {
+			// Both scripts parameterize the section lookup by tool name
+			// rather than spelling "toolchain.go"/"toolchain.mage"
+			// literally, so check the generic section-path shape plus
+			// that both tool names are actually invoked.
+			for _, want := range []string{"toolchain.", ".platforms.", "archive_url", "archive_sha256", `"go"`, `"mage"`} {
 				if !strings.Contains(text, want) {
 					t.Errorf("%s does not reference %q; it must read the pin from config/toolchain.toml, not duplicate it", relative, want)
 				}
@@ -137,6 +148,10 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 			t.Fatalf("read config/toolchain.toml: %v", err)
 		}
 		for _, section := range []string{
+			`[toolchain.go.platforms."windows-amd64"]`,
+			`[toolchain.go.platforms."linux-amd64"]`,
+			`[toolchain.go.platforms."darwin-amd64"]`,
+			`[toolchain.go.platforms."darwin-arm64"]`,
 			`[toolchain.mage.platforms."windows-amd64"]`,
 			`[toolchain.mage.platforms."linux-amd64"]`,
 			`[toolchain.mage.platforms."darwin-amd64"]`,
