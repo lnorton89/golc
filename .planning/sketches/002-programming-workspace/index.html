@@ -12,7 +12,7 @@
     button { cursor: pointer; }
     .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
     .variant-nav { position:fixed; inset:0 0 auto; z-index:1000; height:42px; display:flex; align-items:center; gap:6px; padding:6px 12px; background:var(--color-surface); border-bottom:1px solid var(--color-border); font-size:12px; }
-    .variant-tab,.tool-button,.theme-select { min-height:28px; padding:5px 10px; border:1px solid var(--color-border-strong); border-radius:4px; background:var(--color-surface); color:var(--color-text-secondary); transition:all var(--transition-tap); }
+    .variant-tab,.tool-button,.theme-select { min-height:28px; padding:5px 10px; border:1px solid var(--color-border-strong); border-radius:4px; background:var(--color-surface); color:var(--color-text-secondary); transition:background-color var(--transition-tap),border-color var(--transition-tap),color var(--transition-tap); }
     .variant-tab:hover,.tool-button:hover { background:var(--color-surface-raised); }
     .variant-tab.active { background:var(--color-primary); border-color:var(--color-primary); color:var(--color-on-primary); }
     .stage { padding-top:42px; min-height:100vh; display:flex; justify-content:center; }
@@ -26,22 +26,22 @@
     .show-title { font-size:13px; font-weight:600; }
     .save-state { color:var(--color-text-muted); font-size:11px; }
     .transport { display:flex; align-items:center; gap:5px; margin:auto; }
-    .transport button,.secondary,.primary,.icon-button { min-height:30px; padding:5px 9px; border:1px solid var(--color-border-strong); border-radius:4px; background:var(--color-surface); transition:all var(--transition-tap); }
+    .transport button,.secondary,.primary,.icon-button { min-height:30px; padding:5px 9px; border:1px solid var(--color-border-strong); border-radius:4px; background:var(--color-surface); transition:background-color var(--transition-tap),border-color var(--transition-tap),color var(--transition-tap); }
     .transport button:hover,.secondary:hover,.icon-button:hover { background:var(--color-surface-raised); }
     .transport .play { background:var(--color-primary); border-color:var(--color-primary); }
     .primary { background:var(--color-primary); border-color:var(--color-primary); color:var(--color-on-primary); }
     .primary:hover { background:var(--color-primary-hover); }
     .readout { padding:4px 8px; border:1px solid var(--color-border); border-radius:3px; background:var(--color-bg); font-size:11px; }
     .live-summary { margin-left:auto; display:flex; align-items:center; gap:9px; font-size:11px; }
-    .dot { width:7px; height:7px; border-radius:50%; background:var(--color-frame-lock); box-shadow:0 0 8px rgba(90,194,106,.55); }
+    .dot { width:7px; height:7px; border-radius:50%; background:var(--color-frame-lock); }
     .chip { display:inline-flex; align-items:center; gap:4px; padding:3px 7px; border:1px solid var(--color-border); border-radius:999px; background:var(--color-surface); color:var(--color-text-secondary); font-size:9px; text-transform:uppercase; letter-spacing:.06em; }
-    .chip.live { color:var(--color-primary); border-color:rgba(27,68,217,.65); }
+    .chip.live { color:var(--color-primary); border-color:color-mix(in srgb, var(--color-primary) 65%, transparent); }
     .deck-nav { grid-row:2; padding:8px; background:var(--color-surface); border-right:1px solid var(--color-border); }
     .deck-section { margin-bottom:14px; }
     .deck-label { margin:0 5px 5px; color:var(--color-text-muted); font-size:9px; text-transform:uppercase; letter-spacing:.1em; }
     .deck-nav button { width:100%; padding:7px 8px; border:0; border-radius:3px; background:transparent; color:var(--color-text-secondary); text-align:left; font-size:11px; }
     .deck-nav button:hover,.deck-nav button.active { color:var(--color-text); background:var(--color-surface-raised); }
-    .deck-nav button.active { box-shadow:inset 3px 0 var(--color-primary); }
+    .deck-nav button.active { box-shadow:inset 2px 0 var(--color-primary); }
     .workspace { grid-row:2; grid-column:2; min-width:0; min-height:0; display:grid; grid-template-rows:42px minmax(0,1fr); }
     .workspace-bar { display:flex; align-items:center; gap:8px; padding:0 10px; background:var(--color-surface-raised); border-bottom:1px solid var(--color-border); }
     .workspace-title { font-weight:600; }
@@ -53,20 +53,20 @@
     .panel-header { min-height:34px; display:flex; align-items:center; gap:7px; padding:0 9px; border-bottom:1px solid var(--color-border); font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.07em; }
     .panel-body { padding:8px; }
     .scroll { overflow:auto; }
-    .safety { grid-column:1/-1; display:flex; align-items:center; gap:8px; padding:6px 10px; background:var(--color-surface); border-top:1px solid rgba(226,58,46,.35); }
+    .safety { grid-column:1/-1; display:flex; align-items:center; gap:8px; padding:6px 10px; background:var(--color-surface); border-top:2px solid var(--color-danger); }
     .safety-label { margin-right:auto; color:var(--color-text-muted); font-size:9px; text-transform:uppercase; letter-spacing:.09em; }
     .safety button { min-height:34px; min-width:145px; border:1px solid var(--color-border-strong); border-radius:4px; background:var(--color-bg); }
-    .safety .stop { color:var(--color-armed); border-color:rgba(200,162,75,.55); }
-    .safety .revoke { color:var(--color-danger); border-color:rgba(226,58,46,.7); }
+    .safety .stop { color:var(--color-armed); border-color:color-mix(in srgb, var(--color-armed) 55%, transparent); }
+    .safety .revoke { color:var(--color-danger); border-color:color-mix(in srgb, var(--color-danger) 70%, transparent); }
     .field { display:grid; gap:4px; margin-bottom:11px; }
     .field label { color:var(--color-text-muted); font-size:9px; text-transform:uppercase; letter-spacing:.07em; }
     .field input,.field select { width:100%; padding:7px 8px; border:1px solid var(--color-border-strong); border-radius:3px; background:var(--color-bg); }
     .switch-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 0; border-bottom:1px solid var(--color-border); font-size:11px; }
     .toggle { width:30px; height:16px; padding:2px; border:0; border-radius:99px; background:var(--color-border-strong); }
-    .toggle::after { content:""; display:block; width:12px; height:12px; border-radius:50%; background:white; transition:transform var(--transition-tap); }
+    .toggle::after { content:""; display:block; width:12px; height:12px; border-radius:50%; background:var(--color-surface); transition:transform var(--transition-tap); }
     .toggle.on { background:var(--color-primary); }
     .toggle.on::after { transform:translateX(14px); }
-    .toast { position:fixed; left:50%; bottom:62px; z-index:1500; transform:translateX(-50%) translateY(10px); opacity:0; padding:8px 12px; border-radius:4px; background:var(--color-surface); color:var(--color-text); box-shadow:var(--shadow-panel); font-size:11px; transition:all var(--transition-settle); pointer-events:none; }
+    .toast { position:fixed; left:50%; bottom:62px; z-index:1500; transform:translateX(-50%) translateY(10px); opacity:0; padding:8px 12px; border-radius:4px; background:var(--color-surface); color:var(--color-text); box-shadow:var(--shadow-panel); font-size:11px; transition:opacity var(--transition-settle),transform var(--transition-settle); pointer-events:none; }
     .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
     /* A — scene stack */
@@ -74,7 +74,7 @@
     .scene-list { grid-row:1/-1; display:grid; grid-template-rows:34px minmax(0,1fr); }
     .scene-row { display:grid; grid-template-columns:24px 1fr auto; gap:6px; align-items:center; min-height:35px; padding:5px 7px; margin-bottom:3px; border:1px solid transparent; border-radius:3px; background:var(--color-surface); font-size:11px; }
     .scene-row:hover { background:var(--color-surface-raised); }
-    .scene-row.selected { background:var(--color-primary-soft); border-color:rgba(27,68,217,.65); }
+    .scene-row.selected { background:var(--color-primary-soft); border-color:color-mix(in srgb, var(--color-primary) 65%, transparent); }
     .scene-number { color:var(--color-text-muted); font-size:9px; }
     .layer-stack { display:grid; grid-template-rows:34px minmax(0,1fr); }
     .layer-row { display:grid; grid-template-columns:82px 1fr 62px 28px; align-items:center; gap:7px; min-height:48px; padding:6px; margin-bottom:4px; border:1px solid var(--color-border); border-left:3px solid var(--color-primary); border-radius:3px; background:var(--color-surface); font-size:10px; }
@@ -86,9 +86,9 @@
     .look-item:hover { background:var(--color-surface-raised); }
     .look-type { color:var(--color-text-muted); font-size:9px; }
     .timeline { grid-column:2/-1; display:grid; grid-template-rows:34px minmax(0,1fr); }
-    .timeline-body { position:relative; margin:8px; background-image:linear-gradient(to right,rgba(255,255,255,.04) 1px,transparent 1px); background-size:12.5% 100%; }
-    .timeline-block { position:absolute; height:24px; padding:5px 7px; border:1px solid rgba(96,126,241,.55); border-radius:3px; background:rgba(27,68,217,.34); font-size:9px; }
-    .playhead { position:absolute; inset:0 auto 0 39%; width:1px; background:var(--color-primary); box-shadow:0 0 7px rgba(27,68,217,.7); }
+    .timeline-body { position:relative; margin:8px; background-image:linear-gradient(to right,var(--color-border) 1px,transparent 1px); background-size:12.5% 100%; }
+    .timeline-block { position:absolute; height:24px; padding:5px 7px; border:1px solid color-mix(in srgb, var(--color-primary) 55%, transparent); border-radius:3px; background:color-mix(in srgb, var(--color-primary) 34%, transparent); font-size:9px; }
+    .playhead { position:absolute; inset:0 auto 0 39%; width:1px; background:var(--color-primary); }
 
     /* B — matrix */
     .layout-b { height:100%; display:grid; grid-template-rows:minmax(0,1fr) 205px; gap:7px; }
@@ -99,7 +99,7 @@
     .matrix-scene { font-weight:600; }
     .cell { color:var(--color-text-secondary); cursor:pointer; }
     .cell:hover { filter:brightness(1.25); }
-    .cell.selected { outline:2px solid var(--color-primary); background:rgba(27,68,217,.28); }
+    .cell.selected { outline:2px solid var(--color-primary); background:color-mix(in srgb, var(--color-primary) 28%, transparent); }
     .cell.off { opacity:.55; }
     .launch { justify-content:center; cursor:pointer; }
     .launch.live { background:var(--color-primary); border-color:var(--color-primary); }
@@ -119,7 +119,7 @@
     .selection-tabs button { padding:6px; border:1px solid var(--color-border); border-radius:3px; background:var(--color-surface); font-size:10px; }
     .selection-tabs button.active { color:var(--color-primary); border-color:var(--color-primary); }
     .pool-button { width:100%; display:flex; justify-content:space-between; padding:8px; margin-bottom:3px; border:1px solid transparent; border-radius:3px; background:var(--color-surface); font-size:10px; }
-    .pool-button.selected { background:var(--color-primary-soft); border-color:rgba(27,68,217,.6); }
+    .pool-button.selected { background:var(--color-primary-soft); border-color:color-mix(in srgb, var(--color-primary) 60%, transparent); }
     .programmer { display:grid; grid-template-rows:34px 40px minmax(0,1fr); }
     .attribute-tabs { display:flex; gap:3px; padding:5px 7px; border-bottom:1px solid var(--color-border); }
     .attribute-tabs button { padding:5px 9px; border:1px solid var(--color-border); border-radius:3px; background:var(--color-surface); font-size:9px; text-transform:uppercase; }
@@ -134,7 +134,7 @@
     .record-scope,.record-summary { border-right:1px solid var(--color-border); }
     .record-actions { display:grid; align-content:center; gap:6px; }
 
-    #sketch-tools { position:fixed; right:12px; bottom:58px; z-index:1400; display:flex; gap:5px; padding:6px; background:rgba(23,24,28,.84); border:1px solid var(--color-border-strong); border-radius:6px; opacity:.45; transition:opacity .2s; }
+    #sketch-tools { position:fixed; right:12px; bottom:58px; z-index:1400; display:flex; gap:5px; padding:6px; background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-card); box-shadow:var(--shadow-panel); opacity:.72; transition:opacity var(--transition-settle); }
     #sketch-tools:hover { opacity:1; }
     @media(max-width:1050px) {
       .app { grid-template-columns:160px minmax(0,1fr); }
@@ -143,6 +143,44 @@
       .look-browser { display:none; }
       .timeline { grid-column:2; }
       .matrix { grid-template-columns:150px repeat(4,minmax(95px,1fr)) 42px; }
+    }
+
+    /* GOLC Paper console adaptation */
+    .variant-nav { font-family:var(--font-mono); }
+    .variant-tab,.tool-button,.theme-select,.transport button,.secondary,.primary,.icon-button {
+      border-radius:var(--radius-control);
+      transition:background-color var(--transition-tap),border-color var(--transition-tap),color var(--transition-tap),transform var(--transition-settle);
+    }
+    .topbar { min-height:56px; padding-inline:var(--space-4); border-bottom-color:var(--color-border); }
+    .mark { width:32px; height:32px; border-radius:var(--radius-card); overflow:hidden; }
+    .mark svg { display:block; width:100%; height:100%; }
+    .show-title { font-size:14px; font-weight:800; letter-spacing:-0.02em; }
+    .save-state,.readout,.scene-number { font-family:var(--font-mono); }
+    .deck-nav button { border-radius:var(--radius-control); transition:background-color var(--transition-tap),color var(--transition-tap); }
+    .deck-nav button.active { color:var(--color-primary); background:var(--color-primary-soft); box-shadow:inset 2px 0 var(--color-primary); }
+    .workspace-bar { min-height:46px; padding-inline:var(--space-4); }
+    .workspace-title { font-weight:800; letter-spacing:-0.01em; }
+    .canvas { padding:var(--space-3); }
+    .panel { border-radius:var(--radius-panel); }
+    .panel-header { min-height:38px; padding-inline:var(--space-3); }
+    .panel-body { padding:var(--space-3); }
+    .scene-row,.layer-row,.look-item,.matrix-head,.matrix-scene,.cell,.launch,.parameter,.attribute { border-radius:var(--radius-card); }
+    .scene-row.selected,.cell.selected { background:var(--color-primary-soft); border-color:var(--color-primary); }
+    .layer-row { border-left-width:2px; }
+    .field input,.field select { min-height:34px; border-radius:var(--radius-control); background:var(--color-surface); }
+    .safety { min-height:52px; }
+    .safety button { border-radius:var(--radius-control); font-weight:700; }
+    .safety .stop { border-left:2px solid var(--color-armed); }
+    .safety .revoke { border-left:2px solid var(--color-danger); }
+    .toast { border:1px solid var(--color-border); border-radius:var(--radius-card); }
+    .icon-svg { width:16px; height:16px; display:block; }
+    .launch .icon-svg { width:14px; height:14px; }
+    .compact-detail-toggle { display:none; margin-left:auto; min-height:32px; padding:5px 10px; border:1px solid var(--color-primary); background:var(--color-primary-soft); color:var(--color-primary); }
+    @media(max-width:1050px) {
+      #variant-a .inspector { display:none; }
+      #variant-a .inspector.compact-open { display:block; position:fixed; z-index:1300; top:96px; right:12px; bottom:64px; width:min(320px,calc(100vw - 24px)); border:1px solid var(--color-border); border-radius:var(--radius-panel); box-shadow:var(--shadow-panel); }
+      #variant-a .compact-detail-toggle { display:inline-flex; align-items:center; }
+      .safety { position:relative; z-index:1350; }
     }
   </style>
 </head>
@@ -157,9 +195,9 @@
 
     <section class="variant active" id="variant-a">
       <div class="app">
-        <header class="topbar"><div class="brand"><div class="mark">G</div><div><div class="show-title">Neon Harbor</div><div class="save-state">Saved · Main Rig</div></div></div><div class="transport"><button class="play">▶</button><button>■</button><span class="readout mono">124.00 BPM</span><button data-toast="Tempo captured">TAP</button><span class="readout mono">032.3.2</span></div><div class="live-summary"><span class="chip live">Manual</span><span>Verse Lift</span><span class="dot"></span><span>Art-Net 2U</span></div></header>
+        <header class="topbar"><div class="brand"><div class="mark" data-sgy-visual="mark"><svg viewBox="0 0 100 100" role="img" aria-label="GOLC mark"><rect x="2" y="2" width="96" height="96" rx="22" fill="var(--color-mark-tile)"/><polygon points="50,25 18.5,84 25.5,84" fill="#c0554a"/><polygon points="50,25 29.5,84 36.5,84" fill="#cc8a47"/><polygon points="50,25 40.5,84 47.5,84" fill="#b6a24c"/><polygon points="50,25 51.5,84 58.5,84" fill="#4e9e68"/><polygon points="50,25 62.5,84 69.5,84" fill="#1b44d9"/><polygon points="50,25 73.5,84 80.5,84" fill="#6a50a8"/><rect x="40" y="18" width="20" height="7" rx="3" fill="var(--color-mark-bar)"/></svg></div><div><div class="show-title">Neon Harbor</div><div class="save-state">Saved · Main Rig</div></div></div><div class="transport"><button class="play" aria-label="Play"><svg class="icon-svg" data-sgy-visual="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l9 6-9 6V6z" fill="currentColor"/></svg></button><button aria-label="Stop"><svg class="icon-svg" data-sgy-visual="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="10" height="10" fill="currentColor"/></svg></button><span class="readout mono">124.00 BPM</span><button data-toast="Tempo captured">TAP</button><span class="readout mono">032.3.2</span></div><div class="live-summary"><span class="chip live">Manual</span><span>Verse Lift</span><span class="dot"></span><span>Art-Net 2U</span></div></header>
         <nav class="deck-nav" aria-label="Application navigation"><div class="deck-section"><div class="deck-label">Show</div><button>Overview</button><button>Save &amp; Recovery</button></div><div class="deck-section"><div class="deck-label">Build</div><button>Fixture Library</button><button>Patch &amp; Pools</button><button class="active">Scenes &amp; Looks</button></div><div class="deck-section"><div class="deck-label">Operate</div><button>Operator Surface</button><button>MIDI Mapping</button></div><div class="deck-section"><div class="deck-label">Output</div><button>Art-Net</button><button>Diagnostics</button></div></nav>
-        <main class="workspace"><div class="workspace-bar"><span class="workspace-title">Scenes &amp; Looks</span><span class="crumb">Scene-led programming</span><div class="actions"><button class="secondary" data-toast="Evaluating at bar 32.3.2">Evaluate</button><button class="primary" data-toast="Scene changes recorded">Record Changes</button></div></div>
+        <main class="workspace"><div class="workspace-bar"><span class="workspace-title">Scenes &amp; Looks</span><span class="crumb">Scene-led programming</span><button class="compact-detail-toggle" type="button" data-sgy-disclosure="trigger" data-detail-toggle="002-a" aria-controls="inspector-002-a" aria-expanded="false">Layer details</button><div class="actions"><button class="secondary" data-toast="Evaluating at bar 32.3.2">Evaluate</button><button class="primary" data-toast="Scene changes recorded">Record Changes</button></div></div>
           <div class="canvas"><div class="layout-a">
             <section class="panel scene-list"><div class="panel-header">Scenes <span class="chip" style="margin-left:auto">8</span></div><div class="panel-body scroll">
               <button class="scene-row"><span class="scene-number mono">01</span><span>Doors</span><span>8b</span></button><button class="scene-row"><span class="scene-number mono">02</span><span>Opening</span><span>4b</span></button><button class="scene-row selected"><span class="scene-number mono">03</span><span>Verse Lift</span><span class="chip live">live</span></button><button class="scene-row"><span class="scene-number mono">04</span><span>Chorus Wide</span><span>8b</span></button><button class="scene-row"><span class="scene-number mono">05</span><span>Breakdown</span><span>4b</span></button><button class="scene-row"><span class="scene-number mono">06</span><span>Finale</span><span>8b</span></button><button class="scene-row"><span class="scene-number mono">07</span><span>Encore</span><span>4b</span></button>
@@ -167,29 +205,29 @@
             <section class="panel layer-stack"><div class="panel-header">Verse Lift · Layers <span style="margin-left:auto;color:var(--color-text-muted)">scope: Movers</span></div><div class="panel-body scroll">
               <div class="layer-row"><span class="layer-kind">Base Look</span><span class="layer-look">Deep Blue Wash</span><span class="chip">82%</span><button class="toggle on" aria-label="Toggle base look"></button></div><div class="layer-row"><span class="layer-kind">Color</span><span class="layer-look">Neon Split</span><span class="chip">64%</span><button class="toggle on" aria-label="Toggle color"></button></div><div class="layer-row"><span class="layer-kind">Chase</span><span class="layer-look">Quarter Pulse</span><span class="chip">1/4</span><button class="toggle on" aria-label="Toggle chase"></button></div><div class="layer-row off"><span class="layer-kind">Motion</span><span class="layer-look">Circle 2</span><span class="chip">ref kept</span><button class="toggle" aria-label="Toggle motion"></button></div>
             </div></section>
-            <section class="panel look-browser"><div class="panel-header">Reusable Looks <button class="icon-button" style="margin-left:auto;min-height:24px">+</button></div><div class="panel-body scroll"><div class="look-item"><strong>Deep Blue Wash</strong><div class="look-type">Base look · 8 fixtures</div></div><div class="look-item"><strong>Neon Split</strong><div class="look-type">Color theme · 2 pools</div></div><div class="look-item"><strong>Quarter Pulse</strong><div class="look-type">Chase · beat unit</div></div><div class="look-item"><strong>Circle 2</strong><div class="look-type">Motion · 6 fixtures</div></div><div class="look-item"><strong>Audience Warm</strong><div class="look-type">Base look · 4 fixtures</div></div></div></section>
-            <section class="panel timeline"><div class="panel-header">Bar Timeline · Preview</div><div class="timeline-body"><div class="timeline-block" style="left:2%;top:12px;width:34%">Deep Blue Wash</div><div class="timeline-block" style="left:25%;top:44px;width:45%;background:rgba(106,80,168,.35)">Neon Split</div><div class="timeline-block" style="left:12%;top:76px;width:76%;background:rgba(200,162,75,.22)">Quarter Pulse</div><div class="playhead"></div></div></section>
+            <section class="panel look-browser"><div class="panel-header">Reusable Looks <button class="icon-button" style="margin-left:auto;min-height:24px" aria-label="Add reusable look"><svg class="icon-svg" data-sgy-visual="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div><div class="panel-body scroll"><div class="look-item"><strong>Deep Blue Wash</strong><div class="look-type">Base look · 8 fixtures</div></div><div class="look-item"><strong>Neon Split</strong><div class="look-type">Color theme · 2 pools</div></div><div class="look-item"><strong>Quarter Pulse</strong><div class="look-type">Chase · beat unit</div></div><div class="look-item"><strong>Circle 2</strong><div class="look-type">Motion · 6 fixtures</div></div><div class="look-item"><strong>Audience Warm</strong><div class="look-type">Base look · 4 fixtures</div></div></div></section>
+            <section class="panel timeline"><div class="panel-header">Bar Timeline · Preview</div><div class="timeline-body"><div class="timeline-block" style="left:2%;top:12px;width:34%">Deep Blue Wash</div><div class="timeline-block" style="left:25%;top:44px;width:45%;background:color-mix(in srgb, var(--color-spectrum-violet) 35%, transparent)">Neon Split</div><div class="timeline-block" style="left:12%;top:76px;width:76%;background:color-mix(in srgb, var(--color-armed) 22%, transparent)">Quarter Pulse</div><div class="playhead"></div></div></section>
           </div></div>
         </main>
-        <aside class="inspector"><div class="panel-header">Inspector · Color Layer</div><div class="panel-body"><div class="field"><label>Reusable look</label><select><option>Neon Split</option><option>Sunset</option></select></div><div class="field"><label>Blend preset</label><select><option>Soft Blend · 1 bar</option><option>Snap</option></select></div><div class="field"><label>Intensity contribution</label><input class="mono" value="64%"></div><div class="switch-row"><span>Enabled</span><button class="toggle on"></button></div><div class="switch-row"><span>Operator assigned</span><button class="toggle on"></button></div><button class="secondary" style="width:100%;margin-top:12px" data-toast="Layer duplicated">Duplicate Layer Setup</button></div></aside>
+        <aside class="inspector" id="inspector-002-a"><div class="panel-header">Inspector · Color Layer</div><div class="panel-body"><div class="field"><label>Reusable look</label><select><option>Neon Split</option><option>Sunset</option></select></div><div class="field"><label>Blend preset</label><select><option>Soft Blend · 1 bar</option><option>Snap</option></select></div><div class="field"><label>Intensity contribution</label><input class="mono" value="64%"></div><div class="switch-row"><span>Enabled</span><button class="toggle on"></button></div><div class="switch-row"><span>Operator assigned</span><button class="toggle on"></button></div><button class="secondary" style="width:100%;margin-top:12px" data-toast="Layer duplicated">Duplicate Layer Setup</button></div></aside>
         <footer class="safety"><span class="safety-label">Independent safety</span><button class="stop" data-hold="Stop / Release All">Hold: Stop / Release</button><button class="revoke" data-hold="Revoke Automation">Hold: Revoke Automation</button><button data-hold="Blackout">Hold: Blackout</button></footer>
       </div>
     </section>
 
     <section class="variant" id="variant-b">
       <div class="app">
-        <header class="topbar"><div class="brand"><div class="mark">G</div><div><div class="show-title">Neon Harbor</div><div class="save-state">Saved · Main Rig</div></div></div><div class="transport"><button class="play">▶</button><button>■</button><span class="readout mono">124.00 BPM</span><button data-toast="Tempo captured">TAP</button><span class="readout mono">032.3.2</span></div><div class="live-summary"><span class="chip live">Manual</span><span>Verse Lift</span><span class="dot"></span><span>Frame lock</span></div></header>
+        <header class="topbar"><div class="brand"><div class="mark" data-sgy-visual="mark"><svg viewBox="0 0 100 100" role="img" aria-label="GOLC mark"><rect x="2" y="2" width="96" height="96" rx="22" fill="var(--color-mark-tile)"/><polygon points="50,25 18.5,84 25.5,84" fill="#c0554a"/><polygon points="50,25 29.5,84 36.5,84" fill="#cc8a47"/><polygon points="50,25 40.5,84 47.5,84" fill="#b6a24c"/><polygon points="50,25 51.5,84 58.5,84" fill="#4e9e68"/><polygon points="50,25 62.5,84 69.5,84" fill="#1b44d9"/><polygon points="50,25 73.5,84 80.5,84" fill="#6a50a8"/><rect x="40" y="18" width="20" height="7" rx="3" fill="var(--color-mark-bar)"/></svg></div><div><div class="show-title">Neon Harbor</div><div class="save-state">Saved · Main Rig</div></div></div><div class="transport"><button class="play" aria-label="Play"><svg class="icon-svg" data-sgy-visual="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l9 6-9 6V6z" fill="currentColor"/></svg></button><button aria-label="Stop"><svg class="icon-svg" data-sgy-visual="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="10" height="10" fill="currentColor"/></svg></button><span class="readout mono">124.00 BPM</span><button data-toast="Tempo captured">TAP</button><span class="readout mono">032.3.2</span></div><div class="live-summary"><span class="chip live">Manual</span><span>Verse Lift</span><span class="dot"></span><span>Frame lock</span></div></header>
         <nav class="deck-nav" aria-label="Application navigation"><div class="deck-section"><div class="deck-label">Show</div><button>Overview</button><button>Save &amp; Recovery</button></div><div class="deck-section"><div class="deck-label">Build</div><button>Fixture Library</button><button>Patch &amp; Pools</button><button class="active">Scenes &amp; Looks</button></div><div class="deck-section"><div class="deck-label">Operate</div><button>Operator Surface</button><button>MIDI Mapping</button></div><div class="deck-section"><div class="deck-label">Output</div><button>Art-Net</button><button>Diagnostics</button></div></nav>
         <main class="workspace"><div class="workspace-bar"><span class="workspace-title">Scenes &amp; Looks</span><span class="crumb">Matrix overview</span><div class="actions"><button class="secondary" data-toast="New scene row added">+ Scene</button><button class="primary" data-toast="Matrix changes recorded">Record Changes</button></div></div>
           <div class="canvas"><div class="layout-b">
             <section class="panel matrix-wrap"><div class="panel-header">Scene × Layer Matrix <span style="margin-left:auto;color:var(--color-text-muted)">8 scenes · 19 active layers</span></div><div class="matrix">
               <div class="matrix-head">Scene</div><div class="matrix-head">Base Look</div><div class="matrix-head">Color Theme</div><div class="matrix-head">Chase</div><div class="matrix-head">Motion</div><div class="matrix-head">Go</div>
-              <div class="matrix-scene">01 · Doors</div><div class="cell">Amber Doors</div><div class="cell">Warm House</div><div class="cell off">—</div><div class="cell off">—</div><button class="launch">▶</button>
-              <div class="matrix-scene">02 · Opening</div><div class="cell">Deep Blue</div><div class="cell">Split Green</div><div class="cell">Slow Rise</div><div class="cell off">—</div><button class="launch">▶</button>
-              <div class="matrix-scene" style="background:var(--color-primary-soft)">03 · Verse Lift</div><div class="cell">Deep Blue Wash</div><div class="cell selected">Neon Split</div><div class="cell">Quarter Pulse</div><div class="cell off">Circle 2 · off</div><button class="launch live">▶</button>
-              <div class="matrix-scene">04 · Chorus Wide</div><div class="cell">Wide White</div><div class="cell">Sunset</div><div class="cell">Eighth Drive</div><div class="cell">Fan Sweep</div><button class="launch">▶</button>
-              <div class="matrix-scene">05 · Breakdown</div><div class="cell">Blackout Base</div><div class="cell">Cold Steel</div><div class="cell off">—</div><div class="cell off">Home · off</div><button class="launch">▶</button>
-              <div class="matrix-scene">06 · Finale</div><div class="cell">Full Stage</div><div class="cell">Spectrum</div><div class="cell">Finale Chase</div><div class="cell">Wide Circle</div><button class="launch">▶</button>
+              <div class="matrix-scene">01 · Doors</div><div class="cell">Amber Doors</div><div class="cell">Warm House</div><div class="cell off">—</div><div class="cell off">—</div><button class="launch" aria-label="Launch Doors"><svg class="icon-svg" data-sgy-visual="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l9 6-9 6V6z" fill="currentColor"/></svg></button>
+              <div class="matrix-scene">02 · Opening</div><div class="cell">Deep Blue</div><div class="cell">Split Green</div><div class="cell">Slow Rise</div><div class="cell off">—</div><button class="launch" aria-label="Launch Opening"><svg class="icon-svg" data-sgy-visual="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l9 6-9 6V6z" fill="currentColor"/></svg></button>
+              <div class="matrix-scene" style="background:var(--color-primary-soft)">03 · Verse Lift</div><div class="cell">Deep Blue Wash</div><div class="cell selected">Neon Split</div><div class="cell">Quarter Pulse</div><div class="cell off">Circle 2 · off</div><button class="launch live" aria-label="Launch Verse Lift"><svg class="icon-svg" data-sgy-visual="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l9 6-9 6V6z" fill="currentColor"/></svg></button>
+              <div class="matrix-scene">04 · Chorus Wide</div><div class="cell">Wide White</div><div class="cell">Sunset</div><div class="cell">Eighth Drive</div><div class="cell">Fan Sweep</div><button class="launch" aria-label="Launch Chorus Wide"><svg class="icon-svg" data-sgy-visual="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l9 6-9 6V6z" fill="currentColor"/></svg></button>
+              <div class="matrix-scene">05 · Breakdown</div><div class="cell">Blackout Base</div><div class="cell">Cold Steel</div><div class="cell off">—</div><div class="cell off">Home · off</div><button class="launch" aria-label="Launch Breakdown"><svg class="icon-svg" data-sgy-visual="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l9 6-9 6V6z" fill="currentColor"/></svg></button>
+              <div class="matrix-scene">06 · Finale</div><div class="cell">Full Stage</div><div class="cell">Spectrum</div><div class="cell">Finale Chase</div><div class="cell">Wide Circle</div><button class="launch" aria-label="Launch Finale"><svg class="icon-svg" data-sgy-visual="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l9 6-9 6V6z" fill="currentColor"/></svg></button>
             </div></section>
             <section class="panel detail-editor"><div class="detail-meta"><div class="deck-label">Selected cell</div><h3 style="margin:5px 0">Neon Split</h3><p style="font-size:10px;color:var(--color-text-muted)">Verse Lift · Color Theme</p><span class="chip live">Enabled</span></div><div class="detail-controls"><div class="parameter"><label>Blend</label><strong>Soft · 1 bar</strong><div class="bar"><span style="width:50%"></span></div></div><div class="parameter"><label>Contribution</label><strong class="mono">64%</strong><div class="bar"><span style="width:64%"></span></div></div><div class="parameter"><label>Scope</label><strong>Movers</strong><span class="chip">6 fixtures</span></div><div class="parameter"><label>Surface</label><strong>FOH</strong><span class="chip">assigned</span></div></div></section>
           </div></div>
@@ -201,7 +239,7 @@
 
     <section class="variant" id="variant-c">
       <div class="app">
-        <header class="topbar"><div class="brand"><div class="mark">G</div><div><div class="show-title">Neon Harbor</div><div class="save-state">Programmer has 4 touched values</div></div></div><div class="transport"><button class="play">▶</button><button>■</button><span class="readout mono">124.00 BPM</span><button data-toast="Tempo captured">TAP</button><span class="readout mono">032.3.2</span></div><div class="live-summary"><span class="chip live">Manual</span><span>Verse Lift</span><span class="dot"></span><span>Frame lock</span></div></header>
+        <header class="topbar"><div class="brand"><div class="mark" data-sgy-visual="mark"><svg viewBox="0 0 100 100" role="img" aria-label="GOLC mark"><rect x="2" y="2" width="96" height="96" rx="22" fill="var(--color-mark-tile)"/><polygon points="50,25 18.5,84 25.5,84" fill="#c0554a"/><polygon points="50,25 29.5,84 36.5,84" fill="#cc8a47"/><polygon points="50,25 40.5,84 47.5,84" fill="#b6a24c"/><polygon points="50,25 51.5,84 58.5,84" fill="#4e9e68"/><polygon points="50,25 62.5,84 69.5,84" fill="#1b44d9"/><polygon points="50,25 73.5,84 80.5,84" fill="#6a50a8"/><rect x="40" y="18" width="20" height="7" rx="3" fill="var(--color-mark-bar)"/></svg></div><div><div class="show-title">Neon Harbor</div><div class="save-state">Programmer has 4 touched values</div></div></div><div class="transport"><button class="play" aria-label="Play"><svg class="icon-svg" data-sgy-visual="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l9 6-9 6V6z" fill="currentColor"/></svg></button><button aria-label="Stop"><svg class="icon-svg" data-sgy-visual="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="10" height="10" fill="currentColor"/></svg></button><span class="readout mono">124.00 BPM</span><button data-toast="Tempo captured">TAP</button><span class="readout mono">032.3.2</span></div><div class="live-summary"><span class="chip live">Manual</span><span>Verse Lift</span><span class="dot"></span><span>Frame lock</span></div></header>
         <nav class="deck-nav" aria-label="Application navigation"><div class="deck-section"><div class="deck-label">Show</div><button>Overview</button><button>Save &amp; Recovery</button></div><div class="deck-section"><div class="deck-label">Build</div><button>Fixture Library</button><button>Patch &amp; Pools</button><button class="active">Scenes &amp; Looks</button></div><div class="deck-section"><div class="deck-label">Operate</div><button>Operator Surface</button><button>MIDI Mapping</button></div><div class="deck-section"><div class="deck-label">Output</div><button>Art-Net</button><button>Diagnostics</button></div></nav>
         <main class="workspace"><div class="workspace-bar"><span class="workspace-title">Programmer</span><span class="crumb">Movers · 6 fixtures selected</span><div class="actions"><button class="secondary" data-toast="Programmer cleared">Clear</button><button class="secondary" data-toast="Blind preview toggled">Blind</button><button class="primary" data-toast="Record dialog opened">Record…</button></div></div>
           <div class="canvas"><div class="layout-c">
@@ -218,7 +256,7 @@
     </section>
 
   </div></div>
-  <div id="sketch-tools"><select class="theme-select"><option>Midnight Console</option></select><button class="tool-button" data-width="100%">Desktop</button><button class="tool-button" data-width="1024px">Compact</button></div>
+  <div id="sketch-tools"><select class="theme-select"><option>GOLC Paper</option></select><button class="tool-button" data-width="100%">Desktop</button><button class="tool-button" data-width="1024px">Compact</button></div>
   <div class="toast" id="toast"></div>
   <script>
     const tabs=document.querySelectorAll(".variant-tab");
@@ -233,6 +271,16 @@
     document.querySelectorAll(".attribute-tabs button").forEach(x=>x.addEventListener("click",()=>{x.parentElement.querySelectorAll("button").forEach(y=>y.classList.remove("active"));x.classList.add("active");showToast(`${x.textContent} attributes selected`)}));
     document.querySelectorAll("[data-hold]").forEach(button=>{let timer;button.dataset.original=button.textContent;const cancel=()=>{clearTimeout(timer);button.textContent=button.dataset.original};button.addEventListener("pointerdown",()=>{button.textContent="Keep holding…";timer=setTimeout(()=>{button.textContent=`${button.dataset.hold} active`;showToast(`${button.dataset.hold} triggered in sketch`)},700)});button.addEventListener("pointerup",cancel);button.addEventListener("pointerleave",cancel)});
     document.querySelectorAll("[data-width]").forEach(x=>x.addEventListener("click",()=>{document.getElementById("viewport").style.width=x.dataset.width;showToast(`${x.textContent} viewport`)}));
+    /* sgy:compact-detail:start */
+    document.querySelectorAll(".compact-detail-toggle[data-detail-toggle]").forEach((button)=>{
+      button.addEventListener("click",()=>{
+        const target=document.getElementById(button.getAttribute("aria-controls"));
+        const expanded=button.getAttribute("aria-expanded")==="true";
+        button.setAttribute("aria-expanded",String(!expanded));
+        target?.classList.toggle("compact-open",!expanded);
+      });
+    });
+    /* sgy:compact-detail:end */
   </script>
 </body>
 </html>
