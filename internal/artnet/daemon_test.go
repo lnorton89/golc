@@ -53,8 +53,12 @@ func platformTestEndpoint(t *testing.T, prefix string) string {
 	if runtime.GOOS == "windows" {
 		return `\\.\pipe\golc-` + suffix
 	}
-	endpoint := filepath.Join("/tmp", "golc-"+suffix+".sock")
-	t.Cleanup(func() { _ = os.Remove(endpoint) })
+	dir := filepath.Join("/tmp", "golc-"+suffix)
+	endpoint := filepath.Join(dir, "artnet.sock")
+	t.Cleanup(func() {
+		_ = os.Remove(endpoint)
+		_ = os.Remove(dir)
+	})
 	return endpoint
 }
 

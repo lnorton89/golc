@@ -14,10 +14,13 @@ import (
 
 func testPipeName(t *testing.T) string {
 	t.Helper()
-	name := fmt.Sprintf("t-%d-%x.sock", os.Getpid(), time.Now().UnixNano())
-	path := filepath.Join("/tmp", name)
-	t.Cleanup(func() { _ = os.Remove(path) })
-	return path
+	dir := filepath.Join("/tmp", fmt.Sprintf("golc-t-%d-%x", os.Getpid(), time.Now().UnixNano()))
+	endpoint := filepath.Join(dir, "artnet.sock")
+	t.Cleanup(func() {
+		_ = os.Remove(endpoint)
+		_ = os.Remove(dir)
+	})
+	return endpoint
 }
 
 func TestUnixProductionEndpointIsShortStableAndPerUser(t *testing.T) {
