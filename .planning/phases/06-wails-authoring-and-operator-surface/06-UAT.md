@@ -1,18 +1,10 @@
 ---
-status: testing
+status: complete
 phase: 06-wails-authoring-and-operator-surface
 source: [06-VERIFICATION.md]
 started: 2026-07-23T23:59:00Z
-updated: 2026-07-24T01:15:00Z
+updated: 2026-07-24T20:15:00Z
 ---
-
-## Current Test
-
-number: 4
-name: 06-08 Task 4 (deferred): generic MIDI learn + soft takeover against a real or virtual MIDI controller
-expected: |
-  Learn/Listening/Cancel/conflict/timeout states behave per copy; only assigned controls offer Learn; fader follows physical position pre-arm with a ghost marker and only controls after crossing; buttons act immediately with no takeover slider; a learned/armed mapping now also actually switches scenes / toggles layers / sets master level / triggers safety
-awaiting: user response (requires physical or virtual MIDI hardware — see note below)
 
 ## Tests
 
@@ -39,9 +31,14 @@ notes: |
 
 ### 4. 06-08 Task 4 (deferred): generic MIDI learn (conflict rejection + surface-scoped learnability) and cross-to-catch soft takeover against a real or virtual MIDI controller
 expected: Learn/Listening/Cancel/conflict/timeout states behave per copy; only assigned controls offer Learn; fader follows physical position pre-arm with a ghost marker and only controls after crossing; buttons act immediately with no takeover slider; a learned/armed mapping now also actually switches scenes / toggles layers / sets master level / triggers safety (06-09 closed this; unit-proven, still needs a live-hardware click-through to confirm feel)
-result: blocked
-blocked_by: physical-device
-reason: "No physical or virtual MIDI controller/loopback port is available in this environment (console output confirms GOLC_MIDI_NO_PORTS_AVAILABLE). The underlying dispatch logic (06-09) is unit-tested and independently source-verified; the Learn UI flow's states and the fader ghost-marker/crossing behavior have not been exercised against real MIDI input by anyone yet. Installing a virtual MIDI loopback (e.g. loopMIDI) and driving it would let this be tested without physical hardware, but that is a user environment change, not something to do unilaterally."
+result: pass
+source: human (real hardware: Novation Launch Control XL)
+notes: |
+  Verified end-to-end against real physical hardware in the native golc-desktop.exe window, not a mock. Two real bugs were found and fixed along the way, both now covered by regression tests:
+  (1) OpenFirstAvailable bound only the first of the controller's two enumerated MIDI input ports (`midicat.exe ins` reported "Launch Control XL 0" and "MIDIIN2 (Launch Control XL) 1"); the controller's actual control data depends on its hardware template/mode and landed on whichever port wasn't being listened to, so Learn's capture window saw nothing and always timed out. Fixed by listening on every enumerated port and merging events (internal/midi/driver.go); confirmed both the code fix and, separately, a raw `midicat.exe in` capture directly off the hardware receiving real CC data.
+  (2) A previously force-killed golc-desktop.exe instance's midicat.exe helper subprocesses were orphaned (parent process dead) and kept the ports held exclusively across restarts -- every later launch's own MIDI attach silently failed with no diagnostic. Fixed with a startup-time sweep that kills orphaned midicat.exe processes before attaching (internal/midi/orphan.go); reproduced the exact scenario (launched, force-killed, confirmed live orphans holding the ports, relaunched, confirmed automatic cleanup and successful attach) with no manual process-killing needed.
+  With both fixed: mapped Blackout to a physical button via Learn (Listening -> captured -> persisted), confirmed the mapping round-tripped correctly (MIDI mappings list showed "Grand Master -- Note 44 - ch 4 -- Armed" from an earlier mapping, "Blackout" learned fresh in this pass), and confirmed the physical button press actually dispatched (`GOLC_WAILS_MIDI_SAFETY_DISPATCH_FAILED`/success log lines correlate 1:1 with button presses). Separately confirmed the daemon must have an active scene and a valid (nonzero) BPM to start at all -- a related but distinct fix (show.DefaultBPM) was needed before dispatch could actually reach the playback engine rather than failing at "dial the daemon."
+  NOT separately re-verified in this pass: the fader ghost-marker/crossing soft-takeover visual behavior specifically (Blackout is a Note/button mapping, D-12 -- no takeover slider applies) and the other two MIDI-HW-01 acceptance-set devices (Akai MIDImix, Worlde EasyControl 9) -- ROADMAP's MIDI-HW-02 already defers per-device hardware certification to v1.x (EXTN-04); this pass only needed to prove the generic Note/CC learn mechanism itself works against real hardware, which it now does.
 
 ### 5. 06-10 Task 3 (deferred): FixturePatch click-through — create a pool, add a fixture at a mode against a deployment that already references the pool, confirm the impact preview shows each affected instance's system-computed universe/address before Apply, apply it, create+activate a deployment
 expected: Pool list, deployment active-state, and each instance's mode/universe/address update on screen; empty/error states render per UI-SPEC copy
@@ -66,13 +63,13 @@ notes: |
 
 ### 8. CR-01 (from 06-REVIEW-FIX.md, human-flagged, not auto-resolved): whether a MIDI-triggered Blackout/master-level dispatch that fails to reach the daemon needs an operator-visible banner (not just a server log line) before the next live-show use of MIDI-mapped safety controls
 expected: A product/human decision on whether `dispatchSafetyTrigger`/`dispatchMasterSet`'s current server-log-only failure signal is sufficient, or whether a distinct operator-visible "dispatch failed" push is required
-result: [pending]
-reason: "Not a testable fact — this is an explicit UX/product-risk judgment call the code-review-fix pass itself declined to resolve unilaterally. Needs your decision, not more testing."
+result: decided
+decision: "Server-side log is sufficient for now (human decision, 2026-07-24). No code change. Revisit an operator-visible failure banner later only if it proves to be a real problem in practice."
 
 ### 9. WR-01 (from 06-REVIEW-FIX.md, human-flagged, not auto-resolved): whether FixturePatch.tsx's initial ListPatch load silently degrading to an empty view on a missing bridge (converging onto ArtnetConfig.tsx/SceneProgramming.tsx's convention) is the intended UX, vs. its prior FixturePatch-specific explicit error banner on initial load
 expected: A human confirms the convergence (silent empty-view degradation) is the intended behavior before end-of-phase UAT
-result: [pending]
-reason: "Not a testable fact — this is a UX-convention judgment call the code-review-fix pass itself declined to resolve unilaterally. Needs your decision, not more testing."
+result: decided
+decision: "Silent-empty convergence confirmed as the intended UX (human decision, 2026-07-24). No code change. All three on-screen-UI components (FixturePatch/ArtnetConfig/SceneProgramming) now degrade identically on a missing bridge."
 
 ## Methodology note (added after initial pass)
 
@@ -81,18 +78,29 @@ Tests 1/2/3/5/6/7 above were re-verified by driving the REAL, unmodified fronten
 An earlier attempt to drive the actual native `golc-desktop.exe` window directly (with a real, live Art-Net daemon successfully connected) was abandoned mid-test after a stray automated click landed on an unrelated, unrunning Claude Code session's own interactive prompt instead of the intended button — Windows' focus-stealing prevention silently no-ops `SetForegroundWindow` calls, so blind coordinate-based clicking on a shared desktop with other live applications is not safe to continue. No harm resulted (the other session's prompt was confirmed still unanswered), but this path was stopped rather than risking a real misclick into an unrelated window.
 
 Genuinely unverified by any method above:
-- Test 4 (MIDI): requires physical or virtual MIDI hardware not present in this environment.
 - Visual/aesthetic polish (exact colors, spacing, font rendering, animation smoothness) — DOM state and class names were verified, not pixel-level visual correctness.
 - True OS-level window-focus-loss for the keyboard workflow (Test 2) — the code's own typing-target guard was verified directly; literal alt-tab-away behavior was not.
-- Tests 8/9 are product/UX judgment calls, not facts — no amount of testing resolves them.
+- The fader ghost-marker/crossing soft-takeover visual behavior specifically, and the other two MIDI-HW-01 acceptance-set devices (Akai MIDImix, Worlde EasyControl 9) — Test 4's real-hardware pass verified the generic Note/CC learn mechanism itself, not every mapping kind or every accepted device; ROADMAP's MIDI-HW-02 already defers full per-device certification to v1.x (EXTN-04).
+
+## Post-UAT fixes (found and fixed during this pass, not pre-existing phase defects)
+
+Real hardware/environment testing after the initial mocked-bridge pass surfaced four additional bugs, all fixed and covered by regression tests in this same pass:
+
+- **SQLite `busy_timeout` pragma ordering** (internal/show/schema.go): applied last instead of first, so the very statement that can trigger WAL-index recovery ran with no timeout in effect — surfaced as `GOLC_SHOW_STATE_INVALID: database is locked (261)` when selecting an operator surface right after an app restart.
+- **Operator-surface list not shared across mounted components** (frontend store.ts/MidiPanel.tsx/OperatorSurface.tsx): a surface created in OperatorSurface never told MidiPanel to refetch, since both fetch once on mount with no shared source of truth.
+- **MIDI driver bound only the first enumerated port** (internal/midi/driver.go) and **orphaned `midicat.exe` helper processes held ports across restarts** (internal/midi/orphan.go) — both detailed in Test 4 above.
+- **Blackout button/ACTIVE badge invisible in dark mode** (frontend SafetyCluster) and **BPM=0 sentinel silently blocking the daemon from ever starting** (internal/show/state.go, internal/command/artnet.go) — the daemon requires an active scene and a nonzero BPM to start at all; new/existing shows now default/backfill to 120 BPM.
 
 ## Summary
 
 total: 9
-passed: 6
+passed: 7
 issues: 0
-pending: 2
+pending: 0
 skipped: 0
-blocked: 1
+blocked: 0
+decided: 2
 
 ## Gaps
+
+None.
