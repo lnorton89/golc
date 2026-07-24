@@ -106,6 +106,22 @@ func main() {
 			// blank import registers midicatdrv (this binary's only
 			// registered driver) before this line runs; a missing/absent
 			// device (GOLC_MIDI_NO_PORTS_AVAILABLE) is logged, not fatal.
+			//
+			// KillOrphanedMidicatProcesses runs first: a previous
+			// golc-desktop.exe that was force-killed (Task Manager, a
+			// crash, or Stop-Process -Force) never ran its own graceful
+			// OnShutdown -> DetachDriver -> Driver.Close, so any
+			// midicat.exe subprocess it spawned is still running, holding
+			// its MIDI port open indefinitely (Windows' MIDI IN API is
+			// exclusive-access) -- silently breaking THIS launch's own
+			// OpenFirstAvailable/AttachDriver below with no diagnostic
+			// pointing at why (reproduced directly during 06-08 hardware
+			// testing: MIDI Learn simply never captured anything). This
+			// sweep clears exactly that stale hold before attaching, every
+			// launch, with no manual process-killing required.
+			for _, killErr := range midi.KillOrphanedMidicatProcesses() {
+				log.Printf("GOLC_WAILS_MIDI_ORPHAN_CLEANUP_FAILED: %v", killErr)
+			}
 			midiService.StartFeedback(ctx)
 			if driver, driverErr := midi.OpenFirstAvailable(); driverErr != nil {
 				log.Printf("GOLC_WAILS_MIDI_DRIVER_UNAVAILABLE: %v", driverErr)
