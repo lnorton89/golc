@@ -141,7 +141,21 @@ func buildTarGzEntries(t *testing.T, dir, name string, entries []testArchiveEntr
 		}
 		mode := int64(item.Mode.Perm())
 		if mode == 0 {
-			mode = 0o644
+			// A directory needs its execute bit to be traversable on
+			// POSIX at all; unlike archive.go's own reader (which
+			// already defaults an unset mode to 0o755 for directories,
+			// 0o644 for files), this test writer used to apply 0o644
+			// unconditionally, silently producing untraversable
+			// directories that only failed on Linux/macOS (observed
+			// live: cross-platform-mage.yml run 30075276470 failed
+			// extracting a directory this way, invisibly passing on
+			// Windows, which does not enforce POSIX directory
+			// permission bits the same way).
+			if item.Dir {
+				mode = 0o755
+			} else {
+				mode = 0o644
+			}
 		}
 		header := &tar.Header{
 			Name:     item.Name,
