@@ -20,3 +20,12 @@ schemas/** text eol=lf
 # on windows-latest with visually identical "got"/"want" JSON bodies,
 # because the mismatch was in trailing line-ending bytes, not content).
 tests/golden/** text eol=lf
+
+# Same issue again: CheckMigration (internal/trace/catalog/migrate.go)
+# compares the committed .planning/linear-map.json byte-for-byte against
+# a freshly re-derived canonical schema-2 encoding, which strictjson
+# always emits LF-only -- so without this rule a Windows checkout's
+# core.autocrlf conversion makes the committed file fail its own drift
+# check even though nothing about the map actually drifted (observed
+# live: cross-platform-mage.yml run 30112915317 on windows-latest).
+.planning/linear-map.json text eol=lf
