@@ -45,6 +45,10 @@ type toolchainSourcesDocument struct {
 		OfficialHost       string `toml:"official_host"`
 		OfficialPathPrefix string `toml:"official_path_prefix"`
 	} `toml:"toolchain"`
+	Tools map[string]struct {
+		OfficialHost       string `toml:"official_host"`
+		OfficialPathPrefix string `toml:"official_path_prefix"`
+	} `toml:"tools"`
 }
 
 // LoadOfficialSourcePolicy reads every pinned tool's official_host/
@@ -68,6 +72,18 @@ func LoadOfficialSourcePolicy(root string) (OfficialSourcePolicy, error) {
 	var patterns []SourcePattern
 	for _, name := range names {
 		entry := document.Toolchain[name]
+		if strings.TrimSpace(entry.OfficialHost) == "" || strings.TrimSpace(entry.OfficialPathPrefix) == "" {
+			continue
+		}
+		patterns = append(patterns, SourcePattern{Host: entry.OfficialHost, PathPrefix: entry.OfficialPathPrefix})
+	}
+	toolNames := make([]string, 0, len(document.Tools))
+	for name := range document.Tools {
+		toolNames = append(toolNames, name)
+	}
+	sort.Strings(toolNames)
+	for _, name := range toolNames {
+		entry := document.Tools[name]
 		if strings.TrimSpace(entry.OfficialHost) == "" || strings.TrimSpace(entry.OfficialPathPrefix) == "" {
 			continue
 		}
@@ -99,6 +115,40 @@ func (policy OfficialSourcePolicy) Allows(rawURL string) error {
 	return fmt.Errorf("BOOTSTRAP_SOURCE_NOT_ALLOWLISTED: %q does not match a committed official host/path pattern", rawURL)
 }
 
+func validateAcquisitionURL(policy OfficialSourcePolicy, rawURL string) error {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("BOOTSTRAP_SOURCE_INVALID_URL: %q: %w", rawURL, err)
+	}
+	switch parsed.Scheme {
+	case "https":
+		return policy.Allows(rawURL)
+	case "file":
+		if parsed.Host != "" && !strings.EqualFold(parsed.Host, "localhost") {
+			return fmt.Errorf("BOOTSTRAP_SOURCE_FILE: file URL %q must not name a remote host", rawURL)
+		}
+		_, err := fileURLPath(parsed)
+		return err
+	default:
+		return fmt.Errorf("BOOTSTRAP_SOURCE_SCHEME: %q must use https or an absolute local file URL", rawURL)
+	}
+}
+
+func fileURLPath(parsed *url.URL) (string, error) {
+	decoded, err := url.PathUnescape(parsed.Path)
+	if err != nil {
+		return "", fmt.Errorf("BOOTSTRAP_SOURCE_FILE: invalid file URL path: %w", err)
+	}
+	if filepath.Separator == '\\' && len(decoded) >= 3 && decoded[0] == '/' && decoded[2] == ':' {
+		decoded = decoded[1:]
+	}
+	localPath := filepath.FromSlash(decoded)
+	if !filepath.IsAbs(localPath) {
+		return "", fmt.Errorf("BOOTSTRAP_SOURCE_FILE: file URL path %q is not absolute", decoded)
+	}
+	return localPath, nil
+}
+
 // Source fetches archive bytes for an already-allowlisted URL. Production
 // wires HTTPSource; every test injects a fake so bootstrap-archive tests
 // never perform live network I/O.
@@ -110,6 +160,50 @@ type Source interface {
 // library client. It is never constructed by a test.
 type HTTPSource struct {
 	Client *http.Client
+}
+
+// URLSource is the production source for both allowlisted HTTPS downloads and
+// absolute local file fixtures. Redirects are rechecked against Policy.
+type URLSource struct {
+	Policy OfficialSourcePolicy
+	Client *http.Client
+}
+
+func (source URLSource) Fetch(rawURL string) (io.ReadCloser, error) {
+	if err := validateAcquisitionURL(source.Policy, rawURL); err != nil {
+		return nil, err
+	}
+	parsed, _ := url.Parse(rawURL)
+	if parsed.Scheme == "file" {
+		path, err := fileURLPath(parsed)
+		if err != nil {
+			return nil, err
+		}
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, fmt.Errorf("BOOTSTRAP_OFFLINE_ARTIFACT_MISSING: %s: %w", path, err)
+		}
+		return file, nil
+	}
+	client := source.Client
+	if client == nil {
+		client = &http.Client{}
+	}
+	copyClient := *client
+	priorRedirect := copyClient.CheckRedirect
+	copyClient.CheckRedirect = func(request *http.Request, via []*http.Request) error {
+		if err := source.Policy.Allows(request.URL.String()); err != nil {
+			return err
+		}
+		if priorRedirect != nil {
+			return priorRedirect(request, via)
+		}
+		if len(via) >= 10 {
+			return fmt.Errorf("BOOTSTRAP_SOURCE_REDIRECT: too many redirects")
+		}
+		return nil
+	}
+	return HTTPSource{Client: &copyClient}.Fetch(rawURL)
 }
 
 // Fetch performs the HTTPS GET and returns the response body, or an error
@@ -165,6 +259,80 @@ func AcquireStaged(policy OfficialSourcePolicy, source Source, rawURL, stagingDi
 		return "", fmt.Errorf("BOOTSTRAP_STAGING_CREATE: %w", closeErr)
 	}
 	return path, nil
+}
+
+func archiveSuffix(rawURL string) (string, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("BOOTSTRAP_SOURCE_INVALID_URL: %q: %w", rawURL, err)
+	}
+	lower := strings.ToLower(parsed.Path)
+	switch {
+	case strings.HasSuffix(lower, ".tar.gz"):
+		return ".tar.gz", nil
+	case strings.HasSuffix(lower, ".zip"):
+		return ".zip", nil
+	default:
+		return "", fmt.Errorf("BOOTSTRAP_ARCHIVE_FORMAT: %q must identify a .zip or .tar.gz archive", rawURL)
+	}
+}
+
+// Acquire returns a checksum-verified content-addressed cache file. A valid
+// cache entry performs zero Source calls; corrupt bytes are removed and
+// reacquired through a bounded partial file.
+func Acquire(policy OfficialSourcePolicy, source Source, rawURL, expectedSHA256, downloadsDir string) (archivePath string, err error) {
+	expected, err := normalizeExpectedSHA256(expectedSHA256)
+	if err != nil {
+		return "", err
+	}
+	suffix, err := archiveSuffix(rawURL)
+	if err != nil {
+		return "", err
+	}
+	if err := validateAcquisitionURL(policy, rawURL); err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(downloadsDir, 0o755); err != nil {
+		return "", fmt.Errorf("BOOTSTRAP_CACHE_DIRECTORY: %w", err)
+	}
+	cached := filepath.Join(downloadsDir, expected+suffix)
+	if info, statErr := os.Stat(cached); statErr == nil && info.Mode().IsRegular() {
+		if verifyErr := VerifySHA256(cached, expected); verifyErr == nil {
+			return cached, nil
+		}
+		if err := os.Remove(cached); err != nil {
+			return "", fmt.Errorf("BOOTSTRAP_CACHE_CORRUPT: %w", err)
+		}
+	}
+	body, err := source.Fetch(rawURL)
+	if err != nil {
+		return "", err
+	}
+	defer body.Close()
+	partial, err := os.CreateTemp(downloadsDir, ".partial-*"+suffix)
+	if err != nil {
+		return "", fmt.Errorf("BOOTSTRAP_STAGING_CREATE: %w", err)
+	}
+	partialPath := partial.Name()
+	defer func() {
+		if err != nil {
+			_ = os.Remove(partialPath)
+		}
+	}()
+	if _, err = io.Copy(partial, body); err != nil {
+		_ = partial.Close()
+		return "", fmt.Errorf("BOOTSTRAP_SOURCE_FETCH: %q: %w", rawURL, err)
+	}
+	if err = partial.Close(); err != nil {
+		return "", fmt.Errorf("BOOTSTRAP_STAGING_CREATE: %w", err)
+	}
+	if err = VerifySHA256(partialPath, expected); err != nil {
+		return "", err
+	}
+	if err = os.Rename(partialPath, cached); err != nil {
+		return "", fmt.Errorf("BOOTSTRAP_CACHE_PROMOTE: %w", err)
+	}
+	return cached, nil
 }
 
 // AcquireAndPromote is the full D-01 acquisition boundary in one call: it

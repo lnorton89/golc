@@ -20,6 +20,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/lnorton89/golc/internal/projectconfig"
 )
 
 // WailsModule and WailsVersion are the exact project-local Wails CLI pin
@@ -53,6 +55,10 @@ type ProjectCacheLayout struct {
 // rooted at root. It fails if root is empty or the resulting layout would
 // escape root.
 func NewProjectCacheLayout(root string) (ProjectCacheLayout, error) {
+	return newProjectCacheLayout(root, nil)
+}
+
+func newProjectCacheLayout(root string, overrides map[string]string) (ProjectCacheLayout, error) {
 	if strings.TrimSpace(root) == "" {
 		return ProjectCacheLayout{}, fmt.Errorf("BOOTSTRAP_CACHE_ROOT: root must not be empty")
 	}
@@ -69,6 +75,23 @@ func NewProjectCacheLayout(root string) (ProjectCacheLayout, error) {
 		GoBin:        filepath.Join(absoluteRoot, ".tools", "cache", "go-bin"),
 		NpmCache:     filepath.Join(absoluteRoot, ".tools", "cache", "npm"),
 		Manifest:     filepath.Join(absoluteRoot, ".tools", "manifest"),
+	}
+	destinations := map[string]*string{
+		"downloads":  &layout.Downloads,
+		"gomodcache": &layout.GoModCache,
+		"gocache":    &layout.GoBuildCache,
+		"gobin":      &layout.GoBin,
+	}
+	for key, value := range overrides {
+		destination, ok := destinations[key]
+		if !ok || strings.TrimSpace(value) == "" {
+			continue
+		}
+		resolved, err := projectconfig.ResolveContainedPath(absoluteRoot, value)
+		if err != nil {
+			return ProjectCacheLayout{}, fmt.Errorf("BOOTSTRAP_CACHE_ESCAPE: %s: %w", key, err)
+		}
+		*destination = resolved
 	}
 	if err := layout.Validate(); err != nil {
 		return ProjectCacheLayout{}, err
