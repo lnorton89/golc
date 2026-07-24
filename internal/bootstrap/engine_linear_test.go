@@ -10,14 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-
-	"github.com/lnorton89/golc/internal/command"
 )
-
-var _ = command.MustDeclareScope(command.ScopeRegistration{
-	Scope:   "bootstrap-linear-sync",
-	Summary: "Pinned Node, exact-lock npm ci, and TypeScript output bootstrap tests.",
-})
 
 type linearFakeRunner struct {
 	goRunner      *engineFakeRunner

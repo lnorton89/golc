@@ -523,6 +523,12 @@ func TestScopeDelivery(t *testing.T) {
 			t.Fatalf("BuildFoundationBundle: %v", err)
 		}
 		paths := delivery.DefaultFoundationOutputPaths(root)
+		wantBase := "golc-foundation-" + bootstrap.PlatformKey()
+		if filepath.Base(paths.ZIPPath) != wantBase+".zip" ||
+			filepath.Base(paths.ManifestPath) != wantBase+".manifest.json" ||
+			filepath.Base(paths.ChecksumPath) != wantBase+".zip.sha256" {
+			t.Fatalf("platform foundation paths = %+v", paths)
+		}
 		if err := delivery.WriteFoundationBundle(bundle, paths); err != nil {
 			t.Fatalf("WriteFoundationBundle: %v", err)
 		}

@@ -18,8 +18,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/invopop/jsonschema"
-
-	"github.com/lnorton89/golc/internal/command"
 )
 
 // The bootstrap-archive quick-test scope is declared through the exact
@@ -29,19 +27,9 @@ import (
 // package bootstrap (not an external _test package) because
 // internal/bootstrap has no import cycle with internal/command — command
 // never imports bootstrap.
-var _ = command.MustDeclareScope(command.ScopeRegistration{
-	Scope:   "bootstrap-archive",
-	Summary: "Official-source policy, archive verification, and atomic promotion tests.",
-})
-
 // The bootstrap-cache quick-test scope covers Plan 01-28's project-local
 // cache-layout/offline-environment contract (cache.go) and the directory
 // primitive it shares with bootstrap.go's staged install.
-var _ = command.MustDeclareScope(command.ScopeRegistration{
-	Scope:   "bootstrap-cache",
-	Summary: "Project-local cache layout, offline environment, and directory warming tests.",
-})
-
 // buildArchive writes a zip archive containing the given entry names and
 // contents, returning the archive path and its lowercase hex SHA-256.
 func buildArchive(t *testing.T, dir string, entries map[string]string) (string, string) {

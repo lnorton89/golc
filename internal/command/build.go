@@ -23,10 +23,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/lnorton89/golc/internal/bootstrap"
 )
 
 var _ = MustDeclareScope(ScopeRegistration{
@@ -111,16 +111,12 @@ func resolvePinnedNodeExecutable(root string) (string, error) {
 	if !toolchainVersionPattern.MatchString(version) {
 		return "", fmt.Errorf("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: pinned toolchain.node.version %q is not a safe dotted version", version)
 	}
-	if runtime.GOOS != "windows" {
-		return "", fmt.Errorf("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: project-local Node provisioning is Windows-only in Phase 1")
+	nodeInstall := filepath.Join(root, ".tools", "toolchains", "node", version, bootstrap.PlatformKey())
+	node, err := bootstrap.ResolveNodeInstallation(nodeInstall)
+	if err != nil {
+		return "", fmt.Errorf("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: %s: run 'golc.ps1 bootstrap --include linear-sync' first: %v", nodeInstall, err)
 	}
-	nodeExecutable := filepath.Join(
-		root, ".tools", "toolchains", "node", version, "windows-amd64",
-		"node-v"+version+"-win-x64", "node.exe")
-	if _, err := os.Stat(nodeExecutable); err != nil {
-		return "", fmt.Errorf("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: %s: run 'golc.ps1 bootstrap --include linear-sync' first", nodeExecutable)
-	}
-	return nodeExecutable, nil
+	return node.Executable, nil
 }
 
 // runBuildNodeScope compiles one registered Node build scope with the

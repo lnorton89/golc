@@ -10,14 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-
-	"github.com/lnorton89/golc/internal/command"
 )
-
-var _ = command.MustDeclareScope(command.ScopeRegistration{
-	Scope:   "bootstrap-engine",
-	Summary: "Platform-aware, offline Go bootstrap engine orchestration tests.",
-})
 
 type engineFakeSource struct {
 	payload map[string][]byte

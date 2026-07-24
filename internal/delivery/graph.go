@@ -8,16 +8,12 @@
 // internal/command, so command -> delivery is the only import direction
 // and no cycle can form.
 //
-// This package also never imports internal/bootstrap: internal/bootstrap's
-// own test files import internal/command (to self-register their quick-
-// test scopes, per the established 01-VALIDATION pattern), and
-// internal/command imports internal/delivery (check.go), so a
-// delivery -> bootstrap import would close a cycle through bootstrap's
-// test binary (bootstrap[test] -> command -> delivery -> bootstrap).
-// resolveOfflineEnvironment below instead computes the repository-local
-// cache paths directly, mirroring the same direct-computation pattern
-// internal/command/test.go's projectGoEnvironment already establishes,
-// rather than depending on internal/bootstrap.ProjectCacheLayout.
+// This package imports internal/bootstrap only for its narrow platform
+// executable-path contract. Bootstrap's quick-scope declarations live in
+// an external test package so that dependency does not close a test-only
+// cycle through internal/command. resolveOfflineEnvironment below still
+// computes cache paths directly rather than coupling delivery to
+// bootstrap's broader cache model.
 //
 // LoadGraph, Run, RunOffline, and ValidateParity all operate on the one
 // Graph value LoadGraph returns; no second, independently maintained list
@@ -35,11 +31,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/lnorton89/golc/internal/bootstrap"
 )
 
 // NetworkPolicy declares whether a graph step may open a network
@@ -148,9 +146,20 @@ func LoadGraph(root string) (Graph, error) {
 	if _, err := toml.DecodeFile(manifestPath, &document); err != nil {
 		return Graph{}, fmt.Errorf("GOLC_DELIVERY_INVENTORY_MISSING: config/commands.toml: %v", err)
 	}
+	rawCLIRoot := strings.TrimSpace(document.Commands.CLIBinary)
+	if rawCLIRoot == "" || filepath.IsAbs(rawCLIRoot) || strings.Contains(rawCLIRoot, `\`) ||
+		!strings.HasPrefix(rawCLIRoot, ".tools/") || path.Clean(rawCLIRoot) != rawCLIRoot {
+		return Graph{}, fmt.Errorf(
+			"GOLC_DELIVERY_INVENTORY_INCOMPLETE: commands.cli_binary must be a safe project-local .tools install root")
+	}
+	resolvedCLI := bootstrap.PlatformExecutablePath(filepath.FromSlash(rawCLIRoot), "golc-project")
+	if resolvedCLI == "" {
+		return Graph{}, fmt.Errorf(
+			"GOLC_DELIVERY_INVENTORY_INCOMPLETE: commands.cli_binary could not resolve the project executable")
+	}
 	inventory := CommandInventory{
 		Entrypoint: strings.TrimSpace(document.Commands.Entrypoint),
-		CLIBinary:  strings.TrimSpace(document.Commands.CLIBinary),
+		CLIBinary:  filepath.ToSlash(resolvedCLI),
 		GoVersion:  strings.TrimSpace(document.Commands.GoVersion),
 	}
 	if inventory.Entrypoint == "" || inventory.CLIBinary == "" || inventory.GoVersion == "" {
@@ -265,9 +274,9 @@ func (env OfflineEnvironment) AsMap() map[string]string {
 // ProjectCacheLayout (Plan 28) and internal/command/test.go's
 // projectGoEnvironment both already establish (.tools/cache/go-mod,
 // .tools/cache/go-build, .tools/cache/go-bin under root), adding
-// GOPROXY=off. It never imports internal/bootstrap (see the package
-// doc comment for why) and never re-declares a fourth, independently
-// maintained copy of these paths beyond the two that already exist.
+// GOPROXY=off. It does not depend on internal/bootstrap's cache model and
+// never re-declares a fourth, independently maintained copy of these
+// paths beyond the two that already exist.
 func resolveOfflineEnvironment(root string) (OfflineEnvironment, error) {
 	if strings.TrimSpace(root) == "" {
 		return OfflineEnvironment{}, fmt.Errorf("GOLC_DELIVERY_OFFLINE_ENV: root must not be empty")

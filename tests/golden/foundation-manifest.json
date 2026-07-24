@@ -2,14 +2,14 @@
   "schema_version": 1,
   "files": [
     {
-      "path": ".tools/installs/golc_project/bin/golc-project.exe",
+      "path": ".tools/installs/golc_project/windows-amd64/bin/golc-project.exe",
       "sha256": "f45767f4aa5f84408c2acd61892d5f2e181b01a72bea89859fe22e448ed859be",
       "size": 23
     },
     {
       "path": "config/commands.toml",
-      "sha256": "d408a9164c4adcf215cd862d19c8031034e68ab95e8488714be5d014cb1b6225",
-      "size": 142
+      "sha256": "97a402ed7d43f470fc6ab639bec33fc2816cb85eb6646e3d0c105c4bfddbc421",
+      "size": 121
     },
     {
       "path": "config/integrations/linear.toml",
