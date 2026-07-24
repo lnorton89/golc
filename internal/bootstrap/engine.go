@@ -403,16 +403,19 @@ func validateManifestForPlatform(document bootstrapManifest, options Options) (m
 	if err != nil {
 		return manifestPin{}, manifestPin{}, manifestPin{}, err
 	}
-	var nodePin manifestPin
-	if options.IncludeLinearSync {
-		nodeParent, ok := document.Toolchain["node"]
-		if !ok {
-			return manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.node]")
-		}
-		nodePin, err = selectPlatformPin("node", nodeParent)
-		if err != nil {
-			return manifestPin{}, manifestPin{}, manifestPin{}, err
-		}
+	// Node is resolved (and, in run(), installed) unconditionally now,
+	// not only when options.IncludeLinearSync is set: cmd/golc-desktop's
+	// `//go:embed all:frontend/dist` means every default "build"/"test"
+	// route needs a built frontend/dist to compile at all, so bootstrap
+	// must always be able to produce one (see runFrontendBuild). Only
+	// the separate tools/linear-sync npm ci/tsc build stays opt-in.
+	nodeParent, ok := document.Toolchain["node"]
+	if !ok {
+		return manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.node]")
+	}
+	nodePin, err := selectPlatformPin("node", nodeParent)
+	if err != nil {
+		return manifestPin{}, manifestPin{}, manifestPin{}, err
 	}
 	return goPin, magePin, nodePin, nil
 }
@@ -508,6 +511,9 @@ func (engine *bootstrapEngine) run(ctx context.Context) error {
 		return fmt.Errorf("GOLC_GO_TOOLCHAIN_MISSING: expected pinned executable at %s", goExecutable)
 	}
 	if err := engine.runGoPhase(ctx, goExecutable); err != nil {
+		return err
+	}
+	if err := runFrontendBuild(ctx, engine); err != nil {
 		return err
 	}
 	if engine.options.IncludeLinearSync {
