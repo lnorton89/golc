@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lnorton89/golc/internal/bootstrap"
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/contracts"
 	"github.com/lnorton89/golc/internal/delivery"
@@ -243,15 +244,15 @@ func TestScopeSecrets(t *testing.T) {
 func writeFoundationFixture(t *testing.T, root string) {
 	t.Helper()
 	files := map[string]string{
-		"golc.ps1":                                          "REM golc.ps1 fixture entrypoint\n",
-		"golc.project.toml":                                 "schema_version = 2\n",
-		"docs/development.md":                               "# Fixture Docs\n",
-		"config/commands.toml":                              "schema_version = 2\n\n[commands]\nentrypoint = \"golc.ps1\"\ncli_binary = \".tools/installs/golc_project/bin/golc-project.exe\"\ngo_version = \"1.26.5\"\n",
-		"config/toolchain.toml":                             "schema_version = 2\n",
-		"config/integrations/linear.toml":                   "schema_version = 2\n",
-		"schemas/golc-project.schema.json":                  "{}\n",
-		"schemas/config-commands.schema.json":               "{}\n",
-		".tools/installs/golc_project/bin/golc-project.exe": "fixture binary payload\n",
+		"golc.ps1":                            "REM golc.ps1 fixture entrypoint\n",
+		"golc.project.toml":                   "schema_version = 2\n",
+		"docs/development.md":                 "# Fixture Docs\n",
+		"config/commands.toml":                "schema_version = 2\n\n[commands]\nentrypoint = \"golc.ps1\"\ncli_binary = \".tools/installs/golc_project\"\ngo_version = \"1.26.5\"\n",
+		"config/toolchain.toml":               "schema_version = 2\n",
+		"config/integrations/linear.toml":     "schema_version = 2\n",
+		"schemas/golc-project.schema.json":    "{}\n",
+		"schemas/config-commands.schema.json": "{}\n",
+		filepath.ToSlash(bootstrap.PlatformExecutablePath(".tools/installs/golc_project", "golc-project")): "fixture binary payload\n",
 	}
 	for relative, content := range files {
 		fullPath := filepath.Join(root, filepath.FromSlash(relative))
