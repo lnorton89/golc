@@ -72,6 +72,20 @@ func TestRunEstablishesResolvedProjectRootBeforeRegistryConstruction(t *testing.
 			if err != nil {
 				t.Fatal(err)
 			}
+			// The "absent environment" case falls back to os.Getwd(),
+			// which on macOS returns the fully symlink-resolved path
+			// (/private/var/folders/... rather than t.TempDir()'s own
+			// /var/folders/... form, since /var is itself a symlink to
+			// /private/var) -- so this comparison must resolve the same
+			// way, or it fails on any host where the temp directory sits
+			// behind such an indirection (observed live in
+			// cross-platform-mage.yml run 30110425773 on macos-latest;
+			// the identical class of bug already fixed in
+			// internal/bootstrap/engine_test.go's writeEngineRepository
+			// and magefiles/magefile_test.go).
+			if resolved, err := filepath.EvalSymlinks(absoluteRoot); err == nil {
+				absoluteRoot = resolved
+			}
 			if observed != absoluteRoot {
 				t.Fatalf("%s = %q before registry construction, want %q", repoRootEnvName, observed, absoluteRoot)
 			}
