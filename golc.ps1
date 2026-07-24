@@ -77,8 +77,8 @@ function Read-GolcToml {
         if ($line -eq "" -or $line.StartsWith("#")) {
             continue
         }
-        if ($line -match '^\[(?<tool>toolchain\.(go|node|mage))\.platforms\."windows-amd64"\]$') {
-            $current = $Matches["tool"] + ".platforms.windows-amd64"
+        if ($line -match '^\[(?<tool>toolchain\.(go|node|mage))\.platforms\."(?<platform>[a-z0-9-]+)"\]$') {
+            $current = $Matches["tool"] + ".platforms." + $Matches["platform"]
             if (-not $sections.ContainsKey($current)) {
                 $sections[$current] = @{}
             }
