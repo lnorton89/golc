@@ -356,6 +356,9 @@ func TestScopeBootstrapEngine(t *testing.T) {
 					t.Fatalf("call missing environment %s: %v", key, call.env)
 				}
 			}
+			if call.env["GOLC_PROJECT_ROOT"] != root {
+				t.Fatalf("call project root = %q, want %q", call.env["GOLC_PROJECT_ROOT"], root)
+			}
 			if !filepath.IsAbs(call.executable) {
 				t.Fatalf("executable is not absolute: %q", call.executable)
 			}

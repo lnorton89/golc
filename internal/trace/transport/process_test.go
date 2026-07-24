@@ -63,6 +63,8 @@ func resolveTestNode(t *testing.T) string {
 //   - "stderr-canary": writes a canary-laden line to stderr, then exits 1
 //     without ever writing a stdout response line, proving a failure
 //     diagnostic never leaks that raw content.
+//   - "project-root": returns the exact GOLC_PROJECT_ROOT visible to the
+//     child process.
 //   - "sentinel": after "ms" milliseconds, writes sentinelPath so a test
 //     can assert the process tree was actually killed before that file
 //     ever appears (proving Call's timeout path truly terminates the
@@ -110,6 +112,11 @@ rl.on("line", (raw) => {
     process.exit(1);
   }
 
+  if (request.mode === "project-root") {
+    process.stdout.write(JSON.stringify({ projectRoot: process.env.GOLC_PROJECT_ROOT || "" }) + "\n");
+    return;
+  }
+
   process.stdout.write(JSON.stringify({ echo: request }) + "\n");
 });
 `
@@ -126,10 +133,12 @@ func newTestClient(t *testing.T, sentinelPath string, timeout time.Duration) *Pr
 	node := resolveTestNode(t)
 	script := writeFixture(t, sentinelPath)
 	env := append(os.Environ(), "GOLC_TEST_SENTINEL_PATH="+sentinelPath)
+	projectRoot := t.TempDir()
 	client, err := NewProcessClient(ProcessConfig{
 		NodeExecutable: node,
 		ScriptPath:     script,
 		WorkDir:        filepath.Dir(script),
+		ProjectRoot:    projectRoot,
 		Env:            env,
 		Timeout:        timeout,
 	})
@@ -157,6 +166,44 @@ func TestScopeTraceTransportProcess(t *testing.T) {
 		}
 		if decoded.Echo.Value != "hello" {
 			t.Fatalf("expected echoed value %q, got %q", "hello", decoded.Echo.Value)
+		}
+	})
+
+	t.Run("child receives normalized project root over absent or stale environment", func(t *testing.T) {
+		node := resolveTestNode(t)
+		script := writeFixture(t, filepath.Join(t.TempDir(), "unused"))
+		for _, env := range [][]string{
+			{"PATH=fixture"},
+			{"PATH=fixture", "golc_project_root=stale", "GOLC_PROJECT_ROOT=older"},
+		} {
+			root := t.TempDir()
+			client, err := NewProcessClient(ProcessConfig{
+				NodeExecutable: node,
+				ScriptPath:     script,
+				WorkDir:        filepath.Dir(script),
+				ProjectRoot:    root,
+				Env:            env,
+				Timeout:        5 * time.Second,
+			})
+			if err != nil {
+				t.Fatalf("NewProcessClient: %v", err)
+			}
+			response, err := client.Call(context.Background(), []byte(`{"mode":"project-root"}`))
+			if closeErr := client.Close(); err == nil && closeErr != nil {
+				err = closeErr
+			}
+			if err != nil {
+				t.Fatalf("project-root call: %v", err)
+			}
+			var decoded struct {
+				ProjectRoot string `json:"projectRoot"`
+			}
+			if err := json.Unmarshal(response, &decoded); err != nil {
+				t.Fatal(err)
+			}
+			if decoded.ProjectRoot != root {
+				t.Fatalf("child project root = %q, want %q", decoded.ProjectRoot, root)
+			}
 		}
 	})
 
@@ -220,6 +267,7 @@ func TestScopeTraceTransportProcess(t *testing.T) {
 			NodeExecutable: filepath.Join(t.TempDir(), "does-not-exist-node.exe"),
 			ScriptPath:     filepath.Join(t.TempDir(), "does-not-exist-cli.js"),
 			WorkDir:        t.TempDir(),
+			ProjectRoot:    t.TempDir(),
 		})
 		requireRPCCode(t, err, "GOLC_TRANSPORT_ADAPTER_MISSING")
 	})
@@ -230,6 +278,7 @@ func TestScopeTraceTransportProcess(t *testing.T) {
 			NodeExecutable: node,
 			ScriptPath:     filepath.Join(t.TempDir(), "does-not-exist-cli.js"),
 			WorkDir:        t.TempDir(),
+			ProjectRoot:    t.TempDir(),
 		})
 		requireRPCCode(t, err, "GOLC_TRANSPORT_ADAPTER_MISSING")
 	})
@@ -242,6 +291,11 @@ func TestScopeTraceTransportProcess(t *testing.T) {
 		if err := client.Close(); err != nil {
 			t.Fatalf("second Close: %v", err)
 		}
+	})
+
+	t.Run("NewProcessClient requires an absolute normalized project root", func(t *testing.T) {
+		_, err := NewProcessClient(ProcessConfig{ProjectRoot: "relative"})
+		requireRPCCode(t, err, "GOLC_TRANSPORT_CONFIG_INVALID")
 	})
 }
 

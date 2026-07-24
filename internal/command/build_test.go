@@ -3,6 +3,8 @@ package command
 import (
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/lnorton89/golc/internal/bootstrap"
@@ -90,8 +92,33 @@ func TestScopeBuildArgs(t *testing.T) {
 		if registration.Dir != "tools/linear-sync" {
 			t.Fatalf("expected Dir %q, got %q", "tools/linear-sync", registration.Dir)
 		}
-		if len(registration.Command) == 0 {
-			t.Fatal("expected a non-empty registered Command")
+		if len(registration.Arguments) == 0 || registration.Arguments[0] != "--test" {
+			t.Fatalf("expected registered Node arguments without an executable, got %v", registration.Arguments)
+		}
+	})
+
+	t.Run("environment upsert replaces stale root entries case-insensitively", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "project")
+		got := upsertEnvironment(
+			[]string{"PATH=fixture", "golc_project_root=stale", "GOLC_PROJECT_ROOT=older", "CACHE=keep"},
+			"GOLC_PROJECT_ROOT",
+			root,
+		)
+		rootEntries := 0
+		for _, entry := range got {
+			name, value, _ := strings.Cut(entry, "=")
+			if strings.EqualFold(name, "GOLC_PROJECT_ROOT") {
+				rootEntries++
+				if name != "GOLC_PROJECT_ROOT" || value != root {
+					t.Fatalf("root entry = %q, want canonical replacement", entry)
+				}
+			}
+		}
+		if rootEntries != 1 {
+			t.Fatalf("root entry count = %d in %v", rootEntries, got)
+		}
+		if !slices.Contains(got, "PATH=fixture") || !slices.Contains(got, "CACHE=keep") {
+			t.Fatalf("unrelated environment entries were not preserved: %v", got)
 		}
 	})
 
