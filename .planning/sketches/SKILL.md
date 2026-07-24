@@ -59,14 +59,14 @@ technical constraint or user test produces contradictory evidence.
 
 ## Theme
 
-The winning shared theme is at `sources/themes/default.css`.
+The winning shared theme is at `themes/default.css`.
 
 ## Interactive Sources
 
-- `sources/001-workspace-shell/index.html`
-- `sources/002-programming-workspace/index.html`
-- `sources/003-performance-workspace/index.html`
-- `sources/004-patch-to-play-flow/index.html`
+- `001-workspace-shell/index.html`
+- `002-programming-workspace/index.html`
+- `003-performance-workspace/index.html`
+- `004-patch-to-play-flow/index.html`
 
 Each source preserves all alternatives and visibly marks the selected winner.
 </findings_index>
@@ -106,4 +106,3 @@ Each source preserves all alternatives and visibly marks the selected winner.
 - 003-performance-workspace
 - 004-patch-to-play-flow
 </metadata>
-
