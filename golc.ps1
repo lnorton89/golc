@@ -77,7 +77,7 @@ function Read-GolcToml {
         if ($line -eq "" -or $line.StartsWith("#")) {
             continue
         }
-        if ($line -match '^\[(?<tool>toolchain\.(go|node))\.platforms\."windows-amd64"\]$') {
+        if ($line -match '^\[(?<tool>toolchain\.(go|node|mage))\.platforms\."windows-amd64"\]$') {
             $current = $Matches["tool"] + ".platforms.windows-amd64"
             if (-not $sections.ContainsKey($current)) {
                 $sections[$current] = @{}
@@ -634,6 +634,29 @@ function Invoke-GolcBootstrap {
             -Uri (Get-RequiredPinValue -Section $section -SectionName $sectionName -Key "archive_url") `
             -Sha256 (Get-RequiredPinValue -Section $section -SectionName $sectionName -Key "archive_sha256") `
             -InstallDir (Join-Path $RepoRoot (".tools\installs\" + $toolName))
+    }
+
+    # Pinned Mage toolchain. This compatibility seam makes the first
+    # bootstrap self-hosting; normal routes continue to use golc-project.
+    if (-not $manifest.ContainsKey("toolchain.mage")) {
+        throw "GOLC_MAGE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.mage]"
+    }
+    $mageSection = $manifest["toolchain.mage"]
+    $mageVersion = Get-RequiredPinValue -Section $mageSection -SectionName "toolchain.mage" -Key "version"
+    $magePlatformName = "toolchain.mage.platforms.windows-amd64"
+    if (-not $manifest.ContainsKey($magePlatformName)) {
+        throw 'GOLC_MAGE_TOOLCHAIN_PLATFORM_MISSING: config/toolchain.toml must pin [toolchain.mage.platforms."windows-amd64"]'
+    }
+    $magePlatformSection = $manifest[$magePlatformName]
+    $mageInstallDir = Join-Path $RepoRoot (".tools\toolchains\mage\" + $mageVersion + "\windows-amd64")
+    Install-ArchivePin `
+        -DisplayName ("mage " + $mageVersion) `
+        -Uri (Get-RequiredPinValue -Section $magePlatformSection -SectionName $magePlatformName -Key "archive_url") `
+        -Sha256 (Get-RequiredPinValue -Section $magePlatformSection -SectionName $magePlatformName -Key "archive_sha256") `
+        -InstallDir $mageInstallDir
+    $mageExecutable = Join-Path $mageInstallDir "mage.exe"
+    if (-not (Test-Path -LiteralPath $mageExecutable -PathType Leaf)) {
+        throw "GOLC_MAGE_TOOLCHAIN_MISSING: expected pinned executable at $mageExecutable"
     }
 
     # Pinned Go toolchain.
