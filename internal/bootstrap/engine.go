@@ -177,6 +177,36 @@ func platformArchiveLayout(tool, version, goos, goarch string) (platformLayout, 
 			}, nil
 		}
 		return platformLayout{}, fmt.Errorf("GOLC_BOOTSTRAP_UNSUPPORTED_PLATFORM: Node has no mapping for %s-%s", goos, goarch)
+	case "mage":
+		switch goos + "-" + goarch {
+		case "windows-amd64":
+			return platformLayout{
+				FileName: "mage_" + version + "_Windows-64bit.zip",
+				Format:   ".zip", Executable: "mage.exe",
+			}, nil
+		case "linux-amd64":
+			return platformLayout{
+				FileName: "mage_" + version + "_Linux-64bit.tar.gz",
+				Format:   ".tar.gz", Executable: "mage",
+			}, nil
+		case "linux-arm64":
+			return platformLayout{
+				FileName: "mage_" + version + "_Linux-ARM64.tar.gz",
+				Format:   ".tar.gz", Executable: "mage",
+			}, nil
+		case "darwin-amd64":
+			return platformLayout{
+				FileName: "mage_" + version + "_macOS-64bit.tar.gz",
+				Format:   ".tar.gz", Executable: "mage",
+			}, nil
+		case "darwin-arm64":
+			return platformLayout{
+				FileName: "mage_" + version + "_macOS-ARM64.tar.gz",
+				Format:   ".tar.gz", Executable: "mage",
+			}, nil
+		default:
+			return platformLayout{}, fmt.Errorf("GOLC_BOOTSTRAP_UNSUPPORTED_PLATFORM: Mage has no mapping for %s-%s", goos, goarch)
+		}
 	default:
 		return platformLayout{}, fmt.Errorf("GOLC_BOOTSTRAP_UNSUPPORTED_TOOL: %q", tool)
 	}
@@ -251,6 +281,7 @@ type bootstrapEngine struct {
 	runner   processRunner
 	env      map[string]string
 	goPin    manifestPin
+	magePin  manifestPin
 	nodePin  manifestPin
 }
 
@@ -275,7 +306,7 @@ func runBootstrap(ctx context.Context, root string, options Options, dependencie
 	if err != nil {
 		return err
 	}
-	goPin, nodePin, err := validateManifestForPlatform(document, options)
+	goPin, magePin, nodePin, err := validateManifestForPlatform(document, options)
 	if err != nil {
 		return err
 	}
@@ -293,7 +324,7 @@ func runBootstrap(ctx context.Context, root string, options Options, dependencie
 	}
 	engine := &bootstrapEngine{
 		root: resolvedRoot, options: options, document: document, layout: layout,
-		policy: policy, source: source, runner: runner, goPin: goPin, nodePin: nodePin,
+		policy: policy, source: source, runner: runner, goPin: goPin, magePin: magePin, nodePin: nodePin,
 	}
 	engine.env = mergedEnvironment(layout.Environment().AsMap())
 	setEnvironmentValue(engine.env, "GOLC_PROJECT_ROOT", resolvedRoot)
@@ -342,7 +373,7 @@ func readBootstrapManifest(root string) (bootstrapManifest, OfficialSourcePolicy
 	return document, OfficialSourcePolicy{Patterns: patterns}, nil
 }
 
-func validateManifestForPlatform(document bootstrapManifest, options Options) (manifestPin, manifestPin, error) {
+func validateManifestForPlatform(document bootstrapManifest, options Options) (manifestPin, manifestPin, manifestPin, error) {
 	names := make([]string, 0, len(document.Tools))
 	for name := range document.Tools {
 		names = append(names, name)
@@ -350,32 +381,40 @@ func validateManifestForPlatform(document bootstrapManifest, options Options) (m
 	sort.Strings(names)
 	for _, name := range names {
 		if !validToolName.MatchString(name) {
-			return manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_TOOLCHAIN_PARSE: invalid tool name %q", name)
+			return manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_TOOLCHAIN_PARSE: invalid tool name %q", name)
 		}
 		if err := validatePin("tools."+name, document.Tools[name]); err != nil {
-			return manifestPin{}, manifestPin{}, err
+			return manifestPin{}, manifestPin{}, manifestPin{}, err
 		}
 	}
 	goParent, ok := document.Toolchain["go"]
 	if !ok {
-		return manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_GO_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.go]")
+		return manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_GO_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.go]")
 	}
 	goPin, err := selectPlatformPin("go", goParent)
 	if err != nil {
-		return manifestPin{}, manifestPin{}, err
+		return manifestPin{}, manifestPin{}, manifestPin{}, err
+	}
+	mageParent, ok := document.Toolchain["mage"]
+	if !ok {
+		return manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_MAGE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.mage]")
+	}
+	magePin, err := selectPlatformPin("mage", mageParent)
+	if err != nil {
+		return manifestPin{}, manifestPin{}, manifestPin{}, err
 	}
 	var nodePin manifestPin
 	if options.IncludeLinearSync {
 		nodeParent, ok := document.Toolchain["node"]
 		if !ok {
-			return manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.node]")
+			return manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.node]")
 		}
 		nodePin, err = selectPlatformPin("node", nodeParent)
 		if err != nil {
-			return manifestPin{}, manifestPin{}, err
+			return manifestPin{}, manifestPin{}, manifestPin{}, err
 		}
 	}
-	return goPin, nodePin, nil
+	return goPin, magePin, nodePin, nil
 }
 
 func validatePin(name string, pin manifestPin) error {
@@ -444,6 +483,16 @@ func (engine *bootstrapEngine) run(ctx context.Context) error {
 			return fmt.Errorf("GOLC_BOOTSTRAP_TOOL_INSTALL: %s: %w", name, err)
 		}
 	}
+	magePin := engine.magePin
+	mageInstall := filepath.Join(engine.root, ".tools", "toolchains", "mage", magePin.Version, PlatformKey())
+	if err := engine.installPin(magePin, mageInstall); err != nil {
+		return fmt.Errorf("GOLC_MAGE_TOOLCHAIN_INSTALL: %w", err)
+	}
+	mageLayout, _ := platformArchiveLayout("mage", magePin.Version, runtime.GOOS, runtime.GOARCH)
+	mageExecutable := filepath.Join(mageInstall, mageLayout.Executable)
+	if info, err := os.Lstat(mageExecutable); err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return fmt.Errorf("GOLC_MAGE_TOOLCHAIN_MISSING: expected regular pinned executable at %s", mageExecutable)
+	}
 	goPin := engine.goPin
 	goInstall := filepath.Join(engine.root, ".tools", "toolchains", "go", goPin.Version, PlatformKey())
 	if err := engine.installPin(goPin, goInstall); err != nil {
@@ -461,6 +510,49 @@ func (engine *bootstrapEngine) run(ctx context.Context) error {
 		return linearSyncBootstrap(ctx, engine)
 	}
 	return nil
+}
+
+// ResolveMageExecutable returns the current platform's verified project-local
+// Mage executable. It never downloads or consults the host PATH.
+func ResolveMageExecutable(root string) (string, error) {
+	absoluteRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", fmt.Errorf("GOLC_BOOTSTRAP_ROOT: %w", err)
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(absoluteRoot)
+	if err != nil {
+		return "", fmt.Errorf("GOLC_BOOTSTRAP_ROOT: %w", err)
+	}
+	document, _, err := readBootstrapManifest(resolvedRoot)
+	if err != nil {
+		return "", err
+	}
+	parent, ok := document.Toolchain["mage"]
+	if !ok {
+		return "", fmt.Errorf("GOLC_MAGE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.mage]")
+	}
+	pin, err := selectPlatformPin("mage", parent)
+	if err != nil {
+		return "", err
+	}
+	installDir := filepath.Join(resolvedRoot, ".tools", "toolchains", "mage", pin.Version, PlatformKey())
+	matches, err := InstalledMatches(installDir, pin.ArchiveSHA256)
+	if err != nil {
+		return "", fmt.Errorf("GOLC_MAGE_TOOLCHAIN_MISSING: %w", err)
+	}
+	if !matches {
+		return "", fmt.Errorf("GOLC_MAGE_TOOLCHAIN_MISSING: verified install does not match pin at %s", installDir)
+	}
+	layout, err := platformArchiveLayout("mage", pin.Version, runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		return "", err
+	}
+	executable := filepath.Join(installDir, layout.Executable)
+	info, err := os.Lstat(executable)
+	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return "", fmt.Errorf("GOLC_MAGE_TOOLCHAIN_MISSING: expected regular pinned executable at %s", executable)
+	}
+	return executable, nil
 }
 
 func (engine *bootstrapEngine) installPin(pin manifestPin, installDir string) error {
