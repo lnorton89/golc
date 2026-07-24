@@ -92,6 +92,21 @@ func openStore(root, path string) (*sql.DB, error) {
 		`PRAGMA journal_mode = WAL`,
 		`PRAGMA synchronous = FULL`,
 		`PRAGMA foreign_keys = ON`,
+		// busy_timeout (Phase 6 finding): the Wails desktop app runs a
+		// supervised daemon process (internal/artnet) that keeps this same
+		// .golc file open across its own playback loop while Wails
+		// services (SurfaceService, PlaybackService, etc.) open a separate
+		// short-lived connection per call from the app's own process --
+		// two OS processes, not just two goroutines in one, so
+		// db.SetMaxOpenConns(1) above cannot serialize them. Without a
+		// busy_timeout, a write landing mid-transaction on the daemon's
+		// connection fails immediately with SQLITE_BUSY (5) rather than
+		// waiting the ~instant a short daemon transaction actually takes to
+		// release the lock (06-09-SUMMARY.md's svc_midi.go deviation first
+		// found this same class of contention and worked around it with an
+		// application-level retry loop scoped to that one file; this
+		// PRAGMA fixes it once for every caller of Load/Save/LoadForRead).
+		`PRAGMA busy_timeout = 5000`,
 	} {
 		if _, err := db.Exec(pragma); err != nil {
 			db.Close()
