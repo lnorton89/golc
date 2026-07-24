@@ -210,9 +210,14 @@ func runBuild(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
+	packages, err := buildablePackages(goExecutable, request.Root)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_BUILD_FAILED: %v\n", err))}
+	}
+
 	var output bytes.Buffer
 	output.WriteString("GOLC build: compiling every project package with the pinned toolchain.\n")
-	stdout, stderr, err := runProjectGo(goExecutable, request.Root, []string{"build", "./..."})
+	stdout, stderr, err := runProjectGo(goExecutable, request.Root, append([]string{"build"}, packages...))
 	output.Write(stdout)
 	if err != nil {
 		stderr = append(stderr, []byte(fmt.Sprintf("GOLC_BUILD_FAILED: %v\n", err))...)
@@ -220,4 +225,33 @@ func runBuild(request Request) Result {
 	}
 	output.WriteString("GOLC build: every project package compiled cleanly.\n")
 	return Result{Stdout: output.Bytes(), Stderr: stderr}
+}
+
+// magefilesImportSuffix is the import-path suffix of the magefiles package,
+// excluded from "build every package" below: it is compiled only by the
+// mage binary itself (which supplies its own generated main), so it has no
+// func main() of its own and is not an independently buildable artifact.
+const magefilesImportSuffix = "/magefiles"
+
+// buildablePackages lists every project Go package via the pinned
+// toolchain and excludes the magefiles package, so "go build ./..." style
+// verification never tries to link a package that intentionally has no
+// func main() outside of mage's own generated wrapper.
+func buildablePackages(goExecutable, root string) ([]string, error) {
+	stdout, stderr, err := runProjectGo(goExecutable, root, []string{"list", "./..."})
+	if err != nil {
+		return nil, fmt.Errorf("list packages: %w: %s", err, stderr)
+	}
+	var packages []string
+	for _, line := range strings.Split(strings.TrimSpace(string(stdout)), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasSuffix(line, magefilesImportSuffix) {
+			continue
+		}
+		packages = append(packages, line)
+	}
+	if len(packages) == 0 {
+		return nil, fmt.Errorf("no buildable packages found")
+	}
+	return packages, nil
 }
