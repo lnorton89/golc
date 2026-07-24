@@ -231,4 +231,7 @@ func TestShowStateLoadMissingFileReturnsFreshState(t *testing.T) {
 	if state.Revision != 0 || len(state.Pools) != 0 || len(state.Deployments) != 0 {
 		t.Fatalf("expected a fresh empty State for a missing file, got %+v", state)
 	}
+	if state.Tempo.BPM != show.DefaultBPM {
+		t.Fatalf("expected a fresh State to seed Tempo.BPM = show.DefaultBPM (%v), got %v -- a show with BPM<=0 fails deep inside playback.NewEngine's plan compilation the moment a daemon tries to serve it", show.DefaultBPM, state.Tempo.BPM)
+	}
 }

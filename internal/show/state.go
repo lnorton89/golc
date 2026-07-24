@@ -55,13 +55,27 @@ type State struct {
 // Tempo is the show-wide musical tempo (SCEN-02/SCEN-03): a single BPM
 // value the playback clock (03-06) reads to derive every scene's bar-based
 // looping and chase/motion step timing (CONTEXT D-10 -- one authoritative
-// musical clock for the whole engine). BPM = 0 is the fresh-show "not yet
-// set" value; SCEN-02's own bounds validation (numeric entry) and SCEN-03's
-// tap-tempo conversion are later plans' concern (03-06) -- this plan only
-// adds the field and its persistence.
+// musical clock for the whole engine). SCEN-02's own bounds validation
+// (numeric entry) and SCEN-03's tap-tempo conversion are later plans'
+// concern (03-06) -- this plan only adds the field and its persistence.
 type Tempo struct {
 	BPM float64 `json:"bpm"`
 }
+
+// DefaultBPM seeds a brand-new show's Tempo (Load's own never-yet-saved
+// branch below) and backfills any existing show whose Tempo.BPM is still
+// unset. BPM = 0 was originally left as a "fresh show, not yet set"
+// sentinel with no default (03-06's own doc comment) -- but nothing ever
+// enforced that an operator actually set one before going live, so a show
+// with no scenes/BPM configured yet would sit fine right up until the
+// first "artnet serve" attempt, which fails deep inside
+// playback.NewEngine's plan compilation with GOLC_PLAYBACK_BPM_INVALID: a
+// diagnostic that never reaches the desktop app's own UI (it only ever
+// surfaces as the generic GOLC_WAILS_DAEMON_UNREACHABLE after the
+// supervised daemon child exits). 120 is an unremarkable, universally
+// playable default tempo -- never a claim that it is the "right" tempo
+// for any given show, only a valid, harmless one where 0 was invalid.
+const DefaultBPM = 120
 
 // resolvePath returns path unchanged when it is already absolute (the
 // caller's own explicit choice of where to read/write); otherwise it is
