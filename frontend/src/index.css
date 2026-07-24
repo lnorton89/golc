@@ -27,6 +27,16 @@
   --status-revoked: #e23a2e;
   --status-blackout: #17181c;
   --status-offline: #8a887f;
+  /* status-blackout-text is Blackout's own hold-button label color
+     (SafetyCluster.tsx) -- deliberately NOT --page: --page is the page
+     background token and flips dark in dark mode (see the dark
+     media-query override below), while --status-blackout itself never
+     flips (defined once here, un-overridden), so pairing the label with
+     --page produced near-zero contrast (near-black text on a near-black
+     button) the instant dark mode was active. Every other status-* token
+     is likewise fixed across themes, so its paired text color must be
+     fixed too. */
+  --status-blackout-text: #e4e0d8;
 
   /* Motion (.planning/brand/GOLC-Brand-Tokens.md) */
   --motion-snap: 0ms;

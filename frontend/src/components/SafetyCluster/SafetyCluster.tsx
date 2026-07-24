@@ -174,7 +174,7 @@ export default function SafetyCluster() {
       <HoldButton
         label={blackoutOrStopActive ? "Hold to Release Blackout" : "Hold to Blackout"}
         controlColorVar="var(--status-blackout)"
-        textColorVar="var(--page)"
+        textColorVar="var(--status-blackout-text)"
         active={blackoutOrStopActive}
         onActivate={() => {
           void safetyBlackout(!blackoutOrStopActive);
