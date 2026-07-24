@@ -126,6 +126,7 @@ None yet.
 | 260723-svv | Migrate toolchain configuration and strict project schema for PowerShell removal Step 2 | 2026-07-23 | 2b62b0d | Complete | [260723-svv-migrate-toolchain-configuration-and-stri](./quick/260723-svv-migrate-toolchain-configuration-and-stri/) |
 | 260723-tgd | Replace hardcoded platform strings and propagate project root for PowerShell removal Step 3 | 2026-07-23 | e024305 | Complete | [260723-tgd-replace-hardcoded-platform-strings-and-p](./quick/260723-tgd-replace-hardcoded-platform-strings-and-p/) |
 | 260723-sgy | Port the full golc-site design language into all approved UI sketch assets | 2026-07-23 | 5a5a55b | Needs Review | [260723-sgy-port-the-full-golc-site-design-language-](./quick/260723-sgy-port-the-full-golc-site-design-language-/) |
+| 260723-tyl | Make active command-rail accents symmetrical in all four UI sketches | 2026-07-23 | 7889800 | Complete | [260723-tyl-make-active-command-rail-accents-symmetr](./quick/260723-tyl-make-active-command-rail-accents-symmetr/) |
 
 ## Deferred Items
 
