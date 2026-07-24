@@ -4,12 +4,11 @@
 #   - The only trigger is an untrusted pull_request event. No manual
 #     dispatch, scheduled, or push-triggered path exists, so this workflow
 #     can never gain mutation authority through a second entry point.
-#   - Every step below invokes the exact same root command graph a
-#     contributor runs locally, in the same order, through golc.ps1 only.
-#     config/commands.toml's commands.pr section is this graph's single
-#     authoritative source; tests/acceptance/command-parity.ps1 proves this
-#     file stays in lockstep with it through the self-registered
-#     "check --command-parity" route.
+#   - Every executable step below is one shared Mage target. The target
+#     registry resolves those names, while delivery.LoadPRGraph reads the
+#     ordered commands.pr graph from config/commands.toml. The direct Go
+#     parity tests and "check --command-parity" keep both authorities in
+#     lockstep without executing either surface.
 #   - No repository secret is read, exported, or referenced anywhere in
 #     this file, and no Linear synchronization or reconciliation command
 #     appears here. Mutating remote synchronization only ever runs through
@@ -31,19 +30,19 @@ jobs:
         uses: actions/checkout@v4
 
       - name: bootstrap
-        run: powershell -NoProfile -File .\golc.ps1 bootstrap
+        run: mage Bootstrap
 
       - name: generate --check
-        run: powershell -NoProfile -File .\golc.ps1 generate --check
+        run: mage GenerateCheck
 
       - name: check --offline
-        run: powershell -NoProfile -File .\golc.ps1 check --offline
+        run: mage CheckOffline
 
       - name: build
-        run: powershell -NoProfile -File .\golc.ps1 build
+        run: mage Build
 
       - name: test
-        run: powershell -NoProfile -File .\golc.ps1 test
+        run: mage Test
 
       - name: package --foundation
-        run: powershell -NoProfile -File .\golc.ps1 package --foundation
+        run: mage PackageFoundation
