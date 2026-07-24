@@ -62,8 +62,21 @@ official_path_prefix = "/dl/"
 archive_url = "https://go.dev/dl/go1.26.5.windows-amd64.zip"
 archive_sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
-[toolchain.go.platforms."fixture-unconfigured"]
-metadata = "preserve this unrelated synthetic platform data"
+[toolchain.go.platforms."linux-amd64"]
+archive_url = "https://go.dev/dl/go1.26.5.linux-amd64.tar.gz"
+archive_sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+[toolchain.go.platforms."linux-arm64"]
+archive_url = "https://go.dev/dl/go1.26.5.linux-arm64.tar.gz"
+archive_sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+[toolchain.go.platforms."darwin-amd64"]
+archive_url = "https://go.dev/dl/go1.26.5.darwin-amd64.tar.gz"
+archive_sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+[toolchain.go.platforms."darwin-arm64"]
+archive_url = "https://go.dev/dl/go1.26.5.darwin-arm64.tar.gz"
+archive_sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 [toolchain.node]
 version = "24.18.0"
@@ -72,6 +85,22 @@ official_path_prefix = "/dist/"
 
 [toolchain.node.platforms."windows-amd64"]
 archive_url = "https://nodejs.org/dist/v24.18.0/node-v24.18.0-win-x64.zip"
+archive_sha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+[toolchain.node.platforms."linux-amd64"]
+archive_url = "https://nodejs.org/dist/v24.18.0/node-v24.18.0-linux-x64.tar.gz"
+archive_sha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+[toolchain.node.platforms."linux-arm64"]
+archive_url = "https://nodejs.org/dist/v24.18.0/node-v24.18.0-linux-arm64.tar.gz"
+archive_sha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+[toolchain.node.platforms."darwin-amd64"]
+archive_url = "https://nodejs.org/dist/v24.18.0/node-v24.18.0-darwin-x64.tar.gz"
+archive_sha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+[toolchain.node.platforms."darwin-arm64"]
+archive_url = "https://nodejs.org/dist/v24.18.0/node-v24.18.0-darwin-arm64.tar.gz"
 archive_sha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
 [cache]
@@ -160,14 +189,24 @@ github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2
 func fixtureProposal() ToolsUpdateProposal {
 	return ToolsUpdateProposal{
 		GoToolchain: ToolchainPin{
-			Version:       "1.26.6",
-			ArchiveURL:    "https://go.dev/dl/go1.26.6.windows-amd64.zip",
-			ArchiveSHA256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+			Version: "1.26.6",
+			Platforms: map[string]ToolchainArchivePin{
+				"windows-amd64": {"https://go.dev/dl/go1.26.6.windows-amd64.zip", strings.Repeat("c", 64)},
+				"linux-amd64":   {"https://go.dev/dl/go1.26.6.linux-amd64.tar.gz", strings.Repeat("c", 64)},
+				"linux-arm64":   {"https://go.dev/dl/go1.26.6.linux-arm64.tar.gz", strings.Repeat("c", 64)},
+				"darwin-amd64":  {"https://go.dev/dl/go1.26.6.darwin-amd64.tar.gz", strings.Repeat("c", 64)},
+				"darwin-arm64":  {"https://go.dev/dl/go1.26.6.darwin-arm64.tar.gz", strings.Repeat("c", 64)},
+			},
 		},
 		NodeToolchain: ToolchainPin{
-			Version:       "24.18.1",
-			ArchiveURL:    "https://nodejs.org/dist/v24.18.1/node-v24.18.1-win-x64.zip",
-			ArchiveSHA256: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+			Version: "24.18.1",
+			Platforms: map[string]ToolchainArchivePin{
+				"windows-amd64": {"https://nodejs.org/dist/v24.18.1/node-v24.18.1-win-x64.zip", strings.Repeat("d", 64)},
+				"linux-amd64":   {"https://nodejs.org/dist/v24.18.1/node-v24.18.1-linux-x64.tar.gz", strings.Repeat("d", 64)},
+				"linux-arm64":   {"https://nodejs.org/dist/v24.18.1/node-v24.18.1-linux-arm64.tar.gz", strings.Repeat("d", 64)},
+				"darwin-amd64":  {"https://nodejs.org/dist/v24.18.1/node-v24.18.1-darwin-x64.tar.gz", strings.Repeat("d", 64)},
+				"darwin-arm64":  {"https://nodejs.org/dist/v24.18.1/node-v24.18.1-darwin-arm64.tar.gz", strings.Repeat("d", 64)},
+			},
 		},
 		GoModule: GoModulePin{
 			Path:    "github.com/BurntSushi/toml",
@@ -525,7 +564,7 @@ func TestScopeToolsUpdate(t *testing.T) {
 		}
 	})
 
-	t.Run("toolchain.toml proposal changes only the six declared pin lines and preserves everything else", func(t *testing.T) {
+	t.Run("toolchain.toml proposal changes all twenty-two declared pin lines and preserves everything else", func(t *testing.T) {
 		dir := t.TempDir()
 		fixture := fixtureCurrentFiles()
 		writeFixtureFiles(t, dir, fixture)
@@ -551,8 +590,8 @@ func TestScopeToolsUpdate(t *testing.T) {
 				changedLines++
 			}
 		}
-		if changedLines != 6 {
-			t.Fatalf("expected exactly 6 changed lines (version/archive_url/archive_sha256 x2 tables), got %d", changedLines)
+		if changedLines != 22 {
+			t.Fatalf("expected exactly 22 changed lines (two versions plus twenty platform fields), got %d", changedLines)
 		}
 		if !strings.Contains(string(result.Files.ToolchainTOML), "# GOLC toolchain concern") {
 			t.Fatal("expected the header comment to survive untouched")
@@ -560,8 +599,26 @@ func TestScopeToolsUpdate(t *testing.T) {
 		if !strings.Contains(string(result.Files.ToolchainTOML), `downloads = ".tools/cache/downloads"`) {
 			t.Fatal("expected the [cache] section to survive untouched")
 		}
-		if !strings.Contains(string(result.Files.ToolchainTOML), `metadata = "preserve this unrelated synthetic platform data"`) {
-			t.Fatal("expected unrelated platform data to survive untouched")
+		if !strings.Contains(string(result.Files.ToolchainTOML), `downloads = ".tools/cache/downloads"`) {
+			t.Fatal("expected unrelated cache data to survive untouched")
+		}
+	})
+
+	t.Run("toolchain proposal rejects incomplete or extra platform maps before rewrite", func(t *testing.T) {
+		current := fixtureCurrentFiles()
+		for name, mutate := range map[string]func(*ToolsUpdateProposal){
+			"missing": func(proposal *ToolsUpdateProposal) { delete(proposal.GoToolchain.Platforms, "linux-arm64") },
+			"extra": func(proposal *ToolsUpdateProposal) {
+				proposal.NodeToolchain.Platforms["windows-arm64"] = ToolchainArchivePin{"https://nodejs.org/dist/v24.18.1/node-v24.18.1-win-arm64.zip", strings.Repeat("d", 64)}
+			},
+		} {
+			t.Run(name, func(t *testing.T) {
+				proposal := fixtureProposal()
+				mutate(&proposal)
+				if _, err := BuildToolsUpdateProposal(&fakeMetadataSource{proposal: proposal}, current); err == nil {
+					t.Fatal("invalid platform map unexpectedly produced a proposal")
+				}
+			})
 		}
 	})
 

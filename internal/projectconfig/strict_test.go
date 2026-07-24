@@ -137,6 +137,22 @@ var magePlatformPins = map[string][2]string{
 	},
 }
 
+var goPlatformPins = map[string][2]string{
+	"windows-amd64": {"https://go.dev/dl/go1.26.5.windows-amd64.zip", "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd38"},
+	"linux-amd64":   {"https://go.dev/dl/go1.26.5.linux-amd64.tar.gz", "5c2c3b16caefa1d968a94c1daca04a7ca301a496d9b086e17ad77bb81393f053"},
+	"linux-arm64":   {"https://go.dev/dl/go1.26.5.linux-arm64.tar.gz", "fe4789e92b1f33358680864bbe8704289e7bb5fc207d80623c308935bd696d49"},
+	"darwin-amd64":  {"https://go.dev/dl/go1.26.5.darwin-amd64.tar.gz", "6231d8d3b8f5552ec6cbf6d685bdd5482e1e703214b120e89b3bf0d7bf1ef725"},
+	"darwin-arm64":  {"https://go.dev/dl/go1.26.5.darwin-arm64.tar.gz", "efb87ff28af9a188d0536ef5d42e63dd52ba8263cd7344a993cc48dd11dedb6a"},
+}
+
+var nodePlatformPins = map[string][2]string{
+	"windows-amd64": {"https://nodejs.org/dist/v24.18.0/node-v24.18.0-win-x64.zip", "0ae68406b42d7725661da979b1403ec9926da205c6770827f33aac9d8f26e821"},
+	"linux-amd64":   {"https://nodejs.org/dist/v24.18.0/node-v24.18.0-linux-x64.tar.gz", "783130984963db7ba9cbd01089eaf2c2efb055c7c1693c943174b967b3050cb8"},
+	"linux-arm64":   {"https://nodejs.org/dist/v24.18.0/node-v24.18.0-linux-arm64.tar.gz", "6b4484c2190274175df9aa8f28e2d758a819cb1c1fe6ab481e2f95b463ab8508"},
+	"darwin-amd64":  {"https://nodejs.org/dist/v24.18.0/node-v24.18.0-darwin-x64.tar.gz", "dfd0dbd3e721503434df7b7205e719f61b3a3a31b2bcf9729b8b91fea240f080"},
+	"darwin-arm64":  {"https://nodejs.org/dist/v24.18.0/node-v24.18.0-darwin-arm64.tar.gz", "e1a97e14c99c803e96c7339403282ea05a499c32f8d83defe9ef5ec66f979ed1"},
+}
+
 // TestScopeConfigStrict is the exact quick-test marker for scope
 // "config-strict" (test --quick --scope config-strict).
 func TestScopeConfigStrict(t *testing.T) {
@@ -241,6 +257,14 @@ func TestScopeConfigStrict(t *testing.T) {
 			"cache.gomodcache",
 			"toolchain.go.official_host",
 			"toolchain.go.official_path_prefix",
+			"toolchain.go.platforms.darwin-amd64.archive_sha256",
+			"toolchain.go.platforms.darwin-amd64.archive_url",
+			"toolchain.go.platforms.darwin-arm64.archive_sha256",
+			"toolchain.go.platforms.darwin-arm64.archive_url",
+			"toolchain.go.platforms.linux-amd64.archive_sha256",
+			"toolchain.go.platforms.linux-amd64.archive_url",
+			"toolchain.go.platforms.linux-arm64.archive_sha256",
+			"toolchain.go.platforms.linux-arm64.archive_url",
 			"toolchain.go.platforms.windows-amd64.archive_sha256",
 			"toolchain.go.platforms.windows-amd64.archive_url",
 			"toolchain.go.version",
@@ -259,12 +283,76 @@ func TestScopeConfigStrict(t *testing.T) {
 			"toolchain.mage.version",
 			"toolchain.node.official_host",
 			"toolchain.node.official_path_prefix",
+			"toolchain.node.platforms.darwin-amd64.archive_sha256",
+			"toolchain.node.platforms.darwin-amd64.archive_url",
+			"toolchain.node.platforms.darwin-arm64.archive_sha256",
+			"toolchain.node.platforms.darwin-arm64.archive_url",
+			"toolchain.node.platforms.linux-amd64.archive_sha256",
+			"toolchain.node.platforms.linux-amd64.archive_url",
+			"toolchain.node.platforms.linux-arm64.archive_sha256",
+			"toolchain.node.platforms.linux-arm64.archive_url",
 			"toolchain.node.platforms.windows-amd64.archive_sha256",
 			"toolchain.node.platforms.windows-amd64.archive_url",
 			"toolchain.node.version",
 		}
 		if strings.Join(got, "\n") != strings.Join(want, "\n") {
 			t.Fatalf("toolchain keys mismatch:\ngot:  %v\nwant: %v", got, want)
+		}
+	})
+
+	t.Run("production Go and Node authorities pin exact closed five-platform sets", func(t *testing.T) {
+		root := repositoryRoot(t)
+		values, warnings, err := projectconfig.ValidateConcern(root, projectconfig.DefaultSpec(), "toolchain")
+		if err != nil {
+			t.Fatalf("production toolchain concern must validate: %v", err)
+		}
+		if len(warnings) != 0 {
+			t.Fatalf("expected no toolchain warnings, got %v", warnings)
+		}
+		for tool, pins := range map[string]map[string][2]string{"go": goPlatformPins, "node": nodePlatformPins} {
+			for platform, pin := range pins {
+				prefix := "toolchain." + tool + ".platforms." + platform
+				if got := values[prefix+".archive_url"]; got != pin[0] {
+					t.Errorf("%s.archive_url = %q, want %q", prefix, got, pin[0])
+				}
+				if got := values[prefix+".archive_sha256"]; got != pin[1] {
+					t.Errorf("%s.archive_sha256 = %q, want %q", prefix, got, pin[1])
+				}
+			}
+		}
+	})
+
+	t.Run("Go and Node authorities reject incomplete extra malformed and platform-mismatched data", func(t *testing.T) {
+		root := repositoryRoot(t)
+		raw, err := os.ReadFile(filepath.Join(root, "config", "toolchain.toml"))
+		if err != nil {
+			t.Fatalf("read committed toolchain concern: %v", err)
+		}
+		valid := string(raw)
+		cases := map[string]string{
+			"missing Go digest": strings.Replace(valid,
+				`archive_sha256 = "efb87ff28af9a188d0536ef5d42e63dd52ba8263cd7344a993cc48dd11dedb6a"`, "", 1),
+			"missing Node URL": strings.Replace(valid,
+				`archive_url = "https://nodejs.org/dist/v24.18.0/node-v24.18.0-linux-arm64.tar.gz"`, "", 1),
+			"extra Go platform": valid + `
+[toolchain.go.platforms."windows-arm64"]
+archive_url = "https://go.dev/dl/go1.26.5.windows-arm64.zip"
+archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd38"
+`,
+			"Go wrong platform asset":   strings.Replace(valid, "go1.26.5.linux-arm64.tar.gz", "go1.26.5.linux-amd64.tar.gz", 1),
+			"Node wrong platform asset": strings.Replace(valid, "node-v24.18.0-darwin-arm64.tar.gz", "node-v24.18.0-darwin-x64.tar.gz", 1),
+			"malformed Node checksum": strings.Replace(valid,
+				"e1a97e14c99c803e96c7339403282ea05a499c32f8d83defe9ef5ec66f979ed1", "NOT-A-SHA256", 1),
+		}
+		for name, content := range cases {
+			t.Run(name, func(t *testing.T) {
+				fixtureRoot := writeStrictRepository(t, projectconfig.DefaultSpec(), map[string]string{
+					"config/toolchain.toml": content,
+				})
+				if _, _, err := projectconfig.ValidateConcern(fixtureRoot, projectconfig.DefaultSpec(), "toolchain"); err == nil {
+					t.Fatal("invalid Go/Node authority unexpectedly validated")
+				}
+			})
 		}
 	})
 

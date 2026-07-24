@@ -167,6 +167,54 @@ archive_sha256 = %q
 }
 
 func TestScopeBootstrapEngine(t *testing.T) {
+	t.Run("explicit platform selector validates all committed Go and Node pins", func(t *testing.T) {
+		type pinCase struct {
+			tool, version, goos, goarch, url, sha string
+		}
+		cases := []pinCase{
+			{"go", "1.26.5", "windows", "amd64", "https://go.dev/dl/go1.26.5.windows-amd64.zip", "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd38"},
+			{"go", "1.26.5", "linux", "amd64", "https://go.dev/dl/go1.26.5.linux-amd64.tar.gz", "5c2c3b16caefa1d968a94c1daca04a7ca301a496d9b086e17ad77bb81393f053"},
+			{"go", "1.26.5", "linux", "arm64", "https://go.dev/dl/go1.26.5.linux-arm64.tar.gz", "fe4789e92b1f33358680864bbe8704289e7bb5fc207d80623c308935bd696d49"},
+			{"go", "1.26.5", "darwin", "amd64", "https://go.dev/dl/go1.26.5.darwin-amd64.tar.gz", "6231d8d3b8f5552ec6cbf6d685bdd5482e1e703214b120e89b3bf0d7bf1ef725"},
+			{"go", "1.26.5", "darwin", "arm64", "https://go.dev/dl/go1.26.5.darwin-arm64.tar.gz", "efb87ff28af9a188d0536ef5d42e63dd52ba8263cd7344a993cc48dd11dedb6a"},
+			{"node", "24.18.0", "windows", "amd64", "https://nodejs.org/dist/v24.18.0/node-v24.18.0-win-x64.zip", "0ae68406b42d7725661da979b1403ec9926da205c6770827f33aac9d8f26e821"},
+			{"node", "24.18.0", "linux", "amd64", "https://nodejs.org/dist/v24.18.0/node-v24.18.0-linux-x64.tar.gz", "783130984963db7ba9cbd01089eaf2c2efb055c7c1693c943174b967b3050cb8"},
+			{"node", "24.18.0", "linux", "arm64", "https://nodejs.org/dist/v24.18.0/node-v24.18.0-linux-arm64.tar.gz", "6b4484c2190274175df9aa8f28e2d758a819cb1c1fe6ab481e2f95b463ab8508"},
+			{"node", "24.18.0", "darwin", "amd64", "https://nodejs.org/dist/v24.18.0/node-v24.18.0-darwin-x64.tar.gz", "dfd0dbd3e721503434df7b7205e719f61b3a3a31b2bcf9729b8b91fea240f080"},
+			{"node", "24.18.0", "darwin", "arm64", "https://nodejs.org/dist/v24.18.0/node-v24.18.0-darwin-arm64.tar.gz", "e1a97e14c99c803e96c7339403282ea05a499c32f8d83defe9ef5ec66f979ed1"},
+		}
+		for _, testCase := range cases {
+			parent := toolchainManifestPin{
+				Version: testCase.version, OfficialHost: "example.invalid", OfficialPathPrefix: "/",
+				Platforms: map[string]platformArchivePin{
+					testCase.goos + "-" + testCase.goarch: {ArchiveURL: testCase.url, ArchiveSHA256: testCase.sha},
+				},
+			}
+			pin, err := selectPlatformPinFor(testCase.tool, parent, testCase.goos, testCase.goarch)
+			if err != nil {
+				t.Fatalf("%s/%s-%s: %v", testCase.tool, testCase.goos, testCase.goarch, err)
+			}
+			if pin.ArchiveURL != testCase.url || pin.ArchiveSHA256 != testCase.sha {
+				t.Fatalf("%s/%s-%s selected %+v", testCase.tool, testCase.goos, testCase.goarch, pin)
+			}
+		}
+	})
+
+	t.Run("explicit platform selector rejects absent and mismatched assets", func(t *testing.T) {
+		parent := toolchainManifestPin{
+			Version: "1.26.5",
+			Platforms: map[string]platformArchivePin{
+				"linux-arm64": {ArchiveURL: "https://go.dev/dl/go1.26.5.linux-amd64.tar.gz", ArchiveSHA256: strings.Repeat("a", 64)},
+			},
+		}
+		if _, err := selectPlatformPinFor("go", parent, "darwin", "arm64"); err == nil {
+			t.Fatal("missing explicit platform unexpectedly selected")
+		}
+		if _, err := selectPlatformPinFor("go", parent, "linux", "arm64"); err == nil || !strings.Contains(err.Error(), "GOLC_BOOTSTRAP_PLATFORM_MISMATCH") {
+			t.Fatalf("expected platform mismatch, got %v", err)
+		}
+	})
+
 	t.Run("PlatformKey and pure platform layouts are exact", func(t *testing.T) {
 		if got, want := PlatformKey(), runtime.GOOS+"-"+runtime.GOARCH; got != want {
 			t.Fatalf("PlatformKey() = %q, want %q", got, want)
