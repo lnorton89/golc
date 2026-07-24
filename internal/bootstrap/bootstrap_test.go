@@ -660,12 +660,21 @@ func TestScopeBootstrapArchive(t *testing.T) {
 		})
 	})
 
-	t.Run("tar.gz rejects links and special or unknown entry types", func(t *testing.T) {
+	t.Run("tar.gz rejects hardlinks and special or unknown entry types", func(t *testing.T) {
+		// Symlinks are not in this list: official Node.js Linux/macOS
+		// release archives ship bin/npm, bin/npx, and bin/corepack as
+		// real symlinks (observed live: cross-platform-mage.yml run
+		// 30074378227 failed installing node-v24.18.0-linux-x64 with
+		// BOOTSTRAP_ARCHIVE_UNSAFE_TYPE before symlink support existed).
+		// A contained symlink is exercised separately below; only a
+		// symlink whose target escapes the archive root is still
+		// rejected (also covered separately, with
+		// BOOTSTRAP_ARCHIVE_TRAVERSAL rather than
+		// BOOTSTRAP_ARCHIVE_UNSAFE_TYPE).
 		cases := []struct {
 			name string
 			kind byte
 		}{
-			{"symlink", tar.TypeSymlink},
 			{"hardlink", tar.TypeLink},
 			{"character-device", tar.TypeChar},
 			{"block-device", tar.TypeBlock},
@@ -688,6 +697,108 @@ func TestScopeBootstrapArchive(t *testing.T) {
 				}
 			})
 		}
+	})
+
+	t.Run("tar.gz symlinks are extracted when contained and rejected when their target escapes the archive root", func(t *testing.T) {
+		t.Run("a contained symlink extracts, hashes into the manifest, and is verified on a second install", func(t *testing.T) {
+			dir := t.TempDir()
+			archivePath, digest := buildTarGzEntries(t, dir, "node.tar.gz", []testArchiveEntry{
+				{Name: "node-v24.18.0-linux-x64", Dir: true},
+				{Name: "node-v24.18.0-linux-x64/lib", Dir: true},
+				{Name: "node-v24.18.0-linux-x64/lib/node_modules", Dir: true},
+				{Name: "node-v24.18.0-linux-x64/lib/node_modules/npm", Dir: true},
+				{Name: "node-v24.18.0-linux-x64/lib/node_modules/npm/bin", Dir: true},
+				{Name: "node-v24.18.0-linux-x64/lib/node_modules/npm/bin/npm-cli.js", Body: "#!/usr/bin/env node\n"},
+				{Name: "node-v24.18.0-linux-x64/bin", Dir: true},
+				{
+					Name:     "node-v24.18.0-linux-x64/bin/npm",
+					Typeflag: tar.TypeSymlink,
+					Linkname: "../lib/node_modules/npm/bin/npm-cli.js",
+				},
+			})
+			installDir := filepath.Join(dir, "install")
+			if err := InstallStaged(archivePath, digest, installDir); err != nil {
+				t.Fatalf("InstallStaged with a contained symlink: %v", err)
+			}
+
+			symlinkPath := filepath.Join(installDir, "node-v24.18.0-linux-x64", "bin", "npm")
+			info, err := os.Lstat(symlinkPath)
+			if err != nil {
+				t.Fatalf("lstat extracted symlink: %v", err)
+			}
+			if info.Mode()&os.ModeSymlink == 0 {
+				t.Fatalf("expected %s to be a symlink, got mode %v", symlinkPath, info.Mode())
+			}
+			target, err := os.Readlink(symlinkPath)
+			if err != nil {
+				t.Fatalf("readlink: %v", err)
+			}
+			if filepath.ToSlash(target) != "../lib/node_modules/npm/bin/npm-cli.js" {
+				t.Fatalf("symlink target = %q, want the archive-relative link", target)
+			}
+
+			manifestBytes, err := os.ReadFile(filepath.Join(installDir, ManifestName))
+			if err != nil {
+				t.Fatalf("read manifest: %v", err)
+			}
+			if !strings.Contains(string(manifestBytes), "../lib/node_modules/npm/bin/npm-cli.js") {
+				t.Fatalf("manifest does not record the symlink target: %s", manifestBytes)
+			}
+
+			matches, err := InstalledMatches(installDir, digest)
+			if err != nil {
+				t.Fatalf("InstalledMatches: %v", err)
+			}
+			if !matches {
+				t.Fatal("expected a second install of the identical archive to match without re-extracting")
+			}
+
+			if err := os.Remove(symlinkPath); err != nil {
+				t.Fatalf("remove symlink for tamper test: %v", err)
+			}
+			if err := os.WriteFile(symlinkPath, []byte("not a symlink anymore"), 0o644); err != nil {
+				t.Fatalf("replace symlink with a regular file: %v", err)
+			}
+			tampered, err := InstalledMatches(installDir, digest)
+			if err != nil {
+				t.Fatalf("InstalledMatches after tampering: %v", err)
+			}
+			if tampered {
+				t.Fatal("expected a symlink replaced by a regular file to fail InstalledMatches")
+			}
+		})
+
+		t.Run("a symlink whose target escapes the archive root is rejected before extraction", func(t *testing.T) {
+			dir := t.TempDir()
+			archivePath, digest := buildTarGzEntries(t, dir, "unsafe-symlink.tar.gz", []testArchiveEntry{{
+				Name: "bin/npm", Typeflag: tar.TypeSymlink, Linkname: "../../outside",
+			}})
+			parent := filepath.Join(dir, "parent")
+			if _, err := ExtractVerified(archivePath, digest, parent); err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_TRAVERSAL") {
+				t.Fatalf("expected a traversal rejection, got %v", err)
+			}
+			if _, err := os.Stat(parent); !os.IsNotExist(err) {
+				t.Fatalf("unsafe symlink created extraction parent: %v", err)
+			}
+		})
+
+		t.Run("an absolute symlink target is rejected before extraction", func(t *testing.T) {
+			dir := t.TempDir()
+			absoluteTarget := "/etc/passwd"
+			if runtime.GOOS == "windows" {
+				absoluteTarget = `C:\Windows\System32\config`
+			}
+			archivePath, digest := buildTarGzEntries(t, dir, "absolute-symlink.tar.gz", []testArchiveEntry{{
+				Name: "bin/npm", Typeflag: tar.TypeSymlink, Linkname: absoluteTarget,
+			}})
+			parent := filepath.Join(dir, "parent")
+			if _, err := ExtractVerified(archivePath, digest, parent); err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_TRAVERSAL") {
+				t.Fatalf("expected a traversal rejection, got %v", err)
+			}
+			if _, err := os.Stat(parent); !os.IsNotExist(err) {
+				t.Fatalf("absolute symlink created extraction parent: %v", err)
+			}
+		})
 	})
 
 	t.Run("archive suffix and content must agree", func(t *testing.T) {
