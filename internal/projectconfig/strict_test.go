@@ -114,6 +114,29 @@ const strictRuntimeConcern = "schema_version = 2\n\n[runtime]\nlog_level = \"inf
 // strictToolchainConcern is the well-formed toolchain file for syntheticSpec.
 const strictToolchainConcern = "schema_version = 2\n\n[toolchain.go]\nversion = \"1.26.5\"\n"
 
+var magePlatformPins = map[string][2]string{
+	"windows-amd64": {
+		"https://github.com/magefile/mage/releases/download/v1.17.2/mage_1.17.2_Windows-64bit.zip",
+		"970bc6efa76d6dc7285098a7033f4e6c83c18dc02f80548ae8de8dc5586e0445",
+	},
+	"linux-amd64": {
+		"https://github.com/magefile/mage/releases/download/v1.17.2/mage_1.17.2_Linux-64bit.tar.gz",
+		"b1dd189f5a4d38484176dd5be3b651eb7cbc0b78eaf4bb9715738aa24edec644",
+	},
+	"linux-arm64": {
+		"https://github.com/magefile/mage/releases/download/v1.17.2/mage_1.17.2_Linux-ARM64.tar.gz",
+		"5a88f89b52a0270a60c1fd57f964d24af78ac21c6848642f05db1300fe193980",
+	},
+	"darwin-amd64": {
+		"https://github.com/magefile/mage/releases/download/v1.17.2/mage_1.17.2_macOS-64bit.tar.gz",
+		"bb43eec76388b1445c4ce019c5ac3bb305a56f77c5f580c5067871ff01ea7741",
+	},
+	"darwin-arm64": {
+		"https://github.com/magefile/mage/releases/download/v1.17.2/mage_1.17.2_macOS-ARM64.tar.gz",
+		"5fd6f61170bb7584a4ca3ce4fd01137fe5a8edaf6c096d9f2ad30754d1d92797",
+	},
+}
+
 // TestScopeConfigStrict is the exact quick-test marker for scope
 // "config-strict" (test --quick --scope config-strict).
 func TestScopeConfigStrict(t *testing.T) {
@@ -221,6 +244,19 @@ func TestScopeConfigStrict(t *testing.T) {
 			"toolchain.go.platforms.windows-amd64.archive_sha256",
 			"toolchain.go.platforms.windows-amd64.archive_url",
 			"toolchain.go.version",
+			"toolchain.mage.official_host",
+			"toolchain.mage.official_path_prefix",
+			"toolchain.mage.platforms.darwin-amd64.archive_sha256",
+			"toolchain.mage.platforms.darwin-amd64.archive_url",
+			"toolchain.mage.platforms.darwin-arm64.archive_sha256",
+			"toolchain.mage.platforms.darwin-arm64.archive_url",
+			"toolchain.mage.platforms.linux-amd64.archive_sha256",
+			"toolchain.mage.platforms.linux-amd64.archive_url",
+			"toolchain.mage.platforms.linux-arm64.archive_sha256",
+			"toolchain.mage.platforms.linux-arm64.archive_url",
+			"toolchain.mage.platforms.windows-amd64.archive_sha256",
+			"toolchain.mage.platforms.windows-amd64.archive_url",
+			"toolchain.mage.version",
 			"toolchain.node.official_host",
 			"toolchain.node.official_path_prefix",
 			"toolchain.node.platforms.windows-amd64.archive_sha256",
@@ -229,6 +265,70 @@ func TestScopeConfigStrict(t *testing.T) {
 		}
 		if strings.Join(got, "\n") != strings.Join(want, "\n") {
 			t.Fatalf("toolchain keys mismatch:\ngot:  %v\nwant: %v", got, want)
+		}
+	})
+
+	t.Run("production mage authority pins exactly five official release archives", func(t *testing.T) {
+		root := repositoryRoot(t)
+		values, warnings, err := projectconfig.ValidateConcern(root, projectconfig.DefaultSpec(), "toolchain")
+		if err != nil {
+			t.Fatalf("production toolchain concern must validate: %v", err)
+		}
+		if len(warnings) != 0 {
+			t.Fatalf("expected no toolchain warnings, got %v", warnings)
+		}
+		if got, want := values["toolchain.mage.version"], "1.17.2"; got != want {
+			t.Fatalf("toolchain.mage.version = %q, want %q", got, want)
+		}
+		if got, want := values["toolchain.mage.official_host"], "github.com"; got != want {
+			t.Fatalf("toolchain.mage.official_host = %q, want %q", got, want)
+		}
+		if got, want := values["toolchain.mage.official_path_prefix"], "/magefile/mage/releases/download/"; got != want {
+			t.Fatalf("toolchain.mage.official_path_prefix = %q, want %q", got, want)
+		}
+		for platform, pin := range magePlatformPins {
+			prefix := "toolchain.mage.platforms." + platform
+			if got := values[prefix+".archive_url"]; got != pin[0] {
+				t.Errorf("%s.archive_url = %q, want %q", prefix, got, pin[0])
+			}
+			if got := values[prefix+".archive_sha256"]; got != pin[1] {
+				t.Errorf("%s.archive_sha256 = %q, want %q", prefix, got, pin[1])
+			}
+		}
+	})
+
+	t.Run("mage authority rejects missing extra or malformed platform data", func(t *testing.T) {
+		root := repositoryRoot(t)
+		raw, err := os.ReadFile(filepath.Join(root, "config", "toolchain.toml"))
+		if err != nil {
+			t.Fatalf("read committed toolchain concern: %v", err)
+		}
+		valid := string(raw)
+		cases := map[string]string{
+			"missing platform digest": strings.Replace(valid,
+				`archive_sha256 = "5fd6f61170bb7584a4ca3ce4fd01137fe5a8edaf6c096d9f2ad30754d1d92797"`+"\n", "", 1),
+			"extra platform": valid + `
+[toolchain.mage.platforms."windows-arm64"]
+archive_url = "https://github.com/magefile/mage/releases/download/v1.17.2/mage_1.17.2_Windows-ARM64.zip"
+archive_sha256 = "970bc6efa76d6dc7285098a7033f4e6c83c18dc02f80548ae8de8dc5586e0445"
+`,
+			"wrong asset casing": strings.Replace(valid, "mage_1.17.2_Windows-64bit.zip", "mage_1.17.2_windows-64bit.zip", 1),
+			"wrong release host": strings.Replace(valid, "https://github.com/magefile/mage/", "https://example.com/magefile/mage/", 1),
+			"wrong release path": strings.Replace(valid, "/magefile/mage/releases/download/v1.17.2/", "/magefile/mage/releases/latest/", 1),
+			"malformed checksum": strings.Replace(valid,
+				"970bc6efa76d6dc7285098a7033f4e6c83c18dc02f80548ae8de8dc5586e0445",
+				"NOT-A-SHA256", 1),
+		}
+		for name, content := range cases {
+			t.Run(name, func(t *testing.T) {
+				fixtureRoot := writeStrictRepository(t, projectconfig.DefaultSpec(), map[string]string{
+					"config/toolchain.toml": content,
+				})
+				if _, _, err := projectconfig.ValidateConcern(
+					fixtureRoot, projectconfig.DefaultSpec(), "toolchain"); err == nil {
+					t.Fatal("invalid Mage authority unexpectedly validated")
+				}
+			})
 		}
 	})
 
