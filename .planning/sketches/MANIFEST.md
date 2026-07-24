@@ -29,4 +29,4 @@ product's branding.
 | 001 | workspace-shell | How should operators move between Patch, Program, Perform, and Setup without losing live context? | D — Focused Command Rail | layout, navigation, chrome, workflow |
 | 002 | programming-workspace | How should scenes, layers, reusable looks, selection, and editing coexist? | A — Scene Stack + Inspector | program, scenes, inspector |
 | 003 | performance-workspace | What constrained surface best supports reliable handoff and live operation? | A — Launcher + Masters | perform, operator, midi |
-| 004 | patch-to-play-flow | How should readiness and progression from fixture patch to live output be communicated? | pending | patch, onboarding, flow |
+| 004 | patch-to-play-flow | How should readiness and progression from fixture patch to live output be communicated? | B — Guided First Show | patch, onboarding, flow |
