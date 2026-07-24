@@ -7,13 +7,15 @@ package wails
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
-	"strings"
+	"path/filepath"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -31,6 +33,18 @@ import (
 func testWailsPipeName(t *testing.T) string {
 	t.Helper()
 	return platformTestEndpoint(t, "wails")
+}
+
+func platformTestEndpoint(t *testing.T, prefix string) string {
+	t.Helper()
+	nameHash := sha256.Sum256([]byte(t.Name()))
+	suffix := fmt.Sprintf("%s-%d-%d-%x", prefix, os.Getpid(), time.Now().UnixNano(), nameHash[:4])
+	if runtime.GOOS == "windows" {
+		return `\\.\pipe\golc-` + suffix
+	}
+	endpoint := filepath.Join("/tmp", "golc-"+suffix+".sock")
+	t.Cleanup(func() { _ = os.Remove(endpoint) })
+	return endpoint
 }
 
 // fakeConn is a minimal net.Conn double: only Close is ever called by

@@ -36,9 +36,7 @@ package wails
 
 import (
 	"context"
-	"fmt"
 	"net"
-	"os"
 	"strings"
 	"testing"
 	"time"
