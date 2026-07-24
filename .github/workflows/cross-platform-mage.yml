@@ -10,6 +10,14 @@
 # JIT-compiles the magefile package at every invocation and therefore
 # always needs a Go compiler on PATH, regardless of how the mage binary
 # itself was obtained.
+#
+# libx11-dev is a deliberate, narrow exception to the checksum-pinned
+# tooling philosophy above: golang.design/x/hotkey's Linux backend
+# (internal/wails/hotkey.go's OS-level safety-cluster shortcuts) cgo-links
+# against X11/Xlib.h, which ubuntu-latest does not install by default. It
+# is a system library, not a project archive pin -- apt's own package
+# integrity is the trust boundary here, the same way it already is for
+# the ambient ubuntu-latest/macos-latest Go used to install Mage.
 name: cross-platform Mage observation
 
 on:
@@ -35,6 +43,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install X11 development headers (Linux only)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev
 
       - name: Install pinned Mage (Linux/macOS)
         if: runner.os != 'Windows'
