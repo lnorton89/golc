@@ -421,7 +421,7 @@ type probeConfig struct {
 // bootstrap mode reruns it with GOPROXY=off, readonly module mode, and a
 // fail-on-call network transport.
 func TestSchemaProbeDecodesTOMLAndEmitsInvopopSchema(t *testing.T) {
-	const document = "schema_version = 1\n\n[runtime]\nlog_level = \"info\"\n"
+	const document = "schema_version = 2\n\n[runtime]\nlog_level = \"info\"\n"
 
 	var decoded probeConfig
 	metadata, err := toml.Decode(document, &decoded)
@@ -431,7 +431,7 @@ func TestSchemaProbeDecodesTOMLAndEmitsInvopopSchema(t *testing.T) {
 	if undecoded := metadata.Undecoded(); len(undecoded) != 0 {
 		t.Fatalf("strict decode left undecoded keys: %v", undecoded)
 	}
-	if decoded.SchemaVersion != 1 || decoded.Runtime.LogLevel != "info" {
+	if decoded.SchemaVersion != 2 || decoded.Runtime.LogLevel != "info" {
 		t.Fatalf("decoded unexpected values: %+v", decoded)
 	}
 
@@ -458,7 +458,7 @@ func writeTestToolchainManifest(t *testing.T, root string, patterns map[string]S
 	t.Helper()
 
 	var body strings.Builder
-	body.WriteString("schema_version = 1\n\n")
+	body.WriteString("schema_version = 2\n\n")
 	for name, pattern := range patterns {
 		fmt.Fprintf(&body, "[toolchain.%s]\n", name)
 		fmt.Fprintf(&body, "version = \"1.0.0\"\n")
