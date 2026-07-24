@@ -40,6 +40,34 @@ official_path_prefix = "/dist/"
 archive_url = "https://nodejs.org/dist/v24.18.0/node-v24.18.0-win-x64.zip"
 archive_sha256 = "0ae68406b42d7725661da979b1403ec9926da205c6770827f33aac9d8f26e821"
 
+# Mage is a checksum-pinned contributor tool. Linux and macOS records make
+# Mage available to cross-platform development tooling; they do not qualify
+# or support the GOLC application on those platforms.
+[toolchain.mage]
+version = "1.17.2"
+official_host = "github.com"
+official_path_prefix = "/magefile/mage/releases/download/"
+
+[toolchain.mage.platforms."windows-amd64"]
+archive_url = "https://github.com/magefile/mage/releases/download/v1.17.2/mage_1.17.2_Windows-64bit.zip"
+archive_sha256 = "970bc6efa76d6dc7285098a7033f4e6c83c18dc02f80548ae8de8dc5586e0445"
+
+[toolchain.mage.platforms."linux-amd64"]
+archive_url = "https://github.com/magefile/mage/releases/download/v1.17.2/mage_1.17.2_Linux-64bit.tar.gz"
+archive_sha256 = "b1dd189f5a4d38484176dd5be3b651eb7cbc0b78eaf4bb9715738aa24edec644"
+
+[toolchain.mage.platforms."linux-arm64"]
+archive_url = "https://github.com/magefile/mage/releases/download/v1.17.2/mage_1.17.2_Linux-ARM64.tar.gz"
+archive_sha256 = "5a88f89b52a0270a60c1fd57f964d24af78ac21c6848642f05db1300fe193980"
+
+[toolchain.mage.platforms."darwin-amd64"]
+archive_url = "https://github.com/magefile/mage/releases/download/v1.17.2/mage_1.17.2_macOS-64bit.tar.gz"
+archive_sha256 = "bb43eec76388b1445c4ce019c5ac3bb305a56f77c5f580c5067871ff01ea7741"
+
+[toolchain.mage.platforms."darwin-arm64"]
+archive_url = "https://github.com/magefile/mage/releases/download/v1.17.2/mage_1.17.2_macOS-ARM64.tar.gz"
+archive_sha256 = "5fd6f61170bb7584a4ca3ce4fd01137fe5a8edaf6c096d9f2ad30754d1d92797"
+
 [cache]
 downloads = ".tools/cache/downloads"
 gomodcache = ".tools/cache/go-mod"

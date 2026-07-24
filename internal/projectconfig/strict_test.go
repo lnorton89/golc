@@ -306,7 +306,7 @@ func TestScopeConfigStrict(t *testing.T) {
 		valid := string(raw)
 		cases := map[string]string{
 			"missing platform digest": strings.Replace(valid,
-				`archive_sha256 = "5fd6f61170bb7584a4ca3ce4fd01137fe5a8edaf6c096d9f2ad30754d1d92797"`+"\n", "", 1),
+				`archive_sha256 = "5fd6f61170bb7584a4ca3ce4fd01137fe5a8edaf6c096d9f2ad30754d1d92797"`, "", 1),
 			"extra platform": valid + `
 [toolchain.mage.platforms."windows-arm64"]
 archive_url = "https://github.com/magefile/mage/releases/download/v1.17.2/mage_1.17.2_Windows-ARM64.zip"
@@ -332,8 +332,46 @@ archive_sha256 = "970bc6efa76d6dc7285098a7033f4e6c83c18dc02f80548ae8de8dc5586e04
 		}
 	})
 
+	t.Run("required keys are opt-in and preserve unrelated partial specs", func(t *testing.T) {
+		spec := syntheticSpec()
+		spec.Concerns[1].Keys["toolchain.go.optional_mirror"] = projectconfig.KeySpec{
+			Pattern: regexp.MustCompile(`^[0-9]+(\.[0-9]+)*$`),
+		}
+		root := writeStrictRepository(t, spec, map[string]string{
+			"config/toolchain.toml": strictToolchainConcern,
+		})
+		if _, _, err := projectconfig.ValidateConcern(root, spec, "toolchain"); err != nil {
+			t.Fatalf("an absent non-required key must remain valid: %v", err)
+		}
+
+		required := spec
+		required.Concerns[1].Keys["toolchain.go.required_mirror"] = projectconfig.KeySpec{
+			Pattern:  regexp.MustCompile(`^[0-9]+(\.[0-9]+)*$`),
+			Required: true,
+		}
+		if _, _, err := projectconfig.ValidateConcern(root, required, "toolchain"); err == nil ||
+			!strings.Contains(err.Error(), "GOLC_CONFIG_REQUIRED_KEY_MISSING") {
+			t.Fatalf("expected required key failure, got %v", err)
+		}
+	})
+
 	t.Run("quoted windows platform tables flatten exactly and unregistered platforms fail", func(t *testing.T) {
-		spec := projectconfig.DefaultSpec()
+		spec := syntheticSpec()
+		spec.Concerns[1].Keys = map[string]projectconfig.KeySpec{
+			"toolchain.go.version": {Pattern: regexp.MustCompile(`^[0-9]+(\.[0-9]+)*$`)},
+			"toolchain.go.platforms.windows-amd64.archive_url": {
+				Pattern: regexp.MustCompile(`^https://go\.dev/dl/[A-Za-z0-9.\-]+\.zip$`),
+			},
+			"toolchain.go.platforms.windows-amd64.archive_sha256": {
+				Pattern: regexp.MustCompile(`^[0-9a-f]{64}$`),
+			},
+			"toolchain.go.official_host": {
+				Pattern: regexp.MustCompile(`^[a-z0-9]+(\.[a-z0-9]+)+$`),
+			},
+			"toolchain.go.official_path_prefix": {
+				Pattern: regexp.MustCompile(`^/[A-Za-z0-9/_-]*/$`),
+			},
+		}
 		valid := `schema_version = 2
 
 [toolchain.go]
