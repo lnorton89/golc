@@ -28,11 +28,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/lnorton89/golc/internal/bootstrap"
 )
 
 var _ = MustDeclareScope(ScopeRegistration{
@@ -153,11 +153,9 @@ func resolvePinnedGoExecutable(root string) (string, error) {
 	if !toolchainVersionPattern.MatchString(version) {
 		return "", fmt.Errorf("GOLC_TEST_TOOLCHAIN_MISSING: pinned toolchain.go.version %q is not a safe dotted version", version)
 	}
-	executableName := "go"
-	if runtime.GOOS == "windows" {
-		executableName = "go.exe"
-	}
-	goExecutable := filepath.Join(root, ".tools", "toolchains", "go", version, "windows-amd64", "go", "bin", executableName)
+	goExecutable := filepath.Join(
+		root, ".tools", "toolchains", "go", version, bootstrap.PlatformKey(),
+		"go", "bin", bootstrap.ExecutableName("go"))
 	if _, err := os.Stat(goExecutable); err != nil {
 		return "", fmt.Errorf("GOLC_TEST_TOOLCHAIN_MISSING: %s: run 'golc.ps1 bootstrap' first", goExecutable)
 	}

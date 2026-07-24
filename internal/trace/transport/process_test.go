@@ -16,10 +16,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
+	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/lnorton89/golc/internal/bootstrap"
 )
 
 // resolveTestNode locates a Node executable to drive these tests: the
@@ -31,14 +33,16 @@ import (
 // affects only the explicit remote command, never core Go test/build).
 func resolveTestNode(t *testing.T) string {
 	t.Helper()
-	if runtime.GOOS == "windows" {
-		matches, _ := filepath.Glob(filepath.Join("..", "..", "..", ".tools", "toolchains", "node", "*", "windows-amd64", "node-v*-win-x64", "node.exe"))
-		if len(matches) > 0 {
-			absolute, err := filepath.Abs(matches[0])
-			if err == nil {
+	matches, _ := filepath.Glob(filepath.Join("..", "..", "..", ".tools", "toolchains", "node", "*", bootstrap.PlatformKey()))
+	sort.Strings(matches)
+	for _, installDir := range matches {
+		node, err := bootstrap.ResolveNodeInstallation(installDir)
+		if err == nil {
+			absolute, absErr := filepath.Abs(node.Executable)
+			if absErr == nil {
 				return absolute
 			}
-			return matches[0]
+			return node.Executable
 		}
 	}
 	if path, err := exec.LookPath("node"); err == nil {

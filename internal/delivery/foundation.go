@@ -32,6 +32,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/lnorton89/golc/internal/bootstrap"
 )
 
 // FoundationEntry is one file the deterministic foundation bundle
@@ -261,7 +263,7 @@ type FoundationBundle struct {
 	ManifestChecksum string
 }
 
-// BuildFoundationBundle produces the deterministic Windows AMD64
+// BuildFoundationBundle produces the deterministic current-platform
 // developer-tool ZIP archive and its canonical manifest (T-01-16):
 // identical repository inputs always produce byte-identical ZIP bytes,
 // manifest bytes, and checksums. Every ZIP entry uses the fixed epoch
@@ -364,10 +366,11 @@ type FoundationOutputPaths struct {
 // the same file identity rather than two differently-named artifacts.
 func DefaultFoundationOutputPaths(root string) FoundationOutputPaths {
 	base := filepath.Join(root, "dist", "foundation")
+	name := "golc-foundation-" + bootstrap.PlatformKey()
 	return FoundationOutputPaths{
-		ZIPPath:      filepath.Join(base, "golc-foundation-windows-amd64.zip"),
-		ManifestPath: filepath.Join(base, "golc-foundation-windows-amd64.manifest.json"),
-		ChecksumPath: filepath.Join(base, "golc-foundation-windows-amd64.zip.sha256"),
+		ZIPPath:      filepath.Join(base, name+".zip"),
+		ManifestPath: filepath.Join(base, name+".manifest.json"),
+		ChecksumPath: filepath.Join(base, name+".zip.sha256"),
 	}
 }
 
