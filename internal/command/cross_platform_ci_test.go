@@ -43,6 +43,8 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 			"    continue-on-error: true",
 			"      fail-fast: false",
 			`      GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC: "1"`,
+			"        if: runner.os != 'Windows'",
+			"        if: runner.os == 'Windows'",
 		} {
 			requireLine(line)
 		}
@@ -69,7 +71,8 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 			t.Fatalf("matrix runners = %v, want %v", runners, wantRunners)
 		}
 		wantExecutable := []string{
-			"go install github.com/magefile/mage@v1.17.2",
+			"bash scripts/ci/install-pinned-mage.sh",
+			"pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/ci/install-pinned-mage.ps1",
 			"mage Bootstrap",
 			"mage GenerateCheck",
 			"mage CheckOffline",
@@ -94,6 +97,53 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 		} {
 			if strings.Contains(lower, forbidden) {
 				t.Errorf("workflow contains forbidden token %q", forbidden)
+			}
+		}
+	})
+
+	t.Run("pinned Mage install scripts exist and read the committed toolchain pins", func(t *testing.T) {
+		// This is a structural, network-free check only (D-02: generate/
+		// check/build/test never open a network connection; only the
+		// "bootstrap" route may). Actually downloading and verifying the
+		// pinned Mage archive was validated manually against the real
+		// config/toolchain.toml before these scripts were committed.
+		for _, relative := range []string{
+			filepath.Join("scripts", "ci", "install-pinned-mage.sh"),
+			filepath.Join("scripts", "ci", "install-pinned-mage.ps1"),
+		} {
+			path := filepath.Join(root, relative)
+			info, err := os.Stat(path)
+			if err != nil {
+				t.Fatalf("stat %s: %v", relative, err)
+			}
+			if info.Size() == 0 {
+				t.Fatalf("%s is empty", relative)
+			}
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("read %s: %v", relative, err)
+			}
+			text := string(raw)
+			for _, want := range []string{"toolchain.mage.platforms", "archive_url", "archive_sha256"} {
+				if !strings.Contains(text, want) {
+					t.Errorf("%s does not reference %q; it must read the pin from config/toolchain.toml, not duplicate it", relative, want)
+				}
+			}
+		}
+
+		toolchainPath := filepath.Join(root, "config", "toolchain.toml")
+		toolchainText, err := os.ReadFile(toolchainPath)
+		if err != nil {
+			t.Fatalf("read config/toolchain.toml: %v", err)
+		}
+		for _, section := range []string{
+			`[toolchain.mage.platforms."windows-amd64"]`,
+			`[toolchain.mage.platforms."linux-amd64"]`,
+			`[toolchain.mage.platforms."darwin-amd64"]`,
+			`[toolchain.mage.platforms."darwin-arm64"]`,
+		} {
+			if !strings.Contains(string(toolchainText), section) {
+				t.Errorf("config/toolchain.toml is missing expected section %q the install scripts depend on", section)
 			}
 		}
 	})
