@@ -136,6 +136,7 @@ function mappingTechnical(mapping: MidiMappingView): string {
 export default function MidiPanel() {
   const connectionStatus = useGolcStore((state) => state.connectionStatus);
   const daemonLoading = connectionStatus === "connecting";
+  const surfaceListVersion = useGolcStore((state) => state.surfaceListVersion);
 
   const [surfaces, setSurfaces] = useState<SurfaceSummary[]>([]);
   const [selectedSurface, setSelectedSurface] = useState<string | null>(null);
@@ -187,7 +188,11 @@ export default function MidiPanel() {
 
   useEffect(() => {
     void refreshSurfaces();
-  }, [refreshSurfaces]);
+    // surfaceListVersion is OperatorSurface.tsx's create/remove invalidation
+    // signal (store.ts) -- App.tsx mounts both components permanently side
+    // by side, so this list must re-fetch whenever the other one changes it,
+    // not just once on mount.
+  }, [refreshSurfaces, surfaceListVersion]);
 
   useEffect(() => {
     if (!selectedSurface) {
