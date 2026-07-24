@@ -6,9 +6,9 @@ current_phase: 06
 current_phase_name: Wails Authoring and Operator Surface
 status: executing
 stopped_at: Phase 6 UI-SPEC approved
-last_updated: "2026-07-23T22:16:28.867Z"
+last_updated: "2026-07-23T23:05:00.000Z"
 last_activity: 2026-07-23
-last_activity_desc: "Completed quick task 260723-rym: Update packaged UI sketch assets to match the golc-site light theme"
+last_activity_desc: "Completed quick task 260723-vj8: Add nonblocking cross-platform Mage CI observation matrix for PowerShell removal Step 8"
 progress:
   total_phases: 7
   completed_phases: 5
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 Phase: 06 (Wails Authoring and Operator Surface) — EXECUTING
 Plan: 1 of 12
 Status: Executing Phase 06
-Last activity: 2026-07-23 — Completed quick task 260723-v4o: Rewrite command parity around Mage targets for PowerShell removal Step 6
+Last activity: 2026-07-23 — Completed quick task 260723-vj8: Add nonblocking cross-platform Mage CI observation matrix for PowerShell removal Step 8 (plus a build-route regression fix found while verifying it)
 
 Note: `.planning/phases/11-telemetry-usage-statistics-and-auto-crash-submission-pipeline/` exists on disk from earlier out-of-order groundwork, which caused the automated next-phase resolver to briefly point here at Phase 11. Phases 6-10 have no directories yet and are the genuine next work per ROADMAP.md's sequential order; Phase 11 itself declares `Depends on: Phase 10`.
 
@@ -128,6 +128,7 @@ None yet.
 | 260723-u0p | Add Mage targets and pin Mage toolchain archives for PowerShell removal Steps 4 and 5 | 2026-07-23 | afc4623 | Complete | [260723-u0p-add-mage-targets-and-pin-mage-toolchain-](./quick/260723-u0p-add-mage-targets-and-pin-mage-toolchain-/) |
 | 260723-ule | Improve golc-mcp status freshness and expose Mage migration surfaces | 2026-07-23 | 7ead8ed | Complete | [260723-ule-improve-golc-mcp-status-freshness-and-ex](./quick/260723-ule-improve-golc-mcp-status-freshness-and-ex/) |
 | 260723-v4o | Rewrite command parity around Mage targets for PowerShell removal Step 6 | 2026-07-23 | fbab0bd | Complete | [260723-v4o-rewrite-command-parity-around-mage-targe](./quick/260723-v4o-rewrite-command-parity-around-mage-targe/) |
+| 260723-vj8 | Add nonblocking cross-platform Mage CI observation matrix for PowerShell removal Step 8; fixed a pre-existing build-route regression (magefiles excluded from the build package sweep) found while verifying it | 2026-07-23 | f318c3a | Complete | [260723-vj8-add-nonblocking-cross-platform-mage-ci-a](./quick/260723-vj8-add-nonblocking-cross-platform-mage-ci-a/) |
 | 260723-sgy | Port the full golc-site design language into all approved UI sketch assets | 2026-07-23 | 5a5a55b | Needs Review | [260723-sgy-port-the-full-golc-site-design-language-](./quick/260723-sgy-port-the-full-golc-site-design-language-/) |
 | 260723-tyl | Make active command-rail accents symmetrical in all four UI sketches | 2026-07-23 | 7889800 | Complete | [260723-tyl-make-active-command-rail-accents-symmetr](./quick/260723-tyl-make-active-command-rail-accents-symmetr/) |
 | 260723-uj9 | Fold the sketch findings skill into .planning/sketches and remove .kimi-code | 2026-07-23 | 549d2cf | Complete | [260723-uj9-fold-the-sketch-findings-skill-into-plan](./quick/260723-uj9-fold-the-sketch-findings-skill-into-plan/) |
