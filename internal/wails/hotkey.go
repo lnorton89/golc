@@ -48,12 +48,16 @@ const (
 // all three so the bindings read as one cohesive "emergency" cluster and
 // stay unlikely to collide with a single, more common modifier combination
 // another application already owns.
+// The Alt modifier is platform-specific (safetyAltModifier, declared in
+// the per-platform hotkey_modifier_*.go files): golang.design/x/hotkey
+// declares an entirely distinct Modifier constant set per platform, with
+// no hotkey.ModAlt at all outside Windows.
 var (
-	blackoutMods         = []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModAlt, hotkey.ModShift}
+	blackoutMods         = []hotkey.Modifier{hotkey.ModCtrl, safetyAltModifier, hotkey.ModShift}
 	blackoutKey          = hotkey.KeyB
-	stopAllMods          = []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModAlt, hotkey.ModShift}
+	stopAllMods          = []hotkey.Modifier{hotkey.ModCtrl, safetyAltModifier, hotkey.ModShift}
 	stopAllKey           = hotkey.KeyS
-	revokeAutomationMods = []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModAlt, hotkey.ModShift}
+	revokeAutomationMods = []hotkey.Modifier{hotkey.ModCtrl, safetyAltModifier, hotkey.ModShift}
 	revokeAutomationKey  = hotkey.KeyR
 )
 
