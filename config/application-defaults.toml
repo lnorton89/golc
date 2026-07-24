@@ -6,7 +6,7 @@
 # immediate scene application) so they are discoverable from the root
 # index before their owning phases implement the behavior.
 
-schema_version = 1
+schema_version = 2
 
 [application_defaults]
 pool_update_review = "preview"

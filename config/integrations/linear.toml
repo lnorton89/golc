@@ -6,7 +6,7 @@
 # stay in the untracked .env, and remote identities are adopted into
 # .planning/linear-map.json only after explicit reviewed linkage (D-14).
 
-schema_version = 1
+schema_version = 2
 
 [linear]
 mapping_file = ".planning/linear-map.json"

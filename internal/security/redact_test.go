@@ -243,14 +243,14 @@ func TestScopeSecrets(t *testing.T) {
 func writeFoundationFixture(t *testing.T, root string) {
 	t.Helper()
 	files := map[string]string{
-		"golc.ps1":                           "REM golc.ps1 fixture entrypoint\n",
-		"golc.project.toml":                  "schema_version = 2\n",
-		"docs/development.md":                "# Fixture Docs\n",
-		"config/commands.toml":               "schema_version = 2\n\n[commands]\nentrypoint = \"golc.ps1\"\ncli_binary = \".tools/installs/golc_project/bin/golc-project.exe\"\ngo_version = \"1.26.5\"\n",
-		"config/toolchain.toml":              "schema_version = 2\n",
-		"config/integrations/linear.toml":    "schema_version = 2\n",
-		"schemas/golc-project.schema.json":   "{}\n",
-		"schemas/config-commands.schema.json": "{}\n",
+		"golc.ps1":                                          "REM golc.ps1 fixture entrypoint\n",
+		"golc.project.toml":                                 "schema_version = 2\n",
+		"docs/development.md":                               "# Fixture Docs\n",
+		"config/commands.toml":                              "schema_version = 2\n\n[commands]\nentrypoint = \"golc.ps1\"\ncli_binary = \".tools/installs/golc_project/bin/golc-project.exe\"\ngo_version = \"1.26.5\"\n",
+		"config/toolchain.toml":                             "schema_version = 2\n",
+		"config/integrations/linear.toml":                   "schema_version = 2\n",
+		"schemas/golc-project.schema.json":                  "{}\n",
+		"schemas/config-commands.schema.json":               "{}\n",
 		".tools/installs/golc_project/bin/golc-project.exe": "fixture binary payload\n",
 	}
 	for relative, content := range files {

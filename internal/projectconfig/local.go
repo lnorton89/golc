@@ -49,16 +49,17 @@ var localKeyRegistry = map[string]localKeySpec{
 		writable:      true,
 		allowedValues: []string{"debug", "error", "info", "warn"},
 	},
-	"schema_version":              {writable: false},
-	"toolchain.go.version":        {writable: false},
-	"toolchain.go.archive_url":    {writable: false},
-	"toolchain.go.archive_sha256": {writable: false},
+	"schema_version":       {writable: false},
+	"toolchain.go.version": {writable: false},
+	"toolchain.go.platforms.windows-amd64.archive_url":    {writable: false},
+	"toolchain.go.platforms.windows-amd64.archive_sha256": {writable: false},
 }
 
 // canonicalLocalKeyPattern is the only accepted key shape: dotted
-// lowercase words. Path separators, dot-dot, leading dots (.env), and
+// lowercase words whose segments may contain single, internal hyphens.
+// Path separators, dot-dot, leading dots (.env), malformed hyphens, and
 // every other redirection shape fail before any registry lookup.
-var canonicalLocalKeyPattern = regexp.MustCompile(`^[a-z0-9_]+(\.[a-z0-9_]+)*$`)
+var canonicalLocalKeyPattern = regexp.MustCompile(`^[a-z0-9_]+(-[a-z0-9_]+)*(\.[a-z0-9_]+(-[a-z0-9_]+)*)*$`)
 
 // Origin is one shadowed provenance entry. Field order is alphabetical so
 // the marshaled JSON keys are sorted like the rest of the document.
@@ -196,7 +197,7 @@ func renderLocalDocument(values map[string]string) string {
 	var builder strings.Builder
 	builder.WriteString("# Machine-local GOLC configuration overrides (CONTEXT D-06).\n")
 	builder.WriteString("# Written by 'golc config set --local'; ignored by git; never committed.\n\n")
-	builder.WriteString("schema_version = 1\n")
+	builder.WriteString(fmt.Sprintf("schema_version = %d\n", supportedSchemaVersion))
 	for _, name := range tableNames {
 		builder.WriteString("\n[" + name + "]\n")
 		leaves := make([]string, 0, len(tables[name]))

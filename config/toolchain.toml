@@ -9,31 +9,36 @@
 # allowlist consumed by internal/bootstrap's OfficialSourcePolicy: a tool
 # archive URL may only be fetched when its scheme is https and its host/path
 # match one committed per-tool pattern here. Nothing outside this pin is
-# ever an acceptable download origin. These stay flat scalar keys (rather
-# than a table array) so the existing strict single-authority decoder in
-# internal/projectconfig can keep validating every toolchain.toml key
-# without adding array-valued key support.
+# ever an acceptable download origin. Tool identity and source policy stay
+# on each parent table; executable archive bytes are pinned under an exact
+# platform key. Only windows-amd64 is configured. Other platform pins remain
+# absent until their exact URLs and checksums are separately committed.
 
-schema_version = 1
+schema_version = 2
 
 [toolchain.go]
 version = "1.26.5"
-archive_url = "https://go.dev/dl/go1.26.5.windows-amd64.zip"
-archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd38"
 official_host = "go.dev"
 official_path_prefix = "/dl/"
+
+[toolchain.go.platforms."windows-amd64"]
+archive_url = "https://go.dev/dl/go1.26.5.windows-amd64.zip"
+archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd38"
 
 # Node is provisioned only when a contributor opts into the isolated
 # tools/linear-sync workspace (`bootstrap --include linear-sync`, Plan
 # 01-13/CONTEXT D-01); it is developer tooling for the Linear SDK adapter,
-# never an application runtime dependency. archive_sha256 is the official
-# node-v24.18.0-win-x64.zip entry from https://nodejs.org/dist/v24.18.0/SHASUMS256.txt.
+# never an application runtime dependency.
 [toolchain.node]
 version = "24.18.0"
-archive_url = "https://nodejs.org/dist/v24.18.0/node-v24.18.0-win-x64.zip"
-archive_sha256 = "0ae68406b42d7725661da979b1403ec9926da205c6770827f33aac9d8f26e821"
 official_host = "nodejs.org"
 official_path_prefix = "/dist/"
+
+# archive_sha256 is the official node-v24.18.0-win-x64.zip entry from
+# https://nodejs.org/dist/v24.18.0/SHASUMS256.txt.
+[toolchain.node.platforms."windows-amd64"]
+archive_url = "https://nodejs.org/dist/v24.18.0/node-v24.18.0-win-x64.zip"
+archive_sha256 = "0ae68406b42d7725661da979b1403ec9926da205c6770827f33aac9d8f26e821"
 
 [cache]
 downloads = ".tools/cache/downloads"
