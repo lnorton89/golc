@@ -72,7 +72,8 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 			t.Fatalf("matrix runners = %v, want %v", runners, wantRunners)
 		}
 		wantExecutable := []string{
-			"sudo apt-get update && sudo apt-get install -y libx11-dev",
+			"sudo apt-get update && sudo apt-get install -y libx11-dev xvfb",
+			`Xvfb :99 -screen 0 1024x768x24 & echo "DISPLAY=:99" >> "$GITHUB_ENV"`,
 			"bash scripts/ci/install-pinned-mage.sh",
 			"pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/ci/install-pinned-mage.ps1",
 			"mage Bootstrap",
