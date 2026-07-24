@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"gitlab.com/gomidi/midi/v2"
+	"gitlab.com/gomidi/midi/v2/drivers"
 	"gitlab.com/gomidi/midi/v2/drivers/testdrv"
 )
 
@@ -174,6 +175,65 @@ func TestDriverStatusOKUntilClosed(t *testing.T) {
 func TestDriverOpenRejectsNilPort(t *testing.T) {
 	if _, err := Open(nil); err == nil {
 		t.Fatal("Open(nil) = nil error, want GOLC_MIDI_PORT_OPEN_FAILED")
+	}
+}
+
+// TestDriverListensOnEveryWrappedPort proves a Driver wrapping more than
+// one port (newDriver, backing OpenFirstAvailable) merges every port's
+// events onto Listen's single channel -- the fix for a controller like the
+// Novation Launch Control XL, which enumerates two separate MIDI input
+// ports and sends its actual control data on whichever one matches its
+// current hardware template. A message sent on either port must be
+// observed; listening on only the first port (the pre-fix behavior) would
+// miss whichever port this test sends on second.
+func TestDriverListensOnEveryWrappedPort(t *testing.T) {
+	firstDrv := testdrv.New("test-multiport-first")
+	secondDrv := testdrv.New("test-multiport-second")
+	firstIns, _ := firstDrv.Ins()
+	secondIns, _ := secondDrv.Ins()
+	firstOuts, _ := firstDrv.Outs()
+	secondOuts, _ := secondDrv.Outs()
+	if err := firstOuts[0].Open(); err != nil {
+		t.Fatalf("first out.Open(): %v", err)
+	}
+	if err := secondOuts[0].Open(); err != nil {
+		t.Fatalf("second out.Open(): %v", err)
+	}
+
+	d, err := newDriver([]drivers.In{firstIns[0], secondIns[0]})
+	if err != nil {
+		t.Fatalf("newDriver: %v", err)
+	}
+	events, err := d.Listen()
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	defer d.Close()
+
+	if err := firstOuts[0].Send(midi.NoteOn(1, 10, 100).Bytes()); err != nil {
+		t.Fatalf("Send on first port: %v", err)
+	}
+	select {
+	case evt := <-events:
+		want := Event{Key: ControlKey{Channel: 1, Kind: Note, Number: 10}, Value: float64(100) / 127}
+		if evt != want {
+			t.Fatalf("event from first port = %+v, want %+v", evt, want)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for event from the first port")
+	}
+
+	if err := secondOuts[0].Send(midi.ControlChange(2, 20, 64).Bytes()); err != nil {
+		t.Fatalf("Send on second port: %v", err)
+	}
+	select {
+	case evt := <-events:
+		want := Event{Key: ControlKey{Channel: 2, Kind: ControlChange, Number: 20}, Value: float64(64) / 127}
+		if evt != want {
+			t.Fatalf("event from second port = %+v, want %+v", evt, want)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for event from the second port -- a regression here means Listen went back to only the first port")
 	}
 }
 
