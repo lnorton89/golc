@@ -151,6 +151,55 @@ func TestScopeCommandParity(t *testing.T) {
 			t, graph, data, "GOLC_CHECK_PARITY_TRIGGER_MISSING:")
 	})
 
+	t.Run("production repository uses the configured Mage graph without credentials", func(t *testing.T) {
+		root := commandParityRepositoryRoot(t)
+		productionGraph, err := delivery.LoadPRGraph(root)
+		if err != nil {
+			t.Fatalf("delivery.LoadPRGraph: %v", err)
+		}
+		workflowBytes, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(prWorkflowPath)))
+		if err != nil {
+			t.Fatalf("read production workflow: %v", err)
+		}
+
+		// Presence of process credentials must neither be required nor
+		// consulted by the in-process parity gate.
+		t.Setenv("LINEAR_API_KEY", "parity-must-not-read-this")
+		t.Setenv("LINEAR_TEAM_ID", "parity-must-not-read-this")
+
+		if err := validateCommandParity(productionGraph, workflowBytes); err != nil {
+			t.Fatalf("validate production command parity: %v", err)
+		}
+		targets, err := workflowMageTargets(workflowBytes)
+		if err != nil {
+			t.Fatalf("parse production Mage targets: %v", err)
+		}
+		wantTargets := []string{
+			"Bootstrap",
+			"GenerateCheck",
+			"CheckOffline",
+			"Build",
+			"Test",
+			"PackageFoundation",
+		}
+		if strings.Join(targets, ",") != strings.Join(wantTargets, ",") {
+			t.Fatalf("production targets = %v, want %v", targets, wantTargets)
+		}
+
+		result := runCheckCommandParity(root)
+		if result.ExitCode != 0 {
+			t.Fatalf("runCheckCommandParity failed: %s", result.Stderr)
+		}
+		if !strings.Contains(string(result.Stdout), "6 PR step(s)") {
+			t.Fatalf("success report = %q, want descriptor-backed step count", result.Stdout)
+		}
+		for _, token := range append(append([]string(nil), prForbiddenTokens...), "LINEAR_API_KEY", "LINEAR_TEAM_ID") {
+			if strings.Contains(string(workflowBytes), token) {
+				t.Fatalf("production workflow contains forbidden credential or mutation token %q", token)
+			}
+		}
+	})
+
 	t.Run("runCheckCommandParity propagates loader and workflow read failures", func(t *testing.T) {
 		missingConfig := runCheckCommandParity(t.TempDir())
 		if missingConfig.ExitCode != 1 ||
