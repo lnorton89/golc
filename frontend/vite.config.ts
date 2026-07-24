@@ -19,4 +19,13 @@ export default defineConfig({
     outDir: "../cmd/golc-desktop/frontend/dist",
     emptyOutDir: true,
   },
+  // Vitest config lives here (not a separate vitest.config.ts) so it
+  // always shares this project's real Vite config (aliases, plugins) --
+  // the smoke test must exercise the exact same module graph the actual
+  // build produces, including the go:embed'd output path above.
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["./src/test/setup.ts"],
+  },
 });
