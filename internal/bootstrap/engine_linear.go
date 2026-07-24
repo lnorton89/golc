@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
@@ -44,19 +43,12 @@ func runLinearSync(ctx context.Context, engine *bootstrapEngine) (resultErr erro
 	if err := engine.installPin(nodePin, nodeInstall); err != nil {
 		return fmt.Errorf("GOLC_NODE_TOOLCHAIN_INSTALL: %w", err)
 	}
-	nodeLayout, err := platformArchiveLayout("node", nodePin.Version, runtime.GOOS, runtime.GOARCH)
+	node, err := ResolveNodeInstallation(nodeInstall)
 	if err != nil {
 		return err
 	}
-	extractedRoot := filepath.Join(nodeInstall, filepath.FromSlash(nodeLayout.Root))
-	nodeExecutable := filepath.Join(extractedRoot, nodeLayout.Executable)
-	npmCLI := filepath.Join(extractedRoot, nodeLayout.NPMCLI)
-	for label, path := range map[string]string{"node": nodeExecutable, "npm-cli.js": npmCLI} {
-		info, err := os.Stat(path)
-		if err != nil || !info.Mode().IsRegular() {
-			return fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: expected %s at %s", label, path)
-		}
-	}
+	nodeExecutable := node.Executable
+	npmCLI := node.NPMCLI
 
 	linearDir := filepath.Join(engine.root, "tools", "linear-sync")
 	packageJSONPath := filepath.Join(linearDir, "package.json")

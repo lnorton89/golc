@@ -27,6 +27,110 @@ func PlatformKey() string {
 	return runtime.GOOS + "-" + runtime.GOARCH
 }
 
+var validExecutableBase = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
+
+// ExecutableName returns a platform-native executable name for a safe base
+// name. An empty result rejects blank names, path components, and traversal.
+func ExecutableName(base string) string {
+	if !validExecutableBase.MatchString(base) || base == "." || base == ".." {
+		return ""
+	}
+	if runtime.GOOS == "windows" {
+		return base + ".exe"
+	}
+	return base
+}
+
+// PlatformExecutablePath resolves a provisioned command beneath its stable
+// runtime platform directory. An empty result indicates an unsafe base name.
+func PlatformExecutablePath(installRoot, base string) string {
+	name := ExecutableName(base)
+	if name == "" {
+		return ""
+	}
+	return filepath.Join(installRoot, PlatformKey(), "bin", name)
+}
+
+// NodeInstallation is the validated executable surface of a provisioned Node
+// archive.
+type NodeInstallation struct {
+	Root       string
+	Executable string
+	NPMCLI     string
+}
+
+// ResolveNodeInstallation discovers the sole verified archive payload without
+// coupling consumers to the upstream archive's top-level directory spelling.
+func ResolveNodeInstallation(installDir string) (NodeInstallation, error) {
+	entries, err := os.ReadDir(installDir)
+	if err != nil {
+		return NodeInstallation{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: inspect %s: %w", installDir, err)
+	}
+	sort.Slice(entries, func(left, right int) bool {
+		return entries[left].Name() < entries[right].Name()
+	})
+
+	manifestFound := false
+	var directories []string
+	for _, entry := range entries {
+		path := filepath.Join(installDir, entry.Name())
+		lstat, err := os.Lstat(path)
+		if err != nil {
+			return NodeInstallation{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: inspect %s: %w", path, err)
+		}
+		if entry.Name() == ManifestName {
+			if lstat.Mode()&os.ModeSymlink != 0 || !lstat.Mode().IsRegular() {
+				return NodeInstallation{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: install manifest must be a regular file at %s", path)
+			}
+			manifestFound = true
+			continue
+		}
+		if lstat.Mode()&os.ModeSymlink != 0 || !lstat.IsDir() {
+			return NodeInstallation{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: unexpected top-level entry %s", path)
+		}
+		stat, err := os.Stat(path)
+		if err != nil || !stat.IsDir() {
+			return NodeInstallation{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: invalid top-level directory %s", path)
+		}
+		directories = append(directories, path)
+	}
+	if !manifestFound {
+		return NodeInstallation{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: expected regular install manifest at %s", filepath.Join(installDir, ManifestName))
+	}
+	if len(directories) != 1 {
+		return NodeInstallation{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: expected exactly one extracted directory in %s, found %d: %v", installDir, len(directories), directories)
+	}
+
+	var executableRelative, npmRelative string
+	switch runtime.GOOS {
+	case "windows":
+		executableRelative = "node.exe"
+		npmRelative = filepath.Join("node_modules", "npm", "bin", "npm-cli.js")
+	case "linux", "darwin":
+		executableRelative = filepath.Join("bin", "node")
+		npmRelative = filepath.Join("lib", "node_modules", "npm", "bin", "npm-cli.js")
+	default:
+		return NodeInstallation{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: Node has no executable mapping for %s", PlatformKey())
+	}
+
+	installation := NodeInstallation{
+		Root:       directories[0],
+		Executable: filepath.Join(directories[0], executableRelative),
+		NPMCLI:     filepath.Join(directories[0], npmRelative),
+	}
+	for label, path := range map[string]string{"node": installation.Executable, "npm-cli.js": installation.NPMCLI} {
+		lstat, err := os.Lstat(path)
+		if err != nil || lstat.Mode()&os.ModeSymlink != 0 {
+			return NodeInstallation{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: expected regular %s at %s", label, path)
+		}
+		stat, err := os.Stat(path)
+		if err != nil || !stat.Mode().IsRegular() {
+			return NodeInstallation{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: expected regular %s at %s", label, path)
+		}
+	}
+	return installation, nil
+}
+
 type platformLayout struct {
 	FileName   string
 	Format     string
@@ -437,11 +541,7 @@ func (engine *bootstrapEngine) runGoPhase(ctx context.Context, goExecutable stri
 	}
 	projectDir := filepath.Join(engine.root, "cmd", "golc-project")
 	if info, err := os.Stat(projectDir); err == nil && info.IsDir() {
-		suffix := ""
-		if runtime.GOOS == "windows" {
-			suffix = ".exe"
-		}
-		output := filepath.Join(engine.root, ".tools", "installs", "golc_project", "bin", "golc-project"+suffix)
+		output := PlatformExecutablePath(filepath.Join(engine.root, ".tools", "installs", "golc_project"), "golc-project")
 		if err := os.MkdirAll(filepath.Dir(output), 0o755); err != nil {
 			return fmt.Errorf("GOLC_BOOTSTRAP_PROJECT_BUILD: %w", err)
 		}
