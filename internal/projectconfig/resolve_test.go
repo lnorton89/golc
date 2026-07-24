@@ -48,7 +48,7 @@ func newResolveTestRepository(t *testing.T) string {
 	root := t.TempDir()
 
 	rootIndex := strings.Join([]string{
-		"schema_version = 1",
+		"schema_version = 2",
 		"",
 		"[[concerns]]",
 		`id = "runtime"`,
@@ -60,14 +60,14 @@ func newResolveTestRepository(t *testing.T) string {
 		"",
 	}, "\n")
 	runtimeConcern := strings.Join([]string{
-		"schema_version = 1",
+		"schema_version = 2",
 		"",
 		"[runtime]",
 		`log_level = "info"`,
 		"",
 	}, "\n")
 	toolchainConcern := strings.Join([]string{
-		"schema_version = 1",
+		"schema_version = 2",
 		"",
 		"[toolchain.go]",
 		`version = "1.26.5"`,
@@ -146,7 +146,7 @@ func TestScopeConfig(t *testing.T) {
 		}
 
 		// + user layer.
-		writeUserConfig(t, userPath, "schema_version = 1\n\n[runtime]\nlog_level = \"debug\"\n")
+		writeUserConfig(t, userPath, "schema_version = 2\n\n[runtime]\nlog_level = \"debug\"\n")
 		record, err = projectconfig.ResolveKey(registry, sources, "runtime.log_level")
 		if err != nil {
 			t.Fatalf("ResolveKey (user) failed: %v", err)
@@ -224,7 +224,7 @@ func TestScopeConfig(t *testing.T) {
 
 		t.Run("user layer", func(t *testing.T) {
 			userPath := filepath.Join(t.TempDir(), "GOLC", "config.toml")
-			writeUserConfig(t, userPath, "schema_version = 1\n\n[toolchain.go]\nversion = \"9.9.9\"\n")
+			writeUserConfig(t, userPath, "schema_version = 2\n\n[toolchain.go]\nversion = \"9.9.9\"\n")
 			sources := projectconfig.Sources{Root: root, UserConfigPath: userPath, LookupEnv: noEnv}
 			_, err := projectconfig.ResolveKey(registry, sources, "toolchain.go.version")
 			if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_LOCKED_OVERRIDE") {
@@ -238,7 +238,7 @@ func TestScopeConfig(t *testing.T) {
 			// so the rejection is defense-in-depth: either stable code
 			// confirms the override never takes effect.
 			localPath := filepath.Join(root, "golc.local.toml")
-			if err := os.WriteFile(localPath, []byte("schema_version = 1\n\n[toolchain.go]\nversion = \"9.9.9\"\n"), 0o644); err != nil {
+			if err := os.WriteFile(localPath, []byte("schema_version = 2\n\n[toolchain.go]\nversion = \"9.9.9\"\n"), 0o644); err != nil {
 				t.Fatalf("write golc.local.toml: %v", err)
 			}
 			defer os.Remove(localPath)
@@ -298,7 +298,7 @@ func TestScopeConfig(t *testing.T) {
 
 		t.Run("user layer", func(t *testing.T) {
 			userPath := filepath.Join(t.TempDir(), "GOLC", "config.toml")
-			writeUserConfig(t, userPath, "schema_version = 1\n\n[runtime]\nlog_level = \"verbose\"\n")
+			writeUserConfig(t, userPath, "schema_version = 2\n\n[runtime]\nlog_level = \"verbose\"\n")
 			sources := projectconfig.Sources{Root: root, UserConfigPath: userPath, LookupEnv: noEnv}
 			_, err := projectconfig.ResolveKey(registry, sources, "runtime.log_level")
 			if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_VALUE_INVALID") {
@@ -328,7 +328,7 @@ func TestScopeConfig(t *testing.T) {
 		root := newResolveTestRepository(t)
 		registry := resolveTestRegistry()
 		userPath := filepath.Join(t.TempDir(), "GOLC", "config.toml")
-		writeUserConfig(t, userPath, "schema_version = 1\n\n[runtime]\nmystery = \"x\"\n")
+		writeUserConfig(t, userPath, "schema_version = 2\n\n[runtime]\nmystery = \"x\"\n")
 		sources := projectconfig.Sources{Root: root, UserConfigPath: userPath, LookupEnv: noEnv}
 		_, err := projectconfig.ResolveKey(registry, sources, "runtime.log_level")
 		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_USER_KEY_UNKNOWN") {

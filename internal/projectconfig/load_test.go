@@ -10,7 +10,7 @@ import (
 	"github.com/lnorton89/golc/internal/projectconfig"
 )
 
-const validRootIndex = `schema_version = 1
+const validRootIndex = `schema_version = 2
 
 [[concerns]]
 id = "toolchain"
@@ -21,13 +21,13 @@ id = "runtime"
 path = "config/runtime.toml"
 `
 
-const validRuntimeConcern = `schema_version = 1
+const validRuntimeConcern = `schema_version = 2
 
 [runtime]
 log_level = "info"
 `
 
-const validToolchainConcern = `schema_version = 1
+const validToolchainConcern = `schema_version = 2
 
 [cache]
 downloads = ".tools/cache/downloads"
@@ -115,7 +115,7 @@ func TestLoadRootIndexRejectsDuplicateConcernIDs(t *testing.T) {
 
 func TestLoadRootIndexRejectsWrongSchemaVersion(t *testing.T) {
 	root := newValidRepository(t)
-	writeRepositoryFile(t, root, "golc.project.toml", strings.Replace(validRootIndex, "schema_version = 1", "schema_version = 2", 1))
+	writeRepositoryFile(t, root, "golc.project.toml", strings.Replace(validRootIndex, "schema_version = 2", "schema_version = 1", 1))
 
 	_, err := projectconfig.LoadRootIndex(root)
 	if err == nil {
@@ -153,7 +153,7 @@ func TestConcernPathsCannotEscapeRepository(t *testing.T) {
 	}
 	for _, escape := range escapes {
 		root := newValidRepository(t)
-		index := "schema_version = 1\n\n[[concerns]]\nid = \"runtime\"\npath = '" + escape + "'\n"
+		index := "schema_version = 2\n\n[[concerns]]\nid = \"runtime\"\npath = '" + escape + "'\n"
 		writeRepositoryFile(t, root, "golc.project.toml", index)
 
 		_, err := projectconfig.InspectConcern(root, "runtime")
@@ -169,7 +169,7 @@ func TestConcernPathsCannotEscapeRepository(t *testing.T) {
 func TestConcernPathsCannotEscapeThroughSymlinks(t *testing.T) {
 	root := newValidRepository(t)
 	outside := t.TempDir()
-	writeRepositoryFile(t, outside, "secret.toml", "schema_version = 1\n\n[runtime]\nlog_level = \"debug\"\n")
+	writeRepositoryFile(t, outside, "secret.toml", "schema_version = 2\n\n[runtime]\nlog_level = \"debug\"\n")
 
 	linkPath := filepath.Join(root, "config", "runtime.toml")
 	if err := os.Remove(linkPath); err != nil {
