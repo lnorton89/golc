@@ -1,0 +1,48 @@
+# Contributor-tool portability observation only. Linux and macOS results do
+# not qualify the GOLC application for either platform.
+name: cross-platform Mage observation
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  observe:
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    env:
+      GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ambient Mage launcher
+        run: go install github.com/magefile/mage@v1.17.2
+
+      - name: Bootstrap verified project toolchains
+        run: mage Bootstrap
+
+      - name: Check generated files
+        run: mage GenerateCheck
+
+      - name: Check offline graph
+        run: mage CheckOffline
+
+      - name: Build
+        run: mage Build
+
+      - name: Test
+        run: mage Test
+
+      - name: Package foundation
+        run: mage PackageFoundation
