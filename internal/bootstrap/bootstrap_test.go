@@ -867,6 +867,39 @@ func TestScopeBootstrapArchive(t *testing.T) {
 		}
 	})
 
+	t.Run("OfficialSourcePolicy allows the dl.google.com CDN redirect host and path for any pinned go.dev release", func(t *testing.T) {
+		// Regression: the committed [toolchain.go] pin is a
+		// go.dev/dl/... URL, which go.dev always 302s to
+		// dl.google.com/go/... . Unlike GitHub's signed release-asset
+		// CDN, this redirect target has a stable, unsigned path shape,
+		// so it is pinned with the same host+path-prefix precision as
+		// any TOML-declared pattern rather than trusted for any path
+		// (observed live in cross-platform-mage.yml run 30073584282 on
+		// all three runners).
+		root := t.TempDir()
+		writeTestToolchainManifest(t, root, map[string]SourcePattern{
+			"go": {Host: "go.dev", PathPrefix: "/dl/"},
+		})
+		policy, err := LoadOfficialSourcePolicy(root)
+		if err != nil {
+			t.Fatalf("LoadOfficialSourcePolicy failed: %v", err)
+		}
+
+		if err := policy.Allows("https://dl.google.com/go/go1.26.5.linux-amd64.tar.gz"); err != nil {
+			t.Fatalf("expected the dl.google.com redirect host/path to be allowed, got: %v", err)
+		}
+
+		for name, rejected := range map[string]string{
+			"different path on the same CDN host": "https://dl.google.com/chrome/install.exe",
+			"look-alike CDN subdomain":             "https://dl.google.com.evil.example.com/go/x",
+			"insecure scheme":                      "http://dl.google.com/go/go1.26.5.linux-amd64.tar.gz",
+		} {
+			if err := policy.Allows(rejected); err == nil {
+				t.Fatalf("%s: expected %q to still be rejected", name, rejected)
+			}
+		}
+	})
+
 	t.Run("LoadOfficialSourcePolicy fails closed when no source is pinned", func(t *testing.T) {
 		root := t.TempDir()
 		writeTestToolchainManifest(t, root, map[string]SourcePattern{
