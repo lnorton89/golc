@@ -76,6 +76,13 @@ function Read-GolcToml {
         if ($line -eq "" -or $line.StartsWith("#")) {
             continue
         }
+        if ($line -match '^\[(?<tool>toolchain\.(go|node))\.platforms\."windows-amd64"\]$') {
+            $current = $Matches["tool"] + ".platforms.windows-amd64"
+            if (-not $sections.ContainsKey($current)) {
+                $sections[$current] = @{}
+            }
+            continue
+        }
         if ($line -match '^\[(?<name>[A-Za-z0-9_.-]+)\]$') {
             $current = $Matches["name"]
             if (-not $sections.ContainsKey($current)) {
@@ -479,11 +486,16 @@ function Invoke-GolcBootstrapLinearSync {
     }
     $nodeSection = $Manifest["toolchain.node"]
     $nodeVersion = Get-RequiredPinValue -Section $nodeSection -SectionName "toolchain.node" -Key "version"
+    $nodePlatformName = "toolchain.node.platforms.windows-amd64"
+    if (-not $Manifest.ContainsKey($nodePlatformName)) {
+        throw 'GOLC_NODE_TOOLCHAIN_PLATFORM_MISSING: config/toolchain.toml must pin [toolchain.node.platforms."windows-amd64"]'
+    }
+    $nodePlatformSection = $Manifest[$nodePlatformName]
     $nodeInstallDir = Join-Path $RepoRoot (".tools\toolchains\node\" + $nodeVersion + "\windows-amd64")
     Install-ArchivePin `
         -DisplayName ("node " + $nodeVersion) `
-        -Uri (Get-RequiredPinValue -Section $nodeSection -SectionName "toolchain.node" -Key "archive_url") `
-        -Sha256 (Get-RequiredPinValue -Section $nodeSection -SectionName "toolchain.node" -Key "archive_sha256") `
+        -Uri (Get-RequiredPinValue -Section $nodePlatformSection -SectionName $nodePlatformName -Key "archive_url") `
+        -Sha256 (Get-RequiredPinValue -Section $nodePlatformSection -SectionName $nodePlatformName -Key "archive_sha256") `
         -InstallDir $nodeInstallDir
 
     $nodeExtractedDir = Join-Path $nodeInstallDir ("node-v" + $nodeVersion + "-win-x64")
@@ -618,7 +630,7 @@ function Invoke-GolcBootstrap {
         $section = $manifest[$sectionName]
         Install-ArchivePin `
             -DisplayName $toolName `
-            -Uri (Get-RequiredPinValue -Section $section -SectionName $sectionName -Key "archive_uri") `
+            -Uri (Get-RequiredPinValue -Section $section -SectionName $sectionName -Key "archive_url") `
             -Sha256 (Get-RequiredPinValue -Section $section -SectionName $sectionName -Key "archive_sha256") `
             -InstallDir (Join-Path $RepoRoot (".tools\installs\" + $toolName))
     }
@@ -628,11 +640,16 @@ function Invoke-GolcBootstrap {
     if ($manifest.ContainsKey("toolchain.go")) {
         $goSection = $manifest["toolchain.go"]
         $goVersion = Get-RequiredPinValue -Section $goSection -SectionName "toolchain.go" -Key "version"
+        $goPlatformName = "toolchain.go.platforms.windows-amd64"
+        if (-not $manifest.ContainsKey($goPlatformName)) {
+            throw 'GOLC_GO_TOOLCHAIN_PLATFORM_MISSING: config/toolchain.toml must pin [toolchain.go.platforms."windows-amd64"]'
+        }
+        $goPlatformSection = $manifest[$goPlatformName]
         $goInstallDir = Join-Path $RepoRoot (".tools\toolchains\go\" + $goVersion + "\windows-amd64")
         Install-ArchivePin `
             -DisplayName ("go " + $goVersion) `
-            -Uri (Get-RequiredPinValue -Section $goSection -SectionName "toolchain.go" -Key "archive_url") `
-            -Sha256 (Get-RequiredPinValue -Section $goSection -SectionName "toolchain.go" -Key "archive_sha256") `
+            -Uri (Get-RequiredPinValue -Section $goPlatformSection -SectionName $goPlatformName -Key "archive_url") `
+            -Sha256 (Get-RequiredPinValue -Section $goPlatformSection -SectionName $goPlatformName -Key "archive_sha256") `
             -InstallDir $goInstallDir
         $goExecutable = Join-Path $goInstallDir "go\bin\go.exe"
     }
