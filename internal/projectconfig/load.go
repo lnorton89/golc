@@ -25,7 +25,7 @@ import (
 const rootIndexName = "golc.project.toml"
 
 // supportedSchemaVersion is the only root/concern schema this build reads.
-const supportedSchemaVersion = 1
+const supportedSchemaVersion = 2
 
 // Concern is one logically separated configuration file indexed by the
 // root manifest.

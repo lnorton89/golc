@@ -9,7 +9,7 @@
 # single-authority model (internal/projectconfig/model.go); hiding or
 # inventing a concern fails validation with GOLC_CONFIG_INDEX_MISMATCH.
 
-schema_version = 1
+schema_version = 2
 
 [[concerns]]
 id = "toolchain"
