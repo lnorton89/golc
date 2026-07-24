@@ -1,147 +1,290 @@
 ---
 phase: 06-wails-authoring-and-operator-surface
-verified: 2026-07-23T21:21:06Z
-status: gaps_found
-score: 9/11 must-haves verified
+verified: 2026-07-23T23:59:00Z
+status: human_needed
+score: 15/15 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
-gaps:
-  - truth: "A user can complete fixture, deployment, and programming workflows through on-screen controls (ROADMAP Phase 6 Success Criterion 1)"
-    status: failed
-    reason: "None of the 8 executed plans (06-01..06-08) built any on-screen UI for fixture patching, deployment/interface configuration, or scene/look programming (base-look/color-theme/chase/motion authoring). The frontend contains exactly six components -- SafetyCluster, LiveStatusBar, PlaybackControls, OperatorSurface, MidiPanel, KeyboardShortcuts -- covering only playback (scene switch/layer toggle/BPM/tap/evaluate), operator-surface assignment, safety, and MIDI. Fixture/deployment/programming remain CLI-only. 06-VALIDATION.md's own Per-Task Verification Map and 06-CONTEXT.md's Decisions section never scope or address this SC1 clause either -- it was never decomposed into a PLAY-XX requirement or a plan task, so no plan's absence of this UI is a plan-level defect; it is an unmet roadmap Success Criterion with no plan ever targeting it."
-    missing:
-      - "On-screen fixture-patch UI (or an explicit, documented ROADMAP correction narrowing SC1's wording to match the actual PLAY-01..09 requirement scope, which never mentions fixture/deployment/programming)"
-      - "On-screen deployment/interface-configuration UI"
-      - "On-screen scene/look programming UI (base-look, color-theme, chase, motion authoring)"
-  - truth: "MIDI-mapped controls (Note/CC) actually invoke the corresponding playback or safety command when triggered -- not only visual feedback (implied by PLAY-04 'map ... input to supported playback commands' and the phase goal's 'operate ... through ... constrained generic MIDI controls')"
-    status: failed
-    reason: "internal/wails/svc_midi.go's dispatchToActiveSurface (the only consumer of live MIDI events once a session isn't in learn mode) resolves the matching MidiMapping, runs takeover/arming logic, and calls emitMidiFeedback -- it never calls into internal/command or any playback/safety dispatch path. Pressing a MIDI button mapped to a scene, or crossing a fader mapped to a master level, updates only the on-screen armed/ghost-marker feedback; it does not switch scenes, toggle layers, change master levels, or trigger safety actions. This is explicitly self-disclosed in 06-08-SUMMARY.md's key-decisions ('Actual PLAYBACK COMMAND DISPATCH for a mapped control ... is out of this plan's scope ... flagged as follow-up work, not silently assumed complete') and its Next Phase Readiness section, but it is not tracked in deferred-items.md and no follow-up plan/phase currently owns it. Even a successful end-of-phase UAT pass of 06-08 Task 4 would not catch this gap: its own how-to-verify script only asks the human to confirm learn/conflict/timeout copy and slider/ghost-marker visual behavior, never actual playback effect."
-    artifacts:
-      - path: internal/wails/svc_midi.go
-        issue: "dispatchToActiveSurface (lines ~211-233) only computes takeover arming/feedback and calls emitMidiFeedback; no command.Request is ever built or executed for a matched mapping"
-    missing:
-      - "A dispatch step in dispatchToActiveSurface (or a new integration point) that, once a fader/button is armed/pressed, builds and executes the command.Request the mapping's ControlRef target implies (scene switch, layer enable/disable, master level set, safety trigger) -- mirroring how PlaybackService/SafetyService already dispatch the same actions"
-      - "Test coverage proving a mapped MIDI event actually changes playback/safety state, not just feedback state"
+re_verification:
+  previous_status: gaps_found
+  previous_score: 9/11
+  gaps_closed:
+    - "A user can complete fixture, deployment, and programming workflows through on-screen controls (ROADMAP SC1) -- FixturePatch, ArtnetConfig, and SceneProgramming components now exist, are mounted, are bound, build clean, and are backed by passing unit tests (06-10/06-11/06-12)."
+    - "MIDI-mapped controls actually invoke the corresponding playback/safety command when triggered -- dispatchToActiveSurface now dispatches scene switch / layer toggle / master level / safety trigger via dispatchMapping, proven by 8 passing TestMidiServiceDispatch* tests (06-09)."
+  gaps_remaining: []
+  regressions: []
+gaps: []
+deferred: []
 behavior_unverified_items: []
 human_verification:
-  - test: "06-05 Task 3 (deferred): live safety cluster + live status bar behavior, INCLUDING the new CR-03 hold-to-release toggle (label flips to 'Hold to Release ...' when active) which postdates the plan's original checkpoint script"
+  - test: "06-05 Task 3 (deferred): live safety cluster + live status bar behavior, including the CR-03 hold-to-release toggle"
     expected: "Status bar shows scene/layers/BPM/bar/source/output with explicit idle state and truncation+tooltip; hold-to-confirm activates AND a second hold releases; daemon-unreachable copy shows while the cluster stays interactive"
-    why_human: "Visual rendering, timing feel of the hold gesture, and daemon-unreachable UX require a running desktop app; deferred to end-of-phase UAT per workflow.human_verify_mode=end-of-phase (project config), consistent with 06-04's already-approved equivalent checkpoint"
-  - test: "06-06 Task 3 (deferred): full on-screen + keyboard playback workflow without MIDI, and confirming keyboard shortcuts stop firing when the app loses focus (unlike the safety hotkeys)"
+    why_human: "Visual rendering, timing feel of the hold gesture, and daemon-unreachable UX require a running desktop app; deferred to end-of-phase UAT per workflow.human_verify_mode=end-of-phase"
+  - test: "06-06 Task 3 (deferred): full on-screen + keyboard playback workflow without MIDI, and confirming keyboard shortcuts stop firing when the app loses focus"
     expected: "Every playback action reachable both ways; keyboard action is window-scoped, not global"
     why_human: "Live focus-loss behavior and on-screen/keyboard parity require a running desktop app; deferred to end-of-phase UAT"
-  - test: "06-07 Task 3 (deferred): multiple named surfaces, in-place per-item assignment (no bulk control), visible-but-locked rendering enforced server-side"
+  - test: "06-07 Task 3 (deferred): multiple named surfaces, in-place per-item assignment, visible-but-locked rendering enforced server-side"
     expected: "Two surfaces created and selectable; assignment toggles are per-item only; operator preview shows assigned full-opacity/Signal-Blue and unassigned reduced-opacity/disabled, never hidden; a crafted/locked action is rejected server-side"
-    why_human: "Visual treatment (opacity, Signal Blue, truncation/tooltip) and the live author/operate toggle flow require a running desktop app; deferred to end-of-phase UAT"
-  - test: "06-08 Task 4 (deferred): generic MIDI learn (with conflict rejection + surface-scoped learnability) and cross-to-catch soft takeover against a real or virtual MIDI controller"
-    expected: "Learn/Listening/Cancel/conflict/timeout states behave per copy; only assigned controls offer Learn; fader follows physical position pre-arm with a ghost marker and only controls after crossing; buttons act immediately with no takeover slider"
-    why_human: "Requires a live or virtual MIDI port and the running desktop app. NOTE: even a fully 'approved' pass of this checkpoint does NOT verify that a learned/armed mapping actually changes playback/safety state -- see the FAILED 'MIDI dispatch' gap above, which this checkpoint's own script never asks the tester to check."
+    why_human: "Visual treatment and the live author/operate toggle flow require a running desktop app; deferred to end-of-phase UAT"
+  - test: "06-08 Task 4 (deferred): generic MIDI learn (conflict rejection + surface-scoped learnability) and cross-to-catch soft takeover against a real or virtual MIDI controller"
+    expected: "Learn/Listening/Cancel/conflict/timeout states behave per copy; only assigned controls offer Learn; fader follows physical position pre-arm with a ghost marker and only controls after crossing; buttons act immediately with no takeover slider; a learned/armed mapping now also actually switches scenes / toggles layers / sets master level / triggers safety (06-09 closed this; unit-proven, still needs a live-hardware click-through to confirm feel)"
+    why_human: "Requires a live or virtual MIDI port and the running desktop app."
+  - test: "06-10 Task 3 (deferred): FixturePatch click-through -- create a pool, add a fixture at a mode against a deployment that already references the pool, confirm the impact preview shows each affected instance's system-computed universe/address before Apply, apply it, create+activate a deployment"
+    expected: "Pool list, deployment active-state, and each instance's mode/universe/address update on screen; empty/error states render per UI-SPEC copy"
+    why_human: "Visual rendering and the live preview-then-apply interaction require a running desktop app; Go-side round trip is unit-proven (TestFixturePatchServiceAddMemberPreviewThenApply) but on-screen rendering is not"
+  - test: "06-11 Task 3 (deferred): ArtnetConfig click-through -- pick an interface, add a universe->IP target, toggle enabled/disabled, confirm status panel reflects it, then kill the daemon and confirm the explicit daemon-unreachable state renders"
+    expected: "Configured target list and status panel update live; daemon-unreachable state renders per UI-SPEC (`offline` color + copy) when the daemon is killed"
+    why_human: "Visual rendering and live daemon-kill behavior require a running desktop app + supervised daemon; Go-side validation/offline-projection is unit-proven but on-screen rendering is not"
+  - test: "06-12 Task 3 (deferred): SceneProgramming click-through -- create a scene, create a color theme + chase + motion + base-look preset, enable and point each of the scene's four layers at a look, activate the scene, confirm the scene list reflects each layer's enabled/ref state, and confirm disabling a layer keeps its ref on screen"
+    expected: "Scene list shows each of the four layers' enabled/ref state; empty/error states render per UI-SPEC copy; ref survives a disable/re-enable click-through"
+    why_human: "Visual rendering and the live enable/point/disable interaction require a running desktop app; Go-side ref-preservation is unit-proven (TestProgrammingServiceDisableLayerPreservesRef) but on-screen rendering is not"
+  - test: "CR-01 (from 06-REVIEW-FIX.md, human-flagged, not auto-resolved): whether a MIDI-triggered Blackout/master-level dispatch that fails to reach the daemon needs an operator-visible banner (not just a server log line) before the next live-show use of MIDI-mapped safety controls"
+    expected: "A product/human decision on whether `dispatchSafetyTrigger`/`dispatchMasterSet`'s current server-log-only failure signal is sufficient, or whether a distinct operator-visible \"dispatch failed\" push is required"
+    why_human: "This is an explicit UX/product-risk judgment call the fix report itself deferred to a human, not a code-correctness question a test can resolve"
+  - test: "WR-01 (from 06-REVIEW-FIX.md, human-flagged, not auto-resolved): whether FixturePatch.tsx's initial ListPatch load silently degrading to an empty view on a missing bridge (converging onto ArtnetConfig.tsx/SceneProgramming.tsx's convention) is the intended UX, vs. its prior FixturePatch-specific explicit error banner on initial load"
+    expected: "A human confirms the convergence (silent empty-view degradation) is the intended behavior before end-of-phase UAT"
+    why_human: "This is a UX-convention judgment call the fix report itself deferred to a human"
 ---
 
 # Phase 6: Wails Authoring and Operator Surface Verification Report
 
 **Phase Goal:** Authors and playback operators can complete the conventional show workflow through a responsive Wails application, keyboard, and constrained generic MIDI controls without the frontend becoming runtime authority.
-**Verified:** 2026-07-23T21:21:06Z
-**Status:** gaps_found
-**Re-verification:** No — initial verification
+**Verified:** 2026-07-23T23:59:00Z
+**Status:** human_needed
+**Re-verification:** Yes — after gap closure (06-09..06-12 + 06-REVIEW-FIX.md)
 
 ## Goal Achievement
 
-### Observable Truths
+This is a re-verification following a prior 06-VERIFICATION.md run that found the phase
+`gaps_found` (score 9/11) with two FAILED truths:
+
+- **B[0]:** ROADMAP SC1's fixture/deployment/programming clause had no on-screen UI at all
+  (CLI-only).
+- **B[1]:** `dispatchToActiveSurface` in `internal/wails/svc_midi.go` computed MIDI
+  arming/feedback state only and never actually dispatched a command — a mapped MIDI
+  control updated the on-screen marker but never switched scenes, toggled layers, changed
+  master levels, or triggered safety.
+
+Four gap-closure plans (06-09 MIDI dispatch fix; 06-10 FixturePatch UI; 06-11 ArtnetConfig
+UI; 06-12 SceneProgramming UI + a REQUIREMENTS.md documentation correction) landed and were
+code-reviewed (06-REVIEW.md: 2 critical, 3 warning, 2 info) and fixed (06-REVIEW-FIX.md: all
+5 in-scope findings fixed, IN-01/IN-02 excluded by scope). This re-verification independently
+re-read the source and re-ran every relevant test to confirm both FAILED truths are
+genuinely closed, not just claimed closed.
+
+### Gap B[1] (MIDI dispatch) — independently re-verified CLOSED
+
+Read `internal/wails/svc_midi.go` in full (933 lines). `dispatchToActiveSurface` (lines
+222-252) now calls `s.dispatchMapping(mapping, armed, edge, controlValue, evt.Value)`
+*before* `emitMidiFeedback` — feedback is additive, not the only effect. `dispatchMapping`
+(lines 265-296) branches on `mapping.Target.Kind`:
+
+- `ControlScene`/`ControlLayer`/`ControlSafety`: fire only on the activation `edge`
+  (Note-on, or a CC's first arming crossing), calling `dispatchSceneSwitch`/
+  `dispatchLayerToggle` (in-process `command.NewDefaultCommandRegistry` — the identical
+  registry `PlaybackService.execute` uses, so a MIDI-driven switch and a
+  CLI/PlaybackService-driven switch are the same code path) or `dispatchSafetyTrigger`
+  (direct daemon dial via `dialFn()`, mirroring `SafetyService.toggle` exactly).
+- `ControlMaster`: dials the daemon with `artnet master set` while `armed`, continuously for
+  a CC (D-11), immediately 1.0/0.0 for a Note press/release (D-12).
+- `dispatchLayerToggle` re-reads the layer's current `Ref`/`Enabled` and re-supplies the Ref
+  on every toggle (WR-01/WR-03 discipline, matching `PlaybackService.SetLayerEnabled`
+  exactly) — never nulls a layer's assigned look on a MIDI-triggered toggle.
+
+Ran the 8 dispatch tests directly (not just trusted the SUMMARY's claim):
+```
+go test ./internal/wails/... -run TestMidiServiceDispatch -v
+--- PASS: TestMidiServiceDispatchSceneNoteSwitchesActiveScene
+--- PASS: TestMidiServiceDispatchLayerNoteTogglesEnabledPreservingRef
+--- PASS: TestMidiServiceDispatchMasterCcForwardsOnlyAfterCrossing
+--- PASS: TestMidiServiceDispatchSafetyNoteForwardsDaemonRoute
+--- PASS: TestMidiServiceDispatchUnmappedEventDoesNothing
+--- PASS: TestMidiServiceDispatchSceneEdgeFiresPerPressNotPerMessage
+--- PASS: TestMidiServiceDispatchMasterCcContinuesWhileArmed
+--- PASS: TestMidiServiceDispatchDeletedTargetIsSilentNoOp
+PASS
+```
+All 8 pass, proving *state actually changes* (scene switches via `show.Load` re-read,
+layer Enabled flips with Ref intact, a fake `dialForwardFunc` captures the exact
+`artnet master set`/`artnet safety ...` Request) — not merely that feedback fires.
+**Verdict: genuinely closed, not just claimed.**
+
+### Gap B[0] (fixture/deployment/programming on-screen UI) — independently re-verified CLOSED
+
+`frontend/src/components/` now contains `FixturePatch/`, `ArtnetConfig/`, and
+`SceneProgramming/` alongside the original six components. Confirmed each is:
+- **Substantive** (not a stub): 560 / 315 / 714 lines respectively; no `TODO`/`FIXME`/`XXX`/
+  "not yet implemented"/"coming soon" markers found in any of the three components or their
+  three backing Go services (`svc_fixturepatch.go` 305 lines, `svc_artnetconfig.go` 273
+  lines, `svc_programming.go` 366 lines). Only legitimate input `placeholder="..."` attributes
+  matched the stub-pattern grep.
+- **Wired**: `App.tsx` imports and mounts all three (`<FixturePatch/>`, `<ArtnetConfig/>`,
+  `<SceneProgramming/>`) inside the persistent feature region alongside the original five.
+  `cmd/golc-desktop/main.go` constructs `NewFixturePatchService`, `NewArtnetConfigService`,
+  and `NewProgrammingService` and includes all three in the `Bind` list.
+- **Backed by a real, non-duplicated mutation path**: every Go service method forwards to
+  `command.NewDefaultCommandRegistry` (`FixturePatchService`/`ProgrammingService`) or dials
+  the existing supervised daemon exactly like `SafetyService` (`ArtnetConfigService`, which
+  does **not** import `internal/artnet` — grep confirmed zero matches). No second
+  pool/deployment/scene/programming mutation implementation was introduced.
+- **Test-proven, not just present**: ran every new service's test suite directly:
+  `TestFixturePatchService*` (8 tests, all pass, including the CR-02 delimiter-guard test),
+  `TestArtnetConfigService*` (5 tests, all pass), `TestProgrammingService*` (7 tests, all
+  pass, including `TestProgrammingServiceDisableLayerPreservesRef`).
+- **Builds clean end to end**: `go build ./...`, `go vet ./...`, and
+  `cd frontend && npm run build` (`tsc --noEmit && vite build`) all pass with zero errors.
+
+**Verdict: genuinely closed, not just claimed.** This satisfies ROADMAP Phase 6 Success
+Criterion 1's "fixture, deployment, and programming workflows through on-screen controls"
+clause functionally (Go-side logic + on-screen rendering both exist and are wired); the live
+visual/interaction click-through against a running `golc-desktop` build remains deferred to
+end-of-phase UAT per `workflow.human_verify_mode=end-of-phase` (see Human Verification).
+
+### Code review fixes — independently re-verified genuinely applied
+
+06-REVIEW.md found 2 critical + 3 warning issues in the gap-closure round; 06-REVIEW-FIX.md
+claims all 5 fixed. Re-checked each against the actual code rather than trusting the report:
+
+| Finding | Claimed fix | Independently confirmed |
+|---|---|---|
+| CR-01: MIDI safety/master dispatch discarded daemon response silently | Added `log.Printf` on `ExitCode != 0` | **Confirmed** — `dispatchSafetyTrigger`/`dispatchMasterSet` (svc_midi.go:374-427) now capture `result := s.dialFn()(...)` and log `GOLC_WAILS_MIDI_SAFETY_DISPATCH_FAILED`/`GOLC_WAILS_MIDI_MASTER_DISPATCH_FAILED` on failure. Ran the existing takeover test and saw both log lines fire against the test env's unreachable daemon. |
+| CR-02: `AddPoolMemberPreview` pipe-delimiter injection | Reject fields containing `\|` before building the spec | **Confirmed** — `TestFixturePatchServiceRejectsEmbeddedDelimiterInMemberFields` (3 subtests: stableKey/contentHash/mode) passes. |
+| WR-01: `FixturePatch.tsx` bypassed `wailsBridge.ts` with `as unknown as` casts | Centralize bridge helpers | **Confirmed** — grep for `as unknown as`/`FixturePatchServiceBinding` in `FixturePatch.tsx` returns zero matches; `wailsBridge.ts` now exports `createPool`/`addPoolMemberPreview`/`applyPatch`/`listPatch`/etc. and `FixturePatch.tsx` imports them. |
+| WR-02: `EventPusher` single-key queue dropped concurrent MIDI feedback | Stage feedback per mapping ID | **Confirmed** — `events.go` now has a `midiFeedback map[string]MidiFeedback` field, `flush` drains it per-ID. `TestEventPusherFlushDeliversEveryStagedMappingsMidiFeedback`/`...OverwritesSameMappingWithLatest`/`...KeepsStatusUpdateSingleValueBehavior` all pass. |
+| WR-03: Duplicated `errorMessage`/`assertOk` boilerplate | Centralize in `wailsBridge.ts` | **Confirmed** — both exported from `wailsBridge.ts`; `npm run build` (tsc) passes with zero errors, confirming all three components compile against the shared exports. |
+
+Two review findings (CR-01's "richer operator-visible banner" alternative, and WR-01's
+UX-convention convergence) were explicitly left for human product judgment rather than
+auto-fixed — carried forward into Human Verification below, not silently dropped.
+
+### Observable Truths (full re-check against ROADMAP Success Criteria + PLAY-01..12)
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | On-screen controls expose the complete playback workflow (PLAY-01) | VERIFIED | `internal/wails/svc_playback.go` binds SwitchScene/SetLayerEnabled/SetBPM/TapTempo/Evaluate/GetState over the existing command registry (`TestPlaybackServiceEnumeratesEveryPlaybackAction` passes); `frontend/src/components/PlaybackControls/PlaybackControls.tsx` renders on-screen controls for every action; `go build ./...`, `go test ./internal/wails/...`, `npm run build` all green |
-| 2 | Documented keyboard workflow reaches every playback action without MIDI hardware, window-scoped not global (PLAY-02) | VERIFIED | `frontend/src/hooks/useKeyboardWorkflow.ts` is an ordinary `addEventListener('keydown', ...)` window listener (source-reviewed, no `golang.design/x/hotkey` import) calling the same `dispatch` functions as on-screen controls; `KeyboardShortcuts.tsx` documents every binding from the same `PLAYBACK_SHORTCUTS` source of truth |
-| 3 | A user can complete fixture, deployment, and programming workflows through on-screen controls (ROADMAP SC1) | **FAILED** | No fixture-patch, deployment/interface, or scene/look-programming UI exists anywhere in `frontend/src/components/` (6 components total: SafetyCluster, LiveStatusBar, PlaybackControls, OperatorSurface, MidiPanel, KeyboardShortcuts). See Gaps. |
-| 4 | A show author can create multiple named operator surfaces with in-place, individual-item assignment (PLAY-03/D-01/D-02/D-03) | VERIFIED | `internal/operatorsurface/model.go` (idempotent copy-returning Assign*/Unassign*, no bulk ref type); `internal/wails/svc_surface.go` CRUD bindings; `frontend/src/components/OperatorSurface/{SurfaceList,AssignmentToggle,OperatorSurface}.tsx`; `go test ./internal/operatorsurface/... ./internal/wails/...` pass |
-| 5 | Unassigned controls render visible-but-locked and the lock is enforced server-side, not only by hiding (PLAY-03/D-04, CR-01 fix) | VERIFIED | `command.Authorize` (06-01) + `SurfaceService.AuthorizeControl` (06-07) exist; **CR-01 fix (commit `1887035`) closes the previously-found bypass** by adding `authorizeSafety`/`authorizeControl` gates + `SetActiveSurface` to `SafetyService`/`PlaybackService`, wired from `OperatorSurface.tsx`'s "Preview as Operator" toggle; `TestSafetyServiceBlackoutRejectsWhenActiveSurfaceDoesNotAssignControl`, `TestPlaybackServiceSwitchSceneRejectsWhenActiveSurfaceDoesNotAssignScene` pass under `-race` |
-| 6 | The live status bar always shows scene/layers/BPM/bar/controlling source/output state with an explicit idle state (PLAY-07) | VERIFIED | `internal/artnet/daemon.go`'s extended `statusPayload.Playback`; `internal/playback/engine.go`'s lock-free accessors; `frontend/src/components/LiveStatusBar/LiveStatusBar.tsx`; `go test ./internal/wails/... ./internal/artnet/... -run 'TestSafetyService\|TestStatusPayload'` pass |
-| 7 | MIDI Note/CC learn is per-control, per-surface-scoped, and rejects conflicts outright without mutating the existing mapping (PLAY-04/D-05/D-06/D-07/D-08) | VERIFIED | `internal/midi/learn.go` (`ProposeMapping`), `internal/wails/svc_midi.go` (`StartLearn` authorizes via `command.Authorize` then `ProposeMapping` then `operatorsurface.AddMidiMapping`); `TestMidiServiceStartLearnPersistsMapping`, `TestMidiServiceStartLearnRejectsConflictOnSameSurfaceButNotOther`, `TestMidiServiceStartLearnRejectsUnassignedControl` all pass |
-| 8 | Soft takeover is cross-to-catch (directional crossing only, never proximity) and continuous-only (PLAY-05/D-09..D-12) | VERIFIED | `internal/midi/takeover.go`'s `Update` (NaN-seeded bootstrap, `crossedUp`/`crossedDown` only, no threshold constant anywhere in the file — source-reviewed); `TestMidiServiceFaderTakeoverCrossToCatchAndButtonActsImmediately` passes; frontend `SoftTakeoverSlider.tsx` renders live position + ghost marker |
-| 9 | MIDI-mapped controls actually invoke the corresponding playback/safety command when triggered (implied by PLAY-04's "map ... to supported playback commands" and the phase goal) | **FAILED** | `dispatchToActiveSurface` (`internal/wails/svc_midi.go`) only computes arming state and calls `emitMidiFeedback`; no `internal/command` dispatch exists for a matched mapping. Self-disclosed as explicitly out-of-scope follow-up work in `06-08-SUMMARY.md`, not tracked in `deferred-items.md`. See Gaps. |
-| 10 | Blackout, Stop/Release-All, Grand Master, and group masters act through a daemon-resident local-priority path within one Art-Net tick, independent of a hung caller (PLAY-06/09) | VERIFIED | `internal/artnet/safety.go`'s atomic `safetyState` + pure `applyOverrides`; `Worker.tick()` applies it once before Encode; `go test -race ./internal/artnet/...` passes incl. `TestSafetyOverrideBlackoutTakesEffectDespiteSlowTarget`, concurrent-blackout race test; orchestrator's own hands-on test additionally confirmed the OS-level Blackout hotkey fires the daemon route while the window is unfocused (06-04 Task 3, already approved) |
-| 11 | Revoke Automation blocks non-manual-source commands and freezes the look without requiring the automation runtime to respond (PLAY-08) | VERIFIED | `daemon.handle()`'s top-level `requestSource` gate rejects `--source automation` while `revokeActive()`; `TestRevokeAutomationBlocksNonManualSource` passes. "Cancels queued actions" is explicitly and correctly deferred (`06-02-PLAN.md`'s `flagged_assumptions`: no automation-lease/queued-action model exists until Phases 8/9 build a runtime) — legitimate, documented deferral, not a gap |
-| — | Safety cluster (on-screen + hotkeys) has a symmetric release path, not activate-only (CR-03 fix) | VERIFIED | `internal/wails/hotkey.go`'s `nextToggleValue` queries daemon status and toggles; `SafetyCluster.tsx`'s `blackoutOrStopActive`-driven `onActivate={() => safetyBlackout(!blackoutOrStopActive)}`; `TestHotkeyKeydownReleasesWhenAlreadyActive` passes |
-| — | `MidiService.CancelLearn` does not panic on a double call (CR-02 fix) | VERIFIED | Mutex now guards `s.learning` nil-out before `close(session.cancel)`; `TestMidiServiceCancelLearnDoubleCallDoesNotPanic` and `...ConcurrentDoubleCallDoesNotPanic` pass under `-race` |
+| 1 | On-screen controls expose the complete playback workflow (PLAY-01) | VERIFIED | Unchanged from prior pass; `PlaybackControls.tsx` + `svc_playback.go`; tests pass |
+| 2 | Documented keyboard workflow reaches every playback action, window-scoped (PLAY-02) | VERIFIED | Unchanged; `useKeyboardWorkflow.ts` window listener, `KeyboardShortcuts.tsx` |
+| 3 | A user can complete fixture, deployment, and programming workflows through on-screen controls (ROADMAP SC1) | VERIFIED (was FAILED) | FixturePatch/ArtnetConfig/SceneProgramming components exist, wired, tested, build clean — see Gap B[0] re-check above |
+| 4 | A show author can create multiple named operator surfaces with in-place assignment (PLAY-03) | VERIFIED | Unchanged; `internal/operatorsurface`, `OperatorSurface.tsx` |
+| 5 | Unassigned controls render visible-but-locked, enforced server-side (PLAY-03/CR-01 prior fix) | VERIFIED | Unchanged; `authorizeSafety`/`authorizeControl` gates |
+| 6 | Live status bar always shows scene/layers/BPM/bar/source/output (PLAY-07) | VERIFIED | Unchanged; `LiveStatusBar.tsx` |
+| 7 | MIDI Note/CC learn is per-control, per-surface-scoped, rejects conflicts (PLAY-04) | VERIFIED | Unchanged; `internal/midi/learn.go`, `StartLearn` |
+| 8 | Soft takeover is cross-to-catch, continuous-only (PLAY-05) | VERIFIED | Unchanged; `internal/midi/takeover.go` |
+| 9 | MIDI-mapped controls actually invoke the corresponding playback/safety command when triggered (PLAY-04/05) | VERIFIED (was FAILED) | `dispatchMapping` now dispatches; 8 `TestMidiServiceDispatch*` tests independently re-run and pass — see Gap B[1] re-check above |
+| 10 | Blackout/Stop-Release-All/Grand Master/group masters act through a daemon-resident local-priority path (PLAY-06/09) | VERIFIED | Unchanged; `internal/artnet/safety.go` |
+| 11 | Revoke Automation blocks non-manual-source commands and freezes the look (PLAY-08) | VERIFIED | Unchanged; `daemon.handle()`'s `requestSource` gate |
+| 12 | A show author can patch fixtures — pools, mode assignment with impact preview, deployment activation — through on-screen controls (PLAY-10) | VERIFIED | `FixturePatchService` + `FixturePatch.tsx`; 8 tests pass incl. CR-02 fix; preview-then-apply flow confirmed in source; live click-through deferred to UAT |
+| 13 | A show author can configure deployment interfaces and Art-Net universes/targets through on-screen controls (PLAY-11) | VERIFIED | `ArtnetConfigService` (no `internal/artnet` import) + `ArtnetConfig.tsx`; 5 tests pass; live click-through + daemon-kill deferred to UAT |
+| 14 | A show author can program scenes and looks — all four layer kinds, ref-preserving toggle — through on-screen controls (PLAY-12) | VERIFIED | `ProgrammingService` + `SceneProgramming.tsx`; 7 tests pass incl. ref-preservation; live click-through deferred to UAT |
+| 15 | Code review findings from the gap-closure round are genuinely fixed, not just claimed | VERIFIED | All 5 in-scope findings independently re-checked against source + tests — see table above |
 
-**Score:** 9/11 core truths verified (2 FAILED — see Gaps), plus 2 additional review-fix truths verified (CR-01/CR-03), for 11/13 total including fix-verification rows. 0 behavior-unverified.
+**Score:** 15/15 truths verified. 0 behavior-unverified.
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `internal/operatorsurface/{model,validate}.go` | Named-surface model + validation | VERIFIED | Present, wired into `show.State.validate()`, schema v1->v2 migration registered |
-| `internal/command/operatorsurface.go` | CLI routes + `Authorize` | VERIFIED | create/list/assign/unassign/show/remove routes; `Authorize` used by CLI, `command.Authorize` reused by Wails services |
-| `internal/artnet/safety.go` | Daemon-resident atomic overrides | VERIFIED | `applyOverrides`, atomic flags, `-race` clean |
-| `internal/midi/{takeover,learn,driver}.go` | Pure logic + live gomidi driver | VERIFIED | `takeover.go`/`learn.go` pure (no gomidi import); `driver.go` wraps a caller-resolved `drivers.In`, testable via `testdrv` |
-| `internal/wails/{app,hotkey,events,svc_safety,svc_playback,svc_surface,svc_midi}.go` | Go host + 4 binding services | VERIFIED | All present, filled, build clean, `go vet` clean |
-| `frontend/src/components/{SafetyCluster,LiveStatusBar,PlaybackControls,OperatorSurface,MidiPanel,KeyboardShortcuts}` | Region components | VERIFIED | All present, filled, `npm run build` clean; **no fixture/deployment/programming component exists** (see Gaps) |
-| `cmd/golc-desktop/main.go` | Wails entrypoint | VERIFIED | Binds `App` + all 4 services; `-tags desktop,production` build confirmed working by orchestrator's hands-on test |
+| `internal/wails/svc_midi.go` | MIDI dispatch that actually operates the show | VERIFIED | `dispatchMapping`/`dispatchSceneSwitch`/`dispatchLayerToggle`/`dispatchSafetyTrigger`/`dispatchMasterSet` present, wired, tested |
+| `internal/wails/svc_fixturepatch.go` + test | Pool/deployment binding | VERIFIED | 305 lines, 8 passing tests, CR-02 delimiter guard present |
+| `internal/wails/svc_artnetconfig.go` + test | Interface/target/status binding, no `internal/artnet` import | VERIFIED | 273 lines, 5 passing tests, grep confirms no direct artnet import |
+| `internal/wails/svc_programming.go` + test | Scene/look programming binding | VERIFIED | 366 lines, 7 passing tests, ref-preservation proven |
+| `frontend/src/components/{FixturePatch,ArtnetConfig,SceneProgramming}` | On-screen surfaces | VERIFIED | 560/315/714 lines; no stub markers; brand tokens used (58/59/67 `var(--...)` references each); explicit empty states present in all three |
+| `frontend/src/lib/wailsBridge.ts` | Centralized bridge helpers for all 3 new services + `errorMessage`/`assertOk` | VERIFIED | `createPool`/`addPoolMemberPreview`/`applyPatch`/`listPatch`/etc. all exported; `FixturePatch.tsx` no longer bypasses this file (WR-01 fix confirmed) |
+| `internal/wails/events.go` | Per-mapping MIDI feedback staging | VERIFIED | `midiFeedback map[string]MidiFeedback` field + per-ID flush (WR-02 fix confirmed), 3 new tests pass |
+| `.planning/REQUIREMENTS.md` | PLAY-01..09 status corrected | PARTIALLY VERIFIED | PLAY-01..09 correctly flipped to Complete in both the checklist and status table (confirmed by direct read); **PLAY-10/11/12 still read `- [ ]` / "Pending" in both representations** — this was an explicit, documented scoping choice in 06-12-PLAN.md Task 4 ("PLAY-10/11/12 rows are left untouched... tracked by their own gap-closure plans' SUMMARYs"), but no later task actually flips them, so REQUIREMENTS.md itself currently understates delivered scope. Not a functional gap (the code and tests exist and pass) but a documentation-accuracy loose end. |
+| `cmd/golc-desktop/main.go` | Binds all 7 services | VERIFIED | `safetyService`, `playbackService`, `surfaceService`, `midiService`, `fixturePatchService`, `artnetConfigService`, `programmingService` all constructed and in `Bind: [...]` |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |------|-----|-----|--------|---------|
-| `frontend/src/components/SafetyCluster/SafetyCluster.tsx` | `internal/wails/svc_safety.go` | hold-to-confirm -> `SafetyService` binding | VERIFIED | `onActivate` calls `safetyBlackout`/`safetyStopReleaseAll`/`safetyRevokeAutomation` |
-| `internal/wails/hotkey.go` | `internal/artnet/ipc` | OS hotkey callback -> `ipc.Forward` directly | VERIFIED | No JS-mediated path (source-reviewed); confirmed live by orchestrator (06-04 Task 3) |
-| `frontend/src/components/OperatorSurface/AssignmentToggle.tsx` | `internal/wails/svc_surface.go` | in-place toggle -> assign/unassign | VERIFIED | `AssignItem`/`UnassignItem` bindings, idempotent |
-| `internal/wails/svc_midi.go` | `internal/midi/learn.go` + `internal/operatorsurface/model.go` | `ProposeMapping` -> `AddMidiMapping` | VERIFIED | Conflict-checked persistence path proven by tests |
-| `internal/wails/svc_midi.go` | *(missing)* `internal/command` | armed/pressed mapping -> playback/safety dispatch | **NOT WIRED** | No such link exists; see FAILED truth #9 |
-| `internal/artnet/worker.go` | `internal/artnet/safety.go` | `tick()` -> `applyOverrides` | VERIFIED | Single atomic-load path before Encode, no lock |
+| `internal/wails/svc_midi.go` dispatchMapping | `internal/command` default registry | in-process `execute`/`executeWithRetry` for scene/layer | VERIFIED | Mirrors `PlaybackService.execute` exactly; proven by `TestMidiServiceDispatchSceneNoteSwitchesActiveScene`/`...LayerNoteTogglesEnabledPreservingRef` |
+| `internal/wails/svc_midi.go` dispatchMapping | daemon (named-pipe IPC) | `dialFn()` for master/safety | VERIFIED | Mirrors `SafetyService.toggle`; proven by `TestMidiServiceDispatchMasterCcForwardsOnlyAfterCrossing`/`...SafetyNoteForwardsDaemonRoute` |
+| `frontend/src/components/FixturePatch/FixturePatch.tsx` | `internal/wails/svc_fixturepatch.go` | `wailsBridge.ts` helpers (post-WR-01 fix) | VERIFIED | No local binding re-declaration remains; imports centralized helpers |
+| `frontend/src/components/ArtnetConfig/ArtnetConfig.tsx` | `internal/wails/svc_artnetconfig.go` | `wailsBridge.ts` helpers -> `internal/command` artnet routes -> supervised daemon | VERIFIED | `svc_artnetconfig.go` does not import `internal/artnet` (grep-confirmed); thin IPC client as designed |
+| `frontend/src/components/SceneProgramming/SceneProgramming.tsx` | `internal/wails/svc_programming.go` | `wailsBridge.ts` helpers -> `internal/command` scene/programming routes | VERIFIED | `SetSceneLayer` re-reads+re-supplies Ref on every toggle; `TestProgrammingServiceDisableLayerPreservesRef` passes |
+| `internal/wails/events.go` | frontend `onMidiFeedback` | per-mapping-ID staged flush | VERIFIED | Wire payload shape unchanged; only server-side staging granularity changed (WR-02 fix) |
 
 ### Requirements Coverage
 
 | Requirement | Source Plan(s) | Description | Status | Evidence |
 |-------------|-----------------|--------------|--------|----------|
-| PLAY-01 | 06-04, 06-06 | On-screen complete playback workflow | SATISFIED (functionally); REQUIREMENTS.md still shows Pending | Automated tests + build green; live UAT deferred (human_verification) |
-| PLAY-02 | 06-06 | Documented keyboard workflow, no MIDI required | SATISFIED (functionally); REQUIREMENTS.md still shows Pending | Same as above |
-| PLAY-03 | 06-01, 06-07 | Constrained operator surface | SATISFIED; REQUIREMENTS.md shows Complete (marked at 06-01, before 06-07's UI/CR-01 fix existed) | Automated tests green; CR-01 closes the authorization bypass found in review; live UAT (visual/interaction) deferred |
-| PLAY-04 | 06-03, 06-08 | Map MIDI Note/CC to playback commands | **PARTIALLY SATISFIED** — mapping/learn/persistence complete; actual command dispatch on a triggered mapping is missing (see FAILED truth #9). REQUIREMENTS.md shows Complete (marked prematurely at 06-03, pure-logic-only wave, via commit `e7e6b0c`, before 06-08 built the live driver/UI and before this dispatch gap was even architecturally possible to discover) | See Gaps |
-| PLAY-05 | 06-03, 06-08 | Fader soft takeover, no value jumps | SATISFIED (the crossing mechanism itself); REQUIREMENTS.md shows Complete (same premature-marking issue as PLAY-04) | Automated tests green; live UAT deferred |
-| PLAY-06 | 06-02, 06-05 | Group/Grand masters, stop/release-all, blackout | SATISFIED | Automated + `-race` tests green; CR-03 adds release path |
-| PLAY-07 | 06-05, 06-07 | Live status: scene/layers/BPM/bar/source/output | SATISFIED | Automated tests green; live UAT deferred |
-| PLAY-08 | 06-02, 06-05 | Revoke Automation blocks/cancels/freezes/restores | SATISFIED (manual trigger + freeze); "cancels queued actions" legitimately deferred to Phases 8/9 (documented) | Automated tests green |
-| PLAY-09 | 06-02, 06-04, 06-05 | Blackout independent local-priority path | SATISFIED | Automated + `-race` tests green; orchestrator confirmed live unfocused-hotkey firing |
+| PLAY-01 | 06-04, 06-06 | On-screen complete playback workflow | SATISFIED; REQUIREMENTS.md shows Complete | Confirmed correctly updated |
+| PLAY-02 | 06-06 | Documented keyboard workflow | SATISFIED; REQUIREMENTS.md shows Complete | Confirmed correctly updated |
+| PLAY-03 | 06-01, 06-07 | Constrained operator surface | SATISFIED; REQUIREMENTS.md shows Complete | Confirmed correctly updated |
+| PLAY-04 | 06-03, 06-08, 06-09 | Map MIDI Note/CC to playback commands | SATISFIED (dispatch gap closed by 06-09); REQUIREMENTS.md shows Complete | Confirmed correctly updated |
+| PLAY-05 | 06-03, 06-08, 06-09 | Soft takeover, no unintended jumps | SATISFIED; REQUIREMENTS.md shows Complete | Confirmed correctly updated |
+| PLAY-06 | 06-02, 06-05 | Group/Grand Master, stop/release-all, blackout | SATISFIED; REQUIREMENTS.md shows Complete | Confirmed correctly updated |
+| PLAY-07 | 06-04 | Live status visibility | SATISFIED; REQUIREMENTS.md shows Complete | Confirmed correctly updated |
+| PLAY-08 | 06-02, 06-05 | Revoke Automation | SATISFIED (queued-action cancellation legitimately deferred to Phase 8/9); REQUIREMENTS.md shows Complete | Confirmed correctly updated |
+| PLAY-09 | 06-02 | Blackout independent local priority | SATISFIED; REQUIREMENTS.md shows Complete | Confirmed correctly updated |
+| PLAY-10 | 06-10 | On-screen fixture patch (pools/modes/universes/addresses/deployments) | SATISFIED functionally (code+tests); **REQUIREMENTS.md still shows Pending** | 8 passing tests; component wired; doc not updated — see Required Artifacts note |
+| PLAY-11 | 06-11 | On-screen deployment interface + Art-Net config | SATISFIED functionally (code+tests); **REQUIREMENTS.md still shows Pending** | 5 passing tests; component wired; doc not updated |
+| PLAY-12 | 06-12 | On-screen scene/look programming | SATISFIED functionally (code+tests); **REQUIREMENTS.md still shows Pending** | 7 passing tests; component wired; doc not updated |
 
-**Orphaned requirements:** None — every PLAY-01..09 ID is claimed by at least one plan (cross-checked against REQUIREMENTS.md §Playback and Operator Surface).
-
-**Traceability note (not a code gap, but a documentation-accuracy finding):** `.planning/REQUIREMENTS.md` marks PLAY-03/04/05 `Complete` via commits `bf497f2` (06-01) and `e7e6b0c` (06-03). Both of these commits landed *before* the corresponding Wave 3/4 UI and live-wiring plans (06-07, 06-08) even existed, and both of those later plans' own SUMMARY.md files explicitly state "this SUMMARY does not mark them complete" pending end-of-phase UAT. REQUIREMENTS.md was never corrected afterward and currently overstates completion relative to the phase's own final-wave SUMMARYs, and (for PLAY-04) relative to the dispatch gap found in this verification.
+No orphaned requirement IDs found — PLAY-01 through PLAY-12 are all accounted for across
+plans 06-01 through 06-12.
 
 ### Anti-Patterns Found
 
-None. `grep` for `TBD`/`FIXME`/`XXX`/`TODO`/`HACK`/`PLACEHOLDER`/"not yet implemented" across all phase-6-touched Go and TypeScript source (excluding tests and build output) found no debt markers. `deferred-items.md` only records two pre-existing, unrelated `internal/trace` issues explicitly out of this phase's scope.
+| File | Line | Pattern | Severity | Impact |
+|------|------|---------|----------|--------|
+| — | — | No `TODO`/`FIXME`/`XXX`/"not yet implemented"/"coming soon" found in any of the 6 new files (3 components + 3 services) | — | None — clean |
+| `.planning/REQUIREMENTS.md` | 76-78, 253-255 | PLAY-10/11/12 rows read Pending despite passing implementation + tests | Info/Warning | Documentation understates delivered scope; does not block functional goal achievement, but should be corrected in a follow-up docs task before the milestone is considered fully reconciled |
+| (test flakiness) | `internal/wails` package, `-race` mode | `TestMidiServiceDispatchSceneEdgeFiresPerPressNotPerMessage` failed once in 8 full-package `-race` runs (`timed out waiting for scene "Beta" to become active`); isolated re-runs (5x) and 5 subsequent full-package runs all passed | Warning | Rare timing-sensitive flake under `-race`'s slower scheduling, consistent with the SQLite-lock contention the plan's own retry logic (`showLoadWithRetry`/`executeWithRetry`) was built to address; not reproduced reliably enough to be a functional regression, but worth a human's attention if it recurs in CI |
 
-### Code Review Fix Verification (per task instructions)
+### Behavioral Spot-Checks
 
-All 6 findings from `06-REVIEW.md` were confirmed fixed in the current code, with passing tests:
-
-| Finding | Fix Commit | Verified |
-|---------|-----------|----------|
-| CR-01 (authorization never enforced on real dispatch paths) | `1887035` | YES — `authorizeSafety`/`authorizeControl` + `SetActiveSurface` on `SafetyService`/`PlaybackService`; tests pass under `-race` |
-| CR-02 (`CancelLearn` double-close panic) | `3d69a45` | YES — mutex-guarded nil-out; double-call and concurrent-double-call tests pass under `-race` |
-| CR-03 (safety cluster activate-only, no release) | `a890296` | YES — `nextToggleValue` (hotkey.go) + `blackoutOrStopActive`-driven toggle (SafetyCluster.tsx); test passes |
-| WR-01 (`SetLayerEnabled` pre-read failure swallowed) | `ffd8bc9` | YES — `currentLayerRef` now returns `(uuid.UUID, error)`; propagation test passes |
-| WR-02 (Google Fonts network dependency) | `17016c9` | YES — self-hosted via `@fontsource/*`; build output has zero `fonts.googleapis.com` reference |
-| WR-03 (unconditional 1s polling while unreachable) | `9b2ced8` | YES — poll skips while `connectionStatus !== "connected"` |
-
-`go build ./...`, `go vet ./...`, `go test -race ./internal/wails/... ./internal/artnet/... ./internal/midi/... ./internal/operatorsurface/...`, and `cd frontend && npm run build` were independently re-run in this verification pass and all pass.
+| Behavior | Command | Result | Status |
+|----------|---------|--------|--------|
+| 8 MIDI dispatch tests actually change state/forward daemon requests | `go test ./internal/wails/... -run TestMidiServiceDispatch -v` | All 8 PASS | PASS |
+| FixturePatchService full suite | `go test ./internal/wails/... -run TestFixturePatchService -v` | All 8 PASS (incl. CR-02 fix test) | PASS |
+| ArtnetConfigService full suite | `go test ./internal/wails/... -run TestArtnetConfigService -v` | All 5 PASS | PASS |
+| ProgrammingService full suite | `go test ./internal/wails/... -run TestProgrammingService -v` | All 7 PASS | PASS |
+| EventPusher per-mapping staging (WR-02) | `go test ./internal/wails/... -run TestEventPusher -v` | All 3 PASS | PASS |
+| `svc_artnetconfig.go` does not import `internal/artnet` | `grep -n "internal/artnet\"" internal/wails/svc_artnetconfig.go` | zero matches | PASS |
+| `FixturePatch.tsx` no longer bypasses `wailsBridge.ts` | `grep -n "as unknown as\|FixturePatchServiceBinding" FixturePatch.tsx` | zero matches | PASS |
+| Full Go build | `go build ./...` | clean | PASS |
+| Full Go vet | `go vet ./...` | clean | PASS |
+| Full internal test suite | `go test ./internal/...` | all packages `ok`, zero failures | PASS |
+| Frontend build | `cd frontend && npm run build` (tsc --noEmit && vite build) | clean, zero TS errors | PASS |
+| Full `internal/wails` package under `-race` | `go test ./internal/wails/... -race` (run 8x total) | 7/8 clean; 1/8 a single flaky timeout in an unrelated dispatch test | PASS (flaky, see Anti-Patterns) |
 
 ### Human Verification Required
 
-See frontmatter `human_verification` — four deferred `checkpoint:human-verify` items (06-05/06-06/06-07/06-08 Task 3/3/3/4), consistent with `workflow.human_verify_mode=end-of-phase`. Two equivalent items from 06-04 (desktop shell launch + daemon supervision; OS-level Blackout hotkey firing unfocused) were already confirmed live by the orchestrator and are not re-flagged.
+Nine items remain, all pre-existing deferrals per `workflow.human_verify_mode=end-of-phase`
+(this is not a mid-run block — it is the designed end-of-phase UAT checkpoint) plus two new
+items the code-review-fix pass explicitly flagged for human product judgment rather than
+resolving in code:
+
+1. **06-05 status bar / hold-to-release** — visual + timing feel, requires running app.
+2. **06-06 keyboard workflow parity + focus-scoping** — requires running app.
+3. **06-07 operator surface visual treatment + locked-control enforcement feel** — requires running app.
+4. **06-08 live MIDI learn/takeover against real/virtual hardware** — requires MIDI hardware + running app. (Dispatch itself is now unit-proven; only the live feel/hardware interaction remains.)
+5. **06-10 FixturePatch click-through** — pool/mode/deployment on-screen flow, requires running app.
+6. **06-11 ArtnetConfig click-through + daemon-kill offline state** — requires running app + daemon.
+7. **06-12 SceneProgramming click-through** — scene/look/layer on-screen flow, requires running app.
+8. **CR-01 product decision** — is server-log-only failure signaling sufficient for a MIDI-triggered safety/master dispatch that fails to reach the daemon, or is an operator-visible banner required before live-show use?
+9. **WR-01 UX-convention confirmation** — is FixturePatch.tsx's convergence onto silent-empty-view-on-missing-bridge (matching its two siblings) the intended behavior?
 
 ### Gaps Summary
 
-Two FAILED truths block a clean `passed` verdict:
+Both previously FAILED truths are genuinely closed on independent re-verification: the MIDI
+dispatch path now actually operates the show (proven by 8 passing tests reading real state
+change, not just feedback), and on-screen fixture/deployment/programming UI now exists,
+builds, and is tested (3 new components, 3 new Go services, 20 new passing tests). The
+code-review-fix pass's 5 in-scope findings were also independently re-confirmed fixed, not
+just claimed fixed.
 
-1. **ROADMAP Phase 6 Success Criterion 1's fixture/deployment/programming clause is unmet.** The phase's own requirement decomposition (PLAY-01..09), CONTEXT.md decisions, and VALIDATION.md verification map never actually scope this — only "playback workflow" (PLAY-01/02) was ever assigned to a plan. This looks like an imprecision in the ROADMAP's SC1 prose (which echoes the broader "patch, program, play" framing from CONTEXT.md's Phase Boundary paragraph) rather than a plan-execution defect, since no plan was ever asked to build it. It still needs an explicit human decision: either (a) treat this as a documentation correction to SC1 (its literal fixture/deployment/programming clause was never meant to be delivered by this phase), or (b) treat it as real missing scope requiring a new plan.
-
-2. **MIDI-mapped controls do not actually operate the show.** Learn, per-surface conflict rejection, and cross-to-catch soft-takeover arming/feedback are all real and well-tested — but no code path turns an armed/pressed mapping into an actual scene switch, layer toggle, master-level change, or safety trigger. This is honestly self-disclosed in `06-08-SUMMARY.md` as intentionally out of that plan's scope, but it is not tracked in `deferred-items.md`, is not covered by any deferred checkpoint's own verification script, and materially undercuts the phase goal's explicit promise that operators can "run a prepared show through ... constrained generic MIDI controls." This needs a follow-up plan wiring `MidiService`'s arbitrated output into `internal/command` dispatch (mirroring how `PlaybackService`/`SafetyService` already dispatch the same actions) before PLAY-04/PLAY-05 can be considered functionally complete.
-
-Neither gap is deferred to an identifiable later phase (Phases 7-11 cover API/Scripting/AI/Windows-Release/Telemetry, none of which own fixture/deployment/programming UI or MIDI command dispatch), so neither was moved to the `deferred` section.
+No blocking gaps remain. The phase moves from `gaps_found` to `human_needed` — nine items
+require a human with a running desktop app (seven visual/interaction click-throughs deferred
+by design to end-of-phase UAT, plus two explicit product/UX judgment calls the fix report
+itself declined to resolve unilaterally). One non-blocking documentation loose end was found:
+REQUIREMENTS.md's PLAY-10/11/12 rows still read Pending despite the underlying capability now
+being implemented and tested — recommend a small follow-up docs correction (mirroring the
+PLAY-01..09 correction 06-12 Task 4 already made) before considering Phase 6's paper trail
+fully reconciled with its actual delivered state.
 
 ---
 
-*Verified: 2026-07-23T21:21:06Z*
-*Verifier: Claude (gsd-verifier)*
+_Verified: 2026-07-23T23:59:00Z_
+_Verifier: Claude (gsd-verifier)_
