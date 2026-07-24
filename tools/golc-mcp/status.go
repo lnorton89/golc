@@ -1,7 +1,7 @@
 // status.go serves golc_project_status: the current GSD planning position
-// (milestone, phase, execution status, progress counts) parsed from the
-// YAML frontmatter block .planning/STATE.md's GSD tooling already
-// maintains as its single source of truth for "where are we right now."
+// (milestone, phase, execution status, progress counts) parsed from
+// .planning/STATE.md. Scalar position metadata comes from YAML frontmatter,
+// while the Current Position section is the authority for live activity.
 //
 // The frontmatter is read with a small purpose-built scanner rather than
 // a general YAML decoder: STATE.md's shape is a flat set of "key: value"
@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -31,17 +32,30 @@ type projectStatusProgress struct {
 	CompletedPlans  int `json:"completed_plans"`
 }
 
+type projectStatusActivity struct {
+	Date        string `json:"date"`
+	Description string `json:"description"`
+}
+
+type projectStatusActivityDrift struct {
+	Detected        bool                  `json:"detected"`
+	Frontmatter     projectStatusActivity `json:"frontmatter"`
+	CurrentPosition projectStatusActivity `json:"current_position"`
+}
+
 type projectStatusOutput struct {
-	Milestone        string                `json:"milestone"`
-	MilestoneName    string                `json:"milestone_name"`
-	CurrentPhase     string                `json:"current_phase"`
-	CurrentPhaseName string                `json:"current_phase_name"`
-	Status           string                `json:"status"`
-	StoppedAt        string                `json:"stopped_at"`
-	LastUpdated      string                `json:"last_updated"`
-	LastActivity     string                `json:"last_activity"`
-	LastActivityDesc string                `json:"last_activity_desc"`
-	Progress         projectStatusProgress `json:"progress"`
+	Milestone        string                     `json:"milestone"`
+	MilestoneName    string                     `json:"milestone_name"`
+	CurrentPhase     string                     `json:"current_phase"`
+	CurrentPhaseName string                     `json:"current_phase_name"`
+	Status           string                     `json:"status"`
+	StoppedAt        string                     `json:"stopped_at"`
+	LastUpdated      string                     `json:"last_updated"`
+	LastActivity     string                     `json:"last_activity"`
+	LastActivityDesc string                     `json:"last_activity_desc"`
+	ActivitySource   string                     `json:"activity_source"`
+	ActivityDrift    projectStatusActivityDrift `json:"activity_drift"`
+	Progress         projectStatusProgress      `json:"progress"`
 }
 
 func handleProjectStatus(_ context.Context, _ *mcp.CallToolRequest, _ projectStatusInput) (*mcp.CallToolResult, projectStatusOutput, error) {
@@ -64,6 +78,14 @@ func handleProjectStatus(_ context.Context, _ *mcp.CallToolRequest, _ projectSta
 	topText, progressText := splitFrontmatterBlock(frontmatter, "progress")
 	top := parseFlatScalarMapping(topText)
 	progress := parseFlatScalarMapping(progressText)
+	currentActivity, err := parseCurrentPositionActivity(string(data))
+	if err != nil {
+		return toolError[projectStatusOutput](fmt.Errorf(".planning/STATE.md: current position activity: %w", err))
+	}
+	frontmatterActivity := projectStatusActivity{
+		Date:        top["last_activity"],
+		Description: top["last_activity_desc"],
+	}
 
 	out := projectStatusOutput{
 		Milestone:        top["milestone"],
@@ -73,8 +95,14 @@ func handleProjectStatus(_ context.Context, _ *mcp.CallToolRequest, _ projectSta
 		Status:           top["status"],
 		StoppedAt:        top["stopped_at"],
 		LastUpdated:      top["last_updated"],
-		LastActivity:     top["last_activity"],
-		LastActivityDesc: top["last_activity_desc"],
+		LastActivity:     currentActivity.Date,
+		LastActivityDesc: currentActivity.Description,
+		ActivitySource:   "current_position_body",
+		ActivityDrift: projectStatusActivityDrift{
+			Detected:        frontmatterActivity != currentActivity,
+			Frontmatter:     frontmatterActivity,
+			CurrentPosition: currentActivity,
+		},
 		Progress: projectStatusProgress{
 			TotalPhases:     atoiOrZero(progress["total_phases"]),
 			CompletedPhases: atoiOrZero(progress["completed_phases"]),
@@ -83,6 +111,60 @@ func handleProjectStatus(_ context.Context, _ *mcp.CallToolRequest, _ projectSta
 		},
 	}
 	return nil, out, nil
+}
+
+func parseCurrentPositionActivity(content string) (projectStatusActivity, error) {
+	content = strings.ReplaceAll(content, "\r\n", "\n")
+	lines := strings.Split(content, "\n")
+
+	var sectionStart int
+	sectionCount := 0
+	for i, line := range lines {
+		if line == "## Current Position" {
+			sectionStart = i + 1
+			sectionCount++
+		}
+	}
+	if sectionCount != 1 {
+		return projectStatusActivity{}, fmt.Errorf("expected exactly one %q section, found %d", "## Current Position", sectionCount)
+	}
+
+	sectionEnd := len(lines)
+	for i := sectionStart; i < len(lines); i++ {
+		if strings.HasPrefix(lines[i], "## ") {
+			sectionEnd = i
+			break
+		}
+	}
+
+	var activityLines []string
+	for _, line := range lines[sectionStart:sectionEnd] {
+		if strings.HasPrefix(line, "Last activity:") {
+			activityLines = append(activityLines, line)
+		}
+	}
+	if len(activityLines) != 1 {
+		return projectStatusActivity{}, fmt.Errorf("expected exactly one Last activity record, found %d", len(activityLines))
+	}
+
+	const prefix = "Last activity: "
+	record := activityLines[0]
+	if !strings.HasPrefix(record, prefix) {
+		return projectStatusActivity{}, fmt.Errorf("record must start with %q", prefix)
+	}
+	date, description, ok := strings.Cut(strings.TrimPrefix(record, prefix), " — ")
+	if !ok {
+		return projectStatusActivity{}, fmt.Errorf("record must use %q between date and description", " — ")
+	}
+	if parsed, err := time.Parse("2006-01-02", date); err != nil || parsed.Format("2006-01-02") != date {
+		return projectStatusActivity{}, fmt.Errorf("date %q must be a valid YYYY-MM-DD value", date)
+	}
+	description = strings.TrimSpace(description)
+	if description == "" {
+		return projectStatusActivity{}, fmt.Errorf("description must not be empty")
+	}
+
+	return projectStatusActivity{Date: date, Description: description}, nil
 }
 
 // extractYAMLFrontmatter returns the content between the first two "---"
