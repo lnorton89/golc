@@ -27,6 +27,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -81,6 +82,9 @@ type ProcessConfig struct {
 	// tools/linear-sync, so its own node_modules resolve; a test harness
 	// may point this at an isolated fake-SDK workspace instead.
 	WorkDir string
+	// ProjectRoot is the absolute normalized repository root propagated to
+	// the otherwise explicit child environment.
+	ProjectRoot string
 	// Env is the complete child process environment (never inherited
 	// implicitly): callers must pass exactly the variables the adapter
 	// needs (for example LINEAR_API_KEY), never more.
@@ -145,6 +149,10 @@ type ProcessClient struct {
 // adapter must fail only the explicit remote command that needed it, with
 // a clear, actionable diagnostic).
 func NewProcessClient(cfg ProcessConfig) (*ProcessClient, error) {
+	projectRoot := filepath.Clean(cfg.ProjectRoot)
+	if strings.TrimSpace(cfg.ProjectRoot) == "" || !filepath.IsAbs(cfg.ProjectRoot) || projectRoot != cfg.ProjectRoot {
+		return nil, &RPCError{Code: "GOLC_TRANSPORT_CONFIG_INVALID", Message: "project root must be an absolute normalized path"}
+	}
 	if strings.TrimSpace(cfg.NodeExecutable) == "" || strings.TrimSpace(cfg.ScriptPath) == "" {
 		return nil, &RPCError{Code: "GOLC_TRANSPORT_CONFIG_INVALID", Message: "node executable and script path are both required"}
 	}
@@ -165,7 +173,7 @@ func NewProcessClient(cfg ProcessConfig) (*ProcessClient, error) {
 
 	cmd := exec.Command(cfg.NodeExecutable, cfg.ScriptPath)
 	cmd.Dir = cfg.WorkDir
-	cmd.Env = cfg.Env
+	cmd.Env = upsertProcessEnvironment(cfg.Env, "GOLC_PROJECT_ROOT", projectRoot)
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -196,6 +204,18 @@ func NewProcessClient(cfg ProcessConfig) (*ProcessClient, error) {
 	}
 	go client.drainStderr(stderr)
 	return client, nil
+}
+
+func upsertProcessEnvironment(environment []string, name, value string) []string {
+	result := make([]string, 0, len(environment)+1)
+	for _, entry := range environment {
+		existing, _, found := strings.Cut(entry, "=")
+		if found && strings.EqualFold(existing, name) {
+			continue
+		}
+		result = append(result, entry)
+	}
+	return append(result, name+"="+value)
 }
 
 // drainStderr copies every byte the child writes to stderr into a bounded,

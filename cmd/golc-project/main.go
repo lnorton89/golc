@@ -26,12 +26,20 @@ func main() {
 }
 
 func run(arguments []string) int {
-	registry, err := command.NewDefaultCommandRegistry()
+	return runWithRegistryFactory(arguments, command.NewDefaultCommandRegistry)
+}
+
+func runWithRegistryFactory(arguments []string, factory func() (*command.CommandRegistry, error)) int {
+	root, err := resolveProjectRoot()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 2
 	}
-	root, err := resolveProjectRoot()
+	if err := os.Setenv(repoRootEnvName, root); err != nil {
+		fmt.Fprintf(os.Stderr, "GOLC_PROJECT_ROOT_INVALID: %v\n", err)
+		return 2
+	}
+	registry, err := factory()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 2

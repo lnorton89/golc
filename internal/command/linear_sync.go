@@ -15,8 +15,6 @@
 // toolchain at request time.
 package command
 
-import "os"
-
 // linearSyncWorkspaceDir is the single repository-relative directory both
 // registrations below point at, matching tools/linear-sync's own
 // package.json/tsconfig.json location exactly.
@@ -34,16 +32,13 @@ var _ = MustDeclareNodeBuildScope(NodeBuildScopeRegistration{
 // documents for tools/linear-sync: `test --quick --scope
 // linear-sdk-operations` runs the workspace's Node test suite (Plan
 // 01-25's test/operations.test.ts, compiled to dist/test/*.test.js).
-// Command resolves the pinned project-local Node executable through
-// GOLC_PROJECT_ROOT, the exact environment variable golc.ps1 exports
-// before delegating every non-bootstrap route to the compiled CLI
-// (cmd/golc-project/main.go); this is the same officially-supported-
-// via-the-shim precedent main.go's own root resolution already relies on.
+// The registration retains only arguments; test.go resolves the pinned
+// executable from Request.Root immediately before execution.
 var _ = MustDeclareNodeScope(NodeScopeRegistration{
-	Scope:   "linear-sdk-operations",
-	Dir:     linearSyncWorkspaceDir,
-	Marker:  "TestScopeLinearSdkOperations",
-	Command: linearSyncNodeTestCommand(),
+	Scope:     "linear-sdk-operations",
+	Dir:       linearSyncWorkspaceDir,
+	Marker:    "TestScopeLinearSdkOperations",
+	Arguments: linearSyncNodeTestCommand(),
 })
 
 // linear-transport-pagination is the exact quick-test scope
@@ -55,10 +50,10 @@ var _ = MustDeclareNodeScope(NodeScopeRegistration{
 // exactly as MustDeclareNodeScope's fail-on-missing-marker/exit-nonzero
 // contract already requires for every registered Node scope.
 var _ = MustDeclareNodeScope(NodeScopeRegistration{
-	Scope:   "linear-transport-pagination",
-	Dir:     linearSyncWorkspaceDir,
-	Marker:  "TestScopeLinearTransportPagination",
-	Command: linearSyncNodeTestCommandPagination(),
+	Scope:     "linear-transport-pagination",
+	Dir:       linearSyncWorkspaceDir,
+	Marker:    "TestScopeLinearTransportPagination",
+	Arguments: linearSyncNodeTestCommandPagination(),
 })
 
 // linear-transport-errors is the exact quick-test scope
@@ -71,10 +66,10 @@ var _ = MustDeclareNodeScope(NodeScopeRegistration{
 // exactly as MustDeclareNodeScope's fail-on-missing-marker/exit-nonzero
 // contract already requires for every registered Node scope.
 var _ = MustDeclareNodeScope(NodeScopeRegistration{
-	Scope:   "linear-transport-errors",
-	Dir:     linearSyncWorkspaceDir,
-	Marker:  "TestScopeLinearTransportErrors",
-	Command: linearSyncNodeTestCommandErrors(),
+	Scope:     "linear-transport-errors",
+	Dir:       linearSyncWorkspaceDir,
+	Marker:    "TestScopeLinearTransportErrors",
+	Arguments: linearSyncNodeTestCommandErrors(),
 })
 
 // linear-transport-node is the exact quick-test scope config/commands.toml
@@ -87,10 +82,10 @@ var _ = MustDeclareNodeScope(NodeScopeRegistration{
 // fail-on-missing-marker/exit-nonzero contract already requires for every
 // registered Node scope.
 var _ = MustDeclareNodeScope(NodeScopeRegistration{
-	Scope:   "linear-transport-node",
-	Dir:     linearSyncWorkspaceDir,
-	Marker:  "TestScopeLinearTransportNode",
-	Command: linearSyncNodeTestCommandNode(),
+	Scope:     "linear-transport-node",
+	Dir:       linearSyncWorkspaceDir,
+	Marker:    "TestScopeLinearTransportNode",
+	Arguments: linearSyncNodeTestCommandNode(),
 })
 
 // linearSyncNodeTestGlob is a glob pattern, not a bare directory: Node's
@@ -129,74 +124,27 @@ var linearSyncNodeTestFilesErrors = []string{"dist/test/errors.test.js", "dist/t
 // fixture, and nothing else.
 var linearSyncNodeTestFilesNode = []string{"dist/test/redact.test.js", "dist/test/mutation.test.js"}
 
-// resolveLinearSyncProjectRoot resolves the repository root
-// linearSyncNodeTestCommand and linearSyncNodeTestCommandPagination both
-// need at package-init time (before any Request.Root is known): it
-// consults GOLC_PROJECT_ROOT -- the same environment variable golc.ps1
-// exports before delegating to the compiled CLI -- and, failing that, the
-// process's own working directory.
-func resolveLinearSyncProjectRoot() string {
-	root := os.Getenv("GOLC_PROJECT_ROOT")
-	if root == "" {
-		if cwd, err := os.Getwd(); err == nil {
-			root = cwd
-		}
-	}
-	return root
-}
-
-// linearSyncNodeTestCommand resolves the exact `node --test
-// dist/test/**/*.test.js` invocation the "linear-sdk-operations" scope's
-// registered Command runs. If the pinned Node toolchain has not been
-// provisioned yet (bootstrap --include linear-sync has not run), this
-// still returns a non-empty placeholder Command rather than panicking:
-// MustDeclareNodeScope would otherwise crash every route in the CLI at
-// startup over one unbootstrapped scope. Invoking this exact scope before
-// bootstrap then fails closed with an ordinary "executable file not
-// found" exec error instead.
+// linearSyncNodeTestCommand returns only the Node arguments retained by
+// the registration. The pinned executable is resolved from Request.Root
+// immediately before execution.
 func linearSyncNodeTestCommand() []string {
-	root := resolveLinearSyncProjectRoot()
-	if nodeExecutable, err := resolvePinnedNodeExecutable(root); err == nil {
-		return []string{nodeExecutable, "--test", linearSyncNodeTestGlob}
-	}
-	return []string{"golc-linear-sync-node-not-bootstrapped", "--test", linearSyncNodeTestGlob}
+	return []string{"--test", linearSyncNodeTestGlob}
 }
 
-// linearSyncNodeTestCommandPagination resolves the exact `node --test
-// dist/test/pagination.test.js` invocation the "linear-transport-
-// pagination" scope's registered Command runs, mirroring
-// linearSyncNodeTestCommand's same pre-bootstrap placeholder-Command
-// safety.
+// linearSyncNodeTestCommandPagination retains the exact arguments for the
+// pagination test scope.
 func linearSyncNodeTestCommandPagination() []string {
-	root := resolveLinearSyncProjectRoot()
-	if nodeExecutable, err := resolvePinnedNodeExecutable(root); err == nil {
-		return []string{nodeExecutable, "--test", linearSyncNodeTestFilePagination}
-	}
-	return []string{"golc-linear-sync-node-not-bootstrapped", "--test", linearSyncNodeTestFilePagination}
+	return []string{"--test", linearSyncNodeTestFilePagination}
 }
 
-// linearSyncNodeTestCommandErrors resolves the exact `node --test
-// dist/test/errors.test.js dist/test/rate-limit.test.js` invocation the
-// "linear-transport-errors" scope's registered Command runs, mirroring
-// linearSyncNodeTestCommandPagination's same pre-bootstrap placeholder-
-// Command safety.
+// linearSyncNodeTestCommandErrors retains the exact arguments for the
+// errors and rate-limit test scope.
 func linearSyncNodeTestCommandErrors() []string {
-	root := resolveLinearSyncProjectRoot()
-	if nodeExecutable, err := resolvePinnedNodeExecutable(root); err == nil {
-		return append([]string{nodeExecutable, "--test"}, linearSyncNodeTestFilesErrors...)
-	}
-	return append([]string{"golc-linear-sync-node-not-bootstrapped", "--test"}, linearSyncNodeTestFilesErrors...)
+	return append([]string{"--test"}, linearSyncNodeTestFilesErrors...)
 }
 
-// linearSyncNodeTestCommandNode resolves the exact `node --test
-// dist/test/redact.test.js dist/test/mutation.test.js` invocation the
-// "linear-transport-node" scope's registered Command runs, mirroring
-// linearSyncNodeTestCommandErrors's same pre-bootstrap placeholder-Command
-// safety.
+// linearSyncNodeTestCommandNode retains the exact arguments for the
+// redaction and mutation test scope.
 func linearSyncNodeTestCommandNode() []string {
-	root := resolveLinearSyncProjectRoot()
-	if nodeExecutable, err := resolvePinnedNodeExecutable(root); err == nil {
-		return append([]string{nodeExecutable, "--test"}, linearSyncNodeTestFilesNode...)
-	}
-	return append([]string{"golc-linear-sync-node-not-bootstrapped", "--test"}, linearSyncNodeTestFilesNode...)
+	return append([]string{"--test"}, linearSyncNodeTestFilesNode...)
 }
