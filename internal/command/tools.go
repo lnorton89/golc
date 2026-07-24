@@ -73,12 +73,25 @@ var toolsUpdateAllowlist = []string{
 	"tools/linear-sync/package-lock.json",
 }
 
-// ToolchainPin is one config/toolchain.toml [toolchain.<name>] table's
-// proposed version/archive/checksum triple.
-type ToolchainPin struct {
-	Version       string
+var toolchainPlatformKeys = []string{
+	"windows-amd64",
+	"linux-amd64",
+	"linux-arm64",
+	"darwin-amd64",
+	"darwin-arm64",
+}
+
+// ToolchainArchivePin is one platform-specific archive authority.
+type ToolchainArchivePin struct {
 	ArchiveURL    string
 	ArchiveSHA256 string
+}
+
+// ToolchainPin is one config/toolchain.toml [toolchain.<name>] table's
+// proposed parent version and exact closed five-platform archive map.
+type ToolchainPin struct {
+	Version   string
+	Platforms map[string]ToolchainArchivePin
 }
 
 // GoModulePin is one go.mod "require" entry's proposed version plus its
@@ -253,46 +266,105 @@ func replaceTOMLTableValue(content []byte, table, key, newValue string) ([]byte,
 	return buf.Bytes(), nil
 }
 
-// readTOMLTableTriple reads version from the parent tool table and the
-// archive_url/archive_sha256 pair from its exact platform table without
-// modifying content.
-func readTOMLTableTriple(content []byte, versionTable, archiveTable string) (ToolchainPin, error) {
+// readTOMLToolchainPin reads the parent version and all five platform
+// records without modifying content.
+func readTOMLToolchainPin(content []byte, tool string) (ToolchainPin, error) {
+	versionTable := "toolchain." + tool
 	version, err := readTOMLTableValue(content, versionTable, "version")
 	if err != nil {
 		return ToolchainPin{}, err
 	}
-	archiveURL, err := readTOMLTableValue(content, archiveTable, "archive_url")
-	if err != nil {
-		return ToolchainPin{}, err
+	pin := ToolchainPin{Version: version, Platforms: make(map[string]ToolchainArchivePin, len(toolchainPlatformKeys))}
+	for _, platform := range toolchainPlatformKeys {
+		table := fmt.Sprintf(`toolchain.%s.platforms.%q`, tool, platform)
+		archiveURL, err := readTOMLTableValue(content, table, "archive_url")
+		if err != nil {
+			return ToolchainPin{}, err
+		}
+		archiveSHA256, err := readTOMLTableValue(content, table, "archive_sha256")
+		if err != nil {
+			return ToolchainPin{}, err
+		}
+		pin.Platforms[platform] = ToolchainArchivePin{ArchiveURL: archiveURL, ArchiveSHA256: archiveSHA256}
 	}
-	archiveSHA256, err := readTOMLTableValue(content, archiveTable, "archive_sha256")
-	if err != nil {
-		return ToolchainPin{}, err
-	}
-	return ToolchainPin{Version: version, ArchiveURL: archiveURL, ArchiveSHA256: archiveSHA256}, nil
+	return pin, nil
 }
 
 // applyToolchainTOMLProposal returns config/toolchain.toml's proposed
-// bytes: only the two parent version lines and the four exact
-// windows-amd64 archive_url/archive_sha256 lines change; every other byte
-// (including comments, other platform data, and [cache]) is preserved.
+// bytes: only the two parent version lines and twenty exact platform fields
+// change; every other byte is preserved.
 func applyToolchainTOMLProposal(current []byte, goPin, nodePin ToolchainPin) ([]byte, error) {
 	updated := current
-	var err error
-	for _, edit := range []struct{ table, key, value string }{
-		{"toolchain.go", "version", goPin.Version},
-		{`toolchain.go.platforms."windows-amd64"`, "archive_url", goPin.ArchiveURL},
-		{`toolchain.go.platforms."windows-amd64"`, "archive_sha256", goPin.ArchiveSHA256},
-		{"toolchain.node", "version", nodePin.Version},
-		{`toolchain.node.platforms."windows-amd64"`, "archive_url", nodePin.ArchiveURL},
-		{`toolchain.node.platforms."windows-amd64"`, "archive_sha256", nodePin.ArchiveSHA256},
-	} {
-		updated, err = replaceTOMLTableValue(updated, edit.table, edit.key, edit.value)
+	for _, candidate := range []struct {
+		tool string
+		pin  ToolchainPin
+	}{{"go", goPin}, {"node", nodePin}} {
+		if err := validateToolchainPin(candidate.tool, candidate.pin); err != nil {
+			return nil, err
+		}
+		var err error
+		updated, err = replaceTOMLTableValue(updated, "toolchain."+candidate.tool, "version", candidate.pin.Version)
 		if err != nil {
 			return nil, fmt.Errorf("GOLC_TOOLS_UPDATE_TOOLCHAIN: %w", err)
 		}
+		for _, platform := range toolchainPlatformKeys {
+			archive := candidate.pin.Platforms[platform]
+			table := fmt.Sprintf(`toolchain.%s.platforms.%q`, candidate.tool, platform)
+			for _, field := range []struct{ key, value string }{
+				{"archive_url", archive.ArchiveURL},
+				{"archive_sha256", archive.ArchiveSHA256},
+			} {
+				updated, err = replaceTOMLTableValue(updated, table, field.key, field.value)
+				if err != nil {
+					return nil, fmt.Errorf("GOLC_TOOLS_UPDATE_TOOLCHAIN: %w", err)
+				}
+			}
+		}
 	}
 	return updated, nil
+}
+
+func validateToolchainPin(tool string, pin ToolchainPin) error {
+	if len(pin.Platforms) != len(toolchainPlatformKeys) {
+		return fmt.Errorf("GOLC_TOOLS_UPDATE_PLATFORM_SET: %s proposal must contain exactly five platforms", tool)
+	}
+	for _, platform := range toolchainPlatformKeys {
+		archive, ok := pin.Platforms[platform]
+		if !ok {
+			return fmt.Errorf("GOLC_TOOLS_UPDATE_PLATFORM_SET: %s proposal is missing %s", tool, platform)
+		}
+		if !regexp.MustCompile(`^[0-9a-f]{64}$`).MatchString(archive.ArchiveSHA256) {
+			return fmt.Errorf("GOLC_TOOLS_UPDATE_PLATFORM_PIN: %s %s has invalid archive_sha256", tool, platform)
+		}
+		parts := strings.Split(platform, "-")
+		layout, err := bootstrapArchiveName(tool, pin.Version, parts[0], parts[1])
+		if err != nil || archive.ArchiveURL != layout {
+			return fmt.Errorf("GOLC_TOOLS_UPDATE_PLATFORM_PIN: %s %s archive URL does not match version/platform", tool, platform)
+		}
+	}
+	return nil
+}
+
+func bootstrapArchiveName(tool, version, goos, goarch string) (string, error) {
+	switch tool {
+	case "go":
+		suffix := ".tar.gz"
+		if goos == "windows" {
+			suffix = ".zip"
+		}
+		return "https://go.dev/dl/go" + version + "." + goos + "-" + goarch + suffix, nil
+	case "node":
+		arch := goarch
+		if goarch == "amd64" {
+			arch = "x64"
+		}
+		if goos == "windows" {
+			return "https://nodejs.org/dist/v" + version + "/node-v" + version + "-win-" + arch + ".zip", nil
+		}
+		return "https://nodejs.org/dist/v" + version + "/node-v" + version + "-" + goos + "-" + arch + ".tar.gz", nil
+	default:
+		return "", fmt.Errorf("unsupported tool %q", tool)
+	}
 }
 
 // goModuleLinePattern matches one exact go.mod require entry for path,
@@ -703,19 +775,11 @@ func newDefaultMetadataSource(current ToolsUpdateCurrentFiles) (MetadataSource, 
 }
 
 func (s defaultMetadataSource) Propose() (ToolsUpdateProposal, error) {
-	goPin, err := readTOMLTableTriple(
-		s.current.ToolchainTOML,
-		"toolchain.go",
-		`toolchain.go.platforms."windows-amd64"`,
-	)
+	goPin, err := readTOMLToolchainPin(s.current.ToolchainTOML, "go")
 	if err != nil {
 		return ToolsUpdateProposal{}, err
 	}
-	nodePin, err := readTOMLTableTriple(
-		s.current.ToolchainTOML,
-		"toolchain.node",
-		`toolchain.node.platforms."windows-amd64"`,
-	)
+	nodePin, err := readTOMLToolchainPin(s.current.ToolchainTOML, "node")
 	if err != nil {
 		return ToolsUpdateProposal{}, err
 	}
