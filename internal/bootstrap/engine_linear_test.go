@@ -79,9 +79,10 @@ func addLinearSyncFixture(t *testing.T, root string, source *engineFakeSource) (
 	if err != nil {
 		t.Fatalf("node layout: %v", err)
 	}
+	extractedRoot := "verified-node-payload"
 	entries := []testArchiveEntry{
-		{Name: filepath.ToSlash(filepath.Join(layout.Root, layout.Executable)), Body: "node\n", Mode: 0o755},
-		{Name: filepath.ToSlash(filepath.Join(layout.Root, layout.NPMCLI)), Body: "npm\n", Mode: 0o644},
+		{Name: filepath.ToSlash(filepath.Join(extractedRoot, layout.Executable)), Body: "node\n", Mode: 0o755},
+		{Name: filepath.ToSlash(filepath.Join(extractedRoot, layout.NPMCLI)), Body: "npm\n", Mode: 0o644},
 	}
 	var archivePath, digest string
 	if layout.Format == ".zip" {
