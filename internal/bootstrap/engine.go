@@ -657,7 +657,17 @@ func (engine *bootstrapEngine) runProcess(ctx context.Context, executable, diagn
 		Env:        cloneEnvironment(engine.env),
 	})
 	if err != nil {
-		return output, fmt.Errorf("%s: %s: %w", diagnostic, strings.Join(args, " "), err)
+		// The captured process output is included here (not just the
+		// bare "exit status 1"-shaped exec error) because without it a
+		// failing "go test"/"go build" invocation reports zero
+		// diagnostic detail — exactly the gap that made a real CI
+		// failure (run 30074378227's GOLC_BOOTSTRAP_PROBE_FAILED)
+		// unreadable from its own logged error message.
+		trimmed := strings.TrimSpace(string(output))
+		if trimmed == "" {
+			return output, fmt.Errorf("%s: %s: %w", diagnostic, strings.Join(args, " "), err)
+		}
+		return output, fmt.Errorf("%s: %s: %w\n%s", diagnostic, strings.Join(args, " "), err, trimmed)
 	}
 	return output, nil
 }
