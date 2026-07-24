@@ -38,6 +38,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/lnorton89/golc/internal/bootstrap"
+	"github.com/lnorton89/golc/internal/projectconfig"
 )
 
 // NetworkPolicy declares whether a graph step may open a network
@@ -167,6 +168,101 @@ func LoadGraph(root string) (Graph, error) {
 			"GOLC_DELIVERY_INVENTORY_INCOMPLETE: config/commands.toml must declare entrypoint, cli_binary, and go_version")
 	}
 	return Graph{Root: root, Inventory: inventory, Steps: coreSteps()}, nil
+}
+
+// LoadPRGraph parses the strict commands.pr policy into the shared serial
+// delivery graph. Config order remains authoritative; this package owns no
+// second PR step list.
+func LoadPRGraph(root string) (Graph, error) {
+	values, _, err := projectconfig.ValidateConcern(root, projectconfig.DefaultSpec(), "commands")
+	if err != nil {
+		return Graph{}, fmt.Errorf("GOLC_DELIVERY_PR_CONFIG: %w", err)
+	}
+	inventory, err := commandInventoryFromValues(values)
+	if err != nil {
+		return Graph{}, err
+	}
+	rawSteps := values["commands.pr.steps"]
+	rawNetwork := values["commands.pr.network_steps"]
+	mutation := values["commands.pr.mutation_steps"]
+	if mutation != "none" {
+		return Graph{}, fmt.Errorf("GOLC_DELIVERY_PR_MUTATION_POLICY: commands.pr.mutation_steps must be none")
+	}
+
+	networkRoutes, err := parsePRRouteSet(rawNetwork, "commands.pr.network_steps")
+	if err != nil {
+		return Graph{}, err
+	}
+	seenRoutes := map[string]struct{}{}
+	steps := make([]Step, 0)
+	for index, invocation := range strings.Split(rawSteps, ",") {
+		invocation = strings.TrimSpace(invocation)
+		fields := strings.Fields(invocation)
+		if len(fields) == 0 {
+			return Graph{}, fmt.Errorf("GOLC_DELIVERY_PR_STEP_INVALID: commands.pr.steps contains a blank invocation")
+		}
+		route := fields[0]
+		args := append([]string(nil), fields[1:]...)
+		if route == "bootstrap" && len(args) != 0 {
+			return Graph{}, fmt.Errorf("GOLC_DELIVERY_PR_STEP_INVALID: bootstrap does not accept PR graph arguments")
+		}
+		policy := NetworkDenied
+		if _, allowed := networkRoutes[route]; allowed {
+			policy = NetworkAllowed
+		}
+		name := fmt.Sprintf("%02d-%s", index+1, strings.ReplaceAll(invocation, " ", "-"))
+		steps = append(steps, Step{Name: name, Route: route, Args: args, Network: policy})
+		seenRoutes[route] = struct{}{}
+	}
+	for route := range networkRoutes {
+		if _, present := seenRoutes[route]; !present {
+			return Graph{}, fmt.Errorf(
+				"GOLC_DELIVERY_PR_POLICY_ORPHAN: commands.pr.network_steps names absent route %q", route)
+		}
+	}
+	graph := Graph{Root: root, Inventory: inventory, Steps: steps}
+	if err := ValidateParity(graph); err != nil {
+		return Graph{}, err
+	}
+	return graph, nil
+}
+
+func commandInventoryFromValues(values map[string]string) (CommandInventory, error) {
+	rawCLIRoot := strings.TrimSpace(values["commands.cli_binary"])
+	if rawCLIRoot == "" || filepath.IsAbs(rawCLIRoot) || strings.Contains(rawCLIRoot, `\`) ||
+		!strings.HasPrefix(rawCLIRoot, ".tools/") || path.Clean(rawCLIRoot) != rawCLIRoot {
+		return CommandInventory{}, fmt.Errorf(
+			"GOLC_DELIVERY_INVENTORY_INCOMPLETE: commands.cli_binary must be a safe project-local .tools install root")
+	}
+	resolvedCLI := bootstrap.PlatformExecutablePath(filepath.FromSlash(rawCLIRoot), "golc-project")
+	inventory := CommandInventory{
+		Entrypoint: strings.TrimSpace(values["commands.entrypoint"]),
+		CLIBinary:  filepath.ToSlash(resolvedCLI),
+		GoVersion:  strings.TrimSpace(values["commands.go_version"]),
+	}
+	if inventory.Entrypoint == "" || inventory.CLIBinary == "" || inventory.GoVersion == "" {
+		return CommandInventory{}, fmt.Errorf(
+			"GOLC_DELIVERY_INVENTORY_INCOMPLETE: config/commands.toml must declare entrypoint, cli_binary, and go_version")
+	}
+	return inventory, nil
+}
+
+func parsePRRouteSet(raw, key string) (map[string]struct{}, error) {
+	routes := map[string]struct{}{}
+	if raw == "none" {
+		return routes, nil
+	}
+	for _, route := range strings.Split(raw, ",") {
+		route = strings.TrimSpace(route)
+		if route == "" {
+			return nil, fmt.Errorf("GOLC_DELIVERY_PR_POLICY_INVALID: %s contains a blank route", key)
+		}
+		if _, duplicate := routes[route]; duplicate {
+			return nil, fmt.Errorf("GOLC_DELIVERY_PR_POLICY_DUPLICATE: %s repeats %q", key, route)
+		}
+		routes[route] = struct{}{}
+	}
+	return routes, nil
 }
 
 // ValidateParity confirms g is well-formed and duplicate-safe (T-01-17):
