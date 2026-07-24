@@ -1,0 +1,48 @@
+:root {
+  --color-bg: #131419;
+  --color-surface: #1e2027;
+  --color-surface-raised: #252832;
+  --color-surface-sunken: #0f1014;
+  --color-border: #2e3038;
+  --color-border-strong: #444751;
+  --color-text: #eceae3;
+  --color-text-secondary: #b7b5ac;
+  --color-text-muted: #87857d;
+  --color-primary: #1b44d9;
+  --color-primary-hover: #2b55eb;
+  --color-primary-soft: rgba(27, 68, 217, 0.18);
+  --color-live: #1b44d9;
+  --color-frame-lock: #5ac26a;
+  --color-armed: #c8a24b;
+  --color-danger: #e23a2e;
+  --color-blackout: #090a0c;
+  --color-offline: #8a887f;
+  --color-spectrum-red: #c0554a;
+  --color-spectrum-amber: #cc8a47;
+  --color-spectrum-yellow: #b6a24c;
+  --color-spectrum-green: #4e9e68;
+  --color-spectrum-violet: #6a50a8;
+
+  --font-sans: "Archivo", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --shadow-panel: 0 8px 28px rgba(0, 0, 0, 0.24);
+  --transition-tap: 120ms ease-out;
+  --transition-settle: 200ms ease;
+}
+
