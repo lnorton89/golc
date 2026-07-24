@@ -11,13 +11,18 @@
 # always needs a Go compiler on PATH, regardless of how the mage binary
 # itself was obtained.
 #
-# libx11-dev is a deliberate, narrow exception to the checksum-pinned
-# tooling philosophy above: golang.design/x/hotkey's Linux backend
-# (internal/wails/hotkey.go's OS-level safety-cluster shortcuts) cgo-links
-# against X11/Xlib.h, which ubuntu-latest does not install by default. It
-# is a system library, not a project archive pin -- apt's own package
-# integrity is the trust boundary here, the same way it already is for
-# the ambient ubuntu-latest/macos-latest Go used to install Mage.
+# libx11-dev and xvfb are a deliberate, narrow exception to the
+# checksum-pinned tooling philosophy above: golang.design/x/hotkey's
+# Linux backend (internal/wails/hotkey.go's OS-level safety-cluster
+# shortcuts) cgo-links against X11/Xlib.h at build time, which
+# ubuntu-latest does not install by default, and its package init()
+# additionally connects to a real X11 DISPLAY at process startup --
+# ubuntu-latest has no display server at all, so any test binary that
+# imports the package (internal/wails's own tests) panics immediately
+# without a virtual framebuffer. Both are system packages, not project
+# archive pins -- apt's own package integrity is the trust boundary
+# here, the same way it already is for the ambient ubuntu-latest/
+# macos-latest Go used to install Mage.
 name: cross-platform Mage observation
 
 on:
@@ -46,7 +51,11 @@ jobs:
 
       - name: Install X11 development headers (Linux only)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libx11-dev
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev xvfb
+
+      - name: Start virtual X11 display (Linux only)
+        if: runner.os == 'Linux'
+        run: Xvfb :99 -screen 0 1024x768x24 & echo "DISPLAY=:99" >> "$GITHUB_ENV"
 
       - name: Install pinned Mage (Linux/macOS)
         if: runner.os != 'Windows'
