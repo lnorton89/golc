@@ -101,6 +101,19 @@ func platformToolArchive(t *testing.T, root, tool, version string) (path string,
 func writeEngineRepository(t *testing.T) (root string, source *engineFakeSource, goURL string) {
 	t.Helper()
 	root = t.TempDir()
+	// runBootstrap resolves its root through filepath.EvalSymlinks before
+	// ever recording it as a child process's working directory, so this
+	// helper's root must be resolved the same way before any test
+	// compares against it -- otherwise a CI runner whose temp directory
+	// sits behind an OS-level indirection (macOS's /var -> /private/var,
+	// or a Windows short/8.3 alias for a long account name like GitHub
+	// Actions' "runneradmin") produces two textually different strings
+	// for the exact same directory, and every such comparison fails
+	// (observed live in cross-platform-mage.yml run 30075276470 on both
+	// macos-latest and windows-latest).
+	if resolved, err := filepath.EvalSymlinks(root); err == nil {
+		root = resolved
+	}
 	if err := os.MkdirAll(filepath.Join(root, "config"), 0o755); err != nil {
 		t.Fatalf("mkdir config: %v", err)
 	}
