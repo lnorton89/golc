@@ -369,6 +369,69 @@ func TestArtnetNoDaemonReturnsDaemonUnreachable(t *testing.T) {
 	}
 }
 
+// TestBackfillDefaultBPMPersistsWhenUnset proves backfillDefaultBPM writes
+// show.DefaultBPM back to disk (not just the in-memory return value) when
+// a show's Tempo.BPM is still <= 0 -- the fix for a show that would
+// otherwise fail deep inside playback.NewEngine with
+// GOLC_PLAYBACK_BPM_INVALID on every "artnet serve" attempt, surfacing
+// only as the desktop app's generic, unexplained
+// GOLC_WAILS_DAEMON_UNREACHABLE.
+func TestBackfillDefaultBPMPersistsWhenUnset(t *testing.T) {
+	root := t.TempDir()
+	showPath := "show.golc"
+
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("seeding initial show: %v", err)
+	}
+	// Force the pre-DefaultBPM condition this backfill exists for, rather
+	// than relying on Load's own now-defaulted fresh state.
+	state.Tempo.BPM = 0
+	if err := show.Save(root, showPath, state); err != nil {
+		t.Fatalf("saving zero-BPM show: %v", err)
+	}
+
+	updated, err := backfillDefaultBPM(root, showPath, state)
+	if err != nil {
+		t.Fatalf("backfillDefaultBPM: %v", err)
+	}
+	if updated.Tempo.BPM != show.DefaultBPM {
+		t.Fatalf("returned Tempo.BPM = %v, want %v", updated.Tempo.BPM, show.DefaultBPM)
+	}
+
+	reloaded, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("reloading after backfill: %v", err)
+	}
+	if reloaded.Tempo.BPM != show.DefaultBPM {
+		t.Fatalf("persisted Tempo.BPM = %v, want %v -- backfillDefaultBPM must Save, not just mutate in memory", reloaded.Tempo.BPM, show.DefaultBPM)
+	}
+}
+
+// TestBackfillDefaultBPMLeavesExistingBPMAlone proves backfillDefaultBPM
+// never overwrites an operator's own already-set BPM.
+func TestBackfillDefaultBPMLeavesExistingBPMAlone(t *testing.T) {
+	root := t.TempDir()
+	showPath := "show.golc"
+
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("seeding initial show: %v", err)
+	}
+	state.Tempo.BPM = 140
+	if err := show.Save(root, showPath, state); err != nil {
+		t.Fatalf("saving 140 BPM show: %v", err)
+	}
+
+	updated, err := backfillDefaultBPM(root, showPath, state)
+	if err != nil {
+		t.Fatalf("backfillDefaultBPM: %v", err)
+	}
+	if updated.Tempo.BPM != 140 {
+		t.Fatalf("Tempo.BPM = %v, want unchanged 140", updated.Tempo.BPM)
+	}
+}
+
 // TestArtnetStatusJSONContainsHealthFields proves "artnet status --json"
 // emits canonical JSON containing frame and target health (ARTN-05).
 func TestArtnetStatusJSONContainsHealthFields(t *testing.T) {

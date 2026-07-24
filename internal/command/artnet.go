@@ -369,6 +369,32 @@ func newArtnetFixtureResolver(root, fixturesDir string, pools []pool.Pool) (artn
 	}, nil
 }
 
+// backfillDefaultBPM persists show.DefaultBPM onto state.Tempo.BPM (and
+// returns the updated state) when it is still <= 0, then reports the
+// unmodified state otherwise. "artnet serve" is the one place a show
+// actually "opens" for live playback, and playback.NewEngine's plan
+// compilation hard-rejects BPM<=0 (GOLC_PLAYBACK_BPM_INVALID) -- a
+// diagnostic that never reaches the desktop app's own UI, only surfacing
+// as the daemon child silently exiting and the generic
+// GOLC_WAILS_DAEMON_UNREACHABLE. Persisting the fix here (not just
+// patching state.Tempo.BPM in memory for this one run) means the next
+// "artnet serve" attempt -- and every other reader of this show -- sees
+// the same valid BPM, not a one-off in-memory patch that reverts the
+// moment this process exits. This covers both a show saved before
+// DefaultBPM existed and one whose BPM was otherwise never set (Load's
+// own never-yet-saved branch already seeds DefaultBPM for a genuinely
+// brand-new show; this is the equivalent backfill for an existing one).
+func backfillDefaultBPM(root, showPath string, state show.State) (show.State, error) {
+	if state.Tempo.BPM > 0 {
+		return state, nil
+	}
+	state.Tempo.BPM = show.DefaultBPM
+	if err := show.Save(root, showPath, state); err != nil {
+		return show.State{}, err
+	}
+	return state, nil
+}
+
 // runArtnetServe serves the self-registered "artnet serve" route (D-03/
 // D-04): the one route that IS the long-lived server, not a client. It
 // loads the ShowState at --show, resolves the active deployment's
@@ -383,6 +409,11 @@ func runArtnetServe(request Request) Result {
 	}
 
 	state, err := show.Load(request.Root, parsed.showPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	state, err = backfillDefaultBPM(request.Root, parsed.showPath, state)
 	if err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}

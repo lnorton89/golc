@@ -176,15 +176,16 @@ func TestTapTempoRouteRejectsFewerThanTwoTaps(t *testing.T) {
 		t.Fatalf("expected non-zero exit with GOLC_PLAYBACK_TAP_INVALID for a single tap, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
 	}
 
-	// No BPM should have been persisted (an untouched Load starts at the
-	// zero-value BPM=0 "not yet set" state -- see internal/show/state.go's
-	// Tempo doc comment).
+	// No BPM should have been persisted by the rejected tap call itself --
+	// a fresh Load of this never-yet-saved show still reports exactly
+	// show.DefaultBPM (its own seeded default, see internal/show/state.go),
+	// never something else the tap route might have written.
 	state, err := show.Load(root, showPath)
 	if err != nil {
 		t.Fatalf("show.Load: %v", err)
 	}
-	if state.Tempo.BPM != 0 {
-		t.Fatalf("expected Tempo.BPM to remain unset (0) after a rejected tap route call, got %v", state.Tempo.BPM)
+	if state.Tempo.BPM != show.DefaultBPM {
+		t.Fatalf("expected Tempo.BPM to remain at show.DefaultBPM (%v) after a rejected tap route call, got %v", show.DefaultBPM, state.Tempo.BPM)
 	}
 }
 

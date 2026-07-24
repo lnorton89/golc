@@ -162,7 +162,7 @@ func Load(root, path string) (state State, err error) {
 		return State{}, err
 	}
 	if !ok {
-		return State{SchemaVersion: SchemaVersion}, nil
+		return State{SchemaVersion: SchemaVersion, Tempo: Tempo{BPM: DefaultBPM}}, nil
 	}
 	if meta.SchemaVersion > SchemaVersion {
 		return State{}, ErrSchemaTooNew{Found: meta.SchemaVersion, Supported: SchemaVersion}
@@ -193,7 +193,7 @@ func LoadForRead(root, path string) (state State, err error) {
 		return State{}, err
 	}
 	if !ok {
-		return State{SchemaVersion: SchemaVersion}, nil
+		return State{SchemaVersion: SchemaVersion, Tempo: Tempo{BPM: DefaultBPM}}, nil
 	}
 	if meta.SchemaVersion < SchemaVersion {
 		return State{}, ErrSchemaMigrationRequired{Found: meta.SchemaVersion, Supported: SchemaVersion}
