@@ -124,6 +124,7 @@ None yet.
 | 260723-rym | Update packaged UI sketch assets to match the golc-site light theme | 2026-07-23 | c8dfb9a | Complete | [260723-rym-update-packaged-ui-sketch-assets-to-matc](./quick/260723-rym-update-packaged-ui-sketch-assets-to-matc/) |
 | 260723-s7n | Implement the complete Go bootstrap engine from Step 1 of the PowerShell removal plan | 2026-07-23 | 33b1242 | Complete | [260723-s7n-implement-the-complete-go-bootstrap-engi](./quick/260723-s7n-implement-the-complete-go-bootstrap-engi/) |
 | 260723-svv | Migrate toolchain configuration and strict project schema for PowerShell removal Step 2 | 2026-07-23 | 2b62b0d | Complete | [260723-svv-migrate-toolchain-configuration-and-stri](./quick/260723-svv-migrate-toolchain-configuration-and-stri/) |
+| 260723-sgy | Port the full golc-site design language into all approved UI sketch assets | 2026-07-23 | 5a5a55b | Needs Review | [260723-sgy-port-the-full-golc-site-design-language-](./quick/260723-sgy-port-the-full-golc-site-design-language-/) |
 
 ## Deferred Items
 
