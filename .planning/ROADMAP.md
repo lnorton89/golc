@@ -356,7 +356,43 @@ Plans:
   3. A client can consume revisioned server-sent events, detect a replay gap, and recover by querying authoritative state.
   4. Mutations support expected revisions, idempotency, dry-run impact previews, and atomic meaningful batches; every result is auditable, while loopback is the default and remote access requires explicit enablement and scoped authentication.
 
-**Plans:** TBD
+**Plans:** 9 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 07-01-PLAN.md — Pin chi/huma/x-time deps with a blocking supply-chain checkpoint (API-01/02/05 enabler)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 07-02-PLAN.md — First slice: Chi+Huma /v1 server hosted in the daemon (D-07) + HTTP->command translation + read endpoints + capability-coverage gate (API-01; D-01/D-02/D-04)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 07-03-PLAN.md — api config concern + enforced loopback-default bind, remote requires explicit flag+interface (API-05; D-06)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 07-04-PLAN.md — Scoped/expiring/revocable API keys + auth + per-key rate limit; api_keys table (API-05; D-05/D-08)
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 07-05-PLAN.md — Serialized mutations: If-Match/412 + dry-run + idempotency + post-mutation observer seam (API-04/API-01; D-13/D-14)
+
+**Wave 6** *(blocked on Wave 5)*
+
+- [ ] 07-06-PLAN.md — Atomic /v1/batch via copy + single aggregated Save (all-or-nothing, no command-handler refactor) (API-04; D-15)
+
+**Wave 7** *(blocked on Wave 6)*
+
+- [ ] 07-07-PLAN.md — audit_log table + redacting post-mutation audit writer (API-06; D-16) [parallel with 07-08]
+- [ ] 07-08-PLAN.md — Revisioned global SSE + Last-Event-ID replay + resync-on-gap + revocation tick (API-03; D-09/D-10/D-11/D-12) [parallel with 07-07]
+
+**Wave 8** *(blocked on Wave 7)*
+
+- [ ] 07-09-PLAN.md — Generated OpenAPI 3.1 contract + drift check + typed errors + compatibility/deprecation policy + coverage closure (API-02; D-03/D-02)
+
+**Waves:** W1: 07-01 · W2: 07-02 · W3: 07-03 · W4: 07-04 · W5: 07-05 · W6: 07-06 · W7: 07-07, 07-08 · W8: 07-09
 **Research:** Standard API patterns; phase planning must define compatibility policy, remote-access threat model, SSE replay retention, rate limits, and audit redaction.
 
 ### Phase 8: Isolated TypeScript Automation
@@ -420,7 +456,7 @@ Plans:
 | 4. Observable Art-Net Live Output | 9/9 | Complete    | 2026-07-22 |
 | 5. Durable Shows and Recovery | 5/5 | Complete    | 2026-07-23 |
 | 6. Wails Authoring and Operator Surface | 12/12 | In Progress|  |
-| 7. Versioned External Control API | 0/TBD | Not started | - |
+| 7. Versioned External Control API | 0/9 | Not started | - |
 | 8. Isolated TypeScript Automation | 0/TBD | Not started | - |
 | 9. Provider-Neutral AI and Bounded Autonomy | 0/TBD | Not started | - |
 | 10. Windows Release Qualification | 0/TBD | Not started | - |
