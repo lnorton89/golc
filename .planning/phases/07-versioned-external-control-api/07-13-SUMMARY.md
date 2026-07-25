@@ -151,6 +151,10 @@ None - no external service configuration required.
 - Every pre-existing API-04 behavior (If-Match/412, dry-run, idempotent replay, atomic batch, audit rows) remains green and unchanged.
 - The `mage testquick` toolchain gap noted above is a worktree-provisioning artifact, not a code defect; it will not recur once this branch merges back into a checkout with the bootstrapped toolchain already present.
 
+## Self-Check: PASSED
+
+All artifact files confirmed present on disk (internal/api/idempotency.go, mutate.go, batch.go, idempotency_test.go, batch_test.go, docs/api/openapi.json, this SUMMARY.md), and all five commits (fe2f755, e6d1e6d, 014ba94, 4f9da35, d5f34ab) confirmed present in `git log`.
+
 ---
 *Phase: 07-versioned-external-control-api*
 *Completed: 2026-07-25*
