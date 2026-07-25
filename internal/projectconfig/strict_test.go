@@ -156,7 +156,7 @@ var nodePlatformPins = map[string][2]string{
 // TestScopeConfigStrict is the exact quick-test marker for scope
 // "config-strict" (test --quick --scope config-strict).
 func TestScopeConfigStrict(t *testing.T) {
-	t.Run("root index discovers exactly the six phase 1 concerns", func(t *testing.T) {
+	t.Run("root index discovers exactly the seven concerns", func(t *testing.T) {
 		root := repositoryRoot(t)
 		index, err := projectconfig.LoadRootIndex(root)
 		if err != nil {
@@ -169,6 +169,7 @@ func TestScopeConfigStrict(t *testing.T) {
 			"application_defaults": "config/application-defaults.toml",
 			"runtime":              "config/runtime.toml",
 			"linear":               "config/integrations/linear.toml",
+			"api":                  "config/api.toml",
 		}
 		if len(index.Concerns) != len(expected) {
 			t.Fatalf("expected exactly %d indexed concerns, got %d", len(expected), len(index.Concerns))
@@ -229,8 +230,8 @@ func TestScopeConfigStrict(t *testing.T) {
 	t.Run("every production concern validates alone", func(t *testing.T) {
 		root := repositoryRoot(t)
 		spec := projectconfig.DefaultSpec()
-		if len(spec.Concerns) != 6 {
-			t.Fatalf("DefaultSpec must declare six concerns, got %d", len(spec.Concerns))
+		if len(spec.Concerns) != 7 {
+			t.Fatalf("DefaultSpec must declare seven concerns, got %d", len(spec.Concerns))
 		}
 		for _, concern := range spec.Concerns {
 			if _, _, err := projectconfig.ValidateConcern(root, spec, concern.ID); err != nil {

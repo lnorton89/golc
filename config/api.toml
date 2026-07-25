@@ -1,0 +1,29 @@
+# GOLC api concern: committed external control API bind/rate defaults.
+#
+# This file alone owns the api.* keys (single-authority rule enforced by
+# the strict registry in internal/projectconfig/model.go). api.remote_enabled
+# is the one writable key in this concern (mirrors runtime.log_level,
+# internal/projectconfig/registry.go's DefaultRegistry) -- every other key
+# below defaults locked.
+#
+# Loopback (127.0.0.1) is always the effective bind address unless
+# api.remote_enabled is explicitly "true" AND api.bind_interface names a
+# non-empty interface (07-RESEARCH.md Pitfall 4); enabling remote access
+# with no bind_interface fails the daemon's start loudly
+# (GOLC_API_REMOTE_BIND_INTERFACE_REQUIRED) rather than ever silently
+# binding 0.0.0.0 or silently falling back to loopback.
+#
+# api.port and api.rate_per_minute/api.rate_burst are [ASSUMED] defaults
+# from 07-RESEARCH.md Open Questions 4 and 2 respectively (port 4590 is
+# chosen to avoid the Art-Net UDP 6454 space; 60 req/min with a burst of
+# 10 is a conservative starting rate limit) -- a later discuss/UAT pass may
+# adjust either through this concern's writable-key mechanism.
+
+schema_version = 2
+
+[api]
+remote_enabled = "false"
+port = "4590"
+bind_interface = ""
+rate_per_minute = "60"
+rate_burst = "10"

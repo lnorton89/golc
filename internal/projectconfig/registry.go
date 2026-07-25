@@ -77,6 +77,12 @@ func DefaultRegistry() Registry {
 			EnvVar:        "GOLC_RUNTIME_LOG_LEVEL",
 			CLIFlag:       "--log-level",
 		},
+		"api.remote_enabled": {
+			Locked:        false,
+			AllowedValues: []string{"true", "false"},
+			EnvVar:        "GOLC_API_REMOTE_ENABLED",
+			CLIFlag:       "--api-remote-enabled",
+		},
 	}
 	for _, concern := range DefaultSpec().Concerns {
 		for key := range concern.Keys {

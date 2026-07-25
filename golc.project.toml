@@ -34,3 +34,7 @@ path = "config/runtime.toml"
 [[concerns]]
 id = "linear"
 path = "config/integrations/linear.toml"
+
+[[concerns]]
+id = "api"
+path = "config/api.toml"
