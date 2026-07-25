@@ -13,24 +13,20 @@ package never registers a route itself and never imports
 internal/command, so command -> delivery is the only import direction
 and no cycle can form.
 
-This package also never imports internal/bootstrap: internal/bootstrap's
-own test files import internal/command (to self-register their quick-
-test scopes, per the established 01-VALIDATION pattern), and
-internal/command imports internal/delivery (check.go), so a
-delivery -> bootstrap import would close a cycle through bootstrap's
-test binary (bootstrap[test] -> command -> delivery -> bootstrap).
-resolveOfflineEnvironment below instead computes the repository-local
-cache paths directly, mirroring the same direct-computation pattern
-internal/command/test.go's projectGoEnvironment already establishes,
-rather than depending on internal/bootstrap.ProjectCacheLayout.
+This package imports internal/bootstrap only for its narrow platform
+executable-path contract. Bootstrap's quick-scope declarations live in
+an external test package so that dependency does not close a test-only
+cycle through internal/command. resolveOfflineEnvironment below still
+computes cache paths directly rather than coupling delivery to
+bootstrap's broader cache model.
 
 LoadGraph, Run, RunOffline, and ValidateParity all operate on the one
 Graph value LoadGraph returns; no second, independently maintained list
 of steps exists anywhere else in the repository (T-01-17: one parsed
-graph). LoadGraph consumes exactly the three canonical keys
+graph). LoadGraph consumes exactly the two canonical keys
 internal/projectconfig/model.go's "commands" concern already owns in
-config/commands.toml (commands.entrypoint, commands.cli_binary,
-commands.go_version) — the same file internal/command/test.go's
-resolvePinnedGoExecutable-style direct TOML decode pattern already
-establishes for config/toolchain.toml. It never introduces a second
-command-inventory source.
+config/commands.toml (commands.cli_binary, commands.go_version) — the
+same file internal/command/test.go's resolvePinnedGoExecutable-style
+direct TOML decode pattern already establishes for
+config/toolchain.toml. It never introduces a second command-inventory
+source.

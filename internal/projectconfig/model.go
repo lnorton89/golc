@@ -115,7 +115,6 @@ var (
 	toolsPathPattern          = regexp.MustCompile(`^\.tools(/[A-Za-z0-9._-]+)+$`)
 	planningPathPattern       = regexp.MustCompile(`^\.planning(/[A-Za-z0-9._-]+)+$`)
 	relativeDirPattern        = regexp.MustCompile(`^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$`)
-	fileNamePattern           = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 	envVarNamePattern         = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 	labelNamePattern          = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 	// prStepListPattern is the flat-scalar shape commands.pr.steps must
@@ -190,7 +189,6 @@ func DefaultSpec() Spec {
 				ID:   "commands",
 				Path: "config/commands.toml",
 				Keys: map[string]KeySpec{
-					"commands.entrypoint":        {Pattern: fileNamePattern},
 					"commands.cli_binary":        {Pattern: toolsPathPattern},
 					"commands.go_version":        {Pattern: dottedVersionPattern},
 					"commands.pr.steps":          {Pattern: prStepListPattern},

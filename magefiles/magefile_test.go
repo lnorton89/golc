@@ -261,7 +261,7 @@ func TestTargetOutputFailureAndPRAuthority(t *testing.T) {
 		return delivery.Graph{
 			Root: gotRoot,
 			Inventory: delivery.CommandInventory{
-				Entrypoint: "golc.ps1", CLIBinary: ".tools/cli", GoVersion: "1.26.5",
+				CLIBinary: ".tools/cli", GoVersion: "1.26.5",
 			},
 			Steps: []delivery.Step{
 				{Name: "01-generate", Route: "generate", Args: []string{"--check"}},

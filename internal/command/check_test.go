@@ -46,6 +46,27 @@ func TestScopeCommandParity(t *testing.T) {
 		}
 	})
 
+	t.Run("accepts and requires correct ordering of the Mage install step", func(t *testing.T) {
+		installLine := "      - name: Install pinned Mage\n        " + prMageInstallInvocation + "\n"
+
+		t.Run("accepted once, before every target dispatch", func(t *testing.T) {
+			data := []byte(strings.Replace(string(workflow), "steps:\n", "steps:\n"+installLine, 1))
+			if err := validateCommandParity(graph, data); err != nil {
+				t.Fatalf("validateCommandParity: %v", err)
+			}
+		})
+
+		t.Run("rejected when declared twice", func(t *testing.T) {
+			data := []byte(strings.Replace(string(workflow), "steps:\n", "steps:\n"+installLine+installLine, 1))
+			assertCommandParityErrorPrefix(t, graph, data, "GOLC_CHECK_PARITY_RUN_INVALID:")
+		})
+
+		t.Run("rejected when it follows a target dispatch", func(t *testing.T) {
+			data := append(append([]byte(nil), workflow...), []byte(installLine)...)
+			assertCommandParityErrorPrefix(t, graph, data, "GOLC_CHECK_PARITY_RUN_INVALID:")
+		})
+	})
+
 	t.Run("reports the first sequence divergence", func(t *testing.T) {
 		tests := []struct {
 			name   string

@@ -84,10 +84,11 @@ type CommandsSchema struct {
 	Commands      CommandsBlock `json:"commands" jsonschema:"required"`
 }
 
-// CommandsBlock is the contributor entrypoint and delegated CLI location.
+// CommandsBlock is the delegated CLI location. Mage (magefiles/magefile.go)
+// is the sole contributor entrypoint and needs no configured script path
+// here.
 type CommandsBlock struct {
-	Entrypoint string `json:"entrypoint" jsonschema:"required,pattern=^[A-Za-z0-9._-]+$,description=Contributor entrypoint script name."`
-	CLIBinary  string `json:"cli_binary" jsonschema:"required,pattern=^[.]tools(/[A-Za-z0-9._-]+)+$,description=Delegated project-local CLI binary path."`
+	CLIBinary string `json:"cli_binary" jsonschema:"required,pattern=^[.]tools(/[A-Za-z0-9._-]+)+$,description=Delegated project-local CLI binary path."`
 	// GoVersion is committed as a typed "ref:toolchain.go.version" cross-
 	// concern reference (D-05: refer, never repeat), not a literal dotted
 	// version, so its pattern accepts either shape.

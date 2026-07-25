@@ -1,8 +1,8 @@
-// commands.go serves golc_list_command_routes: the exact set of
-// "golc.ps1 <route>" invocations reachable right now, read straight from
-// internal/command's self-registration registry (the same one
-// cmd/golc-project builds at startup) rather than a hand-maintained copy
-// that would drift from the real CLI surface.
+// commands.go serves golc_list_command_routes: the exact set of "<route>"
+// invocations reachable right now, read straight from internal/command's
+// self-registration registry (the same one cmd/golc-project builds at
+// startup, and the same one mage's route targets call in-process) rather
+// than a hand-maintained copy that would drift from the real CLI surface.
 package main
 
 import (

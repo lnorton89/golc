@@ -1,6 +1,6 @@
 # GOLC toolchain concern: exact immutable bootstrap pins.
 #
-# `golc.ps1 bootstrap` treats every value here as an immutable input. It
+# `mage Bootstrap` treats every value here as an immutable input. It
 # verifies archive bytes against the committed SHA-256 before extraction and
 # never upgrades a pin. Only the explicit `tools update` command may propose
 # changes to this file, as reviewable diffs.

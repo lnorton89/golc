@@ -285,11 +285,24 @@ const prWorkflowPath = ".github/workflows/check.yml"
 // Executable workflow content is therefore closed-world.
 var prRunDirectivePattern = regexp.MustCompile(`^\s*run\s*:`)
 
-// prMageInvocationPattern is the only executable step shape permitted in
-// the PR workflow. Mage accepts target spelling case-insensitively, but no
-// target argument, shell operator, prefix, suffix, or multiline body is
-// legal here.
+// prMageInvocationPattern is the only executable target-dispatch step
+// shape permitted in the PR workflow. Mage accepts target spelling
+// case-insensitively, but no target argument, shell operator, prefix,
+// suffix, or multiline body is legal here.
 var prMageInvocationPattern = regexp.MustCompile(`^run:\s+mage\s+([A-Za-z][A-Za-z0-9]*)$`)
+
+// prMageInstallInvocation is the one non-target run: line the PR workflow
+// may declare, and it must appear exactly once, before every mage target
+// invocation: windows-latest has no ambient Mage, so it must be
+// provisioned from the checksum-pinned archive
+// scripts/ci/install-pinned-mage.ps1 reads from config/toolchain.toml
+// before "mage <Target>" is reachable at all -- unlike golc.ps1, which
+// needed no separate installation step because it shipped checked into
+// the repository itself. This is an exact string match, not a permissive
+// pattern, keeping the workflow closed-world: any other shape (a
+// different script, an extra flag, a third-party install action) still
+// fails GOLC_CHECK_PARITY_RUN_INVALID.
+const prMageInstallInvocation = "run: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/ci/install-pinned-mage.ps1"
 
 // prForbiddenTokens names every substring that must never appear in the
 // committed PR workflow (CONTEXT D-16): a Linear secret reference or an
@@ -311,15 +324,32 @@ var prForbiddenTokens = []string{
 var prForbiddenTriggers = []string{"workflow_dispatch", "schedule:", "push:", "repository_dispatch"}
 
 // workflowMageTargets returns every run directive's Mage target in file
-// order and rejects any executable line outside the exact allowed shape.
+// order and rejects any executable line outside the exact allowed shapes:
+// at most one prMageInstallInvocation (which must precede every target
+// dispatch) plus any number of "run: mage <Target>" lines.
 func workflowMageTargets(data []byte) ([]string, error) {
 	lines := strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n")
 	targets := make([]string, 0)
+	sawInstall := false
 	for lineIndex, line := range lines {
 		if !prRunDirectivePattern.MatchString(line) {
 			continue
 		}
 		trimmed := strings.TrimSpace(line)
+		if trimmed == prMageInstallInvocation {
+			if sawInstall {
+				return nil, fmt.Errorf(
+					"GOLC_CHECK_PARITY_RUN_INVALID: %s line %d declares the Mage install step more than once",
+					prWorkflowPath, lineIndex+1)
+			}
+			if len(targets) != 0 {
+				return nil, fmt.Errorf(
+					"GOLC_CHECK_PARITY_RUN_INVALID: %s line %d declares the Mage install step after a target dispatch",
+					prWorkflowPath, lineIndex+1)
+			}
+			sawInstall = true
+			continue
+		}
 		match := prMageInvocationPattern.FindStringSubmatch(trimmed)
 		if match == nil {
 			return nil, fmt.Errorf(

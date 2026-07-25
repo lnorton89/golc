@@ -8,8 +8,8 @@
     },
     {
       "path": "config/commands.toml",
-      "sha256": "97a402ed7d43f470fc6ab639bec33fc2816cb85eb6646e3d0c105c4bfddbc421",
-      "size": 121
+      "sha256": "8fcf63265cbfd580130450b1aa582ddd9432bf8f346e9a59198f68fb28647e78",
+      "size": 97
     },
     {
       "path": "config/integrations/linear.toml",
@@ -30,11 +30,6 @@
       "path": "golc.project.toml",
       "sha256": "4e1a53d3a13edf322c7d195c0bb546d0b29b969f74f6427a6edf05fa54ebafef",
       "size": 19
-    },
-    {
-      "path": "golc.ps1",
-      "sha256": "c9629e1d747fdb2944745401d4a85b9820b97a334d4e660ff511d375b364c4b9",
-      "size": 32
     },
     {
       "path": "schemas/config-commands.schema.json",

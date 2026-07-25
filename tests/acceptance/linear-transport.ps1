@@ -56,11 +56,23 @@ completes promptly with no GOLC_TRANSPORT_TIMEOUT/
 GOLC_TRANSPORT_PROCESS_EXITED, proving the read exception is contained to
 a graceful found:false outcome.
 
-Requires a prior successful `golc.ps1 bootstrap --include linear-sync` and
-`golc.ps1 build --scope linear-sdk` (the compiled adapter must already
-exist at tools/linear-sync/dist/src/cli.js) -- this script never
-bootstraps or installs anything itself, matching every other acceptance
-script's precedent in this repository.
+Requires a prior successful `mage Bootstrap` with
+GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC=1 set, and a `build --scope linear-sdk`
+invocation of the pinned project-local CLI binary that bootstrap just
+compiled (the compiled adapter must already exist at
+tools/linear-sync/dist/src/cli.js) -- this script never bootstraps or
+installs anything itself, matching every other acceptance script's
+precedent in this repository.
+
+This is the one acceptance script that stays PowerShell/subprocess-based
+rather than becoming a Go test: it drives the real, compiled
+tools/linear-sync/dist/src/cli.js through the real Go<->Node process
+transport, which cannot be replicated in Go without literally spawning a
+real Node process running the real compiled adapter (a fake `@linear/sdk`
+substitutes for the network boundary, but not for the TypeScript-compiled
+protocol/adapter/cli code itself). It was never wired into any CI
+workflow before golc.ps1's removal and remains a manual, Windows-only
+verification tool now.
 #>
 [CmdletBinding()]
 param(
@@ -72,11 +84,12 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 function Invoke-Golc {
-    <# Runs golc.ps1 in RepositoryRoot with CommandArguments and returns a
-       classification/exit-code/output object, inheriting this process's
-       own $env: variables (the caller sets LINEAR_API_KEY/LINEAR_TEAM_ID/
-       GOLC_LINEAR_SYNC_WORKDIR/etc. before calling this). Mirrors every
-       other acceptance script's Invoke-Golc exactly. #>
+    <# Runs the pinned project-local golc-project CLI binary (the one
+       "mage Bootstrap" compiles) in RepositoryRoot with CommandArguments
+       and returns a classification/exit-code/output object, inheriting
+       this process's own $env: variables (the caller sets
+       LINEAR_API_KEY/LINEAR_TEAM_ID/GOLC_LINEAR_SYNC_WORKDIR/etc. before
+       calling this). #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -85,7 +98,7 @@ function Invoke-Golc {
         [string[]]$CommandArguments = @()
     )
 
-    $rootCommand = Join-Path $RepositoryRoot "golc.ps1"
+    $rootCommand = Join-Path $RepositoryRoot ".tools\installs\golc_project\windows-amd64\bin\golc-project.exe"
     if (-not (Test-Path -LiteralPath $rootCommand -PathType Leaf)) {
         return [pscustomobject]@{
             Classification = "missing-root-command"
@@ -93,29 +106,19 @@ function Invoke-Golc {
             StdOutBytes    = [byte[]]@()
             StdErrBytes    = [byte[]]@()
             StdOutText     = ""
-            StdErrText     = "golc.ps1 is absent"
+            StdErrText     = "$rootCommand is absent; run 'mage Bootstrap' first"
         }
     }
 
-    $windowsPowerShell = Get-Command "powershell.exe" -CommandType Application -ErrorAction Stop
     $captureRoot = Join-Path ([System.IO.Path]::GetTempPath()) (".acceptance-capture-" + [guid]::NewGuid().ToString("N"))
     $stdoutPath = Join-Path $captureRoot "stdout.bin"
     $stderrPath = Join-Path $captureRoot "stderr.bin"
 
     New-Item -ItemType Directory -Path $captureRoot -ErrorAction Stop | Out-Null
     try {
-        $processArguments = @(
-            "-NoProfile",
-            "-NonInteractive",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            ('"' + $rootCommand + '"')
-        ) + $CommandArguments
-
         $process = Start-Process `
-            -FilePath $windowsPowerShell.Source `
-            -ArgumentList $processArguments `
+            -FilePath $rootCommand `
+            -ArgumentList $CommandArguments `
             -WorkingDirectory $RepositoryRoot `
             -RedirectStandardOutput $stdoutPath `
             -RedirectStandardError $stderrPath `
@@ -157,7 +160,7 @@ function Assert-GolcSucceeded {
     )
 
     if ($Result.Classification -eq "missing-root-command") {
-        throw "ROOT_COMMAND_MISSING: $Operation requires golc.ps1"
+        throw "ROOT_COMMAND_MISSING: $Operation requires the pinned golc-project.exe ($($Result.StdErrText.Trim()))"
     }
     if ($Result.ExitCode -ne 0) {
         throw "ROOT_COMMAND_FAILED: $Operation exited $($Result.ExitCode): $($Result.StdErrText.Trim())"
@@ -175,7 +178,8 @@ function New-FakeLinearSdkWorkspace {
        exact per-discriminant call counts and one-object-per-local-ID
        state, and every created/updated record is persisted to
        StorePath so state survives across the several separate
-       `golc.ps1 ...` process invocations one full acceptance run makes. #>
+       `golc-project.exe ...` process invocations one full acceptance run
+       makes. #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -193,7 +197,7 @@ function New-FakeLinearSdkWorkspace {
 
     $distSrcSource = Join-Path $RepositoryUnderTest "tools\linear-sync\dist\src"
     if (-not (Test-Path -LiteralPath $distSrcSource -PathType Container)) {
-        throw "LINEAR_TRANSPORT_ADAPTER_MISSING: expected $distSrcSource; run 'golc.ps1 bootstrap --include linear-sync' and 'golc.ps1 build --scope linear-sdk' first"
+        throw "LINEAR_TRANSPORT_ADAPTER_MISSING: expected $distSrcSource; set GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC=1 and run 'mage Bootstrap', then 'build --scope linear-sdk' against the pinned golc-project.exe, first"
     }
 
     New-Item -ItemType Directory -Path $WorkspaceRoot -Force | Out-Null
@@ -686,7 +690,7 @@ function Invoke-ReadFailureRecoveryAcceptance {
             $stopwatch.Stop()
 
             if ($previewAfterArchiveResult.Classification -eq "missing-root-command") {
-                throw "ROOT_COMMAND_MISSING: linear preview --remote (after archive) requires golc.ps1"
+                throw "ROOT_COMMAND_MISSING: linear preview --remote (after archive) requires the pinned golc-project.exe"
             }
             if ($previewAfterArchiveResult.StdErrText.Contains("GOLC_TRANSPORT_TIMEOUT") -or $previewAfterArchiveResult.StdErrText.Contains("GOLC_TRANSPORT_PROCESS_EXITED")) {
                 throw "LINEAR_TRANSPORT_READFAIL_STALLED: linear preview --remote stalled/timed out reading the archived object instead of receiving a graceful found:false outcome: $($previewAfterArchiveResult.StdErrText.Trim())"

@@ -53,7 +53,6 @@ func writeFixtureCommandsToml(t *testing.T, root string) {
 		t.Fatalf("mkdir config: %v", err)
 	}
 	body := "schema_version = 1\n\n[commands]\n" +
-		"entrypoint = \"golc.ps1\"\n" +
 		"cli_binary = \".tools/installs/golc_project\"\n" +
 		"go_version = \"1.26.5\"\n"
 	if err := os.WriteFile(filepath.Join(configDir, "commands.toml"), []byte(body), 0o644); err != nil {
@@ -68,7 +67,6 @@ func writeFixturePRCommandsToml(t *testing.T, root, steps, network, mutation str
 		t.Fatalf("mkdir config: %v", err)
 	}
 	body := "schema_version = 2\n\n[commands]\n" +
-		"entrypoint = \"golc.ps1\"\n" +
 		"cli_binary = \".tools/installs/golc_project\"\n" +
 		"go_version = \"1.26.5\"\n\n" +
 		"[commands.pr]\n" +
@@ -227,16 +225,13 @@ func TestScopeDelivery(t *testing.T) {
 		}
 	})
 
-	t.Run("LoadGraph reads exactly the three canonical commands keys and the fixed core steps", func(t *testing.T) {
+	t.Run("LoadGraph reads exactly the two canonical commands keys and the fixed core steps", func(t *testing.T) {
 		root := t.TempDir()
 		writeFixtureCommandsToml(t, root)
 
 		graph, err := delivery.LoadGraph(root)
 		if err != nil {
 			t.Fatalf("LoadGraph: %v", err)
-		}
-		if graph.Inventory.Entrypoint != "golc.ps1" {
-			t.Fatalf("Entrypoint = %q, want golc.ps1", graph.Inventory.Entrypoint)
 		}
 		wantCLI := filepath.ToSlash(bootstrap.PlatformExecutablePath(".tools/installs/golc_project", "golc-project"))
 		if graph.Inventory.CLIBinary != wantCLI {
@@ -278,7 +273,7 @@ func TestScopeDelivery(t *testing.T) {
 		if err := os.MkdirAll(configDir, 0o755); err != nil {
 			t.Fatalf("mkdir config: %v", err)
 		}
-		body := "schema_version = 1\n\n[commands]\nentrypoint = \"golc.ps1\"\n"
+		body := "schema_version = 1\n\n[commands]\n"
 		if err := os.WriteFile(filepath.Join(configDir, "commands.toml"), []byte(body), 0o644); err != nil {
 			t.Fatalf("write config/commands.toml: %v", err)
 		}
@@ -325,7 +320,7 @@ func TestScopeDelivery(t *testing.T) {
 		graph := delivery.Graph{
 			Root: t.TempDir(),
 			Inventory: delivery.CommandInventory{
-				Entrypoint: "golc.ps1", CLIBinary: ".tools/x", GoVersion: "1.26.5",
+				CLIBinary: ".tools/x", GoVersion: "1.26.5",
 			},
 			Steps: []delivery.Step{
 				{Name: "one", Route: "one", Network: delivery.NetworkDenied},
@@ -486,7 +481,6 @@ func TestScopeDelivery(t *testing.T) {
 			"config/toolchain.toml",
 			"docs/development.md",
 			"golc.project.toml",
-			"golc.ps1",
 			"schemas/config-commands.schema.json",
 			"schemas/golc-project.schema.json",
 		}
@@ -501,7 +495,7 @@ func TestScopeDelivery(t *testing.T) {
 			t.Fatalf("expected FoundationInventory to return sorted archive paths, got %v", gotPaths)
 		}
 
-		incomplete := delivery.CommandInventory{Entrypoint: "golc.ps1"}
+		incomplete := delivery.CommandInventory{}
 		if _, err := delivery.FoundationInventory(root, incomplete); err == nil {
 			t.Fatal("expected FoundationInventory to reject an incomplete graph inventory")
 		}
@@ -737,8 +731,8 @@ func TestScopeDelivery(t *testing.T) {
 
 		// A second write must replace the prior output at the exact same
 		// path rather than accumulating a second differently-named
-		// artifact (offline.ps1 -Mode package's repeat-and-compare
-		// verification depends on this fixed identity).
+		// artifact (this test's own repeat-and-compare verification below
+		// depends on this fixed identity).
 		if err := delivery.WriteFoundationBundle(bundle, paths); err != nil {
 			t.Fatalf("WriteFoundationBundle (second write): %v", err)
 		}
@@ -755,12 +749,12 @@ func TestScopeDelivery(t *testing.T) {
 // writeFoundationFixture writes a minimal, self-contained repository tree
 // under root that FoundationInventory/BuildFoundationBundle can operate
 // on: config/commands.toml (with an exact, deterministic
-// entrypoint/cli_binary/go_version so LoadGraph succeeds), one additional
-// config concern file, one nested integrations concern file, the
-// entrypoint and cli_binary files themselves, docs/development.md, and
-// two schema fixtures — deliberately independent of the real repository's
-// current file set so this fixture (and the golden manifest it produces)
-// never drifts when the real repository gains or loses files.
+// cli_binary/go_version so LoadGraph succeeds), one additional config
+// concern file, one nested integrations concern file, the cli_binary
+// file itself, docs/development.md, and two schema fixtures —
+// deliberately independent of the real repository's current file set so
+// this fixture (and the golden manifest it produces) never drifts when
+// the real repository gains or loses files.
 func writeFoundationFixture(t *testing.T, root string) {
 	t.Helper()
 	writeFoundationFixtureWithBinaryPath(t, root, bootstrap.PlatformExecutablePath(".tools/installs/golc_project", "golc-project"))
@@ -786,10 +780,9 @@ func writeFoundationFixtureForGoldenManifest(t *testing.T, root string) {
 func writeFoundationFixtureWithBinaryPath(t *testing.T, root, binaryPath string) {
 	t.Helper()
 	files := map[string]string{
-		"golc.ps1":                            "REM golc.ps1 fixture entrypoint\n",
 		"golc.project.toml":                   "schema_version = 1\n",
 		"docs/development.md":                 "# Fixture Docs\n",
-		"config/commands.toml":                "schema_version = 1\n\n[commands]\nentrypoint = \"golc.ps1\"\ncli_binary = \".tools/installs/golc_project\"\ngo_version = \"1.26.5\"\n",
+		"config/commands.toml":                "schema_version = 1\n\n[commands]\ncli_binary = \".tools/installs/golc_project\"\ngo_version = \"1.26.5\"\n",
 		"config/toolchain.toml":               "schema_version = 1\n",
 		"config/integrations/linear.toml":     "schema_version = 1\n",
 		"schemas/golc-project.schema.json":    "{}\n",

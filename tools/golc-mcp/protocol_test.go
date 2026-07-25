@@ -34,11 +34,10 @@ type mageProtocolEnvironmentOption struct {
 }
 
 type mageProtocolPR struct {
-	AuthorityFile        string               `json:"authority_file"`
-	AuthorityKeys        []string             `json:"authority_keys"`
-	ConfiguredEntrypoint string               `json:"configured_entrypoint"`
-	MutationPolicy       string               `json:"mutation_policy"`
-	Steps                []mageProtocolPRStep `json:"steps"`
+	AuthorityFile  string               `json:"authority_file"`
+	AuthorityKeys  []string             `json:"authority_keys"`
+	MutationPolicy string               `json:"mutation_policy"`
+	Steps          []mageProtocolPRStep `json:"steps"`
 }
 
 type mageProtocolPRStep struct {
@@ -100,8 +99,8 @@ func TestMCPProtocolReadOnlyInventoryAndCalls(t *testing.T) {
 	if !reflect.DeepEqual(gotNames, wantNames) {
 		t.Fatalf("tool names = %v, want %v", gotNames, wantNames)
 	}
-	if description := toolsByName["golc_list_mage_targets"].Description; !strings.Contains(description, "configured contributor entrypoint") {
-		t.Fatalf("Mage tool description does not explain configured entrypoint authority: %q", description)
+	if description := toolsByName["golc_list_mage_targets"].Description; !strings.Contains(description, "sole contributor entrypoint") {
+		t.Fatalf("Mage tool description does not explain Mage's entrypoint authority: %q", description)
 	}
 
 	status := callProtocolTool(t, ctx, session, "golc_project_status")
@@ -142,8 +141,7 @@ func TestMCPProtocolReadOnlyInventoryAndCalls(t *testing.T) {
 					"commands.pr.network_steps",
 					"commands.pr.mutation_steps",
 				},
-				ConfiguredEntrypoint: "golc.ps1",
-				MutationPolicy:       "none",
+				MutationPolicy: "none",
 				Steps: []mageProtocolPRStep{
 					{Name: "01-bootstrap", Route: "bootstrap", Args: []string{}, Network: "allowed"},
 					{Name: "02-generate---check", Route: "generate", Args: []string{"--check"}, Network: "denied"},
@@ -229,7 +227,12 @@ func TestMCPProductionSourcesCannotExecute(t *testing.T) {
 	}
 }
 
-func TestMCPDescriptionsUseConfiguredEntrypointLanguage(t *testing.T) {
+// TestMCPDescriptionsHaveNoGolcPs1References guards against golc.ps1
+// language creeping back into this server's tool descriptions or README
+// now that golc.ps1 itself has been deleted (PowerShell removal plan
+// Step 7): Mage is the sole contributor entrypoint, not a "configured" or
+// "currently retained compatibility" one.
+func TestMCPDescriptionsHaveNoGolcPs1References(t *testing.T) {
 	mainSource, err := os.ReadFile("main.go")
 	if err != nil {
 		t.Fatal(err)
@@ -240,22 +243,22 @@ func TestMCPDescriptionsUseConfiguredEntrypointLanguage(t *testing.T) {
 	}
 	combined := string(mainSource) + "\n" + string(readme)
 	for _, stale := range []string{
-		`Every "golc.ps1 <route>"`,
-		`identical to "golc.ps1`,
-		"graph golc.ps1 owns",
+		"golc.ps1",
+		"configured contributor entrypoint",
+		"configured entrypoint",
+		"compatibility entrypoint",
 	} {
 		if strings.Contains(combined, stale) {
-			t.Errorf("migration wording still presents golc.ps1 as permanent authority: %q", stale)
+			t.Errorf("golc-mcp documentation still references %q; golc.ps1 no longer exists", stale)
 		}
 	}
 	for _, required := range []string{
-		"configured contributor entrypoint",
-		"currently retained compatibility entrypoint",
+		"sole contributor entrypoint",
 		".mcp.json",
 		"go build -o tools/golc-mcp/golc-mcp.exe ./tools/golc-mcp",
 	} {
 		if !strings.Contains(combined, required) {
-			t.Errorf("migration documentation missing %q", required)
+			t.Errorf("golc-mcp documentation missing %q", required)
 		}
 	}
 }
@@ -330,7 +333,6 @@ Last activity: 2026-07-24 — Completed quick task task-b: protocol body
 	writeProtocolFile(t, root, "config/commands.toml", `schema_version = 2
 
 [commands]
-entrypoint = "golc.ps1"
 cli_binary = ".tools/installs/golc_project"
 go_version = "1.26.5"
 

@@ -1,9 +1,8 @@
 // docs.go serves golc_list_reference_docs and golc_get_reference_doc over
-// the generated docs/reference/*.md package documentation ("golc.ps1
-// docs" regenerates these from Go doc comments). Reading the committed
-// Markdown is far cheaper for a caller than reading source directly, and
-// stays exactly in sync with it since the docs command is part of the
-// offline core graph. Requested names are resolved against a directory
+// the generated docs/reference/*.md package documentation (the
+// route-native "docs" operation regenerates these from Go doc comments).
+// Reading the committed Markdown is far cheaper for a caller than reading
+// source directly. Requested names are resolved against a directory
 // listing, never joined into a path directly, so a caller can't read
 // outside docs/reference/.
 package main
