@@ -100,7 +100,7 @@
 - [ ] **API-01**: An external program can query and invoke a documented, coverage-gated subset of public domain capability -- configuration and show inspection, fixture-pool creation, scoped API-key lifecycle, atomic multi-command batches, and revisioned change events -- through a versioned API that uses the same application command model as the UI, with every not-yet-exposed public route explicitly named and deferred to EXTN-05 rather than silently unmapped.
 - [ ] **API-02**: The API publishes an OpenAPI contract, generated client examples, typed errors, and compatibility/deprecation guidance.
 - [x] **API-03**: An external client can subscribe to revisioned server-sent events and recover from an event gap by re-querying authoritative state.
-- [ ] **API-04**: Mutating API operations support expected revisions, idempotency, dry-run impact previews, and atomic meaningful batches.
+- [x] **API-04**: Mutating API operations support expected revisions, idempotency, dry-run impact previews, and atomic meaningful batches.
 - [ ] **API-05**: The API binds to loopback by default and requires explicit enablement and scoped authentication for remote access.
 - [ ] **API-06**: Every API mutation records actor, source, correlation, outcome, and redacted audit details.
 
@@ -269,7 +269,7 @@ A v1 requirement is complete only when its implementation is committed, automate
 | API-01 | Phase 7 | Pending |
 | API-02 | Phase 7 | Pending |
 | API-03 | Phase 7 | Complete |
-| API-04 | Phase 7 | Pending |
+| API-04 | Phase 7 | Complete |
 | API-05 | Phase 7 | Pending |
 | API-06 | Phase 7 | Pending |
 | SCRP-01 | Phase 8 | Pending |
