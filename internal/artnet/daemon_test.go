@@ -24,8 +24,10 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -607,5 +609,134 @@ func TestNewPlaybackStatusPayloadIdleWhenNoActivePlan(t *testing.T) {
 	}
 	if payload.SceneID != "" || payload.SceneName != "" {
 		t.Fatalf("expected empty SceneID/SceneName for the idle payload, got %q/%q", payload.SceneID, payload.SceneName)
+	}
+}
+
+// fakeSubsystem is a minimal Subsystem whose Start/Shutdown calls append
+// to a shared, test-owned log -- used to prove 07-02-PLAN.md Task 2's
+// ordering contract without depending on any real hosted component (e.g.
+// the versioned external control API's HTTP server, which this package
+// must never import).
+type fakeSubsystem struct {
+	name     string
+	startErr error
+	log      *[]string
+	mu       *sync.Mutex
+}
+
+func (f *fakeSubsystem) Start(ctx context.Context) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	*f.log = append(*f.log, "start:"+f.name)
+	return f.startErr
+}
+
+func (f *fakeSubsystem) Shutdown(ctx context.Context) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	*f.log = append(*f.log, "shutdown:"+f.name)
+	return nil
+}
+
+// TestSubsystemsStartAfterListenerAndStopInReverseOrder proves 07-02-
+// PLAN.md Task 2's D-07 ordering contract end-to-end: two Subsystems
+// start (in registration order) only once the IPC listener is already
+// answering requests, and stop (in reverse order) on ctx cancellation.
+func TestSubsystemsStartAfterListenerAndStopInReverseOrder(t *testing.T) {
+	var mu sync.Mutex
+	var log []string
+	one := &fakeSubsystem{name: "one", log: &log, mu: &mu}
+	two := &fakeSubsystem{name: "two", log: &log, mu: &mu}
+
+	pipeName := testDaemonPipeName(t)
+	interfaceIndex := loopbackInterfaceIndex(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	runDone := make(chan error, 1)
+	go func() {
+		runDone <- Run(ctx, Config{
+			State:          minimalPlayableState(t),
+			InterfaceIndex: interfaceIndex,
+			InterfaceName:  "loopback",
+			PipeName:       pipeName,
+			Subsystems:     []Subsystem{one, two},
+		})
+	}()
+
+	// Proves subsystems start only after the IPC listener is already
+	// answering requests: by the time this dial+status round-trip
+	// succeeds, the listener must be up, and both Start calls must
+	// already be recorded (Run calls startSubsystems synchronously,
+	// before ipc.Serve begins accepting).
+	conn := dialTestDaemon(t, pipeName)
+	result := ipc.Forward(conn, ipc.Request{Route: "artnet status"})
+	conn.Close()
+	if result.ExitCode != 0 {
+		t.Fatalf("expected status ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	}
+
+	mu.Lock()
+	started := append([]string(nil), log...)
+	mu.Unlock()
+	if !reflect.DeepEqual(started, []string{"start:one", "start:two"}) {
+		t.Fatalf("expected subsystems to start in order once the listener answers, got %v", started)
+	}
+
+	cancel()
+	select {
+	case err := <-runDone:
+		if err != nil {
+			t.Fatalf("Run returned an error on clean shutdown: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not return within 5s of ctx cancel")
+	}
+
+	mu.Lock()
+	final := append([]string(nil), log...)
+	mu.Unlock()
+	want := []string{"start:one", "start:two", "shutdown:two", "shutdown:one"}
+	if !reflect.DeepEqual(final, want) {
+		t.Fatalf("expected subsystems to start in order and stop in reverse order, got %v, want %v", final, want)
+	}
+}
+
+// TestSubsystemStartFailureUnwindsAlreadyStartedSubsystems proves the
+// partial-startup-failure path: when a later Subsystem's Start fails,
+// Run shuts down exactly the subsystems that already started (in
+// reverse), never calls Shutdown on the one that failed to start, and
+// still returns a GOLC_ARTNET_DAEMON_SUBSYSTEM_START_FAILED error rather
+// than leaving the daemon half-running.
+func TestSubsystemStartFailureUnwindsAlreadyStartedSubsystems(t *testing.T) {
+	var mu sync.Mutex
+	var log []string
+	one := &fakeSubsystem{name: "one", log: &log, mu: &mu}
+	two := &fakeSubsystem{name: "two", log: &log, mu: &mu, startErr: fmt.Errorf("boom")}
+
+	pipeName := testDaemonPipeName(t)
+	interfaceIndex := loopbackInterfaceIndex(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := Run(ctx, Config{
+		State:          minimalPlayableState(t),
+		InterfaceIndex: interfaceIndex,
+		InterfaceName:  "loopback",
+		PipeName:       pipeName,
+		Subsystems:     []Subsystem{one, two},
+	})
+	if err == nil {
+		t.Fatal("expected Run to return an error when a subsystem fails to start")
+	}
+	if !strings.Contains(err.Error(), "GOLC_ARTNET_DAEMON_SUBSYSTEM_START_FAILED") {
+		t.Fatalf("expected GOLC_ARTNET_DAEMON_SUBSYSTEM_START_FAILED, got: %v", err)
+	}
+
+	want := []string{"start:one", "start:two", "shutdown:one"}
+	if !reflect.DeepEqual(log, want) {
+		t.Fatalf("expected exactly the already-started subsystem to be shut down, got %v, want %v", log, want)
+	}
+
+	if _, dialErr := ipc.Dial(pipeName); dialErr == nil {
+		t.Fatal("expected the IPC listener to have been closed after the subsystem start failure")
 	}
 }

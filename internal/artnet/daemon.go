@@ -56,6 +56,10 @@ import (
 // requests. PipeName overrides the IPC listener's pipe path; empty uses
 // ipc.PipeName (the production default) -- tests set a distinct value so
 // concurrent package test runs never collide on the same named pipe.
+// Subsystems are additional ordered start/stop components hosted inside
+// this same process (D-07, 07-02-PLAN.md Task 2) -- e.g. the versioned
+// external control API's HTTP server. This package never imports a
+// subsystem's own package; Subsystem is satisfied structurally.
 type Config struct {
 	State          show.State
 	InterfaceIndex int
@@ -65,6 +69,50 @@ type Config struct {
 	Targets        map[int][]Target
 	SendTimeout    time.Duration
 	PipeName       string
+	Subsystems     []Subsystem
+}
+
+// Subsystem is one additional component Run starts and stops alongside
+// the engine/interface manager/worker/IPC listener (CONTEXT D-07,
+// 07-02-PLAN.md Task 2): Start is called once the IPC listener is up,
+// before Run begins serving it; Shutdown is called, in reverse
+// registration order with a bounded 5s context each, in the same place
+// the worker/interface manager/engine are stopped -- both on a clean
+// shutdown and on a partial-startup-failure unwind. Declared here, in
+// this package, and satisfied structurally by an unrelated package (this
+// package's own doc comment: internal/artnet must never import that
+// package) so this file never needs to know what a Subsystem actually is.
+type Subsystem interface {
+	Start(ctx context.Context) error
+	Shutdown(ctx context.Context) error
+}
+
+// startSubsystems starts every configured Subsystem in order, returning
+// the prefix that started successfully so a later failure can unwind
+// exactly what was started, and only that.
+func startSubsystems(ctx context.Context, subsystems []Subsystem) ([]Subsystem, error) {
+	started := make([]Subsystem, 0, len(subsystems))
+	for _, subsystem := range subsystems {
+		if err := subsystem.Start(ctx); err != nil {
+			return started, err
+		}
+		started = append(started, subsystem)
+	}
+	return started, nil
+}
+
+// shutdownSubsystems stops every given Subsystem in reverse order, each
+// with its own bounded 5s context, mirroring Run's own ordered teardown
+// of the engine/interface manager/worker (D-07's start-in-order,
+// stop-in-reverse-order discipline). A Shutdown error is not itself fatal
+// to the unwind -- every remaining subsystem still gets its own Shutdown
+// call.
+func shutdownSubsystems(subsystems []Subsystem) {
+	for i := len(subsystems) - 1; i >= 0; i-- {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_ = subsystems[i].Shutdown(shutdownCtx)
+		cancel()
+	}
 }
 
 // pipeNameOrDefault returns cfg.PipeName, or ipc.PipeName when cfg.PipeName
@@ -213,7 +261,33 @@ func Run(ctx context.Context, cfg Config) error {
 		return fmt.Errorf("GOLC_ARTNET_DAEMON_IPC_LISTEN_FAILED: %v", err)
 	}
 
+	// Subsystems (D-07, 07-02-PLAN.md Task 2 -- e.g. the versioned
+	// external control API's HTTP server) start once the IPC listener is
+	// up and before Run begins serving it. A start failure unwinds
+	// exactly what was already started, in reverse, then closes the
+	// listener itself (ipc.Serve never got a chance to take ownership of
+	// closing it via ctx.Done()) before tearing down the
+	// worker/interface manager/engine, mirroring this function's existing
+	// partial-failure discipline.
+	startedSubsystems, subsystemErr := startSubsystems(ctx, cfg.Subsystems)
+	if subsystemErr != nil {
+		shutdownSubsystems(startedSubsystems)
+		_ = listener.Close()
+		d.mu.Lock()
+		d.stopWorkerLocked()
+		d.mu.Unlock()
+		ifaceMgr.Stop()
+		engine.Stop()
+		return fmt.Errorf("GOLC_ARTNET_DAEMON_SUBSYSTEM_START_FAILED: %v", subsystemErr)
+	}
+
 	serveErr := ipc.Serve(ctx, listener, d.handle)
+
+	// Subsystems stop before the worker/interface manager/engine, in
+	// reverse start order, on every serve-loop exit (clean ctx-cancel
+	// shutdown or a genuine Accept failure) -- the same place this
+	// function has always stopped everything else it started.
+	shutdownSubsystems(cfg.Subsystems)
 
 	d.mu.Lock()
 	d.stopWorkerLocked()

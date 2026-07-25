@@ -49,6 +49,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/lnorton89/golc/internal/api"
 	"github.com/lnorton89/golc/internal/artnet"
 	artnetipc "github.com/lnorton89/golc/internal/artnet/ipc"
 	"github.com/lnorton89/golc/internal/deployment"
@@ -57,6 +58,37 @@ import (
 	"github.com/lnorton89/golc/internal/show"
 	"github.com/lnorton89/golc/internal/strictjson"
 )
+
+// apiCommandExecutor adapts a *CommandRegistry to internal/api's Executor
+// interface structurally (07-02-PLAN.md Task 1/Task 2, 07-RESEARCH.md
+// Pattern 1 as refined by this plan): internal/api depends only on this
+// three-method contract, never on this package's import path, so this
+// package -- the only one that may legally import both internal/api and
+// this file's own registry -- is where the adapter lives. Execute mirrors
+// CommandRegistry.Execute's dispatch, but resolves route directly via
+// Lookup instead of word-matching it out of a flat Args slice: route is
+// already known (the caller picked exactly which command to run), so
+// args are handler arguments only, never route words to be parsed back
+// out.
+type apiCommandExecutor struct {
+	registry *CommandRegistry
+}
+
+// Execute implements internal/api's Executor interface.
+func (e apiCommandExecutor) Execute(route string, args []string, root string) (exitCode int, stdout, stderr []byte) {
+	registration, rest, ok := e.registry.Lookup(strings.Fields(route))
+	if !ok || len(rest) != 0 {
+		return 2, nil, []byte(fmt.Sprintf("GOLC_ROUTE_UNKNOWN: no registered route matches %q\n", route))
+	}
+	result := registration.Handler(Request{Route: registration.Route, Args: args, Root: root})
+	return result.ExitCode, result.Stdout, result.Stderr
+}
+
+// compile-time proof that *api.Server structurally satisfies
+// artnet.Subsystem (D-07): this package is the one place both types are
+// visible, since internal/api must never import internal/artnet and
+// internal/artnet must never import internal/api.
+var _ artnet.Subsystem = (*api.Server)(nil)
 
 var _ = MustDeclareScope(ScopeRegistration{
 	Scope:   "artnet",
@@ -423,6 +455,19 @@ func runArtnetServe(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
+	// The versioned external control API (D-07, 07-02-PLAN.md Task 2)
+	// hosts inside this same daemon process as one more ordered
+	// Subsystem: a fresh registry (the exact same self-registered routes
+	// every CLI invocation resolves against) backs the executor injected
+	// into api.NewServer, and the daemon's own fixed --show path is
+	// injected server-side into every show-domain call the API makes
+	// (07-RESEARCH.md Pitfall 3) -- never a client-supplied path.
+	apiRegistry, err := NewDefaultCommandRegistry()
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_ARTNET_SERVE_FAILED: %v\n", err))}
+	}
+	apiServer := api.NewServer(apiCommandExecutor{registry: apiRegistry}, request.Root, parsed.showPath)
+
 	cfg := artnet.Config{
 		State:          state,
 		InterfaceIndex: parsed.interfaceIdx,
@@ -431,6 +476,7 @@ func runArtnetServe(request Request) Result {
 		Resolve:        resolve,
 		Targets:        map[int][]artnet.Target{},
 		PipeName:       parsed.pipeName,
+		Subsystems:     []artnet.Subsystem{apiServer},
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
