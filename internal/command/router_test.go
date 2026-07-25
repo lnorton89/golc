@@ -231,3 +231,26 @@ func TestExecuteUnknownRouteFailsWithStableCode(t *testing.T) {
 		t.Fatalf("expected stable GOLC_ROUTE_UNKNOWN diagnostic, got %q", result.Stderr)
 	}
 }
+
+// TestExecuteBareInvocationPrintsUsage proves a zero-argument invocation
+// (the exact shape a user gets from running the CLI binary with no
+// subcommand) gets an actionable route listing instead of the generic
+// GOLC_ROUTE_UNKNOWN: no registered route matches "" diagnostic.
+func TestExecuteBareInvocationPrintsUsage(t *testing.T) {
+	registry := newDefaultRegistry(t)
+
+	result := registry.Execute(command.Request{Args: []string{}})
+	if result.ExitCode == 0 {
+		t.Fatal("expected a nonzero exit code for a bare invocation")
+	}
+	stderr := string(result.Stderr)
+	if strings.Contains(stderr, `GOLC_ROUTE_UNKNOWN: no registered route matches ""`) {
+		t.Fatalf("expected a usage listing, not the generic unknown-route diagnostic, got %q", stderr)
+	}
+	if !strings.Contains(stderr, "GOLC_ROUTE_MISSING") {
+		t.Fatalf("expected GOLC_ROUTE_MISSING diagnostic, got %q", stderr)
+	}
+	if !strings.Contains(stderr, "routerfixture echo") {
+		t.Fatalf("expected the usage listing to include a registered route, got %q", stderr)
+	}
+}

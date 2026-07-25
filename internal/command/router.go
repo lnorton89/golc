@@ -171,9 +171,27 @@ func (r *CommandRegistry) Scopes() []ScopeRegistration {
 	return registrations
 }
 
+// usage renders every registered route (sorted, per Routes) as a plain-text
+// listing for a bare zero-argument invocation.
+func (r *CommandRegistry) usage() string {
+	var builder strings.Builder
+	builder.WriteString("GOLC_ROUTE_MISSING: no route given; usage: golc-project <route> [args...]\n\nAvailable routes:\n")
+	for _, registration := range r.Routes() {
+		fmt.Fprintf(&builder, "  %-20s %s\n", registration.Route, registration.Summary)
+	}
+	return builder.String()
+}
+
 // Execute routes one invocation and runs its handler. Unroutable
-// invocations fail with a stable diagnostic and exit code 2.
+// invocations fail with a stable diagnostic and exit code 2. A bare
+// invocation (zero arguments) gets a usage listing of every registered
+// route instead of a "no route matches \"\"" diagnostic — the same
+// exit-2 routing-failure code, just a more actionable message for a
+// user who ran the binary with nothing else to go on.
 func (r *CommandRegistry) Execute(request Request) Result {
+	if len(request.Args) == 0 {
+		return Result{ExitCode: 2, Stderr: []byte(r.usage())}
+	}
 	registration, rest, ok := r.Lookup(request.Args)
 	if !ok {
 		diagnostic := fmt.Sprintf("GOLC_ROUTE_UNKNOWN: no registered route matches %q\n", strings.Join(request.Args, " "))
