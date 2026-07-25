@@ -29,6 +29,7 @@ var excludedRoutes = buildExcludedRoutes()
 func buildExcludedRoutes() map[string]string {
 	const reasonDevTooling = "repository development tooling (build/test/docs/packaging/Linear sync); not part of the external show-control API surface"
 	const reasonDaemonLifecycle = "daemon lifecycle entrypoint -- IS the process that hosts /v1, not a route exposed on it"
+	const reasonLocalProcessLaunch = "mage-only dev-loop entrypoint that execs a new local golc-desktop child process with a PATH fixup (internal/command/run.go); launching a GUI process on the server machine has no meaningful HTTP API semantics"
 	const reasonArtnetDeferred = "Art-Net daemon runtime route; deferred to a later 07-0x plan alongside the API's auth/rate-limit/mutation work"
 	const reasonMutationDeferred = "show-domain mutation route; deferred to a later 07-0x plan (arrives with If-Match/dry-run/batch semantics) -- this plan proves the read-path translation + coverage mechanism only"
 	const reasonReadDeferred = "show-domain read/inspect route not yet wired to a REST GET; this plan's minimum scope is GET /v1/config + GET /v1/show, following the same RegisterOperation seam in a later 07-0x plan"
@@ -47,6 +48,7 @@ func buildExcludedRoutes() map[string]string {
 		"linear validate", "package", "test", "tools update",
 	)
 	addAll(reasonDaemonLifecycle, "artnet serve")
+	addAll(reasonLocalProcessLaunch, "run")
 	addAll(reasonArtnetDeferred,
 		"artnet configure", "artnet discover", "artnet interface list",
 		"artnet master set", "artnet safety blackout", "artnet safety revoke-automation",
