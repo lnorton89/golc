@@ -1,11 +1,13 @@
 // schema.go establishes the .golc SQLite schema every internal/show store
-// connection shares (CONTEXT D-01/D-03, 05-RESEARCH.md Pattern 1): four
+// connection shares (CONTEXT D-01/D-03, 05-RESEARCH.md Pattern 1): five
 // small tables -- show_meta (singleton: schema_version/revision/checksum/
 // updated_at), show_state (singleton: the canonically-encoded State blob),
-// recovery_points (append/prune, capped at 5 rows, D-04/D-05/D-06), and
+// recovery_points (append/prune, capped at 5 rows, D-04/D-05/D-06),
 // api_keys (append-only rows, revoked in place via revoked_at rather than
-// deleted, 07-04-PLAN.md Task 1/D-05/D-08) -- plus the PRAGMA
-// application_id stamp that marks a file as GOLC's own format
+// deleted, 07-04-PLAN.md Task 1/D-05/D-08), and audit_log (append-only,
+// one row per attempted API mutation -- actor/source/correlation/outcome/
+// redacted details, D-16/API-06, 07-RESEARCH.md Pattern 5) -- plus the
+// PRAGMA application_id stamp that marks a file as GOLC's own format
 // (05-RESEARCH.md Pitfall 5: a foreign SQLite file must be rejected
 // cleanly at the door with GOLC_SHOW_NOT_GOLC_FORMAT, not a confusing "no
 // such table" error two layers deeper).
@@ -71,6 +73,20 @@ CREATE TABLE IF NOT EXISTS api_keys (
   created_at TEXT    NOT NULL,
   expires_at TEXT    NOT NULL,
   revoked_at TEXT    NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS audit_log (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  occurred_at        TEXT    NOT NULL,
+  actor              TEXT    NOT NULL,
+  source             TEXT    NOT NULL,
+  correlation_id     TEXT    NOT NULL,
+  route              TEXT    NOT NULL,
+  expected_revision  INTEGER,
+  resulting_revision INTEGER,
+  outcome            TEXT    NOT NULL,
+  status_code        INTEGER NOT NULL,
+  redacted_details   TEXT    NOT NULL
 );
 `
 
