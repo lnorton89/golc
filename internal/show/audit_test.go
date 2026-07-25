@@ -27,16 +27,16 @@ func TestWriteAuditRecordRoundTrip(t *testing.T) {
 	path := "show.golc"
 
 	rec := AuditRecord{
-		OccurredAt:         "2026-07-25T00:00:01Z",
-		Actor:              "key-abc123",
-		Source:             "http",
-		CorrelationID:      "corr-1",
-		Route:              "pool create",
-		ExpectedRevision:   nullInt64(3),
-		ResultingRevision:  nullInt64(4),
-		Outcome:            "success",
-		StatusCode:         200,
-		RedactedDetails:    `{"route":"pool create","args":["Main"]}`,
+		OccurredAt:        "2026-07-25T00:00:01Z",
+		Actor:             "key-abc123",
+		Source:            "http",
+		CorrelationID:     "corr-1",
+		Route:             "pool create",
+		ExpectedRevision:  nullInt64(3),
+		ResultingRevision: nullInt64(4),
+		Outcome:           "success",
+		StatusCode:        200,
+		RedactedDetails:   `{"route":"pool create","args":["Main"]}`,
 	}
 	if err := WriteAuditRecord(root, path, rec); err != nil {
 		t.Fatalf("WriteAuditRecord: %v", err)
