@@ -1,0 +1,871 @@
+{
+  "components": {
+    "schemas": {
+      "BatchInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/BatchInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "requests": {
+            "description": "Ordered list of sub-requests applied atomically: all-or-nothing (D-15). Must be non-empty.",
+            "items": {
+              "$ref": "#/components/schemas/BatchSubRequest"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "requests"
+        ],
+        "type": "object"
+      },
+      "BatchOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/BatchOutputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/BatchResultItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "revision": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "type": "object"
+      },
+      "BatchResultItem": {
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "result"
+        ],
+        "type": "object"
+      },
+      "BatchSubRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "description": "This sub-request's JSON body, matching the equivalent single-mutation operation's own body shape."
+          },
+          "method": {
+            "description": "The HTTP method the equivalent single-mutation operation uses, e.g. \"POST\".",
+            "type": "string"
+          },
+          "resource": {
+            "description": "The equivalent single-mutation operation's own REST path, e.g. \"/v1/pools\".",
+            "type": "string"
+          }
+        },
+        "required": [
+          "method",
+          "resource"
+        ],
+        "type": "object"
+      },
+      "CreatePoolInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/CreatePoolInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "name": {
+            "description": "The new pool's name.",
+            "type": "string"
+          },
+          "requires": {
+            "description": "Capability types every pool member must support.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "DomainEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "description": "The authenticated API key id that produced this change.",
+            "type": "string"
+          },
+          "revision": {
+            "description": "show.State.Revision this mutation produced -- also this SSE message's id.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "route": {
+            "description": "The routed command that produced this change, e.g. \"pool create\".",
+            "type": "string"
+          },
+          "type": {
+            "description": "The changed domain, e.g. \"pool\" (derived from the producing route's first word).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "route",
+          "revision"
+        ],
+        "type": "object"
+      },
+      "ErrorDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "location": {
+            "description": "Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id'",
+            "type": "string"
+          },
+          "message": {
+            "description": "Error message text",
+            "type": "string"
+          },
+          "value": {
+            "description": "The value at the given location"
+          }
+        },
+        "type": "object"
+      },
+      "ErrorModel": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/ErrorModel.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "detail": {
+            "description": "A human-readable explanation specific to this occurrence of the problem.",
+            "examples": [
+              "Property foo is required but is missing."
+            ],
+            "type": "string"
+          },
+          "errors": {
+            "description": "Optional list of individual error details",
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "instance": {
+            "description": "A URI reference that identifies the specific occurrence of the problem.",
+            "examples": [
+              "https://example.com/error-log/abc123"
+            ],
+            "format": "uri",
+            "type": "string"
+          },
+          "status": {
+            "description": "HTTP status code",
+            "examples": [
+              400
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
+          "title": {
+            "description": "A short, human-readable summary of the problem type. This value should not change between occurrences of the error.",
+            "examples": [
+              "Bad Request"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "default": "about:blank",
+            "description": "A URI reference to human-readable documentation for the error.",
+            "examples": [
+              "https://example.com/errors/example"
+            ],
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "MintAPIKeyInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/MintAPIKeyInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "expires_in": {
+            "description": "Go duration string the key remains valid for, e.g. \"720h\".",
+            "type": "string"
+          },
+          "scopes": {
+            "description": "Coarse domain scopes: playback, authoring, admin.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "scopes",
+          "expires_in"
+        ],
+        "type": "object"
+      },
+      "MutationOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/MutationOutputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "result": {
+            "type": "string"
+          },
+          "revision": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      },
+      "ResyncEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "description": "Why a resync is required, e.g. \"buffer_overflow\".",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "GENERATED by github.com/lnorton89/golc/internal/api. DO NOT EDIT.",
+    "title": "GOLC API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/batch": {
+      "post": {
+        "operationId": "run-batch",
+        "parameters": [
+          {
+            "description": "Expected show.State.Revision for the whole batch, quoted per RFC 7232 (D-13). Omit to skip the batch-level optimistic-concurrency check.",
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "description": "Expected show.State.Revision for the whole batch, quoted per RFC 7232 (D-13). Omit to skip the batch-level optimistic-concurrency check.",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "412": {
+            "description": "Precondition Failed"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Apply an ordered list of sub-requests as a single atomic transaction (all-or-nothing, D-15)."
+      }
+    },
+    "/v1/config/{concern}": {
+      "get": {
+        "operationId": "get-config-concern",
+        "parameters": [
+          {
+            "description": "Configuration concern id, e.g. \"runtime\".",
+            "in": "path",
+            "name": "concern",
+            "required": true,
+            "schema": {
+              "description": "Configuration concern id, e.g. \"runtime\".",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "contentEncoding": "base64",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "412": {
+            "description": "Precondition Failed"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Inspect one indexed configuration concern as JSON."
+      }
+    },
+    "/v1/events": {
+      "get": {
+        "description": "Every domain's changes on one global stream (D-09), each tagged with a type and an id equal to the show revision that produced it. Any valid, non-expired API key may open this stream regardless of its coarse domain scope (D-12) -- and, once open, receives every domain's events regardless of that scope too (D-11): scopes gate mutations, not stream visibility. This is a hint stream, never the source of truth -- always re-fetch authoritative state via the REST resource endpoints, especially after a \"resync\" event (D-10). Reconnecting with Last-Event-ID replays events still within the server's bounded buffer; an id already scrolled out of that buffer yields one resync event instead of a silent gap. A revoked or expired key's already-open stream is closed within one revocation-tick interval.",
+        "operationId": "watch-events",
+        "parameters": [
+          {
+            "description": "The id of the last event this client received, if reconnecting (SSE standard header, D-10). Omit when connecting for the first time; an in-window id replays missed events, an out-of-window id yields a single resync event instead of silently-missing state.",
+            "in": "header",
+            "name": "Last-Event-ID",
+            "schema": {
+              "description": "The id of the last event this client received, if reconnecting (SSE standard header, D-10). Omit when connecting for the first time; an in-window id replays missed events, an out-of-window id yields a single resync event instead of silently-missing state.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "description": "Each oneOf object in the array represents one possible Server Sent Events (SSE) message, serialized as UTF-8 text according to the SSE specification.",
+                  "items": {
+                    "oneOf": [
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/ResyncEventPayload"
+                          },
+                          "event": {
+                            "const": "resync",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event resync",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/DomainEventPayload"
+                          },
+                          "event": {
+                            "const": "state",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event state",
+                        "type": "object"
+                      }
+                    ]
+                  },
+                  "title": "Server Sent Events",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "412": {
+            "description": "Precondition Failed"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Subscribe to the global revisioned event stream."
+      }
+    },
+    "/v1/keys": {
+      "get": {
+        "operationId": "list-api-keys",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "contentEncoding": "base64",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "412": {
+            "description": "Precondition Failed"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List every API key's metadata (admin scope required, D-08) -- never the hash or raw token."
+      },
+      "post": {
+        "operationId": "mint-api-key",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MintAPIKeyInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "contentEncoding": "base64",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "412": {
+            "description": "Precondition Failed"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Mint a new scoped, expiring API key (admin scope required, D-08). The raw token is returned exactly once."
+      }
+    },
+    "/v1/keys/{id}": {
+      "delete": {
+        "operationId": "revoke-api-key",
+        "parameters": [
+          {
+            "description": "The api key id to revoke.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "The api key id to revoke.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "contentEncoding": "base64",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "412": {
+            "description": "Precondition Failed"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Revoke one API key by id (admin scope required, D-08), immediately invalidating it for authentication."
+      }
+    },
+    "/v1/pools": {
+      "post": {
+        "operationId": "create-pool",
+        "parameters": [
+          {
+            "description": "Expected show.State.Revision, quoted per RFC 7232 (D-13). Omit to skip the optimistic-concurrency check.",
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "description": "Expected show.State.Revision, quoted per RFC 7232 (D-13). Omit to skip the optimistic-concurrency check.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Preview this mutation's effect without applying it (D-14); the real show is never touched, and no resulting revision is reported.",
+            "explode": false,
+            "in": "query",
+            "name": "dry_run",
+            "schema": {
+              "description": "Preview this mutation's effect without applying it (D-14); the real show is never touched, and no resulting revision is reported.",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Client-supplied key (Stripe-style, [ASSUMED] A6); replaying the same key within the TTL returns the original response instead of re-applying the mutation.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "Client-supplied key (Stripe-style, [ASSUMED] A6); replaying the same key within the TTL returns the original response instead of re-applying the mutation.",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePoolInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "412": {
+            "description": "Precondition Failed"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create a named logical pool (authoring scope required, D-08)."
+      }
+    },
+    "/v1/show": {
+      "get": {
+        "operationId": "get-show",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "contentEncoding": "base64",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "412": {
+            "description": "Precondition Failed"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Inspect the daemon's own running show document's pools and deployments."
+      }
+    }
+  },
+  "x-generated": "GENERATED by github.com/lnorton89/golc/internal/api. DO NOT EDIT."
+}
