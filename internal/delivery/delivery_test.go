@@ -96,6 +96,7 @@ func TestScopeDelivery(t *testing.T) {
 			{Name: "package", Kind: delivery.MageTargetKindRoute, Route: "package", Args: []string{"--foundation"}, Authority: "internal/command registry"},
 			{Name: "packagefoundation", Kind: delivery.MageTargetKindRoute, Route: "package", Args: []string{"--foundation"}, Authority: "internal/command registry"},
 			{Name: "pr", Kind: delivery.MageTargetKindPR, Authority: "config/commands.toml: commands.pr.steps, commands.pr.network_steps, commands.pr.mutation_steps"},
+			{Name: "run", Kind: delivery.MageTargetKindRoute, Route: "run", Authority: "internal/command registry"},
 			{Name: "test", Kind: delivery.MageTargetKindRoute, Route: "test", Authority: "internal/command registry"},
 			{Name: "testquick", Kind: delivery.MageTargetKindRoute, Route: "test", Args: []string{"--quick"}, Authority: "internal/command registry"},
 		}

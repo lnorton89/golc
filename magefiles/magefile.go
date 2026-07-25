@@ -196,6 +196,23 @@ func PackageFoundation() error { return runTarget("packagefoundation", context.B
 // Pr executes the strict configured PR graph serially.
 func Pr(ctx context.Context) error { return runTarget("pr", ctx) }
 
+// Run launches the already-built golc-desktop[.exe] with
+// .tools/cache/go-bin (where Bootstrap's go_install step provisions
+// midicat -- config/toolchain.toml's [go_install.midicat],
+// internal/bootstrap/engine.go's installGoInstallTools) prepended onto
+// the CHILD process's own PATH before it starts. This is the one
+// dev-loop entrypoint that fully controls that child's environment
+// before exec, so it is the one entrypoint that can actually close the
+// "midicat provisioned on disk but golc-desktop's own process never
+// looked there" gap: running the compiled binary directly
+// (`./golc-desktop`) instead of `mage Run` inherits whatever PATH the
+// invoking shell happens to have, entirely independent of anything
+// Bootstrap did -- see internal/command/run.go's doc comment for the
+// full analysis, including why no code inside golc-desktop's own main()
+// can fix this after the fact (midicatdrv's package init() -- which
+// panics if midicat is missing -- runs before main() unconditionally).
+func Run() error { return runTarget("run", context.Background()) }
+
 func runPRTarget(ctx context.Context, runtime targetRuntime, root string, bootstrapOptions bootstrap.Options) error {
 	graph, err := runtime.loadPRGraph(root)
 	if err != nil {

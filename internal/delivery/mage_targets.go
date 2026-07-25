@@ -50,6 +50,7 @@ var mageTargets = []MageTarget{
 	{Name: "package", Kind: MageTargetKindRoute, Route: "package", Args: []string{"--foundation"}, Authority: "internal/command registry"},
 	{Name: "packagefoundation", Kind: MageTargetKindRoute, Route: "package", Args: []string{"--foundation"}, Authority: "internal/command registry"},
 	{Name: "pr", Kind: MageTargetKindPR, Authority: "config/commands.toml: commands.pr.steps, commands.pr.network_steps, commands.pr.mutation_steps"},
+	{Name: "run", Kind: MageTargetKindRoute, Route: "run", Authority: "internal/command registry"},
 	{Name: "test", Kind: MageTargetKindRoute, Route: "test", Authority: "internal/command registry"},
 	{Name: "testquick", Kind: MageTargetKindRoute, Route: "test", Args: []string{"--quick"}, Authority: "internal/command registry"},
 }
