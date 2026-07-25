@@ -25,24 +25,20 @@ go install github.com/magefile/mage@v1.17.2
 mage Bootstrap
 mage Build
 
-# 3. golc-desktop currently needs the midicat helper on PATH just to START
-#    (not just to use MIDI — see "MIDI requires midicat" below). Skipping
-#    this step means golc-desktop panics on launch even without a
-#    controller connected.
-go install gitlab.com/gomidi/tools/midicat@v1.0.7
-
-# 4. Run it
-./golc-desktop         # macOS/Linux
-```
-```powershell
-.\golc-desktop.exe    # Windows (PowerShell)
+# 3. Run it. `mage Bootstrap` already provisioned the midicat helper
+#    golc-desktop needs on PATH just to START (not just to use MIDI — see
+#    "MIDI requires midicat" below); `mage Run` is what actually puts it
+#    on PATH for the process that needs it.
+mage Run
 ```
 
-If `mage`/`golc-desktop`/`midicat` "isn't recognized" after step 1, 3, or 4, your shell's PATH doesn't include Go's bin directory yet — open a **new** terminal (PATH changes don't apply retroactively), or check `go env GOPATH` and add `<that path>\bin` to PATH yourself.
+If `mage` "isn't recognized" after step 1, your shell's PATH doesn't include Go's bin directory yet — open a **new** terminal (PATH changes don't apply retroactively), or check `go env GOPATH` and add `<that path>\bin` to PATH yourself.
 
 #### MIDI requires `midicat`
 
-MIDI hardware itself is optional — GOLC's full playback workflow works from keyboard and on-screen controls alone. But the underlying driver library (`gomidi/midicatdrv`) panics at process startup if its `midicat` helper binary isn't on PATH, even when you have no MIDI controller and never touch the MIDI UI. This is a known upstream limitation (a hard crash from a package `init()`, not a recoverable error — see `internal/midi/driver.go`'s doc comment for the full analysis), so step 3 above is currently **required to launch `golc-desktop` at all**, not just to use MIDI. A proper fix (isolating the MIDI driver behind a subprocess boundary, mirroring the existing Art-Net daemon pattern) is a tracked future hardening item, not yet scheduled.
+MIDI hardware itself is optional — GOLC's full playback workflow works from keyboard and on-screen controls alone. But the underlying driver library (`gomidi/midicatdrv`) panics at process startup if its `midicat` helper binary isn't on PATH, even when you have no MIDI controller and never touch the MIDI UI. This is a known upstream limitation (a hard crash from a package `init()`, not a recoverable error — see `internal/midi/driver.go`'s doc comment for the full analysis). `mage Bootstrap` provisions `midicat` automatically (`config/toolchain.toml`'s `[go_install.midicat]`) into the project-local `.tools/cache/go-bin`, and **`mage Run` is the launcher that actually puts that directory on PATH for `golc-desktop`'s own process** — nothing inside `golc-desktop` itself can do this, since the panic happens in a package `init()` that runs before its `main()` ever gets a chance to fix PATH.
+
+Running the compiled binary directly instead of `mage Run` (`./golc-desktop` / `.\golc-desktop.exe`, e.g. after copying it out of the repo) is **not** covered by this fix: it inherits whatever PATH the invoking shell already has, same as any other program. If you go that route, make sure `.tools/cache/go-bin` (or wherever `go install gitlab.com/gomidi/tools/midicat@v1.0.7` put the binary) is on PATH yourself first. This is a real, currently-open gap for a future packaged end-user launcher — see `.planning/phases/06-wails-authoring-and-operator-surface/deferred-items.md`.
 
 That's the whole app. For the CLI's config/test/docs commands, the full command surface, and every Mage target, see [Getting started](#getting-started-contributors) and [Running GOLC](#running-golc) below.
 
@@ -158,9 +154,10 @@ See [docs/development.md](docs/development.md) for the full contributor walkthro
 
 ```bash
 mage Build   # compiles every project package, including cmd/golc-desktop
+mage Run     # launches golc-desktop[.exe] with midicat correctly on PATH
 ```
 
-`mage Build` (via `mage Bootstrap`, which always builds the frontend first) produces `golc-desktop[.exe]` — the Wails desktop shell with the operator surface, safety cluster, and playback controls. Launch it like any other local binary for your platform, e.g. `./golc-desktop` (macOS/Linux) or `.\golc-desktop.exe` (Windows), run from the repository root so it can find its configuration. **Install `midicat` first** (`go install gitlab.com/gomidi/tools/midicat@v1.0.7`) — see [MIDI requires `midicat`](#midi-requires-midicat) in the TL;DR, or `golc-desktop` panics on launch even without a MIDI controller.
+`mage Build` (via `mage Bootstrap`, which always builds the frontend first) produces `golc-desktop[.exe]` — the Wails desktop shell with the operator surface, safety cluster, and playback controls. Prefer `mage Run` to launch it: it prepends the project-local `.tools/cache/go-bin` (where `mage Bootstrap` installs `midicat`) onto the child process's own PATH before exec, which is what actually keeps `golc-desktop` from panicking on startup — see [MIDI requires `midicat`](#midi-requires-midicat) in the TL;DR. Launching the compiled binary directly (`./golc-desktop` / `.\golc-desktop.exe`) instead skips that PATH fixup entirely and is only safe if you've put `midicat` on PATH yourself first.
 
 ### CLI
 
