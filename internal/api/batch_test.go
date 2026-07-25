@@ -741,6 +741,122 @@ func TestBatchSubRequestAuditRowsFollowClientOrder(t *testing.T) {
 	}
 }
 
+// --- TestCreatePoolRejectsCommaInRequires -------------------------------
+
+// TestCreatePoolRejectsCommaInRequires proves POST /v1/pools rejects a
+// "requires" element containing a comma with a typed 400 naming
+// GOLC_API_LIST_VALUE_INVALID, and creates nothing (IN-02, 07-REVIEW.md):
+// the comma is the reserved delimiter registerCreatePool's own
+// strings.Join uses to build the downstream --requires CLI argument, so a
+// value containing one must never silently split into two.
+func TestCreatePoolRejectsCommaInRequires(t *testing.T) {
+	root := t.TempDir()
+	showPath := filepath.Join(root, "show.golc")
+	catalog, err := routecatalog.New()
+	if err != nil {
+		t.Fatalf("routecatalog.New: %v", err)
+	}
+	server := api.NewServer(catalog, root, showPath)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/pools", jsonBody(t, map[string]any{
+		"name":     "ShouldNotExist",
+		"requires": []string{"color", "pan,tilt"},
+	}))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for a \"requires\" element containing a comma, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "GOLC_API_LIST_VALUE_INVALID") {
+		t.Fatalf("expected the error to name GOLC_API_LIST_VALUE_INVALID, got: %s", rec.Body.String())
+	}
+
+	revision, err := show.CurrentRevision(root, showPath)
+	if err != nil {
+		t.Fatalf("CurrentRevision: %v", err)
+	}
+	if revision != 0 {
+		t.Fatalf("expected the show's revision to remain unchanged (0), got %d", revision)
+	}
+}
+
+// TestCreatePoolAllowsCommaFreeRequires proves a "requires" list with
+// ordinary comma-free elements still succeeds exactly as before
+// (IN-02 regression guard: the new boundary rule must not reject valid
+// input).
+func TestCreatePoolAllowsCommaFreeRequires(t *testing.T) {
+	root := t.TempDir()
+	showPath := filepath.Join(root, "show.golc")
+	catalog, err := routecatalog.New()
+	if err != nil {
+		t.Fatalf("routecatalog.New: %v", err)
+	}
+	server := api.NewServer(catalog, root, showPath)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/pools", jsonBody(t, map[string]any{
+		"name":     "Main",
+		"requires": []string{"color", "pan"},
+	}))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code < 200 || rec.Code >= 300 {
+		t.Fatalf("expected a 2xx for comma-free \"requires\" elements, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+}
+
+// --- TestBatchSubRequestRejectsCommaInRequires --------------------------
+
+// poolCreateBatchSubRequestWithRequires builds a "pool create" batch
+// sub-request body carrying a "requires" list, mirroring
+// poolCreateBatchSubRequest but with an explicit requires slice.
+func poolCreateBatchSubRequestWithRequires(name string, requires []string) map[string]any {
+	return map[string]any{
+		"method":   "POST",
+		"resource": "/v1/pools",
+		"body":     map[string]any{"name": name, "requires": requires},
+	}
+}
+
+// TestBatchSubRequestRejectsCommaInRequires proves the equivalent /v1/batch
+// sub-request rejects a comma-bearing "requires" element with the same
+// GOLC_API_LIST_VALUE_INVALID diagnostic, surfaced through the batch's own
+// sub-request error wrapper, creates nothing, leaves no leftover temp
+// copy, and (per 07-12) writes exactly one audit row (IN-02, 07-REVIEW.md).
+func TestBatchSubRequestRejectsCommaInRequires(t *testing.T) {
+	server, root, showPath := newAuditedBatchServer(t)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+
+	requests := []map[string]any{
+		poolCreateBatchSubRequestWithRequires("ShouldNotExist", []string{"pan,tilt"}),
+	}
+	rec := doBatchRequest(t, server.Handler(), token, "", requests)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for a batch sub-request's \"requires\" element containing a comma, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "GOLC_API_LIST_VALUE_INVALID") {
+		t.Fatalf("expected the error to name GOLC_API_LIST_VALUE_INVALID, got: %s", rec.Body.String())
+	}
+
+	revision, err := show.CurrentRevision(root, showPath)
+	if err != nil {
+		t.Fatalf("CurrentRevision: %v", err)
+	}
+	if revision != 0 {
+		t.Fatalf("expected the show's revision to remain unchanged (0), got %d", revision)
+	}
+
+	assertNoTempCopyLeftBehind(t, showPath)
+	requireAuditRowCount(t, root, showPath, 1)
+}
+
 // --- TestBatchEmptyWritesNoAuditRow -------------------------------------
 
 // TestBatchEmptyWritesNoAuditRow proves an empty batch is rejected 400 and
