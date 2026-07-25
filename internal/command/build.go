@@ -244,6 +244,10 @@ func runBuild(request Request) Result {
 // excluded from "build every package" below: it is compiled only by the
 // mage binary itself (which supplies its own generated main), so it has no
 // func main() of its own and is not an independently buildable artifact.
+// magefiles/*.go now also carry a "//go:build mage" tag, so an untagged
+// "go list ./..." (as buildablePackages uses) already omits the package on
+// its own; this explicit filter is deliberate defense-in-depth against that
+// tag ever being dropped, not the only thing preventing the failure.
 const magefilesImportSuffix = "/magefiles"
 
 // buildablePackages lists every project Go package via the pinned

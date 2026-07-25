@@ -186,7 +186,7 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 					suffix = ".exe"
 				}
 				output := filepath.Join(t.TempDir(), "magefiles.test"+suffix)
-				cmd := exec.Command(goExecutable, "test", "-c", "-o", output, "./magefiles")
+				cmd := exec.Command(goExecutable, "test", "-c", "-tags", "mage", "-o", output, "./magefiles")
 				cmd.Dir = root
 				environment := projectGoEnvironment(root)
 				environment = upsertEnvironment(environment, "GOOS", platform.goos)
