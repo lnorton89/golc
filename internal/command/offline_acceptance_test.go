@@ -41,7 +41,7 @@ func TestScopeOfflineAcceptance(t *testing.T) {
 		if result.ExitCode != 0 {
 			t.Fatalf("generate --check exited %d\nstdout: %s\nstderr: %s", result.ExitCode, result.Stdout, result.Stderr)
 		}
-		want := "generate --check: no drift; every committed schema matches its source.\n"
+		want := "generate --check: no drift; every committed schema and the api OpenAPI contract match their source.\n"
 		if string(result.Stdout) != want {
 			t.Fatalf("generate --check stdout = %q, want %q", result.Stdout, want)
 		}
