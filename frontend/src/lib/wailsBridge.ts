@@ -343,6 +343,77 @@ interface ProgrammingServiceBinding {
   ListProgramming(): Promise<ProgrammingView>;
 }
 
+/** ShowInspectPoolView mirrors internal/wails.ShowInspectPoolView's JSON
+ * shape exactly: one Inspect row summarizing a logical pool. */
+export interface ShowInspectPoolView {
+  id: string;
+  name: string;
+  requiredCapabilities: string[];
+  memberCount: number;
+}
+
+/** ShowInspectDeploymentView mirrors internal/wails.ShowInspectDeploymentView's
+ * JSON shape exactly: one Inspect row summarizing a deployment. */
+export interface ShowInspectDeploymentView {
+  id: string;
+  name: string;
+  active: boolean;
+  instanceCount: number;
+}
+
+/** ShowInspectView mirrors internal/wails.ShowInspectView's JSON shape
+ * exactly -- Inspect's full return payload for OverviewWorkspace.tsx: the
+ * working show's identity (path, schema/revision) plus its pools/
+ * deployments, the same allowlisted projection "show inspect" already
+ * prints. Pools/deployments are always present (never undefined/null)
+ * empty arrays, mirroring PatchView/ProgrammingView's identical "never
+ * blank" contract. */
+export interface ShowInspectView {
+  showPath: string;
+  schemaVersion: number;
+  revision: number;
+  pools: ShowInspectPoolView[];
+  deployments: ShowInspectDeploymentView[];
+}
+
+/** DiagnosticReportView mirrors internal/wails.DiagnosticReportView's JSON
+ * shape exactly -- Diagnose's full return payload for
+ * SaveRecoveryWorkspace.tsx's migration-required note. FileLevelIssues is
+ * always a present (never undefined/null) array. */
+export interface DiagnosticReportView {
+  fileLevelIssues: string[];
+  structuralOk: boolean;
+  structuralError?: string;
+  migrationRequired: boolean;
+  schemaVersion: number;
+  revision: number;
+}
+
+/** RecoveryPointView mirrors internal/wails.RecoveryPointView's JSON shape
+ * exactly: one currently offered interrupted-session recovery point. */
+export interface RecoveryPointView {
+  id: number;
+  createdAt: string;
+  revision: number;
+}
+
+/** ShowServiceBinding mirrors internal/wails/svc_show.go's bound methods
+ * field-for-field: Save/SaveAs forward to the existing "show save"/"show
+ * save-as" command routes; Inspect/Diagnose/DetectRecoveryPoints are
+ * read-only projections, and AcceptRecoveryPoint/DiscardRecoveryPoints call
+ * internal/show's own recovery functions directly (no standalone CLI route
+ * exists for either -- both are otherwise only reachable bundled inside
+ * "show open"). */
+interface ShowServiceBinding {
+  Save(): Promise<WailsResult>;
+  SaveAs(destPath: string): Promise<WailsResult>;
+  Inspect(): Promise<ShowInspectView>;
+  Diagnose(): Promise<DiagnosticReportView>;
+  DetectRecoveryPoints(): Promise<RecoveryPointView[]>;
+  AcceptRecoveryPoint(id: number): Promise<WailsResult>;
+  DiscardRecoveryPoints(): Promise<WailsResult>;
+}
+
 // Single, centralized `window.go.wails` shape (Wails v2's runtime-injected
 // bridge, one property per struct bound in cmd/golc-desktop/main.go's
 // options.App{Bind: [...]}). Every component imports its binding call
@@ -366,6 +437,7 @@ declare global {
         FixturePatchService?: FixturePatchServiceBinding;
         ArtnetConfigService?: ArtnetConfigServiceBinding;
         ProgrammingService?: ProgrammingServiceBinding;
+        ShowService?: ShowServiceBinding;
       };
     };
     runtime?: {
@@ -860,4 +932,107 @@ export async function listPatch(): Promise<PatchView> {
   } catch {
     return offlinePatchView();
   }
+}
+
+function showService(): ShowServiceBinding | undefined {
+  return window.go?.wails?.ShowService;
+}
+
+/** offlineShowInspectView mirrors internal/wails.ShowInspectView's own
+ * "never blank" contract: pools/deployments are always present (never
+ * undefined/null) empty arrays, so a missing bridge and a genuinely empty
+ * show render identically in OverviewWorkspace.tsx (mirrors
+ * offlinePatchView/offlineProgrammingView's identical fallback shape). */
+export function offlineShowInspectView(): ShowInspectView {
+  return { showPath: "", schemaVersion: 0, revision: 0, pools: [], deployments: [] };
+}
+
+/** offlineDiagnosticReport is the explicit, non-throwing fallback Diagnose
+ * returns when the bridge is unavailable -- StructuralOK stays false so a
+ * missing bridge never renders as an honest "healthy" result. */
+export function offlineDiagnosticReport(): DiagnosticReportView {
+  return {
+    fileLevelIssues: [],
+    structuralOk: false,
+    structuralError: "GOLC_WAILS_BRIDGE_UNAVAILABLE: not running inside the GOLC desktop shell",
+    migrationRequired: false,
+    schemaVersion: 0,
+    revision: 0,
+  };
+}
+
+/** saveShow calls the bound ShowService.Save (SHOW-01/SHOW-03: re-save the
+ * working show in place via "show save", writing a fresh recovery point). */
+export async function saveShow(): Promise<WailsResult> {
+  const svc = showService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.Save();
+}
+
+/** saveShowAs calls the bound ShowService.SaveAs (SHOW-01: save a copy of
+ * the working show to destPath via "show save-as", without mutating the
+ * working show). */
+export async function saveShowAs(destPath: string): Promise<WailsResult> {
+  const svc = showService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.SaveAs(destPath);
+}
+
+/** inspectShow calls the bound ShowService.Inspect, returning
+ * offlineShowInspectView() when the bridge is unavailable or the call
+ * itself rejects -- callers never need their own try/catch (mirrors
+ * listPatch/listProgramming's identical contract). */
+export async function inspectShow(): Promise<ShowInspectView> {
+  const svc = showService();
+  if (!svc) return offlineShowInspectView();
+  try {
+    return await svc.Inspect();
+  } catch {
+    return offlineShowInspectView();
+  }
+}
+
+/** diagnoseShow calls the bound ShowService.Diagnose, returning
+ * offlineDiagnosticReport() when the bridge is unavailable or the call
+ * itself rejects. */
+export async function diagnoseShow(): Promise<DiagnosticReportView> {
+  const svc = showService();
+  if (!svc) return offlineDiagnosticReport();
+  try {
+    return await svc.Diagnose();
+  } catch {
+    return offlineDiagnosticReport();
+  }
+}
+
+/** detectRecoveryPoints calls the bound ShowService.DetectRecoveryPoints
+ * (SHOW-04: every currently offered interrupted-session recovery point,
+ * newest-first), returning an empty array when the bridge is unavailable
+ * or the call itself rejects. */
+export async function detectRecoveryPoints(): Promise<RecoveryPointView[]> {
+  const svc = showService();
+  if (!svc) return [];
+  try {
+    return await svc.DetectRecoveryPoints();
+  } catch {
+    return [];
+  }
+}
+
+/** acceptRecoveryPoint calls the bound ShowService.AcceptRecoveryPoint
+ * (SHOW-04: promote the offered recovery point identified by id into the
+ * working show). */
+export async function acceptRecoveryPoint(id: number): Promise<WailsResult> {
+  const svc = showService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.AcceptRecoveryPoint(id);
+}
+
+/** discardRecoveryPoints calls the bound ShowService.DiscardRecoveryPoints
+ * (SHOW-04: delete every currently offered recovery point, an explicit
+ * caller action). */
+export async function discardRecoveryPoints(): Promise<WailsResult> {
+  const svc = showService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.DiscardRecoveryPoints();
 }
