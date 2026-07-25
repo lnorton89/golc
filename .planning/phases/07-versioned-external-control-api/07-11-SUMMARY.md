@@ -134,6 +134,18 @@ None - plan executed exactly as written, including the TDD RED/GREEN gate sequen
 - Verification gap 2 (API-03 / 07-REVIEW.md CR-01) is closed: the phase's documented D-10 "never a silently missing gap" guarantee now holds for the multi-sub-request batch path, proven by a committed, permanently-running regression test.
 - No blockers for the remaining 07-versioned-external-control-api gap-closure plans (07-12..07-14).
 
+## Self-Check: PASSED
+
+- FOUND: internal/api/events.go
+- FOUND: internal/api/events_test.go
+- FOUND: docs/api/openapi.json
+- FOUND: docs/api/COMPATIBILITY.md
+- FOUND: .planning/phases/07-versioned-external-control-api/07-11-SUMMARY.md
+- FOUND: 8c00a0f (test commit)
+- FOUND: fc849c3 (feat commit)
+- FOUND: f1286c9 (docs commit)
+- FOUND: bd83f8c (summary commit)
+
 ---
 *Phase: 07-versioned-external-control-api*
 *Completed: 2026-07-25*
