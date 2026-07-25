@@ -49,6 +49,10 @@ var localKeyRegistry = map[string]localKeySpec{
 		writable:      true,
 		allowedValues: []string{"debug", "error", "info", "warn"},
 	},
+	"api.remote_enabled": {
+		writable:      true,
+		allowedValues: []string{"true", "false"},
+	},
 	"schema_version":       {writable: false},
 	"toolchain.go.version": {writable: false},
 	"toolchain.go.platforms.windows-amd64.archive_url":    {writable: false},

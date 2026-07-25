@@ -129,6 +129,23 @@ var (
 	// and commands.pr.mutation_steps must satisfy: either the literal
 	// "none" or a comma-separated list of bare route names.
 	prStepNamesPattern = regexp.MustCompile(`^(none|[a-z][a-z0-9]*(,[a-z][a-z0-9]*)*)$`)
+	// apiPortPattern is the shape api.port must satisfy: a bare positive
+	// integer with no leading zero, 1-5 digits (CONTEXT D-06,
+	// 07-RESEARCH.md Open Question 4) -- every canonical value in this
+	// strict registry is a TOML string (decode.go's validateDeclaredValue),
+	// so a numeric setting is still pattern-matched as text, exactly like
+	// toolchain.mage.version above.
+	apiPortPattern = regexp.MustCompile(`^[1-9][0-9]{0,4}$`)
+	// apiRateLimitPattern is the shape api.rate_per_minute/api.rate_burst
+	// must satisfy: a bare positive integer with no leading zero
+	// (07-RESEARCH.md Open Question 2).
+	apiRateLimitPattern = regexp.MustCompile(`^[1-9][0-9]*$`)
+	// apiBindInterfacePattern is the shape api.bind_interface must satisfy:
+	// empty (the committed default, meaning "no explicit interface named")
+	// or a hostname/IPv4/IPv6-shaped literal (07-RESEARCH.md Pitfall 4 --
+	// this key is locked in DefaultRegistry, so only the committed default
+	// or a future reviewed change to config/api.toml itself can set it).
+	apiBindInterfacePattern = regexp.MustCompile(`^[A-Za-z0-9.:_-]*$`)
 )
 
 // DefaultSpec returns the production Phase 1 concern allocation: exactly
@@ -227,6 +244,17 @@ func DefaultSpec() Spec {
 					"linear.env.api_key":                {Pattern: envVarNamePattern},
 					"linear.env.team_id":                {Pattern: envVarNamePattern},
 					"linear.taxonomy.requirement_label": {Pattern: labelNamePattern},
+				},
+			},
+			{
+				ID:   "api",
+				Path: "config/api.toml",
+				Keys: map[string]KeySpec{
+					"api.remote_enabled":  {AllowedValues: []string{"true", "false"}},
+					"api.port":            {Pattern: apiPortPattern},
+					"api.bind_interface":  {Pattern: apiBindInterfacePattern},
+					"api.rate_per_minute": {Pattern: apiRateLimitPattern},
+					"api.rate_burst":      {Pattern: apiRateLimitPattern},
 				},
 			},
 		},
