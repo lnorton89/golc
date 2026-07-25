@@ -50,7 +50,14 @@ func verifiedBackup(root, path string) (backupPath string, err error) {
 // inlined) so tests can exercise this check in isolation against a
 // deliberately-corrupted backup file, proving GOLC_SHOW_BACKUP_UNVERIFIABLE
 // is actually returned for an invalid backup, not merely claimed by a
-// round-trip test alone.
+// round-trip test alone. A backup taken of a never-yet-saved show
+// (readMeta's own "not ok" case -- schema_version 0 with an empty blob,
+// store.go's readMeta doc comment) is not itself corrupt: VACUUM INTO
+// faithfully copied "nothing has been saved yet" verbatim, so this is
+// treated the same way Load treats it -- valid, with no blob to decode
+// (07-05-PLAN.md Task 2: internal/api's dry-run copies the daemon's own
+// show file, which may legitimately be a brand-new, never-yet-saved show
+// the first time a client mutates it).
 func verifyBackupReadBack(root, backupPath string) (err error) {
 	verifyDB, openErr := openStore(root, backupPath)
 	if openErr != nil {
@@ -61,6 +68,14 @@ func verifyBackupReadBack(root, backupPath string) (err error) {
 			err = fmt.Errorf("GOLC_SHOW_BACKUP_UNVERIFIABLE: closing backup %s: %v", backupPath, closeErr)
 		}
 	}()
+
+	_, ok, metaErr := readMeta(verifyDB)
+	if metaErr != nil {
+		return fmt.Errorf("GOLC_SHOW_BACKUP_UNVERIFIABLE: reading backup %s meta: %v", backupPath, metaErr)
+	}
+	if !ok {
+		return nil
+	}
 
 	var blob []byte
 	if err := verifyDB.QueryRow(`SELECT blob FROM show_state WHERE id = 1`).Scan(&blob); err != nil {

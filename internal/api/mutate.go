@@ -85,6 +85,10 @@ type mutateRequest struct {
 	Args []string
 	// IfMatch is the raw If-Match header value, "" if absent.
 	IfMatch string
+	// DryRun is true when the request carried ?dry_run=true (D-14):
+	// mutate branches to dryRunMutate (dryrun.go) before ever comparing
+	// If-Match or calling Execute against the real show.
+	DryRun bool
 	// Actor is the authenticated key's id (KeyIDFromContext).
 	Actor string
 	// CorrelationID is the request's chi/middleware.RequestID value.
@@ -157,6 +161,10 @@ func mutate(ctx context.Context, server *Server, req mutateRequest) (mutationRes
 	mutationMutex.Lock()
 	defer mutationMutex.Unlock()
 
+	if req.DryRun {
+		return dryRunMutate(server, req)
+	}
+
 	expectedRevision, revisionErr := checkRevision(server.root, server.showPath, req.IfMatch)
 	if revisionErr != nil {
 		fireMutationObservers(MutationEvent{
@@ -217,7 +225,10 @@ func correlationIDFromContext(ctx context.Context) string {
 // expected-revision precondition.
 type createPoolInput struct {
 	IfMatch string `header:"If-Match" doc:"Expected show.State.Revision, quoted per RFC 7232 (D-13). Omit to skip the optimistic-concurrency check."`
-	Body    struct {
+	DryRun  bool   `query:"dry_run" doc:"Preview this mutation's effect without applying it (D-14); the real show is never touched, and no resulting revision is reported."`
+	// (kept as a literal string tag, matching dryRunQueryDoc's wording --
+	// struct tags cannot reference a package const.)
+	Body struct {
 		Name     string   `json:"name" required:"true" doc:"The new pool's name."`
 		Requires []string `json:"requires,omitempty" doc:"Capability types every pool member must support."`
 	}
@@ -259,6 +270,7 @@ func registerCreatePool(humaAPI huma.API, server *Server) {
 			Route:         "pool create",
 			Args:          args,
 			IfMatch:       input.IfMatch,
+			DryRun:        input.DryRun,
 			Actor:         actorFromContext(ctx),
 			CorrelationID: correlationIDFromContext(ctx),
 		})
