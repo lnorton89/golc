@@ -1942,6 +1942,244 @@
       "source": ".planning/phases/06-wails-authoring-and-operator-surface/06-12-PLAN.md"
     },
     {
+      "local_id": "phase:07",
+      "kind": "phase",
+      "parent_local_id": "milestone:v1",
+      "display": "Versioned External Control API",
+      "source": ".planning/ROADMAP.md"
+    },
+    {
+      "local_id": "req:API-01",
+      "kind": "req",
+      "parent_local_id": "phase:07",
+      "display": "An external program can query and invoke every supported public domain capability through a versioned API that uses the same application command model as the UI.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:API-02",
+      "kind": "req",
+      "parent_local_id": "phase:07",
+      "display": "The API publishes an OpenAPI contract, generated client examples, typed errors, and compatibility/deprecation guidance.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:API-03",
+      "kind": "req",
+      "parent_local_id": "phase:07",
+      "display": "An external client can subscribe to revisioned server-sent events and recover from an event gap by re-querying authoritative state.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:API-04",
+      "kind": "req",
+      "parent_local_id": "phase:07",
+      "display": "Mutating API operations support expected revisions, idempotency, dry-run impact previews, and atomic meaningful batches.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:API-05",
+      "kind": "req",
+      "parent_local_id": "phase:07",
+      "display": "The API binds to loopback by default and requires explicit enablement and scoped authentication for remote access.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:API-06",
+      "kind": "req",
+      "parent_local_id": "phase:07",
+      "display": "Every API mutation records actor, source, correlation, outcome, and redacted audit details.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "plan:07-01",
+      "kind": "plan",
+      "parent_local_id": "phase:07",
+      "display": "Plan 07-01",
+      "source": ".planning/phases/07-versioned-external-control-api/07-01-PLAN.md"
+    },
+    {
+      "local_id": "task:07-01.2",
+      "kind": "task",
+      "parent_local_id": "plan:07-01",
+      "display": "Task 2: Pin the three modules into go.mod/go.sum (online, one-time)",
+      "source": ".planning/phases/07-versioned-external-control-api/07-01-PLAN.md"
+    },
+    {
+      "local_id": "plan:07-02",
+      "kind": "plan",
+      "parent_local_id": "phase:07",
+      "display": "Plan 07-02",
+      "source": ".planning/phases/07-versioned-external-control-api/07-02-PLAN.md"
+    },
+    {
+      "local_id": "task:07-02.1",
+      "kind": "task",
+      "parent_local_id": "plan:07-02",
+      "display": "Task 1: internal/api core — Chi+Huma /v1 server, HTTP-\u003ecommand translation, read endpoints, capability-coverage gate",
+      "source": ".planning/phases/07-versioned-external-control-api/07-02-PLAN.md"
+    },
+    {
+      "local_id": "task:07-02.2",
+      "kind": "task",
+      "parent_local_id": "plan:07-02",
+      "display": "Task 2: Host the api server in the daemon via a Subsystem seam (D-07) with ordered start/reverse-stop and graceful shutdown",
+      "source": ".planning/phases/07-versioned-external-control-api/07-02-PLAN.md"
+    },
+    {
+      "local_id": "plan:07-03",
+      "kind": "plan",
+      "parent_local_id": "phase:07",
+      "display": "Plan 07-03",
+      "source": ".planning/phases/07-versioned-external-control-api/07-03-PLAN.md"
+    },
+    {
+      "local_id": "task:07-03.1",
+      "kind": "task",
+      "parent_local_id": "plan:07-03",
+      "display": "Task 1: Declare the api config concern (config/api.toml + DefaultSpec) with api.remote_enabled writable",
+      "source": ".planning/phases/07-versioned-external-control-api/07-03-PLAN.md"
+    },
+    {
+      "local_id": "task:07-03.2",
+      "kind": "task",
+      "parent_local_id": "plan:07-03",
+      "display": "Task 2: Config-driven bind derivation with enforced loopback default",
+      "source": ".planning/phases/07-versioned-external-control-api/07-03-PLAN.md"
+    },
+    {
+      "local_id": "plan:07-04",
+      "kind": "plan",
+      "parent_local_id": "phase:07",
+      "display": "Plan 07-04",
+      "source": ".planning/phases/07-versioned-external-control-api/07-04-PLAN.md"
+    },
+    {
+      "local_id": "task:07-04.1",
+      "kind": "task",
+      "parent_local_id": "plan:07-04",
+      "display": "Task 1: api_keys table + internal/show key store + api-key CLI routes (mint/list/revoke)",
+      "source": ".planning/phases/07-versioned-external-control-api/07-04-PLAN.md"
+    },
+    {
+      "local_id": "task:07-04.2",
+      "kind": "task",
+      "parent_local_id": "plan:07-04",
+      "display": "Task 2: HTTP auth + scope attach + per-key rate limit middleware + REST key CRUD",
+      "source": ".planning/phases/07-versioned-external-control-api/07-04-PLAN.md"
+    },
+    {
+      "local_id": "plan:07-05",
+      "kind": "plan",
+      "parent_local_id": "phase:07",
+      "display": "Plan 07-05",
+      "source": ".planning/phases/07-versioned-external-control-api/07-05-PLAN.md"
+    },
+    {
+      "local_id": "task:07-05.1",
+      "kind": "task",
+      "parent_local_id": "plan:07-05",
+      "display": "Task 1: Serialized mutation pipeline — scope gate, If-Match/412, Execute, post-mutation observer seam",
+      "source": ".planning/phases/07-versioned-external-control-api/07-05-PLAN.md"
+    },
+    {
+      "local_id": "task:07-05.2",
+      "kind": "task",
+      "parent_local_id": "plan:07-05",
+      "display": "Task 2: Dry-run previews via copy-and-discard (?dry_run=true)",
+      "source": ".planning/phases/07-versioned-external-control-api/07-05-PLAN.md"
+    },
+    {
+      "local_id": "task:07-05.3",
+      "kind": "task",
+      "parent_local_id": "plan:07-05",
+      "display": "Task 3: Idempotency-Key dedupe within TTL",
+      "source": ".planning/phases/07-versioned-external-control-api/07-05-PLAN.md"
+    },
+    {
+      "local_id": "plan:07-06",
+      "kind": "plan",
+      "parent_local_id": "phase:07",
+      "display": "Plan 07-06",
+      "source": ".planning/phases/07-versioned-external-control-api/07-06-PLAN.md"
+    },
+    {
+      "local_id": "task:07-06.1",
+      "kind": "task",
+      "parent_local_id": "plan:07-06",
+      "display": "Task 1: Atomic batch engine — copy, apply-in-order, single aggregated Save (or discard)",
+      "source": ".planning/phases/07-versioned-external-control-api/07-06-PLAN.md"
+    },
+    {
+      "local_id": "task:07-06.2",
+      "kind": "task",
+      "parent_local_id": "plan:07-06",
+      "display": "Task 2: Batch edge semantics — empty rejection, single-request equivalence, per-index failure reporting",
+      "source": ".planning/phases/07-versioned-external-control-api/07-06-PLAN.md"
+    },
+    {
+      "local_id": "plan:07-07",
+      "kind": "plan",
+      "parent_local_id": "phase:07",
+      "display": "Plan 07-07",
+      "source": ".planning/phases/07-versioned-external-control-api/07-07-PLAN.md"
+    },
+    {
+      "local_id": "task:07-07.1",
+      "kind": "task",
+      "parent_local_id": "plan:07-07",
+      "display": "Task 1: audit_log table + internal/show audit writer/query (single-writer discipline)",
+      "source": ".planning/phases/07-versioned-external-control-api/07-07-PLAN.md"
+    },
+    {
+      "local_id": "task:07-07.2",
+      "kind": "task",
+      "parent_local_id": "plan:07-07",
+      "display": "Task 2: Redacting post-mutation audit observer (every mutation, incl. failures, dry-runs, batches)",
+      "source": ".planning/phases/07-versioned-external-control-api/07-07-PLAN.md"
+    },
+    {
+      "local_id": "plan:07-08",
+      "kind": "plan",
+      "parent_local_id": "phase:07",
+      "display": "Plan 07-08",
+      "source": ".planning/phases/07-versioned-external-control-api/07-08-PLAN.md"
+    },
+    {
+      "local_id": "task:07-08.1",
+      "kind": "task",
+      "parent_local_id": "plan:07-08",
+      "display": "Task 1: Ring-buffer SSE broadcaster with Last-Event-ID replay + resync-on-overflow",
+      "source": ".planning/phases/07-versioned-external-control-api/07-08-PLAN.md"
+    },
+    {
+      "local_id": "task:07-08.2",
+      "kind": "task",
+      "parent_local_id": "plan:07-08",
+      "display": "Task 2: Stream access semantics (D-11/D-12) + revocation/expiry tick on open streams",
+      "source": ".planning/phases/07-versioned-external-control-api/07-08-PLAN.md"
+    },
+    {
+      "local_id": "plan:07-09",
+      "kind": "plan",
+      "parent_local_id": "phase:07",
+      "display": "Plan 07-09",
+      "source": ".planning/phases/07-versioned-external-control-api/07-09-PLAN.md"
+    },
+    {
+      "local_id": "task:07-09.1",
+      "kind": "task",
+      "parent_local_id": "plan:07-09",
+      "display": "Task 1: Generate + commit the OpenAPI 3.1 contract with a byte-stable drift check",
+      "source": ".planning/phases/07-versioned-external-control-api/07-09-PLAN.md"
+    },
+    {
+      "local_id": "task:07-09.2",
+      "kind": "task",
+      "parent_local_id": "plan:07-09",
+      "display": "Task 2: Compatibility/deprecation policy + headers + final capability-coverage closure",
+      "source": ".planning/phases/07-versioned-external-control-api/07-09-PLAN.md"
+    },
+    {
       "local_id": "phase:11",
       "kind": "phase",
       "parent_local_id": "milestone:v1",
@@ -4172,6 +4410,278 @@
     },
     {
       "repo_id": "task:06-12.4",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "phase:07",
+      "linear_type": "project_milestone",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:API-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:API-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:API-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:API-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:API-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:API-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:07-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-01.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:07-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-02.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-02.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:07-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-03.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-03.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:07-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-04.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-04.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:07-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-05.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-05.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-05.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:07-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-06.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-06.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:07-07",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-07.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-07.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:07-08",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-08.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-08.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:07-09",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-09.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-09.2",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,
