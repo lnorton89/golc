@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 07
-current_phase_name: Versioned External Control API
+current_phase_name: versioned-external-control-api
 status: executing
 stopped_at: context exhaustion at 75% (2026-07-25)
-last_updated: "2026-07-25T11:47:48.783Z"
-last_activity: 2026-07-24
+last_updated: "2026-07-25T11:51:04.807Z"
+last_activity: 2026-07-25
 last_activity_desc: Phase 07 execution started
 progress:
   total_phases: 8
   completed_phases: 6
-  total_plans: 80
-  completed_plans: 79
+  total_plans: 85
+  completed_plans: 80
 ---
 
 # Project State
@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** An operator can author a modular show once, adapt its fixture pools to different deployments in one or two actions, and hand a simple controller surface to another person for reliable playback.
-**Current focus:** Phase 07 — Versioned External Control API
+**Current focus:** Phase 07 — versioned-external-control-api
 
 ## Current Position
 
-Phase: 07 (Versioned External Control API) — EXECUTING
-Plan: 1 of 9
-Status: Ready to execute
-Last activity: 2026-07-24 — Phase 07 execution started
+Phase: 07 (versioned-external-control-api) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 07
+Last activity: 2026-07-25 — Phase 07 execution started
 
 Note: `.planning/phases/11-telemetry-usage-statistics-and-auto-crash-submission-pipeline/` exists on disk from earlier out-of-order groundwork, which caused the automated next-phase resolver to briefly point here at Phase 11. Phases 6-10 have no directories yet and are the genuine next work per ROADMAP.md's sequential order; Phase 11 itself declares `Depends on: Phase 10`.
 
