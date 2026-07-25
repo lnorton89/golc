@@ -1,0 +1,110 @@
+.workspace {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.canvas {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.loading {
+  color: var(--muted);
+  font-family: "Archivo", system-ui, sans-serif;
+}
+
+.errorText {
+  margin: 0 0 var(--space-sm);
+  color: var(--status-revoked);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+}
+
+.layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-md);
+}
+
+.saveRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  flex-wrap: wrap;
+}
+
+.destInput {
+  flex: 1;
+  min-width: 220px;
+  height: 32px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--page);
+  color: var(--ink);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: var(--text-sm);
+}
+
+.migrationNote {
+  margin: 0 var(--space-md) var(--space-sm);
+  color: var(--status-armed);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.pointRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.pointMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pointRevision {
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.pointCreatedAt {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: var(--text-2xs);
+  color: var(--muted);
+}
+
+.emptyState {
+  margin: var(--space-sm) var(--space-md);
+  color: var(--muted);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+}

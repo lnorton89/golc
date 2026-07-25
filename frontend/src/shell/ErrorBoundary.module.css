@@ -1,0 +1,61 @@
+/* Deliberately minimal and dependency-free (no primitives/tokens beyond the
+   handful already loaded by index.css): this fallback must still render
+   correctly even when the crash that triggered it came from deep inside the
+   shell's own component tree, so it avoids relying on anything that could
+   plausibly be part of what just broke. */
+
+.screen {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px;
+  background: var(--page, #131419);
+  color: var(--ink, #e4e0d8);
+  font-family: "Archivo", system-ui, sans-serif;
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--status-revoked, #e23a2e);
+}
+
+.body {
+  margin: 0;
+  max-width: 640px;
+  font-size: 14px;
+  color: var(--muted, #8a887f);
+}
+
+.detail {
+  max-width: 720px;
+  max-height: 240px;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--line, #33343a);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--muted, #8a887f);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+.reload {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--status-revoked, #e23a2e);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--status-revoked, #e23a2e);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
