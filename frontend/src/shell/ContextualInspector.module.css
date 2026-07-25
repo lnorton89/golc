@@ -1,0 +1,15 @@
+.inspector {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-md);
+  border-left: 1px solid var(--line);
+  background: var(--page);
+}
+
+.inspector:empty::before {
+  content: "Select an item to see details.";
+  color: var(--muted);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+}

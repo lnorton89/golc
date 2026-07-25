@@ -111,7 +111,6 @@ export default function LiveStatusBar() {
       : status.active
         ? "No layers enabled"
         : "--";
-  const bpmText = status.active ? status.bpm.toFixed(0) : "--";
   const barText = status.active
     ? `${status.barIndex + 1}.${Math.floor(status.beatFraction * 100)
         .toString()
@@ -143,11 +142,6 @@ export default function LiveStatusBar() {
         >
           {layersText}
         </span>
-      </div>
-
-      <div className={styles.field}>
-        <span className={styles.fieldLabel}>BPM</span>
-        <span className={styles.fieldValue}>{bpmText}</span>
       </div>
 
       <div className={styles.field}>

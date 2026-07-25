@@ -1,0 +1,63 @@
+.appShell {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 186px minmax(0, 1fr) 258px;
+  /* footer is "auto", not a fixed px guess: SafetyCluster's own D-14
+     hold-buttons are a 64px min-height (see SafetyCluster.module.css)
+     plus the cluster's own padding, which adds up to well over the 48px
+     this row was previously fixed at -- clipping the safety controls at
+     the bottom of the window (confirmed live: the safety cluster's own
+     red border was cut off mid-button in a real golc-desktop.exe run).
+     "auto" tracks SafetyCluster's real rendered height regardless of
+     future token changes, instead of re-guessing a px number here. */
+  grid-template-rows: 52px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "header header header"
+    "rail main inspector"
+    "footer footer footer";
+  overflow: hidden;
+  background: var(--page);
+  color: var(--ink);
+}
+
+.header {
+  grid-area: header;
+  min-width: 0;
+}
+
+.rail {
+  grid-area: rail;
+  min-height: 0;
+}
+
+.main {
+  grid-area: main;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.inspector {
+  grid-area: inspector;
+  min-height: 0;
+}
+
+.footer {
+  grid-area: footer;
+  min-width: 0;
+}
+
+/* Compact desktop widths: collapse the inspector column and let the rail
+   stay reachable (SKILL.md: "inspectors may collapse into a drawer, but
+   the command rail, live truth, and safety actions remain available"). A
+   full drawer-overlay treatment is deferred; this narrows the grid so
+   nothing clips horizontally at the sketch's compact-desktop breakpoint. */
+@media (max-width: 1100px) {
+  .appShell {
+    grid-template-columns: 160px minmax(0, 1fr) 0;
+  }
+
+  .inspector {
+    display: none;
+  }
+}

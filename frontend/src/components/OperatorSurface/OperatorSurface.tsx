@@ -43,6 +43,7 @@ import {
 } from "../../lib/wailsBridge";
 import AssignmentToggle from "./AssignmentToggle";
 import SurfaceList from "./SurfaceList";
+import Launcher from "./Launcher";
 import styles from "./OperatorSurface.module.css";
 
 // ---------------------------------------------------------------------------
@@ -306,38 +307,20 @@ export default function OperatorSurface() {
 
               {detailLoading ? (
                 <div className={styles.skeleton}>Loading assignments…</div>
-              ) : (
+              ) : mode === "author" ? (
                 <ul className={styles.controlList} aria-label={`${selectedName} controls`}>
-                  {controls.map((control) => {
-                    const key = controlKey(control);
-                    if (mode === "author") {
-                      return (
-                        <li key={key} className={styles.controlRow}>
-                          <AssignmentToggle
-                            label={control.label}
-                            assigned={control.assigned}
-                            onToggle={() => handleToggle(control)}
-                          />
-                        </li>
-                      );
-                    }
-                    return (
-                      <li
-                        key={key}
-                        className={`${styles.controlRow} ${
-                          control.assigned ? styles.controlAssigned : styles.controlLocked
-                        }`}
-                        aria-disabled={!control.assigned}
-                        title={control.label}
-                      >
-                        <span className={styles.controlLabel}>{control.label}</span>
-                        <span className={styles.controlState}>
-                          {control.assigned ? "Available" : "Locked"}
-                        </span>
-                      </li>
-                    );
-                  })}
+                  {controls.map((control) => (
+                    <li key={controlKey(control)} className={styles.controlRow}>
+                      <AssignmentToggle
+                        label={control.label}
+                        assigned={control.assigned}
+                        onToggle={() => handleToggle(control)}
+                      />
+                    </li>
+                  ))}
                 </ul>
+              ) : (
+                <Launcher controls={controls} />
               )}
             </div>
           )}
