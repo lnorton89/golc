@@ -76,8 +76,8 @@ func registerTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "golc_list_command_routes",
 		Description: "Every route currently reachable through GOLC's command API, read live from " +
-			"internal/command's self-registration registry rather than a hand-maintained copy. The configured " +
-			"contributor entrypoint delegates to this same route surface.",
+			"internal/command's self-registration registry rather than a hand-maintained copy. Mage, the sole " +
+			"contributor entrypoint, delegates to this same route surface.",
 		Annotations: readOnly(),
 	}, handleListCommandRoutes)
 
@@ -86,7 +86,7 @@ func registerTools(server *mcp.Server) {
 		Description: "Every valid value for the route-native \"test --quick --scope <name>\" operation: Go scopes " +
 			"(derived from TestScope{PascalName} marker functions found in *_test.go) and Node scopes (from " +
 			"MustDeclareNodeScope registrations). This best-effort source scan mirrors test.go's own resolution " +
-			"logic; confirm through the configured contributor entrypoint when precision matters.",
+			"logic; confirm through \"mage Test\" when precision matters.",
 		Annotations: readOnly(),
 	}, handleListTestScopes)
 
@@ -118,7 +118,8 @@ func registerTools(server *mcp.Server) {
 		Name: "golc_list_mage_targets",
 		Description: "All public Mage targets from the shared registry used by real Mage dispatch, including exact " +
 			"route arguments. The PR target also reports its validated config/commands.toml order, network policy, " +
-			"mutation policy, and configured contributor entrypoint. This tool only reads metadata and executes nothing.",
+			"and mutation policy. Mage is the sole contributor entrypoint; this tool only reads metadata and " +
+			"executes nothing.",
 		Annotations: readOnly(),
 	}, handleListMageTargets)
 

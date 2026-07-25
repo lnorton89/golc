@@ -44,7 +44,8 @@ func runPackage(request Request) Result {
 // runPackageFoundation builds the deterministic foundation bundle and
 // writes it to the fixed output location under dist/foundation, replacing
 // any prior output there so repeated invocations are directly comparable
-// byte-for-byte (tests/acceptance/offline.ps1 -Mode package).
+// byte-for-byte (internal/delivery's "BuildFoundationBundle produces
+// byte-identical ZIP, manifest, and checksums across repeated runs" test).
 func runPackageFoundation(root string) Result {
 	bundle, err := delivery.BuildFoundationBundle(root)
 	if err != nil {

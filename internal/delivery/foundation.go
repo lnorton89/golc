@@ -9,7 +9,7 @@
 // LoadGraph/RunOffline.
 //
 // Bundle contents are sourced from the one authoritative graph inventory
-// LoadGraph already owns (CommandInventory.Entrypoint/CLIBinary) plus a
+// LoadGraph already owns (CommandInventory.CLIBinary) plus a
 // bounded, explicit set of committed contributor-facing paths (root
 // config index, every config/**/*.toml concern, every committed
 // schemas/*.json contract, and docs/development.md). FoundationInventory
@@ -51,15 +51,15 @@ type FoundationEntry struct {
 
 // foundationFixedEntries are the exact non-directory-derived paths every
 // foundation bundle carries in addition to the graph inventory's
-// Entrypoint/CLIBinary and the config/schemas directory scans below.
+// CLIBinary and the config/schemas directory scans below.
 var foundationFixedEntries = []string{
 	"golc.project.toml",
 	"docs/development.md",
 }
 
 // FoundationInventory returns the sorted, duplicate-free allowlist of
-// files the foundation ZIP carries: the graph's own Entrypoint and
-// CLIBinary, golc.project.toml, docs/development.md, every committed
+// files the foundation ZIP carries: the graph's own CLIBinary,
+// golc.project.toml, docs/development.md, every committed
 // config/**/*.toml concern file, and every committed schemas/*.json
 // contract. It is the single declarative allowlist BuildFoundationBundle
 // consumes (T-01-16: no second, independently maintained file list exists
@@ -67,11 +67,10 @@ var foundationFixedEntries = []string{
 func FoundationInventory(root string, inventory CommandInventory) ([]FoundationEntry, error) {
 	entries := make([]FoundationEntry, 0, len(foundationFixedEntries)+8)
 
-	if strings.TrimSpace(inventory.Entrypoint) == "" || strings.TrimSpace(inventory.CLIBinary) == "" {
+	if strings.TrimSpace(inventory.CLIBinary) == "" {
 		return nil, fmt.Errorf("GOLC_FOUNDATION_INVENTORY: graph inventory is incomplete")
 	}
 	entries = append(entries,
-		FoundationEntry{ArchivePath: filepath.ToSlash(inventory.Entrypoint), SourcePath: inventory.Entrypoint},
 		FoundationEntry{ArchivePath: filepath.ToSlash(inventory.CLIBinary), SourcePath: inventory.CLIBinary},
 	)
 	for _, relative := range foundationFixedEntries {
@@ -98,8 +97,9 @@ func FoundationInventory(root string, inventory CommandInventory) ([]FoundationE
 	// entry set also carries). This is developer tooling review/build
 	// material inside the foundation ZIP, not a claim that Node is part of
 	// the GOLC application runtime (CONTEXT: Phase 1 boundary). Optional:
-	// a checkout that never ran `golc.ps1 bootstrap --include linear-sync`
-	// (or `build --scope linear-sdk`) simply produces a foundation bundle
+	// a checkout that never ran Bootstrap with
+	// GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC=1 (or `build --scope linear-sdk`)
+	// simply produces a foundation bundle
 	// without these entries -- packaging must never hard-fail on a missing
 	// adapter (CONTEXT D-21, this plan's Task 2 remote-failure isolation).
 	linearSyncAdapterFiles, err := collectSortedFilesOptional(root, "tools/linear-sync/dist/src", ".js")
@@ -361,9 +361,9 @@ type FoundationOutputPaths struct {
 
 // DefaultFoundationOutputPaths is the one fixed output location
 // `package --foundation` writes to under root/dist/foundation. Running
-// the command twice overwrites the exact same paths, so
-// tests/acceptance/offline.ps1's repeat-and-compare verification observes
-// the same file identity rather than two differently-named artifacts.
+// the command twice overwrites the exact same paths, so this package's
+// own repeat-and-compare tests observe the same file identity rather
+// than two differently-named artifacts.
 func DefaultFoundationOutputPaths(root string) FoundationOutputPaths {
 	base := filepath.Join(root, "dist", "foundation")
 	name := "golc-foundation-" + bootstrap.PlatformKey()

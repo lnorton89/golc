@@ -70,7 +70,8 @@ const defaultCloseGrace = 3 * time.Second
 // ScriptPath must both already exist on disk (CONTEXT D-01/D-02): this
 // package never falls back to a host PATH lookup and never downloads or
 // installs anything itself — that is bootstrap's exclusive responsibility
-// (internal/bootstrap, golc.ps1 "bootstrap --include linear-sync").
+// (internal/bootstrap, "mage Bootstrap" with
+// GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC=1).
 type ProcessConfig struct {
 	// NodeExecutable is the absolute path to the pinned project-local
 	// node.exe.
@@ -159,14 +160,14 @@ func NewProcessClient(cfg ProcessConfig) (*ProcessClient, error) {
 	if _, err := os.Stat(cfg.NodeExecutable); err != nil {
 		return nil, &RPCError{
 			Code:    "GOLC_TRANSPORT_ADAPTER_MISSING",
-			Message: fmt.Sprintf("pinned node executable not found: %s; run 'golc.ps1 bootstrap --include linear-sync' first", cfg.NodeExecutable),
+			Message: fmt.Sprintf("pinned node executable not found: %s; set GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC=1 and run 'mage Bootstrap' first", cfg.NodeExecutable),
 		}
 	}
 	if _, err := os.Stat(cfg.ScriptPath); err != nil {
 		return nil, &RPCError{
 			Code: "GOLC_TRANSPORT_ADAPTER_MISSING",
 			Message: fmt.Sprintf(
-				"compiled adapter entrypoint not found: %s; run 'golc.ps1 bootstrap --include linear-sync' and 'golc.ps1 build --scope linear-sdk' first",
+				"compiled adapter entrypoint not found: %s; set GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC=1 and run 'mage Bootstrap' then 'mage Build' first",
 				cfg.ScriptPath),
 		}
 	}

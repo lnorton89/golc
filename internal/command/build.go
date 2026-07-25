@@ -114,7 +114,7 @@ func resolvePinnedNodeExecutable(root string) (string, error) {
 	nodeInstall := filepath.Join(root, ".tools", "toolchains", "node", version, bootstrap.PlatformKey())
 	node, err := bootstrap.ResolveNodeInstallation(nodeInstall)
 	if err != nil {
-		return "", fmt.Errorf("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: %s: run 'golc.ps1 bootstrap --include linear-sync' first: %v", nodeInstall, err)
+		return "", fmt.Errorf("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: %s: set GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC=1 and run 'mage Bootstrap' first: %v", nodeInstall, err)
 	}
 	return node.Executable, nil
 }
@@ -133,7 +133,7 @@ func runBuildNodeScope(root string, registration NodeBuildScopeRegistration) Res
 	tscPath := filepath.Join(scopeDir, "node_modules", "typescript", "bin", "tsc")
 	if _, statErr := os.Stat(tscPath); statErr != nil {
 		diagnostic := fmt.Sprintf(
-			"GOLC_BUILD_SCOPE_TSC_MISSING: %s: run 'golc.ps1 bootstrap --include linear-sync' first\n", tscPath)
+			"GOLC_BUILD_SCOPE_TSC_MISSING: %s: set GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC=1 and run 'mage Bootstrap' first\n", tscPath)
 		return Result{ExitCode: 1, Stderr: []byte(diagnostic)}
 	}
 	tsconfigPath := filepath.Join(scopeDir, "tsconfig.json")

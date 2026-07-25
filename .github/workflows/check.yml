@@ -14,6 +14,13 @@
 #     appears here. Mutating remote synchronization only ever runs through
 #     an explicit, separate, protected/manual command context — never from
 #     an untrusted pull-request job.
+#
+# Mage itself is provisioned from the checksum-pinned archive committed in
+# config/toolchain.toml (scripts/ci/install-pinned-mage.ps1), the same
+# script cross-platform-mage.yml uses: there is no ambient Mage on
+# windows-latest, and Mage JIT-compiles the magefile package at every
+# invocation, so a Go compiler is provisioned alongside it regardless of
+# how the mage binary itself was obtained.
 name: check
 
 on:
@@ -28,6 +35,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install pinned Mage
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/ci/install-pinned-mage.ps1
 
       - name: bootstrap
         run: mage Bootstrap

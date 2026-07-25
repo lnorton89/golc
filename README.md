@@ -58,23 +58,27 @@ Out of scope for v1: protocols beyond Art-Net, multi-user/distributed operation,
 
 ## Getting started (contributors)
 
-The only supported entrypoint is `golc.ps1` (Windows PowerShell 5.1), run from the repository root. No ecosystem tool — `go`, `npm`, or anything else — is invoked directly, and after the first bootstrap everything works offline.
+The sole supported entrypoint is Mage (`magefiles/magefile.go`), run from the repository root. No ecosystem tool — `npm` or anything else — is invoked directly, and after the first bootstrap everything works offline.
 
 ```powershell
-# One-time: provision the pinned project-local toolchain
-powershell -NoProfile -File .\golc.ps1 bootstrap
+# One-time (ambient install): Go plus Mage pinned to config/toolchain.toml's version
+go install github.com/magefile/mage@v1.17.2
 
-# Inspect committed configuration (deterministic JSON)
-powershell -NoProfile -File .\golc.ps1 config inspect runtime --format json
+# One-time: provision the rest of the pinned project-local toolchain
+mage Bootstrap
+
+# Inspect committed configuration (deterministic JSON) -- not a fixed Mage
+# target, so it goes through the CLI binary Bootstrap just built
+.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe config inspect runtime --format json
 
 # Set a machine-local override (written to git-ignored golc.local.toml)
-powershell -NoProfile -File .\golc.ps1 config set --local runtime.log_level debug
+.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe config set --local runtime.log_level debug
 
 # Explain which layer wins for an effective value
-powershell -NoProfile -File .\golc.ps1 config explain runtime.log_level --format json
+.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe config explain runtime.log_level --format json
 
 # Run quick tests for a registered scope
-powershell -NoProfile -File .\golc.ps1 test --quick --scope config-local
+.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe test --quick --scope config-local
 ```
 
 Bootstrap verifies every tool archive against committed SHA-256 pins in `config/toolchain.toml`, installs into a repository-local `.tools/` directory with atomic promotion, and never rewrites `go.mod`, `go.sum`, or the pin manifest. A second bootstrap with matching install manifests makes zero network calls.
@@ -99,7 +103,7 @@ Machine-local overrides live in `golc.local.toml` (git-ignored, atomically writt
 ## Repository layout
 
 ```
-cmd/golc-project/       Project CLI that golc.ps1 delegates to
+cmd/golc-project/       Project CLI Mage bootstraps/delegates to
 cmd/golc-desktop/       Wails desktop entrypoint
 frontend/               React/TypeScript operator surface (Wails UI)
 config/                 Committed configuration concern files

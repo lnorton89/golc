@@ -157,7 +157,7 @@ func resolvePinnedGoExecutable(root string) (string, error) {
 		root, ".tools", "toolchains", "go", version, bootstrap.PlatformKey(),
 		"go", "bin", bootstrap.ExecutableName("go"))
 	if _, err := os.Stat(goExecutable); err != nil {
-		return "", fmt.Errorf("GOLC_TEST_TOOLCHAIN_MISSING: %s: run 'golc.ps1 bootstrap' first", goExecutable)
+		return "", fmt.Errorf("GOLC_TEST_TOOLCHAIN_MISSING: %s: run 'mage Bootstrap' first", goExecutable)
 	}
 	return goExecutable, nil
 }

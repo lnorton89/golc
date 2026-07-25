@@ -1,15 +1,16 @@
 # GOLC commands concern: the supported repository command surface.
 #
-# This file alone owns the contributor entrypoint and delegated CLI
-# locations (single-authority rule). The pinned Go version is referenced
-# from the toolchain concern — never repeated here (D-05: a concern may
-# refer to another authority through a typed "ref:" value, but it may not
-# duplicate it).
+# This file alone owns the delegated CLI location (single-authority
+# rule). The pinned Go version is referenced from the toolchain concern
+# — never repeated here (D-05: a concern may refer to another authority
+# through a typed "ref:" value, but it may not duplicate it). Mage
+# (magefiles/magefile.go) is the sole contributor entrypoint; it calls
+# internal/command's registry in-process and needs no configured script
+# path here.
 
 schema_version = 2
 
 [commands]
-entrypoint = "golc.ps1"
 # Platform-neutral install root. Consumers add the runtime platform,
 # bin directory, and platform-native executable suffix.
 cli_binary = ".tools/installs/golc_project"

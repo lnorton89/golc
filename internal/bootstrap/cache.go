@@ -3,7 +3,7 @@
 // directory bootstrap warms (downloads, Go module cache, Go build cache,
 // Go bin, and manifest bookkeeping) rooted strictly inside the repository
 // checkout, and OfflineEnvironment derives the exact environment variables
-// every subsequent golc.ps1 subcommand must set so Go/Wails operations
+// every subsequent Mage-dispatched route must set so Go/Wails operations
 // never touch a machine-global cache, bin directory, or toolchain (D-01,
 // D-02). WailsModule/WailsVersion pin the exact project-local Wails CLI
 // this layout reserves GoBin for; actually invoking an install for that
@@ -33,8 +33,8 @@ const (
 
 // ProjectCacheLayout is the complete set of repository-local Go/Node/Wails
 // cache directories bootstrap warms and every subsequent build/test/package
-// operation must consume, matching the directories golc.ps1 provisions
-// during bootstrap: .tools/cache/downloads, .tools/cache/go-mod,
+// operation must consume, matching the directories Bootstrap provisions:
+// .tools/cache/downloads, .tools/cache/go-mod,
 // .tools/cache/go-build, .tools/cache/go-bin, .tools/cache/npm, and
 // .tools/manifest. NpmCache is only warmed/consumed when a contributor
 // opts into the isolated tools/linear-sync workspace (`bootstrap --include
@@ -136,7 +136,7 @@ func (layout ProjectCacheLayout) Warm() error {
 }
 
 // OfflineEnvironment is the exact set of environment variables bootstrap
-// and every subsequent golc.ps1 subcommand must set so Go/Node/Wails
+// and every subsequent Mage-dispatched route must set so Go/Node/Wails
 // operations stay repository-local: GOTOOLCHAIN is pinned to "local"
 // (never a silent toolchain download or host fallback), GOMODCACHE/
 // GOCACHE/GOBIN point inside layout, GOFLAGS forces readonly module

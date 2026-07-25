@@ -29,8 +29,25 @@
 # always()-gated cleanup step below, defense in depth against a step being
 # force-terminated on cancellation before its own finally can run) on
 # cancellation too. No step here ever echoes, logs, or passes a secret
-# value as a command-line argument; golc.ps1's linear routes read
-# LINEAR_API_KEY/LINEAR_TEAM_ID only from the process environment.
+# value as a command-line argument; internal/command/linear.go's routes
+# read LINEAR_API_KEY/LINEAR_TEAM_ID only from the process environment.
+#
+# Mage is provisioned the same way check.yml does (the checksum-pinned
+# archive scripts/ci/install-pinned-mage.ps1 reads from
+# config/toolchain.toml), and "mage Bootstrap" (with
+# GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC=1) replaces
+# "golc.ps1 bootstrap --include linear-sync". "build --scope linear-sdk"
+# and every "linear <route>" invocation below are not in the shared Mage
+# target registry (internal/delivery.MageTargets): the former is a
+# narrower, non-Go build than any Mage target compiles, and "linear
+# apply" inherently takes a caller-supplied plan file and plan id that
+# vary per invocation, which the target registry's fixed-argument
+# descriptors do not model. Both call the pinned project-local CLI binary
+# directly instead, at the exact path "mage Bootstrap" itself compiles it
+# to (internal/bootstrap/engine.go's runGoPhase, not the "build" route):
+# that binary self-registers the identical internal/command route
+# surface a Mage route target dispatches in-process, just reachable here
+# as a separate process instead.
 name: linear-sync
 
 on:
@@ -61,11 +78,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install pinned Mage
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/ci/install-pinned-mage.ps1
+
       - name: bootstrap --include linear-sync
-        run: powershell -NoProfile -File .\golc.ps1 bootstrap --include linear-sync
+        env:
+          GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC: "1"
+        run: mage Bootstrap
 
       - name: build --scope linear-sdk
-        run: powershell -NoProfile -File .\golc.ps1 build --scope linear-sdk
+        run: .\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe build --scope linear-sdk
 
       - name: linear drift --remote --read-only
         shell: powershell
@@ -82,7 +104,7 @@ jobs:
             Set-Content -LiteralPath .env -Value "LINEAR_API_KEY=$($env:LINEAR_API_KEY_SECRET)`nLINEAR_TEAM_ID=$($env:LINEAR_TEAM_ID_SECRET)`n" -NoNewline -Encoding ascii
             $env:LINEAR_API_KEY = $env:LINEAR_API_KEY_SECRET
             $env:LINEAR_TEAM_ID = $env:LINEAR_TEAM_ID_SECRET
-            powershell -NoProfile -File .\golc.ps1 linear drift --remote --read-only
+            .\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe linear drift --remote --read-only
             if ($LASTEXITCODE -ne 0) {
               throw "linear drift --remote --read-only exited $LASTEXITCODE"
             }
@@ -115,11 +137,16 @@ jobs:
             throw "linear-apply requires both plan_file and plan_id inputs"
           }
 
+      - name: Install pinned Mage
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/ci/install-pinned-mage.ps1
+
       - name: bootstrap --include linear-sync
-        run: powershell -NoProfile -File .\golc.ps1 bootstrap --include linear-sync
+        env:
+          GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC: "1"
+        run: mage Bootstrap
 
       - name: build --scope linear-sdk
-        run: powershell -NoProfile -File .\golc.ps1 build --scope linear-sdk
+        run: .\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe build --scope linear-sdk
 
       - name: linear apply (exact plan, protected environment)
         shell: powershell
@@ -138,7 +165,7 @@ jobs:
             Set-Content -LiteralPath .env -Value "LINEAR_API_KEY=$($env:LINEAR_API_KEY_SECRET)`nLINEAR_TEAM_ID=$($env:LINEAR_TEAM_ID_SECRET)`n" -NoNewline -Encoding ascii
             $env:LINEAR_API_KEY = $env:LINEAR_API_KEY_SECRET
             $env:LINEAR_TEAM_ID = $env:LINEAR_TEAM_ID_SECRET
-            powershell -NoProfile -File .\golc.ps1 linear apply $env:GOLC_PLAN_FILE --plan-id $env:GOLC_PLAN_ID
+            .\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe linear apply $env:GOLC_PLAN_FILE --plan-id $env:GOLC_PLAN_ID
             if ($LASTEXITCODE -ne 0) {
               throw "linear apply exited $LASTEXITCODE"
             }

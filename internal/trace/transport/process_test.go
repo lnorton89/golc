@@ -48,7 +48,7 @@ func resolveTestNode(t *testing.T) string {
 	if path, err := exec.LookPath("node"); err == nil {
 		return path
 	}
-	t.Skip("no Node executable available (pinned or PATH); run 'golc.ps1 bootstrap --include linear-sync' first")
+	t.Skip("no Node executable available (pinned or PATH); set GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC=1 and run 'mage Bootstrap' first")
 	return ""
 }
 

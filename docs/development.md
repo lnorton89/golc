@@ -1,31 +1,48 @@
 # GOLC Development
 
 This is the canonical contributor sequence for the Phase 1 walking
-skeleton. Every command runs from the repository root through the single
-supported entrypoint, `golc.ps1` (Windows PowerShell 5.1). No ecosystem
-tool — `go`, `npm`, or anything else — is ever invoked directly, and no
-credentials, `.env` file, or network access is required after the first
-bootstrap.
+skeleton. Every command runs from the repository root through Mage
+(`magefiles/magefile.go`), the sole supported build/bootstrap entrypoint,
+or the pinned project-local `golc-project` CLI binary Mage's own
+bootstrap step compiles. No ecosystem tool — `npm` or anything else — is
+ever invoked directly, and no credentials, `.env` file, or network access
+is required after the first bootstrap.
 
 ## 1. Bootstrap once
 
+Install Go and Mage once, ambiently: Mage JIT-compiles the magefile
+package at every invocation, so it always needs a Go compiler on PATH,
+and there is no way around installing Mage itself before it can take
+over. Mage is pinned to the exact version `config/toolchain.toml`
+declares (currently 1.17.2) — install it with
+`go install github.com/magefile/mage@v1.17.2` or a manual download from
+https://github.com/magefile/mage/releases. Then:
+
 ```powershell
-powershell -NoProfile -File .\golc.ps1 bootstrap
+mage Bootstrap
 ```
 
-Bootstrap provisions the pinned project-local toolchain from exact
-checksum pins in `config/toolchain.toml`, warms the repository-local Go
-module cache, and builds the `golc-project` command that every other
-subcommand delegates to. Pins are immutable inputs: bootstrap never
-upgrades a version and never rewrites `go.mod`, `go.sum`, or
-`config/toolchain.toml`. A second bootstrap with matching install
-manifests performs zero archive-source calls, and afterwards the commands
-below work offline.
+Bootstrap provisions the rest of the pinned project-local toolchain from
+exact checksum pins in `config/toolchain.toml`, warms the
+repository-local Go module cache, and builds the `golc-project` command
+every other subcommand below delegates to, at
+`.tools/installs/golc_project/<platform>/bin/golc-project` (`.exe` on
+Windows). Pins are immutable inputs: bootstrap never upgrades a version
+and never rewrites `go.mod`, `go.sum`, or `config/toolchain.toml`. A
+second bootstrap with matching install manifests performs zero
+archive-source calls, and afterwards the commands below work offline.
 
 ## 2. Inspect the committed configuration
 
+`config inspect`/`config set`/`config explain`, the quick-test route, and
+`docs` below are not in Mage's fixed target set (`mage Bootstrap`,
+`GenerateCheck`, `CheckOffline`, `Build`, `Test`, `PackageFoundation`,
+`Pr`): they take variable arguments a fixed Mage target descriptor can't
+model, so they're invoked directly against the CLI binary Bootstrap just
+built.
+
 ```powershell
-powershell -NoProfile -File .\golc.ps1 config inspect runtime --format json
+.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe config inspect runtime --format json
 ```
 
 `golc.project.toml` is the root configuration index: it owns only schema
@@ -36,7 +53,7 @@ concern as deterministic JSON — repeated runs are byte-identical.
 ## 3. Set a machine-local value
 
 ```powershell
-powershell -NoProfile -File .\golc.ps1 config set --local runtime.log_level debug
+.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe config set --local runtime.log_level debug
 ```
 
 The value is written only to `golc.local.toml` at the repository root
@@ -48,7 +65,7 @@ targets are all rejected with stable diagnostics.
 ## 4. Explain the effective value
 
 ```powershell
-powershell -NoProfile -File .\golc.ps1 config explain runtime.log_level --format json
+.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe config explain runtime.log_level --format json
 ```
 
 Explain resolves the key across the layers and reports which layer won,
@@ -66,7 +83,7 @@ fresh terminal, a fresh build) resolves the same answer.
 ## 5. Run the quick tests for a scope
 
 ```powershell
-powershell -NoProfile -File .\golc.ps1 test --quick --scope config-local
+.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe test --quick --scope config-local
 ```
 
 The generic quick-test route translates a registered scope name into the
@@ -78,15 +95,15 @@ toolchain, never a host installation.
 ## 6. Build the deterministic foundation package
 
 ```powershell
-powershell -NoProfile -File .\golc.ps1 package --foundation
+mage PackageFoundation
 ```
 
-`package --foundation` builds a **developer-tool bundle, not a product
-installer**: a Windows AMD64 ZIP containing the bootstrap-built
-`golc-project.exe`, the `golc.ps1` shim, `golc.project.toml`, every
-committed `config/**/*.toml` concern, every committed `schemas/*.json`
-contract, and `docs/development.md`. Output is written to
-`dist/foundation/`:
+`package --foundation` (Mage's `PackageFoundation` target) builds a
+**developer-tool bundle, not a product installer**: a Windows AMD64 ZIP
+containing the bootstrap-built `golc-project.exe`, `golc.project.toml`,
+every committed `config/**/*.toml` concern, every committed
+`schemas/*.json` contract, and `docs/development.md`. Output is written
+to `dist/foundation/`:
 
 - `golc-foundation-windows-amd64.zip` — the archive itself.
 - `golc-foundation-windows-amd64.manifest.json` — a canonical, sorted
@@ -101,8 +118,9 @@ walk: identical repository inputs always produce byte-identical ZIP,
 manifest, and checksum bytes. `dist/foundation/` is regenerated on every
 run and is git-ignored; the only committed foundation-package fixture is
 the golden test oracle at `tests/golden/foundation-manifest.json`.
-`tests/acceptance/offline.ps1 -Mode package` proves this by running the
-command twice and comparing all three output files byte-for-byte.
+`internal/delivery`'s "BuildFoundationBundle produces byte-identical ZIP,
+manifest, and checksums across repeated runs" test proves this by
+building the bundle twice and comparing all three outputs byte-for-byte.
 
 This command makes **no Wails or NSIS product-packaging claim** — see the
 boundary below.
@@ -110,7 +128,7 @@ boundary below.
 ## 7. Generate the package reference docs
 
 ```powershell
-powershell -NoProfile -File .\golc.ps1 docs
+.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe docs
 ```
 
 `docs` (internal/docgen) walks every `internal/**` package, extracts the

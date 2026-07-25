@@ -1,9 +1,13 @@
-// Command golc-project is the pinned project-local CLI that golc.ps1
-// delegates every normal subcommand to. It performs no route wiring of its
-// own: command files self-register through the command package's
-// declaration entrypoints (D-03), and this entrypoint only imports them,
-// builds the default registry, and applies the stable result-to-exit
-// mapping (0 success, 1 command failure, 2 routing/usage/startup failure).
+// Command golc-project is the pinned project-local CLI Mage's Bootstrap
+// target compiles: Mage's own route targets call this same self-registered
+// route surface in-process, and this binary remains directly invokable for
+// every route Mage's fixed target set doesn't wrap (config inspect/set/
+// explain, test --quick --scope, docs, linear preview/drift/apply). It
+// performs no route wiring of its own: command files self-register through
+// the command package's declaration entrypoints (D-03), and this
+// entrypoint only imports them, builds the default registry, and applies
+// the stable result-to-exit mapping (0 success, 1 command failure, 2
+// routing/usage/startup failure).
 package main
 
 import (
@@ -17,8 +21,9 @@ import (
 	_ "github.com/lnorton89/golc/internal/projectconfig"
 )
 
-// repoRootEnvName is set by golc.ps1 so command behavior is independent of
-// the caller's working directory.
+// repoRootEnvName, when set by the caller, makes command behavior
+// independent of the working directory; resolveProjectRoot falls back to
+// os.Getwd() otherwise.
 const repoRootEnvName = "GOLC_PROJECT_ROOT"
 
 func main() {

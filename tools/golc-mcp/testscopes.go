@@ -97,7 +97,7 @@ func handleListTestScopes(_ context.Context, _ *mcp.CallToolRequest, _ listTestS
 		Note: "Derived by scanning source for TestScope{PascalName} marker functions (Go scopes, valid for " +
 			"\"test --quick --scope <name>\") and MustDeclareNodeScope registrations (Node scopes). This mirrors " +
 			"test.go's own resolution logic but is not a live call into the CLI; confirm with " +
-			"\"golc.ps1 test --quick --scope <name>\" if precision matters.",
+			"\"mage Test\" if precision matters.",
 	}, nil
 }
 

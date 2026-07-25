@@ -487,9 +487,10 @@ const defaultLinearTransportTimeout = 30 * time.Second
 
 // resolveLinearSyncWorkspace returns the working directory and compiled
 // adapter entrypoint the process transport launches. In production this
-// is always project-local: tools/linear-sync and its own
-// dist/src/cli.js, built by "golc.ps1 bootstrap --include linear-sync"
-// plus "golc.ps1 build --scope linear-sdk" -- never a host PATH lookup.
+// is always project-local: tools/linear-sync and its own dist/src/cli.js,
+// built by "mage Bootstrap" (with GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC=1)
+// plus a direct "build --scope linear-sdk" invocation of the pinned CLI
+// binary -- never a host PATH lookup.
 func resolveLinearSyncWorkspace(root string) (workDir, scriptPath string) {
 	if override := strings.TrimSpace(os.Getenv(linearSyncWorkdirOverrideEnv)); override != "" {
 		return override, filepath.Join(override, "dist", "src", "cli.js")

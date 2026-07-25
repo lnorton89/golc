@@ -2,9 +2,9 @@
 // system, all backed directly by internal/projectconfig's exported API
 // (no subprocess, no invocation of the pinned CLI binary): the static
 // concern/key registry (DefaultSpec), one concern's resolved JSON
-// (InspectConcern — identical output to "golc.ps1 config inspect"), and
-// one key's provenance (Explain — identical output to
-// "golc.ps1 config explain").
+// (InspectConcern — identical output to the route-native "config inspect"
+// operation), and one key's provenance (Explain — identical output to
+// the route-native "config explain" operation).
 package main
 
 import (

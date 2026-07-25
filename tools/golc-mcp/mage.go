@@ -39,11 +39,10 @@ type mageEnvironmentOptionOutput struct {
 }
 
 type magePRAuthorityOutput struct {
-	AuthorityFile        string             `json:"authority_file"`
-	AuthorityKeys        []string           `json:"authority_keys"`
-	ConfiguredEntrypoint string             `json:"configured_entrypoint"`
-	MutationPolicy       string             `json:"mutation_policy"`
-	Steps                []magePRStepOutput `json:"steps"`
+	AuthorityFile  string             `json:"authority_file"`
+	AuthorityKeys  []string           `json:"authority_keys"`
+	MutationPolicy string             `json:"mutation_policy"`
+	Steps          []magePRStepOutput `json:"steps"`
 }
 
 type magePRStepOutput struct {
@@ -85,11 +84,10 @@ func handleListMageTargets(_ context.Context, _ *mcp.CallToolRequest, _ listMage
 				return toolError[listMageTargetsOutput](err)
 			}
 			pr := &magePRAuthorityOutput{
-				AuthorityFile:        magePRAuthorityFile,
-				AuthorityKeys:        append([]string(nil), magePRAuthorityKeys...),
-				ConfiguredEntrypoint: graph.Inventory.Entrypoint,
-				MutationPolicy:       "none",
-				Steps:                make([]magePRStepOutput, 0, len(graph.Steps)),
+				AuthorityFile:  magePRAuthorityFile,
+				AuthorityKeys:  append([]string(nil), magePRAuthorityKeys...),
+				MutationPolicy: "none",
+				Steps:          make([]magePRStepOutput, 0, len(graph.Steps)),
 			}
 			for _, step := range graph.Steps {
 				pr.Steps = append(pr.Steps, magePRStepOutput{

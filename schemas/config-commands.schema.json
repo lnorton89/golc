@@ -12,11 +12,6 @@
           "pattern": "^[.]tools(/[A-Za-z0-9._-]+)+$",
           "type": "string"
         },
-        "entrypoint": {
-          "description": "Contributor entrypoint script name.",
-          "pattern": "^[A-Za-z0-9._-]+$",
-          "type": "string"
-        },
         "go_version": {
           "description": "Pinned Go version; committed as a typed ref: pointer to the toolchain concern's single authority per D-05.",
           "pattern": "^([0-9]+([.][0-9]+)*|ref:[a-z0-9_]+([.][a-z0-9_]+)*)$",
@@ -24,7 +19,6 @@
         }
       },
       "required": [
-        "entrypoint",
         "cli_binary",
         "go_version"
       ],

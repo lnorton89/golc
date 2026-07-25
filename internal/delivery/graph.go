@@ -18,13 +18,13 @@
 // LoadGraph, Run, RunOffline, and ValidateParity all operate on the one
 // Graph value LoadGraph returns; no second, independently maintained list
 // of steps exists anywhere else in the repository (T-01-17: one parsed
-// graph). LoadGraph consumes exactly the three canonical keys
+// graph). LoadGraph consumes exactly the two canonical keys
 // internal/projectconfig/model.go's "commands" concern already owns in
-// config/commands.toml (commands.entrypoint, commands.cli_binary,
-// commands.go_version) — the same file internal/command/test.go's
-// resolvePinnedGoExecutable-style direct TOML decode pattern already
-// establishes for config/toolchain.toml. It never introduces a second
-// command-inventory source.
+// config/commands.toml (commands.cli_binary, commands.go_version) — the
+// same file internal/command/test.go's resolvePinnedGoExecutable-style
+// direct TOML decode pattern already establishes for
+// config/toolchain.toml. It never introduces a second command-inventory
+// source.
 package delivery
 
 import (
@@ -66,13 +66,12 @@ func (policy NetworkPolicy) String() string {
 }
 
 // CommandInventory is the exact command-identity data this graph consumes
-// from config/commands.toml: the contributor entrypoint script name, the
-// delegated project-local CLI binary path, and the pinned Go version
-// reference. LoadGraph never consults any other file for this inventory.
+// from config/commands.toml: the delegated project-local CLI binary path
+// and the pinned Go version reference. LoadGraph never consults any other
+// file for this inventory.
 type CommandInventory struct {
-	Entrypoint string
-	CLIBinary  string
-	GoVersion  string
+	CLIBinary string
+	GoVersion string
 }
 
 // Step is one node of the offline core delivery graph: a stable name, the
@@ -125,14 +124,13 @@ func coreSteps() []Step {
 }
 
 // commandsConcernDocument is the minimal decode shape for
-// config/commands.toml: exactly the three canonical keys the "commands"
+// config/commands.toml: exactly the two canonical keys the "commands"
 // concern owns. A second, independently maintained struct is deliberately
 // avoided elsewhere in this package.
 type commandsConcernDocument struct {
 	Commands struct {
-		Entrypoint string `toml:"entrypoint"`
-		CLIBinary  string `toml:"cli_binary"`
-		GoVersion  string `toml:"go_version"`
+		CLIBinary string `toml:"cli_binary"`
+		GoVersion string `toml:"go_version"`
 	} `toml:"commands"`
 }
 
@@ -159,13 +157,12 @@ func LoadGraph(root string) (Graph, error) {
 			"GOLC_DELIVERY_INVENTORY_INCOMPLETE: commands.cli_binary could not resolve the project executable")
 	}
 	inventory := CommandInventory{
-		Entrypoint: strings.TrimSpace(document.Commands.Entrypoint),
-		CLIBinary:  filepath.ToSlash(resolvedCLI),
-		GoVersion:  strings.TrimSpace(document.Commands.GoVersion),
+		CLIBinary: filepath.ToSlash(resolvedCLI),
+		GoVersion: strings.TrimSpace(document.Commands.GoVersion),
 	}
-	if inventory.Entrypoint == "" || inventory.CLIBinary == "" || inventory.GoVersion == "" {
+	if inventory.CLIBinary == "" || inventory.GoVersion == "" {
 		return Graph{}, fmt.Errorf(
-			"GOLC_DELIVERY_INVENTORY_INCOMPLETE: config/commands.toml must declare entrypoint, cli_binary, and go_version")
+			"GOLC_DELIVERY_INVENTORY_INCOMPLETE: config/commands.toml must declare cli_binary and go_version")
 	}
 	return Graph{Root: root, Inventory: inventory, Steps: coreSteps()}, nil
 }
@@ -236,13 +233,12 @@ func commandInventoryFromValues(values map[string]string) (CommandInventory, err
 	}
 	resolvedCLI := bootstrap.PlatformExecutablePath(filepath.FromSlash(rawCLIRoot), "golc-project")
 	inventory := CommandInventory{
-		Entrypoint: strings.TrimSpace(values["commands.entrypoint"]),
-		CLIBinary:  filepath.ToSlash(resolvedCLI),
-		GoVersion:  strings.TrimSpace(values["commands.go_version"]),
+		CLIBinary: filepath.ToSlash(resolvedCLI),
+		GoVersion: strings.TrimSpace(values["commands.go_version"]),
 	}
-	if inventory.Entrypoint == "" || inventory.CLIBinary == "" || inventory.GoVersion == "" {
+	if inventory.CLIBinary == "" || inventory.GoVersion == "" {
 		return CommandInventory{}, fmt.Errorf(
-			"GOLC_DELIVERY_INVENTORY_INCOMPLETE: config/commands.toml must declare entrypoint, cli_binary, and go_version")
+			"GOLC_DELIVERY_INVENTORY_INCOMPLETE: config/commands.toml must declare cli_binary and go_version")
 	}
 	return inventory, nil
 }
@@ -296,7 +292,7 @@ func ValidateParity(g Graph) error {
 		}
 		seenInvocations[invocation] = struct{}{}
 	}
-	if g.Inventory.Entrypoint == "" || g.Inventory.CLIBinary == "" || g.Inventory.GoVersion == "" {
+	if g.Inventory.CLIBinary == "" || g.Inventory.GoVersion == "" {
 		return fmt.Errorf("GOLC_DELIVERY_INVENTORY_INCOMPLETE: graph inventory is incomplete")
 	}
 	return nil
