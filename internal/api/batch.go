@@ -172,7 +172,15 @@ type batchInput struct {
 // aggregated show.Save runs against a throwaway copy or in-memory state
 // only, and the real show is written to exactly once, only after every
 // sub-request has already succeeded against the copy and the batch's
-// expected base revision is confirmed to still be current.
+// expected base revision is confirmed to still be current. Every one of
+// the nine failure returns inside the locked section (from
+// mutationMutex.Lock() through the aggregated show.Save) fires its own
+// failure MutationEvent(s) before returning (API-06, 07-15-PLAN.md, closing
+// WR-05): a BATCH-LEVEL failure -- one not attributable to any individual
+// sub-request -- writes one failure row per sub-request via
+// fireBatchFailureObservers, while a SUB-REQUEST-LEVEL failure (the
+// translateResult error inside the execution loop below) writes exactly
+// one row, for the culpable index alone.
 func runBatch(ctx context.Context, server *Server, ifMatch string, requests []batchSubRequest) (*batchOutput, error) {
 	if len(requests) == 0 {
 		return nil, huma.Error400BadRequest("GOLC_API_BATCH_EMPTY: a batch must carry at least one sub-request")
@@ -234,25 +242,65 @@ func runBatch(ctx context.Context, server *Server, ifMatch string, requests []ba
 		args[i] = reqArgs
 	}
 
+	// expectedRevisionPtr carries the client's claimed If-Match revision for
+	// every locked-section audit row (success or failure) below. Declared
+	// once, here, and read at CALL time by every fire site below --
+	// including fireBatchFailureObservers, defined next -- which is exactly
+	// why the two call sites that precede If-Match parsing (the initial
+	// revision read and the parse failure itself) record a NULL expected
+	// revision while the seven call sites that follow it record the
+	// client's claimed revision.
+	var expectedRevisionPtr *int64
+
+	// fireBatchFailureObservers fans out one failure MutationEvent per
+	// sub-request in the batch: a BATCH-LEVEL failure (any of the eight
+	// call sites below) is not attributable to any single sub-request, so
+	// every sub-request in the batch gets its own failure row -- one cause,
+	// N rejected attempts (mirrors the success fan-out below, just with
+	// Outcome "failure", StatusCode statusCode, and no ResultingRevision --
+	// nothing was durably applied). It is defined here, before
+	// mutationMutex.Lock(), only so that the locked region below contains
+	// nothing but its call sites; every one of its actual invocations still
+	// happens with the mutex held, so unlike this file's pre-flight fires
+	// above (fired before the lock, carrying no ordering guarantee against
+	// concurrently-committing mutations), these rows ARE strictly ordered
+	// against them.
+	fireBatchFailureObservers := func(statusCode int) {
+		for i, route := range routes {
+			fireMutationObservers(MutationEvent{
+				Route: route, Args: args[i], Actor: actor, Source: "http",
+				CorrelationID: correlationID, ExpectedRevision: expectedRevisionPtr,
+				Outcome: "failure", StatusCode: statusCode,
+			})
+		}
+	}
+
 	mutationMutex.Lock()
 	defer mutationMutex.Unlock()
 
 	baseRevision, revErr := show.CurrentRevision(server.root, server.showPath)
 	if revErr != nil {
+		fireBatchFailureObservers(http.StatusInternalServerError)
 		return nil, huma.Error500InternalServerError(revErr.Error())
 	}
 
 	expectedRevision, ifMatchPresent, parseErr := parseIfMatch(ifMatch)
 	if parseErr != nil {
+		fireBatchFailureObservers(http.StatusBadRequest)
 		return nil, huma.Error400BadRequest(parseErr.Error())
 	}
+	if ifMatchPresent {
+		expectedRevisionPtr = &expectedRevision
+	}
 	if ifMatchPresent && expectedRevision != baseRevision {
+		fireBatchFailureObservers(http.StatusPreconditionFailed)
 		return nil, huma.Error412PreconditionFailed(fmt.Sprintf(
 			"GOLC_API_REVISION_MISMATCH: If-Match %d does not match the current revision %d", expectedRevision, baseRevision))
 	}
 
 	tempShowPath, cleanup, copyErr := show.NewTempCopy(server.root, server.showPath)
 	if copyErr != nil {
+		fireBatchFailureObservers(http.StatusInternalServerError)
 		return nil, huma.Error500InternalServerError(copyErr.Error())
 	}
 	defer cleanup()
@@ -263,6 +311,16 @@ func runBatch(ctx context.Context, server *Server, ifMatch string, requests []ba
 		exitCode, stdout, stderr := server.executor.Execute(routes[i], execArgs, server.root)
 		body, translateErr := translateResult(exitCode, stdout, stderr)
 		if translateErr != nil {
+			// Attributable to sub-request i alone: exactly one row, for the
+			// culpable index, matching the semantic 07-12 established for
+			// pre-flight rejections. Earlier sub-requests that succeeded
+			// against the throwaway copy get no row -- nothing of theirs was
+			// ever durably applied and no attempt of theirs failed.
+			fireMutationObservers(MutationEvent{
+				Route: routes[i], Args: args[i], Actor: actor, Source: "http",
+				CorrelationID: correlationID, ExpectedRevision: expectedRevisionPtr,
+				Outcome: "failure", StatusCode: statusFromHumaErr(translateErr),
+			})
 			return nil, batchSubRequestError(i, i, translateErr)
 		}
 		results[i] = batchResultItem{Index: i, Result: strings.TrimSpace(string(body))}
@@ -270,6 +328,7 @@ func runBatch(ctx context.Context, server *Server, ifMatch string, requests []ba
 
 	finalState, loadErr := show.Load(server.root, tempShowPath)
 	if loadErr != nil {
+		fireBatchFailureObservers(http.StatusInternalServerError)
 		return nil, huma.Error500InternalServerError(loadErr.Error())
 	}
 
@@ -277,11 +336,23 @@ func runBatch(ctx context.Context, server *Server, ifMatch string, requests []ba
 		BatchPreCommitHookForTesting()
 	}
 
+	// The pre-commit re-read of the real show's revision, and the race
+	// comparison that follows, are two distinct failure returns -- an error
+	// reading the revision itself (raceErr, a 500) versus a successfully
+	// read revision that no longer matches baseRevision (a 412). Both fire
+	// their own audit rows; collapsing them into one branch is exactly the
+	// miscount 07-15-PLAN.md's own scope-correction note fixes.
 	raceRevision, raceErr := show.CurrentRevision(server.root, server.showPath)
 	if raceErr != nil {
+		fireBatchFailureObservers(http.StatusInternalServerError)
 		return nil, huma.Error500InternalServerError(raceErr.Error())
 	}
 	if raceRevision != baseRevision {
+		// Every sub-request had already succeeded against the throwaway
+		// copy and is now being rolled back: the fan-out records that the
+		// whole batch was attempted and rolled back, not that nothing was
+		// ever attempted.
+		fireBatchFailureObservers(http.StatusPreconditionFailed)
 		return nil, huma.Error412PreconditionFailed(fmt.Sprintf(
 			"GOLC_API_REVISION_MISMATCH: the real show's revision changed from %d to %d while this batch was applying; "+
 				"the batch was rolled back -- no sub-request's effect was durably applied", baseRevision, raceRevision))
@@ -297,14 +368,15 @@ func runBatch(ctx context.Context, server *Server, ifMatch string, requests []ba
 	finalState.Revision = int(baseRevision)
 
 	if saveErr := show.Save(server.root, server.showPath, finalState); saveErr != nil {
+		fireBatchFailureObservers(http.StatusInternalServerError)
 		return nil, huma.Error500InternalServerError(saveErr.Error())
 	}
 
 	resultingRevision := baseRevision + 1
-	var expectedRevisionPtr *int64
-	if ifMatchPresent {
-		expectedRevisionPtr = &expectedRevision
-	}
+	// expectedRevisionPtr is the same hoisted variable every locked-section
+	// failure fire above already read; the success fan-out below sees the
+	// identical value it would have computed locally, so this is a pure
+	// dedup -- no audit-row or SSE-event content changes here.
 	for i, route := range routes {
 		fireMutationObservers(MutationEvent{
 			Route: route, Args: args[i], Actor: actor, Source: "http",
