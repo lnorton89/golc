@@ -145,14 +145,24 @@ func statusFromHumaErr(err error) int {
 // operation registered in this package calls. See this file's package
 // doc comment for the five-step pipeline; observers always fire exactly
 // once per attempted mutation, for both success and failure (Task 1's
-// own behavior requirement) -- a scope failure is reported "failure"
-// without ever acquiring mutationMutex (nothing durable was ever at
-// risk), while every check from the revision comparison onward runs
-// inside the held mutex so audit/SSE ordering matches application order
-// (observer.go's own doc comment).
+// own behavior requirement) -- an undeclared-scope lookup failure and a
+// scope rejection are both reported "failure" without ever acquiring
+// mutationMutex (nothing durable was ever at risk on either path), while
+// every check from the revision comparison onward runs inside the held
+// mutex so audit/SSE ordering matches application order (observer.go's
+// own doc comment).
 func mutate(ctx context.Context, server *Server, req mutateRequest) (mutationResult, error) {
 	requiredScope, scopeErr := requiredScopeForRoute(req.Route)
 	if scopeErr != nil {
+		// req.Route resolved to a domain with no declared D-08 scope
+		// (GOLC_API_DOMAIN_SCOPE_UNDECLARED) -- this is every other early
+		// return's sibling (WR-03): without this call, the first mutating
+		// route ever wired without a domainScope entry would silently
+		// un-audit itself.
+		fireMutationObservers(MutationEvent{
+			Route: req.Route, Args: req.Args, Actor: req.Actor, Source: "http",
+			CorrelationID: req.CorrelationID, Outcome: "failure", StatusCode: http.StatusInternalServerError,
+		})
 		return mutationResult{}, huma.Error500InternalServerError(scopeErr.Error())
 	}
 	if err := RequireScope(ctx, requiredScope); err != nil {
