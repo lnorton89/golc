@@ -19,6 +19,7 @@ GOLC combines a fast, modular show-authoring workflow with TypeScript scripting,
 - [Planned capabilities (v1)](#planned-capabilities-v1)
 - [Architecture principles](#architecture-principles)
 - [Getting started (contributors)](#getting-started-contributors)
+- [Running GOLC](#running-golc)
 - [Configuration model](#configuration-model)
 - [Repository layout](#repository-layout)
 - [Roadmap](#roadmap)
@@ -58,32 +59,88 @@ Out of scope for v1: protocols beyond Art-Net, multi-user/distributed operation,
 
 ## Getting started (contributors)
 
-The sole supported entrypoint is Mage (`magefiles/magefile.go`), run from the repository root. No ecosystem tool — `npm` or anything else — is invoked directly, and after the first bootstrap everything works offline.
+The sole supported entrypoint is [Mage](https://magefile.org/) (`magefiles/magefile.go`), run from the repository root. No ecosystem tool — `npm` or anything else — is invoked directly, and after the first bootstrap everything works offline. The build/dev tooling itself is genuinely cross-platform: `mage Bootstrap`/`Build`/`Test`/`PackageFoundation` are verified working on Windows, Linux, and macOS in CI (`.github/workflows/cross-platform-mage.yml`) — see the [platform note](#platform-note) below for what that does and doesn't mean for the GOLC *application*.
 
-```powershell
+```bash
 # One-time (ambient install): Go plus Mage pinned to config/toolchain.toml's version
 go install github.com/magefile/mage@v1.17.2
 
 # One-time: provision the rest of the pinned project-local toolchain
 mage Bootstrap
-
-# Inspect committed configuration (deterministic JSON) -- not a fixed Mage
-# target, so it goes through the CLI binary Bootstrap just built
-.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe config inspect runtime --format json
-
-# Set a machine-local override (written to git-ignored golc.local.toml)
-.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe config set --local runtime.log_level debug
-
-# Explain which layer wins for an effective value
-.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe config explain runtime.log_level --format json
-
-# Run quick tests for a registered scope
-.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe test --quick --scope config-local
 ```
 
 Bootstrap verifies every tool archive against committed SHA-256 pins in `config/toolchain.toml`, installs into a repository-local `.tools/` directory with atomic promotion, and never rewrites `go.mod`, `go.sum`, or the pin manifest. A second bootstrap with matching install manifests makes zero network calls.
 
+### Every Mage target
+
+| Target | What it does |
+|---|---|
+| `mage Bootstrap` | Provisions every pinned project-local tool (Go, Node, Mage itself) and builds `golc-project`. Set `GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC=1` first to also build the isolated Linear-sync Node workspace. |
+| `mage Generate` | Writes every registered schema (`schemas/*.json`, `docs/reference/*`) to its committed path. |
+| `mage GenerateCheck` | Reports generated-file drift without writing — what CI runs. |
+| `mage Check` | Runs the strict project configuration concern check. |
+| `mage CheckOffline` | Runs `generate`, `check`, `build`, and `test --quick` in order with network access denied — the offline core graph. |
+| `mage Build` | Compiles every project package, including `cmd/golc-desktop`. |
+| `mage Test` | Runs the complete test route: the full Go suite plus every registered Node scope (requires the Linear-sync workspace bootstrap above). |
+| `mage TestQuick` | Fast `go vet`-only quick test route — never touches Node scopes or the Linear process-transport tests, so it works without the Linear-sync bootstrap opt-in. |
+| `mage Package` / `mage PackageFoundation` | Builds the deterministic developer-tool foundation ZIP (`dist/foundation/`) — see [Configuration model](#configuration-model)'s `commands.toml`. Windows-AMD64-specific by design (a developer-tool bundle, not a cross-platform release artifact). |
+| `mage Pr` | Runs the exact ordered graph `config/commands.toml`'s `commands.pr.steps` declares, serially — what `check.yml`'s CI job does step by step, runnable locally. |
+
+`mage -l` lists all targets from any checkout; `golc_list_mage_targets` (via [tools/golc-mcp](tools/golc-mcp)) gives the same inventory, plus route/argument/network-policy detail, to MCP-aware tools.
+
+A handful of routes (`config inspect`/`set`/`explain`, `test --quick --scope <name>`, `docs`, `linear preview`/`drift`/`apply`) take open-ended arguments (any concern name, any dotted key, any registered scope) that no fixed Mage target can model — Mage targets are fixed, no-argument Go functions — so they go directly through the pinned CLI binary Bootstrap just compiled, at `.tools/installs/golc_project/<platform>/bin/golc-project[.exe]` (`<platform>` is `windows-amd64`, `linux-amd64`, `linux-arm64`, `darwin-amd64`, or `darwin-arm64`). Alias it once per shell session instead of retyping the full path:
+
+```bash
+# bash/zsh
+alias golc="$(pwd)/.tools/installs/golc_project/<platform>/bin/golc-project"
+```
+
+```powershell
+# PowerShell
+function golc { & "$PWD\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe" @args }
+```
+
+```bash
+# Inspect committed configuration (deterministic JSON)
+golc config inspect runtime --format json
+
+# Set a machine-local override (written to git-ignored golc.local.toml)
+golc config set --local runtime.log_level debug
+
+# Explain which layer wins for an effective value
+golc config explain runtime.log_level --format json
+
+# Run quick tests for a registered scope
+golc test --quick --scope config-local
+```
+
 See [docs/development.md](docs/development.md) for the full contributor walkthrough.
+
+## Running GOLC
+
+> GOLC is pre-alpha (see the status note at the top of this README) — there is no installer or release build yet. "Running it" today means building from source and launching the binaries yourself.
+
+### Desktop app
+
+```bash
+mage Build   # compiles every project package, including cmd/golc-desktop
+```
+
+`mage Build` (via `mage Bootstrap`, which always builds the frontend first) produces `golc-desktop[.exe]` — the Wails desktop shell with the operator surface, safety cluster, and playback controls. Launch it like any other local binary for your platform, e.g. `./golc-desktop` (macOS/Linux) or `.\golc-desktop.exe` (Windows), run from the repository root so it can find its configuration.
+
+### CLI
+
+`golc-project` (the same binary [Getting started](#getting-started-contributors) above uses for `config`/`test`/`docs`) also exposes the full show-authoring and control surface as scriptable routes: fixture patching (`fixture`), pools and deployments (`pool`, `deployment`), scenes and chases (`scene`, `programming`), playback (`playback`), operator surfaces (`operatorsurface`), and Art-Net output (`artnet`). This is the same typed command model the desktop UI, TypeScript scripts, and (later) the external API all route through — see [Architecture principles](#architecture-principles). Every route is self-registered and discoverable live rather than hand-documented in a second place:
+
+```bash
+golc docs   # generates docs/reference/*.md from source (see the alias set up above)
+```
+
+[docs/reference/](docs/reference/) (regenerated by the command above) has the per-package reference; `golc_list_command_routes` and `golc_list_mage_targets` (via [tools/golc-mcp](tools/golc-mcp), a read-only MCP server over this repository) give the same inventory to MCP-aware tools without grepping source.
+
+### Platform note
+
+Windows is the only platform this project's [ROADMAP](.planning/ROADMAP.md) qualifies for a v1 release — that's a product-support decision (Phase 10), not a build limitation. The Go code and CLI build and pass their full test suite on Windows, Linux, and macOS (proven continuously in CI); the desktop app's platform-specific pieces (global hotkeys, packaging) are written per-OS, but macOS/Linux builds of it are unqualified and untested end-to-end — build and run them yourself at your own risk, don't expect support.
 
 ## Configuration model
 
