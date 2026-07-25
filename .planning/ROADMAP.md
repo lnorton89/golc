@@ -351,7 +351,7 @@ Plans:
 **Requirements:** API-01, API-02, API-03, API-04, API-05, API-06
 **Success Criteria** (what must be TRUE):
 
-  1. An external program can query and invoke every supported public domain capability through `/api/v1`, and parity checks show the same commands have the same outcomes through Wails and HTTP.
+  1. An external program can, through `/api/v1`: inspect configuration concerns and show state, create a fixture pool, mint/list/revoke scoped API keys, apply an ordered multi-command batch atomically, and subscribe to revisioned change events -- each dispatched through the same internal/command route registry the desktop UI uses, with a committed capability-coverage gate proving every remaining public route is individually named and reasoned rather than silently unmapped. Full `/api/v1` breadth for the remaining show domains (scene, chase, motion, theme, preset, blend, deployment, operatorsurface, playback, programmer, fixture-import, show open/save) and Art-Net runtime control, plus the Wails-versus-HTTP outcome-parity check that only becomes meaningful once more than one mutating domain is exposed, is owned by EXTN-05 (v1.x) and is deferred, not dropped.
   2. A client can generate against the published OpenAPI contract, follow working examples, handle typed errors, and understand the documented compatibility and deprecation policy.
   3. A client can consume revisioned server-sent events, detect a replay gap, and recover by querying authoritative state.
   4. Mutations support expected revisions, idempotency, dry-run impact previews, and atomic meaningful batches; every result is auditable, while loopback is the default and remote access requires explicit enablement and scoped authentication.
