@@ -52,8 +52,8 @@ type configInspectInput struct {
 }
 
 type configInspectOutput struct {
-	Concern string `json:"concern"`
-	Values  any    `json:"values"`
+	Concern string         `json:"concern"`
+	Values  map[string]any `json:"values"`
 }
 
 func handleConfigInspect(_ context.Context, _ *mcp.CallToolRequest, input configInspectInput) (*mcp.CallToolResult, configInspectOutput, error) {
@@ -68,7 +68,7 @@ func handleConfigInspect(_ context.Context, _ *mcp.CallToolRequest, input config
 	if err != nil {
 		return toolError[configInspectOutput](fmt.Errorf("inspect concern %q: %w", input.Concern, err))
 	}
-	var values any
+	var values map[string]any
 	if err := json.Unmarshal(payload, &values); err != nil {
 		return toolError[configInspectOutput](fmt.Errorf("inspect concern %q: parse JSON: %w", input.Concern, err))
 	}
@@ -80,8 +80,8 @@ type configExplainInput struct {
 }
 
 type configExplainOutput struct {
-	Key        string `json:"key"`
-	Provenance any    `json:"provenance"`
+	Key        string         `json:"key"`
+	Provenance map[string]any `json:"provenance"`
 }
 
 func handleConfigExplain(_ context.Context, _ *mcp.CallToolRequest, input configExplainInput) (*mcp.CallToolResult, configExplainOutput, error) {
@@ -96,7 +96,7 @@ func handleConfigExplain(_ context.Context, _ *mcp.CallToolRequest, input config
 	if err != nil {
 		return toolError[configExplainOutput](fmt.Errorf("explain key %q: %w", input.Key, err))
 	}
-	var provenance any
+	var provenance map[string]any
 	if err := json.Unmarshal(payload, &provenance); err != nil {
 		return toolError[configExplainOutput](fmt.Errorf("explain key %q: parse JSON: %w", input.Key, err))
 	}

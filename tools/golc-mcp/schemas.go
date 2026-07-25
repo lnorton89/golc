@@ -77,9 +77,9 @@ type getSchemaInput struct {
 }
 
 type getSchemaOutput struct {
-	Name   string `json:"name"`
-	File   string `json:"file"`
-	Schema any    `json:"schema"`
+	Name   string         `json:"name"`
+	File   string         `json:"file"`
+	Schema map[string]any `json:"schema"`
 }
 
 func handleGetSchema(_ context.Context, _ *mcp.CallToolRequest, input getSchemaInput) (*mcp.CallToolResult, getSchemaOutput, error) {
@@ -108,7 +108,7 @@ func handleGetSchema(_ context.Context, _ *mcp.CallToolRequest, input getSchemaI
 	if err != nil {
 		return toolError[getSchemaOutput](fmt.Errorf("read %s/%s: %w", schemasRelDir, fileName, err))
 	}
-	var schema any
+	var schema map[string]any
 	if err := json.Unmarshal(data, &schema); err != nil {
 		return toolError[getSchemaOutput](fmt.Errorf("parse %s/%s: %w", schemasRelDir, fileName, err))
 	}
