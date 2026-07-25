@@ -5,12 +5,12 @@ milestone_name: milestone
 current_phase: 8
 current_phase_name: Isolated TypeScript Automation
 status: planning
-stopped_at: n/a
-last_updated: "2026-07-25T22:50:00.000Z"
+stopped_at: Phase 8 context gathered
+last_updated: "2026-07-25T23:14:06.606Z"
 last_activity: 2026-07-25
 last_activity_desc: Phase 07 complete; corrected current-phase pointer to Phase 8
 progress:
-  total_phases: 11
+  total_phases: 8
   completed_phases: 7
   total_plans: 86
   completed_plans: 86
@@ -146,6 +146,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-25T09:16:17.676Z
-Stopped at: context exhaustion at 75% (2026-07-25)
-Resume file: .planning/phases/07-versioned-external-control-api/07-CONTEXT.md
+Last session: 2026-07-25T23:14:06.594Z
+Stopped at: Phase 8 context gathered
+Resume file: .planning/phases/08-isolated-typescript-automation/08-CONTEXT.md
