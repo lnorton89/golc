@@ -74,6 +74,32 @@ func requiredScopeForRoute(route string) (show.APIKeyScope, error) {
 	return scope, nil
 }
 
+// validateListValues is the single boundary rule for every list-valued
+// field this package forwards to a downstream comma-joined CLI flag (e.g.
+// registerCreatePool's "--requires" argument below, and batch.go's
+// translateBatchCreatePool, which calls this same helper before its own
+// join): it returns a typed 400 naming field and the offending value for
+// any element of values containing a comma, since the comma is the
+// reserved delimiter strings.Join uses to flatten the list into a single
+// CLI argument -- a value that contains one cannot be represented
+// faithfully in that encoding and would silently split into two
+// downstream values if allowed through (IN-02, 07-REVIEW.md). Rejection is
+// chosen over introducing an escaping scheme, because the current
+// vocabularies this package forwards this way (capability types, scope
+// names) have no legitimate need for an embedded comma, and an escaping
+// scheme would be a wider, unrequested change to the CLI contract.
+// Returns nil for a nil or empty values.
+func validateListValues(field string, values []string) error {
+	for _, value := range values {
+		if strings.Contains(value, ",") {
+			return huma.Error400BadRequest(fmt.Sprintf(
+				"GOLC_API_LIST_VALUE_INVALID: field %q contains a value with a comma (%q); the comma is the reserved delimiter for this field and cannot appear inside a single element",
+				field, value))
+		}
+	}
+	return nil
+}
+
 // mutateRequest carries everything mutate needs to run one mutating REST
 // operation's request through the serialized critical section.
 type mutateRequest struct {
@@ -267,7 +293,7 @@ type createPoolInput struct {
 	// struct tags cannot reference a package const.)
 	Body struct {
 		Name     string   `json:"name" required:"true" doc:"The new pool's name."`
-		Requires []string `json:"requires,omitempty" doc:"Capability types every pool member must support."`
+		Requires []string `json:"requires,omitempty" doc:"Capability types every pool member must support. Forwarded as a comma-delimited list downstream, so a value must not itself contain a comma."`
 	}
 }
 
@@ -299,6 +325,9 @@ func registerCreatePool(humaAPI huma.API, server *Server) {
 		Path:        apiPathPrefix + "/pools",
 		Summary:     "Create a named logical pool (authoring scope required, D-08).",
 	}, func(ctx context.Context, input *createPoolInput) (*mutationOutput, error) {
+		if err := validateListValues("requires", input.Body.Requires); err != nil {
+			return nil, err
+		}
 		args := []string{input.Body.Name}
 		if len(input.Body.Requires) > 0 {
 			args = append(args, "--requires", strings.Join(input.Body.Requires, ","))
