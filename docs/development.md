@@ -1,12 +1,41 @@
 # GOLC Development
 
-This is the canonical contributor sequence for the Phase 1 walking
-skeleton. Every command runs from the repository root through Mage
-(`magefiles/magefile.go`), the sole supported build/bootstrap entrypoint,
-or the pinned project-local `golc-project` CLI binary Mage's own
-bootstrap step compiles. No ecosystem tool — `npm` or anything else — is
-ever invoked directly, and no credentials, `.env` file, or network access
-is required after the first bootstrap.
+This is the canonical contributor sequence, verified working on Windows,
+Linux, and macOS (`.github/workflows/cross-platform-mage.yml` runs the
+full graph on `windows-latest`/`ubuntu-latest`/`macos-latest`; see the
+[repository README's platform note](../README.md#platform-note) for what
+that does and doesn't claim about the GOLC *application*). Every command
+runs from the repository root through Mage (`magefiles/magefile.go`),
+the sole supported build/bootstrap entrypoint, or the pinned
+project-local `golc-project` CLI binary Mage's own bootstrap step
+compiles. No ecosystem tool — `npm` or anything else — is ever invoked
+directly, and no credentials, `.env` file, or network access is required
+after the first bootstrap.
+
+Commands below are shown as POSIX shell (`bash`/`zsh`, for Linux/macOS).
+On Windows (PowerShell), `mage <Target>` is identical; direct CLI-binary
+invocations use `\`-separated paths, a `.exe` suffix, and the
+`windows-amd64` platform directory, e.g.
+`.tools/installs/golc_project/<platform>/bin/golc-project`.
+
+**Tip:** `config inspect <concern>`, `config explain <key>`, `test --quick
+--scope <name>`, and `docs` below can't become Mage targets — Mage
+targets are fixed, no-argument Go functions, and these routes take
+genuinely open-ended values (any concern name, any dotted key, any
+registered scope). After bootstrap, alias the binary once per shell
+session instead of retyping its full path:
+
+```bash
+# bash/zsh
+alias golc="$(pwd)/.tools/installs/golc_project/<platform>/bin/golc-project"
+golc config inspect runtime --format json
+```
+
+```powershell
+# PowerShell
+function golc { & "$PWD\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe" @args }
+golc config inspect runtime --format json
+```
 
 ## 1. Bootstrap once
 
@@ -18,7 +47,7 @@ declares (currently 1.17.2) — install it with
 `go install github.com/magefile/mage@v1.17.2` or a manual download from
 https://github.com/magefile/mage/releases. Then:
 
-```powershell
+```bash
 mage Bootstrap
 ```
 
@@ -27,22 +56,26 @@ exact checksum pins in `config/toolchain.toml`, warms the
 repository-local Go module cache, and builds the `golc-project` command
 every other subcommand below delegates to, at
 `.tools/installs/golc_project/<platform>/bin/golc-project` (`.exe` on
-Windows). Pins are immutable inputs: bootstrap never upgrades a version
-and never rewrites `go.mod`, `go.sum`, or `config/toolchain.toml`. A
-second bootstrap with matching install manifests performs zero
-archive-source calls, and afterwards the commands below work offline.
+Windows; `<platform>` is `windows-amd64`, `linux-amd64`, `linux-arm64`,
+`darwin-amd64`, or `darwin-arm64`). Pins are immutable inputs: bootstrap
+never upgrades a version and never rewrites `go.mod`, `go.sum`, or
+`config/toolchain.toml`. A second bootstrap with matching install
+manifests performs zero archive-source calls, and afterwards the
+commands below work offline.
 
 ## 2. Inspect the committed configuration
 
-`config inspect`/`config set`/`config explain`, the quick-test route, and
-`docs` below are not in Mage's fixed target set (`mage Bootstrap`,
-`GenerateCheck`, `CheckOffline`, `Build`, `Test`, `PackageFoundation`,
-`Pr`): they take variable arguments a fixed Mage target descriptor can't
-model, so they're invoked directly against the CLI binary Bootstrap just
-built.
+`config inspect`/`config set`/`config explain`, `test --quick --scope
+<name>`, and `docs` below are not in Mage's fixed target set (`mage
+Bootstrap`, `Generate`, `GenerateCheck`, `Check`, `CheckOffline`,
+`Build`, `Test`, `TestQuick`, `Package`/`PackageFoundation`, `Pr` — see
+the [repository README](../README.md#every-mage-target) for what each
+one does): they take variable arguments a fixed Mage target descriptor
+can't model, so they're invoked directly against the CLI binary
+Bootstrap just built.
 
-```powershell
-.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe config inspect runtime --format json
+```bash
+golc config inspect runtime --format json
 ```
 
 `golc.project.toml` is the root configuration index: it owns only schema
@@ -52,8 +85,8 @@ concern as deterministic JSON — repeated runs are byte-identical.
 
 ## 3. Set a machine-local value
 
-```powershell
-.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe config set --local runtime.log_level debug
+```bash
+golc config set --local runtime.log_level debug
 ```
 
 The value is written only to `golc.local.toml` at the repository root
@@ -64,8 +97,8 @@ targets are all rejected with stable diagnostics.
 
 ## 4. Explain the effective value
 
-```powershell
-.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe config explain runtime.log_level --format json
+```bash
+golc config explain runtime.log_level --format json
 ```
 
 Explain resolves the key across the layers and reports which layer won,
@@ -82,8 +115,8 @@ fresh terminal, a fresh build) resolves the same answer.
 
 ## 5. Run the quick tests for a scope
 
-```powershell
-.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe test --quick --scope config-local
+```bash
+golc test --quick --scope config-local
 ```
 
 The generic quick-test route translates a registered scope name into the
@@ -94,7 +127,7 @@ toolchain, never a host installation.
 
 ## 6. Build the deterministic foundation package
 
-```powershell
+```bash
 mage PackageFoundation
 ```
 
@@ -127,8 +160,8 @@ boundary below.
 
 ## 7. Generate the package reference docs
 
-```powershell
-.\.tools\installs\golc_project\windows-amd64\bin\golc-project.exe docs
+```bash
+golc docs
 ```
 
 `docs` (internal/docgen) walks every `internal/**` package, extracts the
@@ -143,24 +176,37 @@ always reflects only the current source. Because `site/` is a separate
 git repository checked out as a submodule, its copy needs its own commit
 there before the parent repository's submodule pointer is updated.
 
-## What this walking skeleton is (and is not)
+## What this walking skeleton was (and how it's grown since)
 
-The Phase 1 adaptation of GOLC's architecture is deliberately narrow:
-**CLI -> Go command registry -> TOML files** stands in for the eventual
-user-interaction, routing, and data layers. Commands self-register exact
-routes into a deterministic registry (no central switch), and committed
-TOML concerns plus one ignored local file form the entire data layer.
+This section describes the deliberately narrow Phase 1 boundary this
+document was originally written for: **CLI -> Go command registry ->
+TOML files** stood in for the eventual user-interaction, routing, and
+data layers. Commands self-register exact routes into a deterministic
+registry (no central switch) — that part is still true and still the
+architecture every later phase builds on. The specific scope boundaries
+below are historical, not current: see [Running GOLC](../README.md#running-golc)
+in the repository README for what actually exists today (a working Wails
+desktop shell, SQLite show storage, the full show-authoring/playback CLI
+route surface) and [Roadmap](../README.md#roadmap) for what's still
+ahead.
 
-Explicitly out of scope for Phase 1:
+Originally out of scope for Phase 1 (now delivered — see
+[Roadmap](../README.md#roadmap)):
 
-- **Wails UI** — there is no desktop shell or frontend; the CLI is the
-  only user interaction surface.
-- **SQLite show storage** — no `.golc` database exists; TOML
-  configuration is the only persisted state.
-- **NSIS product packaging** — nothing is installed or distributed.
-  `package --foundation` (step 6 above) produces a deterministic
-  developer-tool ZIP of the CLI, config, schemas, and docs — it is not an
-  application installer, and it stages no Wails frontend or NSIS output.
+- **Wails UI** — Phase 6 added the desktop shell, operator surface,
+  safety cluster, and playback controls (`cmd/golc-desktop`); it was not
+  part of Phase 1.
+- **SQLite show storage** — Phase 5 added the single-file, versioned
+  `.golc` store with rotating recovery points; Phase 1 only had TOML
+  configuration as persisted state.
+- **NSIS product packaging** — still genuinely out of scope today
+  (Phase 10, "Windows Release Qualification," has not started). Nothing
+  is installed or distributed yet. `package --foundation` (step 6 above)
+  produces a deterministic developer-tool ZIP of the CLI, config,
+  schemas, and docs — it is not an application installer, and it stages
+  no Wails frontend or NSIS output.
 
-Lighting-domain behavior, playback, Art-Net, scripting, and AI features
-are later phases and are not part of this skeleton.
+At Phase 1 time, none of GOLC's lighting-domain behavior existed yet.
+Fixture pools/deployments (Phase 2), deterministic show programming and
+playback (Phase 3), and observable Art-Net output (Phase 4) have since
+shipped; TypeScript scripting and AI features (Phases 8-9) have not.
