@@ -160,3 +160,14 @@ None - no external service configuration required.
 ---
 *Phase: 07-versioned-external-control-api*
 *Completed: 2026-07-25*
+
+## Self-Check: PASSED
+- FOUND: internal/show/audit.go
+- FOUND: internal/show/audit_test.go
+- FOUND: internal/api/audit.go
+- FOUND: internal/api/audit_test.go
+- FOUND: .planning/phases/07-versioned-external-control-api/07-07-SUMMARY.md
+- FOUND: commit f11fa94
+- FOUND: commit ba5675f
+- FOUND: commit 82aaa70
+- FOUND: commit b4c714e
