@@ -33,6 +33,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/lnorton89/golc/internal/api"
 	"github.com/lnorton89/golc/internal/contracts"
 	"github.com/lnorton89/golc/internal/delivery"
 	"github.com/lnorton89/golc/internal/projectconfig"
@@ -231,6 +232,16 @@ func runProjectCheck(root string) Result {
 			"GOLC_CHECK_PROJECT_GENERATED: committed schemas drifted: %s\n", strings.Join(changed, ", ")))}
 	}
 	report.WriteString("check --concern project: every committed schema matches its generated source.\n")
+
+	apiChanged, apiErr := api.CheckOpenAPIDrift(root)
+	if apiErr != nil {
+		return Result{ExitCode: 1, Stderr: []byte("GOLC_CHECK_PROJECT_GENERATED: " + apiErr.Error() + "\n")}
+	}
+	if len(apiChanged) > 0 {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
+			"GOLC_CHECK_PROJECT_GENERATED: committed api contract drifted: %s\n", strings.Join(apiChanged, ", ")))}
+	}
+	report.WriteString("check --concern project: the committed api OpenAPI contract matches its generated source.\n")
 
 	sources, err := canaryScanSources(root, resolved)
 	if err != nil {
