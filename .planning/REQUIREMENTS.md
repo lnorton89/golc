@@ -97,7 +97,7 @@
 
 ### Public API
 
-- [ ] **API-01**: An external program can query and invoke every supported public domain capability through a versioned API that uses the same application command model as the UI.
+- [ ] **API-01**: An external program can query and invoke a documented, coverage-gated subset of public domain capability -- configuration and show inspection, fixture-pool creation, scoped API-key lifecycle, atomic multi-command batches, and revisioned change events -- through a versioned API that uses the same application command model as the UI, with every not-yet-exposed public route explicitly named and deferred to EXTN-05 rather than silently unmapped.
 - [ ] **API-02**: The API publishes an OpenAPI contract, generated client examples, typed errors, and compatibility/deprecation guidance.
 - [ ] **API-03**: An external client can subscribe to revisioned server-sent events and recover from an event gap by re-querying authoritative state.
 - [ ] **API-04**: Mutating API operations support expected revisions, idempotency, dry-run impact previews, and atomic meaningful batches.
@@ -160,6 +160,7 @@
 - **EXTN-02**: A show author can create advanced reusable parameter effects beyond v1 chases and motion presets.
 - **EXTN-03**: A user can import supported QLC+ show content through an explicit compatibility report.
 - **EXTN-04**: A user can install device-specific MIDI profiles after target controllers are validated.
+- **EXTN-05**: Every remaining public show-domain and Art-Net-runtime capability becomes reachable through the versioned /v1 API using the mechanisms Phase 7 proved (translation seam, scoped auth, serialized mutation pipeline, atomic batch, audit trail, SSE), together with a Wails-versus-HTTP outcome-parity check spanning more than one mutating domain.
 
 ## v2 Requirements
 

@@ -39,10 +39,18 @@ var excludedRoutes = buildExcludedRoutes()
 // the process hosting /v1 itself or an interactive local-machine action
 // with no meaningful remote-HTTP semantics. The remaining categories
 // (reasonDevTooling, reasonArtnetFutureWork, reasonMutationFutureWork,
-// reasonReadFutureWork) are NOT permanent in the same sense: each names
-// routes a future milestone could wire onto this plan's now-proven
-// RegisterOperation seam, mutation pipeline (mutate.go), and
-// capability-coverage gate itself -- but wiring roughly 67 remaining
+// reasonReadFutureWork) are NOT permanent in the same sense: reasonDevTooling
+// will likely never need a REST operation regardless of future milestones
+// (see its own text), but the other three -- reasonArtnetFutureWork,
+// reasonMutationFutureWork, reasonReadFutureWork -- name routes now OWNED by
+// EXTN-05 (v1.x, .planning/REQUIREMENTS.md, filed by 07-10-PLAN.md's API-01
+// re-scope): EXTN-05 is the decided, named requirement responsible for
+// wiring them onto this plan's now-proven RegisterOperation seam, mutation
+// pipeline (mutate.go), and capability-coverage gate itself, replacing the
+// open-ended "a future milestone could wire" framing this comment used
+// before the re-scope. TestFutureWorkExclusionsNameDeferralOwner asserts
+// each of the three reason constants actually carries that pointer, and that
+// the two permanent categories do not. Wiring roughly 67 remaining
 // routes (16 dev-tooling, 10 Art-Net, 42 show-domain mutation, 9
 // show-domain read) each requires its own bespoke Huma input struct
 // mapping JSON body fields to that route's specific CLI flags (mirrors
@@ -64,9 +72,9 @@ func buildExcludedRoutes() map[string]string {
 	const reasonDevTooling = "repository development tooling (build/test/docs/packaging/Linear sync); not part of the external show-control API surface -- and, unlike every other category here, will likely never need a REST operation regardless of future milestones (these commands only ever make sense run against the local contributor checkout, never against a remote daemon's /v1 API)"
 	const reasonDaemonLifecycle = "daemon lifecycle entrypoint -- IS the process that hosts /v1, not a route exposed on it; permanent (a route can never expose the process that hosts it)"
 	const reasonLocalProcessLaunch = "mage-only dev-loop entrypoint that execs a new local golc-desktop child process with a PATH fixup (internal/command/run.go); launching a GUI process on the server machine has no meaningful HTTP API semantics; permanent (this is inherently a local-machine action, not a remote-control one)"
-	const reasonArtnetFutureWork = "Art-Net daemon runtime route; not yet wired to a REST operation -- future milestone work, not a Phase 7 deliverable (Phase 7's own scope proved the translation/auth/mutation/batch/SSE/audit mechanisms via the show domain, not full Art-Net runtime control)"
-	const reasonMutationFutureWork = "show-domain mutation route; not yet wired to a REST operation -- mutate.go's serialized pipeline (scope/If-Match/dry-run/idempotency/observer) is proven end-to-end via \"pool create\" (07-05); wiring each remaining route needs its own bespoke Huma input struct mapping JSON body fields to that route's specific CLI flags, deferred to a future milestone (07-05-SUMMARY.md key-decisions, 07-09-SUMMARY.md \"Known Gaps\")"
-	const reasonReadFutureWork = "show-domain read/inspect route not yet wired to a REST GET; translate.go's read-translation pattern is proven via \"config inspect\"/\"show inspect\" (07-02); several of these routes (fixture inspect, operatorsurface list/show, programmer inspect) also need dedicated design work since they emit plain-text stdout or accept a client-supplied filesystem path, not just a new RegisterOperation call -- deferred to a future milestone"
+	const reasonArtnetFutureWork = "Art-Net daemon runtime route; not yet wired to a REST operation -- future milestone work, not a Phase 7 deliverable (Phase 7's own scope proved the translation/auth/mutation/batch/SSE/audit mechanisms via the show domain, not full Art-Net runtime control); owned by EXTN-05 (v1.x, .planning/REQUIREMENTS.md)"
+	const reasonMutationFutureWork = "show-domain mutation route; not yet wired to a REST operation -- mutate.go's serialized pipeline (scope/If-Match/dry-run/idempotency/observer) is proven end-to-end via \"pool create\" (07-05); wiring each remaining route needs its own bespoke Huma input struct mapping JSON body fields to that route's specific CLI flags, deferred to a future milestone (07-05-SUMMARY.md key-decisions, 07-09-SUMMARY.md \"Known Gaps\"); owned by EXTN-05 (v1.x, .planning/REQUIREMENTS.md)"
+	const reasonReadFutureWork = "show-domain read/inspect route not yet wired to a REST GET; translate.go's read-translation pattern is proven via \"config inspect\"/\"show inspect\" (07-02); several of these routes (fixture inspect, operatorsurface list/show, programmer inspect) also need dedicated design work since they emit plain-text stdout or accept a client-supplied filesystem path, not just a new RegisterOperation call -- deferred to a future milestone; owned by EXTN-05 (v1.x, .planning/REQUIREMENTS.md)"
 
 	excluded := map[string]string{}
 	addAll := func(reason string, routes ...string) {
@@ -204,5 +212,46 @@ func TestNoPendingRoutes(t *testing.T) {
 
 	if len(knownReasons) == 0 {
 		t.Fatal("expected at least one distinct, named exclusion category")
+	}
+}
+
+// TestFutureWorkExclusionsNameDeferralOwner proves the four non-permanent
+// exclusion categories carry a named, greppable deferral owner
+// (EXTN-05, .planning/REQUIREMENTS.md) rather than the open-ended "future
+// milestone" framing this file used before the API-01 re-scope (07-10-PLAN.md
+// Task 2) -- and that the two genuinely permanent categories (daemon
+// lifecycle, local process launch) do NOT claim a deferral owner, so a
+// future bulk edit can never flatten the permanent/deferred distinction this
+// file deliberately draws. It reads the same excludedRoutes values the
+// coverage gate uses (by route, not by re-declaring the constants), so it
+// fails loudly if a reason's EXTN-05 clause is ever silently dropped.
+func TestFutureWorkExclusionsNameDeferralOwner(t *testing.T) {
+	deferredSamples := map[string]string{
+		"artnet future work":   "artnet status",
+		"mutation future work": "scene create",
+		"read future work":     "fixture inspect",
+	}
+	for category, route := range deferredSamples {
+		reason, ok := excludedRoutes[route]
+		if !ok {
+			t.Fatalf("category %q: route %q not present in excludedRoutes -- update the sample route", category, route)
+		}
+		if !strings.Contains(reason, "EXTN-05") {
+			t.Errorf("category %q (sampled via route %q) lost its EXTN-05 deferral pointer: %q", category, route, reason)
+		}
+	}
+
+	permanentSamples := map[string]string{
+		"daemon lifecycle":     "artnet serve",
+		"local process launch": "run",
+	}
+	for category, route := range permanentSamples {
+		reason, ok := excludedRoutes[route]
+		if !ok {
+			t.Fatalf("category %q: route %q not present in excludedRoutes -- update the sample route", category, route)
+		}
+		if strings.Contains(reason, "EXTN-05") {
+			t.Errorf("category %q (sampled via route %q) incorrectly claims a deferral owner; permanent categories must not: %q", category, route, reason)
+		}
 	}
 }
