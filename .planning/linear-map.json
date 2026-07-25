@@ -2285,6 +2285,27 @@
       "source": ".planning/phases/07-versioned-external-control-api/07-14-PLAN.md"
     },
     {
+      "local_id": "plan:07-15",
+      "kind": "plan",
+      "parent_local_id": "phase:07",
+      "display": "Plan 07-15",
+      "source": ".planning/phases/07-versioned-external-control-api/07-15-PLAN.md"
+    },
+    {
+      "local_id": "task:07-15.1",
+      "kind": "task",
+      "parent_local_id": "plan:07-15",
+      "display": "Task 1: Fire the audit observer on all nine of runBatch's locked-section failure returns",
+      "source": ".planning/phases/07-versioned-external-control-api/07-15-PLAN.md"
+    },
+    {
+      "local_id": "task:07-15.2",
+      "kind": "task",
+      "parent_local_id": "plan:07-15",
+      "display": "Task 2: Pin locked-section audit coverage behaviorally for the four reachable paths and structurally for all nine",
+      "source": ".planning/phases/07-versioned-external-control-api/07-15-PLAN.md"
+    },
+    {
       "local_id": "phase:11",
       "kind": "phase",
       "parent_local_id": "milestone:v1",
@@ -4907,6 +4928,30 @@
     },
     {
       "repo_id": "task:07-14.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:07-15",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-15.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-15.2",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,
