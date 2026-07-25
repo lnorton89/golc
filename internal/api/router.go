@@ -93,14 +93,30 @@ func RegisteredRoutes() []string {
 // process that also owns deterministic playback and Art-Net output
 // (T-07-01, ARTN-04 invariant). humachi.New layers Huma's OpenAPI-typed
 // request/response handling on top without replacing Chi (07-RESEARCH.md
-// D-04). Every currently self-registered operation
-// (operationRegistrations) is wired onto the resulting huma.API.
+// D-04).
+//
+// auth.go's AuthMiddleware and ratelimit.go's RateLimitMiddleware are
+// installed on humaAPI here, deliberately BEFORE the operation-
+// registration loop below (07-04-PLAN.md Task 2, D-05/T-07-05/T-07-06):
+// Huma's huma.Register captures api.Middlewares() by value at the moment
+// each operation registers (chain.go's Middlewares.chain), so any
+// middleware added after an operation's own Register call would never
+// apply to that operation. Relying on cross-file package-level
+// var-initialization order (the RegisterOperation self-registration
+// idiom every other operation in this package uses) to guarantee "auth
+// registers before every operation" would be fragile and undocumented --
+// a future file that happens to sort alphabetically ahead of this one
+// could silently bypass authentication on every request it registers.
+// Calling UseMiddleware here, once, ahead of the loop, makes "every /v1
+// request is authenticated and rate-limited" a structural guarantee
+// instead of an accident of file naming.
 func buildRouter(server *Server) chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.RequestID)
 	router.Use(middleware.Recoverer)
 
 	humaAPI := humachi.New(router, huma.DefaultConfig("GOLC API", "1.0.0"))
+	humaAPI.UseMiddleware(AuthMiddleware(humaAPI, server), RateLimitMiddleware(humaAPI, server))
 	for _, registration := range operationRegistrations {
 		registration.Register(humaAPI, server)
 	}

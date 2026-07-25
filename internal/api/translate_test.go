@@ -5,6 +5,16 @@
 // api_test package (see coverage_test.go's doc comment for why) so
 // TestParity can reach a real command registry through
 // internal/routecatalog's test-only bridge.
+//
+// Every request now requires a valid API key (07-04-PLAN.md Task 2, D-05:
+// AuthMiddleware applies to every /v1 request) -- doGet always seeds and
+// presents one via seedAPIKey (auth_test.go, same package), against a
+// real root/showPath every server in this file is now constructed with.
+// Root/showPath values that used to be arbitrary placeholder strings
+// (e.g. "/repo/root") were switched to real t.TempDir() locations for the
+// same reason: AuthMiddleware's key lookup opens a real .golc SQLite
+// store at that path (internal/show.LookupAPIKeyByPrefix), which a
+// non-existent placeholder path cannot satisfy.
 package api_test
 
 import (
@@ -16,9 +26,11 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/lnorton89/golc/internal/api"
 	"github.com/lnorton89/golc/internal/routecatalog"
+	"github.com/lnorton89/golc/internal/show"
 )
 
 // stubExecutor is a minimal api.Executor whose canned outcome and last
@@ -42,11 +54,13 @@ func (s *stubExecutor) Execute(route string, args []string, root string) (int, [
 	return s.exitCode, s.stdout, s.stderr
 }
 
-// doGet issues a GET against handler in-process (httptest.NewRecorder)
-// and returns the recorded response.
-func doGet(t *testing.T, handler http.Handler, target string) *httptest.ResponseRecorder {
+// doGet issues a GET against handler in-process (httptest.NewRecorder),
+// presenting token as a bearer credential (AuthMiddleware now applies to
+// every /v1 request), and returns the recorded response.
+func doGet(t *testing.T, handler http.Handler, target, token string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, target, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 	return rec
@@ -113,9 +127,11 @@ func TestParity(t *testing.T) {
 		t.Fatalf("routecatalog.New: %v", err)
 	}
 
-	server := api.NewServer(catalog, root, filepath.Join(root, "show.golc"))
+	showPath := filepath.Join(root, "show.golc")
+	server := api.NewServer(catalog, root, showPath)
+	token := seedAPIKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopePlayback}, time.Hour)
 
-	rec := doGet(t, server.Handler(), "/v1/config/runtime")
+	rec := doGet(t, server.Handler(), "/v1/config/runtime", token)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /v1/config/runtime: expected 200, got %d (body: %s)", rec.Code, rec.Body.String())
 	}
@@ -147,9 +163,11 @@ func TestEmptyCollection(t *testing.T) {
 	// State (internal/show.Load's own "never-yet-saved" branch) -- no
 	// fixture file needs to exist on disk for this to be a genuine empty
 	// collection, not an error case.
-	server := api.NewServer(catalog, root, "unopened-show.golc")
+	const showPath = "unopened-show.golc"
+	server := api.NewServer(catalog, root, showPath)
+	token := seedAPIKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopePlayback}, time.Hour)
 
-	rec := doGet(t, server.Handler(), "/v1/show")
+	rec := doGet(t, server.Handler(), "/v1/show", token)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /v1/show: expected 200, got %d (body: %s)", rec.Code, rec.Body.String())
 	}
@@ -180,10 +198,12 @@ func TestEmptyCollection(t *testing.T) {
 // override via an unrecognized query parameter is simply ignored.
 func TestShowPathInjection(t *testing.T) {
 	stub := &stubExecutor{exitCode: 0, stdout: []byte(`{"schema_version":1,"revision":0,"pools":[],"deployments":[]}` + "\n")}
-	const fixedShowPath = "/daemon/fixed/show.golc"
-	server := api.NewServer(stub, "/repo/root", fixedShowPath)
+	root := t.TempDir()
+	fixedShowPath := filepath.Join(root, "daemon-fixed-show.golc")
+	server := api.NewServer(stub, root, fixedShowPath)
+	token := seedAPIKey(t, root, fixedShowPath, []show.APIKeyScope{show.APIKeyScopePlayback}, time.Hour)
 
-	rec := doGet(t, server.Handler(), "/v1/show?show=/etc/passwd&showPath=../../etc/shadow")
+	rec := doGet(t, server.Handler(), "/v1/show?show=/etc/passwd&showPath=../../etc/shadow", token)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /v1/show: expected 200, got %d (body: %s)", rec.Code, rec.Body.String())
 	}
@@ -238,12 +258,16 @@ func TestTranslateResult(t *testing.T) {
 		},
 	}
 
+	root := t.TempDir()
+	showPath := filepath.Join(root, "show.golc")
+	token := seedAPIKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopePlayback}, time.Hour)
+
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			stub := &stubExecutor{exitCode: tc.exitCode, stdout: tc.stdout, stderr: tc.stderr}
-			server := api.NewServer(stub, "/repo/root", "/repo/root/show.golc")
+			server := api.NewServer(stub, root, showPath)
 
-			rec := doGet(t, server.Handler(), "/v1/config/runtime")
+			rec := doGet(t, server.Handler(), "/v1/config/runtime", token)
 			if rec.Code < tc.wantStatusMin || rec.Code > tc.wantStatusMax {
 				t.Fatalf("expected status in [%d,%d], got %d (body: %s)", tc.wantStatusMin, tc.wantStatusMax, rec.Code, rec.Body.String())
 			}
