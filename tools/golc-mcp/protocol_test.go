@@ -147,12 +147,13 @@ func TestMCPProtocolReadOnlyInventoryAndCalls(t *testing.T) {
 					{Name: "02-generate---check", Route: "generate", Args: []string{"--check"}, Network: "denied"},
 					{Name: "03-check---offline", Route: "check", Args: []string{"--offline"}, Network: "denied"},
 					{Name: "04-build", Route: "build", Args: []string{}, Network: "denied"},
-					{Name: "05-test", Route: "test", Args: []string{}, Network: "denied"},
+					{Name: "05-test---quick", Route: "test", Args: []string{"--quick"}, Network: "denied"},
 					{Name: "06-package---foundation", Route: "package", Args: []string{"--foundation"}, Network: "denied"},
 				},
 			},
 		},
 		{Name: "test", Kind: "route", Route: "test", Args: []string{}, Authority: "internal/command registry"},
+		{Name: "testquick", Kind: "route", Route: "test", Args: []string{"--quick"}, Authority: "internal/command registry"},
 	}
 	for i := range wantTargets {
 		if wantTargets[i].EnvironmentOptions == nil {
@@ -218,7 +219,7 @@ func TestMCPProductionSourcesCannotExecute(t *testing.T) {
 				}
 			case *ast.Ident:
 				switch function.Name {
-				case "Bootstrap", "Build", "Check", "CheckOffline", "Generate", "GenerateCheck", "Package", "PackageFoundation", "Pr", "Test":
+				case "Bootstrap", "Build", "Check", "CheckOffline", "Generate", "GenerateCheck", "Package", "PackageFoundation", "Pr", "Test", "TestQuick":
 					t.Errorf("%s calls execution path %s", entry.Name(), function.Name)
 				}
 			}
@@ -337,7 +338,7 @@ cli_binary = ".tools/installs/golc_project"
 go_version = "1.26.5"
 
 [commands.pr]
-steps = "bootstrap,generate --check,check --offline,build,test,package --foundation"
+steps = "bootstrap,generate --check,check --offline,build,test --quick,package --foundation"
 network_steps = "bootstrap"
 mutation_steps = "none"
 `)

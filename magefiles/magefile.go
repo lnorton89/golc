@@ -179,6 +179,12 @@ func Build() error { return runTarget("build", context.Background()) }
 // Test runs the complete project test route.
 func Test() error { return runTarget("test", context.Background()) }
 
+// TestQuick runs the fast go-vet-only quick test route (D-21: never
+// touches internal/trace/transport's process-boundary tests or a
+// registered Node scope, so a missing/unbuilt Linear adapter can never
+// fail it), matching the offline core graph's own "test --quick" step.
+func TestQuick() error { return runTarget("testquick", context.Background()) }
+
 // Package builds the foundation developer-tool bundle.
 func Package() error { return runTarget("package", context.Background()) }
 

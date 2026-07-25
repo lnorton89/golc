@@ -200,7 +200,7 @@ func TestScopeCommandParity(t *testing.T) {
 			"GenerateCheck",
 			"CheckOffline",
 			"Build",
-			"Test",
+			"TestQuick",
 			"PackageFoundation",
 		}
 		if strings.Join(targets, ",") != strings.Join(wantTargets, ",") {
