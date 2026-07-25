@@ -133,3 +133,11 @@ None - no external service configuration required.
 ---
 *Phase: 07-versioned-external-control-api*
 *Completed: 2026-07-25*
+
+## Self-Check: PASSED
+
+- FOUND: .planning/phases/07-versioned-external-control-api/07-10-SUMMARY.md
+- FOUND: 6b6f9f6 (docs: narrow API-01 + file EXTN-05)
+- FOUND: f9e55ec (test: RED, failing deferral-pointer test)
+- FOUND: cf3f033 (feat: GREEN, EXTN-05 clauses added)
+- FOUND: dbef739 (docs: SUMMARY.md commit)
