@@ -21,6 +21,7 @@ package wails
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"sync"
 
@@ -155,7 +156,7 @@ func (m *HotkeyManager) RegisterAll() []HotkeyFailure {
 	m.failures = nil
 	for _, binding := range safetyBindings() {
 		hk := m.factory(binding.mods, binding.key)
-		if err := hk.Register(); err != nil {
+		if err := safeRegister(hk); err != nil {
 			m.failures = append(m.failures, HotkeyFailure{Control: binding.control, Error: err.Error()})
 			continue
 		}
@@ -165,6 +166,28 @@ func (m *HotkeyManager) RegisterAll() []HotkeyFailure {
 		go m.listen(hk, binding, stop)
 	}
 	return append([]HotkeyFailure(nil), m.failures...)
+}
+
+// safeRegister calls hk.Register(), converting any panic into a returned
+// error instead of letting it escape. golang.design/x/hotkey's non-Windows,
+// CGo-free build (hotkey_nocgo.go, "!windows && !cgo") makes Register()
+// unconditionally panic("hotkey: cannot use when CGO_ENABLED=0") rather than
+// returning an error -- and this project deliberately builds CGO_ENABLED=0
+// for portability. Without this recover, RegisterAll's own "one conflict
+// must not block the rest" guarantee (Security Domain DoS mitigation) would
+// be defeated entirely: the first binding's panic would crash the whole
+// desktop process before the other two ever got a chance to register,
+// taking down PLAY-09's safety cluster along with everything else. A
+// generic recover (not a match on this specific panic string) is
+// deliberate: any future panic from this third-party call site degrades to
+// a surfaced HotkeyFailure, never a crash.
+func safeRegister(hk registerer) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("hotkey registration panicked: %v", r)
+		}
+	}()
+	return hk.Register()
 }
 
 // listen forwards binding.route directly on every Keydown event -- the
