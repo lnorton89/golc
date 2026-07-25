@@ -176,3 +176,7 @@ None - no external service configuration required.
 ---
 *Phase: 07-versioned-external-control-api*
 *Completed: 2026-07-25*
+
+## Self-Check: PASSED
+
+All created/modified files confirmed present on disk (internal/api/router.go, internal/api/deprecation.go, internal/api/deprecation_test.go, internal/api/keys.go, internal/api/keys_test.go, docs/api/openapi.json, docs/api/COMPATIBILITY.md, this SUMMARY.md). All three commits (55b3da8, 7638c1d, a95b5a9) confirmed present in `git log --oneline --all`.
