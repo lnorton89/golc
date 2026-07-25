@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-07-25T07:56:32.298Z",
+  "phase": "07",
+  "phase_name": "Versioned External Control API",
+  "phase_dir": ".planning/phases/07-versioned-external-control-api",
+  "plan": 6,
+  "task": 1,
+  "total_tasks": 9,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 1, "name": "07-01: pin chi/huma/x-time", "status": "done", "commit": "9c71a72"},
+    {"id": 2, "name": "07-02: /v1 server + capability-coverage gate", "status": "done", "commit": "b633b3a"},
+    {"id": 3, "name": "07-03: api config concern + loopback bind", "status": "done", "commit": "f82f199"},
+    {"id": 4, "name": "07-04: API-key auth + rate limit", "status": "done", "commit": "eeeb292"},
+    {"id": 5, "name": "07-05: serialized mutation pipeline (If-Match/dry-run/idempotency)", "status": "done", "commit": "4e3c730"}
+  ],
+  "remaining_tasks": [
+    {"id": 6, "name": "07-06: atomic /v1/batch (Wave 6, depends on 07-05)", "status": "not_started"},
+    {"id": 7, "name": "07-07: audit_log table + writer (Wave 7, parallel with 07-08)", "status": "not_started"},
+    {"id": 8, "name": "07-08: revisioned SSE + gap recovery (Wave 7, parallel with 07-07)", "status": "not_started"},
+    {"id": 9, "name": "07-09: generated OpenAPI + drift check + capability-coverage closure (Wave 8)", "status": "not_started"}
+  ],
+  "blockers": [
+    {"description": "None for Phase 7 itself. Paused deliberately to fix an unrelated user-reported bug (golc-desktop Wails build-tags crash) while context budget allows.", "type": "none", "workaround": "n/a"}
+  ],
+  "async_jobs": [],
+  "human_actions_pending": [],
+  "decisions": [
+    {"decision": "07-05 only wired \"pool create\" as a concrete mutating REST operation; the mutation pipeline itself is generic. ~40 other show-mutating routes remain in coverage_test.go's documented exclusion set.", "rationale": "07-05's own scope was proving the pipeline mechanism, not wiring every mutation; flagged explicitly in 07-05-SUMMARY.md for 07-09's coverage-closure expectations.", "phase": "07"},
+    {"decision": "The \"run\" internal/command route (mage Run launcher, added by a parallel bug-fix effort, not part of any 07-0x plan) was excluded from the capability-coverage gate with a documented reason.", "rationale": "It execs a local GUI child process; has no meaningful HTTP API shape.", "phase": "07"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "Resume with /gsd-execute-phase 7 (or /gsd-progress --next) to continue at Wave 6 (07-06-PLAN.md, atomic /v1/batch). Each wave should be spawned as a gsd-executor with isolation=\"worktree\", merged with git merge (use --no-ff if master has diverged, --ff-only otherwise), then cleaned up before the next wave.",
+  "context_notes": "Executing Phase 7 wave-by-wave, one gsd-executor per wave (Wave 7 will need two parallel executors for 07-07/07-08 since they share zero files). Paused after Wave 5 specifically to fix a real user-reported crash (golc-desktop panics with GOLC_WAILS_RUN_FAILED because internal/command/build.go never passes -tags desktop,production when building cmd/golc-desktop) while context budget allowed a clean stopping point. That fix is unrelated to Phase 7's own file set (internal/command/build.go) but touches the same package family, so do it before resuming Phase 7 to avoid interleaving unrelated changes into a wave's worktree base."
+}
