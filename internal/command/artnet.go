@@ -461,12 +461,21 @@ func runArtnetServe(request Request) Result {
 	// every CLI invocation resolves against) backs the executor injected
 	// into api.NewServer, and the daemon's own fixed --show path is
 	// injected server-side into every show-domain call the API makes
-	// (07-RESEARCH.md Pitfall 3) -- never a client-supplied path.
+	// (07-RESEARCH.md Pitfall 3) -- never a client-supplied path. The
+	// api concern's resolved bind/rate settings (07-03-PLAN.md Task 2,
+	// D-06/Pitfall 4) are resolved once here and passed in via
+	// api.WithConfig, so the real daemon start path -- not just the
+	// package's own unit tests -- enforces loopback-by-default and the
+	// explicit-interface requirement for remote access.
 	apiRegistry, err := NewDefaultCommandRegistry()
 	if err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_ARTNET_SERVE_FAILED: %v\n", err))}
 	}
-	apiServer := api.NewServer(apiCommandExecutor{registry: apiRegistry}, request.Root, parsed.showPath)
+	apiConfig, err := api.ResolveConfig(request.Root)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_ARTNET_SERVE_FAILED: %v\n", err))}
+	}
+	apiServer := api.NewServer(apiCommandExecutor{registry: apiRegistry}, request.Root, parsed.showPath, api.WithConfig(apiConfig))
 
 	cfg := artnet.Config{
 		State:          state,
