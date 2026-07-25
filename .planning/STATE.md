@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 06
 current_phase_name: Wails Authoring and Operator Surface
 status: executing
-stopped_at: Phase 6 UI-SPEC approved
-last_updated: "2026-07-24T01:20:00.000Z"
+stopped_at: Phase 7 context gathered
+last_updated: "2026-07-25T04:59:32.728Z"
 last_activity: 2026-07-24
-last_activity_desc: "Completed quick task 260724-y2t: Final byte-for-byte verification across three CI workflows (PowerShell removal Step 9) — golc.ps1 fully deleted, plan complete"
+last_activity_desc: "Completed quick task 260724-y2t: Final byte-for-byte verification across three CI workflows (PowerShell removal Step 9). The PowerShell removal plan (Steps 0-9) is now fully complete: golc.ps1 is deleted, Mage is the sole contributor entrypoint, and check.yml/linear-sync.yml/cross-platform-mage.yml all have real, current, green CI evidence."
 progress:
-  total_phases: 7
-  completed_phases: 5
+  total_phases: 8
+  completed_phases: 6
   total_plans: 71
-  completed_plans: 67
+  completed_plans: 71
 ---
 
 # Project State
@@ -145,6 +145,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-23T08:37:08.433Z
-Stopped at: Phase 6 UI-SPEC approved
-Resume file: .planning/phases/06-wails-authoring-and-operator-surface/06-UI-SPEC.md
+Last session: 2026-07-25T04:59:32.717Z
+Stopped at: Phase 7 context gathered
+Resume file: .planning/phases/07-versioned-external-control-api/07-CONTEXT.md
