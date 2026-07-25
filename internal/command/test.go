@@ -412,8 +412,8 @@ func runTestQuick(root string) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 	var output bytes.Buffer
-	output.WriteString("GOLC test --quick: go vet ./...\n")
-	stdout, stderr, err := runProjectGo(goExecutable, root, []string{"vet", "./..."})
+	output.WriteString("GOLC test --quick: go vet -tags mage ./...\n")
+	stdout, stderr, err := runProjectGo(goExecutable, root, []string{"vet", "-tags", "mage", "./..."})
 	output.Write(stdout)
 	if err != nil {
 		stderr = append(stderr, []byte(fmt.Sprintf("GOLC_TEST_FAILED: quick vet: %v\n", err))...)
@@ -434,8 +434,8 @@ func runTestFull(root string) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 	var output bytes.Buffer
-	output.WriteString("GOLC test: full suite (go test ./...).\n")
-	stdout, stderr, err := runProjectGo(goExecutable, root, []string{"test", "-count=1", "./..."})
+	output.WriteString("GOLC test: full suite (go test -tags mage ./...).\n")
+	stdout, stderr, err := runProjectGo(goExecutable, root, []string{"test", "-count=1", "-tags", "mage", "./..."})
 	output.Write(stdout)
 	if err != nil {
 		stderr = append(stderr, []byte(fmt.Sprintf("GOLC_TEST_FAILED: full suite: %v\n", err))...)
