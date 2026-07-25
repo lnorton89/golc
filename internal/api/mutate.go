@@ -89,6 +89,11 @@ type mutateRequest struct {
 	// mutate branches to dryRunMutate (dryrun.go) before ever comparing
 	// If-Match or calling Execute against the real show.
 	DryRun bool
+	// IdempotencyKey is the raw Idempotency-Key header value, "" if
+	// absent (idempotency.go, 07-RESEARCH.md Assumptions Log A6). A live
+	// stored entry for this key short-circuits the pipeline before
+	// If-Match/Execute, returning the original response.
+	IdempotencyKey string
 	// Actor is the authenticated key's id (KeyIDFromContext).
 	Actor string
 	// CorrelationID is the request's chi/middleware.RequestID value.
@@ -165,6 +170,17 @@ func mutate(ctx context.Context, server *Server, req mutateRequest) (mutationRes
 		return dryRunMutate(server, req)
 	}
 
+	if req.IdempotencyKey != "" {
+		if cached, found := server.idempotency.lookup(req.IdempotencyKey); found {
+			fireMutationObservers(MutationEvent{
+				Route: req.Route, Args: req.Args, Actor: req.Actor, Source: "http",
+				CorrelationID: req.CorrelationID, ResultingRevision: cached.Revision,
+				Outcome: "idempotent_replay", StatusCode: http.StatusOK,
+			})
+			return cached, nil
+		}
+	}
+
 	expectedRevision, revisionErr := checkRevision(server.root, server.showPath, req.IfMatch)
 	if revisionErr != nil {
 		fireMutationObservers(MutationEvent{
@@ -199,7 +215,11 @@ func mutate(ctx context.Context, server *Server, req mutateRequest) (mutationRes
 	if translateErr != nil {
 		return mutationResult{}, translateErr
 	}
-	return mutationResult{Result: strings.TrimSpace(string(body)), Revision: resultingRevision}, nil
+	result := mutationResult{Result: strings.TrimSpace(string(body)), Revision: resultingRevision}
+	if req.IdempotencyKey != "" {
+		server.idempotency.store(req.IdempotencyKey, result)
+	}
+	return result, nil
 }
 
 // actorFromContext returns the authenticated key's id (KeyIDFromContext),
@@ -224,8 +244,9 @@ func correlationIDFromContext(ctx context.Context) string {
 // createPoolInput is POST /v1/pools's Huma input: If-Match carries D-13's
 // expected-revision precondition.
 type createPoolInput struct {
-	IfMatch string `header:"If-Match" doc:"Expected show.State.Revision, quoted per RFC 7232 (D-13). Omit to skip the optimistic-concurrency check."`
-	DryRun  bool   `query:"dry_run" doc:"Preview this mutation's effect without applying it (D-14); the real show is never touched, and no resulting revision is reported."`
+	IfMatch        string `header:"If-Match" doc:"Expected show.State.Revision, quoted per RFC 7232 (D-13). Omit to skip the optimistic-concurrency check."`
+	DryRun         bool   `query:"dry_run" doc:"Preview this mutation's effect without applying it (D-14); the real show is never touched, and no resulting revision is reported."`
+	IdempotencyKey string `header:"Idempotency-Key" doc:"Client-supplied key (Stripe-style, [ASSUMED] A6); replaying the same key within the TTL returns the original response instead of re-applying the mutation."`
 	// (kept as a literal string tag, matching dryRunQueryDoc's wording --
 	// struct tags cannot reference a package const.)
 	Body struct {
@@ -267,12 +288,13 @@ func registerCreatePool(humaAPI huma.API, server *Server) {
 			args = append(args, "--requires", strings.Join(input.Body.Requires, ","))
 		}
 		result, err := mutate(ctx, server, mutateRequest{
-			Route:         "pool create",
-			Args:          args,
-			IfMatch:       input.IfMatch,
-			DryRun:        input.DryRun,
-			Actor:         actorFromContext(ctx),
-			CorrelationID: correlationIDFromContext(ctx),
+			Route:          "pool create",
+			Args:           args,
+			IfMatch:        input.IfMatch,
+			DryRun:         input.DryRun,
+			IdempotencyKey: input.IdempotencyKey,
+			Actor:          actorFromContext(ctx),
+			CorrelationID:  correlationIDFromContext(ctx),
 		})
 		if err != nil {
 			return nil, err
