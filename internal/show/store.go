@@ -23,6 +23,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/lnorton89/golc/internal/strictjson"
@@ -297,4 +298,56 @@ func Save(root, path string, s State) (err error) {
 		return err
 	}
 	return promoteState(db, s.SchemaVersion, s.Revision, checksum, payload, now)
+}
+
+// CurrentRevision reads show_meta.revision at path (resolved against
+// root) without decoding or whole-State-validating the show_state blob --
+// the fast, cheap check internal/api's mutation pipeline (07-05-PLAN.md
+// Task 1, CONTEXT D-13) runs on every mutating request to compare against
+// an If-Match header, without paying Load's full
+// strictjson.DecodeStrict + validate() cost just to read one integer. A
+// never-yet-saved show (readMeta's own "not ok" case, CONTEXT store.go's
+// "nothing saved at this path yet" branch) reports revision 0, exactly
+// matching a freshly Loaded State's own zero-value Revision.
+func CurrentRevision(root, path string) (revision int64, err error) {
+	db, openErr := openStore(root, path)
+	if openErr != nil {
+		return 0, openErr
+	}
+	defer closeStoreCheckingErr(db, &err)
+
+	meta, ok, metaErr := readMeta(db)
+	if metaErr != nil {
+		return 0, metaErr
+	}
+	if !ok {
+		return 0, nil
+	}
+	return int64(meta.Revision), nil
+}
+
+// NewTempCopy produces a throwaway, verified VACUUM INTO copy of the
+// .golc file at path (resolved against root) -- reusing verifiedBackup's
+// exact "copy, then re-open in a fresh connection and read-back-validate"
+// discipline (05-RESEARCH.md Pattern 3, backup.go) -- for a caller that
+// needs a real, independently-openable .golc file to Execute a command
+// against without ever touching the real show (internal/api's dry-run,
+// 07-05-PLAN.md Task 2, CONTEXT D-14; internal/api's batch engine,
+// 07-06-PLAN.md). The returned copyPath is relative to root, matching
+// path's own convention (never an absolute path a caller could confuse
+// with the real show path); cleanup removes the copy and its WAL/SHM
+// sidecars and is safe to call multiple times -- callers must always call
+// it, typically via defer, once the copy is no longer needed.
+func NewTempCopy(root, path string) (copyPath string, cleanup func(), err error) {
+	backupPath, backupErr := verifiedBackup(root, path)
+	if backupErr != nil {
+		return "", nil, backupErr
+	}
+	resolvedBackup := resolvePath(root, backupPath)
+	cleanup = func() {
+		_ = os.Remove(resolvedBackup)
+		_ = os.Remove(resolvedBackup + "-wal")
+		_ = os.Remove(resolvedBackup + "-shm")
+	}
+	return backupPath, cleanup, nil
 }
