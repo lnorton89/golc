@@ -94,6 +94,28 @@ func NewServer(executor Executor, root, showPath string, opts ...ServerOption) *
 	}
 	server.idempotency = newIdempotencyStore(server.idempotencyTTL)
 	server.router = buildRouter(server)
+
+	// RegisterAuditObserver (07-07) is wired here, at *Server construction
+	// time, rather than inside 07-07's own audit.go: root/showPath are
+	// only known once a concrete *Server exists (07-07-SUMMARY.md's own
+	// "Not yet wired into production startup" gap, deliberately deferred
+	// past that plan's file scope to avoid a merge collision with the
+	// parallel 07-08 SSE plan sharing the same wave). D-07 guarantees
+	// exactly one *Server per daemon process, so this call registers the
+	// redacting audit writer exactly once for a real daemon. Test code
+	// that constructs many *Server values in one process (this package's
+	// own *_test.go files) accumulates one audit observer per NewServer
+	// call in observer.go's package-global registry for the remainder of
+	// the test binary; each accumulated observer's later writes target its
+	// own already-torn-down t.TempDir() root and fail silently (audit
+	// write failures are logged and swallowed by design, mirrors
+	// audit.go's own "must not fail or reverse the mutation it is
+	// recording" doctrine) -- harmless, mirroring events.go's own
+	// documented ensureEventStreamObserverRegistered precedent for the
+	// same test-proliferation shape. Tests that need a clean observer
+	// registry already call ResetMutationObserversForTesting.
+	RegisterAuditObserver(server.root, server.showPath)
+
 	return server
 }
 
