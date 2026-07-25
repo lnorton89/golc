@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -875,4 +876,391 @@ func TestBatchEmptyWritesNoAuditRow(t *testing.T) {
 	}
 
 	requireAuditRowCount(t, root, showPath, 0)
+}
+
+// --- TestBatchStaleIfMatchIsAudited --------------------------------------
+
+// TestBatchStaleIfMatchIsAudited proves a stale batch-level If-Match (the
+// most consequential of runBatch's nine locked-section failure returns --
+// a routine optimistic-concurrency conflict, not an adversarial probe)
+// writes one failure audit row PER SUB-REQUEST, each carrying the client's
+// claimed expected_revision and its own sub-request's name in
+// redacted_details, closing 07-REVIEW-gaps.md WR-05 / 07-VERIFICATION.md's
+// sole remaining gap (API-06).
+func TestBatchStaleIfMatchIsAudited(t *testing.T) {
+	server, root, showPath := newAuditedBatchServer(t)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+
+	names := []string{"Alpha", "Bravo"}
+	requests := make([]map[string]any, len(names))
+	for i, name := range names {
+		requests[i] = poolCreateBatchSubRequest(name)
+	}
+
+	rec := doBatchRequest(t, server.Handler(), token, "5", requests)
+	if rec.Code != http.StatusPreconditionFailed {
+		t.Fatalf("expected 412 for a stale batch-level If-Match, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+
+	// Keep TestBatchIfMatch's own atomicity assertions alongside the new
+	// audit ones.
+	revision, err := show.CurrentRevision(root, showPath)
+	if err != nil {
+		t.Fatalf("CurrentRevision: %v", err)
+	}
+	if revision != 0 {
+		t.Fatalf("expected the real revision to remain 0 after a stale-If-Match batch, got %d", revision)
+	}
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	if len(state.Pools) != 0 {
+		t.Fatalf("expected no pools to exist, got %d", len(state.Pools))
+	}
+
+	records := requireAuditRowCount(t, root, showPath, len(names))
+	for i, name := range names {
+		got := records[i]
+		if got.Outcome != "failure" {
+			t.Fatalf("row %d: expected outcome %q, got %q", i, "failure", got.Outcome)
+		}
+		if got.StatusCode != http.StatusPreconditionFailed {
+			t.Fatalf("row %d: expected status %d, got %d", i, http.StatusPreconditionFailed, got.StatusCode)
+		}
+		if got.Source != "http" {
+			t.Fatalf("row %d: expected source %q, got %q", i, "http", got.Source)
+		}
+		if got.Actor == "" {
+			t.Fatalf("row %d: expected a non-empty actor", i)
+		}
+		if got.CorrelationID == "" {
+			t.Fatalf("row %d: expected a non-empty correlation id", i)
+		}
+		if got.Route != "pool create" {
+			t.Fatalf("row %d: expected route %q, got %q", i, "pool create", got.Route)
+		}
+		if got.ResultingRevision.Valid {
+			t.Fatalf("row %d: expected a null resulting_revision, got %v", i, got.ResultingRevision)
+		}
+		if !got.ExpectedRevision.Valid || got.ExpectedRevision.Int64 != 5 {
+			t.Fatalf("row %d: expected a valid expected_revision of 5, got %v", i, got.ExpectedRevision)
+		}
+		// The fan-out must be per-sub-request and correctly ordered: row i's
+		// details must contain that sub-request's own name and none of the
+		// others', so a collapsed single row, a duplicated row, or a
+		// reordering all fail.
+		if !strings.Contains(got.RedactedDetails, name) {
+			t.Fatalf("row %d: expected redacted_details to contain %q (this sub-request's own name), got: %s", i, name, got.RedactedDetails)
+		}
+		for _, other := range names {
+			if other == name {
+				continue
+			}
+			if strings.Contains(got.RedactedDetails, other) {
+				t.Fatalf("row %d: expected redacted_details NOT to contain %q (a different sub-request's name), got: %s", i, other, got.RedactedDetails)
+			}
+		}
+	}
+}
+
+// --- TestBatchAndSingleMutationStaleIfMatchAuditIdentically --------------
+
+// TestBatchAndSingleMutationStaleIfMatchAuditIdentically is the
+// precondition-path counterpart of
+// TestBatchAndSingleMutationScopeRejectionsAuditIdentically (07-12): it
+// proves an identical stale-If-Match rejection through POST /v1/pools and
+// through POST /v1/batch leaves identical evidence, so the WR-05
+// regression cannot be reintroduced on only one of the two surfaces.
+func TestBatchAndSingleMutationStaleIfMatchAuditIdentically(t *testing.T) {
+	server, root, showPath := newAuditedBatchServer(t)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+
+	singleRec := doCreatePoolRequest(t, server.Handler(), token, "9", "ShouldNotExistSingle")
+	if singleRec.Code != http.StatusPreconditionFailed {
+		t.Fatalf("expected 412 for the single-mutation stale If-Match, got %d (body: %s)", singleRec.Code, singleRec.Body.String())
+	}
+
+	batchRec := doBatchRequest(t, server.Handler(), token, "9", []map[string]any{poolCreateBatchSubRequest("ShouldNotExistBatch")})
+	if batchRec.Code != http.StatusPreconditionFailed {
+		t.Fatalf("expected 412 for the batch stale If-Match, got %d (body: %s)", batchRec.Code, batchRec.Body.String())
+	}
+
+	records := requireAuditRowCount(t, root, showPath, 2)
+	for i, rec := range records {
+		if rec.Outcome != "failure" {
+			t.Fatalf("row %d: expected outcome %q, got %q", i, "failure", rec.Outcome)
+		}
+		if rec.StatusCode != http.StatusPreconditionFailed {
+			t.Fatalf("row %d: expected status %d, got %d", i, http.StatusPreconditionFailed, rec.StatusCode)
+		}
+		if rec.Route != "pool create" {
+			t.Fatalf("row %d: expected route %q, got %q", i, "pool create", rec.Route)
+		}
+		if !rec.ExpectedRevision.Valid || rec.ExpectedRevision.Int64 != 9 {
+			t.Fatalf("row %d: expected a valid expected_revision of 9, got %v", i, rec.ExpectedRevision)
+		}
+	}
+}
+
+// --- TestBatchMalformedIfMatchIsAudited -----------------------------------
+
+// TestBatchMalformedIfMatchIsAudited proves an unparseable batch-level
+// If-Match writes one failure row with status 400 and a NULL
+// expected_revision -- NULL precisely because nothing was ever
+// successfully parsed, distinguishing a rejected header (this test) from a
+// mismatched one (TestBatchStaleIfMatchIsAudited) in the audit trail
+// itself.
+func TestBatchMalformedIfMatchIsAudited(t *testing.T) {
+	server, root, showPath := newAuditedBatchServer(t)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+
+	rec := doBatchRequest(t, server.Handler(), token, "banana", []map[string]any{poolCreateBatchSubRequest("ShouldNotExist")})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for an unparseable batch-level If-Match, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "GOLC_API_IF_MATCH_INVALID") {
+		t.Fatalf("expected the error to name GOLC_API_IF_MATCH_INVALID, got: %s", rec.Body.String())
+	}
+
+	records := requireAuditRowCount(t, root, showPath, 1)
+	rec0 := records[0]
+	if rec0.Outcome != "failure" {
+		t.Fatalf("expected outcome %q, got %q", "failure", rec0.Outcome)
+	}
+	if rec0.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rec0.StatusCode)
+	}
+	if rec0.ExpectedRevision.Valid {
+		t.Fatalf("expected a null expected_revision (nothing was ever successfully parsed), got %v", rec0.ExpectedRevision)
+	}
+}
+
+// --- TestBatchExternalWriteRaceIsAudited ----------------------------------
+
+// TestBatchExternalWriteRaceIsAudited proves the pre-commit external-write
+// race writes one failure row per sub-request, even though every
+// sub-request had already succeeded against the throwaway copy -- the row
+// set records that the whole batch was attempted and rolled back, not that
+// nothing happened.
+func TestBatchExternalWriteRaceIsAudited(t *testing.T) {
+	server, root, showPath := newAuditedBatchServer(t)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+
+	api.BatchPreCommitHookForTesting = func() {
+		state, loadErr := show.Load(root, showPath)
+		if loadErr != nil {
+			t.Fatalf("simulated external Load: %v", loadErr)
+		}
+		if saveErr := show.Save(root, showPath, state); saveErr != nil {
+			t.Fatalf("simulated external Save: %v", saveErr)
+		}
+	}
+	t.Cleanup(func() { api.BatchPreCommitHookForTesting = nil })
+
+	names := []string{"Alpha", "Bravo"}
+	requests := make([]map[string]any, len(names))
+	for i, name := range names {
+		requests[i] = poolCreateBatchSubRequest(name)
+	}
+
+	rec := doBatchRequest(t, server.Handler(), token, "", requests)
+	if rec.Code != http.StatusPreconditionFailed {
+		t.Fatalf("expected 412 for a batch racing a concurrent external write, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+
+	revision, err := show.CurrentRevision(root, showPath)
+	if err != nil {
+		t.Fatalf("CurrentRevision: %v", err)
+	}
+	if revision != 1 {
+		t.Fatalf("expected only the simulated external write to have advanced the revision (to 1), got %d", revision)
+	}
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	for _, p := range state.Pools {
+		if p.Name == "Alpha" || p.Name == "Bravo" {
+			t.Fatalf("expected the batch's sub-requests to have been rolled back after the 412, but %q exists", p.Name)
+		}
+	}
+
+	records := requireAuditRowCount(t, root, showPath, len(names))
+	for i, name := range names {
+		got := records[i]
+		if got.Outcome != "failure" {
+			t.Fatalf("row %d: expected outcome %q, got %q", i, "failure", got.Outcome)
+		}
+		if got.StatusCode != http.StatusPreconditionFailed {
+			t.Fatalf("row %d: expected status %d, got %d", i, http.StatusPreconditionFailed, got.StatusCode)
+		}
+		if got.ExpectedRevision.Valid {
+			t.Fatalf("row %d: expected a null expected_revision (no If-Match was sent), got %v", i, got.ExpectedRevision)
+		}
+		if !strings.Contains(got.RedactedDetails, name) {
+			t.Fatalf("row %d: expected redacted_details to contain %q (this sub-request's own name), got: %s", i, name, got.RedactedDetails)
+		}
+		for _, other := range names {
+			if other == name {
+				continue
+			}
+			if strings.Contains(got.RedactedDetails, other) {
+				t.Fatalf("row %d: expected redacted_details NOT to contain %q (a different sub-request's name), got: %s", i, other, got.RedactedDetails)
+			}
+		}
+	}
+}
+
+// --- TestBatchSubRequestExecutionFailureIsAudited -------------------------
+
+// TestBatchSubRequestExecutionFailureIsAudited proves a mid-batch
+// sub-request execution failure writes exactly ONE failure row, for the
+// culpable index only, whose status equals the HTTP status the client
+// received -- preserving 07-12's established "one row for the failing
+// sub-request" semantic for sub-request-attributable failures.
+func TestBatchSubRequestExecutionFailureIsAudited(t *testing.T) {
+	server, root, showPath := newAuditedBatchServer(t)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+
+	// Seed "Beta" through a successful single mutation -- this legitimately
+	// writes one success row, and its post-seed revision is what the
+	// rolled-back batch below must leave untouched.
+	seedRec := doCreatePoolRequest(t, server.Handler(), token, "", "Beta")
+	if seedRec.Code < 200 || seedRec.Code >= 300 {
+		t.Fatalf("seeding \"Beta\": expected a 2xx, got %d (body: %s)", seedRec.Code, seedRec.Body.String())
+	}
+	postSeedRevision, err := show.CurrentRevision(root, showPath)
+	if err != nil {
+		t.Fatalf("CurrentRevision after seed: %v", err)
+	}
+
+	requests := []map[string]any{
+		poolCreateBatchSubRequest("Alpha"),
+		poolCreateBatchSubRequest("Beta"), // duplicate name -> fails against the throwaway copy at index 1
+	}
+	rec := doBatchRequest(t, server.Handler(), token, "", requests)
+	if rec.Code < 400 {
+		t.Fatalf("expected a batch with a failing 2nd sub-request to fail, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+
+	revision, err := show.CurrentRevision(root, showPath)
+	if err != nil {
+		t.Fatalf("CurrentRevision: %v", err)
+	}
+	if revision != postSeedRevision {
+		t.Fatalf("expected the real revision to remain unchanged from the post-seed value (%d), got %d", postSeedRevision, revision)
+	}
+
+	records := requireAuditRowCount(t, root, showPath, 2)
+	seedRow := records[0]
+	if seedRow.Outcome != "success" {
+		t.Fatalf("row 0 (the seed): expected outcome %q, got %q", "success", seedRow.Outcome)
+	}
+
+	failRow := records[1]
+	if failRow.Outcome != "failure" {
+		t.Fatalf("row 1: expected outcome %q, got %q", "failure", failRow.Outcome)
+	}
+	if failRow.Route != "pool create" {
+		t.Fatalf("row 1: expected route %q, got %q", "pool create", failRow.Route)
+	}
+	if failRow.ResultingRevision.Valid {
+		t.Fatalf("row 1: expected a null resulting_revision, got %v", failRow.ResultingRevision)
+	}
+	if !strings.Contains(failRow.RedactedDetails, "Beta") {
+		t.Fatalf("row 1: expected redacted_details to contain %q, got: %s", "Beta", failRow.RedactedDetails)
+	}
+	// The absence of an "Alpha" failure row is the pinned semantic: a
+	// sub-request-attributable failure writes exactly one row, for the
+	// culpable index -- sub-request 0 succeeded against the throwaway copy
+	// and was then rolled back along with the whole batch, so it gets no
+	// row of its own.
+	if strings.Contains(failRow.RedactedDetails, "Alpha") {
+		t.Fatalf("row 1: expected redacted_details NOT to contain %q (a non-culpable sub-request's name), got: %s", "Alpha", failRow.RedactedDetails)
+	}
+	// Deliberate: the audit row's status must be whatever the client
+	// actually received, which is what makes the row usable for
+	// reconciling a client-reported failure against the server's own
+	// record -- assert against rec.Code, never a hardcoded status.
+	if failRow.StatusCode != rec.Code {
+		t.Fatalf("row 1: expected status to equal the response's own status %d, got %d", rec.Code, failRow.StatusCode)
+	}
+}
+
+// --- TestBatchLockedSectionFailureReturnsAreAllAudited --------------------
+
+// TestBatchLockedSectionFailureReturnsAreAllAudited is a source-structure
+// test, the deliberate substitute for behavioral coverage of the five
+// branches that need fault injection to reach (both show.CurrentRevision
+// calls, show.NewTempCopy, show.Load, and show.Save failing): the show
+// file is also the auth middleware's own key store, so corrupting it to
+// force an infrastructure failure gets the request rejected at 401 before
+// runBatch is ever entered, and adding a production fault-injection seam
+// purely for audit-trail completeness would widen the blast radius well
+// beyond this gap-closure fix. This test reads batch.go's own source (the
+// same technique deprecation_test.go's
+// TestBuildRouterInstallsDeprecationMiddleware uses against router.go) and
+// mechanically proves every one of the nine `return nil, ` statements
+// between `mutationMutex.Lock()` and `resultingRevision := baseRevision +
+// 1` is preceded by an audit fire -- the gate that caught the source
+// findings' own undercount (07-REVIEW-gaps.md and 07-VERIFICATION.md each
+// enumerated eight returns by hand; this region has nine).
+func TestBatchLockedSectionFailureReturnsAreAllAudited(t *testing.T) {
+	source, err := os.ReadFile("batch.go")
+	if err != nil {
+		t.Fatalf("os.ReadFile(batch.go): %v", err)
+	}
+	lines := strings.Split(string(source), "\n")
+
+	startLine, endLine := -1, -1
+	for i, line := range lines {
+		// Skip comment lines when locating the region markers themselves --
+		// runBatch's own doc comment above the function references
+		// "mutationMutex.Lock()" in prose, which must never be mistaken for
+		// the real statement that opens the locked region.
+		if strings.HasPrefix(strings.TrimSpace(line), "//") {
+			continue
+		}
+		if startLine < 0 && strings.Contains(line, "mutationMutex.Lock()") {
+			startLine = i
+			continue
+		}
+		if startLine >= 0 && strings.Contains(line, "resultingRevision := baseRevision + 1") {
+			endLine = i
+			break
+		}
+	}
+	if startLine < 0 || endLine < 0 || endLine <= startLine {
+		t.Fatalf("expected batch.go to contain a `mutationMutex.Lock()` line followed later by a `resultingRevision := baseRevision + 1` line -- runBatch was restructured and this test's region markers need updating (found startLine=%d, endLine=%d)", startLine, endLine)
+	}
+
+	fired := false
+	returnCount, fireCount := 0, 0
+	for i := startLine + 1; i < endLine; i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(trimmed, "//") {
+			// A doc comment can never satisfy the gate.
+			continue
+		}
+		if strings.Contains(trimmed, "fireMutationObservers(") || strings.Contains(trimmed, "fireBatchFailureObservers(") {
+			fired = true
+			fireCount++
+		}
+		if strings.HasPrefix(trimmed, "return nil, ") {
+			if !fired {
+				t.Fatalf("batch.go line %d is an unaudited failure return inside runBatch's locked section: %q -- every failure return inside runBatch's locked section must emit its audit rows before returning (API-06, WR-05)", i+1, trimmed)
+			}
+			fired = false
+			returnCount++
+		}
+	}
+
+	const wantCount = 9
+	if returnCount != wantCount {
+		t.Fatalf("expected exactly %d failure returns in runBatch's locked section, found %d -- if a failure return was legitimately added or removed there, update this expectation and confirm the new branch fires the observer", wantCount, returnCount)
+	}
+	if fireCount != wantCount {
+		t.Fatalf("expected exactly %d audit-fire statements in runBatch's locked section, found %d -- if a failure return was legitimately added or removed there, update this expectation and confirm the new branch fires the observer", wantCount, fireCount)
+	}
 }
