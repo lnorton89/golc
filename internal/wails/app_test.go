@@ -176,17 +176,26 @@ func TestResolveDaemonExecutableOverrideWins(t *testing.T) {
 
 // fakeRegisterer is a test double for the registerer interface
 // (hotkey.go): registerErr, when set, makes Register fail exactly the way
-// a real OS-level hotkey conflict would; keydown lets a test simulate a
-// Keydown event without a real OS-level global hotkey.
+// a real OS-level hotkey conflict would; registerPanic, when set, makes
+// Register panic instead -- simulating golang.design/x/hotkey's CGo-free,
+// non-Windows build (hotkey_nocgo.go), which panics rather than returning
+// an error; keydown lets a test simulate a Keydown event without a real
+// OS-level global hotkey.
 type fakeRegisterer struct {
-	registerErr error
-	keydown     chan hotkey.Event
+	registerErr   error
+	registerPanic any
+	keydown       chan hotkey.Event
 
 	mu           sync.Mutex
 	unregistered bool
 }
 
-func (f *fakeRegisterer) Register() error { return f.registerErr }
+func (f *fakeRegisterer) Register() error {
+	if f.registerPanic != nil {
+		panic(f.registerPanic)
+	}
+	return f.registerErr
+}
 
 func (f *fakeRegisterer) Keydown() <-chan hotkey.Event {
 	if f.keydown == nil {
@@ -239,6 +248,45 @@ func TestHotkeyRegisterSurfaced(t *testing.T) {
 	// expose to the frontend -- never a silent pass.
 	if got := manager.Failures(); len(got) != 1 {
 		t.Fatalf("Failures() = %+v, want exactly one failure", got)
+	}
+}
+
+// TestHotkeyRegisterPanicSurfacedNotCrashed proves a Register() call that
+// panics (golang.design/x/hotkey's actual behavior on a CGo-free,
+// non-Windows build -- hotkey_nocgo.go panics unconditionally rather than
+// returning an error) is caught by safeRegister and surfaced as a normal
+// HotkeyFailure, and that the other two bindings still register
+// successfully -- the same Security Domain DoS mitigation
+// TestHotkeyRegisterSurfaced proves for a returned error must also hold for
+// a panic, or a single unsupported-platform hotkey call would crash the
+// entire desktop process before PLAY-09's safety cluster ever came up.
+func TestHotkeyRegisterPanicSurfacedNotCrashed(t *testing.T) {
+	pipeName := testWailsPipeName(t)
+	manager := NewHotkeyManager(pipeName)
+
+	var registerCalls int32
+	manager.factory = func(mods []hotkey.Modifier, key hotkey.Key) registerer {
+		atomic.AddInt32(&registerCalls, 1)
+		if key == blackoutKey {
+			return &fakeRegisterer{registerPanic: "hotkey: cannot use when CGO_ENABLED=0"}
+		}
+		return &fakeRegisterer{}
+	}
+
+	failures := manager.RegisterAll()
+	defer manager.UnregisterAll()
+
+	if got := atomic.LoadInt32(&registerCalls); got != 3 {
+		t.Fatalf("expected RegisterAll to attempt all three bindings, got %d calls", got)
+	}
+	if len(failures) != 1 {
+		t.Fatalf("expected exactly one surfaced failure, got %d: %+v", len(failures), failures)
+	}
+	if failures[0].Control != "blackout" {
+		t.Fatalf("expected the surfaced failure to name control %q, got %q", "blackout", failures[0].Control)
+	}
+	if failures[0].Error == "" {
+		t.Fatal("expected the surfaced failure to carry a non-empty error message")
 	}
 }
 
