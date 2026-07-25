@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -31,9 +32,17 @@ type Server struct {
 	root     string
 	showPath string
 	config   Config
+	// idempotencyTTL is the duration idempotency.go's store retains a
+	// successful mutation's response for a given Idempotency-Key, set via
+	// WithIdempotencyTTL. Zero means "use idempotency.go's own package
+	// default" (newIdempotencyStore's own fallback), not "disabled" --
+	// idempotency dedupe is always active for mutating requests that
+	// present the header (07-05-PLAN.md Task 3).
+	idempotencyTTL time.Duration
 
-	router     chi.Router
-	httpServer *http.Server
+	router      chi.Router
+	httpServer  *http.Server
+	idempotency *idempotencyStore
 }
 
 // ServerOption configures optional *Server construction settings beyond
@@ -50,6 +59,18 @@ type ServerOption func(*Server)
 func WithConfig(cfg Config) ServerOption {
 	return func(server *Server) {
 		server.config = cfg
+	}
+}
+
+// WithIdempotencyTTL overrides idempotency.go's default TTL (A6, flagged
+// [ASSUMED] pending discuss/UAT confirmation -- 07-RESEARCH.md Assumptions
+// Log) for the *Server being constructed. Intended primarily for tests
+// that need a short, deterministic TTL to exercise expiry without a real
+// wait; production callers may leave this unset to use the package
+// default.
+func WithIdempotencyTTL(ttl time.Duration) ServerOption {
+	return func(server *Server) {
+		server.idempotencyTTL = ttl
 	}
 }
 
@@ -71,6 +92,7 @@ func NewServer(executor Executor, root, showPath string, opts ...ServerOption) *
 	for _, opt := range opts {
 		opt(server)
 	}
+	server.idempotency = newIdempotencyStore(server.idempotencyTTL)
 	server.router = buildRouter(server)
 	return server
 }
