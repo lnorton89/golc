@@ -133,6 +133,20 @@ type GeneratedAPIKey struct {
 	Hash string
 }
 
+// APIKeyPrefixFromToken returns the same short lookup prefix
+// GenerateAPIKey derives for its own RawToken, applied to an arbitrary
+// candidate token string (e.g. a bearer token presented on an incoming
+// HTTP request, 07-04-PLAN.md Task 2). This is the single source of
+// truth for the prefix-derivation rule every LookupAPIKeyByPrefix caller
+// must replicate exactly -- callers must never hardcode the prefix
+// length themselves.
+func APIKeyPrefixFromToken(token string) string {
+	if len(token) > apiKeyPrefixLength {
+		return token[:apiKeyPrefixLength]
+	}
+	return token
+}
+
 // GenerateAPIKey creates a new crypto/rand-backed 256-bit API key token,
 // base64url encoded, plus its short lookup Prefix and hex SHA-256 Hash.
 // The raw token is not derivable from the returned Prefix/Hash alone:
@@ -144,11 +158,7 @@ func GenerateAPIKey() (GeneratedAPIKey, error) {
 		return GeneratedAPIKey{}, fmt.Errorf("GOLC_APIKEY_GENERATE_FAILED: %v", err)
 	}
 	token := base64.RawURLEncoding.EncodeToString(raw)
-	prefix := token
-	if len(prefix) > apiKeyPrefixLength {
-		prefix = prefix[:apiKeyPrefixLength]
-	}
-	return GeneratedAPIKey{RawToken: token, Prefix: prefix, Hash: HashAPIKeyToken(token)}, nil
+	return GeneratedAPIKey{RawToken: token, Prefix: APIKeyPrefixFromToken(token), Hash: HashAPIKeyToken(token)}, nil
 }
 
 // APIKey is one api_keys row's metadata -- never the hash or raw token.
