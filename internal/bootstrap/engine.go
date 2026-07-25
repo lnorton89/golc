@@ -271,11 +271,23 @@ type toolchainManifestPin struct {
 	Platforms          map[string]platformArchivePin `toml:"platforms"`
 }
 
+// goInstallPin pins one `go install <module>@<version>` provisioned tool.
+// Unlike manifestPin/toolchainManifestPin (checksum-verified archive
+// downloads), a go-install tool has no per-platform archive: the already
+// checksum-verified, pinned Go toolchain builds it for the running
+// platform itself, with Go's own module proxy/sumdb verifying module
+// integrity. No archive_url/archive_sha256 pair applies here.
+type goInstallPin struct {
+	Version string `toml:"version"`
+	Module  string `toml:"module"`
+}
+
 type bootstrapManifest struct {
 	SchemaVersion int                             `toml:"schema_version"`
 	Cache         map[string]string               `toml:"cache"`
 	Tools         map[string]manifestPin          `toml:"tools"`
 	Toolchain     map[string]toolchainManifestPin `toml:"toolchain"`
+	GoInstall     map[string]goInstallPin         `toml:"go_install"`
 }
 
 type bootstrapEngine struct {
@@ -437,7 +449,43 @@ func validateManifestForPlatform(document bootstrapManifest, options Options) (m
 	if err != nil {
 		return manifestPin{}, manifestPin{}, manifestPin{}, err
 	}
+	goInstallNames := make([]string, 0, len(document.GoInstall))
+	for name := range document.GoInstall {
+		goInstallNames = append(goInstallNames, name)
+	}
+	sort.Strings(goInstallNames)
+	for _, name := range goInstallNames {
+		if !validToolName.MatchString(name) {
+			return manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_TOOLCHAIN_PARSE: invalid go_install tool name %q", name)
+		}
+		if err := validateGoInstallPin("go_install."+name, document.GoInstall[name]); err != nil {
+			return manifestPin{}, manifestPin{}, manifestPin{}, err
+		}
+	}
 	return goPin, magePin, nodePin, nil
+}
+
+var (
+	validGoInstallVersion = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+$`)
+	validGoModulePath     = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9._/-]*[A-Za-z0-9])?$`)
+)
+
+// validateGoInstallPin rejects anything that is not a plain, already-safe
+// module path and semantic version before it can ever reach an
+// os/exec-invoked `go install <module>@<version>` argument (T-01-SC: no
+// pin here can inject a flag, shell metacharacter, or path-traversal
+// segment into that command line).
+func validateGoInstallPin(name string, pin goInstallPin) error {
+	if strings.TrimSpace(pin.Version) == "" || strings.TrimSpace(pin.Module) == "" {
+		return fmt.Errorf("GOLC_TOOLCHAIN_PARSE: [%s] is missing version or module", name)
+	}
+	if !validGoInstallVersion.MatchString(pin.Version) {
+		return fmt.Errorf("GOLC_TOOLCHAIN_PARSE: [%s] version must be a plain vMAJOR.MINOR.PATCH tag", name)
+	}
+	if !validGoModulePath.MatchString(pin.Module) || strings.Contains(pin.Module, "..") {
+		return fmt.Errorf("GOLC_TOOLCHAIN_PARSE: [%s] module is not a safe module path", name)
+	}
+	return nil
 }
 
 func validatePin(name string, pin manifestPin) error {
@@ -535,6 +583,7 @@ func (engine *bootstrapEngine) run(ctx context.Context) error {
 	if err := engine.runGoPhase(ctx, goExecutable); err != nil {
 		return err
 	}
+	engine.installGoInstallTools(ctx, goExecutable)
 	engine.progress("building frontend...")
 	if err := runFrontendBuild(ctx, engine); err != nil {
 		return err
@@ -590,6 +639,51 @@ func ResolveMageExecutable(root string) (string, error) {
 		return "", fmt.Errorf("GOLC_MAGE_TOOLCHAIN_MISSING: expected regular pinned executable at %s", executable)
 	}
 	return executable, nil
+}
+
+// installGoInstallTools provisions every pinned go_install tool (currently
+// just midicat -- see internal/midi/driver.go's doc comment for why) via
+// `go install <module>@<version>` using the already-verified, pinned Go
+// toolchain, landing the binary at layout.GoBin/<name>[.exe] -- the same
+// project-local GOBIN convention cache.go's WailsBinaryPath already
+// reserves for exactly this purpose (both are "go install a pinned tool
+// into the project-local GOBIN already wired into every bootstrap-
+// dispatched Go invocation's environment" instances of one pattern).
+// Provisioning is deliberately best-effort, never bootstrap-fatal: unlike
+// Go/Mage/Node (required to build/test the project itself), every
+// go_install tool is optional runtime tooling (MIDI hardware support
+// remains optional per PROJECT.md/CONF-*), so a network hiccup reaching
+// the tool's module host must never break bootstrap for a contributor who
+// doesn't need it. A failure is a visible warning line, never silently
+// swallowed -- see 06-08-SUMMARY.md for the history of this exact gap
+// going undiscovered for one release cycle because the only trace of it
+// was a paragraph in a phase-completion summary, not a bootstrap-time
+// signal.
+func (engine *bootstrapEngine) installGoInstallTools(ctx context.Context, goExecutable string) {
+	names := make([]string, 0, len(engine.document.GoInstall))
+	for name := range engine.document.GoInstall {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		pin := engine.document.GoInstall[name]
+		target := filepath.Join(engine.layout.GoBin, ExecutableName(name))
+		if info, err := os.Stat(target); err == nil && info.Mode().IsRegular() {
+			engine.progress("%s %s already installed", name, pin.Version)
+			continue
+		}
+		engine.progress("installing %s %s (go install)...", name, pin.Version)
+		spec := pin.Module + "@" + pin.Version
+		if _, err := engine.runProcess(ctx, goExecutable, "GOLC_BOOTSTRAP_GO_INSTALL_FAILED", "install", spec); err != nil {
+			engine.progress("WARNING: %s %s install failed, continuing without it (optional runtime tool): %v", name, pin.Version, err)
+			continue
+		}
+		if info, err := os.Stat(target); err != nil || !info.Mode().IsRegular() {
+			engine.progress("WARNING: %s install reported success but %s is missing; continuing without it (optional runtime tool)", name, target)
+			continue
+		}
+		engine.progress("%s %s installed at %s", name, pin.Version, target)
+	}
 }
 
 func (engine *bootstrapEngine) installPin(label string, pin manifestPin, installDir string) error {

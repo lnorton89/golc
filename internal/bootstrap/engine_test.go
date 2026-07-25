@@ -34,9 +34,10 @@ type processCall struct {
 }
 
 type engineFakeRunner struct {
-	calls       []processCall
-	moduleGraph string
-	mutateLock  bool
+	calls         []processCall
+	moduleGraph   string
+	mutateLock    bool
+	failGoInstall bool
 }
 
 func (runner *engineFakeRunner) Run(_ context.Context, request processRequest) ([]byte, error) {
@@ -62,6 +63,32 @@ func (runner *engineFakeRunner) Run(_ context.Context, request processRequest) (
 	}
 	if strings.Join(request.Args, " ") == "list -m all" {
 		return []byte(runner.moduleGraph), nil
+	}
+	if len(request.Args) == 2 && request.Args[0] == "install" {
+		if runner.failGoInstall {
+			return nil, fmt.Errorf("simulated go_install network failure")
+		}
+		spec := request.Args[1]
+		modulePath := spec
+		if idx := strings.LastIndex(spec, "@"); idx >= 0 {
+			modulePath = spec[:idx]
+		}
+		base := modulePath
+		if idx := strings.LastIndex(modulePath, "/"); idx >= 0 {
+			base = modulePath[idx+1:]
+		}
+		name := base
+		if runtime.GOOS == "windows" {
+			name += ".exe"
+		}
+		if gobin := request.Env["GOBIN"]; gobin != "" {
+			if err := os.MkdirAll(gobin, 0o755); err != nil {
+				return nil, err
+			}
+			if err := os.WriteFile(filepath.Join(gobin, name), []byte(base+" executable\n"), 0o755); err != nil {
+				return nil, err
+			}
+		}
 	}
 	// runFrontendBuild's "npm run build" (distinguished from tools/
 	// linear-sync's own npm ci/tsc calls, which linearFakeRunner
@@ -206,6 +233,10 @@ official_path_prefix = "/dist/"
 [toolchain.node.platforms.%q]
 archive_url = %q
 archive_sha256 = %q
+
+[go_install.midicat]
+version = "v1.0.7"
+module = "gitlab.com/gomidi/tools/midicat"
 `, fixtureURL, fixtureDigest, PlatformKey(), goURL, goDigest, PlatformKey(), mageURL, mageDigest, PlatformKey(), nodeURL, nodeDigest)
 	if err := os.WriteFile(filepath.Join(root, "config", "toolchain.toml"), []byte(manifest), 0o644); err != nil {
 		t.Fatalf("write manifest: %v", err)
@@ -488,12 +519,13 @@ func TestScopeBootstrapEngine(t *testing.T) {
 			{"list", "-m", "all"},
 			{"test", "-count=1", "./internal/bootstrap/"},
 		}
-		// 4 Go module/probe calls + build golc-project + runFrontendBuild's
-		// npm ci and npm run build (unconditional now: cmd/golc-desktop's
-		// //go:embed all:frontend/dist needs frontend/dist to exist on
-		// every bootstrap, not only Linear-sync-enabled ones).
-		if len(runner.calls) != 7 {
-			t.Fatalf("process calls = %d, want 7: %+v", len(runner.calls), runner.calls)
+		// 4 Go module/probe calls + build golc-project + go_install's
+		// `go install` (midicat) + runFrontendBuild's npm ci and npm run
+		// build (unconditional now: cmd/golc-desktop's //go:embed
+		// all:frontend/dist needs frontend/dist to exist on every
+		// bootstrap, not only Linear-sync-enabled ones).
+		if len(runner.calls) != 8 {
+			t.Fatalf("process calls = %d, want 8: %+v", len(runner.calls), runner.calls)
 		}
 		for index, args := range wantArgs {
 			if got := strings.Join(runner.calls[index].args, "\x00"); got != strings.Join(args, "\x00") {
@@ -504,18 +536,26 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		if len(build.args) != 5 || strings.Join(build.args[:3], " ") != "build -trimpath -o" || build.args[4] != "./cmd/golc-project" {
 			t.Fatalf("unexpected build args: %v", build.args)
 		}
+		goInstall := runner.calls[5]
+		if len(goInstall.args) != 2 || goInstall.args[0] != "install" || goInstall.args[1] != "gitlab.com/gomidi/tools/midicat@v1.0.7" || goInstall.dir != root {
+			t.Fatalf("unexpected go_install call: %+v", goInstall)
+		}
+		midicatExecutable := filepath.Join(root, ".tools", "cache", "go-bin", ExecutableName("midicat"))
+		if info, err := os.Stat(midicatExecutable); err != nil || !info.Mode().IsRegular() {
+			t.Fatalf("expected midicat to be installed at %s: %v", midicatExecutable, err)
+		}
 		frontendDir := filepath.Join(root, "frontend")
-		npmCI := runner.calls[5]
+		npmCI := runner.calls[6]
 		if len(npmCI.args) != 4 || strings.Join(npmCI.args[1:], " ") != "ci --no-audit --no-fund" || npmCI.dir != frontendDir {
 			t.Fatalf("unexpected frontend npm ci call: %+v", npmCI)
 		}
-		npmBuild := runner.calls[6]
+		npmBuild := runner.calls[7]
 		if len(npmBuild.args) != 3 || strings.Join(npmBuild.args[1:], " ") != "run build" || npmBuild.dir != frontendDir {
 			t.Fatalf("unexpected frontend npm run build call: %+v", npmBuild)
 		}
 		for index, call := range runner.calls {
 			wantDir := root
-			if index >= 5 {
+			if index >= 6 {
 				wantDir = frontendDir
 			}
 			if call.dir != wantDir {

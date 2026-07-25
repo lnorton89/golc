@@ -101,6 +101,20 @@ archive_sha256 = "bb43eec76388b1445c4ce019c5ac3bb305a56f77c5f580c5067871ff01ea77
 archive_url = "https://github.com/magefile/mage/releases/download/v1.17.2/mage_1.17.2_macOS-ARM64.tar.gz"
 archive_sha256 = "5fd6f61170bb7584a4ca3ce4fd01137fe5a8edaf6c096d9f2ad30754d1d92797"
 
+# midicat is a Go-ecosystem CLI helper the gomidi/midicatdrv MIDI driver
+# (gitlab.com/gomidi/midi/v2, a go.mod dependency) shells out to at
+# runtime, never a build toolchain in its own right. It has no per-
+# platform release archive to checksum-pin like go/mage/node above, so it
+# is provisioned via `go install <module>@<version>` using the
+# already-pinned Go toolchain -- Go's own module proxy/sumdb verifies
+# module integrity. See internal/bootstrap/engine.go's
+# installGoInstallTools for the install step and
+# internal/midi/driver.go's doc comment for why cmd/golc-desktop needs
+# this binary present merely to start, not just to use MIDI hardware.
+[go_install.midicat]
+version = "v1.0.7"
+module = "gitlab.com/gomidi/tools/midicat"
+
 [cache]
 downloads = ".tools/cache/downloads"
 gomodcache = ".tools/cache/go-mod"
