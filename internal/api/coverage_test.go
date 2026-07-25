@@ -58,7 +58,7 @@ func buildExcludedRoutes() map[string]string {
 		"motion create", "motion delete", "motion duplicate", "motion rename",
 		"operatorsurface assign", "operatorsurface create", "operatorsurface remove", "operatorsurface unassign",
 		"playback bpm set", "playback bpm tap", "playback evaluate", "playback switch",
-		"pool apply", "pool create", "pool substitute", "pool update",
+		"pool apply", "pool substitute", "pool update",
 		"preset delete", "preset record", "preset rename",
 		"programmer clear", "programmer set",
 		"scene activate", "scene create", "scene delete", "scene duplicate", "scene layer set", "scene rename",
