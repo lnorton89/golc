@@ -4,11 +4,13 @@
 // document AND emits the Deprecation/Sunset response-header signals (per
 // the emerging IETF drafts -- draft-ietf-httpapi-deprecation-header) on
 // every real HTTP response for that operation. Nothing in this package is
-// deprecated today (this plan ships /v1 only, no /v2 yet), so this file is
-// scaffolded and unit-tested now, ready for a future breaking-change plan
-// to apply the moment it mounts a parallel /v2 and starts /v1's documented
-// deprecation window -- see docs/api/COMPATIBILITY.md for the policy this
-// mechanism enforces.
+// deprecated today (this plan ships /v1 only, no /v2 yet), so this file's
+// mechanism has no observable effect on any current response -- but
+// router.go's buildRouter installs DeprecationMiddleware unconditionally
+// (07-14-PLAN.md Task 1, closes 07-REVIEW.md WR-04), ready for a future
+// breaking-change plan to mark operations deprecated the moment it mounts
+// a parallel /v2 and starts /v1's documented deprecation window -- see
+// docs/api/COMPATIBILITY.md for the policy this mechanism enforces.
 package api
 
 import (
@@ -74,10 +76,12 @@ func deprecationInfoFor(op *huma.Operation) (DeprecationInfo, bool) {
 // "Sunset: <HTTP-date>" header (RFC 8594) naming the operation's
 // DeprecationInfo.Sunset date -- plus a "Link: <url>; rel=\"deprecation\""
 // header when DeprecationInfo.Link is set. A request against a
-// non-deprecated operation passes through untouched. Intended to be
-// installed via router.go's buildRouter UseMiddleware call (alongside
-// AuthMiddleware/RateLimitMiddleware) once a real deprecation window
-// begins; not installed today because no operation is deprecated yet.
+// non-deprecated operation passes through untouched. Installed via
+// router.go's buildRouter UseMiddleware call (alongside
+// AuthMiddleware/RateLimitMiddleware): unconditionally, not deferred until
+// a real deprecation window begins, since it is a genuine no-op for every
+// operation that MarkOperationDeprecated has not touched (07-14-PLAN.md
+// Task 1).
 func DeprecationMiddleware(humaAPI huma.API) func(huma.Context, func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
 		info, deprecated := deprecationInfoFor(ctx.Operation())
