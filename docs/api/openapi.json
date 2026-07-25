@@ -138,7 +138,7 @@
             "type": "string"
           },
           "revision": {
-            "description": "show.State.Revision this mutation produced -- also this SSE message's id.",
+            "description": "The committed show.State.Revision this change belongs to, re-fetchable via the REST resource endpoints. NOT this SSE message's id -- an atomic batch commits one revision but emits one event per sub-request, so multiple events can share a Revision.",
             "format": "int64",
             "type": "integer"
           },
@@ -448,15 +448,15 @@
     },
     "/v1/events": {
       "get": {
-        "description": "Every domain's changes on one global stream (D-09), each tagged with a type and an id equal to the show revision that produced it. Any valid, non-expired API key may open this stream regardless of its coarse domain scope (D-12) -- and, once open, receives every domain's events regardless of that scope too (D-11): scopes gate mutations, not stream visibility. This is a hint stream, never the source of truth -- always re-fetch authoritative state via the REST resource endpoints, especially after a \"resync\" event (D-10). Reconnecting with Last-Event-ID replays events still within the server's bounded buffer; an id already scrolled out of that buffer yields one resync event instead of a silent gap. A revoked or expired key's already-open stream is closed within one revocation-tick interval.",
+        "description": "Every domain's changes on one global stream (D-09), each tagged with a type and a strictly monotonic per-process event sequence id. One atomic /v1/batch commits a single show revision but emits one separately-addressable event per sub-request, so consecutive events can share a revision while carrying distinct ids -- the committed revision itself travels in the event payload's \"revision\" field, re-fetchable via the REST resource endpoints. Any valid, non-expired API key may open this stream regardless of its coarse domain scope (D-12) -- and, once open, receives every domain's events regardless of that scope too (D-11): scopes gate mutations, not stream visibility. This is a hint stream, never the source of truth -- always re-fetch authoritative state via the REST resource endpoints, especially after a \"resync\" event (D-10). Reconnecting with Last-Event-ID replays events still within the server's bounded buffer; an id already scrolled out of that buffer, or an id from a previous daemon run (the sequence restarts with the process), yields one resync event instead of a silent gap. A revoked or expired key's already-open stream is closed within one revocation-tick interval.",
         "operationId": "watch-events",
         "parameters": [
           {
-            "description": "The id of the last event this client received, if reconnecting (SSE standard header, D-10). Omit when connecting for the first time; an in-window id replays missed events, an out-of-window id yields a single resync event instead of silently-missing state.",
+            "description": "A server-issued, strictly monotonic, per-process event sequence -- the id of the last event this client received, if reconnecting (SSE standard header, D-10). Omit when connecting for the first time; an in-window id replays missed events, an out-of-window id (including one from a previous daemon run, since the sequence resets on restart) yields a single resync event instead of silently-missing state.",
             "in": "header",
             "name": "Last-Event-ID",
             "schema": {
-              "description": "The id of the last event this client received, if reconnecting (SSE standard header, D-10). Omit when connecting for the first time; an in-window id replays missed events, an out-of-window id yields a single resync event instead of silently-missing state.",
+              "description": "A server-issued, strictly monotonic, per-process event sequence -- the id of the last event this client received, if reconnecting (SSE standard header, D-10). Omit when connecting for the first time; an in-window id replays missed events, an out-of-window id (including one from a previous daemon run, since the sequence resets on restart) yields a single resync event instead of silently-missing state.",
               "type": "string"
             }
           }
