@@ -86,6 +86,8 @@ Script names, capability-profile labels, and dialog copy use the existing Label/
 | Accent (10%) | `#1B44D9` Signal Blue (`--accent`) | Run button (filled, primary), the currently-selected script in the library list, focus rings, Monaco's active-line/selection highlight (mapped through the custom theme) |
 | Destructive | `#E23A2E` (`--status-revoked`) | Stop Script button (destructive `Button` variant), Delete Script confirmation, terminated/crashed status chips |
 
+**Primary visual anchor:** the Run button, filled in Signal Blue against an otherwise neutral toolbar, is the intended first-glance focal point of the Scripts workspace — every other control (Debug, Validate, Stop Script) stays neutral/bordered so the one accent-colored action reads as "the thing you do here."
+
 Accent reserved for: the Run button (filled), the selected script row in the library, focus rings, and Monaco's selection/active-line highlight. **Debug is deliberately not accent-colored** — it renders as the existing neutral `secondary` `Button` variant (gray border, `--panel` background, `--ink` text). Pairing a filled Signal Blue "Run" against a neutral bordered "Debug" is the mechanism that satisfies CONTEXT.md's "visually distinguish Run vs Debug as two distinct launch actions" requirement without introducing a second accent color — reuses the `Button` primitive's existing primary/secondary contrast exactly as already built.
 
 ### Status Vocabulary (semantic, not part of the 60/30/10 split)
@@ -141,28 +143,38 @@ Reused directly from the existing six-color system (`index.css`); Phase 8 maps s
 > Empty-state and error-state COPY live in `## Copywriting Contract` above — this section covers
 > state coverage and REFERENCES those rows rather than restating the copy (de-dup).
 
-Applicable state considerations resolved: 15 covered, 3 backstop, 0 unresolved.
+Applicable state considerations resolved via the compiled `ui-consideration-probe` engine (8 classified elements — Script Library, Script Editor, Debug/Log Panel, Run/Debug Dialog, Stack Trace Display, Breakpoint Gutter Markers, Command Outcome/Log Entries, Script Name Display): **19 covered, 10 backstop, 0 unresolved** (14 additional applicable considerations were dismissed with a stated reason — e.g. a breakpoint marker has no async loading state of its own — and are not carried into `must_haves`).
 
 | Category | Element(s) | Status | Resolution / Reason |
 |----------|------------|--------|---------------------|
 | empty | Script library (list-collection, D-16) | ✅ covered | Renders "No scripts yet" heading + body and a "New Script" CTA (see Copywriting Contract). |
 | empty | Debug/log panel before first run (list-collection, D-04/D-05) | ✅ covered | Renders the "Run or Debug this script..." placeholder copy until the first log line or command outcome arrives. |
-| loading | Script library / editor on initial daemon connect (list-collection, form) | 🧪 backstop | A skeleton/dim placeholder is expected while the host completes its first script-list fetch, matching Phase 6's identical unresolved skeleton item; exact treatment left to implementation. |
+| empty | Breakpoint gutter (list-collection, D-01) | ✅ covered | 0 breakpoints renders as a plain gutter with no markers. |
+| loading | Script library on initial daemon connect (list-collection) | 🧪 backstop | A skeleton/dim placeholder is expected while the host completes its first script-list fetch, matching Phase 6's identical unresolved skeleton item; exact treatment left to implementation. |
+| loading | Script editor mount / Monaco initialization (form, D-15) | 🧪 backstop | Editor mount before Monaco's language service is ready is not explicitly designed; likely a brief blank/skeleton panel — verify during implementation. |
 | loading | Run/Debug dialog submit (form, D-07) | ✅ covered | The dialog's Run/Start Debugging button disables and shows a busy state while the subprocess spawn is in flight; the dialog does not close until spawn succeeds or fails. |
 | error | Script editor — validation failure (form, SCRP-01) | ✅ covered | Renders the "{N} error(s)" summary copy plus inline Monaco diagnostics; Run/Debug remain disabled until validation passes. |
 | error | Debug/log panel — deadline/rate/resource termination (list-collection, D-08) | ✅ covered | Renders the limit-exceeded termination copy (see Copywriting Contract) as the terminal log/status entry. |
 | error | Debug/log panel — capability-scope violation | ✅ covered | Renders the scope-violation termination copy; treated with the same immediate-hard-termination severity as D-08 per RESEARCH.md Assumption A2. |
 | error | Debug/log panel — crash (list-collection, D-03) | ✅ covered | Renders the crash summary plus an expandable full source-mapped stack trace. |
-| error | Script library / editor — script host unreachable (list-collection, form) | ✅ covered | Renders the host-unreachable copy; Stop Script and the global safety cluster remain reachable regardless (D-10/D-11 unaffected by host-connectivity UI state). |
+| error | Command outcome entries — SDK call failure (list-collection, D-05) | ✅ covered | Renders `"{sdk.method}(...) → ERROR: {message}"` per Copywriting Contract. |
+| error | Run/Debug dialog — subprocess spawn itself fails (form, D-07) | 🧪 backstop | Distinct from a post-launch script crash; the dialog likely shows an inline error before closing, but exact copy/treatment is not locked. |
 | populated | Script library (list-collection, D-16) | ✅ covered | Each row shows script name, last-run status chip (status vocabulary), and assigned capability profile summary. |
 | populated | Debug/log panel while running (list-collection, D-04/D-05) | ✅ covered | Live-streaming log lines and individual command-outcome entries render in arrival order, each with timestamp, source location, and outcome. |
+| populated | Breakpoint gutter, one or more breakpoints set (list-collection, D-01) | ✅ covered | Each breakpoint renders an identical red dot glyph, no special-casing by count. |
+| populated | Command outcome entries — SDK call success (list-collection, D-05) | ✅ covered | Renders `"{sdk.method}(...) → OK ({duration}ms)"` per Copywriting Contract. |
 | partial | Run/Debug dialog — capability profile with some fields left at preset defaults (form, D-07) | ✅ covered | Every field is always pre-filled from the saved profile (never blank) and independently editable; there is no unfilled/partial dialog state to design for. |
+| overflow | Script library, many saved scripts (list-collection) | 🧪 backstop | List scrolls within its bounded panel per the shell's standard scrolling rule (`application-shell-navigation.md`); exact row-count threshold not locked. |
 | overflow | Debug/log panel, long-running script (list-collection) | 🧪 backstop | Panel scrolls within its bounded region rather than growing the workspace; exact row-count/retention-before-scroll-truncation threshold not locked — verify against a representative long run during implementation. |
 | overflow | Stack trace display (static-content, D-03) | ✅ covered | Renders collapsed by default behind "Script crashed: {summary}" and expands within the bounded panel via `ScrollRegion`, never growing the workspace. |
-| overflow | Script name — library row and editor Toolbar title (nav, static-content) | ✅ covered | Truncates with ellipsis at the row/title's fixed width, full name on hover/tooltip — same uniform rule Phase 6 already applies to operator-surface and scene names. |
+| overflow | Script name — library row and editor Toolbar title (static-content) | ✅ covered | Truncates with ellipsis at the row/title's fixed width, full name on hover/tooltip — same uniform rule Phase 6 already applies to operator-surface and scene names. |
 | zero-one-many | Script library (list-collection, D-16) | ✅ covered | 0 = empty state; 1 = singular "1 script"; many = plural count, identical row layout throughout. |
 | zero-one-many | Breakpoint gutter markers (list-collection, D-01) | ✅ covered | 0 breakpoints = plain gutter; 1 or many = each renders an identical red dot glyph, no special-casing by count. |
-| long-text | Command outcome / log entry messages (static-content, D-04/D-05) | 🧪 backstop | Long SDK-call arguments or error messages wrap within the bounded debug panel rather than overflowing it; exact wrap-vs-truncate threshold not locked — verify against representative long payloads during implementation. |
+| long-text | Script editor — very large single file (form, D-14) | 🧪 backstop | Monaco's own internal scroll/wrap handles this by default; not independently verified against a representative large GOLC script. |
+| long-text | Run/Debug dialog — long custom limit values (form, D-09) | 🧪 backstop | Advanced/custom numeric field input validation/truncation behavior for excessively long typed values is not locked. |
+| long-text | Stack trace display — long individual frames (static-content, D-03) | 🧪 backstop | Wrap-vs-truncate behavior for very long file paths or argument dumps within the expanded trace is not locked. |
+| long-text | Command outcome / log entry messages (list-collection, D-04/D-05) | 🧪 backstop | Long SDK-call arguments or error messages wrap within the bounded debug panel rather than overflowing it; exact wrap-vs-truncate threshold not locked — verify against representative long payloads during implementation. |
+| long-text | Script name — library row and editor Toolbar title (static-content) | ✅ covered | Same ellipsis-truncate-with-tooltip rule as the overflow row above applies identically to long-text input. |
 
 <!-- Status vocabulary (locked by probe-core projectTruths):
      ✅ covered   → a plain truth string lifted into must_haves.truths
@@ -185,11 +197,12 @@ No third-party registries were declared. Registry vetting gate not applicable. (
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: FLAG (non-blocking — single-word launch CTAs disambiguated by dialog titles/context; recommend `aria-label` for a11y)
+- [x] Dimension 2 Visuals: FLAG (non-blocking — Run-button-as-primary-anchor is implied by the Color contract but not stated as an explicit visual-hierarchy declaration)
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Status:** APPROVED (FLAGs are non-blocking recommendations, not BLOCKers)
+**Approval:** approved 2026-07-25
