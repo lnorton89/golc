@@ -1,10 +1,12 @@
 // schema.go establishes the .golc SQLite schema every internal/show store
-// connection shares (CONTEXT D-01/D-03, 05-RESEARCH.md Pattern 1): three
+// connection shares (CONTEXT D-01/D-03, 05-RESEARCH.md Pattern 1): four
 // small tables -- show_meta (singleton: schema_version/revision/checksum/
 // updated_at), show_state (singleton: the canonically-encoded State blob),
-// and recovery_points (append/prune, capped at 5 rows, D-04/D-05/D-06) --
-// plus the PRAGMA application_id stamp that marks a file as GOLC's own
-// format (05-RESEARCH.md Pitfall 5: a foreign SQLite file must be rejected
+// recovery_points (append/prune, capped at 5 rows, D-04/D-05/D-06), and
+// api_keys (append-only rows, revoked in place via revoked_at rather than
+// deleted, 07-04-PLAN.md Task 1/D-05/D-08) -- plus the PRAGMA
+// application_id stamp that marks a file as GOLC's own format
+// (05-RESEARCH.md Pitfall 5: a foreign SQLite file must be rejected
 // cleanly at the door with GOLC_SHOW_NOT_GOLC_FORMAT, not a confusing "no
 // such table" error two layers deeper).
 //
@@ -58,6 +60,17 @@ CREATE TABLE IF NOT EXISTS recovery_points (
   created_at TEXT    NOT NULL,
   revision   INTEGER NOT NULL,
   blob       BLOB    NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS api_keys (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  key_id     TEXT    NOT NULL,
+  prefix     TEXT    NOT NULL,
+  hash       TEXT    NOT NULL,
+  scopes     TEXT    NOT NULL,
+  created_at TEXT    NOT NULL,
+  expires_at TEXT    NOT NULL,
+  revoked_at TEXT    NOT NULL DEFAULT ''
 );
 `
 
