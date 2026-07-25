@@ -1057,12 +1057,25 @@ func writeAPISubsystemTestFile(t *testing.T, root, relative, content string) {
 // mirroring startTestArtnetDaemon, would fail the test on a hang).
 func TestArtnetRunHostsAPIServerSubsystemAndServesLoopbackHTTP(t *testing.T) {
 	root := newAPISubsystemTestRepository(t)
+	showPath := filepath.Join(root, "show.golc")
 
 	registry, err := NewDefaultCommandRegistry()
 	if err != nil {
 		t.Fatalf("NewDefaultCommandRegistry: %v", err)
 	}
-	apiServer := api.NewServer(apiCommandExecutor{registry: registry}, root, filepath.Join(root, "show.golc"))
+	apiServer := api.NewServer(apiCommandExecutor{registry: registry}, root, showPath)
+
+	// 07-04-PLAN.md Task 2: every /v1 request now requires a valid API
+	// key -- seed one directly through internal/show (bypassing the CLI/
+	// HTTP layer, since this test only needs a credential to already
+	// exist) and present it as a bearer token below.
+	generated, err := show.GenerateAPIKey()
+	if err != nil {
+		t.Fatalf("GenerateAPIKey: %v", err)
+	}
+	if _, err := show.InsertAPIKey(root, showPath, generated, []show.APIKeyScope{show.APIKeyScopePlayback}, time.Now().UTC().Add(time.Hour)); err != nil {
+		t.Fatalf("InsertAPIKey: %v", err)
+	}
 
 	pipeName := testArtnetPipeName(t)
 	interfaceIndex := testArtnetLoopbackInterfaceIndex(t)
@@ -1103,8 +1116,13 @@ func TestArtnetRunHostsAPIServerSubsystemAndServesLoopbackHTTP(t *testing.T) {
 	var resp *http.Response
 	httpDeadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(httpDeadline) {
+		req, reqErr := http.NewRequest(http.MethodGet, "http://127.0.0.1:4590/v1/config/runtime", nil)
+		if reqErr != nil {
+			t.Fatalf("http.NewRequest: %v", reqErr)
+		}
+		req.Header.Set("Authorization", "Bearer "+generated.RawToken)
 		var getErr error
-		resp, getErr = http.Get("http://127.0.0.1:4590/v1/config/runtime")
+		resp, getErr = http.DefaultClient.Do(req)
 		if getErr == nil {
 			break
 		}
