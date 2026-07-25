@@ -217,7 +217,20 @@ func runBuild(request Request) Result {
 
 	var output bytes.Buffer
 	output.WriteString("GOLC build: compiling every project package with the pinned toolchain.\n")
-	stdout, stderr, err := runProjectGo(goExecutable, request.Root, append([]string{"build"}, packages...))
+	// -o <root>/ (a directory target, trailing separator required) makes
+	// `go build` write each main package's binary into the repository
+	// root using its default name (golc-project[.exe],
+	// golc-desktop[.exe], golc-mcp[.exe]); non-main packages in the same
+	// invocation are unaffected (go build already discards their object
+	// output regardless of -o). Without -o, compiling more than one
+	// package at once makes `go build` discard every resulting binary
+	// entirely (it only ever writes an output file for a single-package
+	// invocation) — this route silently produced nothing runnable before
+	// this fix, even though every package genuinely compiled (observed
+	// live: `mage Build` on a clean checkout, then no golc-desktop.exe
+	// anywhere to actually run).
+	buildArgs := append([]string{"build", "-o", request.Root + string(filepath.Separator)}, packages...)
+	stdout, stderr, err := runProjectGo(goExecutable, request.Root, buildArgs)
 	output.Write(stdout)
 	if err != nil {
 		stderr = append(stderr, []byte(fmt.Sprintf("GOLC_BUILD_FAILED: %v\n", err))...)

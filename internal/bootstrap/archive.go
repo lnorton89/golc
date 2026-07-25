@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 type archiveFormat uint8
@@ -464,13 +465,13 @@ func PromoteAtomically(stagingDir, installDir string) error {
 			return fmt.Errorf("BOOTSTRAP_PROMOTE: %w", err)
 		}
 		backup = placeholder
-		if err := os.Rename(installDir, backup); err != nil {
+		if err := renameWithRetry(installDir, backup); err != nil {
 			return fmt.Errorf("BOOTSTRAP_PROMOTE: %w", err)
 		}
 	}
-	if err := os.Rename(stagingDir, installDir); err != nil {
+	if err := renameWithRetry(stagingDir, installDir); err != nil {
 		if backup != "" {
-			_ = os.Rename(backup, installDir)
+			_ = renameWithRetry(backup, installDir)
 		}
 		return fmt.Errorf("BOOTSTRAP_PROMOTE: %w", err)
 	}
@@ -480,4 +481,44 @@ func PromoteAtomically(stagingDir, installDir string) error {
 		}
 	}
 	return nil
+}
+
+// renameWithRetry works around a well-known Windows filesystem quirk: a
+// staged install directory can contain thousands of just-extracted files
+// (a full Go SDK is ~15,000, many of them .exe/.dll), and antivirus
+// real-time protection scanning each newly created executable makes an
+// immediate os.Rename of the parent directory fail with "Access is
+// denied" — even though nothing in this process still holds it open, and
+// a manual rename moments later (once the scan catches up) succeeds
+// (observed and reproduced live: a stale golc.ps1-era install manifest
+// forced a fresh Go-toolchain reinstall; the rename failed every time
+// immediately after extraction, but the exact same directory renamed
+// successfully by hand a few seconds later, and a first attempt at a
+// short fixed 200ms x 15 retry budget still wasn't long enough). The lock
+// is transient but its duration scales with directory size, so this
+// backs off exponentially (capped) up to a generous total ceiling rather
+// than a short fixed budget; a genuinely permanent failure (destination
+// truly unwritable, wrong permissions) still surfaces once it's spent.
+func renameWithRetry(oldPath, newPath string) error {
+	const maxDelay = 3 * time.Second
+	const totalBudget = 90 * time.Second
+	delay := 200 * time.Millisecond
+	deadline := time.Now().Add(totalBudget)
+	var err error
+	for {
+		err = os.Rename(oldPath, newPath)
+		if err == nil {
+			return nil
+		}
+		if !time.Now().Add(delay).Before(deadline) {
+			return err
+		}
+		time.Sleep(delay)
+		if delay < maxDelay {
+			delay *= 2
+			if delay > maxDelay {
+				delay = maxDelay
+			}
+		}
+	}
 }

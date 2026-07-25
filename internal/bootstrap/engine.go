@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -242,6 +243,12 @@ func (execProcessRunner) Run(ctx context.Context, request processRequest) ([]byt
 type bootstrapDependencies struct {
 	Source Source
 	Runner processRunner
+	// Output receives human-readable phase-transition progress lines
+	// (nil defaults to os.Stdout in production): a fresh multi-hundred-MB
+	// toolchain download and extraction can take a while, and bootstrap
+	// previously printed nothing at all until it finished or failed,
+	// indistinguishable from having hung.
+	Output io.Writer
 }
 
 type manifestPin struct {
@@ -283,6 +290,14 @@ type bootstrapEngine struct {
 	goPin    manifestPin
 	magePin  manifestPin
 	nodePin  manifestPin
+	output   io.Writer
+}
+
+// progress writes one human-readable "bootstrap: <message>" line. Never
+// returns an error: a failed progress write must never fail bootstrap
+// itself.
+func (engine *bootstrapEngine) progress(format string, args ...any) {
+	fmt.Fprintf(engine.output, "bootstrap: "+format+"\n", args...)
 }
 
 var validToolName = regexp.MustCompile(`^[a-z0-9_]+$`)
@@ -322,9 +337,14 @@ func runBootstrap(ctx context.Context, root string, options Options, dependencie
 	if source == nil {
 		source = URLSource{Policy: policy, Client: &http.Client{}}
 	}
+	output := dependencies.Output
+	if output == nil {
+		output = os.Stdout
+	}
 	engine := &bootstrapEngine{
 		root: resolvedRoot, options: options, document: document, layout: layout,
 		policy: policy, source: source, runner: runner, goPin: goPin, magePin: magePin, nodePin: nodePin,
+		output: output,
 	}
 	engine.env = mergedEnvironment(layout.Environment().AsMap())
 	setEnvironmentValue(engine.env, "GOLC_PROJECT_ROOT", resolvedRoot)
@@ -475,6 +495,7 @@ func selectPlatformPinFor(tool string, parent toolchainManifestPin, goos, goarch
 }
 
 func (engine *bootstrapEngine) run(ctx context.Context) error {
+	engine.progress("warming project-local cache layout...")
 	if err := engine.layout.Warm(); err != nil {
 		return err
 	}
@@ -486,13 +507,13 @@ func (engine *bootstrapEngine) run(ctx context.Context) error {
 	for _, name := range names {
 		pin := engine.document.Tools[name]
 		installDir := filepath.Join(engine.root, ".tools", "installs", name)
-		if err := engine.installPin(pin, installDir); err != nil {
+		if err := engine.installPin(name, pin, installDir); err != nil {
 			return fmt.Errorf("GOLC_BOOTSTRAP_TOOL_INSTALL: %s: %w", name, err)
 		}
 	}
 	magePin := engine.magePin
 	mageInstall := filepath.Join(engine.root, ".tools", "toolchains", "mage", magePin.Version, PlatformKey())
-	if err := engine.installPin(magePin, mageInstall); err != nil {
+	if err := engine.installPin("mage", magePin, mageInstall); err != nil {
 		return fmt.Errorf("GOLC_MAGE_TOOLCHAIN_INSTALL: %w", err)
 	}
 	mageLayout, _ := platformArchiveLayout("mage", magePin.Version, runtime.GOOS, runtime.GOARCH)
@@ -502,7 +523,7 @@ func (engine *bootstrapEngine) run(ctx context.Context) error {
 	}
 	goPin := engine.goPin
 	goInstall := filepath.Join(engine.root, ".tools", "toolchains", "go", goPin.Version, PlatformKey())
-	if err := engine.installPin(goPin, goInstall); err != nil {
+	if err := engine.installPin("go", goPin, goInstall); err != nil {
 		return fmt.Errorf("GOLC_GO_TOOLCHAIN_INSTALL: %w", err)
 	}
 	goLayout, _ := platformArchiveLayout("go", goPin.Version, runtime.GOOS, runtime.GOARCH)
@@ -510,15 +531,21 @@ func (engine *bootstrapEngine) run(ctx context.Context) error {
 	if info, err := os.Stat(goExecutable); err != nil || !info.Mode().IsRegular() {
 		return fmt.Errorf("GOLC_GO_TOOLCHAIN_MISSING: expected pinned executable at %s", goExecutable)
 	}
+	engine.progress("warming go module cache and building golc-project...")
 	if err := engine.runGoPhase(ctx, goExecutable); err != nil {
 		return err
 	}
+	engine.progress("building frontend...")
 	if err := runFrontendBuild(ctx, engine); err != nil {
 		return err
 	}
 	if engine.options.IncludeLinearSync {
-		return linearSyncBootstrap(ctx, engine)
+		engine.progress("syncing linear-sync Node workspace...")
+		if err := linearSyncBootstrap(ctx, engine); err != nil {
+			return err
+		}
 	}
+	engine.progress("complete")
 	return nil
 }
 
@@ -565,19 +592,25 @@ func ResolveMageExecutable(root string) (string, error) {
 	return executable, nil
 }
 
-func (engine *bootstrapEngine) installPin(pin manifestPin, installDir string) error {
+func (engine *bootstrapEngine) installPin(label string, pin manifestPin, installDir string) error {
 	matches, err := InstalledMatches(installDir, pin.ArchiveSHA256)
 	if err != nil {
 		return err
 	}
 	if matches {
+		engine.progress("%s %s already verified", label, pin.Version)
 		return nil
 	}
+	engine.progress("installing %s %s...", label, pin.Version)
 	archivePath, err := Acquire(engine.policy, engine.source, pin.ArchiveURL, pin.ArchiveSHA256, engine.layout.Downloads)
 	if err != nil {
 		return err
 	}
-	return InstallStaged(archivePath, pin.ArchiveSHA256, installDir)
+	if err := InstallStaged(archivePath, pin.ArchiveSHA256, installDir); err != nil {
+		return err
+	}
+	engine.progress("%s %s installed", label, pin.Version)
+	return nil
 }
 
 func (engine *bootstrapEngine) runGoPhase(ctx context.Context, goExecutable string) (resultErr error) {
