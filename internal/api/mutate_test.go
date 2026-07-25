@@ -46,15 +46,23 @@ func seedKey(t *testing.T, root, showPath string, scopes []show.APIKeyScope) (to
 	return generated.RawToken, key.KeyID
 }
 
+// jsonBody canonically encodes value as an io.Reader suitable for
+// httptest.NewRequest's body parameter -- shared by every *_test.go file
+// in this package that issues a JSON request body.
+func jsonBody(t *testing.T, value any) *bytes.Reader {
+	t.Helper()
+	payload, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	return bytes.NewReader(payload)
+}
+
 // doCreatePoolRequest issues POST /v1/pools with body {"name": name},
 // presenting token and (if non-empty) ifMatch as headers.
 func doCreatePoolRequest(t *testing.T, handler http.Handler, token, ifMatch, name string) *httptest.ResponseRecorder {
 	t.Helper()
-	payload, err := json.Marshal(map[string]any{"name": name})
-	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
-	}
-	req := httptest.NewRequest(http.MethodPost, "/v1/pools", bytes.NewReader(payload))
+	req := httptest.NewRequest(http.MethodPost, "/v1/pools", jsonBody(t, map[string]any{"name": name}))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
 	if ifMatch != "" {
