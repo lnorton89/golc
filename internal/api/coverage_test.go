@@ -206,3 +206,44 @@ func TestNoPendingRoutes(t *testing.T) {
 		t.Fatal("expected at least one distinct, named exclusion category")
 	}
 }
+
+// TestFutureWorkExclusionsNameDeferralOwner proves the four non-permanent
+// exclusion categories carry a named, greppable deferral owner
+// (EXTN-05, .planning/REQUIREMENTS.md) rather than the open-ended "future
+// milestone" framing this file used before the API-01 re-scope (07-10-PLAN.md
+// Task 2) -- and that the two genuinely permanent categories (daemon
+// lifecycle, local process launch) do NOT claim a deferral owner, so a
+// future bulk edit can never flatten the permanent/deferred distinction this
+// file deliberately draws. It reads the same excludedRoutes values the
+// coverage gate uses (by route, not by re-declaring the constants), so it
+// fails loudly if a reason's EXTN-05 clause is ever silently dropped.
+func TestFutureWorkExclusionsNameDeferralOwner(t *testing.T) {
+	deferredSamples := map[string]string{
+		"artnet future work":   "artnet status",
+		"mutation future work": "scene create",
+		"read future work":     "fixture inspect",
+	}
+	for category, route := range deferredSamples {
+		reason, ok := excludedRoutes[route]
+		if !ok {
+			t.Fatalf("category %q: route %q not present in excludedRoutes -- update the sample route", category, route)
+		}
+		if !strings.Contains(reason, "EXTN-05") {
+			t.Errorf("category %q (sampled via route %q) lost its EXTN-05 deferral pointer: %q", category, route, reason)
+		}
+	}
+
+	permanentSamples := map[string]string{
+		"daemon lifecycle":     "artnet serve",
+		"local process launch": "run",
+	}
+	for category, route := range permanentSamples {
+		reason, ok := excludedRoutes[route]
+		if !ok {
+			t.Fatalf("category %q: route %q not present in excludedRoutes -- update the sample route", category, route)
+		}
+		if strings.Contains(reason, "EXTN-05") {
+			t.Errorf("category %q (sampled via route %q) incorrectly claims a deferral owner; permanent categories must not: %q", category, route, reason)
+		}
+	}
+}
