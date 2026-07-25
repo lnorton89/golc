@@ -28,9 +28,18 @@ go_version = "ref:toolchain.go.version"
 # tool official_host/official_path_prefix keys already establish).
 [commands.pr]
 # Exact ordered "route [--flag ...]" invocations: the same contributor
-# graph (generate --check, check --offline, build, test) plus bootstrap
-# (tool acquisition) and the foundation package build.
-steps = "bootstrap,generate --check,check --offline,build,test,package --foundation"
+# graph (generate --check, check --offline, build, test --quick) plus
+# bootstrap (tool acquisition) and the foundation package build.
+# "test --quick" (not bare "test"), matching internal/delivery's own
+# offline core graph exactly: bare "test" unconditionally runs every
+# registered Node scope (internal/command/test.go's runAllNodeScopes),
+# which requires tools/linear-sync's compiled dist/test output --
+# something this PR graph's "bootstrap" step (no
+# GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC opt-in; D-16 forbids any Linear
+# credential/workspace access from untrusted pull-request CI) never
+# builds (observed live: check.yml run 30137913323, its first real
+# pull_request-triggered execution, failed exactly this way).
+steps = "bootstrap,generate --check,check --offline,build,test --quick,package --foundation"
 # Only "bootstrap" may open a network connection (D-02); every other step
 # runs with network denied, matching internal/delivery's offline core
 # graph exactly.

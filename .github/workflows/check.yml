@@ -51,8 +51,8 @@ jobs:
       - name: build
         run: mage Build
 
-      - name: test
-        run: mage Test
+      - name: test --quick
+        run: mage TestQuick
 
       - name: package --foundation
         run: mage PackageFoundation

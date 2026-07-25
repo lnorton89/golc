@@ -51,6 +51,7 @@ var mageTargets = []MageTarget{
 	{Name: "packagefoundation", Kind: MageTargetKindRoute, Route: "package", Args: []string{"--foundation"}, Authority: "internal/command registry"},
 	{Name: "pr", Kind: MageTargetKindPR, Authority: "config/commands.toml: commands.pr.steps, commands.pr.network_steps, commands.pr.mutation_steps"},
 	{Name: "test", Kind: MageTargetKindRoute, Route: "test", Authority: "internal/command registry"},
+	{Name: "testquick", Kind: MageTargetKindRoute, Route: "test", Args: []string{"--quick"}, Authority: "internal/command registry"},
 }
 
 // MageTargets returns all target descriptors in deterministic Mage CLI name
