@@ -1,90 +1,66 @@
 ---
 phase: 07-versioned-external-control-api
-verified: 2026-07-25T00:00:00Z
+verified: 2026-07-25T12:00:00Z
 status: gaps_found
-score: 2/4 must-haves verified
+score: 3/4 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
+re_verification:
+  previous_status: gaps_found
+  previous_score: 2/4
+  gaps_closed:
+    - "An external program can query and invoke every supported public domain capability through /api/v1, with Wails/HTTP parity (Success Criterion #1 / API-01) — CLOSED via a deliberate, honest re-scope (07-10): ROADMAP.md Success Criterion #1 and REQUIREMENTS.md API-01 now describe only the breadth /v1 actually delivers (config/show inspect, pool create, api-key lifecycle, atomic batch, revisioned events), and the remaining domains + the Wails/HTTP parity check are named to a new, mechanically-enforced deferral owner (EXTN-05, v1.x). `TestFutureWorkExclusionsNameDeferralOwner` proves the deferral pointer cannot be silently dropped."
+    - "A client can consume revisioned server-sent events, detect a replay gap, and recover by querying authoritative state, with no silently-missing gap (Success Criterion #3 / API-03, CR-01) — CLOSED. `internal/api/events.go`'s `ringEvent.Seq` is a strictly monotonic, per-process sequence, independent of `show.State.Revision`, assigned once under `b.mu` inside `publish`. A multi-sub-request batch's events are now individually addressable for Last-Event-ID replay. Verified by reading the implementation directly and running the two dedicated regression tests: `TestSSEBatchMultiSubRequestReconnectDeliversRemainingEvents` and `TestSSEFutureLastEventIDResyncs`, both PASS."
+  gaps_remaining:
+    - "Every API mutation result is auditable (Success Criterion #4 / API-06 component) — NOT closed. The original finding (WR-02: batch pre-flight scope/translation rejections were unaudited) IS fixed (07-12) — confirmed by direct code read of `batch.go`'s pre-flight loop (3 `fireMutationObservers` calls) and a passing parity test (`TestBatchAndSingleMutationScopeRejectionsAuditIdentically`). However, `runBatch`'s LOCKED section (`mutationMutex.Lock()` at line 237 through the final `show.Save` at line 299) still has 8 distinct failure-return paths that never call `fireMutationObservers`, including the batch-level If-Match precondition failure (412) and the pre-commit external-write race (412) — both reachable via existing, passing tests (`TestBatchIfMatch`, `TestBatchIfMatchExternalRace`) that assert only on status code, never on the audit log. This is the same defect class as the closed WR-02/WR-03, in a code region the gap-closure round's fix did not reach (identified fresh by 07-REVIEW-gaps.md as WR-05, confirmed independently here by direct code trace)."
+  regressions: []
 gaps:
-  - truth: "An external program can query and invoke every supported public domain capability through /api/v1, and parity checks show the same commands have the same outcomes through Wails and HTTP (Success Criterion #1 / API-01)."
-    status: failed
-    reason: >
-      Only 6 of the real command registry's ~86 public routes are actually
-      reachable over /v1 (config inspect, show inspect, pool create,
-      api-key create/list/revoke), plus 2 synthetic API-only endpoints
-      (batch apply, events watch). internal/api/coverage_test.go's own
-      exclusion set honestly documents 61 routes as reasonArtnetFutureWork
-      (10), reasonMutationFutureWork (42), and reasonReadFutureWork (9) --
-      all explicitly labeled NOT permanent, i.e. still-owed future work,
-      not a deliberate permanent scope boundary. Every scene/chase/motion/
-      theme/preset/blend/deployment/operatorsurface/playback/Art-Net-
-      runtime/programmer/fixture-import/show-open-save capability is
-      entirely absent from /v1. 07-09-SUMMARY.md's own "Known Gaps"
-      section already states this plainly: "Capability-coverage closure
-      is NOT fully achieved." No Wails<->HTTP parity check exists either,
-      since only one mutating domain (pool) has any REST exposure to
-      compare against.
-    artifacts:
-      - path: "internal/api/coverage_test.go"
-        issue: "61 of the ~86 real command routes remain in future-work exclusion categories (reasonArtnetFutureWork/reasonMutationFutureWork/reasonReadFutureWork), not permanent exclusions"
-      - path: "internal/api/mutate.go"
-        issue: "Only \"pool create\" is wired as a mutating REST operation (of ~43 show-mutating command routes)"
-    missing:
-      - "REST operations (Huma input structs + RegisterOperation wiring, reusing mutate.go's proven pipeline) for the remaining show-domain mutation routes (chase/scene/motion/theme/preset/blend/deployment/operatorsurface/playback/programmer/fixture-import/show-open-save)"
-      - "REST GET operations for the remaining show-domain read/inspect routes, several of which additionally need JSON-output or path-handling design work (fixture inspect, operatorsurface list/show, programmer inspect)"
-      - "Art-Net daemon runtime routes wired to REST operations, or an explicit ROADMAP.md re-scope of API-01 to formally defer Art-Net runtime control to a named future phase"
-      - "A genuine Wails<->HTTP outcome-parity test once more than one mutating domain exists"
-  - truth: "A client can consume revisioned server-sent events, detect a replay gap, and recover by querying authoritative state (Success Criterion #3 / API-03), with no silently-missing gap (D-10)."
-    status: failed
-    reason: >
-      Confirmed live and reproducible (not merely a code-review claim):
-      runBatch (internal/api/batch.go) fires one MutationEvent per
-      sub-request but all of them share the SAME resultingRevision. events.go's
-      ringEvent/eventBroadcaster key replay and "already caught up" purely
-      off Revision, so a client that received only the first of a
-      multi-sub-request batch's events and reconnects with that event's id
-      is told "already caught up" (lastID >= latest) -- no replay, no
-      resync -- even though it never received the batch's remaining
-      same-revision events. This directly falsifies the phase's own
-      documented "never a silently missing gap" (D-10) guarantee for a
-      reachable, already-shippable code path (a multi-sub-request /v1/batch
-      of "pool create" sub-requests is fully invokable today). Verified by
-      writing and running a standalone reproduction test
-      (TestCR01Repro_BatchMultiEventSameRevisionSilentlyDrops, executed
-      against the real HTTP handler and real SSE stream, then removed --
-      not committed) that opens a live /v1/events subscription, issues a
-      3-sub-request batch, reads only the first live frame, disconnects,
-      reconnects with that frame's id, and observes silence for 2s with no
-      resync and no replay -- the predicted symptom, reproduced.
-    artifacts:
-      - path: "internal/api/events.go"
-        issue: "ringEvent has only a Revision field, used as both the SSE id and the sole replay/dedupe ordering key; no strictly-monotonic sequence number exists to distinguish same-revision events (07-REVIEW.md CR-01, independently reproduced)"
-      - path: "internal/api/batch.go"
-        issue: "runBatch (lines ~268-279) fires N MutationEvents sharing one resultingRevision for an N-sub-request batch"
-    missing:
-      - "A strictly monotonic sequence number (independent of show.State.Revision) used for the SSE id: line and subscribe()'s replay/resync comparisons, per 07-REVIEW.md CR-01's suggested fix"
-      - "A test that opens a live event stream, issues a 2+ sub-request batch, disconnects after the first frame, reconnects with that frame's id, and asserts the remaining sub-request events are still delivered (not silently dropped) -- neither batch_test.go nor events_test.go currently combines a multi-sub-request batch with a live/reconnecting SSE subscriber"
   - truth: "Every API mutation result is auditable (Success Criterion #4 / API-06 component: 'every result is auditable')."
-    status: failed
+    status: partial
     reason: >
-      Confirmed by direct code trace (matches 07-REVIEW.md WR-02): the
-      single-mutation pipeline (mutate.go) fires a "failure" MutationEvent
-      -- and therefore writes an audit_log row -- when RequireScope
-      rejects a request. runBatch's own pre-lock translate/scope-check
-      loop (batch.go lines ~184-200) returns on all three of its failure
-      paths (translation error, scope-lookup error, RequireScope failure)
-      WITHOUT ever calling fireMutationObservers, so an identical
-      scope-probing attempt produces an audit_log row via POST /v1/pools
-      but zero rows via POST /v1/batch. TestBatchRequiresScope
-      (batch_test.go:364-386) only asserts the 403 status and unchanged
-      revision -- it never asserts an audit row exists, so this gap is
-      real and untested, not merely theoretical.
+      Confirmed by direct code trace of internal/api/batch.go (lines 176-315):
+      the pre-flight loop (lines 200-235, fixed by 07-12) fires
+      fireMutationObservers on all three of its failure paths, and
+      mutate.go's every failure branch (scope-lookup error, RequireScope
+      rejection, checkRevision/412, translate error) also fires it (lines
+      180-259) -- the single-mutation pipeline is fully audited, and the
+      original WR-02/WR-03 findings are genuinely closed. However,
+      runBatch's LOCKED section (mutationMutex.Lock() at line 237 through
+      the final show.Save at line 299) contains 8 distinct failure returns
+      that never call fireMutationObservers: show.CurrentRevision failure
+      (240-243), parseIfMatch failure (245-248), the batch-level If-Match
+      precondition mismatch/412 (249-252), show.NewTempCopy failure
+      (254-257), a per-sub-request execution/translateResult failure mid-
+      batch (264-267), show.Load failure on the copy (271-274), the
+      pre-commit external-write race/412 (280-288), and show.Save failure
+      (299-301). Two of these (the batch-level If-Match 412 and the
+      external-write-race 412) are exercised by existing, passing,
+      reachable-via-real-HTTP tests (TestBatchIfMatch, TestBatchIfMatchExternalRace
+      in batch_test.go) that assert only status code and revision, never an
+      audit row -- confirmed by reading both tests directly. A stale
+      If-Match on /v1/batch is a routine, expected optimistic-concurrency
+      client interaction (not merely an adversarial probe), so this is not
+      a narrow edge case: it means an ordinary rejected batch mutation
+      attempt today leaves zero audit evidence, while the textually
+      identical rejection via POST /v1/pools (mutate.go's checkRevision
+      branch) is fully audited. 07-12-PLAN.md's own prohibition text ("MUST
+      NOT leave a rejected or failed mutation attempt unaudited on any
+      reachable code path: a request refused for scope, translation, or
+      precondition reasons is precisely the kind of attempt the audit trail
+      exists to record") explicitly names "precondition reasons" as
+      in-scope -- yet the implementation's own summary (07-12-SUMMARY.md)
+      confirms the delivered fix only reaches the pre-flight loop (`grep -c
+      'fireMutationObservers' internal/api/batch.go == 4`: 3 pre-flight +
+      1 success-fan-out), not the locked section's precondition-failure
+      branch. The audit writer itself (audit.go) is sound and unconditional
+      for every event it receives -- the defect is purely that the event is
+      never fired for these 8 branches.
     artifacts:
       - path: "internal/api/batch.go"
-        issue: "translate/scope-lookup/RequireScope failures in runBatch's pre-flight loop (lines ~184-200) never call fireMutationObservers, so they leave no audit_log row"
+        issue: "Every failure return inside runBatch's locked section (lines 240-301), including the batch-level If-Match 412 and the pre-commit external-write-race 412, never calls fireMutationObservers, so no audit_log row is written for these reachable, already-tested failure paths"
     missing:
-      - "A fireMutationObservers(MutationEvent{Outcome: \"failure\", ...}) call for each translate/scope failure inside runBatch's pre-flight loop, mirroring mutate.go's own scope-failure branch"
-      - "An audit_test.go assertion that a scope-rejected batch sub-request still produces exactly one audit_log row"
+      - "A fireMutationObservers(MutationEvent{Outcome: \"failure\", ...}) call (one per affected sub-request, per 07-REVIEW-gaps.md WR-05's suggested shape) immediately before each of the 8 unaudited locked-section returns in runBatch, mirroring mutate.go's unconditional-fire discipline"
+      - "Regression tests asserting an audit_log row exists for at least the batch-level If-Match mismatch and the external-write-race paths, analogous to TestBatchScopeRejectionIsAudited -- both TestBatchIfMatch and TestBatchIfMatchExternalRace currently assert status/revision only"
 human_verification: []
 ---
 
@@ -93,97 +69,99 @@ human_verification: []
 **Phase Goal:** External programs can inspect and control all public GOLC capabilities through a secure, documented, revision-aware API that behaves like the desktop application.
 **Verified:** 2026-07-25
 **Status:** gaps_found
-**Re-verification:** No — initial verification
+**Re-verification:** Yes — after gap-closure round (07-10 through 07-14), following the initial 07-VERIFICATION.md (2/4, gaps_found)
 
 ## Goal Achievement
 
-### Observable Truths (mapped to ROADMAP Success Criteria)
+### Observable Truths (mapped to CURRENT ROADMAP Success Criteria)
 
 | # | Truth (Success Criterion) | Status | Evidence |
 |---|---|---|---|
-| 1 | An external program can query and invoke every supported public domain capability through `/api/v1`, with Wails/HTTP parity (SC1 / API-01) | FAILED | Only 6 of ~86 real command routes are wired to REST (config inspect, show inspect, pool create, api-key create/list/revoke); 61 routes are explicitly labeled future-work (not permanent) in `internal/api/coverage_test.go`'s exclusion set; 07-09-SUMMARY.md's own "Known Gaps" section states this outright. No Wails<->HTTP parity check exists beyond the one wired mutating route. |
-| 2 | A client can generate against the published OpenAPI contract, follow working examples, handle typed errors, and understand the compatibility/deprecation policy (SC2 / API-02) | VERIFIED | `docs/api/openapi.json` (871 lines, generated, byte-stable drift-checked via `TestOpenAPIDrift`/`TestOpenAPIDeterministic`), `docs/api/COMPATIBILITY.md` (232 lines: versioning, breaking-change definition, 180-day deprecation window, header signals, typed-error table, curl examples for query/If-Match/dry-run/batch/key-mint/SSE), `internal/api/deprecation.go`'s `MarkOperationDeprecated`/`DeprecationMiddleware` unit-tested. All confirmed passing directly (`go test ./internal/api/... -run 'TestOpenAPI...'`). |
-| 3 | A client can consume revisioned server-sent events, detect a replay gap, and recover by querying authoritative state, with no silently-missing gap (SC3 / API-03) | FAILED | Live-reproduced: a 3-sub-request `/v1/batch` publishes 3 SSE events sharing one revision; a client that saw only the first and reconnects with that id is told "already caught up" — no replay, no resync — silently losing the remaining events. Single-mutation SSE behavior (order/replay/gap-resync/adjacency/broadcast/auth/cross-scope/revocation) is genuinely solid and passes (`TestSSE*`, 9/9). The general "no silently missing gap" guarantee is false for the (already-reachable) multi-sub-request-batch path. |
-| 4 | Mutations support expected revisions, idempotency, dry-run previews, and atomic batches; every result is auditable; loopback is default; remote access requires explicit enablement + scoped auth (SC4 / API-04/API-05/API-06) | FAILED (partial) | Revision/If-Match (412), dry-run (`?dry_run=true`), Idempotency-Key replay, and atomic `/v1/batch` (all-or-nothing, single real revision bump, rollback, ordering, If-Match race re-check) are all proven end-to-end for the one wired mutating route (`pool create`) — `TestMutateIfMatchRevisionLifecycle`, `TestDryRun*`, `TestIdempotency*`, `TestBatch*` all pass. Loopback-by-default enforced at bind time (`listenAddr`, `TestLoopbackDefault`/`TestRemoteRequiresInterface`) and scoped API-key auth (`AuthMiddleware`, `TestAuthRejectsMissingUnknownExpiredAndRevokedKeys`) are both solid. **However** "every result is auditable" is false: a batch sub-request rejected for translation/scope failure never fires the observer seam, so no audit_log row is written for that outcome (unlike the identical single-mutation 403 path, which is audited) — confirmed by direct code trace of `runBatch`'s pre-flight loop. |
+| 1 | An external program can, through `/api/v1`, inspect config/show state, create a fixture pool, mint/list/revoke scoped API keys, apply an atomic multi-command batch, and subscribe to revisioned events — each dispatched through the same command route registry the UI uses, with a committed coverage gate naming every remaining public route and its deferral owner (SC1, re-scoped by 07-10 / API-01) | ✓ VERIFIED | ROADMAP.md line 354 and REQUIREMENTS.md line 100 both now describe the delivered breadth only, and name EXTN-05 (v1.x, `.planning/REQUIREMENTS.md` line 163) as the deferral owner for the remaining show domains + Art-Net runtime + Wails/HTTP parity. `internal/api/coverage_test.go`'s three deferred-category reason constants (`reasonArtnetFutureWork`, `reasonMutationFutureWork`, `reasonReadFutureWork`) each name "EXTN-05" verbatim; `TestFutureWorkExclusionsNameDeferralOwner` mechanically asserts this and that the two permanent categories do NOT claim a deferral owner. `TestCapabilityCoverage`/`TestNoPendingRoutes` still pass (never-both/never-neither route-membership gate intact). |
+| 2 | A client can generate against the published OpenAPI contract, follow working examples, handle typed errors, and understand the documented compatibility/deprecation policy (SC2 / API-02) | ✓ VERIFIED | `docs/api/openapi.json` regenerated and byte-stable (`TestOpenAPIDrift`/`TestOpenAPIDeterministic` PASS). `docs/api/COMPATIBILITY.md` now also documents the deprecation header mechanism as *real* (07-14 wired `DeprecationMiddleware` into `buildRouter`, confirmed by `TestBuildRouterInstallsDeprecationMiddleware` PASS and by reading `router.go`'s `UseMiddleware` call directly), the API-key lifetime bound (`GOLC_API_KEY_LIFETIME_TOO_LONG`, 8760h), and the comma-delimiter restriction (`GOLC_API_LIST_VALUE_INVALID`). |
+| 3 | A client can consume revisioned server-sent events, detect a replay gap, and recover by querying authoritative state (SC3 / API-03) | ✓ VERIFIED | CR-01 closed: `internal/api/events.go`'s `ringEvent.Seq` (int64, package/broadcaster-scoped, assigned once under `b.mu` inside `publish`, line 166-167) is now the sole ordering/dedupe key for the SSE `id:` line and `subscribe`'s replay/resync decision (line 258: `bufEv.Seq > lastID`), fully decoupled from `show.State.Revision`. Confirmed by direct code read and by running `TestSSEBatchMultiSubRequestReconnectDeliversRemainingEvents` and `TestSSEFutureLastEventIDResyncs` — both PASS. A multi-sub-request batch's events are now individually replayable even though they share one `Revision`. |
+| 4 | Mutations support expected revisions, idempotency, dry-run previews, and atomic batches; every result is auditable; loopback is default; remote access requires explicit enablement + scoped auth (SC4 / API-04/API-05/API-06) | ✗ FAILED (partial) | Revision/If-Match, dry-run, composite-key idempotency (WR-01 fixed — `TestIdempotencyKeyScopedByActor` PASS), comma-delimiter input validation (IN-02 fixed), atomic `/v1/batch`, loopback-by-default, and scoped API-key auth are all proven end-to-end and pass. `mutate.go`'s single-mutation pipeline is fully audited on every failure branch (WR-02/WR-03 fixed for the pre-flight batch loop and the mutate.go scope-lookup branch — confirmed by direct code read and `TestBatchAndSingleMutationScopeRejectionsAuditIdentically` PASS). **However**, "every result is auditable" is still false: `runBatch`'s locked section (batch.go:240-301) has 8 failure-return paths — including the batch-level If-Match 412 and the pre-commit external-write-race 412 — that never call `fireMutationObservers`, confirmed by direct code trace and by reading `TestBatchIfMatch`/`TestBatchIfMatchExternalRace`, which exercise exactly these branches via real HTTP requests but assert only status code, never an audit row. |
 
-**Score:** 2/4 truths verified (0 present-behavior-unverified)
+**Score:** 3/4 truths verified (0 present-behavior-unverified)
 
 ### Requirements Coverage
 
 | Requirement | Source Plan(s) | Description | Status | Evidence |
-|---|---|---|---|---|
-| API-01 | 07-02, 07-05, 07-06, 07-09 | Query/invoke every public capability through a versioned API, Wails-command-model parity | BLOCKED | Coverage mechanism (translation, capability-coverage gate, single-mutation and batch pipelines) is proven and sound, but only 6/~86 routes are actually wired; 61 explicitly deferred as future work. Not satisfiable as stated by this phase's delivered scope. |
-| API-02 | 07-09 | OpenAPI contract, generated examples, typed errors, compatibility/deprecation guidance | SATISFIED | `docs/api/openapi.json` + `docs/api/COMPATIBILITY.md` + `deprecation.go`, all tested and passing. |
-| API-03 | 07-08 (+ interaction with 07-06) | Revisioned SSE + gap recovery via authoritative re-query | BLOCKED | Single-mutation path fully proven; multi-sub-request-batch path silently drops events with no resync (CR-01, reproduced live). The "never a silently missing gap" guarantee is not universally true. |
-| API-04 | 07-05, 07-06 | Expected revisions, idempotency, dry-run, atomic batches | SATISFIED (mechanically, for the wired route) | If-Match/412, dry-run, idempotency-replay, and atomic all-or-nothing batch all proven end-to-end for `pool create`. Note (not blocking): WR-01 — the idempotency store keys purely on the raw client-supplied `Idempotency-Key` string, not `(actor, route, key)`, a latent cross-actor/cross-route replay risk once more mutating routes exist. |
-| API-05 | 07-03, 07-04 | Loopback default, explicit enablement + scoped auth for remote access | SATISFIED | `listenAddr` enforces loopback unless `remote_enabled=true` AND `bind_interface` is explicit (fails loudly, never silently 0.0.0.0); `AuthMiddleware` requires a valid, non-expired, non-revoked key on every request; per-key rate limiting; scopes (playback/authoring/admin) gate mutations. All test-proven. |
-| API-06 | 07-07, 07-09 | Actor/source/correlation/outcome/redacted audit details on every mutation | BLOCKED (partial) | Every single-mutation outcome (success/failure/dry_run/idempotent_replay) and every successfully-committed batch's sub-events are audited and redacted correctly (proven, including a dedicated redaction test and a source-grep single-writer-discipline test). But a batch's pre-flight translate/scope failures are NOT audited (WR-02, confirmed by code trace) — "every API mutation records ... audit details" does not hold for that path. |
+|---|---|---|---|
+| API-01 | 07-02, 07-05, 07-06, 07-09, **07-10** | Query/invoke a documented, coverage-gated subset of public capability, with the remainder named and deferred to EXTN-05 | SATISFIED | Claim narrowed to match delivered scope (07-10); mechanically enforced by `TestFutureWorkExclusionsNameDeferralOwner`, `TestCapabilityCoverage`, `TestNoPendingRoutes`, all PASS. REQUIREMENTS.md still shows `[ ]`/"Pending" in its traceability table — expected, since the plan explicitly leaves checkbox-flipping to the phase-completion workflow, not this gap-closure round. |
+| API-02 | 07-09, **07-14** | OpenAPI contract, generated examples, typed errors, compatibility/deprecation guidance | SATISFIED | Unchanged from initial verification plus 07-14's now-real deprecation header mechanism; all OpenAPI drift/determinism/coverage tests PASS. |
+| API-03 | 07-08, **07-11** | Revisioned SSE + gap recovery via authoritative re-query | SATISFIED | CR-01 closed; monotonic `Seq` decouples SSE ordering from `Revision`; both regression tests PASS. |
+| API-04 | 07-05, 07-06, **07-13** | Expected revisions, idempotency, dry-run, atomic batches | SATISFIED | WR-01 (idempotency cross-actor leak) closed via composite `(actor, route, key)` key; `TestIdempotencyKeyScopedByActor` PASS. All mechanically proven for the one wired mutating route. |
+| API-05 | 07-03, 07-04, **07-14** | Loopback default, explicit enablement + scoped auth for remote access | SATISFIED | Unchanged from initial verification (already solid) plus 07-14's API-key lifetime bound (IN-01 closed) and scopes-comma rejection (IN-02 closed for keys.go). |
+| API-06 | 07-07, 07-09, **07-12** | Actor/source/correlation/outcome/redacted audit details on every mutation | **BLOCKED (partial)** | Single-mutation pipeline and batch pre-flight rejections are now fully audited (WR-02/WR-03 closed, confirmed by code trace + `TestBatchAndSingleMutationScopeRejectionsAuditIdentically`). But `runBatch`'s locked-section failure paths (including the routine batch-level If-Match 412) remain unaudited (WR-05, newly surfaced by the gap-closure code review, independently confirmed here) — "every API mutation records audit details" does not hold for that path. REQUIREMENTS.md still correctly shows API-06 as `[ ]`/"Pending", consistent with this finding. |
 
-**Orphaned requirements check:** REQUIREMENTS.md maps exactly API-01..API-06 to Phase 7; all six appear in at least one plan's `requirements:` frontmatter (07-01 through 07-09). No orphans.
+**Orphaned requirements check:** REQUIREMENTS.md maps exactly API-01..API-06 to Phase 7; all six appear in at least one of the 14 plans' `requirements:` frontmatter (07-01 through 07-14, including the five gap-closure plans). No orphans.
 
-### Required Artifacts (representative — full list in each plan's SUMMARY.md)
+### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |---|---|---|---|
-| `internal/api/` package | Chi+Huma /v1 server, translation, auth, mutation pipeline, batch, audit, SSE, generate | VERIFIED | All files present, substantive, wired; `go build ./internal/...` clean. |
-| `internal/api/coverage_test.go` | Every real command route mapped or excluded, no silent gaps | VERIFIED (mechanism) / gap in outcome | Gate itself is real and passing (`TestCapabilityCoverage`, `TestNoPendingRoutes`), but the *outcome* it certifies is "61 routes honestly deferred," not "fully covered." |
-| `internal/show/apikeys.go`, `internal/show/audit.go` | API-key store + audit_log store, single-writer discipline | VERIFIED | crypto/rand keys, SHA-256 hash + prefix, `openStore` reuse confirmed via source-grep test. |
-| `internal/api/events.go` | Revisioned SSE ring buffer, replay, resync-on-overflow | VERIFIED for single mutations / FAILED for multi-sub-request batches | See Success Criterion #3 above. |
-| `internal/api/batch.go` | Atomic `/v1/batch`, D-15 | VERIFIED (atomicity) / FAILED (SSE + audit side-effects) | Atomicity itself (`TestBatchAtomic`/`TestBatchRollback`/`TestBatchIfMatchExternalRace`) is genuinely proven at the data layer; the interaction with events.go and the pre-flight-failure audit gap are the failures above. |
-| `docs/api/openapi.json`, `docs/api/COMPATIBILITY.md` | Published contract + policy | VERIFIED | Present, generated, drift-checked, documented. |
-| `config/api.toml` + `api` projectconfig concern | Loopback-default, remote-access config | VERIFIED | Registered concern, `api.remote_enabled` writable, resolved through `internal/api/config.go`. |
+| `.planning/ROADMAP.md` (Phase 7 SC1) | Delivered-scope claim + named deferral owner | ✓ VERIFIED | Line 354 rewritten by 07-10; matches delivered breadth. |
+| `.planning/REQUIREMENTS.md` (API-01, EXTN-05) | Narrowed API-01 text; new EXTN-05 v1.x requirement | ✓ VERIFIED | Line 100 (API-01) and line 163 (EXTN-05) present and consistent; EXTN-05 correctly excluded from the v1 traceability table per the existing EXTN-01..04 convention. |
+| `internal/api/coverage_test.go` | Deferral pointer mechanically enforced | ✓ VERIFIED | `TestFutureWorkExclusionsNameDeferralOwner` PASS; deferred categories name EXTN-05, permanent categories do not. |
+| `internal/api/events.go` | Monotonic SSE sequence decoupled from Revision | ✓ VERIFIED | `ringEvent.Seq`/`nextSeq` present, wired, tested. |
+| `internal/api/batch.go` | Atomic `/v1/batch`, D-15, full audit parity with mutate.go | ⚠️ PARTIAL | Atomicity intact; pre-flight audit parity fixed; locked-section audit parity still missing (WR-05, see gap above). |
+| `internal/api/idempotency.go` | Composite `(actor, route, key)` scoping | ✓ VERIFIED | `idempotencyKey` struct confirmed; `TestIdempotencyKeyScopedByActor` PASS. |
+| `internal/api/router.go`, `internal/api/deprecation.go` | Deprecation middleware installed | ✓ VERIFIED | `buildRouter` installs `DeprecationMiddleware(humaAPI)`; `TestBuildRouterInstallsDeprecationMiddleware` PASS. |
+| `internal/api/keys.go` | Lifetime bound + scopes comma rejection | ✓ VERIFIED | `maxAPIKeyLifetime` (8760h) enforced; `validateListValues` shared with mutate.go/batch.go. |
+| `docs/api/openapi.json`, `docs/api/COMPATIBILITY.md` | Published contract + policy, updated for gap-closure changes | ✓ VERIFIED | Regenerated, drift-checked, documents new SSE id semantics, lifetime bound, and comma restriction. |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |---|---|---|---|---|
-| `internal/command/artnet.go` (`runArtnetServe`) | `internal/api.NewServer` | `apiCommandExecutor` adapter + `Subsystem` interface | WIRED | `TestArtnetRunHostsAPIServerSubsystemAndServesLoopbackHTTP` proves real daemon hosting. |
-| `internal/api/mutate.go` | `internal/api/observer.go` | `fireMutationObservers` | WIRED (single mutation) / PARTIALLY WIRED (batch pre-flight failures skip it) | See API-06 gap above. |
-| `internal/api/observer.go` | `internal/api/audit.go`, `internal/api/events.go` | `RegisterMutationObserver`/`RegisterAuditObserver` | WIRED | Both registered; `RegisterAuditObserver` confirmed wired into `NewServer` (closing 07-07's flagged gap) in commit `3f5a843`. |
-| `internal/api/batch.go` (multi-sub-request success) | `internal/api/events.go` (`ringEvent`/`eventBroadcaster`) | `fireMutationObservers` -> `publishMutationEvent` | WIRED but BROKEN INVARIANT | Events are delivered, but the shared-revision defect breaks Last-Event-ID replay/resync — see Success Criterion #3. |
-| `internal/api` package | `internal/command` package | Executor interface, never a direct import | VERIFIED | `grep -rn "internal/command" internal/api/` returns 0 matches (structural, mechanically enforced). |
-| `internal/api` config | `internal/projectconfig` `api` concern | `ResolveConfig` | WIRED | Loopback-default enforced at bind time in production (`runArtnetServe`), not just in unit tests. |
+| `internal/api/coverage_test.go` deferred reasons | `.planning/REQUIREMENTS.md` EXTN-05 | String match, `TestFutureWorkExclusionsNameDeferralOwner` | WIRED | Confirmed passing; test fails if the EXTN-05 clause is removed (per plan's own documented RED/GREEN cycle). |
+| `internal/api/batch.go` pre-flight loop | `internal/api/observer.go` | `fireMutationObservers` | WIRED | 3 pre-flight calls confirmed present and tested. |
+| `internal/api/batch.go` locked section | `internal/api/observer.go` | `fireMutationObservers` | **NOT WIRED** | Zero calls across 8 failure-return paths (lines 240-301) — see gap above. |
+| `internal/api/batch.go` (multi-sub-request success) | `internal/api/events.go` (`ringEvent.Seq`/`eventBroadcaster`) | `fireMutationObservers` → `publishMutationEvent` | WIRED, INVARIANT RESTORED | Events now individually replayable; CR-01 closed. |
+| `internal/api/router.go` | `internal/api/deprecation.go` | `UseMiddleware(..., DeprecationMiddleware(humaAPI))` | WIRED | Confirmed by direct source read and `TestBuildRouterInstallsDeprecationMiddleware`. |
+| `internal/api/mutate.go`, `internal/api/batch.go`, `internal/api/keys.go` | `internal/api/mutate.go`'s `validateListValues` | Shared validator call | WIRED | Confirmed single validator used by all three comma-joined-field call sites. |
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |---|---|---|---|
 | `go build ./internal/...` | `go build ./internal/...` | exit 0 | PASS |
-| Phase 7 package test suites | `go test ./internal/api/... ./internal/show/... ./internal/command/... ./internal/artnet/... ./internal/routecatalog/...` | all `ok` (cached green) | PASS |
+| Full Phase 7 package suites | `go test ./internal/api/... ./internal/show/... ./internal/command/... ./internal/artnet/... ./internal/routecatalog/...` | all `ok` | PASS |
+| Gap-closure regression tests (named, single run) | `go test ./internal/api/... -run 'TestSSEBatchMultiSubRequestReconnectDeliversRemainingEvents\|TestSSEFutureLastEventIDResyncs\|TestIdempotencyKeyScopedByActor\|TestBuildRouterInstallsDeprecationMiddleware\|TestFutureWorkExclusionsNameDeferralOwner\|TestBatchScopeRejectionIsAudited\|TestBatchTranslationFailureIsAudited' -v` | all PASS (7/7) | PASS |
 | OpenAPI drift/determinism/coverage gates | `go test ./internal/api/... -run 'TestOpenAPIDrift\|TestOpenAPIDeterministic\|TestOpenAPIDocumentsEveryOperation\|TestCapabilityCoverage\|TestNoPendingRoutes' -v` | all PASS | PASS |
-| CR-01 reproduction (multi-sub-request batch SSE gap) | Standalone `internal/api/cr01_repro_test.go` (written for this verification, executed, then removed — not committed) opening a live SSE stream, issuing a 3-sub-request batch, disconnecting after the first frame, reconnecting with that frame's id | `--- FAIL`: reconnect received nothing within 2s (no replay, no resync) — predicted symptom reproduced | FAILED (confirms the gap, i.e. the spot-check surfaces a real defect) |
-| Pre-existing unrelated failure check | `go test ./internal/trace/catalog/... -run TestScopeLinearMap` | fails with `GOLC_MIGRATE_DRIFT` against `.planning/linear-map.json` | Confirmed pre-existing/unrelated (linear-map tracking-file drift, not Phase 7 code); excluded from this phase's must-haves per known context. |
-| Documented regression fix present | `git show --stat bb0a381` | present, committed, updates a stale offline-acceptance test string for the new drift-check output | PASS (confirms the known-context fix landed) |
+| WR-05 residual-gap confirmation (direct code trace, not a written/executed repro this round — code inspection of batch.go lines 176-315 plus the two named existing tests) | Read `internal/api/batch.go`, `internal/api/mutate.go`; read `TestBatchIfMatch`/`TestBatchIfMatchExternalRace` in `batch_test.go` | Zero `fireMutationObservers` calls in the locked section (lines 240-301); neither test asserts an audit row | Confirms the gap (real, not resolved) |
+| `gofmt -l internal/api/*.go` | `gofmt -l internal/api/*.go` | `internal/api/observer.go` | ℹ️ Info — pre-existing cosmetic whitespace issue, unchanged from initial verification, non-blocking |
 
 ### Anti-Patterns Found
 
 | File | Line(s) | Pattern | Severity | Impact |
 |---|---|---|---|---|
-| `internal/api/events.go` | 106-111, 135-155, 191-219 | `ringEvent.Revision` doubles as both domain revision and SSE replay/dedupe key; no monotonic sequence number | 🛑 Blocker | Silent event loss for multi-sub-request batches (Success Criterion #3 / CR-01) |
-| `internal/api/batch.go` | 184-200 | Pre-flight translate/scope-check failures never fire the mutation observer | 🛑 Blocker (narrower) | Batch scope-probing/translation-error attempts leave no audit trail, unlike the equivalent single-mutation path (Success Criterion #4 / WR-02) |
-| `internal/api/idempotency.go` | 45-87 | Idempotency store keyed by raw client string only, not `(actor, route, key)` | ⚠️ Warning | Cross-actor/cross-route replay risk once more mutating routes exist; low-impact today (one route, no sensitive body) |
-| `internal/api/mutate.go` | 153-157 | `requiredScopeForRoute` error path returns 500 without firing the observer | ⚠️ Warning (latent, unreachable today) | Every currently-registered route has a `domainScope` entry, so not exploitable yet, but is a trap for the next contributor wiring a new mutating route |
-| `internal/api/router.go` vs `internal/api/deprecation.go` | 113-124 vs 71-93 | `DeprecationMiddleware` built and tested but never installed in `buildRouter` | ⚠️ Warning | No operation is deprecated yet, so currently a no-op gap; the `Deprecation`/`Sunset` headers `COMPATIBILITY.md` documents as load-bearing would silently never appear the day an operation is actually marked deprecated, unless this is fixed first |
-| `internal/api/keys.go`, `internal/api/batch.go` | 27-32 / 94-98, 286-289 | `expires_in` has no documented upper bound; `,`-joined list fields (`requires`/`scopes`) have no escaping | ℹ️ Info | Low-severity, admin-scope-gated / controlled-vocabulary today |
-| `internal/api/observer.go` | (whole file) | `gofmt -l` reports a whitespace-alignment issue (introduced in `1952bf9`, flagged by 07-09-SUMMARY.md itself, not yet fixed) | ℹ️ Info | Cosmetic only |
+| `internal/api/batch.go` | 240-301 | `runBatch`'s locked-section failure returns never fire the mutation observer (8 distinct branches) | 🛑 Blocker (narrower than original WR-02, same defect class) | Batch-level If-Match/412 and external-write-race rejections leave no audit trail, unlike the identical single-mutation path (Success Criterion #4 / API-06) |
+| `internal/api/keys.go` | ~73-90 | `expires_in` has no lower bound (negative/zero durations pass through) | ℹ️ Info (IN-03, carried forward from 07-REVIEW-gaps.md, not blocking) | Low severity, admin-scope-gated |
+| `internal/api/events.go` | 432, 448 | `int64` `Seq` narrowed to `int` for the SSE `id:` line | ℹ️ Info (IN-04, carried forward, not blocking) | No-op on current 64-bit build target |
+| `internal/api/observer.go` | (whole file) | `gofmt -l` reports a whitespace-alignment issue | ℹ️ Info (carried forward, cosmetic) | Cosmetic only |
 
-No `TBD`/`FIXME`/`XXX` debt markers found in any Phase 7 file (`internal/api/*.go`, `internal/show/apikeys.go`, `internal/show/audit.go`, `internal/command/apikey.go`, `docs/api/*`).
+No `TBD`/`FIXME`/`XXX` debt markers found in any Phase 7 file (`internal/api/*.go`, `internal/show/apikeys.go`, `internal/show/audit.go`, `internal/command/apikey.go`, `docs/api/*`), including the five gap-closure plans' files.
 
 ### Human Verification Required
 
-None. Every finding above was resolved programmatically: the coverage gap is countable from `coverage_test.go`'s own exclusion-set source, and CR-01/WR-02 were each independently confirmed — CR-01 via a live, executed (then removed) reproduction test against the real HTTP handler and real SSE stream, WR-02 via direct code trace of `runBatch`'s pre-flight loop cross-referenced against `mutate.go`'s equivalent branch and `TestBatchRequiresScope`'s actual assertions.
+None. The residual finding (WR-05 / batch locked-section audit gap) was resolved programmatically: confirmed by direct code read of `internal/api/batch.go` (zero `fireMutationObservers` calls across the 8 locked-section failure returns) cross-referenced against `internal/api/mutate.go`'s fully-audited equivalent branches, and against the two named existing tests (`TestBatchIfMatch`, `TestBatchIfMatchExternalRace`) that exercise the exact reachable failure paths via real HTTP requests without asserting on the audit log.
 
 ### Gaps Summary
 
-Phase 7 delivered a substantial, well-tested, and genuinely correct piece of *infrastructure*: the Chi+Huma `/v1` server, the command-translation seam, config-driven loopback enforcement, scoped API-key auth with per-key rate limiting, a serialized mutation pipeline (revision/dry-run/idempotency), atomic-batch commit semantics, a redacting audit writer, a revisioned SSE broadcaster, and a byte-stable generated OpenAPI contract with a compatibility/deprecation policy are all real, well-designed, and pass their own tests — including under `-race`.
+The gap-closure round (07-10 through 07-14) genuinely closed 2 of the original 3 verification gaps and 4 of the 4 non-blocking review findings it targeted:
 
-However, the phase's stated goal — "External programs can inspect and control **all** public GOLC capabilities ... that behaves like the desktop application" — is not yet true of the delivered system, for three independently-confirmed reasons:
+- **Gap 1 (SC1 / API-01 breadth) — CLOSED.** A deliberate, honest re-scope: ROADMAP.md and REQUIREMENTS.md now claim only the delivered breadth, and the remaining domains are named to a mechanically-enforced deferral owner (EXTN-05, v1.x). This is a legitimate resolution, not a silent scope reduction — the deferred capability list is enumerated by name in both files and the pointer is test-guarded against deletion.
+- **Gap 2 (SC3 / API-03, CR-01 SSE data loss) — CLOSED.** The monotonic `Seq` fix is correct, well-tested, and independently confirmed by direct code read plus passing regression tests for both the original multi-sub-request-batch scenario and the daemon-restart future-id scenario.
+- **Gap 3 (SC4 / API-06, WR-02/WR-03 pre-flight audit gap) — CLOSED for the specific branches originally named.** `runBatch`'s pre-flight loop and `mutate.go`'s scope-lookup-error branch are now fully audited, confirmed by direct code trace and a passing single-vs-batch parity test.
+- **WR-01 (idempotency cross-actor leak), WR-04 (deprecation middleware not installed), IN-01 (unbounded key lifetime), IN-02 (unescaped comma delimiter) — all CLOSED**, each confirmed by direct code read and a passing named regression test.
 
-1. **Breadth (Success Criterion #1 / API-01):** only 6 of ~86 real command routes are reachable over `/v1`. 61 routes are explicitly, honestly labeled as deferred future-milestone work by the phase's own final plan (07-09-SUMMARY.md's "Known Gaps" section already says this outright) — this verification independently confirms the same count from the coverage gate's own source. Every domain except config/show(read)/pool(create)/api-key has zero REST exposure.
-2. **Correctness (Success Criterion #3 / API-03, CR-01):** the SSE gap-recovery mechanism, which the phase explicitly documents as guaranteeing "never a silently missing gap" (D-10), is demonstrably broken for an already-reachable code path (a multi-sub-request `/v1/batch`). This was independently reproduced live in this verification, not merely inferred from the prior code review.
-3. **Completeness (Success Criterion #4 / API-06):** "every result is auditable" does not hold for a batch's pre-flight scope/translation failures, which leave no audit trail, unlike the identical single-mutation rejection path.
+**However, one genuine gap remains and blocks Success Criterion #4:** the gap-closure code review's fresh-eyes pass (07-REVIEW-gaps.md) surfaced WR-05 — `runBatch`'s LOCKED section (everything from `mutationMutex.Lock()` through the final `show.Save`, batch.go lines 240-301) has 8 distinct failure-return paths that never fire the mutation observer, so no audit_log row is ever written for them. This verification independently confirmed WR-05 by direct code trace (not merely accepting the review's classification): reading `batch.go` line-by-line shows zero `fireMutationObservers` calls in that region, and reading `mutate.go`'s equivalent branches shows every one of them unconditionally fires the observer. Two of the eight branches — the batch-level If-Match precondition mismatch (412) and the pre-commit external-write race (412) — are exercised today by existing, passing, real-HTTP-request tests (`TestBatchIfMatch`, `TestBatchIfMatchExternalRace`), confirming these are reachable, routine failure modes (a stale If-Match on a batch request is an ordinary optimistic-concurrency conflict, not an edge case or an adversarial probe), not hypothetical ones.
 
-None of these are hypothetical or forward-looking concerns — all three are demonstrated against code that ships today. The phase is not ready to be marked complete against its own stated Success Criteria without either (a) closing gaps 2 and 3 (both narrow, well-scoped fixes matching 07-REVIEW.md's own CR-01/WR-02 recommendations) and (b) making an explicit scoping decision on gap 1 (either commit to a follow-up wiring effort, or formally re-scope API-01's "every capability" claim in ROADMAP.md/REQUIREMENTS.md to the domains this phase actually covers).
+This is judged to be the SAME class of defect that caused Success Criterion #4 to fail in the initial verification (an unaudited, reachable, already-tested rejection path on `/v1/batch` that its single-mutation sibling does audit), just in a code region the 07-12 gap-closure plan's scope did not reach. 07-12-PLAN.md's own prohibition text ("MUST NOT leave a rejected or failed mutation attempt unaudited on any reachable code path: a request refused for scope, translation, or precondition reasons...") explicitly names "precondition reasons" as in-scope, yet the delivered fix (confirmed via `07-12-SUMMARY.md`'s own `grep -c 'fireMutationObservers' internal/api/batch.go == 4` acceptance check) only reaches the pre-flight loop's 3 branches plus the success-path fan-out — not the locked section's precondition-failure branch. "Every result is auditable" therefore remains not fully true of the delivered system.
+
+**Recommendation:** A narrow, well-scoped closure plan (mirroring 07-12's own approach, applied to the 8 locked-section branches instead of the pre-flight loop) should close this before Phase 7 is marked complete. The fix shape is already specified in 07-REVIEW-gaps.md's WR-05 finding.
 
 ---
 
