@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 06
-current_phase_name: Wails Authoring and Operator Surface
+current_phase: 07
+current_phase_name: Versioned External Control API
 status: executing
 stopped_at: Phase 7 context gathered
-last_updated: "2026-07-25T05:49:40.353Z"
+last_updated: "2026-07-25T05:51:48.418Z"
 last_activity: 2026-07-24
-last_activity_desc: "Completed quick task 260724-y2t: Final byte-for-byte verification across three CI workflows (PowerShell removal Step 9). The PowerShell removal plan (Steps 0-9) is now fully complete: golc.ps1 is deleted, Mage is the sole contributor entrypoint, and check.yml/linear-sync.yml/cross-platform-mage.yml all have real, current, green CI evidence."
+last_activity_desc: Phase 07 execution started
 progress:
   total_phases: 8
   completed_phases: 6
-  total_plans: 71
+  total_plans: 80
   completed_plans: 71
 ---
 
@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** An operator can author a modular show once, adapt its fixture pools to different deployments in one or two actions, and hand a simple controller surface to another person for reliable playback.
-**Current focus:** Phase 06 — Wails Authoring and Operator Surface
+**Current focus:** Phase 07 — Versioned External Control API
 
 ## Current Position
 
-Phase: 06 (Wails Authoring and Operator Surface) — EXECUTING
-Plan: 1 of 12
-Status: Ready to execute
-Last activity: 2026-07-24 — Completed quick task 260724-y2t: Final byte-for-byte verification across three CI workflows (PowerShell removal Step 9). The PowerShell removal plan (Steps 0-9) is now fully complete: golc.ps1 is deleted, Mage is the sole contributor entrypoint, and check.yml/linear-sync.yml/cross-platform-mage.yml all have real, current, green CI evidence.
+Phase: 07 (Versioned External Control API) — EXECUTING
+Plan: 1 of 9
+Status: Executing Phase 07
+Last activity: 2026-07-24 — Phase 07 execution started
 
 Note: `.planning/phases/11-telemetry-usage-statistics-and-auto-crash-submission-pipeline/` exists on disk from earlier out-of-order groundwork, which caused the automated next-phase resolver to briefly point here at Phase 11. Phases 6-10 have no directories yet and are the genuine next work per ROADMAP.md's sequential order; Phase 11 itself declares `Depends on: Phase 10`.
 
