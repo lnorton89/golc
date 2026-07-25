@@ -356,7 +356,7 @@ Plans:
   3. A client can consume revisioned server-sent events, detect a replay gap, and recover by querying authoritative state.
   4. Mutations support expected revisions, idempotency, dry-run impact previews, and atomic meaningful batches; every result is auditable, while loopback is the default and remote access requires explicit enablement and scoped authentication.
 
-**Plans:** 9 plans
+**Plans:** 14 plans (9 executed + 5 gap closure)
 
 Plans:
 **Wave 1**
@@ -392,7 +392,15 @@ Plans:
 
 - [ ] 07-09-PLAN.md — Generated OpenAPI 3.1 contract + drift check + typed errors + compatibility/deprecation policy + coverage closure (API-02; D-03/D-02)
 
-**Waves:** W1: 07-01 · W2: 07-02 · W3: 07-03 · W4: 07-04 · W5: 07-05 · W6: 07-06 · W7: 07-07, 07-08 · W8: 07-09
+**Gap Closure** *(post-verification; closes 07-VERIFICATION.md's 3 gaps plus 07-REVIEW.md's non-blocking findings, does not touch 07-01…07-09)*
+
+- [ ] 07-10-PLAN.md — Re-scope API-01 to the delivered /v1 breadth; name EXTN-05 (v1.x) as the deferral owner for the remaining domains + Wails/HTTP parity, enforced by the coverage gate (API-01; VERIFICATION Gap 1) [gap wave 1 / wave 9]
+- [ ] 07-11-PLAN.md — Strictly monotonic SSE sequence id decoupled from show revision, so a multi-sub-request batch's events stay individually replayable (API-03; VERIFICATION Gap 2 / REVIEW CR-01) [gap wave 1 / wave 9]
+- [ ] 07-12-PLAN.md — Audit every batch pre-flight rejection at parity with the single-mutation path; close mutate.go's latent unobserved 500 branch (API-06; VERIFICATION Gap 3 / REVIEW WR-02, WR-03) [gap wave 1 / wave 9]
+- [ ] 07-13-PLAN.md — Scope Idempotency-Key by (actor, route, key); reject the reserved delimiter in list-valued fields at the boundary (API-04; REVIEW WR-01, IN-02) [gap wave 2 / wave 10]
+- [ ] 07-14-PLAN.md — Install DeprecationMiddleware so the documented Deprecation/Sunset signals are real; bound API-key lifetime; validate the scopes list (API-02/API-05; REVIEW WR-04, IN-01, IN-02) [gap wave 3 / wave 11]
+
+**Waves:** W1: 07-01 · W2: 07-02 · W3: 07-03 · W4: 07-04 · W5: 07-05 · W6: 07-06 · W7: 07-07, 07-08 · W8: 07-09 · gap W1: 07-10, 07-11, 07-12 · gap W2: 07-13 · gap W3: 07-14
 **Research:** Standard API patterns; phase planning must define compatibility policy, remote-access threat model, SSE replay retention, rate limits, and audit redaction.
 
 ### Phase 8: Isolated TypeScript Automation
