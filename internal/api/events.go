@@ -1,20 +1,28 @@
-// events.go implements the revisioned global SSE event stream
-// (07-08-PLAN.md Tasks 1/2, CONTEXT D-09/D-10/D-11/D-12): GET /v1/events
-// registers a post-mutation observer (observer.go's seam) that appends
-// every COMMITTED mutation (outcome "success" only -- never dry_run,
-// failure, or idempotent_replay, which never durably change the show) to
-// a bounded, revision-keyed ring buffer and broadcasts it to every open
-// subscriber. This is one global stream carrying every domain's changes
-// (D-09), not separate per-domain streams -- a mirrors' own doc comment in
-// internal/wails/events.go documents the same discipline this stream
-// follows: it is a lossy hint stream, NEVER the source of truth. The REST
-// resource endpoints remain the only authoritative re-fetch path.
+// events.go implements the global SSE event stream (07-08-PLAN.md Tasks
+// 1/2, CONTEXT D-09/D-10/D-11/D-12; re-keyed off the show revision and
+// onto a per-process sequence by 07-11-PLAN.md/CR-01): GET /v1/events
+// registers a post-mutation observer
+// (observer.go's seam) that appends every COMMITTED mutation (outcome
+// "success" only -- never dry_run, failure, or idempotent_replay, which
+// never durably change the show) to a bounded ring buffer keyed by a
+// strictly monotonic, per-process event SEQUENCE (ringEvent.Seq) -- NOT
+// the show revision, since one atomic /v1/batch commits a single revision
+// but emits one separately-addressable event per sub-request (D-15) -- and
+// broadcasts it to every open subscriber. This is one global stream
+// carrying every domain's changes (D-09), not separate per-domain streams
+// -- a mirrors' own doc comment in internal/wails/events.go documents the
+// same discipline this stream follows: it is a lossy hint stream, NEVER
+// the source of truth. The REST resource endpoints remain the only
+// authoritative re-fetch path.
 //
-// A reconnecting client's Last-Event-ID drives either an in-window replay
-// from the ring buffer, or, when the requested id has already scrolled
-// out of the buffer, a single "resync" event instructing a full REST
-// re-fetch before the client resumes consuming the (still open) stream
-// (D-10) -- never a silently-missing gap. Any valid, non-expired API key,
+// A reconnecting client's Last-Event-ID (a previously-issued Seq) drives
+// either an in-window replay from the ring buffer, or, when the requested
+// id has already scrolled out of the buffer -- or was never issued by this
+// process at all, e.g. after a daemon restart, since Seq resets on
+// restart while the show revision does not -- a single "resync" event
+// instructing a full REST re-fetch before the client resumes consuming
+// the (still open) stream (D-10) -- never a silently-missing gap. Any
+// valid, non-expired API key,
 // regardless of its coarse domain scope, may open this stream (D-12: no
 // separate streaming capability exists on top of D-08's scopes) and, once
 // open, receives every domain's events irrespective of that scope (D-11:
@@ -83,14 +91,19 @@ var EventRevocationTickInterval = 5 * time.Second
 // domainEventPayload is the JSON body every "state" SSE event carries.
 // Type is derived from the producing route's domain (its first
 // space-separated word, mirroring mutate.go's own domainScope keying) --
-// D-09's required "type field". Revision doubles as this SSE message's
-// "id:" line. Route/Actor let a client correlate the event with which
-// REST resource to re-fetch if it wants full detail (the stream itself
-// never carries the mutation's full effect -- it is a hint, D-10).
+// D-09's required "type field". Revision is the committed show.State.Revision
+// this change belongs to -- domain data, re-fetchable via the REST resource
+// endpoints; it is carried in the body only and is NOT this SSE message's
+// "id:" line (07-11-PLAN.md CR-01: an atomic /v1/batch commits one revision
+// but emits one separately-addressable event per sub-request, so several
+// consecutive events legitimately share a Revision while carrying distinct
+// ids -- see ringEvent.Seq). Route/Actor let a client correlate the event
+// with which REST resource to re-fetch if it wants full detail (the stream
+// itself never carries the mutation's full effect -- it is a hint, D-10).
 type domainEventPayload struct {
 	Type     string `json:"type" doc:"The changed domain, e.g. \"pool\" (derived from the producing route's first word)."`
 	Route    string `json:"route" doc:"The routed command that produced this change, e.g. \"pool create\"."`
-	Revision int64  `json:"revision" doc:"show.State.Revision this mutation produced -- also this SSE message's id."`
+	Revision int64  `json:"revision" doc:"The committed show.State.Revision this change belongs to, re-fetchable via the REST resource endpoints. NOT this SSE message's id -- an atomic batch commits one revision but emits one event per sub-request, so multiple events can share a Revision."`
 	Actor    string `json:"actor,omitempty" doc:"The authenticated API key id that produced this change."`
 }
 
@@ -103,37 +116,55 @@ type resyncEventPayload struct {
 	Reason string `json:"reason" doc:"Why a resync is required, e.g. \"buffer_overflow\"."`
 }
 
-// ringEvent is one buffered/broadcastable event: Revision doubles as the
-// SSE message id (D-09) and the ring buffer's ordering key.
+// ringEvent is one buffered/broadcastable event. Seq is the strictly
+// increasing, per-process transport-ordering key used for the SSE
+// message's "id:" line and for every replay/resync comparison in
+// subscribe -- it is assigned exactly once, by publish, and is
+// independent of the domain Revision carried in Payload (07-11-PLAN.md
+// CR-01: an atomic batch commits one Revision but emits N separately
+// Seq-addressable events, one per sub-request). Revision is retained here
+// only so oldest/latest logging or future debugging never has to decode
+// Payload -- it is not itself compared or emitted as an id.
 type ringEvent struct {
+	Seq      int64
 	Revision int64
 	Payload  domainEventPayload
 }
 
 // eventBroadcaster owns the bounded ring buffer and the set of currently
 // open subscriber channels every publish fans out to (D-11: every
-// connection sees every event).
+// connection sees every event). nextSeq is the counter publish increments
+// to assign each ringEvent's Seq; it is guarded by the same mu as the
+// buffer so assignment and buffer append stay one indivisible step -- the
+// buffer can never hold an out-of-order or duplicate sequence.
 type eventBroadcaster struct {
 	mu          sync.Mutex
 	buffer      []ringEvent
 	subscribers map[chan ringEvent]struct{}
+	nextSeq     int64
 }
 
 func newEventBroadcaster() *eventBroadcaster {
 	return &eventBroadcaster{subscribers: make(map[chan ringEvent]struct{})}
 }
 
-// publish appends ev to the ring buffer (evicting the oldest entries past
-// EventRingBufferCapacity) and fans it out to every currently open
-// subscriber. Delivery to a slow subscriber never blocks the publisher --
-// this is called synchronously from within mutate.go's held
-// mutationMutex (observer.go's own doc comment: "Observers must not block
-// indefinitely") -- a subscriber whose channel is full simply misses this
-// live event and recovers exactly the way a reconnecting client does: a
-// Last-Event-ID replay on its next reconnect, or a resync signal if it
-// has scrolled out of the buffer window (D-10).
+// publish is the SINGLE place a ringEvent's Seq is assigned: it increments
+// b.nextSeq and sets ev.Seq from it, under b.mu, before appending to the
+// buffer and before fanning out to subscribers -- callers (publishMutationEvent)
+// must never set Seq themselves. It then appends to the ring buffer
+// (evicting the oldest entries past EventRingBufferCapacity) and fans the
+// event out to every currently open subscriber. Delivery to a slow
+// subscriber never blocks the publisher -- this is called synchronously
+// from within mutate.go's held mutationMutex (observer.go's own doc
+// comment: "Observers must not block indefinitely") -- a subscriber whose
+// channel is full simply misses this live event and recovers exactly the
+// way a reconnecting client does: a Last-Event-ID replay on its next
+// reconnect, or a resync signal if it has scrolled out of the buffer
+// window (D-10).
 func (b *eventBroadcaster) publish(ev ringEvent) {
 	b.mu.Lock()
+	b.nextSeq++
+	ev.Seq = b.nextSeq
 	b.buffer = append(b.buffer, ev)
 	if capacity := EventRingBufferCapacity; len(b.buffer) > capacity {
 		trimmed := make([]ringEvent, capacity)
@@ -198,20 +229,33 @@ func (b *eventBroadcaster) subscribe(lastEventID string) (replay []ringEvent, re
 		return nil, lastID > 0, ch, unsubscribe
 	}
 
-	oldest := b.buffer[0].Revision
-	latest := b.buffer[len(b.buffer)-1].Revision
+	oldest := b.buffer[0].Seq
+	latest := b.buffer[len(b.buffer)-1].Seq
 	switch {
 	case lastID < oldest-1:
 		// A genuine gap: at least one committed event between lastID and
 		// the buffer's oldest retained entry has already scrolled out.
 		return nil, true, ch, unsubscribe
-	case lastID >= latest:
-		// Already caught up (exactly at, or somehow past, the latest known
-		// revision) -- no replay, no resync.
+	case lastID == latest:
+		// Already caught up (exactly at the latest known sequence id) --
+		// no replay, no resync. This is the adjacency edge
+		// TestSSEAdjacentNoReplayNoResync pins.
 		return nil, false, ch, unsubscribe
+	case lastID > latest:
+		// The client's id is GREATER than any id this process has ever
+		// issued. Because the sequence is per-process (reset by reset(),
+		// zeroed on daemon restart -- unlike show.State.Revision, which
+		// persists with the show), a daemon restart makes this reachable:
+		// a client holding a pre-restart id would otherwise be told
+		// "caught up" against a fresh, lower-numbered buffer and silently
+		// lose everything since the restart. The server cannot prove no
+		// gap occurred for an id it never issued, so it must resync --
+		// the identical reasoning the empty-buffer branch above already
+		// applies for lastID > 0.
+		return nil, true, ch, unsubscribe
 	default:
 		for _, bufEv := range b.buffer {
-			if bufEv.Revision > lastID {
+			if bufEv.Seq > lastID {
 				replay = append(replay, bufEv)
 			}
 		}
@@ -219,15 +263,24 @@ func (b *eventBroadcaster) subscribe(lastEventID string) (replay []ringEvent, re
 	}
 }
 
-// reset clears every buffered event and drops every currently tracked
+// reset clears every buffered event, drops every currently tracked
 // subscriber channel (without closing them -- an open connection's own
 // unsubscribe, deferred in handleEventStream, still runs normally against
-// the now-forgotten channel). Used only by ResetEventStreamForTesting.
+// the now-forgotten channel), and zeroes nextSeq -- so ResetEventStreamForTesting
+// gives every test a deterministic sequence starting at 1. This is why the
+// pre-existing SSE tests' hard-coded id expectations (id: 1..id: 5) still
+// hold unmodified: in a single-mutation-only scenario exactly one event is
+// published per commit, so the sequence and the revision coincide
+// numerically -- those tests are unchanged because the semantics they
+// assert (monotonic order, in-window replay, out-of-window resync) are
+// unchanged, not because this change was cosmetic. Used only by
+// ResetEventStreamForTesting.
 func (b *eventBroadcaster) reset() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.buffer = nil
 	b.subscribers = make(map[chan ringEvent]struct{})
+	b.nextSeq = 0
 }
 
 // eventStreamBroadcaster is this package's singleton broadcaster, a
@@ -356,7 +409,7 @@ func apiKeyStillValid(server *Server, keyID string) bool {
 // standard reconnection header (D-10), bound automatically by huma/v2/sse
 // when declared on the input struct.
 type eventsInput struct {
-	LastEventID string `header:"Last-Event-ID" doc:"The id of the last event this client received, if reconnecting (SSE standard header, D-10). Omit when connecting for the first time; an in-window id replays missed events, an out-of-window id yields a single resync event instead of silently-missing state."`
+	LastEventID string `header:"Last-Event-ID" doc:"A server-issued, strictly monotonic, per-process event sequence -- the id of the last event this client received, if reconnecting (SSE standard header, D-10). Omit when connecting for the first time; an in-window id replays missed events, an out-of-window id (including one from a previous daemon run, since the sequence resets on restart) yields a single resync event instead of silently-missing state."`
 }
 
 // handleEventStream is GET /v1/events's SSE body: it subscribes to
@@ -376,7 +429,7 @@ func handleEventStream(ctx context.Context, server *Server, input *eventsInput, 
 		}
 	} else {
 		for _, ev := range replay {
-			if err := send(sse.Message{ID: int(ev.Revision), Data: ev.Payload}); err != nil {
+			if err := send(sse.Message{ID: int(ev.Seq), Data: ev.Payload}); err != nil {
 				return
 			}
 		}
@@ -392,7 +445,7 @@ func handleEventStream(ctx context.Context, server *Server, input *eventsInput, 
 			if !ok {
 				return
 			}
-			if err := send(sse.Message{ID: int(ev.Revision), Data: ev.Payload}); err != nil {
+			if err := send(sse.Message{ID: int(ev.Seq), Data: ev.Payload}); err != nil {
 				return
 			}
 		case <-ticker.C:
@@ -414,7 +467,7 @@ func registerEventsOperation(humaAPI huma.API, server *Server) {
 		Method:      http.MethodGet,
 		Path:        apiPathPrefix + "/events",
 		Summary:     "Subscribe to the global revisioned event stream.",
-		Description: "Every domain's changes on one global stream (D-09), each tagged with a type and an id equal to the show revision that produced it. Any valid, non-expired API key may open this stream regardless of its coarse domain scope (D-12) -- and, once open, receives every domain's events regardless of that scope too (D-11): scopes gate mutations, not stream visibility. This is a hint stream, never the source of truth -- always re-fetch authoritative state via the REST resource endpoints, especially after a \"resync\" event (D-10). Reconnecting with Last-Event-ID replays events still within the server's bounded buffer; an id already scrolled out of that buffer yields one resync event instead of a silent gap. A revoked or expired key's already-open stream is closed within one revocation-tick interval.",
+		Description: "Every domain's changes on one global stream (D-09), each tagged with a type and a strictly monotonic per-process event sequence id. One atomic /v1/batch commits a single show revision but emits one separately-addressable event per sub-request, so consecutive events can share a revision while carrying distinct ids -- the committed revision itself travels in the event payload's \"revision\" field, re-fetchable via the REST resource endpoints. Any valid, non-expired API key may open this stream regardless of its coarse domain scope (D-12) -- and, once open, receives every domain's events regardless of that scope too (D-11): scopes gate mutations, not stream visibility. This is a hint stream, never the source of truth -- always re-fetch authoritative state via the REST resource endpoints, especially after a \"resync\" event (D-10). Reconnecting with Last-Event-ID replays events still within the server's bounded buffer; an id already scrolled out of that buffer, or an id from a previous daemon run (the sequence restarts with the process), yields one resync event instead of a silent gap. A revoked or expired key's already-open stream is closed within one revocation-tick interval.",
 	}, map[string]any{
 		"state":  domainEventPayload{},
 		"resync": resyncEventPayload{},
