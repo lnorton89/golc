@@ -25,6 +25,7 @@ An operator can author a modular show once, adapt its fixture pools to different
 - [x] Users can combine and swap color themes, chases, and motion presets within tempo-aware scenes using configurable blending transitions. — *Validated in Phase 3: Deterministic Show Programming and Playback (2026-07-21)*
 - [x] The application sends reliable, observable Art-Net output suitable for running a small live show. — *Validated in Phase 4: Observable Art-Net Live Output (2026-07-23), including gap-closure plans 04-08/04-09 for per-universe status values and pinned-interface degraded status*
 - [x] Operators can patch fixtures, organize controllable attributes, create looks/scenes and chases, play them back, save a show, and restore it later. — *Validated in Phase 5: Durable Shows and Recovery (2026-07-23): SQLite-backed `.golc` store, rotating recovery points genuinely reachable from an interrupted session (post-review structural fix), verified-backup schema migration, and integrity diagnostics/export*
+- [x] External programs can query and invoke a documented, coverage-gated subset of public capabilities — configuration and show inspection, fixture-pool creation, scoped API-key lifecycle, atomic multi-command batches, and revisioned change events — through a versioned HTTP API with a published OpenAPI contract, typed errors, and a compatibility/deprecation policy; every not-yet-exposed public route is explicitly named and deferred (tracked as `EXTN-05`) rather than silently unmapped. — *Validated in Phase 7: Versioned External Control API (2026-07-25), after two gap-closure rounds: fixed a live-reproduced SSE data-loss bug (batched mutations sharing one revision silently dropped replay events) and closed the mutation audit trail for all of `/v1/batch`'s failure paths (pre-flight and locked-section, 9/9 traced)*
 
 ### Active
 
@@ -35,7 +36,7 @@ An operator can author a modular show once, adapt its fixture pools to different
 - [ ] Users can connect common hosted or local LLMs through an open-source, provider-neutral integration layer.
 - [ ] An LLM can create or refine fixture definitions and autonomously use the program to patch fixtures, program scenes and chases, and control playback.
 - [ ] LLM actions are validated, observable, auditable, and subject to immediate operator override even when autonomous control is enabled.
-- [ ] External programs and LLM agents can inspect and control the application through a stable, versioned, well-documented API.
+- [ ] LLM agents can inspect and control the application through the same typed command model external programs use (Phase 7 delivered the external-program-facing subset above; remaining show-domain/Art-Net-runtime routes and LLM-specific access are tracked separately under `EXTN-05` and the AI/bounded-autonomy phase).
 - [ ] UI actions, TypeScript scripts, API clients, and LLM tools share a typed application command model so all control surfaces expose consistent behavior.
 - [ ] The v1 application installs, runs, saves, restores, and outputs Art-Net reliably on supported Windows systems.
 ### Out of Scope
@@ -142,4 +143,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-23 after Phase 5: Durable Shows and Recovery completion*
+*Last updated: 2026-07-25 after Phase 7: Versioned External Control API completion*
