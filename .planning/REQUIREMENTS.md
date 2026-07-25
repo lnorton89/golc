@@ -99,7 +99,7 @@
 
 - [ ] **API-01**: An external program can query and invoke every supported public domain capability through a versioned API that uses the same application command model as the UI.
 - [ ] **API-02**: The API publishes an OpenAPI contract, generated client examples, typed errors, and compatibility/deprecation guidance.
-- [ ] **API-03**: An external client can subscribe to revisioned server-sent events and recover from an event gap by re-querying authoritative state.
+- [x] **API-03**: An external client can subscribe to revisioned server-sent events and recover from an event gap by re-querying authoritative state.
 - [ ] **API-04**: Mutating API operations support expected revisions, idempotency, dry-run impact previews, and atomic meaningful batches.
 - [ ] **API-05**: The API binds to loopback by default and requires explicit enablement and scoped authentication for remote access.
 - [ ] **API-06**: Every API mutation records actor, source, correlation, outcome, and redacted audit details.
@@ -267,7 +267,7 @@ A v1 requirement is complete only when its implementation is committed, automate
 | SHOW-06 | Phase 5 | Complete |
 | API-01 | Phase 7 | Pending |
 | API-02 | Phase 7 | Pending |
-| API-03 | Phase 7 | Pending |
+| API-03 | Phase 7 | Complete |
 | API-04 | Phase 7 | Pending |
 | API-05 | Phase 7 | Pending |
 | API-06 | Phase 7 | Pending |
