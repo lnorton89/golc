@@ -256,6 +256,8 @@ func TestScopeConfigStrict(t *testing.T) {
 			"cache.downloads",
 			"cache.gocache",
 			"cache.gomodcache",
+			"go_install.midicat.module",
+			"go_install.midicat.version",
 			"toolchain.go.official_host",
 			"toolchain.go.official_path_prefix",
 			"toolchain.go.platforms.darwin-amd64.archive_sha256",

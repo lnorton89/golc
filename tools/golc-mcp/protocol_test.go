@@ -152,6 +152,7 @@ func TestMCPProtocolReadOnlyInventoryAndCalls(t *testing.T) {
 				},
 			},
 		},
+		{Name: "run", Kind: "route", Route: "run", Args: []string{}, Authority: "internal/command registry"},
 		{Name: "test", Kind: "route", Route: "test", Args: []string{}, Authority: "internal/command registry"},
 		{Name: "testquick", Kind: "route", Route: "test", Args: []string{"--quick"}, Authority: "internal/command registry"},
 	}
