@@ -356,7 +356,7 @@ Plans:
   3. A client can consume revisioned server-sent events, detect a replay gap, and recover by querying authoritative state.
   4. Mutations support expected revisions, idempotency, dry-run impact previews, and atomic meaningful batches; every result is auditable, while loopback is the default and remote access requires explicit enablement and scoped authentication.
 
-**Plans:** 14/15 plans executed
+**Plans:** 15/15 plans executed
 
 Plans:
 **Wave 1**
@@ -402,7 +402,7 @@ Plans:
 
 **Gap Closure Round 2** *(post-re-verification; closes 07-VERIFICATION.md's sole remaining gap, does not touch 07-01…07-14)*
 
-- [ ] 07-15-PLAN.md — Audit every failure return in runBatch's LOCKED section (nine branches, not the eight the findings enumerate) at parity with the pre-flight loop; structural gate for the five fault-injection-only branches (API-06; VERIFICATION remaining gap / REVIEW-gaps WR-05) [gap wave 4 / wave 12]
+- [x] 07-15-PLAN.md — Audit every failure return in runBatch's LOCKED section (nine branches, not the eight the findings enumerate) at parity with the pre-flight loop; structural gate for the five fault-injection-only branches (API-06; VERIFICATION remaining gap / REVIEW-gaps WR-05) [gap wave 4 / wave 12]
 
 **Waves:** W1: 07-01 · W2: 07-02 · W3: 07-03 · W4: 07-04 · W5: 07-05 · W6: 07-06 · W7: 07-07, 07-08 · W8: 07-09 · gap W1: 07-10, 07-11, 07-12 · gap W2: 07-13 · gap W3: 07-14 · gap W4: 07-15
 **Research:** Standard API patterns; phase planning must define compatibility policy, remote-access threat model, SSE replay retention, rate limits, and audit redaction.
@@ -468,7 +468,7 @@ Plans:
 | 4. Observable Art-Net Live Output | 9/9 | Complete    | 2026-07-22 |
 | 5. Durable Shows and Recovery | 5/5 | Complete    | 2026-07-23 |
 | 6. Wails Authoring and Operator Surface | 12/12 | In Progress|  |
-| 7. Versioned External Control API | 14/14 | In Progress|  |
+| 7. Versioned External Control API | 15/15 | In Progress|  |
 | 8. Isolated TypeScript Automation | 0/TBD | Not started | - |
 | 9. Provider-Neutral AI and Bounded Autonomy | 0/TBD | Not started | - |
 | 10. Windows Release Qualification | 0/TBD | Not started | - |
