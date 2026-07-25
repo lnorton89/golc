@@ -52,6 +52,28 @@
   --space-2xl: 48px;
   --space-3xl: 64px;
 
+  /* Radius scale (shell restructure) -- flat/paper brand, border-based
+     separation (--line), so there is deliberately no --shadow-* token: no
+     component in this codebase uses box-shadow structurally. */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  /* Typography scale (shell restructure) -- reconciles SKILL.md's compact
+     9-14px operational-region scale with 06-UI-SPEC.md's Body/Heading/
+     Display scale under one ladder. Distinguish technical vs. prose by
+     font-family (--font-mono vs --font-sans) alone, never by weight --
+     06-UI-SPEC.md: exactly two weights (400/600) total across both
+     families. */
+  --text-2xs: 9px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 28px;
+
   color-scheme: light dark;
 }
 

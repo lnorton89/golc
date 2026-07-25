@@ -1,0 +1,56 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  height: 32px;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-sm);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--motion-tap), border-color var(--motion-tap), color var(--motion-tap);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.primary {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--page);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--accent-dp);
+  border-color: var(--accent-dp);
+}
+
+.secondary {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.secondary:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.destructive {
+  border: 1px solid var(--status-revoked);
+  background: var(--panel);
+  color: var(--status-revoked);
+}
+
+.destructive:hover:not(:disabled) {
+  background: var(--status-revoked);
+  color: var(--page);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
