@@ -137,6 +137,73 @@ func TestIdempotencyReExecutesAfterTTLExpires(t *testing.T) {
 	}
 }
 
+// --- TestIdempotencyKeyScopedByActor -----------------------------------------
+
+// TestIdempotencyKeyScopedByActor proves the idempotency store is keyed by
+// the (actor, route, key) triple, not the raw client-supplied key string
+// alone (WR-01, 07-REVIEW.md): two distinct authoring-scoped actors
+// presenting the identical Idempotency-Key each execute their own
+// mutation and receive their own response -- neither ever receives the
+// other's stored result. The cross-ROUTE half of the composite key cannot
+// be exercised end to end today, because "pool create" is the only
+// mutating route wired to the pipeline; the route component is included
+// in the key now precisely so that future wiring (EXTN-05) is safe by
+// construction, not because a second route exists to prove it against yet.
+func TestIdempotencyKeyScopedByActor(t *testing.T) {
+	root := t.TempDir()
+	showPath := filepath.Join(root, "show.golc")
+	catalog, err := routecatalog.New()
+	if err != nil {
+		t.Fatalf("routecatalog.New: %v", err)
+	}
+	server := api.NewServer(catalog, root, showPath, api.WithIdempotencyTTL(time.Hour))
+	tokenA, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+	tokenB, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+
+	const sharedKey = "shared-idem-key"
+
+	recA := doIdempotentCreatePoolRequest(t, server.Handler(), tokenA, sharedKey, "ActorAPool")
+	if recA.Code < 200 || recA.Code >= 300 {
+		t.Fatalf("expected actor A's request to succeed, got %d (body: %s)", recA.Code, recA.Body.String())
+	}
+	resultA, revisionA := decodeMutationBody(t, recA)
+	if revisionA == nil || *revisionA != 1 {
+		t.Fatalf("expected actor A's response revision to be 1, got %v", revisionA)
+	}
+
+	recB := doIdempotentCreatePoolRequest(t, server.Handler(), tokenB, sharedKey, "ActorBPool")
+	if recB.Code < 200 || recB.Code >= 300 {
+		t.Fatalf("expected actor B's request to succeed, got %d (body: %s)", recB.Code, recB.Body.String())
+	}
+	resultB, revisionB := decodeMutationBody(t, recB)
+	if revisionB == nil || *revisionB != 2 {
+		t.Fatalf("expected actor B's response revision to be 2 (its own mutation, not a replay of actor A's), got %v", revisionB)
+	}
+
+	if resultA == resultB {
+		t.Fatalf("expected distinct result bodies for actor A and actor B, both got %q", resultA)
+	}
+	if *revisionA == *revisionB {
+		t.Fatalf("expected the two actors' reported revisions to differ, both got %d", *revisionA)
+	}
+
+	revision, err := show.CurrentRevision(root, showPath)
+	if err != nil {
+		t.Fatalf("CurrentRevision: %v", err)
+	}
+	if revision != 2 {
+		t.Fatalf("expected the real revision to have advanced by 2 (both actors' mutations applied), got %d", revision)
+	}
+
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	if len(state.Pools) != 2 {
+		t.Fatalf("expected exactly 2 pools (neither actor received the other's cached response), got %d", len(state.Pools))
+	}
+}
+
 // --- TestIdempotencyDifferentKeysIndependent ---------------------------------
 
 // TestIdempotencyDifferentKeysIndependent proves two different

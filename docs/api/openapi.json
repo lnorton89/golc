@@ -115,7 +115,7 @@
             "type": "string"
           },
           "requires": {
-            "description": "Capability types every pool member must support.",
+            "description": "Capability types every pool member must support. Forwarded as a comma-delimited list downstream, so a value must not itself contain a comma.",
             "items": {
               "type": "string"
             },

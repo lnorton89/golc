@@ -91,6 +91,12 @@ func translateBatchCreatePool(body json.RawMessage) (route string, args []string
 	if parsed.Name == "" {
 		return "", nil, huma.Error400BadRequest("GOLC_API_BATCH_SUBREQUEST_BODY_INVALID: \"name\" is required")
 	}
+	// Same boundary rule mutate.go's registerCreatePool applies to the
+	// equivalent single-mutation request, called before this function's own
+	// join -- one rule, not two copies (IN-02, 07-REVIEW.md).
+	if err := validateListValues("requires", parsed.Requires); err != nil {
+		return "", nil, err
+	}
 	args = []string{parsed.Name}
 	if len(parsed.Requires) > 0 {
 		args = append(args, "--requires", strings.Join(parsed.Requires, ","))
