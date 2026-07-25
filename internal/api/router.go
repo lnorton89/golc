@@ -110,13 +110,25 @@ func RegisteredRoutes() []string {
 // Calling UseMiddleware here, once, ahead of the loop, makes "every /v1
 // request is authenticated and rate-limited" a structural guarantee
 // instead of an accident of file naming.
+//
+// deprecation.go's DeprecationMiddleware is installed alongside them, for
+// the same ordering reason, unconditionally -- not deferred until a real
+// deprecation window begins (07-14-PLAN.md Task 1, closes 07-REVIEW.md
+// WR-04). It is a genuine no-op for every operation MarkOperationDeprecated
+// has not touched (no operation is deprecated as of this plan), so
+// installing it eagerly costs nothing today; the alternative -- waiting to
+// wire it in until the day /v2 first ships and an operation is actually
+// marked deprecated -- is exactly the kind of "remember to do this later"
+// trap that would leave the Deprecation/Sunset/Link headers
+// docs/api/COMPATIBILITY.md already documents as load-bearing client-
+// detection signals silently absent from every response on that day.
 func buildRouter(server *Server) chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.RequestID)
 	router.Use(middleware.Recoverer)
 
 	humaAPI := humachi.New(router, huma.DefaultConfig("GOLC API", "1.0.0"))
-	humaAPI.UseMiddleware(AuthMiddleware(humaAPI, server), RateLimitMiddleware(humaAPI, server))
+	humaAPI.UseMiddleware(AuthMiddleware(humaAPI, server), RateLimitMiddleware(humaAPI, server), DeprecationMiddleware(humaAPI))
 	for _, registration := range operationRegistrations {
 		registration.Register(humaAPI, server)
 	}

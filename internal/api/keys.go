@@ -14,20 +14,33 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/lnorton89/golc/internal/show"
 )
+
+// maxAPIKeyLifetime is the [ASSUMED] (07-14-PLAN.md, UAT-tunable, matching
+// this package's existing convention for EventRingBufferCapacity and
+// idempotency.go's defaultIdempotencyTTL) documented ceiling on a minted
+// API key's requested lifetime: 365 days. A credential that outlives a
+// full release year cannot be reasoned about against the 180-day
+// deprecation window docs/api/COMPATIBILITY.md commits to, and re-minting
+// is a single admin-scoped call -- so POST /v1/keys refuses to mint a key
+// requesting a longer lifetime rather than silently minting an effectively
+// immortal one (closes 07-REVIEW.md IN-01).
+const maxAPIKeyLifetime = 8760 * time.Hour
 
 // --- POST /v1/keys -> "api-key create" (admin scope required) ----------
 
 // mintAPIKeyInput is POST /v1/keys's Huma input.
 type mintAPIKeyInput struct {
 	Body struct {
-		Scopes    []string `json:"scopes" required:"true" doc:"Coarse domain scopes: playback, authoring, admin."`
-		ExpiresIn string   `json:"expires_in" required:"true" doc:"Go duration string the key remains valid for, e.g. \"720h\"."`
+		Scopes    []string `json:"scopes" required:"true" doc:"Coarse domain scopes: playback, authoring, admin. A scope value must not contain a comma (it is forwarded as a comma-delimited list)."`
+		ExpiresIn string   `json:"expires_in" required:"true" doc:"Go duration string the key remains valid for, e.g. \"720h\". Maximum accepted duration is 8760h (365 days)."`
 	}
 }
 
@@ -45,6 +58,22 @@ func registerMintAPIKey(humaAPI huma.API, server *Server) {
 	}, func(ctx context.Context, input *mintAPIKeyInput) (*rawJSONOutput, error) {
 		if err := RequireScope(ctx, show.APIKeyScopeAdmin); err != nil {
 			return nil, err
+		}
+
+		if err := validateListValues("scopes", input.Body.Scopes); err != nil {
+			return nil, err
+		}
+		// Only reject at the HTTP boundary when ExpiresIn parses AND exceeds
+		// maxAPIKeyLifetime. A malformed duration is deliberately NOT rejected
+		// here -- it is forwarded unchanged to "api-key create"'s own
+		// time.ParseDuration check (internal/command/apikey.go runAPIKeyCreate),
+		// which remains the single authority for the "not a valid duration"
+		// diagnostic. This boundary check only adds a ceiling on top of an
+		// already-valid duration; it does not take over duration parsing.
+		if requested, parseErr := time.ParseDuration(input.Body.ExpiresIn); parseErr == nil && requested > maxAPIKeyLifetime {
+			return nil, huma.Error400BadRequest(fmt.Sprintf(
+				"GOLC_API_KEY_LIFETIME_TOO_LONG: requested expires_in %q exceeds the maximum accepted duration %q",
+				input.Body.ExpiresIn, maxAPIKeyLifetime))
 		}
 
 		args := []string{
