@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -24,6 +25,7 @@ import (
 	"golang.design/x/hotkey"
 
 	"github.com/lnorton89/golc/internal/artnet/ipc"
+	"github.com/lnorton89/golc/internal/bootstrap"
 )
 
 // testWailsPipeName returns a per-test, per-process, per-nanosecond-unique
@@ -131,6 +133,44 @@ func TestAppStartupSkipsSpawnWhenDaemonAlreadyReachable(t *testing.T) {
 	}
 	if app.DaemonUnreachable() {
 		t.Fatal("expected DaemonUnreachable() to stay false when Dial already succeeds")
+	}
+}
+
+// TestResolveDaemonExecutableDefaultIncludesPlatformKey proves the unset-
+// DaemonExecutable default path resolves through bootstrap.PlatformExecutablePath
+// (i.e. includes the runtime.GOOS-runtime.GOARCH platform key between the
+// install root and bin/), matching how the real bootstrap step
+// (internal/bootstrap/engine.go) and internal/delivery/graph.go both
+// resolve commands.cli_binary. A prior hardcoded-relative-path bug omitted
+// the platform key, so a real bootstrap's golc-project.exe could never be
+// found and golc-desktop always fell through to the degraded
+// DaemonUnreachable path.
+func TestResolveDaemonExecutableDefaultIncludesPlatformKey(t *testing.T) {
+	root := t.TempDir()
+	got, err := resolveDaemonExecutable(Config{ProjectRoot: root})
+	if err != nil {
+		t.Fatalf("resolveDaemonExecutable: %v", err)
+	}
+	want := bootstrap.PlatformExecutablePath(filepath.Join(root, filepath.FromSlash(defaultCliBinaryInstallRoot)), "golc-project")
+	if got != want {
+		t.Fatalf("resolveDaemonExecutable(ProjectRoot=%q) = %q, want %q", root, got, want)
+	}
+	if !strings.Contains(got, bootstrap.PlatformKey()) {
+		t.Fatalf("resolveDaemonExecutable(ProjectRoot=%q) = %q, missing platform key %q", root, got, bootstrap.PlatformKey())
+	}
+}
+
+// TestResolveDaemonExecutableOverrideWins proves an explicit
+// Config.DaemonExecutable always wins over the default resolution, and that
+// no ProjectRoot is required in that case.
+func TestResolveDaemonExecutableOverrideWins(t *testing.T) {
+	override := filepath.Join("some", "explicit", "path", "golc-project.exe")
+	got, err := resolveDaemonExecutable(Config{DaemonExecutable: override})
+	if err != nil {
+		t.Fatalf("resolveDaemonExecutable: %v", err)
+	}
+	if got != override {
+		t.Fatalf("resolveDaemonExecutable() = %q, want override %q", got, override)
 	}
 }
 

@@ -32,17 +32,20 @@ import (
 	"time"
 
 	"github.com/lnorton89/golc/internal/artnet/ipc"
+	"github.com/lnorton89/golc/internal/bootstrap"
 )
 
-// defaultCliBinaryRelPath mirrors config/commands.toml's "cli_binary" pin
-// (".tools/installs/golc_project/bin/golc-project.exe"): the single
-// authority for where the bootstrapped golc-project executable lives,
-// resolved relative to Config.ProjectRoot when Config.DaemonExecutable is
-// left unset. This is a value copy, not a live config read, because
+// defaultCliBinaryInstallRoot mirrors config/commands.toml's "cli_binary"
+// pin (".tools/installs/golc_project"): the single authority for where the
+// bootstrapped golc-project executable lives, resolved relative to
+// Config.ProjectRoot via bootstrap.PlatformExecutablePath (which inserts
+// the platform key and bin/ segment, e.g. ".tools/installs/golc_project/
+// windows-amd64/bin/golc-project.exe") when Config.DaemonExecutable is left
+// unset. This is a value copy, not a live config read, because
 // internal/projectconfig's strict single-authority decoder is a much
 // larger dependency than this scaffold needs; a later plan may thread a
 // real projectconfig read through Config instead.
-const defaultCliBinaryRelPath = `.tools\installs\golc_project\bin\golc-project.exe`
+const defaultCliBinaryInstallRoot = ".tools/installs/golc_project"
 
 // defaultDialRetries/defaultDialRetryDelay bound how long OnStartup waits
 // for a just-spawned daemon to become reachable before giving up and
@@ -73,7 +76,7 @@ type Result struct {
 // serve" arguments (internal/command/artnet.go's runArtnetServe shape)
 // OnStartup passes when it spawns a supervised daemon child.
 // DaemonExecutable overrides the resolved golc-project(.exe) path (empty
-// resolves defaultCliBinaryRelPath relative to ProjectRoot).
+// resolves defaultCliBinaryInstallRoot relative to ProjectRoot).
 type Config struct {
 	PipeName         string
 	ShowPath         string
@@ -243,15 +246,21 @@ func (a *App) HotkeyFailures() []HotkeyFailure {
 }
 
 // resolveDaemonExecutable returns cfg.DaemonExecutable, or
-// defaultCliBinaryRelPath resolved relative to cfg.ProjectRoot when unset.
+// defaultCliBinaryInstallRoot resolved relative to cfg.ProjectRoot (via
+// bootstrap.PlatformExecutablePath) when unset.
 func resolveDaemonExecutable(cfg Config) (string, error) {
 	if cfg.DaemonExecutable != "" {
 		return cfg.DaemonExecutable, nil
 	}
 	if cfg.ProjectRoot == "" {
-		return "", fmt.Errorf("GOLC_WAILS_DAEMON_EXECUTABLE_UNRESOLVED: no DaemonExecutable and no ProjectRoot to resolve %s against", defaultCliBinaryRelPath)
+		return "", fmt.Errorf("GOLC_WAILS_DAEMON_EXECUTABLE_UNRESOLVED: no DaemonExecutable and no ProjectRoot to resolve %s against", defaultCliBinaryInstallRoot)
 	}
-	return filepath.Join(cfg.ProjectRoot, defaultCliBinaryRelPath), nil
+	installRoot := filepath.Join(cfg.ProjectRoot, filepath.FromSlash(defaultCliBinaryInstallRoot))
+	resolved := bootstrap.PlatformExecutablePath(installRoot, "golc-project")
+	if resolved == "" {
+		return "", fmt.Errorf("GOLC_WAILS_DAEMON_EXECUTABLE_UNRESOLVED: could not resolve golc-project executable under %s", installRoot)
+	}
+	return resolved, nil
 }
 
 // defaultSpawn launches golc-project.exe artnet serve as a supervised
