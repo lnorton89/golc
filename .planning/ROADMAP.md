@@ -356,7 +356,7 @@ Plans:
   3. A client can consume revisioned server-sent events, detect a replay gap, and recover by querying authoritative state.
   4. Mutations support expected revisions, idempotency, dry-run impact previews, and atomic meaningful batches; every result is auditable, while loopback is the default and remote access requires explicit enablement and scoped authentication.
 
-**Plans:** 13/14 plans executed
+**Plans:** 14/14 plans executed
 
 Plans:
 **Wave 1**
@@ -398,7 +398,7 @@ Plans:
 - [x] 07-11-PLAN.md — Strictly monotonic SSE sequence id decoupled from show revision, so a multi-sub-request batch's events stay individually replayable (API-03; VERIFICATION Gap 2 / REVIEW CR-01) [gap wave 1 / wave 9]
 - [x] 07-12-PLAN.md — Audit every batch pre-flight rejection at parity with the single-mutation path; close mutate.go's latent unobserved 500 branch (API-06; VERIFICATION Gap 3 / REVIEW WR-02, WR-03) [gap wave 1 / wave 9]
 - [x] 07-13-PLAN.md — Scope Idempotency-Key by (actor, route, key); reject the reserved delimiter in list-valued fields at the boundary (API-04; REVIEW WR-01, IN-02) [gap wave 2 / wave 10]
-- [ ] 07-14-PLAN.md — Install DeprecationMiddleware so the documented Deprecation/Sunset signals are real; bound API-key lifetime; validate the scopes list (API-02/API-05; REVIEW WR-04, IN-01, IN-02) [gap wave 3 / wave 11]
+- [x] 07-14-PLAN.md — Install DeprecationMiddleware so the documented Deprecation/Sunset signals are real; bound API-key lifetime; validate the scopes list (API-02/API-05; REVIEW WR-04, IN-01, IN-02) [gap wave 3 / wave 11]
 
 **Waves:** W1: 07-01 · W2: 07-02 · W3: 07-03 · W4: 07-04 · W5: 07-05 · W6: 07-06 · W7: 07-07, 07-08 · W8: 07-09 · gap W1: 07-10, 07-11, 07-12 · gap W2: 07-13 · gap W3: 07-14
 **Research:** Standard API patterns; phase planning must define compatibility policy, remote-access threat model, SSE replay retention, rate limits, and audit redaction.
@@ -464,7 +464,7 @@ Plans:
 | 4. Observable Art-Net Live Output | 9/9 | Complete    | 2026-07-22 |
 | 5. Durable Shows and Recovery | 5/5 | Complete    | 2026-07-23 |
 | 6. Wails Authoring and Operator Surface | 12/12 | In Progress|  |
-| 7. Versioned External Control API | 13/14 | In Progress|  |
+| 7. Versioned External Control API | 14/14 | In Progress|  |
 | 8. Isolated TypeScript Automation | 0/TBD | Not started | - |
 | 9. Provider-Neutral AI and Bounded Autonomy | 0/TBD | Not started | - |
 | 10. Windows Release Qualification | 0/TBD | Not started | - |
