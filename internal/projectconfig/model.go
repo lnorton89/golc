@@ -140,6 +140,19 @@ var (
 	// must satisfy: a bare positive integer with no leading zero
 	// (07-RESEARCH.md Open Question 2).
 	apiRateLimitPattern = regexp.MustCompile(`^[1-9][0-9]*$`)
+	// goInstallVersionPattern is the shape go_install.<name>.version must
+	// satisfy: a plain vMAJOR.MINOR.PATCH tag, mirroring
+	// internal/bootstrap/engine.go's validateGoInstallPin regex exactly --
+	// a go-install tool is pinned by a Go module version tag (which always
+	// carries the "v" prefix), never a bare dotted version like the
+	// downloaded-archive toolchain.go/mage/node pins above.
+	goInstallVersionPattern = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+$`)
+	// goInstallModulePattern is the shape go_install.<name>.module must
+	// satisfy: a safe Go module path with no path-traversal segment,
+	// mirroring internal/bootstrap/engine.go's validateGoInstallPin regex
+	// exactly (T-01-SC: this value reaches an os/exec-invoked
+	// `go install <module>@<version>` argument).
+	goInstallModulePattern = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9._/-]*[A-Za-z0-9])?$`)
 	// apiBindInterfacePattern is the shape api.bind_interface must satisfy:
 	// empty (the committed default, meaning "no explicit interface named")
 	// or a hostname/IPv4/IPv6-shaped literal (07-RESEARCH.md Pitfall 4 --
@@ -200,6 +213,16 @@ func DefaultSpec() Spec {
 					"cache.downloads":                                       {Pattern: toolsPathPattern},
 					"cache.gomodcache":                                      {Pattern: toolsPathPattern},
 					"cache.gocache":                                         {Pattern: toolsPathPattern},
+					// go_install.midicat pins the one currently-provisioned
+					// go-install runtime tool (internal/bootstrap/engine.go's
+					// installGoInstallTools; internal/command/run.go's doc
+					// comment explains why golc-desktop needs it). Unlike the
+					// downloaded-archive toolchain.go/mage/node pins above, a
+					// go-install tool has no per-platform archive_url/
+					// archive_sha256 pair -- Go's own module-proxy checksum
+					// database verifies it instead.
+					"go_install.midicat.version": {Pattern: goInstallVersionPattern, Required: true},
+					"go_install.midicat.module":  {Pattern: goInstallModulePattern, Required: true},
 				},
 			},
 			{
