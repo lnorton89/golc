@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const (
@@ -40,7 +41,7 @@ func init() {
 func runLinearSync(ctx context.Context, engine *bootstrapEngine) (resultErr error) {
 	nodePin := engine.nodePin
 	nodeInstall := filepath.Join(engine.root, ".tools", "toolchains", "node", nodePin.Version, PlatformKey())
-	if err := engine.installPin(nodePin, nodeInstall); err != nil {
+	if err := engine.installPin("node", nodePin, nodeInstall); err != nil {
 		return fmt.Errorf("GOLC_NODE_TOOLCHAIN_INSTALL: %w", err)
 	}
 	node, err := ResolveNodeInstallation(nodeInstall)
@@ -88,8 +89,9 @@ func runLinearSync(ctx context.Context, engine *bootstrapEngine) (resultErr erro
 		return nil
 	}
 
+	engine.progress("linear-sync: npm ci...")
 	npmArgs := []string{npmCLI, "ci", "--ignore-scripts", "--no-audit", "--no-fund"}
-	if _, err := runLinearProcess(ctx, engine, linearDir, nodeExecutable, "GOLC_BOOTSTRAP_NPM_CI_FAILED", npmArgs...); err != nil {
+	if _, err := runNpmCIWithRetry(ctx, engine, linearDir, nodeExecutable, "GOLC_BOOTSTRAP_NPM_CI_FAILED", npmArgs...); err != nil {
 		return err
 	}
 	tscRelative := "node_modules/typescript/bin/tsc"
@@ -97,6 +99,7 @@ func runLinearSync(ctx context.Context, engine *bootstrapEngine) (resultErr erro
 	if info, err := os.Stat(tscPath); err != nil || !info.Mode().IsRegular() {
 		return fmt.Errorf("GOLC_BOOTSTRAP_LINEAR_SYNC_BUILD_FAILED: pinned TypeScript compiler missing at %s after npm ci", tscPath)
 	}
+	engine.progress("linear-sync: compiling TypeScript...")
 	tsconfigPath := filepath.Join(linearDir, "tsconfig.json")
 	if _, err := runLinearProcess(ctx, engine, linearDir, nodeExecutable, "GOLC_BOOTSTRAP_LINEAR_SYNC_BUILD_FAILED", tscPath, "-p", tsconfigPath); err != nil {
 		return err
@@ -131,6 +134,38 @@ func runLinearSync(ctx context.Context, engine *bootstrapEngine) (resultErr erro
 		return fmt.Errorf("GOLC_BOOTSTRAP_NPM_MANIFEST: %w", err)
 	}
 	return nil
+}
+
+// runNpmCIWithRetry runs an "npm ci" invocation, retrying a bounded
+// number of times on any failure: npm ci is idempotent (it always
+// reconciles node_modules to exactly match the lockfile from scratch),
+// so a blind retry is safe regardless of failure cause. This exists
+// specifically because npm ci on Windows can fail with EPERM/unlink on a
+// freshly-written native binary (e.g. a .node addon) when antivirus
+// real-time protection has it open for a scan at the exact moment npm
+// tries to replace it -- the same transient-lock class of issue
+// renameWithRetry (archive.go) works around for install-directory
+// promotion, just surfacing inside npm's own process instead of a Go
+// os.Rename call this package can wrap directly (observed live
+// immediately after fixing the promote case: the very next bootstrap
+// phase, frontend `npm ci`, failed the same way on
+// rolldown-binding.win32-x64-msvc.node).
+func runNpmCIWithRetry(ctx context.Context, engine *bootstrapEngine, dir, executable, diagnostic string, args ...string) ([]byte, error) {
+	const attempts = 3
+	const delay = 3 * time.Second
+	var output []byte
+	var err error
+	for attempt := 0; attempt < attempts; attempt++ {
+		output, err = runLinearProcess(ctx, engine, dir, executable, diagnostic, args...)
+		if err == nil {
+			return output, nil
+		}
+		if attempt < attempts-1 {
+			engine.progress("npm ci failed (attempt %d/%d), retrying: %v", attempt+1, attempts, err)
+			time.Sleep(delay)
+		}
+	}
+	return output, err
 }
 
 func runLinearProcess(ctx context.Context, engine *bootstrapEngine, dir, executable, diagnostic string, args ...string) ([]byte, error) {

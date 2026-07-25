@@ -45,7 +45,7 @@ type frontendBuildManifest struct {
 func runFrontendBuild(ctx context.Context, engine *bootstrapEngine) (resultErr error) {
 	nodePin := engine.nodePin
 	nodeInstall := filepath.Join(engine.root, ".tools", "toolchains", "node", nodePin.Version, PlatformKey())
-	if err := engine.installPin(nodePin, nodeInstall); err != nil {
+	if err := engine.installPin("node", nodePin, nodeInstall); err != nil {
 		return fmt.Errorf("GOLC_NODE_TOOLCHAIN_INSTALL: %w", err)
 	}
 	node, err := ResolveNodeInstallation(nodeInstall)
@@ -98,10 +98,12 @@ func runFrontendBuild(ctx context.Context, engine *bootstrapEngine) (resultErr e
 		return nil
 	}
 
+	engine.progress("frontend: npm ci...")
 	npmCIArgs := []string{node.NPMCLI, "ci", "--no-audit", "--no-fund"}
-	if _, err := runLinearProcess(ctx, engine, frontendDir, node.Executable, "GOLC_BOOTSTRAP_FRONTEND_NPM_CI_FAILED", npmCIArgs...); err != nil {
+	if _, err := runNpmCIWithRetry(ctx, engine, frontendDir, node.Executable, "GOLC_BOOTSTRAP_FRONTEND_NPM_CI_FAILED", npmCIArgs...); err != nil {
 		return err
 	}
+	engine.progress("frontend: npm run build...")
 	npmBuildArgs := []string{node.NPMCLI, "run", "build"}
 	if _, err := runLinearProcess(ctx, engine, frontendDir, node.Executable, "GOLC_BOOTSTRAP_FRONTEND_BUILD_FAILED", npmBuildArgs...); err != nil {
 		return err
