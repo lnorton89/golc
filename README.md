@@ -11,7 +11,7 @@ A modern lighting-control application for operators of small live shows — club
 
 GOLC combines a fast, modular show-authoring workflow with TypeScript scripting, autonomous LLM control, and a well-documented API, so people, scripts, external programs, and AI agents can all create and operate fixture patches, scenes, chases, and show playback through the same system. The first release targets Windows and outputs Art-Net.
 
-> **Status: early development, pre-alpha.** GOLC is being built in dependency-ordered phases; see [Roadmap](#roadmap). Phases 1–5 are complete: offline configuration and delivery traceability, modular fixtures and deployments, deterministic show programming and playback, observable Art-Net output, and durable show storage/recovery are implemented and tested. Phase 6 (Wails Authoring and Operator Surface) is in progress at 7/8 plans — the show-state/playback loader, Art-Net daemon supervision, MIDI soft-takeover logic, the Wails desktop shell with OS-level safety hotkeys, the safety cluster and live status bar, on-screen playback controls with a documented keyboard workflow, and the operator-surface builder are done; only the MIDI per-control learn UI and soft-takeover sliders remain, so GOLC is not yet usable end-to-end with physical MIDI hardware.
+> **Status: early development, pre-alpha.** GOLC is being built in dependency-ordered phases; see [Roadmap](#roadmap). Phases 1–6 are complete: offline configuration and delivery traceability, modular fixtures and deployments, deterministic show programming and playback, observable Art-Net output, durable show storage/recovery, and the full Wails authoring and operator surface (on-screen and keyboard playback, the safety cluster, the operator-surface builder, and generic MIDI Note/CC learn with soft takeover, verified against real hardware) are implemented and tested. Phase 7 (Versioned External Control API) is in progress — a Chi+Huma `/v1` HTTP API hosted inside the existing Art-Net daemon, with scoped API-key auth, revision-checked/dry-run/idempotent mutations, and a post-mutation observer seam are done; atomic batching, the audit log, revisioned SSE, and the generated OpenAPI contract remain.
 
 ## TL;DR
 
@@ -224,8 +224,8 @@ tests/                  Acceptance tests and data-only fixtures
 | 3 | Deterministic Show Programming and Playback | Complete |
 | 4 | Observable Art-Net Live Output | Complete |
 | 5 | Durable Shows and Recovery | Complete |
-| 6 | Wails Authoring and Operator Surface | **In progress (7/8 plans)** |
-| 7 | Versioned External Control API | Not started |
+| 6 | Wails Authoring and Operator Surface | Complete |
+| 7 | Versioned External Control API | **In progress (5/9 plans)** |
 | 8 | Isolated TypeScript Automation | Not started |
 | 9 | Provider-Neutral AI and Bounded Autonomy | Not started |
 | 10 | Windows Release Qualification | Not started |
@@ -236,9 +236,10 @@ Full phase goals and success criteria live in [.planning/ROADMAP.md](.planning/R
 ## Tech stack
 
 - **Core:** Go (module `github.com/lnorton89/golc`)
-- **Desktop UI:** Wails, React, TypeScript, Zustand (in progress, Phase 6 — playback controls, safety cluster, and operator-surface builder delivered; MIDI learn UI not yet built)
+- **Desktop UI:** Wails, React, TypeScript, Zustand (delivered, Phase 6)
 - **Output protocol:** Art-Net 4 (delivered, Phase 4)
-- **Operator input:** generic MIDI Note/CC learn with soft takeover (in progress, Phase 6 — soft-takeover logic done, hardware learn UI pending)
+- **Operator input:** generic MIDI Note/CC learn with soft takeover (delivered, Phase 6 — verified against real hardware)
+- **External control:** versioned HTTP API (Chi + Huma, OpenAPI-generated) (in progress, Phase 7)
 - **Scripting:** TypeScript in an isolated, capability-limited runtime (planned, Phase 8)
 - **Fixture format:** strict YAML 1.2 subset with versioned schemas
 - **Show storage:** single-file, versioned SQLite `.golc` store with rotating recovery points and verified-backup schema migration (delivered, Phase 5)
