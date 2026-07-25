@@ -1952,7 +1952,7 @@
       "local_id": "req:API-01",
       "kind": "req",
       "parent_local_id": "phase:07",
-      "display": "An external program can query and invoke every supported public domain capability through a versioned API that uses the same application command model as the UI.",
+      "display": "An external program can query and invoke a documented, coverage-gated subset of public domain capability -- configuration and show inspection, fixture-pool creation, scoped API-key lifecycle, atomic multi-command batches, and revisioned change events -- through a versioned API that uses the same application command model as the UI, with every not-yet-exposed public route explicitly named and deferred to EXTN-05 rather than silently unmapped.",
       "source": ".planning/REQUIREMENTS.md"
     },
     {
@@ -2178,6 +2178,111 @@
       "parent_local_id": "plan:07-09",
       "display": "Task 2: Compatibility/deprecation policy + headers + final capability-coverage closure",
       "source": ".planning/phases/07-versioned-external-control-api/07-09-PLAN.md"
+    },
+    {
+      "local_id": "plan:07-10",
+      "kind": "plan",
+      "parent_local_id": "phase:07",
+      "display": "Plan 07-10",
+      "source": ".planning/phases/07-versioned-external-control-api/07-10-PLAN.md"
+    },
+    {
+      "local_id": "task:07-10.1",
+      "kind": "task",
+      "parent_local_id": "plan:07-10",
+      "display": "Task 1: Narrow API-01 in ROADMAP.md + REQUIREMENTS.md and file EXTN-05 as the named deferral owner",
+      "source": ".planning/phases/07-versioned-external-control-api/07-10-PLAN.md"
+    },
+    {
+      "local_id": "task:07-10.2",
+      "kind": "task",
+      "parent_local_id": "plan:07-10",
+      "display": "Task 2: Point coverage_test.go's future-work exclusions at EXTN-05 and assert the pointer mechanically",
+      "source": ".planning/phases/07-versioned-external-control-api/07-10-PLAN.md"
+    },
+    {
+      "local_id": "plan:07-11",
+      "kind": "plan",
+      "parent_local_id": "phase:07",
+      "display": "Plan 07-11",
+      "source": ".planning/phases/07-versioned-external-control-api/07-11-PLAN.md"
+    },
+    {
+      "local_id": "task:07-11.1",
+      "kind": "task",
+      "parent_local_id": "plan:07-11",
+      "display": "Task 1: Strictly monotonic SSE sequence id, decoupled from show revision, with batch-reconnect regression tests",
+      "source": ".planning/phases/07-versioned-external-control-api/07-11-PLAN.md"
+    },
+    {
+      "local_id": "task:07-11.2",
+      "kind": "task",
+      "parent_local_id": "plan:07-11",
+      "display": "Task 2: Regenerate the published contract and document the new event-id semantics",
+      "source": ".planning/phases/07-versioned-external-control-api/07-11-PLAN.md"
+    },
+    {
+      "local_id": "plan:07-12",
+      "kind": "plan",
+      "parent_local_id": "phase:07",
+      "display": "Plan 07-12",
+      "source": ".planning/phases/07-versioned-external-control-api/07-12-PLAN.md"
+    },
+    {
+      "local_id": "task:07-12.1",
+      "kind": "task",
+      "parent_local_id": "plan:07-12",
+      "display": "Task 1: Fire the audit observer on every batch pre-flight rejection and on mutate's scope-lookup error",
+      "source": ".planning/phases/07-versioned-external-control-api/07-12-PLAN.md"
+    },
+    {
+      "local_id": "task:07-12.2",
+      "kind": "task",
+      "parent_local_id": "plan:07-12",
+      "display": "Task 2: Pin batch audit coverage, ordering, the empty-batch semantic, and single-versus-batch parity",
+      "source": ".planning/phases/07-versioned-external-control-api/07-12-PLAN.md"
+    },
+    {
+      "local_id": "plan:07-13",
+      "kind": "plan",
+      "parent_local_id": "phase:07",
+      "display": "Plan 07-13",
+      "source": ".planning/phases/07-versioned-external-control-api/07-13-PLAN.md"
+    },
+    {
+      "local_id": "task:07-13.1",
+      "kind": "task",
+      "parent_local_id": "plan:07-13",
+      "display": "Task 1: Key the idempotency store by (actor, route, key) instead of the raw client string",
+      "source": ".planning/phases/07-versioned-external-control-api/07-13-PLAN.md"
+    },
+    {
+      "local_id": "task:07-13.2",
+      "kind": "task",
+      "parent_local_id": "plan:07-13",
+      "display": "Task 2: Reject reserved-delimiter characters in list-valued fields at the HTTP boundary, then regenerate the contract",
+      "source": ".planning/phases/07-versioned-external-control-api/07-13-PLAN.md"
+    },
+    {
+      "local_id": "plan:07-14",
+      "kind": "plan",
+      "parent_local_id": "phase:07",
+      "display": "Plan 07-14",
+      "source": ".planning/phases/07-versioned-external-control-api/07-14-PLAN.md"
+    },
+    {
+      "local_id": "task:07-14.1",
+      "kind": "task",
+      "parent_local_id": "plan:07-14",
+      "display": "Task 1: Install DeprecationMiddleware in buildRouter and prove the header signals end to end",
+      "source": ".planning/phases/07-versioned-external-control-api/07-14-PLAN.md"
+    },
+    {
+      "local_id": "task:07-14.2",
+      "kind": "task",
+      "parent_local_id": "plan:07-14",
+      "display": "Task 2: Bound API-key lifetime, validate the scopes list, and republish the contract",
+      "source": ".planning/phases/07-versioned-external-control-api/07-14-PLAN.md"
     },
     {
       "local_id": "phase:11",
@@ -4682,6 +4787,126 @@
     },
     {
       "repo_id": "task:07-09.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:07-10",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-10.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-10.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:07-11",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-11.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-11.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:07-12",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-12.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-12.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:07-13",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-13.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-13.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:07-14",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-14.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:07-14.2",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,
