@@ -30,6 +30,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -40,6 +41,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/lnorton89/golc/internal/api"
 	"github.com/lnorton89/golc/internal/artnet"
 	artnetipc "github.com/lnorton89/golc/internal/artnet/ipc"
 	"github.com/lnorton89/golc/internal/deployment"
@@ -1005,5 +1007,114 @@ func TestArtnetSafetyMasterSetOutOfRangeReturnsDomainError(t *testing.T) {
 	}
 	if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_SAFETY_MASTER_INVALID") {
 		t.Fatalf("expected GOLC_ARTNET_SAFETY_MASTER_INVALID, got: %s", result.Stderr)
+	}
+}
+
+// --- 07-02-PLAN.md Task 2: api.Server hosted as a daemon Subsystem -------
+
+const apiSubsystemTestRootIndex = `schema_version = 2
+
+[[concerns]]
+id = "runtime"
+path = "config/runtime.toml"
+`
+
+const apiSubsystemTestRuntimeConcern = `schema_version = 2
+
+[runtime]
+log_level = "info"
+`
+
+// newAPISubsystemTestRepository builds a minimal, self-contained
+// repository root (mirrors internal/projectconfig's own load_test.go
+// fixture) so this test never depends on this checkout's own
+// golc.project.toml staying unchanged.
+func newAPISubsystemTestRepository(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	writeAPISubsystemTestFile(t, root, "golc.project.toml", apiSubsystemTestRootIndex)
+	writeAPISubsystemTestFile(t, root, "config/runtime.toml", apiSubsystemTestRuntimeConcern)
+	return root
+}
+
+func writeAPISubsystemTestFile(t *testing.T, root, relative, content string) {
+	t.Helper()
+	target := filepath.Join(root, filepath.FromSlash(relative))
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("MkdirAll(%q): %v", relative, err)
+	}
+	if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
+		t.Fatalf("WriteFile(%q): %v", relative, err)
+	}
+}
+
+// TestArtnetRunHostsAPIServerSubsystemAndServesLoopbackHTTP proves
+// 07-02-PLAN.md Task 2 end-to-end: artnet.Run, given an api.Server as one
+// of its Subsystems, serves a real HTTP GET over loopback for the
+// server's entire lifetime, and cancelling ctx cleanly drains/stops the
+// HTTP listener alongside the rest of the daemon's ordered shutdown, with
+// no goroutine/socket leak (the daemon's own 5s shutdown-wait Cleanup,
+// mirroring startTestArtnetDaemon, would fail the test on a hang).
+func TestArtnetRunHostsAPIServerSubsystemAndServesLoopbackHTTP(t *testing.T) {
+	root := newAPISubsystemTestRepository(t)
+
+	registry, err := NewDefaultCommandRegistry()
+	if err != nil {
+		t.Fatalf("NewDefaultCommandRegistry: %v", err)
+	}
+	apiServer := api.NewServer(apiCommandExecutor{registry: registry}, root, filepath.Join(root, "show.golc"))
+
+	pipeName := testArtnetPipeName(t)
+	interfaceIndex := testArtnetLoopbackInterfaceIndex(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	runDone := make(chan error, 1)
+	go func() {
+		runDone <- artnet.Run(ctx, artnet.Config{
+			State:          minimalArtnetShowState(t),
+			InterfaceIndex: interfaceIndex,
+			InterfaceName:  "loopback",
+			PipeName:       pipeName,
+			Subsystems:     []artnet.Subsystem{apiServer},
+		})
+	}()
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case <-runDone:
+		case <-time.After(5 * time.Second):
+			t.Fatal("artnet.Run did not return within 5s of ctx cancel")
+		}
+	})
+
+	// Wait for the daemon's IPC listener (proof the whole Run sequence,
+	// including the Subsystem start ahead of it, has completed) before
+	// hitting the HTTP port.
+	ipcDeadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(ipcDeadline) {
+		conn, dialErr := artnetipc.Dial(pipeName)
+		if dialErr == nil {
+			conn.Close()
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	var resp *http.Response
+	httpDeadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(httpDeadline) {
+		var getErr error
+		resp, getErr = http.Get("http://127.0.0.1:4590/v1/config/runtime")
+		if getErr == nil {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if resp == nil {
+		t.Fatal("GET http://127.0.0.1:4590/v1/config/runtime never succeeded within the deadline")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 from GET /v1/config/runtime, got %d", resp.StatusCode)
 	}
 }
