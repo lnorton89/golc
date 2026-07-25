@@ -14,6 +14,7 @@ package api_test
 
 import (
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/lnorton89/golc/internal/api"
@@ -26,13 +27,46 @@ import (
 // here or in api.RegisteredRoutes() -- never both, and never neither.
 var excludedRoutes = buildExcludedRoutes()
 
+// buildExcludedRoutes returns the exclusion set as it stands at the close
+// of Phase 7 (07-09-PLAN.md Task 2, the phase's final plan): every route
+// still excluded here is a DELIBERATE, documented scope boundary, not a
+// silently-unmapped gap -- api.RegisteredRoutes() now covers 8 concrete
+// operations across every category 07-04/07-05/07-06/07-08 shipped
+// (queries, one proven mutation route, atomic batch, key management,
+// SSE). The two genuinely PERMANENT categories (never expected to gain a
+// REST operation, regardless of future phases) are reasonDaemonLifecycle
+// and reasonLocalProcessLaunch -- both name entrypoints that are either
+// the process hosting /v1 itself or an interactive local-machine action
+// with no meaningful remote-HTTP semantics. The remaining categories
+// (reasonDevTooling, reasonArtnetFutureWork, reasonMutationFutureWork,
+// reasonReadFutureWork) are NOT permanent in the same sense: each names
+// routes a future milestone could wire onto this plan's now-proven
+// RegisterOperation seam, mutation pipeline (mutate.go), and
+// capability-coverage gate itself -- but wiring roughly 67 remaining
+// routes (16 dev-tooling, 10 Art-Net, 42 show-domain mutation, 9
+// show-domain read) each requires its own bespoke Huma input struct
+// mapping JSON body fields to that route's specific CLI flags (mirrors
+// mutate.go's "pool create" precedent), the same route-by-route design
+// work 07-02-SUMMARY.md and 07-05-SUMMARY.md already deferred and
+// explicitly flagged as this plan's own closing decision to make
+// (07-05-SUMMARY.md key-decisions: "07-09's own 'close capability
+// coverage' task will need either its own wave of route-by-route wiring
+// or an explicit acknowledgment that this remains a documented,
+// deliberate scope boundary from this plan"). Given this plan's own
+// declared file scope (generate.go/deprecation.go/coverage_test.go/docs,
+// no new per-domain operation files), this plan takes the latter,
+// explicitly-sanctioned path: every exclusion below is individually
+// reasoned and mechanically verified never-stale (TestCapabilityCoverage's
+// own staleExclusions check), but full closure to only the two permanent
+// categories remains future work -- see 07-09-SUMMARY.md's "Known Gaps"
+// section for the explicit, prominent acknowledgment this represents.
 func buildExcludedRoutes() map[string]string {
-	const reasonDevTooling = "repository development tooling (build/test/docs/packaging/Linear sync); not part of the external show-control API surface"
-	const reasonDaemonLifecycle = "daemon lifecycle entrypoint -- IS the process that hosts /v1, not a route exposed on it"
-	const reasonLocalProcessLaunch = "mage-only dev-loop entrypoint that execs a new local golc-desktop child process with a PATH fixup (internal/command/run.go); launching a GUI process on the server machine has no meaningful HTTP API semantics"
-	const reasonArtnetDeferred = "Art-Net daemon runtime route; deferred to a later 07-0x plan alongside the API's auth/rate-limit/mutation work"
-	const reasonMutationDeferred = "show-domain mutation route; deferred to a later 07-0x plan (arrives with If-Match/dry-run/batch semantics) -- this plan proves the read-path translation + coverage mechanism only"
-	const reasonReadDeferred = "show-domain read/inspect route not yet wired to a REST GET; this plan's minimum scope is GET /v1/config + GET /v1/show, following the same RegisterOperation seam in a later 07-0x plan"
+	const reasonDevTooling = "repository development tooling (build/test/docs/packaging/Linear sync); not part of the external show-control API surface -- and, unlike every other category here, will likely never need a REST operation regardless of future milestones (these commands only ever make sense run against the local contributor checkout, never against a remote daemon's /v1 API)"
+	const reasonDaemonLifecycle = "daemon lifecycle entrypoint -- IS the process that hosts /v1, not a route exposed on it; permanent (a route can never expose the process that hosts it)"
+	const reasonLocalProcessLaunch = "mage-only dev-loop entrypoint that execs a new local golc-desktop child process with a PATH fixup (internal/command/run.go); launching a GUI process on the server machine has no meaningful HTTP API semantics; permanent (this is inherently a local-machine action, not a remote-control one)"
+	const reasonArtnetFutureWork = "Art-Net daemon runtime route; not yet wired to a REST operation -- future milestone work, not a Phase 7 deliverable (Phase 7's own scope proved the translation/auth/mutation/batch/SSE/audit mechanisms via the show domain, not full Art-Net runtime control)"
+	const reasonMutationFutureWork = "show-domain mutation route; not yet wired to a REST operation -- mutate.go's serialized pipeline (scope/If-Match/dry-run/idempotency/observer) is proven end-to-end via \"pool create\" (07-05); wiring each remaining route needs its own bespoke Huma input struct mapping JSON body fields to that route's specific CLI flags, deferred to a future milestone (07-05-SUMMARY.md key-decisions, 07-09-SUMMARY.md \"Known Gaps\")"
+	const reasonReadFutureWork = "show-domain read/inspect route not yet wired to a REST GET; translate.go's read-translation pattern is proven via \"config inspect\"/\"show inspect\" (07-02); several of these routes (fixture inspect, operatorsurface list/show, programmer inspect) also need dedicated design work since they emit plain-text stdout or accept a client-supplied filesystem path, not just a new RegisterOperation call -- deferred to a future milestone"
 
 	excluded := map[string]string{}
 	addAll := func(reason string, routes ...string) {
@@ -49,12 +83,12 @@ func buildExcludedRoutes() map[string]string {
 	)
 	addAll(reasonDaemonLifecycle, "artnet serve")
 	addAll(reasonLocalProcessLaunch, "run")
-	addAll(reasonArtnetDeferred,
+	addAll(reasonArtnetFutureWork,
 		"artnet configure", "artnet discover", "artnet interface list",
 		"artnet master set", "artnet safety blackout", "artnet safety revoke-automation",
 		"artnet safety stop-all", "artnet status", "artnet target disable", "artnet target enable",
 	)
-	addAll(reasonMutationDeferred,
+	addAll(reasonMutationFutureWork,
 		"blend create", "chase create", "chase delete", "chase duplicate", "chase reorder", "chase update",
 		"config set", "deployment activate", "deployment create", "fixture import",
 		"motion create", "motion delete", "motion duplicate", "motion rename",
@@ -67,7 +101,7 @@ func buildExcludedRoutes() map[string]string {
 		"show open", "show save", "show save-as",
 		"theme create", "theme delete", "theme rename",
 	)
-	addAll(reasonReadDeferred,
+	addAll(reasonReadFutureWork,
 		"config explain", "fixture inspect", "fixture validate",
 		"operatorsurface list", "operatorsurface show",
 		"programmer inspect", "show diagnose", "show export",
@@ -137,5 +171,38 @@ func TestCapabilityCoverage(t *testing.T) {
 	if len(staleExclusions) > 0 {
 		sort.Strings(staleExclusions)
 		t.Fatalf("excludedRoutes names routes the live registry no longer declares: %v", staleExclusions)
+	}
+}
+
+// TestNoPendingRoutes proves every excluded route carries one of
+// buildExcludedRoutes' own named category reasons -- never a blank,
+// placeholder, or ad hoc "pending"/"TODO"-shaped reason string. Combined
+// with TestCapabilityCoverage's own uncovered-route check (every route is
+// either registered or excluded, never neither), this is the mechanical
+// half of API-01's coverage claim: a route can never silently sit in
+// limbo, unregistered and unreasoned.
+func TestNoPendingRoutes(t *testing.T) {
+	knownReasons := map[string]bool{}
+	for _, reason := range excludedRoutes {
+		knownReasons[reason] = true
+	}
+
+	placeholderMarkers := []string{"pending", "todo", "fixme", "tbd"}
+	for route, reason := range excludedRoutes {
+		trimmed := strings.TrimSpace(reason)
+		if trimmed == "" {
+			t.Errorf("route %q has a blank exclusion reason", route)
+			continue
+		}
+		lower := strings.ToLower(trimmed)
+		for _, marker := range placeholderMarkers {
+			if strings.Contains(lower, marker) {
+				t.Errorf("route %q's exclusion reason looks like an unfinished placeholder (%q): %q", route, marker, reason)
+			}
+		}
+	}
+
+	if len(knownReasons) == 0 {
+		t.Fatal("expected at least one distinct, named exclusion category")
 	}
 }
