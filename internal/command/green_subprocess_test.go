@@ -108,11 +108,21 @@ func TestScopeGreenSubprocess(t *testing.T) {
 
 // runGolcProjectSubprocess runs binary as a real OS process rooted at
 // workDir and returns its captured, trimmed stdout, failing the test on a
-// non-zero exit.
+// non-zero exit. GOLC_PROJECT_ROOT is set explicitly to the exact workDir
+// string rather than relying on the subprocess's own os.Getwd() fallback:
+// on Windows, a child process's cwd can resolve to the 8.3 short-name
+// alias of a path component (RUNNER~1 for runneradmin) even when it was
+// launched with cmd.Dir set to the long form, which would otherwise make
+// the file the subprocess writes and the path this test later os.Stats
+// disagree on identity (observed live in cross-platform-mage.yml run
+// 30137395628 on windows-latest: "config set --local did not write
+// ...RUNNER~1...\golc.local.toml" even though the subprocess had just
+// written it, under the long-form path, one directory over).
 func runGolcProjectSubprocess(t *testing.T, binary, workDir string, args ...string) []byte {
 	t.Helper()
 	cmd := exec.Command(binary, args...)
 	cmd.Dir = workDir
+	cmd.Env = append(os.Environ(), "GOLC_PROJECT_ROOT="+workDir)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

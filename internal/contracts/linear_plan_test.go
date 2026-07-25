@@ -341,14 +341,30 @@ func testLinearApplyRejectsIllegalTransition(t *testing.T) {
 }
 
 func testLinearApplyFailsWithoutFactory(t *testing.T) {
+	// Isolate from the ambient process environment: runLinearApply's PR
+	// guard (apply.GuardAgainstPullRequestMutation) reads the real
+	// os.LookupEnv and runs before applyRemoteClientFactory is ever
+	// called, and GitHub Actions sets GITHUB_EVENT_NAME=pull_request for
+	// every pull_request-triggered run -- exactly how this project's PR
+	// gate (.github/workflows/check.yml) invokes `go test ./...`. Without
+	// this, the test passes locally (unset, so execution reaches the real
+	// applyRemoteClientFactory=newProcessRemoteClient and fails there for
+	// any of several reasons, all wrapped as
+	// GOLC_LINEAR_TRANSPORT_UNAVAILABLE) but deterministically fails in a
+	// real pull-request CI run with GOLC_APPLY_PR_BLOCKED instead
+	// (observed live: check.yml run 30137427833, the workflow's first
+	// ever real pull_request-triggered execution).
+	t.Setenv("GITHUB_EVENT_NAME", "")
+
 	plan := buildValidPlan(t)
 	root := t.TempDir()
 	planFile := writePlanFile(t, plan)
 
-	// This test binary never wires a RemoteClientFactory (no concrete
-	// process transport exists yet, per this plan's explicit scope): the
-	// route must fail closed before any credential, subprocess, or
-	// mutation access is ever attempted.
+	// This test never wires a fake RemoteClientFactory override: the real
+	// production default (applyRemoteClientFactory = newProcessRemoteClient)
+	// fails closed against this bare fixture root (no .planning/linear-map.json,
+	// no LINEAR_API_KEY, no compiled adapter), proving the route never
+	// reaches any credential, subprocess, or mutation access first.
 	result := executeLinearApply(t, root, planFile, plan.PlanID)
 	if result.ExitCode == 0 {
 		t.Fatal("expected apply to fail without a wired RemoteClientFactory")
