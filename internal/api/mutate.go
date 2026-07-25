@@ -181,7 +181,13 @@ func mutate(ctx context.Context, server *Server, req mutateRequest) (mutationRes
 	}
 
 	if req.IdempotencyKey != "" {
-		if cached, found := server.idempotency.lookup(req.IdempotencyKey); found {
+		// Looked up (and, on success below, stored) as the composite
+		// (actor, route, key) triple, both while mutationMutex is held --
+		// this is what makes idempotency exactly-once under concurrent
+		// arrival of the same triple, and what stops one actor's stored
+		// response from ever leaking to a different actor or route that
+		// merely reused the same client-chosen key string (WR-01).
+		if cached, found := server.idempotency.lookup(req.Actor, req.Route, req.IdempotencyKey); found {
 			fireMutationObservers(MutationEvent{
 				Route: req.Route, Args: req.Args, Actor: req.Actor, Source: "http",
 				CorrelationID: req.CorrelationID, ResultingRevision: cached.Revision,
@@ -227,7 +233,7 @@ func mutate(ctx context.Context, server *Server, req mutateRequest) (mutationRes
 	}
 	result := mutationResult{Result: strings.TrimSpace(string(body)), Revision: resultingRevision}
 	if req.IdempotencyKey != "" {
-		server.idempotency.store(req.IdempotencyKey, result)
+		server.idempotency.store(req.Actor, req.Route, req.IdempotencyKey, result)
 	}
 	return result, nil
 }
