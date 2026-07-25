@@ -80,7 +80,21 @@ describe("useGlobalKeyboardWorkflow", () => {
     );
 
     await waitFor(() => expect(screen.getByTestId("scene-count")).toHaveTextContent("2"));
-    fireEvent.keyDown(window, { key: "2" });
-    await waitFor(() => expect(switchScene).toHaveBeenCalledWith("Beta"));
+
+    // The "scene-count" text and useKeyboardWorkflow's own keydown listener
+    // are two separate effects of the same setState (one a DOM commit, the
+    // other a passive effect re-running to close over the fresh
+    // sceneNames), so the listener is not guaranteed to have been rebuilt
+    // the instant "scene-count" reads "2" -- under load (the full suite
+    // running many files concurrently) a single fireEvent.keyDown could
+    // race a still-stale (sceneNames=[]) listener and be silently dropped.
+    // Firing the keydown inside waitFor's own retry loop removes the race
+    // entirely: it keeps re-dispatching until the (by-then-current)
+    // listener actually captures it, rather than gambling on one fixed
+    // moment in time.
+    await waitFor(() => {
+      fireEvent.keyDown(window, { key: "2" });
+      expect(switchScene).toHaveBeenCalledWith("Beta");
+    });
   });
 });
