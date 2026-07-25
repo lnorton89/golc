@@ -31,6 +31,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -524,5 +525,179 @@ func TestSSERevocationTick(t *testing.T) {
 
 	if _, err := client.nextWithTimeout(t, 2*time.Second); err == nil {
 		t.Fatalf("expected the connection to close (a read error) within one revocation-tick interval after revocation, got a frame instead")
+	}
+}
+
+// --- TestSSEBatchMultiSubRequestReconnectDeliversRemainingEvents -------------
+
+// TestSSEBatchMultiSubRequestReconnectDeliversRemainingEvents reproduces
+// 07-REVIEW.md CR-01 / 07-VERIFICATION.md's live gap: a 3-sub-request
+// /v1/batch commits exactly ONE show revision (D-15) but fires THREE
+// separately-addressable domain events, one per sub-request. A client
+// that sees only the first of those three, disconnects, and reconnects
+// presenting that frame's own id must receive the remaining two -- never
+// "already caught up" -- proving the SSE id/replay key is a per-process
+// sequence, not show.State.Revision (which all three events legitimately
+// share).
+func TestSSEBatchMultiSubRequestReconnectDeliversRemainingEvents(t *testing.T) {
+	server, root, showPath := newEventsTestServer(t)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+
+	ts := httptest.NewServer(server.Handler())
+	t.Cleanup(ts.Close)
+	client := openEventStream(t, ts, token, "")
+	if client.resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 opening the stream, got %d", client.resp.StatusCode)
+	}
+
+	rec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{
+		poolCreateBatchSubRequest("Alpha"),
+		poolCreateBatchSubRequest("Bravo"),
+		poolCreateBatchSubRequest("Charlie"),
+	})
+	if rec.Code < 200 || rec.Code >= 300 {
+		t.Fatalf("expected the batch to succeed, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+
+	first, err := client.next()
+	if err != nil {
+		t.Fatalf("reading first live frame: %v", err)
+	}
+	if first.Event != "state" {
+		t.Fatalf("expected the first live frame to be event=state, got %q", first.Event)
+	}
+	_, firstRoute, firstRevision := decodeDomainPayload(t, first)
+	if firstRoute != "pool create" {
+		t.Fatalf("expected the first frame's route to be \"pool create\", got %q", firstRoute)
+	}
+	client.close()
+
+	reconnected := openEventStream(t, ts, token, first.ID)
+	if reconnected.resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 reconnecting, got %d", reconnected.resp.StatusCode)
+	}
+
+	var ids []int
+	var revisions []int64
+	for i := 0; i < 2; i++ {
+		frame, err := reconnected.nextWithTimeout(t, 2*time.Second)
+		if err != nil {
+			t.Fatalf("reading remaining frame %d after reconnect: %v", i, err)
+		}
+		if frame.Event != "state" {
+			t.Fatalf("expected remaining frame %d to be event=state, got %q", i, frame.Event)
+		}
+		_, route, revision := decodeDomainPayload(t, frame)
+		if route != "pool create" {
+			t.Fatalf("expected remaining frame %d's route to be \"pool create\", got %q", i, route)
+		}
+		id, err := strconv.Atoi(frame.ID)
+		if err != nil {
+			t.Fatalf("remaining frame %d's id %q did not parse as an integer: %v", i, frame.ID, err)
+		}
+		ids = append(ids, id)
+		revisions = append(revisions, revision)
+	}
+
+	firstID, err := strconv.Atoi(first.ID)
+	if err != nil {
+		t.Fatalf("first frame's id %q did not parse as an integer: %v", first.ID, err)
+	}
+	if ids[0] == firstID || ids[1] == firstID || ids[0] == ids[1] {
+		t.Fatalf("expected three distinct ids (first=%d, remaining=%v), got a duplicate", firstID, ids)
+	}
+	if ids[0] >= ids[1] {
+		t.Fatalf("expected the remaining ids in strictly ascending order, got %v", ids)
+	}
+	for i, revision := range revisions {
+		if revision != firstRevision {
+			t.Fatalf("expected remaining frame %d's revision (%d) to equal the first frame's revision (%d) -- the batch commits exactly one revision", i, revision, firstRevision)
+		}
+	}
+}
+
+// --- TestSSEEventIDsStrictlyMonotonicAcrossBatchAndSingleMutation ------------
+
+// TestSSEEventIDsStrictlyMonotonicAcrossBatchAndSingleMutation proves ids
+// are strictly monotonic across mixed traffic -- a 2-sub-request batch
+// followed by a single pool create yields ids 1, 2, 3 -- while the
+// payload's domain `revision` field distinguishes the batch's single
+// committed revision (1, 1) from the subsequent mutation's (2), proving
+// the id sequence and the domain revision are now independently tracked.
+func TestSSEEventIDsStrictlyMonotonicAcrossBatchAndSingleMutation(t *testing.T) {
+	server, root, showPath := newEventsTestServer(t)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+
+	ts := httptest.NewServer(server.Handler())
+	t.Cleanup(ts.Close)
+	client := openEventStream(t, ts, token, "")
+	if client.resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 opening the stream, got %d", client.resp.StatusCode)
+	}
+
+	rec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{
+		poolCreateBatchSubRequest("Alpha"),
+		poolCreateBatchSubRequest("Bravo"),
+	})
+	if rec.Code < 200 || rec.Code >= 300 {
+		t.Fatalf("expected the batch to succeed, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+	single := doCreatePoolRequest(t, server.Handler(), token, "", "Charlie")
+	if single.Code < 200 || single.Code >= 300 {
+		t.Fatalf("expected the single create to succeed, got %d (body: %s)", single.Code, single.Body.String())
+	}
+
+	wantIDs := []string{"1", "2", "3"}
+	wantRevisions := []int64{1, 1, 2}
+	for i, wantID := range wantIDs {
+		frame, err := client.next()
+		if err != nil {
+			t.Fatalf("reading frame %d: %v", i, err)
+		}
+		if frame.Event != "state" || frame.ID != wantID {
+			t.Fatalf("expected frame %d to be event=state id=%s, got event=%q id=%q", i, wantID, frame.Event, frame.ID)
+		}
+		_, _, revision := decodeDomainPayload(t, frame)
+		if revision != wantRevisions[i] {
+			t.Fatalf("expected frame %d's revision to be %d, got %d", i, wantRevisions[i], revision)
+		}
+	}
+}
+
+// --- TestSSEFutureLastEventIDResyncs -----------------------------------------
+
+// TestSSEFutureLastEventIDResyncs proves a client reconnecting with a
+// Last-Event-ID greater than any id this process has ever issued (the
+// daemon-restart case, now reachable because the sequence is per-process
+// rather than persisted with the show) receives an explicit resync, not
+// silence (D-10).
+func TestSSEFutureLastEventIDResyncs(t *testing.T) {
+	server, root, showPath := newEventsTestServer(t)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+
+	rec := doCreatePoolRequest(t, server.Handler(), token, "", "Alpha")
+	if rec.Code < 200 || rec.Code >= 300 {
+		t.Fatalf("expected the create to succeed, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+
+	ts := httptest.NewServer(server.Handler())
+	t.Cleanup(ts.Close)
+	client := openEventStream(t, ts, token, "9999")
+
+	frame, err := client.nextWithTimeout(t, 2*time.Second)
+	if err != nil {
+		t.Fatalf("reading resync frame: %v", err)
+	}
+	if frame.Event != "resync" {
+		t.Fatalf("expected a resync event for a Last-Event-ID greater than any issued id, got event=%q data=%q", frame.Event, frame.Data)
+	}
+	var decoded struct {
+		Reason string `json:"reason"`
+	}
+	if err := json.Unmarshal([]byte(frame.Data), &decoded); err != nil {
+		t.Fatalf("decode resync payload %q: %v", frame.Data, err)
+	}
+	if decoded.Reason == "" {
+		t.Fatalf("expected the resync event to carry a non-empty reason")
 	}
 }

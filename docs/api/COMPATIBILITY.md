@@ -201,11 +201,24 @@ curl -N http://127.0.0.1:4590/v1/events \
   -H "Accept: text/event-stream"
 ```
 
+Each `state` event's `id:` line is a server-issued, strictly monotonic,
+**per-process event sequence** -- it is NOT the committed show revision.
+The committed revision that produced the change travels separately, in
+the event payload's `revision` field, and is what you re-fetch
+authoritative state against (`GET /v1/show` or the relevant resource
+endpoint). A single atomic `POST /v1/batch` commits exactly one revision
+(all-or-nothing), but emits one separately-addressable event per
+sub-request -- so several consecutive events can legitimately share one
+`revision` while carrying distinct, individually-replayable ids.
+
 Reconnecting after a drop: send the last received event's id back as
-`Last-Event-ID` to replay everything since, or receive a synthetic
-`event: resync` message if that id has already scrolled out of the
-server's replay buffer (in which case, re-fetch authoritative state via
-`GET /v1/show` before resuming):
+`Last-Event-ID` to replay exactly the events you missed, in order. If that
+id has already scrolled out of the server's bounded replay buffer, or was
+never issued by the currently-running server process at all (the sequence
+restarts on every daemon restart, unlike the show revision, which
+persists with the show), you instead receive a synthetic `event: resync`
+message -- in either case, re-fetch authoritative state via `GET
+/v1/show` before treating the stream as caught up and resuming:
 
 ```bash
 curl -N http://127.0.0.1:4590/v1/events \
@@ -213,6 +226,9 @@ curl -N http://127.0.0.1:4590/v1/events \
   -H "Accept: text/event-stream" \
   -H "Last-Event-ID: 137"
 ```
+
+Here, `137` is the value of the last `id:` line your client received --
+an event sequence number, not a show revision.
 
 ## Generating a client from the published contract
 
