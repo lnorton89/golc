@@ -252,11 +252,11 @@
             "type": "string"
           },
           "expires_in": {
-            "description": "Go duration string the key remains valid for, e.g. \"720h\".",
+            "description": "Go duration string the key remains valid for, e.g. \"720h\". Maximum accepted duration is 8760h (365 days).",
             "type": "string"
           },
           "scopes": {
-            "description": "Coarse domain scopes: playback, authoring, admin.",
+            "description": "Coarse domain scopes: playback, authoring, admin. A scope value must not contain a comma (it is forwarded as a comma-delimited list).",
             "items": {
               "type": "string"
             },
