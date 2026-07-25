@@ -229,7 +229,21 @@ func runBuild(request Request) Result {
 	// this fix, even though every package genuinely compiled (observed
 	// live: `mage Build` on a clean checkout, then no golc-desktop.exe
 	// anywhere to actually run).
-	buildArgs := append([]string{"build", "-o", request.Root + string(filepath.Separator)}, packages...)
+	//
+	// -tags desktop,production is required by cmd/golc-desktop's Wails
+	// build (its own conditionally-compiled frontend-embed/webview files
+	// are gated behind these tags; without them the linked binary panics
+	// at runtime with "GOLC_WAILS_RUN_FAILED: Wails applications will not
+	// build without the correct build tags" -- this was already known and
+	// manually worked around in every Phase 6 verification step
+	// (06-04-SUMMARY.md et al.: "the correct invocation requires -tags
+	// desktop,production"), but never wired into this shared route until
+	// now, so mage Build/mage PackageFoundation always silently produced a
+	// broken golc-desktop[.exe]. Harmless for every other package in this
+	// invocation (cmd/golc-project, tools/golc-mcp): neither defines any
+	// //go:build constraint on "desktop" or "production", so the extra
+	// tags are simply ignored for them.
+	buildArgs := append([]string{"build", "-tags", "desktop,production", "-o", request.Root + string(filepath.Separator)}, packages...)
 	stdout, stderr, err := runProjectGo(goExecutable, request.Root, buildArgs)
 	output.Write(stdout)
 	if err != nil {
