@@ -180,19 +180,48 @@ func runBatch(ctx context.Context, server *Server, ifMatch string, requests []ba
 	// a translation or scope failure here has touched nothing durable, so
 	// there is nothing to roll back (Rule 2 -- D-08 must apply to a
 	// batch's sub-requests exactly as it applies to the equivalent single
-	// mutation, otherwise a batch would be a scope-bypass vector).
+	// mutation, otherwise a batch would be a scope-bypass vector). Each of
+	// this loop's three early returns fires a failure MutationEvent before
+	// returning, mirroring mutate.go's own scope-failure branch, so a
+	// rejected batch sub-request leaves the same audit evidence the
+	// equivalent rejected single mutation already does (API-06,
+	// 07-REVIEW.md WR-02) -- these observers deliberately fire before
+	// mutationMutex is ever acquired (nothing durable was ever at risk on
+	// any of these three paths, since no copy of the real show has been
+	// taken yet), so a rejected batch's audit row carries no ordering
+	// guarantee relative to concurrently-committing mutations' rows, only
+	// the guarantee that the row exists.
 	routes := make([]string, len(requests))
 	args := make([][]string, len(requests))
 	for i, req := range requests {
 		route, reqArgs, translateErr := translateBatchSubRequest(req)
 		if translateErr != nil {
+			// No command route was ever resolved, so the audit row records
+			// the client's own claimed target (method + resource) instead --
+			// the only routing identity available. Recording it verbatim,
+			// rather than dropping the row or inventing a synthetic route
+			// name, keeps an unsupported-endpoint probe auditable; a reader
+			// can distinguish this from a real command route because real
+			// routes never contain a slash.
+			fireMutationObservers(MutationEvent{
+				Route: req.Method + " " + req.Resource, Actor: actor, Source: "http",
+				CorrelationID: correlationID, Outcome: "failure", StatusCode: statusFromHumaErr(translateErr),
+			})
 			return nil, batchSubRequestError(i, 0, translateErr)
 		}
 		requiredScope, scopeLookupErr := requiredScopeForRoute(route)
 		if scopeLookupErr != nil {
+			fireMutationObservers(MutationEvent{
+				Route: route, Args: reqArgs, Actor: actor, Source: "http",
+				CorrelationID: correlationID, Outcome: "failure", StatusCode: http.StatusInternalServerError,
+			})
 			return nil, batchSubRequestError(i, 0, huma.Error500InternalServerError(scopeLookupErr.Error()))
 		}
 		if scopeErr := RequireScope(ctx, requiredScope); scopeErr != nil {
+			fireMutationObservers(MutationEvent{
+				Route: route, Args: reqArgs, Actor: actor, Source: "http",
+				CorrelationID: correlationID, Outcome: "failure", StatusCode: statusFromHumaErr(scopeErr),
+			})
 			return nil, batchSubRequestError(i, 0, scopeErr)
 		}
 		routes[i] = route
