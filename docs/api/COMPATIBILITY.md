@@ -117,6 +117,14 @@ responses, declared in the published OpenAPI document
 | `429 Too Many Requests` | The authenticated key exceeded its per-key rate limit. | `ratelimit.go`'s `RateLimitMiddleware`, installed ahead of every `/v1` operation |
 | `5xx` (domain error) | A routed command handler failed for a domain-specific reason; the response carries that handler's own diagnostic message verbatim. | `translate.go`'s `translateResult` (any non-0/non-2 exit code) |
 
+In addition to the operation-agnostic codes above, `POST /v1/keys` can
+return two more specific `400 Bad Request` diagnostics:
+
+| Diagnostic | Meaning | Produced by |
+|---|---|---|
+| `GOLC_API_LIST_VALUE_INVALID` | A `scopes` element contained a comma; the comma is the reserved delimiter used to forward the list downstream and cannot appear inside a single element. | `mutate.go`'s `validateListValues`, shared across every comma-joined list field this API forwards |
+| `GOLC_API_KEY_LIFETIME_TOO_LONG` | The requested `expires_in` parsed successfully but exceeded the maximum accepted duration (`keys.go`'s `maxAPIKeyLifetime`, 8760h / 365 days, `[ASSUMED]` and UAT-tunable). An unparseable `expires_in` is not rejected here -- it is forwarded unchanged to the existing downstream duration diagnostic instead. | `keys.go`'s `registerMintAPIKey` |
+
 Every typed error response body follows Huma's standard RFC 9457
 `application/problem+json` shape (`title`, `status`, `detail`), so a
 generic HTTP-problem-aware client library can parse any `/v1` error
@@ -192,6 +200,15 @@ curl -s -X POST http://127.0.0.1:4590/v1/keys \
 The response's raw token is returned exactly once, in this mint response
 -- it is never retrievable again (`GET /v1/keys` only ever returns
 metadata).
+
+`expires_in` accepts any Go duration string up to a maximum of `8760h`
+(365 days, `[ASSUMED]` and UAT-tunable); a request beyond that ceiling
+returns `400 GOLC_API_KEY_LIFETIME_TOO_LONG` naming both the requested and
+the maximum duration, and mints nothing -- a credential's expiry is a
+safety control, and a caller can no longer mint an effectively immortal
+key by accident. Each `scopes` element must not itself contain a comma
+(it is forwarded downstream as a comma-delimited list); an element that
+does returns `400 GOLC_API_LIST_VALUE_INVALID` and mints nothing.
 
 ### Opening the event stream (SSE)
 
