@@ -13,8 +13,32 @@ GOLC combines a fast, modular show-authoring workflow with TypeScript scripting,
 
 > **Status: early development, pre-alpha.** GOLC is being built in dependency-ordered phases; see [Roadmap](#roadmap). Phases 1–5 are complete: offline configuration and delivery traceability, modular fixtures and deployments, deterministic show programming and playback, observable Art-Net output, and durable show storage/recovery are implemented and tested. Phase 6 (Wails Authoring and Operator Surface) is in progress at 7/8 plans — the show-state/playback loader, Art-Net daemon supervision, MIDI soft-takeover logic, the Wails desktop shell with OS-level safety hotkeys, the safety cluster and live status bar, on-screen playback controls with a documented keyboard workflow, and the operator-surface builder are done; only the MIDI per-control learn UI and soft-takeover sliders remain, so GOLC is not yet usable end-to-end with physical MIDI hardware.
 
+## TL;DR
+
+No installer exists yet (pre-alpha) — this builds and runs GOLC from source. Requires [Go](https://go.dev/dl/) already installed.
+
+```bash
+# 1. Install Mage once (needs GOPATH/bin, usually ~/go/bin, on your PATH)
+go install github.com/magefile/mage@v1.17.2
+
+# 2. Provision everything else and build the CLI + desktop app
+mage Bootstrap
+mage Build
+
+# 3. Run it
+./golc-desktop        # macOS/Linux
+```
+```powershell
+.\golc-desktop.exe    # Windows (PowerShell)
+```
+
+If `mage`/`golc-desktop` "isn't recognized" after step 1 or 3, your shell's PATH doesn't include Go's bin directory yet — open a **new** terminal (PATH changes don't apply retroactively), or check `go env GOPATH` and add `<that path>\bin` to PATH yourself.
+
+That's the whole app. For the CLI's config/test/docs commands, the full command surface, and every Mage target, see [Getting started](#getting-started-contributors) and [Running GOLC](#running-golc) below.
+
 ## Contents
 
+- [TL;DR](#tldr)
 - [Why GOLC](#why-golc)
 - [Planned capabilities (v1)](#planned-capabilities-v1)
 - [Architecture principles](#architecture-principles)
