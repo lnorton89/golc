@@ -32,6 +32,36 @@ import (
 	"github.com/lnorton89/golc/internal/show"
 )
 
+// newAuditedBatchServer builds a fresh *api.Server against its own
+// t.TempDir() root (NewServer's own doc comment: registers that root's
+// audit observer at construction time), so show.QueryAuditLog(root,
+// showPath) below sees exactly the rows this test's own traffic
+// produced -- no other test's accumulated observer writes to this root.
+func newAuditedBatchServer(t *testing.T) (server *api.Server, root, showPath string) {
+	t.Helper()
+	root = t.TempDir()
+	showPath = filepath.Join(root, "show.golc")
+	catalog, err := routecatalog.New()
+	if err != nil {
+		t.Fatalf("routecatalog.New: %v", err)
+	}
+	return api.NewServer(catalog, root, showPath), root, showPath
+}
+
+// requireAuditRowCount fails t unless show.QueryAuditLog(root, showPath)
+// returns exactly want rows, returning them for further assertions.
+func requireAuditRowCount(t *testing.T, root, showPath string, want int) []show.AuditRecord {
+	t.Helper()
+	records, err := show.QueryAuditLog(root, showPath)
+	if err != nil {
+		t.Fatalf("QueryAuditLog: %v", err)
+	}
+	if len(records) != want {
+		t.Fatalf("expected exactly %d audit_log row(s), got %d: %+v", want, len(records), records)
+	}
+	return records
+}
+
 // poolCreateBatchSubRequest builds one "pool create" batch sub-request
 // body, matching batch.go's translateBatchCreatePool's expected shape.
 func poolCreateBatchSubRequest(name string) map[string]any {
@@ -537,4 +567,196 @@ func TestBatchNoTempCopyLeftBehind(t *testing.T) {
 		t.Fatalf("expected a duplicate-name batch to fail, got %d (body: %s)", failRec.Code, failRec.Body.String())
 	}
 	assertNoTempCopyLeftBehind(t, showPath)
+}
+
+// --- TestBatchScopeRejectionIsAudited ---------------------------------
+
+// TestBatchScopeRejectionIsAudited proves a batch sub-request rejected for
+// a missing domain scope produces exactly one audit_log row (actor, source
+// "http", correlation id, route, outcome "failure", status 403, null
+// resulting_revision) -- identical in kind to the row the equivalent
+// single POST /v1/pools rejection already writes (API-06, D-08, D-16;
+// 07-REVIEW.md WR-02, 07-VERIFICATION.md gap 3). The revision-unchanged
+// assertion from TestBatchRequiresScope's own pattern is kept alongside
+// it, so atomicity stays pinned together with auditability.
+func TestBatchScopeRejectionIsAudited(t *testing.T) {
+	server, root, showPath := newAuditedBatchServer(t)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopePlayback})
+
+	rec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{poolCreateBatchSubRequest("ShouldNotExist")})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for a batch sub-request whose route requires a scope the key lacks, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+
+	revision, err := show.CurrentRevision(root, showPath)
+	if err != nil {
+		t.Fatalf("CurrentRevision: %v", err)
+	}
+	if revision != 0 {
+		t.Fatalf("expected the real revision to remain 0 after a scope-rejected batch, got %d", revision)
+	}
+
+	records := requireAuditRowCount(t, root, showPath, 1)
+	rec0 := records[0]
+	if rec0.Outcome != "failure" {
+		t.Fatalf("expected outcome %q, got %q", "failure", rec0.Outcome)
+	}
+	if rec0.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec0.StatusCode)
+	}
+	if rec0.Source != "http" {
+		t.Fatalf("expected source %q, got %q", "http", rec0.Source)
+	}
+	if rec0.Actor == "" {
+		t.Fatalf("expected a non-empty actor")
+	}
+	if rec0.CorrelationID == "" {
+		t.Fatalf("expected a non-empty correlation id")
+	}
+	if rec0.ResultingRevision.Valid {
+		t.Fatalf("expected a null resulting_revision for a rejected sub-request, got %v", rec0.ResultingRevision)
+	}
+	if rec0.Route != "pool create" {
+		t.Fatalf("expected route %q, got %q", "pool create", rec0.Route)
+	}
+}
+
+// --- TestBatchAndSingleMutationScopeRejectionsAuditIdentically --------
+
+// TestBatchAndSingleMutationScopeRejectionsAuditIdentically proves an
+// identical scope-rejected attempt through POST /v1/pools and through
+// POST /v1/batch leaves identical evidence -- the parity assertion that
+// makes the WR-02 regression impossible to reintroduce on only one of the
+// two surfaces (API-06).
+func TestBatchAndSingleMutationScopeRejectionsAuditIdentically(t *testing.T) {
+	server, root, showPath := newAuditedBatchServer(t)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopePlayback})
+
+	singleRec := doCreatePoolRequest(t, server.Handler(), token, "", "ShouldNotExistSingle")
+	if singleRec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for the single-mutation scope rejection, got %d (body: %s)", singleRec.Code, singleRec.Body.String())
+	}
+
+	batchRec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{poolCreateBatchSubRequest("ShouldNotExistBatch")})
+	if batchRec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for the batch scope rejection, got %d (body: %s)", batchRec.Code, batchRec.Body.String())
+	}
+
+	records := requireAuditRowCount(t, root, showPath, 2)
+	for i, rec := range records {
+		if rec.Outcome != "failure" {
+			t.Fatalf("row %d: expected outcome %q, got %q", i, "failure", rec.Outcome)
+		}
+		if rec.StatusCode != http.StatusForbidden {
+			t.Fatalf("row %d: expected status %d, got %d", i, http.StatusForbidden, rec.StatusCode)
+		}
+		if rec.Route != "pool create" {
+			t.Fatalf("row %d: expected route %q, got %q", i, "pool create", rec.Route)
+		}
+	}
+}
+
+// --- TestBatchTranslationFailureIsAudited -----------------------------
+
+// TestBatchTranslationFailureIsAudited proves a batch sub-request whose
+// method+resource has no registered translator produces exactly one
+// audit_log row recording the client's own claimed target, so a probe for
+// unsupported endpoints is auditable too (API-06).
+func TestBatchTranslationFailureIsAudited(t *testing.T) {
+	server, root, showPath := newAuditedBatchServer(t)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+
+	unsupported := map[string]any{
+		"method":   "POST",
+		"resource": "/v1/widgets",
+	}
+	rec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{unsupported})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for an unsupported batch sub-request, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "GOLC_API_BATCH_SUBREQUEST_UNSUPPORTED") {
+		t.Fatalf("expected the error to name GOLC_API_BATCH_SUBREQUEST_UNSUPPORTED, got: %s", rec.Body.String())
+	}
+
+	records := requireAuditRowCount(t, root, showPath, 1)
+	rec0 := records[0]
+	if rec0.Outcome != "failure" {
+		t.Fatalf("expected outcome %q, got %q", "failure", rec0.Outcome)
+	}
+	if rec0.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rec0.StatusCode)
+	}
+	if !strings.Contains(rec0.RedactedDetails, "/v1/widgets") {
+		t.Fatalf("expected redacted_details to record the claimed target (/v1/widgets), got: %s", rec0.RedactedDetails)
+	}
+}
+
+// --- TestBatchSubRequestAuditRowsFollowClientOrder ---------------------
+
+// TestBatchSubRequestAuditRowsFollowClientOrder proves a successful
+// multi-sub-request batch's audit rows appear in the client's sub-request
+// order, distinguishable by each row's redacted_details args (API-06
+// ordering edge).
+func TestBatchSubRequestAuditRowsFollowClientOrder(t *testing.T) {
+	server, root, showPath := newAuditedBatchServer(t)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+
+	order := []string{"Zulu", "Alpha", "Mike"}
+	requests := make([]map[string]any, len(order))
+	for i, name := range order {
+		requests[i] = poolCreateBatchSubRequest(name)
+	}
+
+	rec := doBatchRequest(t, server.Handler(), token, "", requests)
+	if rec.Code < 200 || rec.Code >= 300 {
+		t.Fatalf("expected a 2xx for a fully-valid batch, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+
+	records := requireAuditRowCount(t, root, showPath, len(order))
+	var sharedRevision int64
+	for i, name := range order {
+		got := records[i]
+		if got.Outcome != "success" {
+			t.Fatalf("row %d: expected outcome %q, got %q", i, "success", got.Outcome)
+		}
+		if !got.ResultingRevision.Valid {
+			t.Fatalf("row %d: expected a non-null resulting_revision", i)
+		}
+		if i == 0 {
+			sharedRevision = got.ResultingRevision.Int64
+		} else if got.ResultingRevision.Int64 != sharedRevision {
+			t.Fatalf("row %d: expected the shared resulting_revision %d, got %d", i, sharedRevision, got.ResultingRevision.Int64)
+		}
+		if !strings.Contains(got.RedactedDetails, name) {
+			t.Fatalf("row %d: expected redacted_details to contain %q (this sub-request's own name), got: %s", i, name, got.RedactedDetails)
+		}
+		for _, other := range order {
+			if other == name {
+				continue
+			}
+			if strings.Contains(got.RedactedDetails, other) {
+				t.Fatalf("row %d: expected redacted_details NOT to contain %q (a different sub-request's name), got: %s", i, other, got.RedactedDetails)
+			}
+		}
+	}
+}
+
+// --- TestBatchEmptyWritesNoAuditRow -------------------------------------
+
+// TestBatchEmptyWritesNoAuditRow proves an empty batch is rejected 400 and
+// writes ZERO audit rows -- no sub-request was ever identified, so there
+// is no attempted mutation to record (API-06 empty edge).
+func TestBatchEmptyWritesNoAuditRow(t *testing.T) {
+	server, root, showPath := newAuditedBatchServer(t)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+
+	rec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for an empty batch, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "GOLC_API_BATCH_EMPTY") {
+		t.Fatalf("expected the error to name GOLC_API_BATCH_EMPTY, got: %s", rec.Body.String())
+	}
+
+	requireAuditRowCount(t, root, showPath, 0)
 }
