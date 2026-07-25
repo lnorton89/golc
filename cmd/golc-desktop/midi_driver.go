@@ -10,16 +10,37 @@
 // files) means `go test ./...` never triggers it; only the compiled
 // golc-desktop.exe binary is affected, and it now requires midicat.exe to
 // be present on PATH merely to START -- a real, load-bearing limitation
-// of midicatdrv's own upstream design that this plan could not route
-// around (see 06-08-SUMMARY.md Decisions Made for the full analysis and
-// a documented follow-up option). The midicat binary itself is installed
-// via `go install gitlab.com/gomidi/tools/midicat@v1.0.7` (Task 0's
-// human-approved checkpoint refinement -- go's own module-proxy checksum
-// verification, never a downloaded/pinned binary), landing on
-// `$(go env GOPATH)/bin/midicat.exe`, which midicatdrv's own
-// exec_windows.go locates via a bare `midicat.exe` PATH lookup (not an
-// absolute path or env var) -- so GOPATH/bin must be on PATH for the
-// desktop binary to find it.
+// of midicatdrv's own upstream design that this project could not route
+// around from within the same binary (see 06-08-SUMMARY.md Decisions
+// Made for the full analysis, and
+// .planning/phases/06-wails-authoring-and-operator-surface/
+// deferred-items.md for the remaining launcher-wrapper gap this doc
+// comment describes below).
+//
+// `mage Bootstrap` now provisions midicat automatically
+// (internal/bootstrap/engine.go's installGoInstallTools, pinned in
+// config/toolchain.toml's [go_install.midicat]) via
+// `go install gitlab.com/gomidi/tools/midicat@v1.0.7` using the
+// already-verified, pinned Go toolchain -- checksum-verified through
+// Go's own module proxy/sumdb, never a downloaded/pinned binary --
+// landing at .tools/cache/go-bin/midicat.exe (the same project-local
+// GOBIN cache.go's WailsBinaryPath already reserves for exactly this
+// "go install a pinned tool" pattern). Provisioning is best-effort, not
+// bootstrap-fatal, since MIDI hardware support remains optional.
+//
+// That closes the "how do I get midicat at all" gap, but not the
+// "how does golc-desktop.exe find it at process start" gap on its own:
+// midicatdrv's own exec_windows.go/exec_unix.go locate the binary via a
+// bare `midicat`/`midicat.exe` PATH lookup (not an absolute path or env
+// var), and Go application code cannot modify its own process's PATH
+// before a transitively-imported package's init() runs. `mage Run`
+// (internal/command/run.go) closes that gap for the dev-loop case: it
+// execs the already-built golc-desktop[.exe] as a child process with
+// .tools/cache/go-bin prepended onto that child's own PATH. Running the
+// compiled binary directly instead of through `mage Run` still inherits
+// whatever PATH the invoking shell has, independent of anything
+// Bootstrap did -- see deferred-items.md above for the remaining
+// packaged-end-user-launcher gap that boundary leaves open.
 package main
 
 import (
