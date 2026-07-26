@@ -68,10 +68,26 @@ type Run struct {
 	termination *TerminationReason
 	// cancel is Run's own context.CancelFunc, wired the moment Run
 	// derives its deadline-bound context: calling it is this run's
-	// always-present kill fallback (before a Job Object exists, or on a
-	// non-Windows/no-op Job Object where the real kill work happens in
-	// jobObject.Close itself).
+	// always-present kill-path fallback -- covers the window before a Job
+	// Object has been assigned, and is the entire kill mechanism on a
+	// non-Windows/no-op jobObject.
 	cancel context.CancelFunc
+	// job is run's assigned Windows Job Object (08-06-PLAN.md Task 2):
+	// closing it kills the child unconditionally
+	// (JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, SCRP-06) -- the primary,
+	// kernel-enforced kill path; terminate() closes it before falling back
+	// to cancel(). nil until Run assigns it, immediately after cmd.Start().
+	job *jobObject
+
+	// done is closed exactly once, by Run, the moment run's final
+	// RunOutcome (below) is ready -- Stop (registry.go) blocks on this so
+	// a caller always observes the run's true final outcome, including
+	// any in-flight command's recorded result (D-11), rather than a
+	// status snapshot taken mid-shutdown.
+	done chan struct{}
+	// outcome is run's final RunOutcome, written by Run exactly once
+	// before done is closed. Never read before <-done unblocks.
+	outcome RunOutcome
 }
 
 // beginTermination records reason as run's TerminationReason if none is
@@ -99,18 +115,94 @@ func (r *Run) terminationReason() (TerminationReason, bool) {
 	return *r.termination, true
 }
 
-// terminate triggers run's kill path: cancelling its context, which asks
-// exec.CommandContext to kill the child process. This is the whole kill
-// mechanism until 08-06 Task 2 adds a Windows Job Object close as the
-// primary, kernel-enforced, uninterceptable path (SCRP-06) -- terminate
-// is deliberately the single seam Task 2 extends rather than a new one.
+// terminate triggers run's kill path: closing its assigned Job Object
+// first -- the primary, kernel-enforced, uninterceptable kill (SCRP-06),
+// which on Windows is a strict superset of a process-tree kill -- and
+// only then cancelling its context as an always-present fallback (the
+// window before job assignment completes, and the entire mechanism on a
+// non-Windows/no-op jobObject, whose own Close already does the real
+// kill work).
 func (r *Run) terminate() {
 	r.terminationMu.Lock()
+	job := r.job
 	cancel := r.cancel
 	r.terminationMu.Unlock()
+	if job != nil {
+		_ = job.Close()
+	}
 	if cancel != nil {
 		cancel()
 	}
+}
+
+// activeRuns is the process-global registry of currently active runs,
+// keyed by script name -- shared by every *Host a caller happens to
+// construct (each "script run"/"script stop" CLI invocation builds its
+// own Host, per internal/command/scriptrun.go/scriptstop.go), so a
+// wholly separate "script stop" invocation (08-06-PLAN.md Task 3) can
+// locate and terminate a run started by a different Host instance within
+// the same process, without requiring a persistent, singleton Host or
+// daemon-side IPC. Run registers itself here at the start of Run and
+// deregisters on every exit path, including panic (via defer).
+var activeRuns = struct {
+	mu     sync.Mutex
+	byName map[string]*Run
+}{byName: map[string]*Run{}}
+
+// registerActiveRun records run as the currently active run for its
+// ScriptName.
+func registerActiveRun(run *Run) {
+	activeRuns.mu.Lock()
+	defer activeRuns.mu.Unlock()
+	activeRuns.byName[run.ScriptName] = run
+}
+
+// deregisterActiveRun removes run from the registry, but only if it is
+// still the exact run recorded under its name -- guards against a
+// pathological double-deregister racing a fresh run of the same name.
+func deregisterActiveRun(run *Run) {
+	activeRuns.mu.Lock()
+	defer activeRuns.mu.Unlock()
+	if activeRuns.byName[run.ScriptName] == run {
+		delete(activeRuns.byName, run.ScriptName)
+	}
+}
+
+// ActiveRun returns the currently active run for scriptName, if any --
+// the seam internal/command/scriptstop.go (08-06-PLAN.md Task 3) uses to
+// resolve "script stop <name>"'s target. Stop only ever needs to
+// terminate an already-running process; it never needs its own Host
+// instance or Executor.
+func ActiveRun(scriptName string) (*Run, bool) {
+	activeRuns.mu.Lock()
+	defer activeRuns.mu.Unlock()
+	run, found := activeRuns.byName[scriptName]
+	return run, found
+}
+
+// Name returns run's owning script name -- read-only accessor for
+// callers outside this package (internal/command/scriptstop.go) that
+// hold a *Run from ActiveRun but must not reach into its unexported
+// fields.
+func (r *Run) Name() string {
+	return r.ScriptName
+}
+
+// ID returns run's RunID.
+func (r *Run) ID() uuid.UUID {
+	return r.RunID
+}
+
+// Stop terminates run with reason and blocks until Run's own goroutine
+// observes the termination and returns, so the caller always receives
+// the run's true final outcome -- including any in-flight command's
+// recorded result (D-11: "any command already accepted is allowed to
+// finish") -- rather than a status snapshot taken mid-shutdown.
+func (r *Run) Stop(reason TerminationReason) RunOutcome {
+	r.beginTermination(reason)
+	r.terminate()
+	<-r.done
+	return r.outcome
 }
 
 // LogLine is one captured, already-redacted stdout/stderr line (D-04's
@@ -407,7 +499,7 @@ func (h *Host) runDispatchIO(run *Run, stdin io.Writer, stdout, stderr io.Reader
 // GOLC_SCRIPT_RUN_ACTIVE and never spawns a process. Two sequential Run
 // calls always mint a distinct RunID (D-13: no state carries over from a
 // prior run).
-func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode) (RunOutcome, error) {
+func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode) (result RunOutcome, runErr error) {
 	h.mu.Lock()
 	if h.running {
 		h.mu.Unlock()
@@ -425,7 +517,23 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode) (Ru
 	if err != nil {
 		return RunOutcome{}, fmt.Errorf("GOLC_SCRIPT_RUN_ID_MINT_FAILED: %v", err)
 	}
-	run := &Run{RunID: runID, ScriptName: target.Name, Profile: target.CapabilityProfile, StartedAt: time.Now()}
+	run := &Run{
+		RunID: runID, ScriptName: target.Name, Profile: target.CapabilityProfile, StartedAt: time.Now(),
+		done: make(chan struct{}),
+	}
+
+	// Register run before any fallible step below so a concurrent
+	// "script stop <name>" (08-06-PLAN.md Task 3) can always find and
+	// terminate it, and finalize -- close done, deregister -- on every
+	// exit path from here on, including an early failure return: a
+	// Stop() call already blocked on <-run.done must never hang forever
+	// because Run itself failed before ever spawning a process.
+	registerActiveRun(run)
+	defer func() {
+		run.outcome = result
+		close(run.done)
+		deregisterActiveRun(run)
+	}()
 
 	// D-08: every run carries its own wall-clock deadline, resolved from
 	// the profile's capability preset (deadlineFor delegates entirely to
@@ -475,13 +583,37 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode) (Ru
 		return RunOutcome{}, fmt.Errorf("GOLC_SCRIPT_RUN_START_FAILED: %v", err)
 	}
 
+	// 08-06-PLAN.md Task 2: assign the child to a fresh Job Object
+	// immediately after Start() and before any frame is read from it, so
+	// the child cannot outrun assignment. A Job Object creation/assignment
+	// failure never blocks the run itself -- run.cancel remains the kill
+	// fallback -- but is never silently ignored either: it is appended to
+	// the run's own captured logs so a "why didn't the cap apply" question
+	// is answerable from the run's own outcome.
+	job, jobErr := newJobObject(resourceLimitsFor(target.CapabilityProfile))
+	var jobLog *LogLine
+	if jobErr != nil {
+		jobLog = &LogLine{Level: "error", Message: security.Redact(fmt.Sprintf("GOLC_SCRIPT_JOBOBJECT_CREATE_FAILED: %v", jobErr))}
+	} else if assignErr := job.assign(uint32(cmd.Process.Pid)); assignErr != nil {
+		_ = job.Close()
+		jobLog = &LogLine{Level: "error", Message: security.Redact(assignErr.Error())}
+	} else {
+		run.terminationMu.Lock()
+		run.job = job
+		run.terminationMu.Unlock()
+		defer job.Close()
+	}
+
 	outcome := h.runDispatchIO(run, stdin, stdout, stderr)
+	if jobLog != nil {
+		outcome.Logs = appendBoundedLog(outcome.Logs, *jobLog)
+	}
 	waitErr := cmd.Wait()
 
-	// run.terminationReason() (a scope violation, rate overrun, or --
-	// once 08-06 Task 3 exists -- an explicit Stop) takes priority over a
-	// generic runCtx.Err() interpretation: D-11's "the reason a script
-	// observes is the one that actually began termination".
+	// run.terminationReason() (a scope violation, rate overrun, or an
+	// explicit Stop, 08-06-PLAN.md Task 3) takes priority over a generic
+	// runCtx.Err() interpretation: D-11's "the reason a script observes
+	// is the one that actually began termination".
 	if reason, terminated := run.terminationReason(); terminated {
 		outcome.Status = show.ScriptRunStatusTerminated
 		outcome.Reason = reason.String()
