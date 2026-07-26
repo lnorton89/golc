@@ -11,8 +11,24 @@
 // that queries `${name} source` and fires change events keeps working
 // exactly as it did against 08-04's plain <textarea>, without knowing
 // Monaco is now the thing rendering it.
+//
+// 08-12-PLAN.md Task 2 extends this fake with the same onMouseDown/
+// createDecorationsCollection/MouseTargetType surfaces ScriptEditor.test.tsx
+// added in Task 1 (mounted editor exposes __emitMouseDown and
+// __decorationsCollections[0]/[1] for breakpoints/current-line, in that
+// fixed order) -- this file exercises ScriptsWorkspace's own
+// breakpoint-state/pausedLine wiring end-to-end, not the low-level
+// decoration mechanics ScriptEditor.test.tsx already covers directly.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+
+const { MOCK_MOUSE_TARGET_TYPE } = vi.hoisted(() => ({
+  MOCK_MOUSE_TARGET_TYPE: {
+    TEXTAREA: 1,
+    GUTTER_GLYPH_MARGIN: 2,
+    GUTTER_LINE_NUMBERS: 3,
+  } as const,
+}));
 
 vi.mock("monaco-editor", () => {
   function createFakeModel(initialValue: string) {
@@ -48,6 +64,27 @@ vi.mock("monaco-editor", () => {
 
   const createModel = vi.fn((value: string) => createFakeModel(value));
 
+  // createFakeDecorationsCollection mirrors ScriptEditor.test.tsx's own
+  // fake exactly (08-12-PLAN.md Task 1/Task 2).
+  function createFakeDecorationsCollection() {
+    let current: Array<Record<string, unknown>> = [];
+    const set = vi.fn((decorations: Array<Record<string, unknown>>) => {
+      current = decorations;
+      return decorations.map((_, index) => `dec-${index}`);
+    });
+    const clear = vi.fn(() => {
+      current = [];
+    });
+    return {
+      set,
+      clear,
+      get length() {
+        return current.length;
+      },
+      __current: () => current,
+    };
+  }
+
   const create = vi.fn((container: HTMLElement, options: Record<string, unknown>) => {
     const textarea = document.createElement("textarea");
     if (typeof options.ariaLabel === "string") {
@@ -60,7 +97,39 @@ vi.mock("monaco-editor", () => {
     });
     container.appendChild(textarea);
 
-    return { dispose: vi.fn(), updateOptions: vi.fn(), getModel: () => model };
+    // onMouseDown/createDecorationsCollection (08-12-PLAN.md Task 1, D-01):
+    // ScriptEditor.tsx registers a glyph-margin mouse-down handler and two
+    // decoration collections on every mount.
+    const mouseDownListeners: Array<(event: unknown) => void> = [];
+    const onMouseDown = vi.fn((listener: (event: unknown) => void) => {
+      mouseDownListeners.push(listener);
+      return {
+        dispose: vi.fn(() => {
+          const index = mouseDownListeners.indexOf(listener);
+          if (index >= 0) mouseDownListeners.splice(index, 1);
+        }),
+      };
+    });
+
+    const decorationsCollections: Array<ReturnType<typeof createFakeDecorationsCollection>> = [];
+    const createDecorationsCollection = vi.fn((initial?: Array<Record<string, unknown>>) => {
+      const collection = createFakeDecorationsCollection();
+      if (initial && initial.length > 0) collection.set(initial);
+      decorationsCollections.push(collection);
+      return collection;
+    });
+
+    return {
+      dispose: vi.fn(),
+      updateOptions: vi.fn(),
+      getModel: () => model,
+      onMouseDown,
+      createDecorationsCollection,
+      __decorationsCollections: decorationsCollections,
+      __emitMouseDown: (event: unknown) => {
+        mouseDownListeners.slice().forEach((listener) => listener(event));
+      },
+    };
   });
 
   return {
@@ -69,6 +138,7 @@ vi.mock("monaco-editor", () => {
       createModel,
       defineTheme: vi.fn(),
       setTheme: vi.fn(),
+      MouseTargetType: MOCK_MOUSE_TARGET_TYPE,
     },
     // monaco-editor@0.55.1's real TypeScript language-service surface is
     // the top-level `typescript` namespace, not `languages.typescript`
@@ -86,6 +156,7 @@ vi.mock("monaco-editor", () => {
   };
 });
 
+import * as monacoMock from "monaco-editor";
 import ScriptsWorkspace from "./ScriptsWorkspace";
 
 function summary(overrides: Partial<Record<string, unknown>> = {}) {
@@ -136,10 +207,28 @@ function stubScriptService(overrides: Partial<Record<string, ReturnType<typeof v
     StopScript: vi.fn().mockResolvedValue(ok()),
     ValidateScript: vi.fn().mockResolvedValue({ valid: true, diagnostics: [] }),
     GetSDKTypeDefinitions: vi.fn().mockResolvedValue("declare namespace golc {}\n"),
+    // ContinueScript/StepOverScript/StepIntoScript/StepOutScript
+    // (08-12-PLAN.md Task 2, D-01): the four step-control routes.
+    ContinueScript: vi.fn().mockResolvedValue(ok()),
+    StepOverScript: vi.fn().mockResolvedValue(ok()),
+    StepIntoScript: vi.fn().mockResolvedValue(ok()),
+    StepOutScript: vi.fn().mockResolvedValue(ok()),
     ...overrides,
   };
   vi.stubGlobal("go", { wails: { ScriptService: svc } });
   return svc;
+}
+
+// latestMountedEditor returns the fake editor object returned by the MOST
+// RECENT editor.create() call across the whole file (this file has no
+// per-test vi.clearAllMocks(), so mock.results accumulates across tests --
+// "most recent" is always the current test's own ScriptEditor mount).
+// __decorationsCollections[0] is always the breakpoint collection and [1]
+// is always the current-execution-line collection (ScriptEditor.tsx's
+// mount effect creates them in that fixed order, 08-12-PLAN.md Task 1).
+function latestMountedEditor() {
+  const results = (monacoMock.editor.create as ReturnType<typeof vi.fn>).mock.results;
+  return results[results.length - 1].value;
 }
 
 // stubRuntimeEvents mocks window.runtime.EventsOn so a test can simulate a
@@ -547,5 +636,180 @@ describe("ScriptsWorkspace", () => {
         screen.getByText("Run or Debug this script to see live logs, diagnostics, and command outcomes here."),
       ).toBeInTheDocument(),
     );
+  });
+
+  // --- 08-12-PLAN.md Task 2: breakpoint gutter -> DebugScript wiring, the
+  // paused-line derivation, step controls, and clickable crash frames
+  // (D-01) ---
+
+  it("toggles a breakpoint via the editor's gutter and sends the exact set to DebugScript on Debug launch", async () => {
+    const svc = stubScriptService({ ListScripts: vi.fn().mockResolvedValue([summary({ name: "Chase Cycler" })]) });
+    stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(screen.getByLabelText("Chase Cycler source")).toBeInTheDocument());
+
+    const editor = latestMountedEditor();
+    editor.__emitMouseDown({
+      target: { type: MOCK_MOUSE_TARGET_TYPE.GUTTER_GLYPH_MARGIN, position: { lineNumber: 4 } },
+    });
+    editor.__emitMouseDown({
+      target: { type: MOCK_MOUSE_TARGET_TYPE.GUTTER_GLYPH_MARGIN, position: { lineNumber: 9 } },
+    });
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Debug" })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: "Debug" }));
+    await waitFor(() => expect(screen.getByText("Debug Chase Cycler")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Start Debugging Chase Cycler" }));
+
+    await waitFor(() => expect(svc.DebugScript).toHaveBeenCalledWith("Chase Cycler", [4, 9]));
+  });
+
+  it("renders no step control with no active debug run or during a plain Run, and exactly the four controls once paused", async () => {
+    stubScriptService({ ListScripts: vi.fn().mockResolvedValue([summary({ name: "Chase Cycler" })]) });
+    const { emitScriptEvent } = stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(within(scriptList()).getByText("Chase Cycler")).toBeInTheDocument());
+
+    // No active debug run yet.
+    expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+
+    // A plain Run (a "running" status with no GOLC_SCRIPT_DEBUG_PAUSED
+    // marker) never shows step controls either.
+    emitScriptEvent({
+      seq: 1,
+      kind: "script.status",
+      runId: "run-1",
+      scriptName: "Chase Cycler",
+      status: "running",
+      reason: "",
+    });
+    await waitFor(() => expect(screen.getByText("Running")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+
+    // A paused debug event renders the paused chip with its line and
+    // exactly the four step controls.
+    emitScriptEvent({
+      seq: 2,
+      kind: "script.status",
+      runId: "run-1",
+      scriptName: "Chase Cycler",
+      status: "running",
+      reason: "GOLC_SCRIPT_DEBUG_PAUSED: line=6, reason=breakpoint",
+    });
+    await waitFor(() => expect(screen.getByText("Paused at breakpoint — line 6")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Step Over" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Step Into" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Step Out" })).toBeInTheDocument();
+
+    // ScriptEditor's own currentExecutionLine (the same pausedLine value)
+    // is reflected in the current-execution-line decoration collection.
+    const editor = latestMountedEditor();
+    const currentLineCollection = editor.__decorationsCollections[1];
+    await waitFor(() => expect(currentLineCollection.__current()).toHaveLength(1));
+    expect((currentLineCollection.__current()[0].range as Record<string, unknown>).startLineNumber).toBe(6);
+  });
+
+  it("each step control calls its corresponding backend route exactly once", async () => {
+    const svc = stubScriptService({ ListScripts: vi.fn().mockResolvedValue([summary({ name: "Chase Cycler" })]) });
+    const { emitScriptEvent } = stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(within(scriptList()).getByText("Chase Cycler")).toBeInTheDocument());
+
+    emitScriptEvent({
+      seq: 1,
+      kind: "script.status",
+      runId: "run-1",
+      scriptName: "Chase Cycler",
+      status: "running",
+      reason: "GOLC_SCRIPT_DEBUG_PAUSED: line=6, reason=breakpoint",
+    });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Step Over" }));
+    fireEvent.click(screen.getByRole("button", { name: "Step Into" }));
+    fireEvent.click(screen.getByRole("button", { name: "Step Out" }));
+
+    await waitFor(() => expect(svc.ContinueScript).toHaveBeenCalledTimes(1));
+    expect(svc.StepOverScript).toHaveBeenCalledTimes(1);
+    expect(svc.StepIntoScript).toHaveBeenCalledTimes(1);
+    expect(svc.StepOutScript).toHaveBeenCalledTimes(1);
+  });
+
+  it("a terminal event clears the paused line and step controls while the log history and stopped banner survive", async () => {
+    stubScriptService({ ListScripts: vi.fn().mockResolvedValue([summary({ name: "Chase Cycler" })]) });
+    const { emitScriptEvent } = stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(within(scriptList()).getByText("Chase Cycler")).toBeInTheDocument());
+
+    emitScriptEvent({
+      seq: 1,
+      kind: "script.log",
+      runId: "run-1",
+      scriptName: "Chase Cycler",
+      level: "info",
+      message: "hello from script",
+      source: "stdout",
+    });
+    emitScriptEvent({
+      seq: 2,
+      kind: "script.status",
+      runId: "run-1",
+      scriptName: "Chase Cycler",
+      status: "running",
+      reason: "GOLC_SCRIPT_DEBUG_PAUSED: line=6, reason=breakpoint",
+    });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument());
+
+    emitScriptEvent({
+      seq: 3,
+      kind: "script.terminal",
+      runId: "run-1",
+      scriptName: "Chase Cycler",
+      status: "terminated",
+      reason: 'GOLC_SCRIPT_STOPPED_BY_USER: script "Chase Cycler" was stopped by user request',
+    });
+
+    await waitFor(() => expect(screen.getByText(/^Stopped:/)).toBeInTheDocument());
+    // Paused line/step controls are gone...
+    expect(screen.queryByText(/^Paused at breakpoint/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+    // ...but the earlier log line and the stopped banner both survive.
+    expect(screen.getByText("hello from script")).toBeInTheDocument();
+    expect(
+      screen.getByText("This script won't restart automatically — run it again when you're ready"),
+    ).toBeInTheDocument();
+  });
+
+  it("clicking a stack-trace frame reveals its line via the editor's currentExecutionLine highlight", async () => {
+    stubScriptService({ ListScripts: vi.fn().mockResolvedValue([summary({ name: "Chase Cycler" })]) });
+    const { emitScriptEvent } = stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(screen.getByLabelText("Chase Cycler source")).toBeInTheDocument());
+
+    emitScriptEvent({
+      seq: 1,
+      kind: "script.terminal",
+      runId: "run-1",
+      scriptName: "Chase Cycler",
+      status: "failed",
+      reason: "Uncaught Error: deliberate failure\n    at run (Broken:1:7)",
+    });
+    await waitFor(() => expect(screen.getByText("Script crashed: Uncaught Error: deliberate failure")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Show stack trace" }));
+    fireEvent.click(screen.getByRole("button", { name: /at run \(Broken:1:7\)/ }));
+
+    const editor = latestMountedEditor();
+    const currentLineCollection = editor.__decorationsCollections[1];
+    await waitFor(() => expect(currentLineCollection.__current()).toHaveLength(1));
+    expect((currentLineCollection.__current()[0].range as Record<string, unknown>).startLineNumber).toBe(1);
   });
 });

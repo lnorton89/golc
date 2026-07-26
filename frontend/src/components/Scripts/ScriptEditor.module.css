@@ -35,3 +35,27 @@
   font-family: "Archivo", system-ui, sans-serif;
   font-size: var(--text-sm);
 }
+
+/* breakpointGlyph (08-12-PLAN.md Task 1, D-01): a single filled dot in
+   --status-revoked -- the conventional red-dot-for-breakpoint across every
+   mainstream debugger, spatially separate from any terminated/crashed
+   status chip. Rendered identically regardless of breakpoint count (no
+   count-dependent variant, per 08-UI-SPEC.md's zero-one-many contract). */
+.breakpointGlyph::before {
+  content: "";
+  display: block;
+  width: 8px;
+  height: 8px;
+  margin: 6px auto 0;
+  border-radius: 50%;
+  background-color: var(--status-revoked);
+}
+
+/* currentExecutionLine (08-12-PLAN.md Task 1, D-01): a subtle whole-line
+   background in --status-armed marking the paused current-execution line --
+   compact and non-decorative, consistent with the console direction
+   (.planning/sketches/SKILL.md). */
+.currentExecutionLine {
+  background-color: var(--status-armed);
+  opacity: 0.18;
+}

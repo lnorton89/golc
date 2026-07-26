@@ -1,23 +1,29 @@
 // ScriptsWorkspace is Build -> Scripts (08-04-PLAN.md Task 2, SCRP-01/
-// D-16, extended by 08-10-PLAN.md Task 3 for SCRP-04/SCRP-05): the D-16
-// script library view, the create/edit/save/delete round trip, the Run/
-// Debug/Validate/Stop Script toolbar actions, the Run/Debug launch dialog,
-// and (via useInspectorSlot) the selected script's capability-profile
-// summary in the contextual inspector. Owns every ScriptService call and
-// all script state, following ScenesLooksWorkspace.tsx's exact load/
-// refresh/error and selection-validity-repair pattern (08-PATTERNS.md) --
-// the correct structural template per 08-UI-SPEC.md's correction of
-// RESEARCH.md (FixtureLibraryWorkspace.tsx is a bare ComingSoon stub, not a
-// library pattern).
+// D-16, extended by 08-10-PLAN.md Task 3 for SCRP-04/SCRP-05 and by
+// 08-12-PLAN.md Task 2 for D-01's full breakpoint/step debugger UI): the
+// D-16 script library view, the create/edit/save/delete round trip, the
+// Run/Debug/Validate/Stop Script toolbar actions, the Run/Debug launch
+// dialog, and (via useInspectorSlot) the selected script's
+// capability-profile summary in the contextual inspector. Owns every
+// ScriptService call and all script state, following
+// ScenesLooksWorkspace.tsx's exact load/refresh/error and
+// selection-validity-repair pattern (08-PATTERNS.md) -- the correct
+// structural template per 08-UI-SPEC.md's correction of RESEARCH.md
+// (FixtureLibraryWorkspace.tsx is a bare ComingSoon stub, not a library
+// pattern).
 //
 // The editing surface is a real Monaco instance (ScriptEditor.tsx, 08-11-
 // PLAN.md Task 3, D-15) running the TypeScript language service against
 // the generated GOLC SDK -- replacing 08-04's plain bounded plaintext
-// input element in place. The D-01 breakpoint gutter (DebugScript's
-// breakpointLines argument) has
-// no UI source yet -- this plan still calls DebugScript with an empty
-// breakpoint list, matching "no --breakpoint flags launches in Debug mode
-// with no breakpoints and immediately resumes".
+// input element in place. 08-12-PLAN.md Task 1 gave ScriptEditor a real
+// glyph-margin breakpoint gutter and a currentExecutionLine highlight;
+// this file (Task 2) is the one place that holds the gutter's own
+// breakpointLines state, sends it verbatim as DebugScript's own
+// breakpointLines argument on launch, derives pausedLine from the live
+// script.status stream (reduceScriptEvent, this file's own single
+// derivation point per the plan's key_links), and feeds it to both
+// ScriptEditor and ScriptDebugPanel so the two surfaces can never
+// independently drift apart.
 //
 // Run/Debug/Stop Script are deliberately the same 32px Button height as
 // every other secondary/destructive action in the app -- NOT Phase 6's
@@ -37,6 +43,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import {
   assertOk,
+  continueScript,
   createScript,
   debugScript,
   deleteScript,
@@ -48,11 +55,15 @@ import {
   runScript,
   saveScriptSource,
   setScriptProfile,
+  stepIntoScript,
+  stepOutScript,
+  stepOverScript,
   stopScript,
   validateScript,
   type ScriptEventView,
   type ScriptSummaryView,
   type ScriptValidationView,
+  type WailsResult,
 } from "../../lib/wailsBridge";
 
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
@@ -67,18 +78,39 @@ import { useInspectorSlot } from "../../shell/InspectorSlot";
 import styles from "./ScriptsWorkspace.module.css";
 
 // ScriptPanelState is one script's accumulated live-run view (08-10-PLAN.md
-// Task 3): events in arrival order (log/outcome/status/gap), the current
-// sub-state derived from the most recent script.status event, and the
-// frozen terminal status/reason once a run ends -- D-12: terminal never
-// clears itself, only handleDismissPanel does.
+// Task 3, extended by 08-12-PLAN.md Task 2 for D-01): events in arrival
+// order (log/outcome/status/gap), the current sub-state derived from the
+// most recent script.status event, the paused run's current
+// author-coordinate line (null whenever liveStatus isn't "paused"), and
+// the frozen terminal status/reason once a run ends -- D-12: terminal
+// never clears itself, only handleDismissPanel does.
+//
+// pausedLine is this workspace's single derivation point for "where is the
+// paused run currently stopped" (08-12-PLAN.md Task 2's key_links: the
+// same value feeds both ScriptEditor's currentExecutionLine highlight and
+// ScriptDebugPanel's paused chip/step-control gate, so the two surfaces
+// can never independently drift apart).
 interface ScriptPanelState {
   events: ScriptEventView[];
   runId: string | null;
   liveStatus: "idle" | "running" | "paused" | "stopping";
+  pausedLine: number | null;
   terminal: { status: string; reason: string } | null;
 }
 
-const IDLE_PANEL_STATE: ScriptPanelState = { events: [], runId: null, liveStatus: "idle", terminal: null };
+const IDLE_PANEL_STATE: ScriptPanelState = {
+  events: [],
+  runId: null,
+  liveStatus: "idle",
+  pausedLine: null,
+  terminal: null,
+};
+
+// PAUSED_LINE_PATTERN mirrors ScriptDebugPanel.tsx's own (removed, 08-12-
+// PLAN.md Task 2) internal derivation exactly: a script.status event whose
+// Reason carries D-01's GOLC_SCRIPT_DEBUG_PAUSED marker names the paused
+// author-coordinate line as "line=<N>".
+const PAUSED_LINE_PATTERN = /GOLC_SCRIPT_DEBUG_PAUSED:\s*line=(\d+)/;
 
 // reduceScriptEvent folds one live script.log/script.outcome/script.status/
 // script.terminal/script.gap event into a script's own accumulated panel
@@ -97,14 +129,28 @@ function reduceScriptEvent(state: ScriptPanelState, event: ScriptEventView): Scr
   const runId = event.runId || state.runId;
 
   if (event.kind === "script.terminal") {
-    return { events, runId, liveStatus: "idle", terminal: { status: event.status ?? "", reason: event.reason ?? "" } };
+    // A terminal event always clears pausedLine (D-01/D-12): the paused
+    // highlight/controls never survive past the run they belonged to,
+    // even if the run happened to terminate while still paused.
+    return {
+      events,
+      runId,
+      liveStatus: "idle",
+      pausedLine: null,
+      terminal: { status: event.status ?? "", reason: event.reason ?? "" },
+    };
   }
 
   if (event.kind === "script.status") {
-    const liveStatus: ScriptPanelState["liveStatus"] = event.reason?.startsWith("GOLC_SCRIPT_DEBUG_PAUSED")
-      ? "paused"
-      : "running";
-    return { events, runId, liveStatus, terminal: isNewRun ? null : state.terminal };
+    const pausedMatch = event.reason ? PAUSED_LINE_PATTERN.exec(event.reason) : null;
+    const liveStatus: ScriptPanelState["liveStatus"] = pausedMatch ? "paused" : "running";
+    return {
+      events,
+      runId,
+      liveStatus,
+      pausedLine: pausedMatch ? Number(pausedMatch[1]) : null,
+      terminal: isNewRun ? null : state.terminal,
+    };
   }
 
   // script.log / script.outcome
@@ -192,6 +238,19 @@ export default function ScriptsWorkspace() {
   const [validation, setValidation] = useState<ScriptValidationView | null>(null);
   const [validating, setValidating] = useState(false);
   const [sdkTypeDefinitions, setSdkTypeDefinitions] = useState("");
+  // breakpointLines (08-12-PLAN.md Task 1/Task 2, D-01): the gutter's own
+  // breakpoint set, held here (not inside ScriptPanelState) because it's
+  // authored UI state tied to the currently open script, not something any
+  // live script.status event ever reports back -- ScriptEditor's own
+  // glyph-margin click calls handleToggleBreakpoint below.
+  const [breakpointLines, setBreakpointLines] = useState<number[]>([]);
+  // selectedFrameLine (08-12-PLAN.md Task 2, D-03): the line a user last
+  // clicked in an expanded crash stack trace, reusing ScriptEditor's
+  // existing currentExecutionLine highlight mechanism (Task 1) to reveal
+  // it -- panelState.pausedLine always takes priority when a run is
+  // actually paused (see currentExecutionLine below), so the two never
+  // fight over the same highlight.
+  const [selectedFrameLine, setSelectedFrameLine] = useState<number | null>(null);
 
   // Fetches golc.d.ts once for the component's whole lifetime (D-15):
   // ScriptEditor registers it as Monaco's TypeScript extra lib, giving
@@ -239,9 +298,14 @@ export default function ScriptsWorkspace() {
 
   // A prior validation result only ever applies to the script it was run
   // against -- selecting a different script clears it rather than showing
-  // a stale "N error(s)" summary for the wrong source.
+  // a stale "N error(s)" summary for the wrong source. Breakpoints (D-01)
+  // and a clicked crash frame (D-03) are equally script-specific UI state
+  // -- switching scripts must never show one script's gutter breakpoints
+  // or highlighted frame line on a different script's editor.
   useEffect(() => {
     setValidation(null);
+    setBreakpointLines([]);
+    setSelectedFrameLine(null);
   }, [selectedName]);
 
   // Selection-validity-repair effect (ScenesLooksWorkspace.tsx's identical
@@ -371,7 +435,13 @@ export default function ScriptsWorkspace() {
     await refresh();
 
     setDialogMode(null);
-    const launch = mode === "debug" ? debugScript(name, []) : runScript(name);
+    setSelectedFrameLine(null);
+    // debugScript's breakpointLines argument is this workspace's own
+    // gutter state (D-01) -- the author's exact line-coordinate set
+    // currently marked in ScriptEditor's glyph margin, sent verbatim; the
+    // backend (internal/command/scriptdebug.go) is the validation
+    // authority and applies the shim-offset correction, never this client.
+    const launch = mode === "debug" ? debugScript(name, breakpointLines) : runScript(name);
     void launch.catch((err) => {
       setPanelStateByScript((current) => {
         const previous = current[name] ?? IDLE_PANEL_STATE;
@@ -390,13 +460,17 @@ export default function ScriptsWorkspace() {
   // client-side, the instant the click happens -- it is cleared the moment
   // the run's own guaranteed terminal event arrives over onScriptEvent
   // (reduceScriptEvent always transitions liveStatus away from "stopping"
-  // on a script.terminal event), never by a timer.
+  // on a script.terminal event), never by a timer. Also clears pausedLine
+  // immediately (08-12-PLAN.md Task 2): stopping a paused debug run clears
+  // the execution-line highlight right away rather than waiting for the
+  // guaranteed terminal event, which the plan's own must_haves calls out
+  // as this exact single-click Stop Script action's expected behavior.
   const handleStop = () => {
     if (!selectedName) return;
     const name = selectedName;
     setPanelStateByScript((current) => {
       const previous = current[name] ?? IDLE_PANEL_STATE;
-      return { ...current, [name]: { ...previous, liveStatus: "stopping" } };
+      return { ...current, [name]: { ...previous, liveStatus: "stopping", pausedLine: null } };
     });
     void (async () => {
       try {
@@ -429,9 +503,12 @@ export default function ScriptsWorkspace() {
   // handleDismissPanel is ScriptDebugPanel's onDismiss: the only thing
   // that clears a frozen terminal state and its accumulated events back to
   // the pre-first-run placeholder (D-12 -- never a timer, never automatic).
+  // Also clears any clicked crash-frame highlight (D-03) -- dismissing the
+  // panel is the same "back to a clean idle state" action for both.
   const handleDismissPanel = () => {
     if (!selectedName) return;
     const name = selectedName;
+    setSelectedFrameLine(null);
     setPanelStateByScript((current) => ({ ...current, [name]: IDLE_PANEL_STATE }));
   };
 
@@ -440,6 +517,51 @@ export default function ScriptsWorkspace() {
   // editable) profile is reviewed again before every run (D-07) -- there
   // is no direct-relaunch path anywhere in this file (D-13).
   const handleRunAgain = () => setDialogMode("run");
+
+  // handleToggleBreakpoint is ScriptEditor's onToggleBreakpoint (D-01,
+  // 08-12-PLAN.md Task 1/Task 2): a glyph-margin click on a line already in
+  // the set removes it, otherwise adds it (kept sorted so the gutter's own
+  // decoration order is stable/predictable, though ScriptEditor itself
+  // doesn't depend on ordering).
+  const handleToggleBreakpoint = useCallback((line: number) => {
+    setBreakpointLines((current) =>
+      current.includes(line)
+        ? current.filter((existing) => existing !== line)
+        : [...current, line].sort((a, b) => a - b),
+    );
+  }, []);
+
+  // runDebugControl (D-01, 08-12-PLAN.md Task 2) wraps one of the four
+  // step-control bridge calls identically to every other bridge-call
+  // handler in this file: await, assertOk, surface a failure inline via
+  // setError. It never touches panelStateByScript itself -- the backend's
+  // own next script.status event (folded in by reduceScriptEvent, via the
+  // existing onScriptEvent subscription above) is what actually advances
+  // pausedLine/liveStatus. No optimistic local state (T-08-53): a click
+  // that fails leaves the user paused with an inline error rather than in
+  // a UI state the process isn't actually in.
+  const runDebugControl = (action: () => Promise<WailsResult>, label: string) => {
+    void (async () => {
+      try {
+        const result = await action();
+        assertOk(result, label);
+      } catch (err) {
+        setError(errorMessage(err));
+      }
+    })();
+  };
+
+  const handleContinue = () => runDebugControl(continueScript, "ContinueScript");
+  const handleStepOver = () => runDebugControl(stepOverScript, "StepOverScript");
+  const handleStepInto = () => runDebugControl(stepIntoScript, "StepIntoScript");
+  const handleStepOut = () => runDebugControl(stepOutScript, "StepOutScript");
+
+  // handleSelectFrame is ScriptDebugPanel's onSelectFrame (D-03,
+  // 08-12-PLAN.md Task 2): reveals a clicked crash-frame's line by reusing
+  // ScriptEditor's existing currentExecutionLine highlight mechanism
+  // (Task 1) -- see selectedFrameLine's own declaration above for why this
+  // needed no new ScriptEditor API.
+  const handleSelectFrame = (line: number) => setSelectedFrameLine(line);
 
   const selectedScript = scripts.find((script) => script.name === selectedName) ?? null;
 
@@ -610,22 +732,37 @@ export default function ScriptsWorkspace() {
 
                   {/* Real Monaco instance (D-15, 08-11-PLAN.md Task 3):
                       live TypeScript type-checking and autocomplete against
-                      the generated GOLC SDK, themed to Paper/Ink. */}
+                      the generated GOLC SDK, themed to Paper/Ink.
+                      breakpointLines/onToggleBreakpoint (D-01, Task 1) wire
+                      the gutter; currentExecutionLine prefers the paused
+                      run's own live line over a clicked crash-frame line
+                      (D-03, Task 2) -- see selectedFrameLine's own
+                      declaration above for why the two never fight over
+                      the same highlight. */}
                   <ScriptEditor
                     value={source}
                     onChange={setSource}
                     readOnly={sourceLoading}
                     sdkTypeDefinitions={sdkTypeDefinitions}
                     ariaLabel={`${selectedScript.name} source`}
+                    breakpointLines={breakpointLines}
+                    onToggleBreakpoint={handleToggleBreakpoint}
+                    currentExecutionLine={panelState.pausedLine ?? selectedFrameLine}
                   />
 
                   <ScriptDebugPanel
                     events={panelState.events}
                     status={panelStatus}
+                    pausedLine={panelState.pausedLine}
                     terminalReason={panelState.terminal?.reason}
                     stackFrames={panelState.terminal ? deriveStackFramesFromReason(panelState.terminal.reason) : []}
                     onDismiss={handleDismissPanel}
                     onRunAgain={handleRunAgain}
+                    onContinue={handleContinue}
+                    onStepOver={handleStepOver}
+                    onStepInto={handleStepInto}
+                    onStepOut={handleStepOut}
+                    onSelectFrame={handleSelectFrame}
                   />
                 </>
               ) : (
