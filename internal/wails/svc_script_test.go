@@ -12,9 +12,16 @@
 package wails
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/lnorton89/golc/internal/script"
 )
 
 // newTestScriptService constructs a ScriptService against a fresh per-test
@@ -260,4 +267,80 @@ func TestScriptServiceSetScriptProfileForwardsOnlySuppliedFields(t *testing.T) {
 	if afterSecond.RatePerSecond != 10 {
 		t.Fatalf("expected RatePerSecond=10, got %d", afterSecond.RatePerSecond)
 	}
+}
+
+// TestScriptEventStreamForwardsPublishedEventsToEmit covers 08-08-PLAN.md
+// Task 3's StartScriptEventStream/StopScriptEventStream: a live event
+// published on script.PublishScriptEvent (internal/script/events.go)
+// after the stream starts reaches EventPusher's own emit under
+// "script:event", and StopScriptEventStream cleanly unblocks the
+// forwarding goroutine without leaking it.
+func TestScriptEventStreamForwardsPublishedEventsToEmit(t *testing.T) {
+	script.ResetScriptEventsForTesting()
+	t.Cleanup(script.ResetScriptEventsForTesting)
+
+	svc, _, _ := newTestScriptService(t)
+
+	var mu sync.Mutex
+	var pushed []ScriptEventView
+	received := make(chan struct{}, 1)
+	svc.events.emit = func(_ context.Context, eventName string, data ...interface{}) {
+		if eventName != "script:event" {
+			return
+		}
+		if view, ok := data[0].(ScriptEventView); ok {
+			mu.Lock()
+			pushed = append(pushed, view)
+			mu.Unlock()
+			select {
+			case received <- struct{}{}:
+			default:
+			}
+		}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	svc.StartScriptEventStream(ctx)
+	defer svc.StopScriptEventStream()
+
+	runID, err := uuid.NewV7()
+	if err != nil {
+		t.Fatalf("uuid.NewV7: %v", err)
+	}
+	script.PublishScriptEvent(script.ScriptEvent{
+		Kind: script.ScriptEventLog, RunID: runID, ScriptName: "Chase", Message: "hello",
+	})
+
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case <-received:
+			// A flush tick must actually run before emit fires (the
+			// EventPusher's own ~25ms cadence) -- keep waiting for at
+			// least one to land in pushed.
+		case <-deadline:
+			t.Fatal("timed out waiting for the published event to reach emit")
+		}
+		mu.Lock()
+		found := len(pushed) > 0
+		mu.Unlock()
+		if found {
+			break
+		}
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(pushed) != 1 || pushed[0].Message != "hello" || pushed[0].ScriptName != "Chase" {
+		t.Fatalf("expected exactly one forwarded event carrying the published payload, got %+v", pushed)
+	}
+}
+
+// TestStopScriptEventStreamBeforeStartIsNoop proves StopScriptEventStream
+// is safe to call before StartScriptEventStream, mirroring
+// SafetyService.StopStatusPush's own documented no-op contract.
+func TestStopScriptEventStreamBeforeStartIsNoop(t *testing.T) {
+	svc, _, _ := newTestScriptService(t)
+	svc.StopScriptEventStream()
 }

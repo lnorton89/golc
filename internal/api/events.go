@@ -107,6 +107,24 @@ type domainEventPayload struct {
 	Actor    string `json:"actor,omitempty" doc:"The authenticated API key id that produced this change."`
 }
 
+// scriptEventPayload is the JSON body a "script" SSE event carries
+// (08-08-PLAN.md Task 2): a script run's lifecycle transition (start,
+// terminal), published via PublishScriptLifecycleEvent -- internal/script
+// (08-08-PLAN.md Task 1's script.status/script.terminal events) calls
+// that seam at a run's start and terminal moments so a REST subscriber
+// can observe script runs on this SAME global stream, without a second
+// stream endpoint. A script-issued domain mutation (e.g. a script calling
+// golc.scene.activate) is NOT carried here -- it continues to publish
+// under its own domain Type via publishMutationEvent exactly as an
+// HTTP-issued mutation would (domainFromRoute is unchanged): only the
+// script's own run lifecycle is a distinct "script" event.
+type scriptEventPayload struct {
+	RunID      string `json:"runId" doc:"The script run's UUIDv7 identity."`
+	ScriptName string `json:"scriptName" doc:"The script's name at the time of this event."`
+	Status     string `json:"status" doc:"The run's lifecycle status at this event, e.g. \"running\", \"succeeded\", \"failed\", or \"terminated\"."`
+	Reason     string `json:"reason,omitempty" doc:"The termination reason, populated once Status reaches a terminal value."`
+}
+
 // resyncEventPayload is D-10's overflow signal: sent instead of a replay
 // when a reconnecting client's Last-Event-ID has already scrolled out of
 // the ring buffer. It carries no domain data -- the client must re-fetch
@@ -128,7 +146,18 @@ type resyncEventPayload struct {
 type ringEvent struct {
 	Seq      int64
 	Revision int64
-	Payload  domainEventPayload
+	// Payload is typed any (not domainEventPayload) so this one ring
+	// buffer/broadcaster can carry more than one SSE payload shape on the
+	// same global stream, distinguished by huma/v2/sse.Register's own
+	// type-to-event-name reflection (this file's own doc comment,
+	// "Event-name design") -- 08-08-PLAN.md Task 2 adds scriptEventPayload
+	// alongside the pre-existing domainEventPayload/resyncEventPayload
+	// without opening a second stream endpoint. Every construction site
+	// (publishMutationEvent, PublishScriptLifecycleEvent) sets exactly one
+	// of the registered payload types; handleEventStream forwards it
+	// unchanged to sse.Sender, which resolves the SSE "event:" name from
+	// the payload's own runtime type.
+	Payload any
 }
 
 // eventBroadcaster owns the bounded ring buffer and the set of currently
@@ -376,6 +405,25 @@ func publishMutationEvent(ev MutationEvent) {
 	})
 }
 
+// PublishScriptLifecycleEvent publishes a "script" SSE event carrying
+// runID/scriptName/status/reason onto the existing global stream
+// (08-08-PLAN.md Task 2, D-04: reusing Phase 7's SSE pattern, never a
+// second stream endpoint) -- the seam internal/script calls at a run's
+// start and terminal transitions (session.go's Run, guaranteed on every
+// exit path per T-08-38) so a REST subscriber can observe script runs on
+// the same /v1/events stream a script-issued domain mutation ("scene
+// activate") already appears on under its own Type (domainFromRoute,
+// unchanged by this seam -- only script lifecycle itself is a distinct
+// "script" event, never a script-issued domain mutation). Every published
+// event still passes through the ring buffer's existing Seq/replay/resync
+// machinery identically to a "state" event; only the payload's runtime
+// type differs.
+func PublishScriptLifecycleEvent(runID, scriptName, status, reason string) {
+	eventStreamBroadcaster.publish(ringEvent{
+		Payload: scriptEventPayload{RunID: runID, ScriptName: scriptName, Status: status, Reason: reason},
+	})
+}
+
 // apiKeyStillValid re-validates keyID against server's own api_keys store
 // (T-07-12b's revocation tick), reimplementing show.IsAPIKeyValid's exact
 // predicate (RevokedAt.IsZero() && now.Before(ExpiresAt)) against
@@ -471,6 +519,7 @@ func registerEventsOperation(humaAPI huma.API, server *Server) {
 	}, map[string]any{
 		"state":  domainEventPayload{},
 		"resync": resyncEventPayload{},
+		"script": scriptEventPayload{},
 	}, func(ctx context.Context, input *eventsInput, send sse.Sender) {
 		handleEventStream(ctx, server, input, send)
 	})

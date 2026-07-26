@@ -25,11 +25,15 @@
 package wails
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/lnorton89/golc/internal/command"
+	"github.com/lnorton89/golc/internal/script"
 	"github.com/lnorton89/golc/internal/strictjson"
 )
 
@@ -43,11 +47,22 @@ const maxScriptSourceBytes = 1 << 20 // 1 MiB
 // ScriptService is bound to the frontend via cmd/golc-desktop/main.go's
 // options.App{Bind: [...]}. root/showPath are the exact ShowState location
 // every method acts against (mirrors ProgrammingService/ShowService's own
-// fields).
+// fields). events is this service's own EventPusher (events.go's throttle
+// scaffold) -- mirrors SafetyService/MidiService's identical
+// self-constructed-in-NewXService pattern (own field, own Start/Stop
+// lifecycle called by this service's own Start/StopScriptEventStream
+// methods) rather than threading a shared *EventPusher through the
+// constructor, so this service's lifecycle stays self-contained exactly
+// like its siblings and cmd/golc-desktop/main.go needs no new wiring.
 type ScriptService struct {
 	pipeName string
 	root     string
 	showPath string
+	events   *EventPusher
+
+	mu           sync.Mutex
+	streamCancel context.CancelFunc
+	streamDone   chan struct{}
 }
 
 // NewScriptService constructs a ScriptService targeting pipeName (reserved,
@@ -55,7 +70,7 @@ type ScriptService struct {
 // ShowService's own unused pipeName field) and the ShowState at showPath,
 // resolved against root.
 func NewScriptService(pipeName, root, showPath string) *ScriptService {
-	return &ScriptService{pipeName: pipeName, root: root, showPath: showPath}
+	return &ScriptService{pipeName: pipeName, root: root, showPath: showPath, events: NewEventPusher()}
 }
 
 // execute builds the default command registry and runs args against it,
@@ -268,4 +283,101 @@ func (s *ScriptService) SetScriptProfile(name, scope, preset string, deadlineSec
 	args = appendPositiveIntFlag(args, "cpu-cap-percent", cpuCapPercent)
 	args = append(args, "--show", s.showPath)
 	return s.execute(args...)
+}
+
+// toScriptEventView projects a script.ScriptEvent (internal/script/
+// events.go, 08-08-PLAN.md Task 1) into this package's own JSON-safe
+// ScriptEventView shape -- every field a plain string/number/bool, never
+// the raw uuid.UUID/show.ScriptRunStatus/time.Time types Wails' TypeScript
+// binding generator cannot render directly.
+func toScriptEventView(ev script.ScriptEvent) ScriptEventView {
+	return ScriptEventView{
+		Seq:        ev.Seq,
+		Kind:       string(ev.Kind),
+		RunID:      ev.RunID.String(),
+		ScriptName: ev.ScriptName,
+		At:         ev.At.Format(time.RFC3339Nano),
+		Level:      ev.Level,
+		Message:    ev.Message,
+		Source:     ev.Source,
+		Method:     ev.Method,
+		Route:      ev.Route,
+		DurationMS: ev.DurationMS,
+		Ok:         ev.Ok,
+		Code:       ev.Code,
+		Status:     string(ev.Status),
+		Reason:     ev.Reason,
+	}
+}
+
+// StartScriptEventStream begins forwarding every live script.ScriptEvent
+// (D-04/D-05, 08-08-PLAN.md Task 3) from internal/script's process-wide bus
+// to the desktop webview: it starts this service's own throttled
+// EventPusher flush loop (mirrors SafetyService.StartStatusPush's own
+// s.events.Start(ctx) call), subscribes to script.SubscribeScriptEvents
+// with no prior Seq (a fresh live subscription -- no replay), and runs a
+// forwarding goroutine that stages each received event via
+// QueueScriptEvent until StopScriptEventStream cancels it or the
+// subscription channel closes. Calling StartScriptEventStream again
+// without an intervening StopScriptEventStream is a no-op (mirrors
+// EventPusher.Start's own idempotency).
+func (s *ScriptService) StartScriptEventStream(ctx context.Context) {
+	s.mu.Lock()
+	if s.streamCancel != nil {
+		s.mu.Unlock()
+		return
+	}
+	streamCtx, cancel := context.WithCancel(ctx)
+	s.streamCancel = cancel
+	s.streamDone = make(chan struct{})
+	s.mu.Unlock()
+
+	s.events.Start(ctx)
+
+	_, _, ch, unsubscribe := script.SubscribeScriptEvents(0)
+	go s.forwardScriptEvents(streamCtx, ch, unsubscribe)
+}
+
+// forwardScriptEvents drains ch (the live subscription StartScriptEventStream
+// opened) until ctx is done (StopScriptEventStream) or ch closes, staging
+// every received event via QueueScriptEvent so EventPusher's own flush
+// loop emits it under "script:event" -- ordered, non-coalescing (Task 3's
+// exact requirement). unsubscribe is always called on exit, and
+// streamDone is always closed exactly once, so StopScriptEventStream can
+// block until this goroutine has actually finished.
+func (s *ScriptService) forwardScriptEvents(ctx context.Context, ch chan script.ScriptEvent, unsubscribe func()) {
+	defer close(s.streamDone)
+	defer unsubscribe()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case ev, ok := <-ch:
+			if !ok {
+				return
+			}
+			s.events.QueueScriptEvent(toScriptEventView(ev))
+		}
+	}
+}
+
+// StopScriptEventStream cancels the forwarding goroutine, waits for it to
+// exit (guaranteeing unsubscribe has already run), and stops the
+// underlying EventPusher -- mirrors SafetyService.StopStatusPush's own
+// reverse-order subsystem stop discipline. Safe to call more than once or
+// before StartScriptEventStream.
+func (s *ScriptService) StopScriptEventStream() {
+	s.mu.Lock()
+	cancel := s.streamCancel
+	done := s.streamDone
+	s.streamCancel = nil
+	s.mu.Unlock()
+	if cancel == nil {
+		return
+	}
+	cancel()
+	if done != nil {
+		<-done
+	}
+	s.events.Stop()
 }

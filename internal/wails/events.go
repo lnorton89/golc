@@ -30,6 +30,42 @@ import (
 // Worker's 40Hz tick.
 const eventsTickInterval = 25 * time.Millisecond
 
+// maxStagedScriptEvents bounds EventPusher.scriptEvents (08-08-PLAN.md
+// Task 3, T-08-36 DoS mitigation): a chatty script staging more than this
+// many distinct events within one eventsTickInterval window drops the
+// OLDEST staged events and increments pendingScriptEventGap, rather than
+// growing the staging slice without bound -- flush emits one synthetic
+// gap event (carrying the dropped count) ahead of the surviving events,
+// so the frontend can resync instead of silently missing lines.
+const maxStagedScriptEvents = 256
+
+// ScriptEventView is the JSON-safe Wails projection of script.ScriptEvent
+// (08-08-PLAN.md Task 3): every field a plain string/number/bool, per this
+// package's own convention (see Result's doc comment) so Wails' TypeScript
+// binding generator renders a simple type rather than something requiring
+// a bespoke marshaler. A GapKind view (Kind=="script.gap") carries only
+// GapCount -- the synthetic overflow signal flush emits ahead of the
+// staged events it precedes, mirroring internal/api/events.go's own
+// resync-signal convention for this bus.
+type ScriptEventView struct {
+	Seq        int64  `json:"seq"`
+	Kind       string `json:"kind"`
+	RunID      string `json:"runId,omitempty"`
+	ScriptName string `json:"scriptName,omitempty"`
+	At         string `json:"at,omitempty"`
+	Level      string `json:"level,omitempty"`
+	Message    string `json:"message,omitempty"`
+	Source     string `json:"source,omitempty"`
+	Method     string `json:"method,omitempty"`
+	Route      string `json:"route,omitempty"`
+	DurationMS int64  `json:"durationMs,omitempty"`
+	Ok         bool   `json:"ok,omitempty"`
+	Code       string `json:"code,omitempty"`
+	Status     string `json:"status,omitempty"`
+	Reason     string `json:"reason,omitempty"`
+	GapCount   int    `json:"gapCount,omitempty"`
+}
+
 // emitFunc abstracts runtime.EventsEmit so tests never need a real Wails
 // application context.
 type emitFunc func(ctx context.Context, eventName string, data ...interface{})
@@ -58,8 +94,24 @@ type EventPusher struct {
 	// distinct mapping's feedback each tick, still under the one
 	// unchanged "midi:feedback" event name the frontend subscribes to.
 	midiFeedback map[string]MidiFeedback
-	cancel       context.CancelFunc
-	done         chan struct{}
+	// scriptEvents stages every distinct D-04/D-05 script event within one
+	// tick as an ORDERED SLICE, never a map or the single-value latest
+	// slot -- coalescing here would silently drop all but the last log
+	// line/outcome staged in the same eventsTickInterval window, the exact
+	// failure the WR-02 midiFeedback fix (above) already corrected once
+	// for MIDI. A log line and a command outcome are never interchangeable
+	// snapshots of "the same thing" the way a status poll is; each one is
+	// its own discrete fact a script.log/script.outcome consumer must see
+	// individually. Do not "simplify" this back into a map/latest slot.
+	scriptEvents []ScriptEventView
+	// pendingScriptEventGap counts events dropped from scriptEvents by
+	// QueueScriptEvent's overflow path (maxStagedScriptEvents) since the
+	// last flush -- flush emits exactly one synthetic gap ScriptEventView
+	// carrying this count ahead of the surviving staged events, then
+	// resets it to zero.
+	pendingScriptEventGap int
+	cancel                context.CancelFunc
+	done                  chan struct{}
 }
 
 // NewEventPusher constructs an idle EventPusher; call Start to begin the
@@ -98,6 +150,25 @@ func (p *EventPusher) QueueMidiFeedback(snapshot MidiFeedback) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.midiFeedback[snapshot.MappingID] = snapshot
+}
+
+// QueueScriptEvent stages view as one more entry in this tick's ordered
+// scriptEvents slice (08-08-PLAN.md Task 3): internal/wails.ScriptService's
+// forwarding goroutine (svc_script.go's StartScriptEventStream) calls this
+// once per script.ScriptEvent received from script.SubscribeScriptEvents,
+// so N distinct events staged within one tick survive to flush as N
+// entries, in Seq order -- never coalesced down to the most recent one.
+// When the staging bound (maxStagedScriptEvents) is already reached, the
+// OLDEST staged event is dropped and pendingScriptEventGap increments,
+// rather than growing the slice without bound (T-08-36).
+func (p *EventPusher) QueueScriptEvent(view ScriptEventView) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(p.scriptEvents) >= maxStagedScriptEvents {
+		p.scriptEvents = p.scriptEvents[1:]
+		p.pendingScriptEventGap++
+	}
+	p.scriptEvents = append(p.scriptEvents, view)
 }
 
 func (p *EventPusher) queue(eventName string, snapshot interface{}) {
@@ -146,6 +217,10 @@ func (p *EventPusher) flush(ctx context.Context) {
 	p.latest = map[string]interface{}{}
 	pendingMidi := p.midiFeedback
 	p.midiFeedback = map[string]MidiFeedback{}
+	pendingScriptEvents := p.scriptEvents
+	p.scriptEvents = nil
+	gapCount := p.pendingScriptEventGap
+	p.pendingScriptEventGap = 0
 	emit := p.emit
 	p.mu.Unlock()
 
@@ -159,6 +234,20 @@ func (p *EventPusher) flush(ctx context.Context) {
 	// produces N pushes instead of silently keeping only the last one.
 	for _, snapshot := range pendingMidi {
 		emit(ctx, "midi:feedback", snapshot)
+	}
+	// Every staged script.ScriptEvent is emitted individually under the
+	// same "script:event" event name, in the order QueueScriptEvent staged
+	// them (Seq order) -- mirrors the pendingMidi loop's shape exactly, for
+	// the identical reason (08-08-PLAN.md Task 3: never coalesce distinct
+	// log lines/outcomes down to the latest one). A non-zero gap count is
+	// emitted FIRST, as one synthetic gap event, so a consumer processing
+	// events in emit order learns about the drop before -- not interleaved
+	// with or after -- the surviving events it precedes.
+	if gapCount > 0 {
+		emit(ctx, "script:event", ScriptEventView{Kind: "script.gap", GapCount: gapCount})
+	}
+	for _, view := range pendingScriptEvents {
+		emit(ctx, "script:event", view)
 	}
 }
 

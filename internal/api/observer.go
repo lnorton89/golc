@@ -68,6 +68,24 @@ func RegisterMutationObserver(observer func(MutationEvent)) {
 	mutationObservers = append(mutationObservers, observer)
 }
 
+// PublishMutationEvent is the exported seam a non-HTTP control surface
+// (wails, cli, script -- see MutationEvent.Source's own doc comment above)
+// uses to enter the same audit/SSE pipeline the HTTP path uses
+// (08-08-PLAN.md Task 2, CONTEXT D-05): a thin wrapper over
+// fireMutationObservers, with identical semantics -- every registered
+// observer notified exactly once, in registration order, synchronously.
+// This seam does not exist so a caller can synthesize an HTTP-shaped
+// event: ev.Source must accurately name the originating surface (e.g.
+// "script", never "http"), so an audit row or SSE event correctly
+// attributes a non-HTTP-issued mutation to its real origin rather than
+// impersonating an HTTP request. fireMutationObservers itself stays
+// unexported -- mutate.go continues to call it directly from within its
+// own serialized critical section, so that section's ordering guarantee
+// is untouched by this additional entry point.
+func PublishMutationEvent(ev MutationEvent) {
+	fireMutationObservers(ev)
+}
+
 // fireMutationObservers notifies every currently-registered observer of
 // ev, synchronously, in registration order. mutate.go calls this as the
 // final step of its serialized critical section (still holding

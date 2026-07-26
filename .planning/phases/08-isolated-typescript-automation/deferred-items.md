@@ -200,6 +200,64 @@ changes are auto-fixed).
   but loses per-diagnostic line/column precision) rather than silently
   reporting a clean result.
 
+## 08-08
+
+- **Same five pre-existing toolchain-bootstrap failures as 08-01/08-03/
+  08-05/08-06/08-07** (`TestBuildRouteCompilesTheProductionRepository`,
+  `TestBuildablePackagesExcludesMagefiles`, `TestScopeCrossPlatformCI`,
+  `TestScopeGreenSubprocess`, `TestScopeOfflineAcceptance`) — unrelated to
+  this plan's `internal/script/events.go`, `internal/api/observer.go`/
+  `events.go`, and `internal/wails/events.go`/`svc_script.go` changes. `go
+  test ./internal/script/... ./internal/api/... ./internal/wails/...` is
+  fully green; `go test ./internal/command/...` is green except these five
+  pre-existing failures. `go build ./...` still fails only on
+  `cmd/golc-desktop` (`pattern all:frontend/dist: no matching files
+  found`), the same pre-existing, unrelated condition 08-01 first logged
+  (no frontend build has run in this worktree); `go build ./internal/...
+  ./cmd/golc-project/...` is clean.
+
+- **No new real-Deno-gated tests were added by this plan.** Unlike every
+  prior plan in this phase, 08-08's `<behavior>` bullets (event bus
+  ordering/replay/resync, the terminal-event guarantee, the audit seam, the
+  webview delivery ordering) are all provable against `io.Pipe()`-based
+  fakes, direct function calls (`computeTerminalEvent`), and a real
+  `httptest.Server` SSE connection — none require spawning a genuine Deno
+  subprocess. `go test ./internal/script/... ./internal/api/...
+  ./internal/wails/... -count=1` is fully green with zero skips in this
+  worktree, despite `.tools/toolchains/deno/` remaining a partial/
+  unverified install (the same condition 08-05/08-06/08-07 logged).
+
+- **Known gap, carried forward in the same spirit as 07-07 → 07-09's own
+  documented handoff: production wiring of `api.RegisterAuditObserver` for
+  the process that actually executes "script run"/"script stop" remains
+  open.** `internal/api.RegisterAuditObserver(root, showPath)` is currently
+  called exactly once in production, inside `internal/api.NewServer` (the
+  long-running `artnet serve` daemon subprocess). Neither a raw CLI
+  invocation of `golc-project.exe script run <name> --show <path>` nor the
+  Wails desktop app's `ScriptService.execute` (which builds a fresh
+  `command.NewDefaultCommandRegistry()` and calls it in-process, never
+  `api.NewServer`) ever calls `api.NewServer`/`RegisterAuditObserver` in
+  their own process. This plan's Task 2 acceptance criterion ("a test
+  asserts an SDK call produces both a script.outcome event and an audit
+  row in the same run") is proven correct
+  (`internal/script/session_audit_test.go`) by explicitly registering the
+  audit observer in the test, exactly mirroring
+  `internal/api/audit_test.go`'s own established per-test registration
+  pattern — but nothing in this plan's `files_modified` scope
+  (`internal/command/scriptrun.go`/`scriptstop.go` were deliberately left
+  untouched, matching the plan's own read_first instruction to confirm "no
+  change should be needed" in `internal/api/audit.go`) wires this into a
+  real `golc-project.exe script run`/the Wails GUI invocation. Wiring it in
+  naively (an unconditional `RegisterAuditObserver` call at the top of
+  `runScriptRun`) would double-register an observer on every run within a
+  single long-lived process (e.g. golc-desktop.exe running several scripts
+  across its lifetime), producing duplicate audit rows — it needs its own
+  idempotent-registration design (mirroring `server.go`'s D-07 "exactly
+  one `*Server` per daemon process" guarantee) before it is production-
+  safe. Flagged here for a future gap-closure plan or 08-10's desktop-UI
+  wiring work to close, the same way 07-09 closed 07-07's identical
+  seam-built-but-unwired gap.
+
 - **`deno.json`'s `compilerOptions.types` was not independently verified
   against a real `deno check` invocation**, for the same toolchain-
   availability reason. The plan's action step explicitly asks for this
