@@ -1,6 +1,8 @@
 // ScriptsWorkspace is Build -> Scripts (08-04-PLAN.md Task 2, SCRP-01/
-// D-16): the D-16 script library view, the create/edit/save/delete round
-// trip, and (via useInspectorSlot) the selected script's capability-profile
+// D-16, extended by 08-10-PLAN.md Task 3 for SCRP-04/SCRP-05): the D-16
+// script library view, the create/edit/save/delete round trip, the Run/
+// Debug/Validate/Stop Script toolbar actions, the Run/Debug launch dialog,
+// and (via useInspectorSlot) the selected script's capability-profile
 // summary in the contextual inspector. Owns every ScriptService call and
 // all script state, following ScenesLooksWorkspace.tsx's exact load/
 // refresh/error and selection-validity-repair pattern (08-PATTERNS.md) --
@@ -8,22 +10,47 @@
 // RESEARCH.md (FixtureLibraryWorkspace.tsx is a bare ComingSoon stub, not a
 // library pattern).
 //
-// This plan's editing surface is a plain bounded <textarea> styled to the
-// Technical readout row (see the <textarea> element below for the D-15/
-// 08-11 handoff note). Run/Debug/Validate/Stop Script (08-10/08-11) extend
-// this same Toolbar action slot and this same editor region in place --
-// this file is written so that extension needs no rewrite.
+// This plan's editing surface is still the plain bounded <textarea> 08-04
+// introduced (see the <textarea> element below for the D-15/08-11 handoff
+// note) -- 08-11 replaces it with Monaco in place, including the D-01
+// breakpoint gutter DebugScript's breakpointLines argument currently has
+// no UI source for (this plan calls DebugScript with an empty breakpoint
+// list, matching "no --breakpoint flags launches in Debug mode with no
+// breakpoints and immediately resumes").
+//
+// Run/Debug/Stop Script are deliberately the same 32px Button height as
+// every other secondary/destructive action in the app -- NOT Phase 6's
+// 64px hold-to-confirm safety-cluster treatment. D-10 requires per-script
+// Stop to read as a normal, lightweight, single-script-scoped action,
+// visually distinct from the global Revoke Automation control; reusing the
+// existing Button primitive's own default scale is itself the mechanism
+// (see 08-UI-SPEC.md's Spacing Scale "Run / Debug / Stop / Validate
+// buttons" row).
+//
+// There is no automatic re-run anywhere in this file: no retry timer, no
+// reconnect-and-relaunch, no effect that launches a script on mount or on
+// selection change (D-13). The only way a new run starts is an explicit
+// user click on Run/Debug, or "Run Again" re-opening the launch dialog
+// (never relaunching directly) so the profile is always reviewed (D-07).
 import { useCallback, useEffect, useState } from "react";
 
 import {
   assertOk,
   createScript,
+  debugScript,
   deleteScript,
   errorMessage,
   getScript,
   listScripts,
+  onScriptEvent,
+  runScript,
   saveScriptSource,
+  setScriptProfile,
+  stopScript,
+  validateScript,
+  type ScriptEventView,
   type ScriptSummaryView,
+  type ScriptValidationView,
 } from "../../lib/wailsBridge";
 
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
@@ -31,8 +58,76 @@ import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion"
 import ListRow from "../../components/primitives/ListRow/ListRow";
 import Chip, { type ChipTone } from "../../components/primitives/Chip/Chip";
 import Button from "../../components/primitives/Button/Button";
+import ScriptRunDialog, { type ScriptDialogProfile as ScriptProfileFields, type ScriptLaunchMode } from "../../components/Scripts/ScriptRunDialog";
+import ScriptDebugPanel, { type ScriptPanelStatus } from "../../components/Scripts/ScriptDebugPanel";
 import { useInspectorSlot } from "../../shell/InspectorSlot";
 import styles from "./ScriptsWorkspace.module.css";
+
+// ScriptPanelState is one script's accumulated live-run view (08-10-PLAN.md
+// Task 3): events in arrival order (log/outcome/status/gap), the current
+// sub-state derived from the most recent script.status event, and the
+// frozen terminal status/reason once a run ends -- D-12: terminal never
+// clears itself, only handleDismissPanel does.
+interface ScriptPanelState {
+  events: ScriptEventView[];
+  runId: string | null;
+  liveStatus: "idle" | "running" | "paused" | "stopping";
+  terminal: { status: string; reason: string } | null;
+}
+
+const IDLE_PANEL_STATE: ScriptPanelState = { events: [], runId: null, liveStatus: "idle", terminal: null };
+
+// reduceScriptEvent folds one live script.log/script.outcome/script.status/
+// script.terminal/script.gap event into a script's own accumulated panel
+// state. A script.status/script.terminal event carrying a runId different
+// from the one already tracked starts a fresh accumulated list (D-13: two
+// runs never share state) -- this is always safe even across a dismissed
+// or still-frozen terminal state, because the only way a new runId can
+// ever arrive is an explicit new Run/Debug launch the user just triggered.
+function reduceScriptEvent(state: ScriptPanelState, event: ScriptEventView): ScriptPanelState {
+  if (event.kind === "script.gap") {
+    return { ...state, events: [...state.events, event] };
+  }
+
+  const isNewRun = event.runId !== undefined && event.runId !== "" && event.runId !== state.runId;
+  const events = isNewRun ? [event] : [...state.events, event];
+  const runId = event.runId || state.runId;
+
+  if (event.kind === "script.terminal") {
+    return { events, runId, liveStatus: "idle", terminal: { status: event.status ?? "", reason: event.reason ?? "" } };
+  }
+
+  if (event.kind === "script.status") {
+    const liveStatus: ScriptPanelState["liveStatus"] = event.reason?.startsWith("GOLC_SCRIPT_DEBUG_PAUSED")
+      ? "paused"
+      : "running";
+    return { events, runId, liveStatus, terminal: isNewRun ? null : state.terminal };
+  }
+
+  // script.log / script.outcome
+  return { ...state, events, runId };
+}
+
+// deriveStackFramesFromReason mirrors internal/wails.deriveStackFrames
+// exactly (svc_script.go, 08-10-PLAN.md Task 1): a terminal event's Reason
+// carries a crash's full captured text as one multi-line string -- its
+// first line is the crash summary rendered separately by
+// ScriptDebugPanel's own "Script crashed: {summary}" line, and every
+// remaining non-blank line is one D-03 expandable trace entry. Reused here
+// (TypeScript-side) because ScriptEventView (the live "script:event" push
+// payload) carries no separately structured stackFrames field of its own
+// -- unlike RunScript/DebugScript's own ScriptRunOutcomeView return value,
+// which is only available once the ENTIRE run finishes, well after the
+// terminal event this function actually derives from has already arrived
+// live.
+function deriveStackFramesFromReason(reason: string): string[] {
+  const lines = reason.split("\n");
+  if (lines.length <= 1) return [];
+  return lines
+    .slice(1)
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
+}
 
 // HOST_UNREACHABLE_MESSAGE is the UI-SPEC's exact "script host unreachable"
 // copy (Copywriting Contract), rendered inline whenever ScriptService is
@@ -89,6 +184,10 @@ export default function ScriptsWorkspace() {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [dialogMode, setDialogMode] = useState<ScriptLaunchMode | null>(null);
+  const [panelStateByScript, setPanelStateByScript] = useState<Record<string, ScriptPanelState>>({});
+  const [validation, setValidation] = useState<ScriptValidationView | null>(null);
+  const [validating, setValidating] = useState(false);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -106,6 +205,31 @@ export default function ScriptsWorkspace() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Live D-04/D-05 event subscription (08-08-PLAN.md Task 3's
+  // "script:event" push): one subscription for the component's whole
+  // lifetime, folding every event into its own script's accumulated panel
+  // state (keyed by ScriptEventView.scriptName) via reduceScriptEvent, so
+  // switching the selected script never drops another script's still-
+  // running or still-frozen-terminal history. Unsubscribes on unmount.
+  useEffect(() => {
+    const unsubscribe = onScriptEvent((event) => {
+      const scriptName = event.scriptName;
+      if (!scriptName) return;
+      setPanelStateByScript((current) => {
+        const previous = current[scriptName] ?? IDLE_PANEL_STATE;
+        return { ...current, [scriptName]: reduceScriptEvent(previous, event) };
+      });
+    });
+    return unsubscribe;
+  }, []);
+
+  // A prior validation result only ever applies to the script it was run
+  // against -- selecting a different script clears it rather than showing
+  // a stale "N error(s)" summary for the wrong source.
+  useEffect(() => {
+    setValidation(null);
+  }, [selectedName]);
 
   // Selection-validity-repair effect (ScenesLooksWorkspace.tsx's identical
   // discipline): drop a selection that no longer exists (e.g. a CLI-side
@@ -199,7 +323,122 @@ export default function ScriptsWorkspace() {
     })();
   };
 
+  // handleDialogSubmit is ScriptRunDialog's onSubmit (08-10-PLAN.md Task 2/
+  // Task 3): persist the edited profile (D-07: an edited profile becomes
+  // the new saved default) via SetScriptProfile, then close the dialog and
+  // fire RunScript/DebugScript. The launch call is deliberately NOT
+  // awaited here: internal/wails.ScriptService.RunScript/DebugScript is a
+  // full blocking Wails round trip that only resolves once the ENTIRE run
+  // finishes (svc_script.go's decodeRunOutcome), so awaiting it here would
+  // keep this dialog open and busy for the run's whole duration -- the
+  // opposite of letting the user watch it live in ScriptDebugPanel below.
+  // The dialog closes as soon as the profile save succeeds (this plan's
+  // own flagged "spawn succeeds or fails" backstop truth, approximated
+  // this way since the backend has no earlier "spawn started" signal to
+  // await); the live onScriptEvent stream is the actual source of truth
+  // for progress from this point on. The launch promise is still handled
+  // here so a pre-flight failure (e.g. GOLC_SCRIPT_NOT_FOUND, unlikely but
+  // possible if the script was deleted out from under this call) is never
+  // silently lost -- it surfaces as a synthetic terminal state exactly
+  // like a real crash would.
+  const handleDialogSubmit = async (profile: ScriptProfileFields, mode: ScriptLaunchMode): Promise<void> => {
+    if (!selectedName) return;
+    const name = selectedName;
+
+    const saveResult = await setScriptProfile(
+      name,
+      profile.scope,
+      profile.preset,
+      profile.deadlineSeconds,
+      profile.ratePerSecond,
+      profile.memoryLimitMB,
+      profile.cpuCapPercent,
+    );
+    assertOk(saveResult, "SetScriptProfile");
+    await refresh();
+
+    setDialogMode(null);
+    const launch = mode === "debug" ? debugScript(name, []) : runScript(name);
+    void launch.catch((err) => {
+      setPanelStateByScript((current) => {
+        const previous = current[name] ?? IDLE_PANEL_STATE;
+        return {
+          ...current,
+          [name]: { ...previous, liveStatus: "idle", terminal: { status: "failed", reason: errorMessage(err) } },
+        };
+      });
+    });
+  };
+
+  // handleStop calls StopScript immediately, with no confirmation gesture
+  // (D-10): a single click terminates exactly the selected script's own
+  // run, never Phase 6's global Revoke Automation. The transient
+  // "Stopping — finishing in-flight commands…" copy (D-11) is set here,
+  // client-side, the instant the click happens -- it is cleared the moment
+  // the run's own guaranteed terminal event arrives over onScriptEvent
+  // (reduceScriptEvent always transitions liveStatus away from "stopping"
+  // on a script.terminal event), never by a timer.
+  const handleStop = () => {
+    if (!selectedName) return;
+    const name = selectedName;
+    setPanelStateByScript((current) => {
+      const previous = current[name] ?? IDLE_PANEL_STATE;
+      return { ...current, [name]: { ...previous, liveStatus: "stopping" } };
+    });
+    void (async () => {
+      try {
+        const result = await stopScript(name);
+        assertOk(result, "StopScript");
+      } catch (err) {
+        setError(errorMessage(err));
+      }
+    })();
+  };
+
+  // handleValidate runs SCRP-01/SCRP-03's validate verb (never executes
+  // the script); Run/Debug stay disabled below while the result carries
+  // any diagnostic, until a later successful validation clears it.
+  const handleValidate = () => {
+    if (!selectedName) return;
+    const name = selectedName;
+    setValidating(true);
+    void (async () => {
+      try {
+        setValidation(await validateScript(name));
+      } catch (err) {
+        setError(errorMessage(err));
+      } finally {
+        setValidating(false);
+      }
+    })();
+  };
+
+  // handleDismissPanel is ScriptDebugPanel's onDismiss: the only thing
+  // that clears a frozen terminal state and its accumulated events back to
+  // the pre-first-run placeholder (D-12 -- never a timer, never automatic).
+  const handleDismissPanel = () => {
+    if (!selectedName) return;
+    const name = selectedName;
+    setPanelStateByScript((current) => ({ ...current, [name]: IDLE_PANEL_STATE }));
+  };
+
+  // handleRunAgain is ScriptDebugPanel's onRunAgain: re-opens the launch
+  // dialog rather than relaunching directly, so the (possibly still-
+  // editable) profile is reviewed again before every run (D-07) -- there
+  // is no direct-relaunch path anywhere in this file (D-13).
+  const handleRunAgain = () => setDialogMode("run");
+
   const selectedScript = scripts.find((script) => script.name === selectedName) ?? null;
+
+  const bridgeMissing = typeof window === "undefined" || !window.go?.wails?.ScriptService;
+  const panelState = selectedName ? (panelStateByScript[selectedName] ?? IDLE_PANEL_STATE) : IDLE_PANEL_STATE;
+  const panelStatus: ScriptPanelStatus = bridgeMissing
+    ? "offline"
+    : panelState.terminal
+      ? ((panelState.terminal.status || "terminated") as ScriptPanelStatus)
+      : panelState.liveStatus;
+  const isRunActive = panelStatus === "running" || panelStatus === "paused" || panelStatus === "stopping";
+  const validationBlocksLaunch = validation !== null && !validation.valid;
 
   const inspectorPortal = useInspectorSlot(
     selectedScript ? (
@@ -245,6 +484,29 @@ export default function ScriptsWorkspace() {
       </Button>
       <Button variant="destructive" onClick={() => setConfirmingDelete(true)} disabled={!selectedName}>
         Delete Script
+      </Button>
+      <Button variant="secondary" onClick={handleValidate} disabled={!selectedName || validating}>
+        Validate
+      </Button>
+      {/* Run/Debug/Stop Script (D-10): standard 32px Button height, not
+          Phase 6's 64px safety-cluster treatment -- see this file's own
+          top-of-file doc comment. */}
+      <Button
+        variant="primary"
+        onClick={() => setDialogMode("run")}
+        disabled={!selectedName || isRunActive || validationBlocksLaunch}
+      >
+        Run
+      </Button>
+      <Button
+        variant="secondary"
+        onClick={() => setDialogMode("debug")}
+        disabled={!selectedName || isRunActive || validationBlocksLaunch}
+      >
+        Debug
+      </Button>
+      <Button variant="destructive" onClick={handleStop} disabled={!selectedName || !isRunActive}>
+        Stop Script
       </Button>
     </div>
   );
@@ -327,6 +589,12 @@ export default function ScriptsWorkspace() {
                     </div>
                   ) : null}
 
+                  {validation && !validation.valid ? (
+                    <p className={styles.validationError}>
+                      {`This script has ${validation.diagnostics.length} error(s). Fix them before running.`}
+                    </p>
+                  ) : null}
+
                   {/* Plain bounded textarea -- this plan's editing surface
                       only. 08-11 replaces this element in place with the
                       Monaco editor (D-15's live TypeScript language service,
@@ -341,6 +609,15 @@ export default function ScriptsWorkspace() {
                     aria-label={`${selectedScript.name} source`}
                     onChange={(event) => setSource(event.target.value)}
                   />
+
+                  <ScriptDebugPanel
+                    events={panelState.events}
+                    status={panelStatus}
+                    terminalReason={panelState.terminal?.reason}
+                    stackFrames={panelState.terminal ? deriveStackFramesFromReason(panelState.terminal.reason) : []}
+                    onDismiss={handleDismissPanel}
+                    onRunAgain={handleRunAgain}
+                  />
                 </>
               ) : (
                 <p className={styles.emptySelection}>Select a script to view and edit its source.</p>
@@ -349,6 +626,23 @@ export default function ScriptsWorkspace() {
           </div>
         )}
       </div>
+
+      {dialogMode && selectedScript ? (
+        <ScriptRunDialog
+          mode={dialogMode}
+          scriptName={selectedScript.name}
+          profile={{
+            scope: selectedScript.scope,
+            preset: selectedScript.preset,
+            deadlineSeconds: selectedScript.deadlineSeconds,
+            ratePerSecond: selectedScript.ratePerSecond,
+            memoryLimitMB: selectedScript.memoryLimitMB,
+            cpuCapPercent: selectedScript.cpuCapPercent,
+          }}
+          onSubmit={handleDialogSubmit}
+          onCancel={() => setDialogMode(null)}
+        />
+      ) : null}
     </div>
   );
 }
