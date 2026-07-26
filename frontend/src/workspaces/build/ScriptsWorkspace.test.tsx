@@ -30,6 +30,18 @@ function fail(stderr: string) {
   return { exitCode: 1, stdout: "", stderr };
 }
 
+function runOutcome(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    runId: "run-1",
+    status: "succeeded",
+    reason: "",
+    logs: [],
+    outcomes: [],
+    stackFrames: [],
+    ...overrides,
+  };
+}
+
 function stubScriptService(overrides: Partial<Record<string, ReturnType<typeof vi.fn>>> = {}) {
   const svc = {
     ListScripts: vi.fn().mockResolvedValue([]),
@@ -38,10 +50,39 @@ function stubScriptService(overrides: Partial<Record<string, ReturnType<typeof v
     SaveScriptSource: vi.fn().mockResolvedValue(ok()),
     DeleteScript: vi.fn().mockResolvedValue(ok()),
     SetScriptProfile: vi.fn().mockResolvedValue(ok()),
+    RunScript: vi.fn().mockResolvedValue(runOutcome()),
+    DebugScript: vi.fn().mockResolvedValue(runOutcome()),
+    StopScript: vi.fn().mockResolvedValue(ok()),
+    ValidateScript: vi.fn().mockResolvedValue({ valid: true, diagnostics: [] }),
     ...overrides,
   };
   vi.stubGlobal("go", { wails: { ScriptService: svc } });
   return svc;
+}
+
+// stubRuntimeEvents mocks window.runtime.EventsOn so a test can simulate a
+// live "script:event" push (08-10-PLAN.md Task 3) without a real Wails
+// webview host, mirroring wailsBridge.ts's own onStatusUpdate/
+// onScriptEvent undefined-runtime-degrades-gracefully contract in reverse
+// (here it IS defined, so onScriptEvent actually subscribes). Returns
+// emitScriptEvent, which invokes every currently-registered "script:event"
+// listener with one event payload.
+function stubRuntimeEvents() {
+  const listeners: Array<(...data: unknown[]) => void> = [];
+  const runtime = {
+    EventsOn: vi.fn((eventName: string, callback: (...data: unknown[]) => void) => {
+      if (eventName === "script:event") {
+        listeners.push(callback);
+      }
+      return vi.fn();
+    }),
+  };
+  vi.stubGlobal("runtime", runtime);
+  return {
+    emitScriptEvent: (event: Partial<Record<string, unknown>>) => {
+      listeners.forEach((callback) => callback(event));
+    },
+  };
 }
 
 // scriptList returns the D-16 library list's <ul aria-label="Script list">
@@ -219,5 +260,192 @@ describe("ScriptsWorkspace", () => {
 
     await waitFor(() => expect(svc.CreateScript).toHaveBeenCalledWith("Chase Cycler"));
     await waitFor(() => expect(screen.getByText(/GOLC_SCRIPT_NAME_DUPLICATE/)).toBeInTheDocument());
+  });
+
+  // --- 08-10-PLAN.md Task 3: toolbar actions, launch dialog, debug panel --
+
+  it("renders Run/Debug/Validate/Stop Script, with Stop Script disabled until a run is active", async () => {
+    stubScriptService({ ListScripts: vi.fn().mockResolvedValue([summary({ name: "Chase Cycler" })]) });
+    stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(within(scriptList()).getByText("Chase Cycler")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Run" })).not.toBeDisabled());
+
+    expect(screen.getByRole("button", { name: "Debug" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Validate" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Stop Script" })).toBeDisabled();
+  });
+
+  it("clicking Run opens the launch dialog in run mode; clicking Debug opens it in debug mode", async () => {
+    stubScriptService({ ListScripts: vi.fn().mockResolvedValue([summary({ name: "Chase Cycler" })]) });
+    stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(within(scriptList()).getByText("Chase Cycler")).toBeInTheDocument());
+    // Wait for the selection-validity-repair effect's auto-selection to
+    // actually land (Run only enables once selectedName is set) --
+    // otherwise this click can race ahead of that effect and land on a
+    // still-disabled button.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Run" })).not.toBeDisabled());
+
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    expect(screen.getByText("Run Chase Cycler")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Debug" }));
+    expect(screen.getByText("Debug Chase Cycler")).toBeInTheDocument();
+  });
+
+  it("submitting the launch dialog saves the profile then launches, closing the dialog", async () => {
+    const svc = stubScriptService({ ListScripts: vi.fn().mockResolvedValue([summary({ name: "Chase Cycler" })]) });
+    stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(within(scriptList()).getByText("Chase Cycler")).toBeInTheDocument());
+    // Wait for the selection-validity-repair effect's auto-selection to
+    // actually land (Run only enables once selectedName is set) --
+    // otherwise this click can race ahead of that effect and land on a
+    // still-disabled button.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Run" })).not.toBeDisabled());
+
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    await waitFor(() => expect(screen.getByText("Run Chase Cycler")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /^Run Chase Cycler$/ }));
+
+    await waitFor(() => expect(svc.SetScriptProfile).toHaveBeenCalled());
+    await waitFor(() => expect(svc.RunScript).toHaveBeenCalledWith("Chase Cycler"));
+    await waitFor(() => expect(screen.queryByText("Run Chase Cycler")).not.toBeInTheDocument());
+  });
+
+  it("streams live script:event log lines into the debug panel", async () => {
+    stubScriptService({ ListScripts: vi.fn().mockResolvedValue([summary({ name: "Chase Cycler" })]) });
+    const { emitScriptEvent } = stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(within(scriptList()).getByText("Chase Cycler")).toBeInTheDocument());
+
+    expect(
+      screen.getByText("Run or Debug this script to see live logs, diagnostics, and command outcomes here."),
+    ).toBeInTheDocument();
+
+    emitScriptEvent({
+      seq: 1,
+      kind: "script.status",
+      runId: "run-1",
+      scriptName: "Chase Cycler",
+      status: "running",
+      reason: "",
+    });
+    emitScriptEvent({
+      seq: 2,
+      kind: "script.log",
+      runId: "run-1",
+      scriptName: "Chase Cycler",
+      level: "info",
+      message: "hello from script",
+      source: "stdout",
+    });
+
+    await waitFor(() => expect(screen.getByText("hello from script")).toBeInTheDocument());
+    expect(screen.getByText("Running")).toBeInTheDocument();
+  });
+
+  it("Stop Script calls stopScript immediately with no confirmation, while a run is active", async () => {
+    const svc = stubScriptService({ ListScripts: vi.fn().mockResolvedValue([summary({ name: "Chase Cycler" })]) });
+    const { emitScriptEvent } = stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(within(scriptList()).getByText("Chase Cycler")).toBeInTheDocument());
+
+    emitScriptEvent({
+      seq: 1,
+      kind: "script.status",
+      runId: "run-1",
+      scriptName: "Chase Cycler",
+      status: "running",
+      reason: "",
+    });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Stop Script" })).not.toBeDisabled());
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop Script" }));
+
+    // No confirmation dialog appears -- StopScript is called immediately.
+    await waitFor(() => expect(svc.StopScript).toHaveBeenCalledWith("Chase Cycler"));
+    expect(screen.getByText("Stopping — finishing in-flight commands…")).toBeInTheDocument();
+  });
+
+  it("Validate renders the error summary and disables Run/Debug until a later validation passes", async () => {
+    const svc = stubScriptService({
+      ListScripts: vi.fn().mockResolvedValue([summary({ name: "Chase Cycler" })]),
+      ValidateScript: vi
+        .fn()
+        .mockResolvedValueOnce({
+          valid: false,
+          diagnostics: [
+            { code: "GOLC_SCRIPT_IMPORT_FORBIDDEN", message: "no imports", line: 1, column: 1, severity: "error" },
+          ],
+        })
+        .mockResolvedValueOnce({ valid: true, diagnostics: [] }),
+    });
+    stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(within(scriptList()).getByText("Chase Cycler")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Validate" })).not.toBeDisabled());
+
+    fireEvent.click(screen.getByRole("button", { name: "Validate" }));
+
+    await waitFor(() => expect(svc.ValidateScript).toHaveBeenCalledWith("Chase Cycler"));
+    await waitFor(() =>
+      expect(screen.getByText("This script has 1 error(s). Fix them before running.")).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "Run" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Debug" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Validate" }));
+    await waitFor(() =>
+      expect(screen.queryByText("This script has 1 error(s). Fix them before running.")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "Run" })).not.toBeDisabled();
+  });
+
+  it("Run Again re-opens the launch dialog after a terminal event, and Dismiss clears the banner", async () => {
+    stubScriptService({ ListScripts: vi.fn().mockResolvedValue([summary({ name: "Chase Cycler" })]) });
+    const { emitScriptEvent } = stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(within(scriptList()).getByText("Chase Cycler")).toBeInTheDocument());
+
+    emitScriptEvent({
+      seq: 1,
+      kind: "script.status",
+      runId: "run-1",
+      scriptName: "Chase Cycler",
+      status: "running",
+      reason: "",
+    });
+    emitScriptEvent({
+      seq: 2,
+      kind: "script.terminal",
+      runId: "run-1",
+      scriptName: "Chase Cycler",
+      status: "terminated",
+      reason: 'GOLC_SCRIPT_STOPPED_BY_USER: script "Chase Cycler" was stopped by user request',
+    });
+
+    await waitFor(() => expect(screen.getByText(/^Stopped:/)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Run Again" }));
+    expect(screen.getByText("Run Chase Cycler")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    await waitFor(() =>
+      expect(
+        screen.getByText("Run or Debug this script to see live logs, diagnostics, and command outcomes here."),
+      ).toBeInTheDocument(),
+    );
   });
 });

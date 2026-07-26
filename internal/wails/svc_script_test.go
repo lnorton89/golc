@@ -13,6 +13,7 @@ package wails
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -43,6 +44,43 @@ func findScriptSummary(views []ScriptSummaryView, name string) *ScriptSummaryVie
 		}
 	}
 	return nil
+}
+
+// skipUnlessDenoProvisionedForWailsTest resolves the repository root from
+// this package's directory (internal/wails) and skips the calling test
+// when no verified Deno install exists there -- mirrors
+// internal/command's identical skipUnlessDenoProvisionedForCommandTest
+// helper (scriptrun_test.go).
+func skipUnlessDenoProvisionedForWailsTest(t *testing.T) string {
+	t.Helper()
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatalf("resolve project root: %v", err)
+	}
+	if _, err := script.ResolveDenoExecutable(root); err != nil {
+		t.Skipf("Deno toolchain not provisioned under %s (%v); run 'mage Bootstrap' first", root, err)
+	}
+	return root
+}
+
+// newDenoGatedScriptService constructs a ScriptService targeting the real
+// project root (required for script.ResolveDenoExecutable to find the
+// provisioned Deno binary, mirroring internal/command's own root-scoped
+// Deno-gated test convention -- scriptrun_test.go's own
+// createScriptWithSource against a real root) and a gitignored ("*.golc",
+// .gitignore) show path unique to this test, removed via t.Cleanup so a
+// real-Deno test run never leaves a stray file behind in the repository
+// root.
+func newDenoGatedScriptService(t *testing.T, root string) *ScriptService {
+	t.Helper()
+	sanitizedName := strings.ReplaceAll(strings.ReplaceAll(t.Name(), "/", "-"), " ", "-")
+	showPath := "wails-svc-script-test-" + sanitizedName + ".golc"
+	t.Cleanup(func() {
+		_ = os.Remove(filepath.Join(root, showPath))
+		_ = os.Remove(filepath.Join(root, showPath+"-wal"))
+		_ = os.Remove(filepath.Join(root, showPath+"-shm"))
+	})
+	return NewScriptService("", root, showPath)
 }
 
 // TestScriptServiceListScriptsEmptyAndPopulated proves ListScripts returns
@@ -343,4 +381,227 @@ func TestScriptEventStreamForwardsPublishedEventsToEmit(t *testing.T) {
 func TestStopScriptEventStreamBeforeStartIsNoop(t *testing.T) {
 	svc, _, _ := newTestScriptService(t)
 	svc.StopScriptEventStream()
+}
+
+// --- 08-10-PLAN.md Task 1: Run/Debug/Stop/Validate/step-control ----------
+
+// TestScriptServiceRunScriptMissingReturnsError proves RunScript surfaces
+// "script run"'s own GOLC_SCRIPT_NOT_FOUND diagnostic as a returned error
+// rather than a panic, and never spawns a process for an unknown script
+// name (no Deno install required).
+func TestScriptServiceRunScriptMissingReturnsError(t *testing.T) {
+	svc, _, _ := newTestScriptService(t)
+	if result := svc.CreateScript("Other"); result.ExitCode != 0 {
+		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	_, err := svc.RunScript("Missing")
+	if err == nil {
+		t.Fatal("expected RunScript to return an error for a missing script")
+	}
+	if !strings.Contains(err.Error(), "GOLC_SCRIPT_NOT_FOUND") {
+		t.Fatalf("expected GOLC_SCRIPT_NOT_FOUND, got %v", err)
+	}
+}
+
+// TestScriptServiceRunScriptSucceeds proves RunScript decodes a successful
+// run's outcome -- non-empty RunID, status succeeded, exactly one
+// successful SDK call outcome, and at least one captured log line (D-04/
+// D-05) -- gated behind a real provisioned Deno install.
+func TestScriptServiceRunScriptSucceeds(t *testing.T) {
+	root := skipUnlessDenoProvisionedForWailsTest(t)
+	svc := newDenoGatedScriptService(t, root)
+
+	if result := svc.CreateScript("Chase"); result.ExitCode != 0 {
+		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	source := "console.log(\"running Chase\");\n" +
+		"const result = await golc.show.inspect({});\n" +
+		"console.log(\"inspected: \" + JSON.stringify(result));\n"
+	if result := svc.SaveScriptSource("Chase", source); result.ExitCode != 0 {
+		t.Fatalf("SaveScriptSource failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	outcome, err := svc.RunScript("Chase")
+	if err != nil {
+		t.Fatalf("RunScript: %v", err)
+	}
+	if outcome.RunID == "" {
+		t.Fatal("expected a non-empty RunID")
+	}
+	if outcome.Status != "succeeded" {
+		t.Fatalf("expected status succeeded, got %q (reason: %s)", outcome.Status, outcome.Reason)
+	}
+	if len(outcome.Outcomes) != 1 || !outcome.Outcomes[0].Ok || outcome.Outcomes[0].Route != "show inspect" {
+		t.Fatalf("expected exactly one successful 'show inspect' outcome, got %+v", outcome.Outcomes)
+	}
+	if len(outcome.Logs) == 0 {
+		t.Fatal("expected at least one captured log line")
+	}
+}
+
+// TestScriptServiceRunScriptCrashDerivesStackFrames proves a crashing
+// run's Reason includes the thrown error message and that
+// deriveStackFrames extracts at least one expandable trace line from it
+// (D-03), gated behind a real provisioned Deno install.
+func TestScriptServiceRunScriptCrashDerivesStackFrames(t *testing.T) {
+	root := skipUnlessDenoProvisionedForWailsTest(t)
+	svc := newDenoGatedScriptService(t, root)
+
+	if result := svc.CreateScript("Broken"); result.ExitCode != 0 {
+		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.SaveScriptSource("Broken", "throw new Error(\"deliberate failure\");\n"); result.ExitCode != 0 {
+		t.Fatalf("SaveScriptSource failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	outcome, err := svc.RunScript("Broken")
+	if err != nil {
+		t.Fatalf("RunScript: %v", err)
+	}
+	if outcome.Status != "failed" {
+		t.Fatalf("expected status failed, got %q", outcome.Status)
+	}
+	if !strings.Contains(outcome.Reason, "deliberate failure") {
+		t.Fatalf("expected the reason to include the thrown error message, got %q", outcome.Reason)
+	}
+	if len(outcome.StackFrames) == 0 {
+		t.Fatalf("expected at least one derived stack-trace line for a crash, got none (reason: %q)", outcome.Reason)
+	}
+}
+
+// TestScriptServiceDebugScriptInvalidBreakpointReturnsError proves
+// DebugScript surfaces "script debug"'s own GOLC_SCRIPT_BREAKPOINT_INVALID
+// diagnostic for an out-of-range breakpoint before ever spawning a process
+// (no Deno install required).
+func TestScriptServiceDebugScriptInvalidBreakpointReturnsError(t *testing.T) {
+	svc, _, _ := newTestScriptService(t)
+	if result := svc.CreateScript("OneLine"); result.ExitCode != 0 {
+		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.SaveScriptSource("OneLine", "const x = 1;"); result.ExitCode != 0 {
+		t.Fatalf("SaveScriptSource failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	_, err := svc.DebugScript("OneLine", []int{999})
+	if err == nil {
+		t.Fatal("expected DebugScript to return an error for an out-of-range breakpoint")
+	}
+	if !strings.Contains(err.Error(), "GOLC_SCRIPT_BREAKPOINT_INVALID") {
+		t.Fatalf("expected GOLC_SCRIPT_BREAKPOINT_INVALID, got %v", err)
+	}
+}
+
+// TestScriptServiceDebugScriptSucceeds proves DebugScript forwards
+// breakpointLines as repeated --breakpoint flags and decodes a clean
+// debug run's outcome, gated behind a real provisioned Deno install.
+func TestScriptServiceDebugScriptSucceeds(t *testing.T) {
+	root := skipUnlessDenoProvisionedForWailsTest(t)
+	svc := newDenoGatedScriptService(t, root)
+
+	if result := svc.CreateScript("DebugMe"); result.ExitCode != 0 {
+		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.SaveScriptSource("DebugMe", "const x = 1;\nconst y = 2;\n"); result.ExitCode != 0 {
+		t.Fatalf("SaveScriptSource failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	outcome, err := svc.DebugScript("DebugMe", []int{1})
+	if err != nil {
+		t.Fatalf("DebugScript: %v", err)
+	}
+	if outcome.RunID == "" {
+		t.Fatal("expected a non-empty RunID")
+	}
+	if outcome.Status != "succeeded" {
+		t.Fatalf("expected status succeeded, got %q (reason: %s)", outcome.Status, outcome.Reason)
+	}
+}
+
+// TestScriptServiceStopScriptNoActiveRunReturnsResult proves StopScript
+// returns the raw Result{ExitCode:1} carrying GOLC_SCRIPT_NO_ACTIVE_RUN
+// when the named script has no active run (no Deno install required).
+func TestScriptServiceStopScriptNoActiveRunReturnsResult(t *testing.T) {
+	svc, _, _ := newTestScriptService(t)
+	if result := svc.CreateScript("Chase"); result.ExitCode != 0 {
+		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	result := svc.StopScript("Chase")
+	if result.ExitCode != 1 {
+		t.Fatalf("expected ExitCode 1 for no active run, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
+	}
+	if !strings.Contains(result.Stderr, "GOLC_SCRIPT_NO_ACTIVE_RUN") {
+		t.Fatalf("expected GOLC_SCRIPT_NO_ACTIVE_RUN, got stderr=%s", result.Stderr)
+	}
+}
+
+// TestScriptServiceValidateScriptDecodesForbiddenImportDiagnostic proves
+// ValidateScript decodes "script validate"'s Valid/Diagnostics JSON --
+// exercised via the forbidden-import structural gate, which (unlike a
+// full type-check) never requires a Deno install.
+func TestScriptServiceValidateScriptDecodesForbiddenImportDiagnostic(t *testing.T) {
+	svc, _, _ := newTestScriptService(t)
+	if result := svc.CreateScript("Imports"); result.ExitCode != 0 {
+		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.SaveScriptSource("Imports", "import \"foo\";\n"); result.ExitCode != 0 {
+		t.Fatalf("SaveScriptSource failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	validation, err := svc.ValidateScript("Imports")
+	if err != nil {
+		t.Fatalf("ValidateScript: %v", err)
+	}
+	if validation.Valid {
+		t.Fatal("expected a script with a forbidden import to be invalid")
+	}
+	if len(validation.Diagnostics) == 0 {
+		t.Fatal("expected at least one diagnostic")
+	}
+	if validation.Diagnostics[0].Code != "GOLC_SCRIPT_IMPORT_FORBIDDEN" {
+		t.Fatalf("expected GOLC_SCRIPT_IMPORT_FORBIDDEN, got %q", validation.Diagnostics[0].Code)
+	}
+}
+
+// TestScriptServiceValidateScriptMissingReturnsError proves ValidateScript
+// surfaces GOLC_SCRIPT_NOT_FOUND as a returned error for an unknown script
+// name (no Deno install required).
+func TestScriptServiceValidateScriptMissingReturnsError(t *testing.T) {
+	svc, _, _ := newTestScriptService(t)
+	if result := svc.CreateScript("Other"); result.ExitCode != 0 {
+		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	_, err := svc.ValidateScript("Missing")
+	if err == nil {
+		t.Fatal("expected ValidateScript to return an error for a missing script")
+	}
+	if !strings.Contains(err.Error(), "GOLC_SCRIPT_NOT_FOUND") {
+		t.Fatalf("expected GOLC_SCRIPT_NOT_FOUND, got %v", err)
+	}
+}
+
+// TestScriptServiceControlRoutesNoActiveDebugReturnsResult proves every
+// one of ContinueScript/StepOverScript/StepIntoScript/StepOutScript
+// returns Result{ExitCode:1} carrying GOLC_SCRIPT_NO_ACTIVE_DEBUG when no
+// debug run is active (no Deno install required).
+func TestScriptServiceControlRoutesNoActiveDebugReturnsResult(t *testing.T) {
+	svc, _, _ := newTestScriptService(t)
+
+	controls := map[string]func() Result{
+		"ContinueScript": svc.ContinueScript,
+		"StepOverScript": svc.StepOverScript,
+		"StepIntoScript": svc.StepIntoScript,
+		"StepOutScript":  svc.StepOutScript,
+	}
+	for name, control := range controls {
+		result := control()
+		if result.ExitCode != 1 {
+			t.Fatalf("%s: expected ExitCode 1, got %d stdout=%s stderr=%s", name, result.ExitCode, result.Stdout, result.Stderr)
+		}
+		if !strings.Contains(result.Stderr, "GOLC_SCRIPT_NO_ACTIVE_DEBUG") {
+			t.Fatalf("%s: expected GOLC_SCRIPT_NO_ACTIVE_DEBUG, got stderr=%s", name, result.Stderr)
+		}
+	}
 }

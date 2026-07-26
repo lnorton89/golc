@@ -183,6 +183,17 @@
   gap: var(--space-sm);
 }
 
+.validationError {
+  margin: 0;
+  padding: var(--space-sm);
+  border: 1px solid var(--status-revoked);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--status-revoked);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+}
+
 .inspector {
   display: flex;
   flex-direction: column;

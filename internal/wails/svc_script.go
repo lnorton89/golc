@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -283,6 +284,271 @@ func (s *ScriptService) SetScriptProfile(name, scope, preset string, deadlineSec
 	args = appendPositiveIntFlag(args, "cpu-cap-percent", cpuCapPercent)
 	args = append(args, "--show", s.showPath)
 	return s.execute(args...)
+}
+
+// scriptRunOutcomeWire mirrors internal/command/scriptrun.go's
+// scriptRunOutcomeView JSON shape exactly -- one CallOutcome entry within
+// "script run"/"script debug"/"script stop"'s shared Stdout payload
+// (scriptstop.go reuses scriptrun.go's toScriptRunResultView directly).
+type scriptRunOutcomeWire struct {
+	Method     string `json:"method"`
+	Route      string `json:"route,omitempty"`
+	DurationMS int64  `json:"duration_ms"`
+	Ok         bool   `json:"ok"`
+	Code       string `json:"code,omitempty"`
+	Message    string `json:"message,omitempty"`
+}
+
+// scriptRunLogWire mirrors internal/command/scriptrun.go's
+// scriptRunLogView JSON shape exactly.
+type scriptRunLogWire struct {
+	Level   string `json:"level"`
+	Message string `json:"message"`
+	Source  string `json:"source,omitempty"`
+}
+
+// scriptRunResultWire mirrors internal/command/scriptrun.go's
+// scriptRunResultView JSON shape exactly -- the uniform Stdout payload
+// "script run", "script debug", and "script stop" all write.
+type scriptRunResultWire struct {
+	RunID    string                 `json:"run_id"`
+	Status   string                 `json:"status"`
+	Reason   string                 `json:"reason,omitempty"`
+	Outcomes []scriptRunOutcomeWire `json:"outcomes"`
+	Logs     []scriptRunLogWire     `json:"logs"`
+}
+
+// ScriptRunOutcomeEntryView is the JSON-safe Wails projection of one
+// script.CallOutcome (D-05: every command outcome, individually).
+type ScriptRunOutcomeEntryView struct {
+	Method     string `json:"method"`
+	Route      string `json:"route,omitempty"`
+	DurationMS int64  `json:"durationMs"`
+	Ok         bool   `json:"ok"`
+	Code       string `json:"code,omitempty"`
+	Message    string `json:"message,omitempty"`
+}
+
+// ScriptRunLogView is the JSON-safe Wails projection of one script.LogLine
+// (D-04's live log/diagnostics stream, as replayed in a run's own final
+// outcome).
+type ScriptRunLogView struct {
+	Level   string `json:"level"`
+	Message string `json:"message"`
+	Source  string `json:"source,omitempty"`
+}
+
+// ScriptRunOutcomeView is RunScript/DebugScript/StopScript's uniform
+// return shape (08-10-PLAN.md Task 1): every field a plain scalar/slice,
+// matching this package's own Result convention, so Wails' TypeScript
+// binding generator produces a simple type. StackFrames is derived from
+// Reason, never a second independently-parsed source of truth:
+// internal/script's RunOutcome carries a crash's full captured text --
+// Deno's own "Uncaught Error: ..." header line followed by its
+// "    at ..." frame lines (D-03), already redacted at internal/script's
+// single publication point -- as one multi-line Reason string. There is
+// no separately structured []script.StackFrame available outside
+// internal/script's own debug-mode CDP path (debugbridge.go's
+// framesFromCDPCallFrames, folded into its own formatted exception
+// Message rather than exported); splitting Reason's own lines here keeps
+// this package from re-implementing or duplicating internal/script's
+// redaction/parsing logic a second time.
+type ScriptRunOutcomeView struct {
+	RunID       string                      `json:"runId"`
+	Status      string                      `json:"status"`
+	Reason      string                      `json:"reason,omitempty"`
+	Logs        []ScriptRunLogView          `json:"logs"`
+	Outcomes    []ScriptRunOutcomeEntryView `json:"outcomes"`
+	StackFrames []string                    `json:"stackFrames"`
+}
+
+// deriveStackFrames splits a terminal Reason string into D-03's
+// expandable stack-trace lines: Reason's own first line is the crash
+// summary the frontend renders as "Script crashed: {error summary}"
+// directly from Reason; every remaining non-blank line is one expandable
+// trace entry. A Reason with no second line (a clean success, or a
+// failure with no captured trace text) returns an explicit empty (never
+// nil) slice.
+func deriveStackFrames(reason string) []string {
+	frames := make([]string, 0)
+	lines := strings.Split(reason, "\n")
+	if len(lines) <= 1 {
+		return frames
+	}
+	for _, line := range lines[1:] {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" {
+			frames = append(frames, trimmed)
+		}
+	}
+	return frames
+}
+
+// toScriptRunOutcomeView projects a decoded scriptRunResultWire into its
+// JSON-safe ScriptRunOutcomeView shape. Logs/Outcomes/StackFrames always
+// render as present (never nil) slices.
+func toScriptRunOutcomeView(wire scriptRunResultWire) ScriptRunOutcomeView {
+	logs := make([]ScriptRunLogView, 0, len(wire.Logs))
+	for _, l := range wire.Logs {
+		logs = append(logs, ScriptRunLogView{Level: l.Level, Message: l.Message, Source: l.Source})
+	}
+	outcomes := make([]ScriptRunOutcomeEntryView, 0, len(wire.Outcomes))
+	for _, o := range wire.Outcomes {
+		outcomes = append(outcomes, ScriptRunOutcomeEntryView{
+			Method: o.Method, Route: o.Route, DurationMS: o.DurationMS, Ok: o.Ok, Code: o.Code, Message: o.Message,
+		})
+	}
+	return ScriptRunOutcomeView{
+		RunID: wire.RunID, Status: wire.Status, Reason: wire.Reason,
+		Logs: logs, Outcomes: outcomes, StackFrames: deriveStackFrames(wire.Reason),
+	}
+}
+
+// decodeRunOutcome decodes a "script run"/"script debug"/"script stop"
+// route's Result into a ScriptRunOutcomeView: every one of these three
+// routes writes its full run-outcome JSON to Stdout on every reachable
+// exit code (0 success, 1 failed/terminated/no-active-run) -- only a
+// malformed invocation (ExitCode 2) or a pre-flight failure (e.g.
+// GOLC_SCRIPT_NOT_FOUND, a show load failure) never reaches that point and
+// therefore never writes Stdout, surfaced here as a returned error
+// carrying the route's own Stderr diagnostic verbatim.
+func (s *ScriptService) decodeRunOutcome(result Result) (ScriptRunOutcomeView, error) {
+	if result.Stdout == "" {
+		return ScriptRunOutcomeView{}, fmt.Errorf("%s", result.Stderr)
+	}
+	var wire scriptRunResultWire
+	if err := strictjson.DecodeStrict([]byte(result.Stdout), &wire); err != nil {
+		return ScriptRunOutcomeView{}, fmt.Errorf("GOLC_WAILS_SCRIPT_RUN_DECODE_FAILED: %v", err)
+	}
+	return toScriptRunOutcomeView(wire), nil
+}
+
+// RunScript launches name in a fresh, zero-permission Deno process via
+// "script run <name> --show <path>" (D-02: a plain Run never opens a
+// debug-mode inspector channel), returning the run's full outcome --
+// status, reason, captured logs, and every SDK call's individual outcome
+// (D-04/D-05) -- decoded from the route's own Stdout JSON.
+func (s *ScriptService) RunScript(name string) (ScriptRunOutcomeView, error) {
+	result := s.execute("script", "run", name, "--show", s.showPath)
+	return s.decodeRunOutcome(result)
+}
+
+// DebugScript launches name in Debug mode via "script debug <name>
+// --show <path> [--breakpoint <line>...]" (D-01/D-02): breakpointLines
+// becomes one repeated --breakpoint flag per entry, mirroring
+// internal/command/scriptdebug.go's own repeatable-flag parsing exactly.
+// An empty breakpointLines launches with no breakpoints set, resuming
+// immediately from the initial break (scriptdebug.go's own documented
+// empty-slice behavior).
+func (s *ScriptService) DebugScript(name string, breakpointLines []int) (ScriptRunOutcomeView, error) {
+	args := []string{"script", "debug", name}
+	for _, line := range breakpointLines {
+		args = append(args, "--breakpoint", strconv.Itoa(line))
+	}
+	args = append(args, "--show", s.showPath)
+	return s.decodeRunOutcome(s.execute(args...))
+}
+
+// StopScript stops name's active run immediately via "script stop <name>
+// --show <path>" (D-10: a separate, lightweight, single-script-scoped
+// action -- never Phase 6's global Revoke Automation). Returns the raw
+// Result (not a decoded ScriptRunOutcomeView) so a caller can distinguish
+// "stopped" (ExitCode 0, Stdout carries the run's final outcome JSON) from
+// "no active run" (ExitCode 1, Stderr carries GOLC_SCRIPT_NO_ACTIVE_RUN)
+// without this method masking the no-active-run case behind a generic
+// decode error.
+func (s *ScriptService) StopScript(name string) Result {
+	return s.execute("script", "stop", name, "--show", s.showPath)
+}
+
+// scriptValidateDiagnosticWire mirrors internal/command/scriptvalidate.go's
+// scriptValidateDiagnosticView JSON shape exactly.
+type scriptValidateDiagnosticWire struct {
+	Code     string `json:"code"`
+	Message  string `json:"message"`
+	Line     int    `json:"line"`
+	Column   int    `json:"column"`
+	Severity string `json:"severity"`
+}
+
+// scriptValidateResultWire mirrors internal/command/scriptvalidate.go's
+// scriptValidateResultView JSON shape exactly.
+type scriptValidateResultWire struct {
+	Valid       bool                           `json:"valid"`
+	Diagnostics []scriptValidateDiagnosticWire `json:"diagnostics"`
+}
+
+// ScriptDiagnosticView is the JSON-safe Wails projection of one
+// script.Diagnostic.
+type ScriptDiagnosticView struct {
+	Code     string `json:"code"`
+	Message  string `json:"message"`
+	Line     int    `json:"line"`
+	Column   int    `json:"column"`
+	Severity string `json:"severity"`
+}
+
+// ScriptValidationView is ValidateScript's return shape: valid, plus
+// every diagnostic found -- Diagnostics is always a present (never nil)
+// slice, mirroring the route's own "never null" JSON contract.
+type ScriptValidationView struct {
+	Valid       bool                   `json:"valid"`
+	Diagnostics []ScriptDiagnosticView `json:"diagnostics"`
+}
+
+// ValidateScript runs SCRP-01's validate verb against name via
+// "script validate <name> --show <path>" -- the structural zero-import
+// gate plus a deno check type-check -- without ever executing the script,
+// decoded from the route's own Stdout JSON. A pre-flight failure (an
+// unknown script name, a show load failure, or a malformed invocation)
+// never writes Stdout, surfaced here as a returned error carrying the
+// route's own Stderr diagnostic verbatim.
+func (s *ScriptService) ValidateScript(name string) (ScriptValidationView, error) {
+	result := s.execute("script", "validate", name, "--show", s.showPath)
+	if result.Stdout == "" {
+		return ScriptValidationView{}, fmt.Errorf("%s", result.Stderr)
+	}
+
+	var wire scriptValidateResultWire
+	if err := strictjson.DecodeStrict([]byte(result.Stdout), &wire); err != nil {
+		return ScriptValidationView{}, fmt.Errorf("GOLC_WAILS_SCRIPT_VALIDATE_DECODE_FAILED: %v", err)
+	}
+
+	diagnostics := make([]ScriptDiagnosticView, 0, len(wire.Diagnostics))
+	for _, d := range wire.Diagnostics {
+		diagnostics = append(diagnostics, ScriptDiagnosticView{
+			Code: d.Code, Message: d.Message, Line: d.Line, Column: d.Column, Severity: d.Severity,
+		})
+	}
+	return ScriptValidationView{Valid: wire.Valid, Diagnostics: diagnostics}, nil
+}
+
+// ContinueScript resumes the single active debug run via
+// "script continue --show <path>"; Result{ExitCode:1} carries
+// GOLC_SCRIPT_NO_ACTIVE_DEBUG when none is active or the active run is
+// not a debug run (mirrors internal/command/scriptdebug.go's
+// runScriptDebugControl exactly -- no --name flag, the same v1 "at most
+// one active run globally" scope 08-05 established).
+func (s *ScriptService) ContinueScript() Result {
+	return s.execute("script", "continue", "--show", s.showPath)
+}
+
+// StepOverScript steps over the current statement in the single active
+// debug run via "script step-over --show <path>".
+func (s *ScriptService) StepOverScript() Result {
+	return s.execute("script", "step-over", "--show", s.showPath)
+}
+
+// StepIntoScript steps into the current call in the single active debug
+// run via "script step-into --show <path>".
+func (s *ScriptService) StepIntoScript() Result {
+	return s.execute("script", "step-into", "--show", s.showPath)
+}
+
+// StepOutScript steps out of the current call in the single active debug
+// run via "script step-out --show <path>".
+func (s *ScriptService) StepOutScript() Result {
+	return s.execute("script", "step-out", "--show", s.showPath)
 }
 
 // toScriptEventView projects a script.ScriptEvent (internal/script/
