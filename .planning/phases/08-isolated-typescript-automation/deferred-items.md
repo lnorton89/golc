@@ -57,3 +57,39 @@ changes are auto-fixed).
   green. `go run ./cmd/golc-project generate` and `go run ./cmd/golc-project
   check --concern project` (which do not require the pinned toolchain, only
   the local `go` already on PATH) both exit 0 with zero drift.
+
+## 08-05
+
+- **Same five pre-existing toolchain-bootstrap failures as 08-01/08-03**
+  (`TestBuildRouteCompilesTheProductionRepository`,
+  `TestBuildablePackagesExcludesMagefiles`, `TestScopeCrossPlatformCI`,
+  `TestScopeGreenSubprocess`, `TestScopeOfflineAcceptance`) — unrelated to
+  this plan's `internal/script`/`internal/command/scriptrun.go` changes.
+  `go test ./internal/script/...` is fully green; `go test
+  ./internal/command/...` is green except these five pre-existing
+  failures.
+
+- **Real-Deno-gated tests skip in this worktree.** `.tools/toolchains/deno/`
+  contains a partial/unverified install
+  (`GOLC_DENO_TOOLCHAIN_MISSING: verified install does not match pin`), so
+  every test that spawns a genuine Deno subprocess skips with a clear
+  message rather than running for real, per the plan's own instruction
+  ("gate the tests that spawn a real Deno process behind a helper that
+  skips... when `.tools/toolchains/deno/` is not provisioned"):
+  - `internal/script`: `TestRunRemovesTempDirOnSuccess`,
+    `TestRunTwoSequentialRunsMintDistinctRunIDs`,
+    `TestRunSpawnsDenoWithNoAllowFlagsAndDispatchesSceneActivate`
+  - `internal/command`: `TestScriptRunSuccessfulScript`,
+    `TestScriptRunThrowingScriptFails`
+
+  Every other 08-05 `<behavior>` bullet these tests would additionally
+  exercise for real (Deno's actual filesystem/network/env/subprocess
+  denial surface named in the plan's `<verification>` section: a script
+  attempting `Deno.readTextFile`, `fetch`, `Deno.env.get`, and
+  `Deno.Command` being denied and surfacing as run diagnostics) is
+  covered by construction (zero `--allow-*` flags ever passed, asserted
+  structurally by `TestDenoCommandLineHasNoAllowFlags`) but was not
+  independently observed against a real Deno process in this environment.
+  Re-run this plan's full suite, including the skipped tests above and the
+  plan's manual Deno-denial-surface check, on a machine where `mage
+  Bootstrap` (with a matching Deno pin) has completed successfully.
