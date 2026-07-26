@@ -166,7 +166,7 @@ while (true) {
 			Name:              scriptName,
 			Source:            runawaySource,
 			CapabilityProfile: show.CapabilityProfile{Scope: show.APIKeyScopeAdmin, Preset: show.ResourcePresetQuickAction},
-		}, LaunchModeRun)
+		}, LaunchModeRun, nil)
 	}()
 	t.Cleanup(func() {
 		if run, found := ActiveRun(scriptName); found {

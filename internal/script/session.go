@@ -599,8 +599,14 @@ func computeTerminalEvent(run *Run, result RunOutcome, runErr error) ScriptEvent
 // "Planner scope call"): a second Run request while one is active returns
 // GOLC_SCRIPT_RUN_ACTIVE and never spawns a process. Two sequential Run
 // calls always mint a distinct RunID (D-13: no state carries over from a
-// prior run).
-func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode) (result RunOutcome, runErr error) {
+// prior run). breakpoints is only ever read when mode == LaunchModeDebug
+// (08-09-PLAN.md Task 2): it names the author-coordinate lines the debug
+// bridge sets before resuming from the initial break; a LaunchModeRun
+// call ignores it entirely, so passing a non-nil breakpoints slice
+// alongside LaunchModeRun can never open a debug channel -- the branch on
+// mode is what gates every debug-only behavior, exactly like
+// buildDenoArgs' own mode-gated inspector argument.
+func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode, breakpoints []int) (result RunOutcome, runErr error) {
 	h.mu.Lock()
 	if h.running {
 		h.mu.Unlock()
@@ -687,7 +693,7 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode) (re
 		return RunOutcome{}, fmt.Errorf("GOLC_SCRIPT_RUN_SOURCE_WRITE_FAILED: %v", err)
 	}
 
-	cmd := exec.CommandContext(runCtx, h.denoPath, buildDenoArgs(scriptPath, mode)...)
+	cmd := exec.CommandContext(runCtx, h.denoPath, buildDenoArgs(scriptPath, mode, 0)...)
 	cmd.Dir = runDir
 	// Explicit, never-inherited environment (T-08-16): the daemon's own
 	// environment variables are never passed through to a script process.

@@ -150,7 +150,7 @@ func TestDispatchCmdCallParamsInvalidNeverReachesExecutor(t *testing.T) {
 func TestRunRejectsSecondActiveRun(t *testing.T) {
 	h := &Host{cfg: HostConfig{Root: t.TempDir()}, running: true}
 
-	_, err := h.Run(context.Background(), show.Script{Name: "Chase"}, LaunchModeRun)
+	_, err := h.Run(context.Background(), show.Script{Name: "Chase"}, LaunchModeRun, nil)
 	if err == nil {
 		t.Fatal("expected an error for a second run while one is active")
 	}
@@ -286,7 +286,7 @@ func TestRunRemovesTempDirOnSuccess(t *testing.T) {
 
 	beforeEntries, _ := os.ReadDir(os.TempDir())
 
-	outcome, err := host.Run(context.Background(), show.Script{Name: "Noop", Source: "// no SDK calls"}, LaunchModeRun)
+	outcome, err := host.Run(context.Background(), show.Script{Name: "Noop", Source: "// no SDK calls"}, LaunchModeRun, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -321,11 +321,11 @@ func TestRunTwoSequentialRunsMintDistinctRunIDs(t *testing.T) {
 		t.Fatalf("NewHost: %v", err)
 	}
 
-	first, err := host.Run(context.Background(), show.Script{Name: "Noop", Source: "// no SDK calls"}, LaunchModeRun)
+	first, err := host.Run(context.Background(), show.Script{Name: "Noop", Source: "// no SDK calls"}, LaunchModeRun, nil)
 	if err != nil {
 		t.Fatalf("first Run: %v", err)
 	}
-	second, err := host.Run(context.Background(), show.Script{Name: "Noop", Source: "// no SDK calls"}, LaunchModeRun)
+	second, err := host.Run(context.Background(), show.Script{Name: "Noop", Source: "// no SDK calls"}, LaunchModeRun, nil)
 	if err != nil {
 		t.Fatalf("second Run: %v", err)
 	}
@@ -355,7 +355,7 @@ func TestRunSpawnsDenoWithNoAllowFlagsAndDispatchesSceneActivate(t *testing.T) {
 		// enforced D-06 host-side scope check) -- 08-05's original zero-
 		// value CapabilityProfile{} would now be denied at dispatch time.
 		CapabilityProfile: show.CapabilityProfile{Scope: show.APIKeyScopeAuthoring, Preset: show.ResourcePresetQuickAction},
-	}, LaunchModeRun)
+	}, LaunchModeRun, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
