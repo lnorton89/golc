@@ -420,14 +420,14 @@ Plans:
   3. Before execution, a user can inspect and assign script capabilities, deadlines, rate limits, and resource limits; the runtime has no ambient filesystem, network, environment, subprocess, native-code, or uncached dependency access.
   4. A user can inspect structured logs, diagnostics, source locations, command outcomes, and cancellation state, and can terminate a runaway, crashed, or blocked script without interrupting playback or Art-Net.
 
-**Plans:** 13 plans
+**Plans:** 3/13 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 08-01-PLAN.md — Script entity, capability profile, and `script` CLI CRUD routes in show.State
-- [ ] 08-02-PLAN.md — Deno toolchain pin, bootstrap provisioning, and the single executable resolver
-- [ ] 08-03-PLAN.md — Typed SDK generator, committed golc.d.ts/runtime shim, and route-coverage gate
+- [x] 08-01-PLAN.md — Script entity, capability profile, and `script` CLI CRUD routes in show.State
+- [x] 08-02-PLAN.md — Deno toolchain pin, bootstrap provisioning, and the single executable resolver
+- [x] 08-03-PLAN.md — Typed SDK generator, committed golc.d.ts/runtime shim, and route-coverage gate
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -511,7 +511,7 @@ Plans:
 | 5. Durable Shows and Recovery | 5/5 | Complete    | 2026-07-23 |
 | 6. Wails Authoring and Operator Surface | 12/12 | In Progress|  |
 | 7. Versioned External Control API | 15/15 | Complete    | 2026-07-25 |
-| 8. Isolated TypeScript Automation | 0/TBD | Not started | - |
+| 8. Isolated TypeScript Automation | 3/13 | In Progress|  |
 | 9. Provider-Neutral AI and Bounded Autonomy | 0/TBD | Not started | - |
 | 10. Windows Release Qualification | 0/TBD | Not started | - |
 | 11. Telemetry, Usage Statistics, and Auto Crash Submission Pipeline | 0/TBD | Not started | - |
