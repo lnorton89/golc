@@ -26,7 +26,12 @@ import (
 // field (PLAY-03): the field is optional/omitempty, so a v1 blob decodes
 // cleanly with an empty slice -- the registered migrations[1] transform
 // (internal/show/migrate.go) is therefore an identity transform, only the
-// stamped schema_version itself advances.
+// stamped schema_version itself advances. 08-01-PLAN.md Task 1 adds the
+// Scripts field the same way and deliberately does NOT bump this constant
+// further: Scripts is also optional/omitempty, so an existing show saved
+// by an older build (with no "scripts" key in its blob at all) still
+// decodes cleanly into a nil/empty Scripts slice -- purely additive,
+// backward-compatible, no migration transform required.
 const SchemaVersion = 2
 
 // State is the ShowState container: a working, JSON-persisted document
@@ -50,6 +55,7 @@ type State struct {
 	BlendPresets     []scene.BlendPreset          `json:"blend_presets"`
 	Tempo            Tempo                        `json:"tempo"`
 	OperatorSurfaces []operatorsurface.Surface    `json:"operator_surfaces,omitempty"`
+	Scripts          []Script                     `json:"scripts,omitempty"`
 }
 
 // Tempo is the show-wide musical tempo (SCEN-02/SCEN-03): a single BPM
@@ -188,6 +194,14 @@ func validate(s State) error {
 		return err
 	}
 	if err := operatorsurface.Validate(s.OperatorSurfaces, s.Scenes, s.Groups); err != nil {
+		return err
+	}
+	for _, sc := range s.Scripts {
+		if err := ValidateScript(sc); err != nil {
+			return err
+		}
+	}
+	if err := ValidateScriptUniqueNames(s.Scripts); err != nil {
 		return err
 	}
 	return nil
