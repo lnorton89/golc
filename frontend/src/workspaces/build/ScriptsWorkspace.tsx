@@ -10,13 +10,14 @@
 // RESEARCH.md (FixtureLibraryWorkspace.tsx is a bare ComingSoon stub, not a
 // library pattern).
 //
-// This plan's editing surface is still the plain bounded <textarea> 08-04
-// introduced (see the <textarea> element below for the D-15/08-11 handoff
-// note) -- 08-11 replaces it with Monaco in place, including the D-01
-// breakpoint gutter DebugScript's breakpointLines argument currently has
-// no UI source for (this plan calls DebugScript with an empty breakpoint
-// list, matching "no --breakpoint flags launches in Debug mode with no
-// breakpoints and immediately resumes").
+// The editing surface is a real Monaco instance (ScriptEditor.tsx, 08-11-
+// PLAN.md Task 3, D-15) running the TypeScript language service against
+// the generated GOLC SDK -- replacing 08-04's plain bounded plaintext
+// input element in place. The D-01 breakpoint gutter (DebugScript's
+// breakpointLines argument) has
+// no UI source yet -- this plan still calls DebugScript with an empty
+// breakpoint list, matching "no --breakpoint flags launches in Debug mode
+// with no breakpoints and immediately resumes".
 //
 // Run/Debug/Stop Script are deliberately the same 32px Button height as
 // every other secondary/destructive action in the app -- NOT Phase 6's
@@ -41,6 +42,7 @@ import {
   deleteScript,
   errorMessage,
   getScript,
+  getSdkTypeDefinitions,
   listScripts,
   onScriptEvent,
   runScript,
@@ -58,6 +60,7 @@ import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion"
 import ListRow from "../../components/primitives/ListRow/ListRow";
 import Chip, { type ChipTone } from "../../components/primitives/Chip/Chip";
 import Button from "../../components/primitives/Button/Button";
+import ScriptEditor from "../../components/Scripts/ScriptEditor";
 import ScriptRunDialog, { type ScriptDialogProfile as ScriptProfileFields, type ScriptLaunchMode } from "../../components/Scripts/ScriptRunDialog";
 import ScriptDebugPanel, { type ScriptPanelStatus } from "../../components/Scripts/ScriptDebugPanel";
 import { useInspectorSlot } from "../../shell/InspectorSlot";
@@ -188,6 +191,16 @@ export default function ScriptsWorkspace() {
   const [panelStateByScript, setPanelStateByScript] = useState<Record<string, ScriptPanelState>>({});
   const [validation, setValidation] = useState<ScriptValidationView | null>(null);
   const [validating, setValidating] = useState(false);
+  const [sdkTypeDefinitions, setSdkTypeDefinitions] = useState("");
+
+  // Fetches golc.d.ts once for the component's whole lifetime (D-15):
+  // ScriptEditor registers it as Monaco's TypeScript extra lib, giving
+  // live autocomplete/diagnostics against the real generated GOLC SDK.
+  useEffect(() => {
+    void (async () => {
+      setSdkTypeDefinitions(await getSdkTypeDefinitions());
+    })();
+  }, []);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -595,19 +608,15 @@ export default function ScriptsWorkspace() {
                     </p>
                   ) : null}
 
-                  {/* Plain bounded textarea -- this plan's editing surface
-                      only. 08-11 replaces this element in place with the
-                      Monaco editor (D-15's live TypeScript language service,
-                      autocomplete, and the D-01 breakpoint gutter); do not
-                      mistake this <textarea> for a finished editor. */}
-                  <textarea
-                    className={styles.editor}
+                  {/* Real Monaco instance (D-15, 08-11-PLAN.md Task 3):
+                      live TypeScript type-checking and autocomplete against
+                      the generated GOLC SDK, themed to Paper/Ink. */}
+                  <ScriptEditor
                     value={source}
-                    spellCheck={false}
-                    wrap="off"
-                    disabled={sourceLoading}
-                    aria-label={`${selectedScript.name} source`}
-                    onChange={(event) => setSource(event.target.value)}
+                    onChange={setSource}
+                    readOnly={sourceLoading}
+                    sdkTypeDefinitions={sdkTypeDefinitions}
+                    ariaLabel={`${selectedScript.name} source`}
                   />
 
                   <ScriptDebugPanel
