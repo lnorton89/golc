@@ -173,6 +173,11 @@ None - no external service configuration required.
 - 08-11 (Monaco editor) has a clear handoff: the `<textarea>` element and `DebugScript`'s empty breakpoint list are both explicitly marked for in-place replacement, and the D-01 breakpoint-gutter UI this plan's DebugScript call is missing is 08-11's to add.
 - The three Deno-gated Go tests and the plan's own manual end-to-end verification transcript (a real deadline-overrun launch) remain unverified against a real Deno toolchain in this specific worktree/session — recommend running `go test ./internal/wails/... -count=1` and the manual transcript once Deno is provisioned (`mage Bootstrap`) or in CI.
 
+## Self-Check: PASSED
+
+- All 12 created/modified source files plus this SUMMARY.md verified present on disk (`git ls-files`).
+- All four commits (`2b26e3e`, `b17b7d4`, `15ea985`, `8c4a69b`) verified present in `git log --oneline --all`.
+
 ---
 *Phase: 08-isolated-typescript-automation*
 *Completed: 2026-07-25*
