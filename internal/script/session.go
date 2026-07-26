@@ -197,6 +197,23 @@ func ActiveRun(scriptName string) (*Run, bool) {
 	return run, found
 }
 
+// AnyActiveRun returns the process's sole active run, if any -- the seam
+// internal/command/scriptdebug.go's continue/step-over/step-into/
+// step-out routes (08-09-PLAN.md Task 3) use to resolve "the single
+// active debug run" without a --name flag. This is sound only because of
+// 08-05's v1 "at most one active run, globally" scope call: at most one
+// entry can ever exist in activeRuns.byName at a time, so returning
+// whichever single entry is present IS returning the one active run, not
+// an arbitrary pick among several.
+func AnyActiveRun() (*Run, bool) {
+	activeRuns.mu.Lock()
+	defer activeRuns.mu.Unlock()
+	for _, run := range activeRuns.byName {
+		return run, true
+	}
+	return nil, false
+}
+
 // Name returns run's owning script name -- read-only accessor for
 // callers outside this package (internal/command/scriptstop.go) that
 // hold a *Run from ActiveRun but must not reach into its unexported
