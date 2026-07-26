@@ -32,6 +32,7 @@ import (
 
 	"github.com/lnorton89/golc/internal/api"
 	"github.com/lnorton89/golc/internal/contracts"
+	"github.com/lnorton89/golc/internal/scriptsdk"
 )
 
 var _ = MustDeclareScope(ScopeRegistration{
@@ -65,11 +66,16 @@ func runGenerate(request Request) Result {
 			return Result{ExitCode: 1, Stderr: []byte(apiErr.Error() + "\n")}
 		}
 		changed = append(changed, apiChanged...)
+		scriptsdkChanged, scriptsdkErr := scriptsdk.CheckDrift(request.Root)
+		if scriptsdkErr != nil {
+			return Result{ExitCode: 1, Stderr: []byte(scriptsdkErr.Error() + "\n")}
+		}
+		changed = append(changed, scriptsdkChanged...)
 		if len(changed) > 0 {
 			message := fmt.Sprintf("GOLC_GENERATE_DRIFT: %s\n", strings.Join(changed, ", "))
 			return Result{ExitCode: 1, Stderr: []byte(message)}
 		}
-		return Result{Stdout: []byte("generate --check: no drift; every committed schema and the api OpenAPI contract match their source.\n")}
+		return Result{Stdout: []byte("generate --check: no drift; every committed schema, the api OpenAPI contract, and the scriptsdk generated SDK match their source.\n")}
 	}
 
 	if err := contracts.GenerateAll(request.Root); err != nil {
@@ -78,7 +84,10 @@ func runGenerate(request Request) Result {
 	if err := api.GenerateOpenAPI(request.Root); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte("generate: every registered schema and the api OpenAPI contract were written to their committed paths.\n")}
+	if err := scriptsdk.GenerateAll(request.Root); err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	return Result{Stdout: []byte("generate: every registered schema, the api OpenAPI contract, and the scriptsdk generated SDK were written to their committed paths.\n")}
 }
 
 // parseGenerateArgs accepts exactly no arguments or exactly "--check".

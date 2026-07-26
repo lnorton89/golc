@@ -107,7 +107,7 @@
 ### TypeScript Scripting
 
 - [ ] **SCRP-01**: A user can create, edit, validate, run, stop, and debug TypeScript scripts from the application.
-- [ ] **SCRP-02**: Scripts use a generated typed GOLC SDK for commands, queries, and events rather than raw DMX access.
+- [x] **SCRP-02**: Scripts use a generated typed GOLC SDK for commands, queries, and events rather than raw DMX access.
 - [ ] **SCRP-03**: Scripts execute outside the playback process with no ambient filesystem, network, environment, subprocess, or native-code permissions.
 - [ ] **SCRP-04**: A user can assign script capabilities, deadlines, rate limits, and resource limits before execution.
 - [ ] **SCRP-05**: A user can inspect structured script logs, diagnostics, source locations, command outcomes, and cancellation status.
@@ -273,7 +273,7 @@ A v1 requirement is complete only when its implementation is committed, automate
 | API-05 | Phase 7 | Complete |
 | API-06 | Phase 7 | Complete |
 | SCRP-01 | Phase 8 | Pending |
-| SCRP-02 | Phase 8 | Pending |
+| SCRP-02 | Phase 8 | Complete |
 | SCRP-03 | Phase 8 | Pending |
 | SCRP-04 | Phase 8 | Pending |
 | SCRP-05 | Phase 8 | Pending |
