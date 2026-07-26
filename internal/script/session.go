@@ -30,6 +30,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/lnorton89/golc/internal/api"
 	"github.com/lnorton89/golc/internal/scriptsdk"
 	"github.com/lnorton89/golc/internal/security"
 	"github.com/lnorton89/golc/internal/show"
@@ -400,6 +401,64 @@ func (h *Host) dispatchCmdCall(run *Run, call CmdCallFrame) (CmdResultFrame, Cal
 	return CmdResultFrame{ID: call.ID, Ok: false, Code: code, Message: message}, outcome
 }
 
+// mutationOutcomeFor renders a CallOutcome's Ok into the "success"/
+// "failure" value api.MutationEvent.Outcome expects.
+func mutationOutcomeFor(ok bool) string {
+	if ok {
+		return "success"
+	}
+	return "failure"
+}
+
+// mutationStatusCodeFor renders a CallOutcome's Ok into an HTTP-shaped
+// status code for api.MutationEvent.StatusCode -- there is no real HTTP
+// request behind a script-issued call, so this is an informational
+// best-effort mapping (200/500), consistent with the field's meaning for
+// every other MutationEvent source.
+func mutationStatusCodeFor(ok bool) int {
+	if ok {
+		return 200
+	}
+	return 500
+}
+
+// publishCallOutcome fires both halves of D-05 for one recorded
+// CallOutcome: a script.outcome ScriptEvent (the live debug-panel half,
+// Task 1) and an api.MutationEvent carrying Source:"script" (the audit
+// half, Task 2's exported api.PublishMutationEvent seam) -- so the exact
+// same outcome reaches the running script's own panel in real time AND
+// the Phase 7 audit trail, never only one of them. route falls back to
+// call.Method when descriptor resolution never happened (an unknown
+// method or a termination-denied call), so an audited/observed outcome
+// always carries the caller's attempted route even when it never reached
+// scriptsdk's registry.
+func publishCallOutcome(run *Run, method string, outcome CallOutcome) {
+	route := outcome.Route
+	if route == "" {
+		route = method
+	}
+	PublishScriptEvent(ScriptEvent{
+		Kind:       ScriptEventOutcome,
+		RunID:      run.RunID,
+		ScriptName: run.ScriptName,
+		At:         time.Now(),
+		Method:     outcome.Method,
+		Route:      outcome.Route,
+		DurationMS: outcome.DurationMS,
+		Ok:         outcome.Ok,
+		Code:       outcome.Code,
+		Message:    outcome.Message,
+	})
+	api.PublishMutationEvent(api.MutationEvent{
+		Route:         route,
+		Actor:         "script:" + run.ScriptName,
+		Source:        "script",
+		CorrelationID: run.RunID.String(),
+		Outcome:       mutationOutcomeFor(outcome.Ok),
+		StatusCode:    mutationStatusCodeFor(outcome.Ok),
+	})
+}
+
 // runDispatchIO drives the multiplexed session protocol on an already-
 // open stdin/stdout/stderr triple: every log frame is redacted and
 // appended to the bounded Logs stream (D-04); every cmd-call frame is
@@ -424,6 +483,10 @@ func (h *Host) runDispatchIO(run *Run, stdin io.Writer, stdout, stderr io.Reader
 			stderrLogsMu.Lock()
 			outcome.Logs = appendBoundedLog(outcome.Logs, LogLine{Level: "stderr", Message: redacted})
 			stderrLogsMu.Unlock()
+			PublishScriptEvent(ScriptEvent{
+				Kind: ScriptEventLog, RunID: run.RunID, ScriptName: run.ScriptName, At: time.Now(),
+				Level: "stderr", Message: redacted, Source: "stderr",
+			})
 		}
 	}()
 
@@ -450,10 +513,15 @@ func (h *Host) runDispatchIO(run *Run, stdin io.Writer, stdout, stderr io.Reader
 		case ReadyFrame:
 			// Informational only.
 		case LogFrame:
+			redacted := security.Redact(f.Message)
 			outcome.Logs = appendBoundedLog(outcome.Logs, LogLine{
 				Level:   f.Level,
-				Message: security.Redact(f.Message),
+				Message: redacted,
 				Source:  f.Source,
+			})
+			PublishScriptEvent(ScriptEvent{
+				Kind: ScriptEventLog, RunID: run.RunID, ScriptName: run.ScriptName, At: time.Now(),
+				Level: f.Level, Message: redacted, Source: f.Source,
 			})
 		case DoneFrame:
 			if f.ExitReason != "" {
@@ -462,6 +530,7 @@ func (h *Host) runDispatchIO(run *Run, stdin io.Writer, stdout, stderr io.Reader
 		case CmdCallFrame:
 			result, callOutcome := h.dispatchCmdCall(run, f)
 			outcome.Outcomes = append(outcome.Outcomes, callOutcome)
+			publishCallOutcome(run, f.Method, callOutcome)
 			if err := EncodeFrame(stdin, result); err != nil {
 				outcome.Status = show.ScriptRunStatusFailed
 				outcome.Reason = err.Error()
@@ -487,6 +556,38 @@ func (h *Host) runDispatchIO(run *Run, stdin io.Writer, stdout, stderr io.Reader
 		}
 	}
 	return outcome
+}
+
+// terminalStatusReason derives the guaranteed terminal event's Status/
+// Reason from Run's own named return values: result.Status/Reason when
+// the dispatch loop actually ran (runDispatchIO always leaves Status
+// populated), falling back to show.ScriptRunStatusFailed and runErr's own
+// message for an early failure return (e.g.
+// GOLC_SCRIPT_RUN_TEMP_DIR_FAILED) that never reaches runDispatchIO at
+// all -- so a terminal event is guaranteed even for a run that fails
+// before a single frame is ever read (T-08-38).
+func terminalStatusReason(result RunOutcome, runErr error) (show.ScriptRunStatus, string) {
+	status := result.Status
+	reason := result.Reason
+	if status == "" {
+		status = show.ScriptRunStatusFailed
+	}
+	if reason == "" && runErr != nil {
+		reason = runErr.Error()
+	}
+	return status, reason
+}
+
+// computeTerminalEvent builds the guaranteed script.terminal ScriptEvent
+// for one run's exit -- a pure function of run and Run's own named return
+// values, directly unit-testable (events_test.go's seven-termination-cause
+// table) without needing to spawn a real Deno process for each cause.
+func computeTerminalEvent(run *Run, result RunOutcome, runErr error) ScriptEvent {
+	status, reason := terminalStatusReason(result, runErr)
+	return ScriptEvent{
+		Kind: ScriptEventTerminal, RunID: run.RunID, ScriptName: run.ScriptName, At: time.Now(),
+		Status: status, Reason: reason,
+	}
 }
 
 // Run spawns a fresh, zero-permission Deno subprocess for target,
@@ -522,6 +623,22 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode) (re
 		done: make(chan struct{}),
 	}
 
+	// 08-08-PLAN.md Task 1's flagged SCRP-05 edge mitigation: registered
+	// as the OUTERMOST defer, immediately after run exists and before any
+	// fallible step below, so a guaranteed script.terminal event -- the
+	// run's final Status/Reason, derived from Run's own named return
+	// values -- is published on every exit path from this point on,
+	// including an early failure return, a panic, or a kill mid-dispatch
+	// (T-08-38: a subscriber never has to infer that a run ended). Also
+	// mirrors the same terminal transition onto the existing SSE stream
+	// as a "script" event (D-04's live-streaming reuse of Phase 7's
+	// pattern, via internal/api's PublishScriptLifecycleEvent seam).
+	defer func() {
+		ev := computeTerminalEvent(run, result, runErr)
+		PublishScriptEvent(ev)
+		api.PublishScriptLifecycleEvent(ev.RunID.String(), ev.ScriptName, string(ev.Status), ev.Reason)
+	}()
+
 	// Register run before any fallible step below so a concurrent
 	// "script stop <name>" (08-06-PLAN.md Task 3) can always find and
 	// terminate it, and finalize -- close done, deregister -- on every
@@ -534,6 +651,16 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode) (re
 		close(run.done)
 		deregisterActiveRun(run)
 	}()
+
+	// D-04: a script.status event marks the run's start, and mirrors onto
+	// the existing SSE stream as a "script" lifecycle event, so a
+	// subscriber attached before this run's first log line still sees it
+	// begin.
+	PublishScriptEvent(ScriptEvent{
+		Kind: ScriptEventStatus, RunID: run.RunID, ScriptName: run.ScriptName, At: time.Now(),
+		Status: show.ScriptRunStatusRunning,
+	})
+	api.PublishScriptLifecycleEvent(run.RunID.String(), run.ScriptName, string(show.ScriptRunStatusRunning), "")
 
 	// D-08: every run carries its own wall-clock deadline, resolved from
 	// the profile's capability preset (deadlineFor delegates entirely to

@@ -122,3 +122,124 @@ func TestEventPusherFlushKeepsStatusUpdateSingleValueBehavior(t *testing.T) {
 		t.Fatalf("expected exactly one coalesced status:update push carrying the latest BPM, got %+v", pushed)
 	}
 }
+
+// TestQueueScriptEventStagesFiveDistinctEventsAndEmitsAllInSeqOrder covers
+// 08-08-PLAN.md Task 3's exact <behavior> requirement: QueueScriptEvent
+// staging N distinct events within one tick results in N EventsEmit calls
+// under "script:event", in Seq order -- never coalesced.
+func TestQueueScriptEventStagesFiveDistinctEventsAndEmitsAllInSeqOrder(t *testing.T) {
+	p := NewEventPusher()
+
+	var mu sync.Mutex
+	var pushed []ScriptEventView
+	p.emit = func(_ context.Context, eventName string, data ...interface{}) {
+		if eventName != "script:event" {
+			return
+		}
+		if view, ok := data[0].(ScriptEventView); ok {
+			mu.Lock()
+			pushed = append(pushed, view)
+			mu.Unlock()
+		}
+	}
+
+	for i := int64(1); i <= 5; i++ {
+		p.QueueScriptEvent(ScriptEventView{Seq: i, Kind: "script.log", Message: "line"})
+	}
+
+	p.flush(context.Background())
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(pushed) != 5 {
+		t.Fatalf("expected exactly 5 emit calls for 5 staged distinct events, got %d: %+v", len(pushed), pushed)
+	}
+	for i, view := range pushed {
+		wantSeq := int64(i + 1)
+		if view.Seq != wantSeq {
+			t.Fatalf("pushed[%d].Seq = %d, want %d (Seq order)", i, view.Seq, wantSeq)
+		}
+	}
+}
+
+// TestQueueScriptEventOverflowEmitsGapEventBeforeSurvivingEvents covers:
+// "The staging buffer is bounded; when it overflows within a tick, the
+// oldest staged events are dropped and a single synthetic gap event
+// carrying the dropped count and the resulting Seq discontinuity is
+// emitted, so the frontend can resync rather than silently miss lines."
+func TestQueueScriptEventOverflowEmitsGapEventBeforeSurvivingEvents(t *testing.T) {
+	p := NewEventPusher()
+
+	var mu sync.Mutex
+	var pushed []ScriptEventView
+	p.emit = func(_ context.Context, eventName string, data ...interface{}) {
+		if eventName != "script:event" {
+			return
+		}
+		if view, ok := data[0].(ScriptEventView); ok {
+			mu.Lock()
+			pushed = append(pushed, view)
+			mu.Unlock()
+		}
+	}
+
+	overflowBy := 3
+	for i := 0; i < maxStagedScriptEvents+overflowBy; i++ {
+		p.QueueScriptEvent(ScriptEventView{Seq: int64(i + 1), Kind: "script.log"})
+	}
+
+	p.flush(context.Background())
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(pushed) != maxStagedScriptEvents+1 {
+		t.Fatalf("expected %d entries (1 gap event + %d surviving), got %d",
+			maxStagedScriptEvents+1, maxStagedScriptEvents, len(pushed))
+	}
+	if pushed[0].Kind != "script.gap" || pushed[0].GapCount != overflowBy {
+		t.Fatalf("expected the first pushed entry to be a gap event carrying GapCount=%d, got %+v", overflowBy, pushed[0])
+	}
+	for i := 1; i < len(pushed); i++ {
+		if pushed[i].Kind == "script.gap" {
+			t.Fatalf("expected exactly one gap event, found a second at index %d: %+v", i, pushed[i])
+		}
+	}
+	// The surviving events are the newest overflowBy+1..maxStagedScriptEvents+overflowBy
+	// (the oldest overflowBy were dropped) -- a real Seq discontinuity a
+	// consumer can detect.
+	firstSurvivingSeq := pushed[1].Seq
+	if firstSurvivingSeq != int64(overflowBy+1) {
+		t.Fatalf("expected the first surviving event's Seq to be %d (oldest %d dropped), got %d", overflowBy+1, overflowBy, firstSurvivingSeq)
+	}
+}
+
+// TestQueueScriptEventNoOverflowEmitsNoGapEvent proves a tick that never
+// exceeds maxStagedScriptEvents emits no synthetic gap event at all.
+func TestQueueScriptEventNoOverflowEmitsNoGapEvent(t *testing.T) {
+	p := NewEventPusher()
+
+	var mu sync.Mutex
+	var pushed []ScriptEventView
+	p.emit = func(_ context.Context, eventName string, data ...interface{}) {
+		if eventName != "script:event" {
+			return
+		}
+		if view, ok := data[0].(ScriptEventView); ok {
+			mu.Lock()
+			pushed = append(pushed, view)
+			mu.Unlock()
+		}
+	}
+
+	p.QueueScriptEvent(ScriptEventView{Seq: 1, Kind: "script.log"})
+	p.flush(context.Background())
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(pushed) != 1 {
+		t.Fatalf("expected exactly 1 pushed event, got %d: %+v", len(pushed), pushed)
+	}
+	if pushed[0].Kind == "script.gap" {
+		t.Fatal("expected no gap event when the staging bound was never exceeded")
+	}
+}
