@@ -29,6 +29,15 @@
   color: var(--muted);
 }
 
+/* stepControls (08-12-PLAN.md Task 2, D-01): Continue/Step Over/Step
+   Into/Step Out, grouped beside the paused chip -- standard 32px Button
+   height, neutral secondary variant (not a second accent color). */
+.stepControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
 .stream {
   flex: 1;
   min-height: 120px;
@@ -119,14 +128,40 @@
   max-height: 200px;
 }
 
-.tracePre {
+/* traceList/traceFrame (08-12-PLAN.md Task 2, D-03): each stack-trace
+   frame is its own keyboard-focusable <button> (replacing the earlier
+   plain <pre> block) so a click/Enter/Space on a frame can call
+   onSelectFrame -- same monospace technical-readout styling the old
+   <pre> block used, just per-frame and interactive now. */
+.traceList {
+  list-style: none;
   margin: 0;
-  padding: var(--space-sm);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.traceFrame {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: var(--space-xs) var(--space-sm);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
   color: var(--ink);
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: var(--text-base);
+  text-align: left;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.traceFrame:hover,
+.traceFrame:focus-visible {
+  background: var(--page);
 }
 
 .banner {
