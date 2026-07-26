@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -190,10 +191,15 @@ func writeEngineRepository(t *testing.T) (root string, source *engineFakeSource,
 	} else {
 		nodeArchive, nodeDigest = buildTarGzEntries(t, root, nodeLayout.FileName, nodeEntries)
 	}
+	// Deno is pinned unconditionally too (SCRP-03, 08-RESEARCH.md): every
+	// bootstrap now provisions it exactly like Go/Mage/Node, not only a
+	// Deno-specific test.
+	denoArchive, denoDigest, _ := platformToolArchive(t, root, "deno", "2.9.4")
 	goURL = "https://go.dev/dl/" + filepath.Base(goArchive)
 	mageURL := "https://github.com/magefile/mage/releases/download/v1.17.2/" + filepath.Base(mageArchive)
 	fixtureURL := "https://fixtures.example.invalid/tool/" + filepath.Base(fixtureArchive)
 	nodeURL := "https://nodejs.org/dist/v24.18.0/" + filepath.Base(nodeArchive)
+	denoURL := "https://github.com/denoland/deno/releases/download/v2.9.4/" + filepath.Base(denoArchive)
 	manifest := fmt.Sprintf(`schema_version = 2
 
 [cache]
@@ -234,10 +240,19 @@ official_path_prefix = "/dist/"
 archive_url = %q
 archive_sha256 = %q
 
+[toolchain.deno]
+version = "2.9.4"
+official_host = "github.com"
+official_path_prefix = "/denoland/deno/releases/download/"
+
+[toolchain.deno.platforms.%q]
+archive_url = %q
+archive_sha256 = %q
+
 [go_install.midicat]
 version = "v1.0.7"
 module = "gitlab.com/gomidi/tools/midicat"
-`, fixtureURL, fixtureDigest, PlatformKey(), goURL, goDigest, PlatformKey(), mageURL, mageDigest, PlatformKey(), nodeURL, nodeDigest)
+`, fixtureURL, fixtureDigest, PlatformKey(), goURL, goDigest, PlatformKey(), mageURL, mageDigest, PlatformKey(), nodeURL, nodeDigest, PlatformKey(), denoURL, denoDigest)
 	if err := os.WriteFile(filepath.Join(root, "config", "toolchain.toml"), []byte(manifest), 0o644); err != nil {
 		t.Fatalf("write manifest: %v", err)
 	}
@@ -263,11 +278,13 @@ module = "gitlab.com/gomidi/tools/midicat"
 	mageBytes, _ := os.ReadFile(mageArchive)
 	fixtureBytes, _ := os.ReadFile(fixtureArchive)
 	nodeBytes, _ := os.ReadFile(nodeArchive)
+	denoBytes, _ := os.ReadFile(denoArchive)
 	source = &engineFakeSource{payload: map[string][]byte{
 		goURL:      goBytes,
 		mageURL:    mageBytes,
 		fixtureURL: fixtureBytes,
 		nodeURL:    nodeBytes,
+		denoURL:    denoBytes,
 	}}
 	return root, source, goURL
 }
@@ -340,6 +357,11 @@ func TestScopeBootstrapEngine(t *testing.T) {
 			{"mage", "1.17.2", "linux", "arm64", "mage_1.17.2_Linux-ARM64.tar.gz", "", "mage"},
 			{"mage", "1.17.2", "darwin", "amd64", "mage_1.17.2_macOS-64bit.tar.gz", "", "mage"},
 			{"mage", "1.17.2", "darwin", "arm64", "mage_1.17.2_macOS-ARM64.tar.gz", "", "mage"},
+			{"deno", "2.9.4", "windows", "amd64", "deno-x86_64-pc-windows-msvc.zip", "", "deno.exe"},
+			{"deno", "2.9.4", "linux", "amd64", "deno-x86_64-unknown-linux-gnu.zip", "", "deno"},
+			{"deno", "2.9.4", "linux", "arm64", "deno-aarch64-unknown-linux-gnu.zip", "", "deno"},
+			{"deno", "2.9.4", "darwin", "amd64", "deno-x86_64-apple-darwin.zip", "", "deno"},
+			{"deno", "2.9.4", "darwin", "arm64", "deno-aarch64-apple-darwin.zip", "", "deno"},
 		}
 		for _, testCase := range cases {
 			layout, err := platformArchiveLayout(testCase.tool, testCase.version, testCase.goos, testCase.goarch)
@@ -474,7 +496,7 @@ func TestScopeBootstrapEngine(t *testing.T) {
 			t.Fatalf("read production manifest: %v", err)
 		}
 		wantPlatforms := []string{"windows-amd64", "linux-amd64", "linux-arm64", "darwin-amd64", "darwin-arm64"}
-		for _, tool := range []string{"go", "node"} {
+		for _, tool := range []string{"go", "node", "deno"} {
 			parent, ok := document.Toolchain[tool]
 			if !ok {
 				t.Fatalf("production manifest missing toolchain.%s", tool)
@@ -510,8 +532,8 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		if err := runBootstrap(context.Background(), root, Options{}, dependencies); err != nil {
 			t.Fatalf("runBootstrap: %v", err)
 		}
-		if len(source.calls) != 4 {
-			t.Fatalf("source calls = %v, want generic tool plus Mage plus Go plus Node", source.calls)
+		if len(source.calls) != 5 {
+			t.Fatalf("source calls = %v, want generic tool plus Mage plus Go plus Deno plus Node", source.calls)
 		}
 		wantArgs := [][]string{
 			{"mod", "download", "all"},
@@ -589,6 +611,16 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		}
 		if want := filepath.Join(root, ".tools", "toolchains", "mage", "1.17.2", PlatformKey(), ExecutableName("mage")); mageExecutable != want {
 			t.Fatalf("ResolveMageExecutable = %q, want %q", mageExecutable, want)
+		}
+		denoExecutable, err := ResolveDenoExecutable(root)
+		if err != nil {
+			t.Fatalf("ResolveDenoExecutable: %v", err)
+		}
+		if want := filepath.Join(root, ".tools", "toolchains", "deno", "2.9.4", PlatformKey(), ExecutableName("deno")); denoExecutable != want {
+			t.Fatalf("ResolveDenoExecutable = %q, want %q", denoExecutable, want)
+		}
+		if info, err := os.Stat(denoExecutable); err != nil || !info.Mode().IsRegular() {
+			t.Fatalf("expected regular deno executable at %s: %v", denoExecutable, err)
 		}
 
 		source.calls = nil
@@ -747,6 +779,86 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		}
 		if _, err := os.Stat(filepath.Join(root, ".tools")); !os.IsNotExist(err) {
 			t.Fatalf("missing Mage platform created .tools: %v", err)
+		}
+	})
+
+	t.Run("missing [toolchain.deno] entirely fails naming deno before source or install work", func(t *testing.T) {
+		root, source, _ := writeEngineRepository(t)
+		manifestPath := filepath.Join(root, "config", "toolchain.toml")
+		raw, _ := os.ReadFile(manifestPath)
+		// Remove the whole [toolchain.deno] block, including its nested
+		// platforms table, so no "[toolchain.deno.*]" header remains to
+		// implicitly recreate the parent table (a partial header-only
+		// rename would leave TOML's implicit-table-creation rule
+		// re-establishing [toolchain.deno] with a different failure mode).
+		start := bytes.Index(raw, []byte("[toolchain.deno]"))
+		end := bytes.Index(raw, []byte("[go_install."))
+		if start < 0 || end < 0 || end <= start {
+			t.Fatal("test setup did not locate the entire [toolchain.deno] block")
+		}
+		stripped := append(append([]byte(nil), raw[:start]...), raw[end:]...)
+		if err := os.WriteFile(manifestPath, stripped, 0o644); err != nil {
+			t.Fatalf("rewrite manifest: %v", err)
+		}
+		err := runBootstrap(context.Background(), root, Options{},
+			bootstrapDependencies{Source: source, Runner: &engineFakeRunner{}})
+		if err == nil || !strings.Contains(err.Error(), "GOLC_DENO_TOOLCHAIN_MISSING") {
+			t.Fatalf("expected GOLC_DENO_TOOLCHAIN_MISSING naming deno, got %v", err)
+		}
+		if len(source.calls) != 0 {
+			t.Fatalf("missing deno parent consulted source: %v", source.calls)
+		}
+		if _, err := os.Stat(filepath.Join(root, ".tools")); !os.IsNotExist(err) {
+			t.Fatalf("missing deno parent created .tools: %v", err)
+		}
+	})
+
+	t.Run("missing current Deno platform fails before source or install work", func(t *testing.T) {
+		root, source, _ := writeEngineRepository(t)
+		manifestPath := filepath.Join(root, "config", "toolchain.toml")
+		raw, _ := os.ReadFile(manifestPath)
+		current := fmt.Sprintf("[toolchain.deno.platforms.%q]", PlatformKey())
+		raw = bytes.Replace(raw, []byte(current), []byte(`[toolchain.deno.platforms."unconfigured-platform"]`), 1)
+		if err := os.WriteFile(manifestPath, raw, 0o644); err != nil {
+			t.Fatalf("rewrite manifest: %v", err)
+		}
+		err := runBootstrap(context.Background(), root, Options{},
+			bootstrapDependencies{Source: source, Runner: &engineFakeRunner{}})
+		required := fmt.Sprintf(`[toolchain.deno.platforms.%q]`, PlatformKey())
+		if err == nil || !strings.Contains(err.Error(), required) {
+			t.Fatalf("expected missing Deno platform diagnostic naming %s, got %v", required, err)
+		}
+		if len(source.calls) != 0 {
+			t.Fatalf("missing Deno platform consulted source: %v", source.calls)
+		}
+		if _, err := os.Stat(filepath.Join(root, ".tools")); !os.IsNotExist(err) {
+			t.Fatalf("missing Deno platform created .tools: %v", err)
+		}
+	})
+
+	t.Run("bootstrap rejects a Deno archive whose bytes do not match the pinned SHA-256", func(t *testing.T) {
+		root, source, _ := writeEngineRepository(t)
+		manifestPath := filepath.Join(root, "config", "toolchain.toml")
+		raw, _ := os.ReadFile(manifestPath)
+		// Corrupt only the pinned checksum, leaving the archive URL (and
+		// therefore the fake source's fetchable payload) untouched, so the
+		// mismatch is detected only once the real bytes are hashed and
+		// compared -- not from a missing/malformed URL.
+		denoShaMarker := regexp.MustCompile(`(\[toolchain\.deno\.platforms\."` + regexp.QuoteMeta(PlatformKey()) + `"\]\narchive_url = "[^"]+"\narchive_sha256 = ")[0-9a-f]{64}(")`)
+		corrupted := denoShaMarker.ReplaceAll(raw, []byte("${1}"+strings.Repeat("a", 64)+"${2}"))
+		if bytes.Equal(corrupted, raw) {
+			t.Fatal("test setup did not corrupt the deno archive_sha256")
+		}
+		if err := os.WriteFile(manifestPath, corrupted, 0o644); err != nil {
+			t.Fatalf("rewrite manifest: %v", err)
+		}
+		err := runBootstrap(context.Background(), root, Options{},
+			bootstrapDependencies{Source: source, Runner: &engineFakeRunner{}})
+		if err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_CHECKSUM_MISMATCH") {
+			t.Fatalf("expected checksum mismatch for tampered deno pin, got %v", err)
+		}
+		if _, err := ResolveDenoExecutable(root); err == nil {
+			t.Fatal("checksum-mismatched Deno install unexpectedly resolved")
 		}
 	})
 
