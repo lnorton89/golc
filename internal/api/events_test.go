@@ -701,3 +701,49 @@ func TestSSEFutureLastEventIDResyncs(t *testing.T) {
 		t.Fatalf("expected the resync event to carry a non-empty reason")
 	}
 }
+
+// --- TestSSEScriptLifecycleEvent ---------------------------------------------
+
+// TestSSEScriptLifecycleEvent proves 08-08-PLAN.md Task 2's new "script"
+// SSE payload type is registered on this SAME global stream (no second
+// endpoint): a call to api.PublishScriptLifecycleEvent -- the seam
+// internal/script's Run calls at a run's start and terminal moments --
+// arrives as an "event: script" frame carrying the run id/name/status/
+// reason, on the identical connection a "state"/"resync" event would
+// arrive on.
+func TestSSEScriptLifecycleEvent(t *testing.T) {
+	server, root, showPath := newEventsTestServer(t)
+	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
+
+	ts := httptest.NewServer(server.Handler())
+	t.Cleanup(ts.Close)
+	client := openEventStream(t, ts, token, "")
+	if client.resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 opening the stream, got %d", client.resp.StatusCode)
+	}
+
+	api.PublishScriptLifecycleEvent("run-123", "Chase", "terminated", "GOLC_SCRIPT_STOPPED_BY_USER: stop requested")
+
+	frame, err := client.nextWithTimeout(t, 2*time.Second)
+	if err != nil {
+		t.Fatalf("reading script lifecycle frame: %v", err)
+	}
+	if frame.Event != "script" {
+		t.Fatalf("expected event=script, got event=%q data=%q", frame.Event, frame.Data)
+	}
+	var scriptDecoded struct {
+		RunID      string `json:"runId"`
+		ScriptName string `json:"scriptName"`
+		Status     string `json:"status"`
+		Reason     string `json:"reason"`
+	}
+	if err := json.Unmarshal([]byte(frame.Data), &scriptDecoded); err != nil {
+		t.Fatalf("decode script payload %q: %v", frame.Data, err)
+	}
+	if scriptDecoded.RunID != "run-123" || scriptDecoded.ScriptName != "Chase" || scriptDecoded.Status != "terminated" {
+		t.Fatalf("unexpected script payload: %+v", scriptDecoded)
+	}
+	if scriptDecoded.Reason != "GOLC_SCRIPT_STOPPED_BY_USER: stop requested" {
+		t.Fatalf("Reason = %q, want the stop reason", scriptDecoded.Reason)
+	}
+}
