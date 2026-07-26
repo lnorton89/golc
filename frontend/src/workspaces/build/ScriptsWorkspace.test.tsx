@@ -2,8 +2,89 @@
 // mocked window.go.wails.ScriptService, the same direct-window-object
 // convention every other Wails-bridge test in this codebase uses (see
 // wailsBridge.ts's own doc comment and ScenesLooksWorkspace.test.tsx).
+//
+// Monaco cannot instantiate under jsdom (ScriptEditor.tsx's own
+// configureMonacoEnvironment doc comment), so this file vi.mock()s
+// "monaco-editor" with the same fake ScriptEditor.test.tsx uses -- its
+// editor.create() renders a real <textarea> (carrying the passed
+// ariaLabel) bound two-way to the fake model, so every existing test below
+// that queries `${name} source` and fires change events keeps working
+// exactly as it did against 08-04's plain <textarea>, without knowing
+// Monaco is now the thing rendering it.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+
+vi.mock("monaco-editor", () => {
+  function createFakeModel(initialValue: string) {
+    let value = initialValue;
+    const listeners: Array<() => void> = [];
+    const boundElements = new Set<HTMLTextAreaElement>();
+    return {
+      getValue: () => value,
+      setValue: (next: string) => {
+        if (next === value) return;
+        value = next;
+        boundElements.forEach((el) => {
+          el.value = next;
+        });
+        listeners.slice().forEach((listener) => listener());
+      },
+      onDidChangeContent: (listener: () => void) => {
+        listeners.push(listener);
+        return {
+          dispose: vi.fn(() => {
+            const index = listeners.indexOf(listener);
+            if (index >= 0) listeners.splice(index, 1);
+          }),
+        };
+      },
+      __bindElement: (el: HTMLTextAreaElement) => {
+        boundElements.add(el);
+        el.value = value;
+      },
+      dispose: vi.fn(),
+    };
+  }
+
+  const createModel = vi.fn((value: string) => createFakeModel(value));
+
+  const create = vi.fn((container: HTMLElement, options: Record<string, unknown>) => {
+    const textarea = document.createElement("textarea");
+    if (typeof options.ariaLabel === "string") {
+      textarea.setAttribute("aria-label", options.ariaLabel);
+    }
+    const model = options.model as ReturnType<typeof createFakeModel>;
+    model.__bindElement(textarea);
+    textarea.addEventListener("change", () => {
+      model.setValue(textarea.value);
+    });
+    container.appendChild(textarea);
+
+    return { dispose: vi.fn(), updateOptions: vi.fn(), getModel: () => model };
+  });
+
+  return {
+    editor: {
+      create,
+      createModel,
+      defineTheme: vi.fn(),
+      setTheme: vi.fn(),
+    },
+    // monaco-editor@0.55.1's real TypeScript language-service surface is
+    // the top-level `typescript` namespace, not `languages.typescript`
+    // (deprecated in this pinned version) -- see ScriptEditor.tsx's own
+    // doc comment.
+    typescript: {
+      typescriptDefaults: {
+        addExtraLib: vi.fn(() => ({ dispose: vi.fn() })),
+        setCompilerOptions: vi.fn(),
+      },
+      ScriptTarget: { ESNext: 99 },
+      ModuleKind: { None: 0 },
+      ModuleResolutionKind: { NodeJs: 2 },
+    },
+  };
+});
 
 import ScriptsWorkspace from "./ScriptsWorkspace";
 
@@ -54,6 +135,7 @@ function stubScriptService(overrides: Partial<Record<string, ReturnType<typeof v
     DebugScript: vi.fn().mockResolvedValue(runOutcome()),
     StopScript: vi.fn().mockResolvedValue(ok()),
     ValidateScript: vi.fn().mockResolvedValue({ valid: true, diagnostics: [] }),
+    GetSDKTypeDefinitions: vi.fn().mockResolvedValue("declare namespace golc {}\n"),
     ...overrides,
   };
   vi.stubGlobal("go", { wails: { ScriptService: svc } });
@@ -177,8 +259,18 @@ describe("ScriptsWorkspace", () => {
     fireEvent.click(within(scriptList()).getByText("Chase Cycler"));
     await waitFor(() => expect(screen.getByLabelText("Chase Cycler source")).toBeInTheDocument());
 
-    fireEvent.change(screen.getByLabelText("Chase Cycler source"), {
-      target: { value: "export function run() {}\n" },
+    // Wrapped in `await act(async () => ...)` (not a plain fireEvent.change):
+    // ScriptEditor's onChange fires from the fake Monaco model's own
+    // "content changed" listener -- a native DOM event outside React's
+    // synthetic event system, exactly like the real Monaco model's
+    // onDidChangeContent -- so the resulting setSource update is scheduled
+    // on a microtask under React 18+'s automatic batching, which a
+    // synchronous fireEvent.change does not wait for before the next
+    // synchronous fireEvent.click reads (possibly stale) state.
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Chase Cycler source"), {
+        target: { value: "export function run() {}\n" },
+      });
     });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -325,10 +417,18 @@ describe("ScriptsWorkspace", () => {
 
     render(<ScriptsWorkspace />);
     await waitFor(() => expect(within(scriptList()).getByText("Chase Cycler")).toBeInTheDocument());
-
-    expect(
-      screen.getByText("Run or Debug this script to see live logs, diagnostics, and command outcomes here."),
-    ).toBeInTheDocument();
+    // Wait for the selection-validity-repair effect's auto-selection to
+    // actually land (mirrors the same wait every other test below that
+    // depends on a script being selected already uses) -- the debug
+    // panel's placeholder only renders once selectedScript is set, and
+    // ScriptEditor's own async Monaco mount (dynamic import) now shares
+    // the same effect-flush window, so this can no longer be asserted
+    // synchronously right after the list itself renders.
+    await waitFor(() =>
+      expect(
+        screen.getByText("Run or Debug this script to see live logs, diagnostics, and command outcomes here."),
+      ).toBeInTheDocument(),
+    );
 
     emitScriptEvent({
       seq: 1,
