@@ -102,7 +102,7 @@ func TestCheckForbiddenModuleSyntaxDoesNotFlagIdentifiersContainingImport(t *tes
 
 func TestBuildDenoCheckArgs(t *testing.T) {
 	got := buildDenoCheckArgs("/tmp/validate/script.ts")
-	want := []string{"check", "--no-prompt", "--cached-only", "/tmp/validate/script.ts"}
+	want := []string{"check", "--no-remote", "/tmp/validate/script.ts"}
 	if len(got) != len(want) {
 		t.Fatalf("buildDenoCheckArgs = %v, want %v", got, want)
 	}

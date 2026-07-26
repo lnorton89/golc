@@ -299,14 +299,18 @@ func stripCommentsAndStringLiterals(source string) string {
 // type-check invocation (T-08-30): a dedicated function, deliberately
 // separate from host.go's buildDenoArgs (the run command line), so a
 // future change to one can never accidentally widen the other.
-// --cached-only denies module resolution any network access (superseding
-// the removed --no-remote flag, 08-RESEARCH.md State of the Art) --
-// belt-and-suspenders alongside the structural zero-import gate, since a
-// script that ever reaches this step already contains no import for
-// --cached-only to need to deny. No branch of this function may ever
-// append a permission-granting flag.
+// --no-remote denies module resolution any network access -- belt-and-
+// suspenders alongside the structural zero-import gate, since a script
+// that ever reaches this step already contains no import for --no-remote
+// to need to deny. `deno check` never executes code, so there is no
+// permission prompt for --no-prompt to suppress; --no-prompt and the
+// previously-assumed --cached-only are both `deno run`-only/nonexistent
+// flags on Deno 2.9.4 and were confirmed to error out with "unexpected
+// argument" -- fixed here after 08-13's acceptance pass caught it against
+// the real pinned toolchain (deferred-items.md's 08-13 section). No
+// branch of this function may ever append a permission-granting flag.
 func buildDenoCheckArgs(scriptPath string) []string {
-	return []string{"check", "--no-prompt", "--cached-only", scriptPath}
+	return []string{"check", "--no-remote", scriptPath}
 }
 
 // shimLineOffsetFor returns the number of materialized-file lines the

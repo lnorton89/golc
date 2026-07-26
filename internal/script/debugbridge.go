@@ -19,6 +19,7 @@ package script
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sync"
 	"time"
 
@@ -36,13 +37,13 @@ import (
 // debugConnectTimeout bounds how long NewDebugBridge waits for the
 // spawned Deno child's inspector HTTP endpoint to come up: the child has
 // just been exec'd when this runs, so its inspector listener may not be
-// accepting connections on the very first attempt -- waitForInspectorVersion
+// accepting connections on the very first attempt -- waitForInspectorTarget
 // polls until this deadline rather than treating the first failed attempt
 // as fatal.
 const debugConnectTimeout = 5 * time.Second
 
 // debugConnectPollInterval is the pause between successive
-// waitForInspectorVersion polling attempts.
+// waitForInspectorTarget polling attempts.
 const debugConnectPollInterval = 50 * time.Millisecond
 
 // DebugBridge is the Go daemon's sole CDP client for one Debug-mode run.
@@ -70,18 +71,28 @@ type DebugBridge struct {
 	pumpWG sync.WaitGroup
 }
 
-// waitForInspectorVersion polls the loopback inspector's HTTP endpoint
-// (Deno implements the same /json/version HTTP surface Chrome/Node's
-// inspector does) until it reports a WebSocketDebuggerURL or ctx is
-// done -- absorbing the brief startup race between cmd.Start() returning
-// and the child's own inspector listener actually accepting connections.
-func waitForInspectorVersion(ctx context.Context, port int) (*devtool.Version, error) {
+// waitForInspectorTarget polls the loopback inspector's devtools target
+// list (Deno implements the same /json/list HTTP surface Chrome/Node's
+// inspector does, reporting itself as a devtool.Node-typed target) until
+// a target with a non-empty WebSocketDebuggerURL appears or ctx is done --
+// absorbing the brief startup race between cmd.Start() returning and the
+// child's own inspector listener actually accepting connections.
+//
+// This deliberately does NOT poll /json/version: that endpoint reports
+// only {Browser, Protocol-Version, V8-Version} on Deno 2.9.4 and never
+// carries a WebSocketDebuggerURL at all (confirmed directly against the
+// pinned toolchain during 08-13's acceptance pass -- deferred-items.md's
+// 08-13 section), so a version-based wait can never succeed; it always
+// runs out the connect timeout even though the inspector is already
+// live and accepting connections, which is exactly the deadlock this
+// plan's Task 1/2 acceptance checkpoints hit before this fix.
+func waitForInspectorTarget(ctx context.Context, port int) (*devtool.Target, error) {
 	devt := devtool.New(fmt.Sprintf("http://127.0.0.1:%d", port))
 	var lastErr error
 	for {
-		version, err := devt.Version(ctx)
-		if err == nil && version.WebSocketDebuggerURL != "" {
-			return version, nil
+		target, err := devt.Get(ctx, devtool.Node)
+		if err == nil && target.WebSocketDebuggerURL != "" {
+			return target, nil
 		}
 		if err != nil {
 			lastErr = err
@@ -106,12 +117,12 @@ func NewDebugBridge(ctx context.Context, runID uuid.UUID, port int, shimLineCoun
 	connectCtx, cancel := context.WithTimeout(ctx, debugConnectTimeout)
 	defer cancel()
 
-	version, err := waitForInspectorVersion(connectCtx, port)
+	target, err := waitForInspectorTarget(connectCtx, port)
 	if err != nil {
 		return nil, fmt.Errorf("GOLC_SCRIPT_DEBUG_CONNECT_FAILED: resolve inspector target: %v", err)
 	}
 
-	conn, err := rpcc.DialContext(connectCtx, version.WebSocketDebuggerURL)
+	conn, err := rpcc.DialContext(connectCtx, target.WebSocketDebuggerURL)
 	if err != nil {
 		return nil, fmt.Errorf("GOLC_SCRIPT_DEBUG_CONNECT_FAILED: dial inspector: %v", err)
 	}
@@ -191,16 +202,25 @@ func (b *DebugBridge) publishDebugStatus(reason string) {
 // Runtime.runIfWaitingForDebugger -- so every UI-configured breakpoint is
 // registered before the author's own first line ever executes (D-01,
 // matching the break-on-first-line launch Task 1's buildDenoArgs uses).
-// The urlRegex ".*" matches the single materialized script file Deno
-// loads for this run -- exactly one script is ever running inside this
-// sandboxed subprocess, so no more specific URL match is needed or
-// possible (the exact materialized temp path is never surfaced outside
-// this package, consistent with T-08-42).
+// The urlRegex matches only this run's own runID, embedded verbatim in
+// the materialized script's temp filename (session.go's
+// runID.String()+".ts") -- never a bare ".*". A universal wildcard
+// matches every script V8 parses in this process, including Deno's own
+// internal bootstrap/ext:core modules, and setting a breakpoint against
+// one of those can pause execution inside Deno's own startup code
+// instead of the author's line (found during 08-13's acceptance pass --
+// deferred-items.md's 08-13 section). Scoping the regex is regexp-safe
+// via regexp.QuoteMeta and needs no anchors: CDP's urlRegex is a
+// substring test, and a UUID string can only ever appear in the one
+// script whose own filename embeds it (the exact materialized temp path
+// itself is still never surfaced outside this package, consistent with
+// T-08-42 -- only its already-public runID is used here).
 func (b *DebugBridge) SetBreakpoints(authorLines []int) error {
 	ctx := context.Background()
+	urlRegex := regexp.QuoteMeta(b.runID.String())
 	for _, authorLine := range authorLines {
 		cdpLine := materializedCDPLine(authorLine, b.shimLineCount)
-		args := debugger.NewSetBreakpointByURLArgs(cdpLine).SetURLRegex(".*")
+		args := debugger.NewSetBreakpointByURLArgs(cdpLine).SetURLRegex(urlRegex)
 		if _, err := b.client.Debugger.SetBreakpointByURL(ctx, args); err != nil {
 			return fmt.Errorf("GOLC_SCRIPT_DEBUG_BREAKPOINT_FAILED: line %d: %v", authorLine, err)
 		}
