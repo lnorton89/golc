@@ -533,12 +533,17 @@ var excludedRouteTable = map[string]string{
 	// sandbox's own catalog is an application/CLI concern, not a
 	// show-domain capability exposed to script code (same class as
 	// "artnet serve": daemon/catalog lifecycle, owned by the application).
-	"script create":     "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
-	"script list":       "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
-	"script show":       "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
-	"script edit":       "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
-	"script delete":     "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
+	"script create":      "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
+	"script list":        "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
+	"script show":        "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
+	"script edit":        "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
+	"script delete":      "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
 	"script profile set": "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
+
+	// script lifecycle control (08-05): a running script must not be able
+	// to launch another script -- same class as "artnet serve" and the
+	// script CRUD routes above.
+	"script run": "script lifecycle control; a script must not be able to launch another script",
 }
 
 func init() {
