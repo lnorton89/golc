@@ -94,6 +94,62 @@ changes are auto-fixed).
   plan's manual Deno-denial-surface check, on a machine where `mage
   Bootstrap` (with a matching Deno pin) has completed successfully.
 
+## 08-06
+
+- **Same five pre-existing toolchain-bootstrap failures as 08-01/08-03/
+  08-05** (`TestBuildRouteCompilesTheProductionRepository`,
+  `TestBuildablePackagesExcludesMagefiles`, `TestScopeCrossPlatformCI`,
+  `TestScopeGreenSubprocess`, `TestScopeOfflineAcceptance`) — unrelated to
+  this plan's `internal/script`/`internal/command/scriptstop.go` changes.
+  `go test ./internal/script/...` is fully green; `go test
+  ./internal/command/...` is green except these five pre-existing
+  failures.
+
+- **Real-Deno-gated tests skip in this worktree**, same
+  `.tools/toolchains/deno/` partial/unverified install condition 08-05
+  already logged:
+  - `internal/script`: `TestJobObjectKillsAdversarialDenoChild`,
+    `TestScriptKillDoesNotBlockArtnet`
+  - `internal/command`: `TestScriptStopTerminatesActiveRun`
+
+  This plan's Windows Job Object *mechanics* (create/configure/assign/
+  idempotent Close, and closing a job actually killing a real, live
+  process) were independently verified for real on this bootstrapped
+  Windows machine against a native (non-Deno) child process
+  (`TestJobObjectCreateConfiguresLimitsAndCloses`,
+  `TestJobObjectAssignFailsForDeadProcess`,
+  `TestJobObjectCloseKillsAssignedProcess` — all pass for real, not
+  skipped). What remains unverified in this environment specifically is
+  (a) the adversarial Deno child (`finally`/unhandled-rejection/signal-
+  listener) kill proof, (b) `TestScriptKillDoesNotBlockArtnet`'s full
+  script-run-through-`Host.Run`-against-a-live-`artnet.Worker` proof, and
+  (c) `TestScriptStopTerminatesActiveRun`'s end-to-end CLI-route proof —
+  all three require a genuine Deno subprocess.
+
+- **08-06-PLAN.md's `<verification>` section's manual real-Windows-
+  hardware Pitfall-3 validation was not performed in this environment**:
+  "a script with a tight allocating loop is terminated by the memory cap,
+  and one with a tight CPU loop is throttled to the configured cap and
+  then killed by the deadline. Record both transcripts in the SUMMARY."
+  This specific check needs a script actually running through
+  `script.Host.Run` (i.e., a provisioned Deno toolchain), which this
+  worktree does not have. The underlying Job Object mechanism this check
+  would exercise (`JOB_OBJECT_LIMIT_JOB_MEMORY` +
+  `JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP`, both wired with the exact flag
+  combination 08-RESEARCH.md Pitfall 3 warns is easy to miss) is unit-
+  tested and configured correctly (`TestJobObjectCreateConfiguresLimitsAndCloses`
+  asserts both `SetInformationJobObject` calls themselves succeed, which
+  requires the correct struct layout and flag combination), and the kill
+  path is proven against a real live process. The specific "does the
+  configured percentage actually throttle CPU, and does the configured
+  megabyte figure actually trigger kernel termination on genuinely
+  excessive allocation" transcript is deferred to a machine with `mage
+  Bootstrap` (matching Deno pin) completed — re-run this plan's Deno-
+  gated tests there and additionally drive a script through `script.Host.Run`
+  with a tight CPU-spin script and a tight allocating script under the
+  "quick-action" preset's default 25% CPU cap / 256MB memory cap to
+  capture the transcripts this section calls for.
+
 ## 08-07
 
 - **Same five pre-existing toolchain-bootstrap failures as 08-01/08-03/

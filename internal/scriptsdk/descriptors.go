@@ -540,14 +540,12 @@ var excludedRouteTable = map[string]string{
 	"script delete":      "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
 	"script profile set": "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
 
-	// script lifecycle control (08-05): a running script must not be able
-	// to launch another script -- same class as "artnet serve" and the
-	// script CRUD routes above.
-	"script run": "script lifecycle control; a script must not be able to launch another script",
-
-	// script lifecycle control (08-07): a running script must not be able
-	// to validate or introspect another script's source -- same class as
-	// "script run" above.
+	// script lifecycle control (08-05/08-06/08-07): a running script must
+	// not be able to launch another script, terminate itself or another
+	// run, or validate/introspect another script's source, through the
+	// SDK -- same class as "artnet serve" and the script CRUD routes above.
+	"script run":      "script lifecycle control; a script must not be able to launch another script",
+	"script stop":     "script lifecycle control; a script must not be able to terminate itself or another run through the SDK",
 	"script validate": "script lifecycle control; a script must not validate or introspect other scripts through the SDK",
 }
 

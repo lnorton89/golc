@@ -62,6 +62,15 @@ type Host struct {
 
 	mu      sync.Mutex
 	running bool
+
+	// limiter is this Host's D-09 per-run rate-limit bucket set
+	// (capability.go's Enforce reads it via h.enforce). Always non-nil
+	// for a Host constructed through NewHost; a Host built directly via a
+	// struct literal (every white-box test in this package) leaves it nil,
+	// which Enforce treats as "no rate limiting enforced" -- acceptable
+	// for tests exercising dispatch mechanics rather than D-09 itself
+	// (covered directly by capability_test.go's own runLimiter tests).
+	limiter *runLimiter
 }
 
 // NewHost resolves the pinned, checksum-verified Deno executable once
@@ -74,7 +83,7 @@ func NewHost(cfg HostConfig) (*Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Host{cfg: cfg, denoPath: denoPath}, nil
+	return &Host{cfg: cfg, denoPath: denoPath, limiter: newRunLimiter()}, nil
 }
 
 // forbiddenDenoArgPrefixes names every permission-granting Deno CLI flag
