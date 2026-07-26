@@ -2306,39 +2306,354 @@
       "source": ".planning/phases/07-versioned-external-control-api/07-15-PLAN.md"
     },
     {
-      "local_id": "phase:11",
+      "local_id": "phase:08",
       "kind": "phase",
       "parent_local_id": "milestone:v1",
-      "display": "Telemetry, Usage Statistics, and Auto Crash Submission Pipeline",
+      "display": "Isolated TypeScript Automation",
       "source": ".planning/ROADMAP.md"
     },
     {
-      "local_id": "req:TELE-01",
+      "local_id": "req:SCRP-01",
       "kind": "req",
-      "parent_local_id": "phase:11",
-      "display": "A user can explicitly opt into usage/telemetry collection; collection stays off by default and nothing is sent before that opt-in.",
+      "parent_local_id": "phase:08",
+      "display": "A user can create, edit, validate, run, stop, and debug TypeScript scripts from the application.",
       "source": ".planning/REQUIREMENTS.md"
     },
     {
-      "local_id": "req:TELE-02",
+      "local_id": "req:SCRP-02",
       "kind": "req",
-      "parent_local_id": "phase:11",
-      "display": "Collected usage/telemetry data is anonymized before it ever leaves the device.",
+      "parent_local_id": "phase:08",
+      "display": "Scripts use a generated typed GOLC SDK for commands, queries, and events rather than raw DMX access.",
       "source": ".planning/REQUIREMENTS.md"
     },
     {
-      "local_id": "req:TELE-03",
+      "local_id": "req:SCRP-03",
       "kind": "req",
-      "parent_local_id": "phase:11",
-      "display": "A crash is automatically captured and submitted for diagnosis without the user having to manually reproduce or describe it.",
+      "parent_local_id": "phase:08",
+      "display": "Scripts execute outside the playback process with no ambient filesystem, network, environment, subprocess, or native-code permissions.",
       "source": ".planning/REQUIREMENTS.md"
     },
     {
-      "local_id": "req:TELE-04",
+      "local_id": "req:SCRP-04",
       "kind": "req",
-      "parent_local_id": "phase:11",
-      "display": "Telemetry and crash submission never block or degrade live playback or Art-Net output.",
+      "parent_local_id": "phase:08",
+      "display": "A user can assign script capabilities, deadlines, rate limits, and resource limits before execution.",
       "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:SCRP-05",
+      "kind": "req",
+      "parent_local_id": "phase:08",
+      "display": "A user can inspect structured script logs, diagnostics, source locations, command outcomes, and cancellation status.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:SCRP-06",
+      "kind": "req",
+      "parent_local_id": "phase:08",
+      "display": "A runaway, crashed, or blocked script can be terminated without interrupting playback or Art-Net output.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "plan:08-01",
+      "kind": "plan",
+      "parent_local_id": "phase:08",
+      "display": "Plan 08-01",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-01-PLAN.md"
+    },
+    {
+      "local_id": "task:08-01.1",
+      "kind": "task",
+      "parent_local_id": "plan:08-01",
+      "display": "Task 1: Script entity and capability profile in show.State",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-01-PLAN.md"
+    },
+    {
+      "local_id": "task:08-01.2",
+      "kind": "task",
+      "parent_local_id": "plan:08-01",
+      "display": "Task 2: script CLI command graph (create/list/show/edit/delete/profile set)",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-01-PLAN.md"
+    },
+    {
+      "local_id": "plan:08-02",
+      "kind": "plan",
+      "parent_local_id": "phase:08",
+      "display": "Plan 08-02",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-02-PLAN.md"
+    },
+    {
+      "local_id": "task:08-02.1",
+      "kind": "task",
+      "parent_local_id": "plan:08-02",
+      "display": "Task 1: Pin Deno in config/toolchain.toml and the strict configuration spec",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-02-PLAN.md"
+    },
+    {
+      "local_id": "task:08-02.2",
+      "kind": "task",
+      "parent_local_id": "plan:08-02",
+      "display": "Task 2: Provision Deno through internal/bootstrap and expose ResolveDenoExecutable",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-02-PLAN.md"
+    },
+    {
+      "local_id": "plan:08-03",
+      "kind": "plan",
+      "parent_local_id": "phase:08",
+      "display": "Plan 08-03",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-03-PLAN.md"
+    },
+    {
+      "local_id": "task:08-03.1",
+      "kind": "task",
+      "parent_local_id": "plan:08-03",
+      "display": "Task 1: scriptsdk descriptor registry, renderer, and drift check",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-03-PLAN.md"
+    },
+    {
+      "local_id": "task:08-03.2",
+      "kind": "task",
+      "parent_local_id": "plan:08-03",
+      "display": "Task 2: Descriptor registrations, capability-surface coverage gate, and committed generated output",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-03-PLAN.md"
+    },
+    {
+      "local_id": "task:08-03.3",
+      "kind": "task",
+      "parent_local_id": "plan:08-03",
+      "display": "Task 3: Wire scriptsdk into generate/check and add the registry parity test",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-03-PLAN.md"
+    },
+    {
+      "local_id": "plan:08-04",
+      "kind": "plan",
+      "parent_local_id": "phase:08",
+      "display": "Plan 08-04",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-04-PLAN.md"
+    },
+    {
+      "local_id": "task:08-04.1",
+      "kind": "task",
+      "parent_local_id": "plan:08-04",
+      "display": "Task 1: ScriptService Wails binding",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-04-PLAN.md"
+    },
+    {
+      "local_id": "task:08-04.2",
+      "kind": "task",
+      "parent_local_id": "plan:08-04",
+      "display": "Task 2: Scripts destination, bridge client, and ScriptsWorkspace library + editor",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-04-PLAN.md"
+    },
+    {
+      "local_id": "plan:08-05",
+      "kind": "plan",
+      "parent_local_id": "phase:08",
+      "display": "Plan 08-05",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-05-PLAN.md"
+    },
+    {
+      "local_id": "task:08-05.1",
+      "kind": "task",
+      "parent_local_id": "plan:08-05",
+      "display": "Task 1: Newline-delimited JSON session protocol",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-05-PLAN.md"
+    },
+    {
+      "local_id": "task:08-05.2",
+      "kind": "task",
+      "parent_local_id": "plan:08-05",
+      "display": "Task 2: Zero-permission Deno host and the run session",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-05-PLAN.md"
+    },
+    {
+      "local_id": "task:08-05.3",
+      "kind": "task",
+      "parent_local_id": "plan:08-05",
+      "display": "Task 3: `script run` CLI route and the injected Executor",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-05-PLAN.md"
+    },
+    {
+      "local_id": "plan:08-06",
+      "kind": "plan",
+      "parent_local_id": "phase:08",
+      "display": "Plan 08-06",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-06-PLAN.md"
+    },
+    {
+      "local_id": "task:08-06.1",
+      "kind": "task",
+      "parent_local_id": "plan:08-06",
+      "display": "Task 1: Capability, rate, and deadline enforcement at the session seam",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-06-PLAN.md"
+    },
+    {
+      "local_id": "task:08-06.2",
+      "kind": "task",
+      "parent_local_id": "plan:08-06",
+      "display": "Task 2: Windows Job Object hard caps and the uninterceptable kill path",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-06-PLAN.md"
+    },
+    {
+      "local_id": "task:08-06.3",
+      "kind": "task",
+      "parent_local_id": "plan:08-06",
+      "display": "Task 3: `script stop` route and the Art-Net non-interference proof",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-06-PLAN.md"
+    },
+    {
+      "local_id": "plan:08-07",
+      "kind": "plan",
+      "parent_local_id": "phase:08",
+      "display": "Plan 08-07",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-07-PLAN.md"
+    },
+    {
+      "local_id": "task:08-07.1",
+      "kind": "task",
+      "parent_local_id": "plan:08-07",
+      "display": "Task 1: Structural zero-import gate and the diagnostic model",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-07-PLAN.md"
+    },
+    {
+      "local_id": "task:08-07.2",
+      "kind": "task",
+      "parent_local_id": "plan:08-07",
+      "display": "Task 2: deno check type validation with source-coordinate mapping, and the `script validate` route",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-07-PLAN.md"
+    },
+    {
+      "local_id": "plan:08-08",
+      "kind": "plan",
+      "parent_local_id": "phase:08",
+      "display": "Plan 08-08",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-08-PLAN.md"
+    },
+    {
+      "local_id": "task:08-08.1",
+      "kind": "task",
+      "parent_local_id": "plan:08-08",
+      "display": "Task 1: Script event bus following the Phase 7 broadcaster pattern",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-08-PLAN.md"
+    },
+    {
+      "local_id": "task:08-08.2",
+      "kind": "task",
+      "parent_local_id": "plan:08-08",
+      "display": "Task 2: Audit-pipeline seam and SSE type tag",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-08-PLAN.md"
+    },
+    {
+      "local_id": "task:08-08.3",
+      "kind": "task",
+      "parent_local_id": "plan:08-08",
+      "display": "Task 3: Ordered, non-coalescing script event delivery to the desktop webview",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-08-PLAN.md"
+    },
+    {
+      "local_id": "plan:08-09",
+      "kind": "plan",
+      "parent_local_id": "phase:08",
+      "display": "Plan 08-09",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-09-PLAN.md"
+    },
+    {
+      "local_id": "task:08-09.1",
+      "kind": "task",
+      "parent_local_id": "plan:08-09",
+      "display": "Task 1: Debug-mode-only inspector gate and source-mapped stack traces",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-09-PLAN.md"
+    },
+    {
+      "local_id": "task:08-09.2",
+      "kind": "task",
+      "parent_local_id": "plan:08-09",
+      "display": "Task 2: CDP debug bridge — breakpoints, stepping, and paused-state events",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-09-PLAN.md"
+    },
+    {
+      "local_id": "task:08-09.3",
+      "kind": "task",
+      "parent_local_id": "plan:08-09",
+      "display": "Task 3: `script debug` route and breakpoint/step control routes",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-09-PLAN.md"
+    },
+    {
+      "local_id": "plan:08-10",
+      "kind": "plan",
+      "parent_local_id": "phase:08",
+      "display": "Plan 08-10",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-10-PLAN.md"
+    },
+    {
+      "local_id": "task:08-10.1",
+      "kind": "task",
+      "parent_local_id": "plan:08-10",
+      "display": "Task 1: Run/Debug/Stop service methods and bridge wrappers",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-10-PLAN.md"
+    },
+    {
+      "local_id": "task:08-10.2",
+      "kind": "task",
+      "parent_local_id": "plan:08-10",
+      "display": "Task 2: Run/Debug launch dialog with capability profile and resource presets",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-10-PLAN.md"
+    },
+    {
+      "local_id": "task:08-10.3",
+      "kind": "task",
+      "parent_local_id": "plan:08-10",
+      "display": "Task 3: Live debug panel, terminal states, and workspace toolbar actions",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-10-PLAN.md"
+    },
+    {
+      "local_id": "plan:08-11",
+      "kind": "plan",
+      "parent_local_id": "phase:08",
+      "display": "Plan 08-11",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-11-PLAN.md"
+    },
+    {
+      "local_id": "task:08-11.2",
+      "kind": "task",
+      "parent_local_id": "plan:08-11",
+      "display": "Task 2: Install monaco-editor, register the Paper/Ink themes, and serve the SDK types",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-11-PLAN.md"
+    },
+    {
+      "local_id": "task:08-11.3",
+      "kind": "task",
+      "parent_local_id": "plan:08-11",
+      "display": "Task 3: ScriptEditor component with live type-checking and autocomplete",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-11-PLAN.md"
+    },
+    {
+      "local_id": "plan:08-12",
+      "kind": "plan",
+      "parent_local_id": "phase:08",
+      "display": "Plan 08-12",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-12-PLAN.md"
+    },
+    {
+      "local_id": "task:08-12.1",
+      "kind": "task",
+      "parent_local_id": "plan:08-12",
+      "display": "Task 1: Glyph-margin breakpoint gutter and current-execution-line highlight",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-12-PLAN.md"
+    },
+    {
+      "local_id": "task:08-12.2",
+      "kind": "task",
+      "parent_local_id": "plan:08-12",
+      "display": "Task 2: Step controls, paused state, and clickable stack-trace frames",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-12-PLAN.md"
+    },
+    {
+      "local_id": "plan:08-13",
+      "kind": "plan",
+      "parent_local_id": "phase:08",
+      "display": "Plan 08-13",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-13-PLAN.md"
     }
   ],
   "remote_mappings": [
@@ -4959,7 +5274,7 @@
       "url": null
     },
     {
-      "repo_id": "phase:11",
+      "repo_id": "phase:08",
       "linear_type": "project_milestone",
       "status": "pending",
       "linear_uuid": null,
@@ -4967,7 +5282,7 @@
       "url": null
     },
     {
-      "repo_id": "req:TELE-01",
+      "repo_id": "req:SCRP-01",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,
@@ -4975,7 +5290,7 @@
       "url": null
     },
     {
-      "repo_id": "req:TELE-02",
+      "repo_id": "req:SCRP-02",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,
@@ -4983,7 +5298,7 @@
       "url": null
     },
     {
-      "repo_id": "req:TELE-03",
+      "repo_id": "req:SCRP-03",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,
@@ -4991,7 +5306,367 @@
       "url": null
     },
     {
-      "repo_id": "req:TELE-04",
+      "repo_id": "req:SCRP-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SCRP-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:SCRP-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:08-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-01.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-01.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:08-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-02.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-02.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:08-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-03.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-03.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-03.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:08-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-04.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-04.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:08-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-05.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-05.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-05.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:08-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-06.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-06.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-06.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:08-07",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-07.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-07.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:08-08",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-08.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-08.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-08.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:08-09",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-09.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-09.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-09.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:08-10",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-10.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-10.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-10.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:08-11",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-11.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-11.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:08-12",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-12.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-12.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:08-13",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,
