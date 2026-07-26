@@ -49,13 +49,22 @@ func (f *fakeExecutor) Execute(route string, args []string, root string) (int, [
 	return 0, []byte("GOLC_OK\n"), nil
 }
 
+// mustNewRun builds a Run carrying an admin-scoped, quick-action-preset
+// CapabilityProfile -- the widest scope and an ample default rate/
+// deadline -- so these dispatch-mechanics tests never incidentally fail
+// a D-06/D-09 capability check 08-06 introduced at the dispatchCmdCall
+// seam this file exercises; capability_test.go covers scope/rate
+// enforcement itself directly.
 func mustNewRun(t *testing.T) *Run {
 	t.Helper()
 	id, err := uuid.NewV7()
 	if err != nil {
 		t.Fatalf("uuid.NewV7: %v", err)
 	}
-	return &Run{RunID: id}
+	return &Run{
+		RunID:   id,
+		Profile: show.CapabilityProfile{Scope: show.APIKeyScopeAdmin, Preset: show.ResourcePresetQuickAction},
+	}
 }
 
 // TestDispatchCmdCallKnownMethod covers: "A run whose script calls
@@ -339,7 +348,14 @@ func TestRunSpawnsDenoWithNoAllowFlagsAndDispatchesSceneActivate(t *testing.T) {
 	}
 
 	source := `await golc.scene.activate({ name: "Alpha", show: "ignored" });`
-	outcome, err := host.Run(context.Background(), show.Script{Name: "ActivateAlpha", Source: source}, LaunchModeRun)
+	outcome, err := host.Run(context.Background(), show.Script{
+		Name:   "ActivateAlpha",
+		Source: source,
+		// scene.activate requires the authoring scope (08-06's newly
+		// enforced D-06 host-side scope check) -- 08-05's original zero-
+		// value CapabilityProfile{} would now be denied at dispatch time.
+		CapabilityProfile: show.CapabilityProfile{Scope: show.APIKeyScopeAuthoring, Preset: show.ResourcePresetQuickAction},
+	}, LaunchModeRun)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
