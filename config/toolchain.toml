@@ -73,6 +73,42 @@ archive_sha256 = "dfd0dbd3e721503434df7b7205e719f61b3a3a31b2bcf9729b8b91fea240f0
 archive_url = "https://nodejs.org/dist/v24.18.0/node-v24.18.0-darwin-arm64.tar.gz"
 archive_sha256 = "e1a97e14c99c803e96c7339403282ea05a499c32f8d83defe9ef5ec66f979ed1"
 
+# Deno IS an application runtime dependency, unlike Node above (which is
+# contributor-only tooling for the isolated tools/linear-sync workspace):
+# the packaged Windows build ships and supervises a pinned Deno executable
+# (WIN-02) as the process-isolated, zero-permission TypeScript automation
+# sandbox SCRP-03 rests on. Windows is the only qualified v1 platform
+# (STATE.md, Phase 10 constraint); the four non-Windows records make
+# contributor bootstrap available cross-platform without qualifying or
+# supporting the GOLC application on Linux or macOS, mirroring Go/Mage's
+# existing pattern above. Every archive_sha256 below is the official
+# per-asset github.com/denoland/deno/releases/download/<tag>/<asset>.sha256sum
+# entry, byte-verified against a locally downloaded archive.
+[toolchain.deno]
+version = "2.9.4"
+official_host = "github.com"
+official_path_prefix = "/denoland/deno/releases/download/"
+
+[toolchain.deno.platforms."windows-amd64"]
+archive_url = "https://github.com/denoland/deno/releases/download/v2.9.4/deno-x86_64-pc-windows-msvc.zip"
+archive_sha256 = "68ed08b05c56cf887e9aa509947dc3f468f7e12f47a13e5c1abd51d46d1453ef"
+
+[toolchain.deno.platforms."linux-amd64"]
+archive_url = "https://github.com/denoland/deno/releases/download/v2.9.4/deno-x86_64-unknown-linux-gnu.zip"
+archive_sha256 = "c24f955d9fbfe0ea5ae2b501c8e71ae76e31e4c9782390a54a284b3364fda725"
+
+[toolchain.deno.platforms."linux-arm64"]
+archive_url = "https://github.com/denoland/deno/releases/download/v2.9.4/deno-aarch64-unknown-linux-gnu.zip"
+archive_sha256 = "111da5c05c240cfdc4340f234a0e3539d39dbcb6755221f19dcd60bacc8be5aa"
+
+[toolchain.deno.platforms."darwin-amd64"]
+archive_url = "https://github.com/denoland/deno/releases/download/v2.9.4/deno-x86_64-apple-darwin.zip"
+archive_sha256 = "f757df6d3991e37601c69fad56c22b37c4ea77b5dcfad3636a642c2ba4c9b19f"
+
+[toolchain.deno.platforms."darwin-arm64"]
+archive_url = "https://github.com/denoland/deno/releases/download/v2.9.4/deno-aarch64-apple-darwin.zip"
+archive_sha256 = "6d17647fdbf9c587a581dba205054c4ccf732dae0a196cc1e9b44c07589db412"
+
 # Mage is a checksum-pinned contributor tool. Linux and macOS records make
 # Mage available to cross-platform development tooling; they do not qualify
 # or support the GOLC application on those platforms.

@@ -100,6 +100,18 @@ var (
 		version := `[0-9]+(\.[0-9]+)*`
 		return regexp.MustCompile(`^https://nodejs\.org/dist/v` + version + `/node-v` + version + `-` + regexp.QuoteMeta(asset) + regexp.QuoteMeta(suffix) + `$`)
 	}
+	// denoArchiveURLPattern is the official Deno GitHub-release archive
+	// shape (08-RESEARCH.md Standard Stack, Assumption A3): only the
+	// official github.com/denoland/deno/releases/download/ origin is ever
+	// an acceptable Deno download source for the given platform triple,
+	// mirroring the same per-tool official-source-allowlist discipline
+	// nodeArchiveURLPattern/goArchiveURLPattern already establish. Deno
+	// publishes every platform asset as a plain "deno-<triple>.zip" with no
+	// asset-name version segment, unlike Go/Node's versioned filenames.
+	denoArchiveURLPattern = func(triple string) *regexp.Regexp {
+		version := `[0-9]+(\.[0-9]+)*`
+		return regexp.MustCompile(`^https://github\.com/denoland/deno/releases/download/v` + version + `/deno-` + regexp.QuoteMeta(triple) + `\.zip$`)
+	}
 	mageWindowsAMD64URLPattern = regexp.MustCompile(
 		`^https://github\.com/magefile/mage/releases/download/v1\.17\.2/mage_1\.17\.2_Windows-64bit\.zip$`)
 	mageLinuxAMD64URLPattern = regexp.MustCompile(
@@ -210,6 +222,25 @@ func DefaultSpec() Spec {
 					"toolchain.node.platforms.darwin-arm64.archive_sha256":  {Pattern: sha256Pattern, Required: true},
 					"toolchain.node.official_host":                          {AllowedValues: []string{"nodejs.org"}, Required: true},
 					"toolchain.node.official_path_prefix":                   {AllowedValues: []string{"/dist/"}, Required: true},
+					// toolchain.deno is the pinned, checksum-verified
+					// TypeScript automation sandbox runtime (SCRP-03,
+					// 08-RESEARCH.md) -- unlike toolchain.node above, this is
+					// an application runtime dependency the packaged Windows
+					// build ships and supervises (WIN-02), not
+					// contributor-only tooling.
+					"toolchain.deno.version":                                {Pattern: dottedVersionPattern, Required: true},
+					"toolchain.deno.platforms.windows-amd64.archive_url":    {Pattern: denoArchiveURLPattern("x86_64-pc-windows-msvc"), Required: true},
+					"toolchain.deno.platforms.windows-amd64.archive_sha256": {Pattern: sha256Pattern, Required: true},
+					"toolchain.deno.platforms.linux-amd64.archive_url":      {Pattern: denoArchiveURLPattern("x86_64-unknown-linux-gnu"), Required: true},
+					"toolchain.deno.platforms.linux-amd64.archive_sha256":   {Pattern: sha256Pattern, Required: true},
+					"toolchain.deno.platforms.linux-arm64.archive_url":      {Pattern: denoArchiveURLPattern("aarch64-unknown-linux-gnu"), Required: true},
+					"toolchain.deno.platforms.linux-arm64.archive_sha256":   {Pattern: sha256Pattern, Required: true},
+					"toolchain.deno.platforms.darwin-amd64.archive_url":     {Pattern: denoArchiveURLPattern("x86_64-apple-darwin"), Required: true},
+					"toolchain.deno.platforms.darwin-amd64.archive_sha256":  {Pattern: sha256Pattern, Required: true},
+					"toolchain.deno.platforms.darwin-arm64.archive_url":     {Pattern: denoArchiveURLPattern("aarch64-apple-darwin"), Required: true},
+					"toolchain.deno.platforms.darwin-arm64.archive_sha256":  {Pattern: sha256Pattern, Required: true},
+					"toolchain.deno.official_host":                          {AllowedValues: []string{"github.com"}, Required: true},
+					"toolchain.deno.official_path_prefix":                   {AllowedValues: []string{"/denoland/deno/releases/download/"}, Required: true},
 					"cache.downloads":                                       {Pattern: toolsPathPattern},
 					"cache.gomodcache":                                      {Pattern: toolsPathPattern},
 					"cache.gocache":                                         {Pattern: toolsPathPattern},
