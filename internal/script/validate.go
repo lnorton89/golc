@@ -21,9 +21,18 @@
 package script
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+
+	"github.com/lnorton89/golc/internal/scriptsdk"
+	"github.com/lnorton89/golc/internal/security"
+	"github.com/lnorton89/golc/internal/show"
 )
 
 // maxScriptSourceBytes bounds a script's source for validation (T-08-33
@@ -32,6 +41,13 @@ import (
 // internal/command (toolchain.go's package doc comment), so this is a
 // deliberately duplicated constant rather than a shared one.
 const maxScriptSourceBytes = 1 << 20 // 1 MiB
+
+// checkOutputBudget bounds the captured `deno check` stdout+stderr text
+// (T-08-20's bounded-buffer discipline applied to the check subprocess),
+// mirroring session.go's stderrTailBudget precedent but larger, since a
+// script with many type errors can legitimately produce more diagnostic
+// text than a single run failure's stderr tail.
+const checkOutputBudget = 64 * 1024
 
 // checkSourceSize rejects a script whose source exceeds
 // maxScriptSourceBytes with GOLC_SCRIPT_SOURCE_TOO_LARGE, before any byte
@@ -277,4 +293,206 @@ func stripCommentsAndStringLiterals(source string) string {
 		}
 	}
 	return out.String()
+}
+
+// buildDenoCheckArgs is the single composition site for a `deno check`
+// type-check invocation (T-08-30): a dedicated function, deliberately
+// separate from host.go's buildDenoArgs (the run command line), so a
+// future change to one can never accidentally widen the other.
+// --cached-only denies module resolution any network access (superseding
+// the removed --no-remote flag, 08-RESEARCH.md State of the Art) --
+// belt-and-suspenders alongside the structural zero-import gate, since a
+// script that ever reaches this step already contains no import for
+// --cached-only to need to deny. No branch of this function may ever
+// append a permission-granting flag.
+func buildDenoCheckArgs(scriptPath string) []string {
+	return []string{"check", "--no-prompt", "--cached-only", scriptPath}
+}
+
+// shimLineOffsetFor returns the number of materialized-file lines the
+// injected SDK runtime shim occupies ahead of the user's own source --
+// derived from shim's actual content (strings.Count, never a hardcoded
+// constant), plus the one extra newline Validate/session.go's Run both
+// inject between the shim and the user's source. Every diagnostic line
+// deno check reports against the materialized file has this value
+// subtracted before it is shown to the user (T-08-32).
+func shimLineOffsetFor(shim string) int {
+	return strings.Count(shim, "\n") + 1
+}
+
+// denoCheckDiagnosticHeaderPattern matches deno check's diagnostic header
+// line, e.g. "TS2345 [ERROR]: Argument of type ... is not assignable ..."
+// (optionally prefixed with "error: "), capturing the message text that
+// follows the code/severity tag.
+var denoCheckDiagnosticHeaderPattern = regexp.MustCompile(`^(?:error: )?TS\d+ \[(?:ERROR|WARN)\]:\s*(.*)$`)
+
+// denoCheckDiagnosticLocationPattern matches deno check's trailing
+// "at file://.../script.ts:LINE:COLUMN" location line, capturing the raw
+// (materialized-file) line and column deno check reported.
+var denoCheckDiagnosticLocationPattern = regexp.MustCompile(`^\s*at\s+.+:(\d+):(\d+)\s*$`)
+
+// parseDenoCheckDiagnostics parses deno check's combined, already-
+// redacted stdout+stderr text into Diagnostic values: every reported raw
+// line has shimLineOffset subtracted to recover the user's own source
+// coordinate (T-08-32); a position that lands at or before line 0 after
+// subtraction falls inside the injected shim itself and is reported under
+// the distinct GOLC_SCRIPT_SDK_SHIM_ERROR code instead of a nonsensical
+// non-positive user line number.
+func parseDenoCheckDiagnostics(output string, shimLineOffset int) []Diagnostic {
+	var diagnostics []Diagnostic
+	var pendingLines []string
+	pending := false
+
+	flush := func(rawLine, rawColumn int) {
+		if !pending {
+			return
+		}
+		message := strings.TrimSpace(strings.Join(pendingLines, " "))
+		userLine := rawLine - shimLineOffset
+		if userLine < 1 {
+			diagnostics = append(diagnostics, Diagnostic{
+				Code: "GOLC_SCRIPT_SDK_SHIM_ERROR", Message: message,
+				Line: rawLine, Column: rawColumn, Severity: SeverityError,
+			})
+		} else {
+			diagnostics = append(diagnostics, Diagnostic{
+				Code: "GOLC_SCRIPT_TYPECHECK_FAILED", Message: message,
+				Line: userLine, Column: rawColumn, Severity: SeverityError,
+			})
+		}
+		pending = false
+		pendingLines = nil
+	}
+
+	for _, line := range strings.Split(output, "\n") {
+		if m := denoCheckDiagnosticHeaderPattern.FindStringSubmatch(line); m != nil {
+			pending = true
+			pendingLines = []string{m[1]}
+			continue
+		}
+		if m := denoCheckDiagnosticLocationPattern.FindStringSubmatch(line); m != nil {
+			rawLine, _ := strconv.Atoi(m[1])
+			rawColumn, _ := strconv.Atoi(m[2])
+			flush(rawLine, rawColumn)
+			continue
+		}
+		if pending {
+			trimmed := strings.TrimSpace(line)
+			if trimmed != "" && !strings.HasPrefix(trimmed, "^") {
+				pendingLines = append(pendingLines, trimmed)
+			}
+		}
+	}
+	sortDiagnostics(diagnostics)
+	return diagnostics
+}
+
+// redactLines applies security.Redact independently to every line of
+// text, joining the result back with "\n" -- deno check's captured
+// stdout/stderr passes through this before parsing or ever reaching a
+// caller (T-08-31), matching session.go's per-line LogLine redaction
+// discipline rather than redacting the whole blob at once (which would
+// discard an entire multi-line diagnostic the instant any one of its
+// lines happened to contain a forbidden token).
+func redactLines(text string) string {
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		lines[i] = security.Redact(line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// generatedSDKTypesPath is the committed golc.d.ts path, relative to the
+// repository root, Validate reads and copies beside the materialized
+// script -- the same file the in-app Monaco editor loads (D-15) and
+// internal/scriptsdk/generate.go commits.
+const generatedSDKTypesPath = "internal/scriptsdk/generated/golc.d.ts"
+
+// denoCheckConfig is the minimal deno.json Validate emits beside the
+// materialized script and golc.d.ts: compilerOptions.types is the
+// mechanism deno check honors for an ambient .d.ts that is never
+// imported (verified against the pinned Deno version's documented
+// compilerOptions support, 08-RESEARCH.md; 08-07-SUMMARY.md records the
+// exact behavior observed at implementation time). Deno auto-discovers a
+// deno.json in the checked file's own directory, so no extra flag is
+// needed to make deno check load it.
+const denoCheckConfig = `{"compilerOptions":{"types":["./golc.d.ts"]}}` + "\n"
+
+// Validate runs SCRP-01's validate verb against a saved script: the size
+// bound, then the structural zero-import gate, then -- only if both pass
+// -- a `deno check` type-check against the committed generated SDK
+// types, with every diagnostic mapped back into the user's own source
+// coordinates. It never mutates the show, never spawns a subprocess when
+// either gate already produced a diagnostic, and removes its temp
+// directory on every exit path.
+func Validate(ctx context.Context, root string, s show.Script) (ValidationResult, error) {
+	result := ValidationResult{ScriptName: s.Name, Diagnostics: []Diagnostic{}}
+
+	if diagnostics := checkSourceSize(s.Source); len(diagnostics) > 0 {
+		result.Diagnostics = diagnostics
+		return result, nil
+	}
+	if diagnostics := checkForbiddenModuleSyntax(s.Source); len(diagnostics) > 0 {
+		result.Diagnostics = diagnostics
+		return result, nil
+	}
+
+	denoPath, err := ResolveDenoExecutable(root)
+	if err != nil {
+		return ValidationResult{}, err
+	}
+
+	tempDir, err := os.MkdirTemp("", "golc-script-validate-*")
+	if err != nil {
+		return ValidationResult{}, fmt.Errorf("GOLC_SCRIPT_VALIDATE_TEMP_DIR_FAILED: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	shimLineOffset := shimLineOffsetFor(scriptsdk.RuntimeShimTS)
+	materialized := scriptsdk.RuntimeShimTS + "\n" + s.Source
+	scriptPath := filepath.Join(tempDir, "script.ts")
+	if err := os.WriteFile(scriptPath, []byte(materialized), 0o600); err != nil {
+		return ValidationResult{}, fmt.Errorf("GOLC_SCRIPT_VALIDATE_SOURCE_WRITE_FAILED: %v", err)
+	}
+
+	dtsBytes, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(generatedSDKTypesPath)))
+	if err != nil {
+		return ValidationResult{}, fmt.Errorf("GOLC_SCRIPT_VALIDATE_SDK_TYPES_MISSING: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "golc.d.ts"), dtsBytes, 0o600); err != nil {
+		return ValidationResult{}, fmt.Errorf("GOLC_SCRIPT_VALIDATE_SDK_TYPES_WRITE_FAILED: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "deno.json"), []byte(denoCheckConfig), 0o600); err != nil {
+		return ValidationResult{}, fmt.Errorf("GOLC_SCRIPT_VALIDATE_CONFIG_WRITE_FAILED: %v", err)
+	}
+
+	cmd := exec.CommandContext(ctx, denoPath, buildDenoCheckArgs(scriptPath)...)
+	cmd.Dir = tempDir
+	// Explicit, never-inherited environment (T-08-16), matching
+	// session.go's Run exactly.
+	cmd.Env = []string{}
+
+	stdoutBuf := newBoundedBuffer(checkOutputBudget)
+	stderrBuf := newBoundedBuffer(checkOutputBudget)
+	cmd.Stdout = stdoutBuf
+	cmd.Stderr = stderrBuf
+
+	runErr := cmd.Run()
+	combined := redactLines(stdoutBuf.String() + "\n" + stderrBuf.String())
+
+	diagnostics := parseDenoCheckDiagnostics(combined, shimLineOffset)
+	if len(diagnostics) == 0 && runErr != nil {
+		// deno check exited non-zero but produced nothing this parser
+		// recognized as a structured diagnostic -- surface a generic
+		// failure rather than silently reporting a clean result.
+		diagnostics = []Diagnostic{{
+			Code: "GOLC_SCRIPT_TYPECHECK_FAILED", Message: strings.TrimSpace(combined),
+			Line: 1, Column: 1, Severity: SeverityError,
+		}}
+	}
+
+	sortDiagnostics(diagnostics)
+	result.Diagnostics = diagnostics
+	result.Valid = len(diagnostics) == 0
+	return result, nil
 }
