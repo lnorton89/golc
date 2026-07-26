@@ -19,6 +19,19 @@ export default defineConfig({
     outDir: "../cmd/golc-desktop/frontend/dist",
     emptyOutDir: true,
   },
+  // Monaco (08-11-PLAN.md Task 2, D-15) ships its editor/TypeScript
+  // language-service workers as separate scripts loaded via Vite's native
+  // `?worker` import suffix (ScriptEditor.tsx, Task 3) rather than a
+  // dedicated Monaco Vite plugin -- monaco-editor@0.55.1's own worker
+  // entry files (editor.worker.js, language/typescript/ts.worker.js) are
+  // plain ES modules, so `worker: { format: "es" }` is required: Vite's
+  // default IIFE/UMD worker format cannot bundle Monaco's own internal
+  // `import`/`export` statements. Without this, `vite build` still
+  // succeeds but the emitted worker chunk throws at runtime under the
+  // go:embed'd production build the same way it would under `vite dev`.
+  worker: {
+    format: "es",
+  },
   // Vitest config lives here (not a separate vitest.config.ts) so it
   // always shares this project's real Vite config (aliases, plugins) --
   // the smoke test must exercise the exact same module graph the actual
