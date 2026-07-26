@@ -534,6 +534,10 @@ interface ScriptServiceBinding {
   StepOverScript(): Promise<WailsResult>;
   StepIntoScript(): Promise<WailsResult>;
   StepOutScript(): Promise<WailsResult>;
+  /** GetSDKTypeDefinitions (D-15, 08-11-PLAN.md Task 2): the committed
+   * internal/scriptsdk/generated/golc.d.ts contents, loaded into Monaco's
+   * TypeScript language service as an extra lib. */
+  GetSDKTypeDefinitions(): Promise<string>;
 }
 
 /** ShowServiceBinding mirrors internal/wails/svc_show.go's bound methods
@@ -1393,6 +1397,23 @@ export async function stepOutScript(): Promise<WailsResult> {
   const svc = scriptService();
   if (!svc) return bridgeUnavailableResult();
   return svc.StepOutScript();
+}
+
+/** getSdkTypeDefinitions calls the bound ScriptService.GetSDKTypeDefinitions
+ * (D-15, 08-11-PLAN.md Task 2), returning an empty string (never throwing)
+ * when the bridge is unavailable or the call itself rejects -- mirrors
+ * every other ScriptService bridge function's graceful-degradation
+ * contract. ScriptEditor.tsx (Task 3) registers this string as Monaco's
+ * TypeScript extra lib; an empty string simply yields an editor with no
+ * SDK autocomplete/diagnostics rather than a crash. */
+export async function getSdkTypeDefinitions(): Promise<string> {
+  const svc = scriptService();
+  if (!svc) return "";
+  try {
+    return await svc.GetSDKTypeDefinitions();
+  } catch {
+    return "";
+  }
 }
 
 /** onScriptEvent subscribes to the Go host's "script:event" EventsEmit

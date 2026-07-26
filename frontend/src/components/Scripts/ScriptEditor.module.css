@@ -1,0 +1,37 @@
+/* ScriptEditor.module.css (08-11-PLAN.md Task 3): a bounded panel host for
+   the Monaco instance -- Monaco's own internal scrolling stays inside this
+   panel (application-shell-navigation.md's "all scrolling occurs inside
+   bounded panels" rule), consistent with 08-UI-SPEC.md's "Monaco editor
+   internal metrics... governed by Monaco's own layout engine" exception. */
+
+.wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.container {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel);
+  color: var(--muted);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+}
