@@ -5,6 +5,13 @@
 // the D-03 crash-plus-expandable-trace rendering, the D-12/D-13 persistent
 // "Stopped: {reason}" banner with Dismiss/Run Again, the D-11 stopping
 // transient copy, and a gap event's visible resync notice.
+//
+// Extended by 08-12-PLAN.md Task 2 (D-01): pausedLine is now an explicit
+// prop (ScriptsWorkspace.tsx derives it from the same live events, per
+// this component's own header comment) rather than something this
+// component scans `events` for itself, plus the four step controls'
+// visibility/click wiring and each clickable stack-trace frame's
+// onSelectFrame call.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
@@ -43,10 +50,16 @@ function baseProps(overrides: Partial<Parameters<typeof ScriptDebugPanel>[0]> = 
   return {
     events: [] as ScriptEventView[],
     status: "idle" as ScriptPanelStatus,
+    pausedLine: null as number | null,
     terminalReason: undefined,
     stackFrames: [] as string[],
     onDismiss: vi.fn(),
     onRunAgain: vi.fn(),
+    onContinue: vi.fn(),
+    onStepOver: vi.fn(),
+    onStepInto: vi.fn(),
+    onStepOut: vi.fn(),
+    onSelectFrame: vi.fn(),
     ...overrides,
   };
 }
@@ -111,11 +124,12 @@ describe("ScriptDebugPanel", () => {
     expect(screen.getByText("Running")).toBeInTheDocument();
   });
 
-  it("shows a 'Paused at breakpoint — line {N}' chip derived from the most recent status event", () => {
+  it("shows a 'Paused at breakpoint — line {N}' chip from the pausedLine prop", () => {
     render(
       <ScriptDebugPanel
         {...baseProps({
           status: "paused",
+          pausedLine: 12,
           events: [
             logEvent({
               seq: 3,
@@ -260,5 +274,103 @@ describe("ScriptDebugPanel", () => {
       />,
     );
     expect(screen.getByText(/Resyncing — some events may have been missed \(5 dropped\)\./)).toBeInTheDocument();
+  });
+
+  // --- 08-12-PLAN.md Task 2: step controls and clickable stack-trace
+  // frames (D-01) ---
+
+  it("renders no step control with no active debug run", () => {
+    render(<ScriptDebugPanel {...baseProps({ status: "idle" })} />);
+    expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Step Over" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Step Into" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Step Out" })).not.toBeInTheDocument();
+  });
+
+  it("renders no step control during a plain Run, even while the script is running", () => {
+    render(<ScriptDebugPanel {...baseProps({ status: "running", events: [logEvent()] })} />);
+    expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Step Over" })).not.toBeInTheDocument();
+  });
+
+  it("renders exactly Continue/Step Over/Step Into/Step Out while paused, and each calls its own callback exactly once", () => {
+    const onContinue = vi.fn();
+    const onStepOver = vi.fn();
+    const onStepInto = vi.fn();
+    const onStepOut = vi.fn();
+    render(
+      <ScriptDebugPanel
+        {...baseProps({ status: "paused", pausedLine: 9, onContinue, onStepOver, onStepInto, onStepOut })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Step Over" }));
+    fireEvent.click(screen.getByRole("button", { name: "Step Into" }));
+    fireEvent.click(screen.getByRole("button", { name: "Step Out" }));
+
+    expect(onContinue).toHaveBeenCalledTimes(1);
+    expect(onStepOver).toHaveBeenCalledTimes(1);
+    expect(onStepInto).toHaveBeenCalledTimes(1);
+    expect(onStepOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not optimistically clear the paused chip or step controls on a step-control click -- only a prop change does", () => {
+    const props = baseProps({ status: "paused" as ScriptPanelStatus, pausedLine: 9 });
+    const { rerender } = render(<ScriptDebugPanel {...props} />);
+    expect(screen.getByText("Paused at breakpoint — line 9")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Step Over" }));
+
+    // The click alone (with no prop change) leaves everything exactly as
+    // it was -- this component never clears pausedLine or the controls
+    // itself (T-08-53).
+    expect(screen.getByText("Paused at breakpoint — line 9")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
+
+    // Only a genuinely new prop (the caller's own resumed/terminal event)
+    // clears them.
+    rerender(<ScriptDebugPanel {...props} status="running" pausedLine={null} />);
+    expect(screen.queryByText(/^Paused at breakpoint/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+  });
+
+  it("calls onSelectFrame with a clicked stack-trace frame's parsed line number", () => {
+    const onSelectFrame = vi.fn();
+    render(
+      <ScriptDebugPanel
+        {...baseProps({
+          status: "failed",
+          terminalReason: "Uncaught Error: deliberate failure",
+          stackFrames: ["at run (Broken:1:7)", "at eventLoopTick (ext:core)"],
+          onSelectFrame,
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Show stack trace" }));
+    fireEvent.click(screen.getByRole("button", { name: /at run \(Broken:1:7\)/ }));
+
+    expect(onSelectFrame).toHaveBeenCalledTimes(1);
+    expect(onSelectFrame).toHaveBeenCalledWith(1);
+  });
+
+  it("does not call onSelectFrame for a frame with no parseable line number", () => {
+    const onSelectFrame = vi.fn();
+    render(
+      <ScriptDebugPanel
+        {...baseProps({
+          status: "failed",
+          terminalReason: "Uncaught Error: deliberate failure",
+          stackFrames: ["<anonymous>: GOLC_SCRIPT_SDK_SHIM_ERROR"],
+          onSelectFrame,
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Show stack trace" }));
+    fireEvent.click(screen.getByRole("button", { name: /GOLC_SCRIPT_SDK_SHIM_ERROR/ }));
+
+    expect(onSelectFrame).not.toHaveBeenCalled();
   });
 });

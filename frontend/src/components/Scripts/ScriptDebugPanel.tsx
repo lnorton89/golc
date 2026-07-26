@@ -1,19 +1,24 @@
 // ScriptDebugPanel.tsx is the live debug/log panel (08-10-PLAN.md Task 3,
-// D-03/D-04/D-05/D-08/D-12/D-13): a presentational, append-only rendering
-// of one script run's live log lines and per-call SDK outcomes, its
-// current status chip, and (once a run ends) the "Stopped: {reason}"
+// D-03/D-04/D-05/D-08/D-12/D-13; extended by 08-12-PLAN.md Task 2, D-01):
+// a presentational, append-only rendering of one script run's live log
+// lines and per-call SDK outcomes, its current status chip, the four
+// paused-run step controls, and (once a run ends) the "Stopped: {reason}"
 // banner that survives until the caller explicitly dismisses or relaunches
 // it. ScriptsWorkspace.tsx (08-04-PLAN.md, extended by this plan) owns
 // every subscription/accumulation decision -- this component only renders
-// the materials (events/status/terminalReason/stackFrames) it is handed,
-// and never resets or clears anything on its own; onDismiss/onRunAgain are
-// the caller's own state transitions.
+// the materials it is handed (events/status/pausedLine/terminalReason/
+// stackFrames), and never resets or clears anything on its own;
+// onDismiss/onRunAgain/onContinue/onStepOver/onStepInto/onStepOut/
+// onSelectFrame are all the caller's own state transitions -- clicking a
+// step control never optimistically clears the paused state here (T-08-53:
+// paused state is derived only from the backend's own next event, which
+// ScriptsWorkspace feeds back in as a fresh pausedLine prop).
 //
 // There is no automatic re-run anywhere in this file: no retry timer, no
 // reconnect-and-relaunch, no effect that launches on mount (D-13). The
 // only way a new run starts is the caller's own onRunAgain handler, wired
 // to re-opening the launch dialog -- never a direct relaunch from here.
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import type { ScriptEventView } from "../../lib/wailsBridge";
 import Chip, { type ChipTone } from "../primitives/Chip/Chip";
@@ -34,10 +39,52 @@ export type ScriptPanelStatus =
 interface ScriptDebugPanelProps {
   events: ScriptEventView[];
   status: ScriptPanelStatus;
+  /** pausedLine (08-12-PLAN.md Task 2, D-01): the paused run's current
+   * author-coordinate line, derived by ScriptsWorkspace.tsx from the same
+   * live script.status events this panel's own log stream renders --
+   * ScriptsWorkspace is the single derivation point so this value and
+   * ScriptEditor's own `currentExecutionLine` prop can never independently
+   * drift apart (see this file's own header comment / key_links). null
+   * whenever status is not "paused". */
+  pausedLine: number | null;
   terminalReason?: string;
   stackFrames: string[];
   onDismiss: () => void;
   onRunAgain: () => void;
+  /** onContinue/onStepOver/onStepInto/onStepOut (08-12-PLAN.md Task 2,
+   * D-01): the four step controls, rendered only while status === "paused"
+   * (never during a plain Run, never with no active debug run). Each
+   * calls its corresponding backend route via ScriptsWorkspace.tsx; this
+   * component never clears pausedLine itself on click. */
+  onContinue: () => void;
+  onStepOver: () => void;
+  onStepInto: () => void;
+  onStepOut: () => void;
+  /** onSelectFrame (08-12-PLAN.md Task 2, D-03): called with a clicked
+   * stack-trace frame's author-coordinate line -- ScriptsWorkspace.tsx
+   * reveals it in ScriptEditor via the same currentExecutionLine
+   * mechanism Task 1 already built for the paused-line highlight. Not
+   * called for a frame whose text carries no parseable line number (e.g.
+   * a shim-marker frame). */
+  onSelectFrame: (line: number) => void;
+}
+
+// STACK_FRAME_LINE_PATTERN extracts the author-coordinate line number from
+// one stack-trace frame's formatted text -- both debugbridge.go's
+// `"    at %s (%s:%d:%d)"` exception frames and Deno's own raw captured
+// "at Func (file:///...:LINE:COL)" stderr text end in the same trailing
+// ":LINE:COL)" shape, so one pattern covers both sources.
+const STACK_FRAME_LINE_PATTERN = /:(\d+):\d+\)\s*$/;
+
+// stackFrameLine parses STACK_FRAME_LINE_PATTERN out of one frame's text,
+// returning null (never a wrong guess) when the frame's shape doesn't
+// carry a recognizable trailing line/column -- a click on such a frame is
+// then a deliberate no-op rather than jumping to a fabricated line.
+function stackFrameLine(frame: string): number | null {
+  const match = STACK_FRAME_LINE_PATTERN.exec(frame);
+  if (!match) return null;
+  const line = Number(match[1]);
+  return Number.isFinite(line) && line > 0 ? line : null;
 }
 
 const EMPTY_PLACEHOLDER =
@@ -47,8 +94,6 @@ const HOST_UNREACHABLE_MESSAGE =
 const STOPPING_MESSAGE = "Stopping — finishing in-flight commands…";
 const RESTART_DISCLAIMER =
   "This script won't restart automatically — run it again when you're ready";
-
-const PAUSED_LINE_PATTERN = /GOLC_SCRIPT_DEBUG_PAUSED:\s*line=(\d+)/;
 
 function statusChip(status: ScriptPanelStatus, pausedLine: number | null): { tone: ChipTone; label: string } | null {
   switch (status) {
@@ -72,22 +117,6 @@ function statusChip(status: ScriptPanelStatus, pausedLine: number | null): { ton
     default:
       return null;
   }
-}
-
-// mostRecentPausedLine scans events (arrival order) from the end for the
-// most recent script.status event whose Reason carries D-01's
-// GOLC_SCRIPT_DEBUG_PAUSED marker, returning the paused author-coordinate
-// line number it names -- null once a later GOLC_SCRIPT_DEBUG_RESUMED
-// status is seen first, or when no pause has been reported at all.
-function mostRecentPausedLine(events: ScriptEventView[]): number | null {
-  for (let i = events.length - 1; i >= 0; i -= 1) {
-    const event = events[i];
-    if (event.kind !== "script.status" || !event.reason) continue;
-    const match = PAUSED_LINE_PATTERN.exec(event.reason);
-    if (match) return Number(match[1]);
-    if (event.reason.startsWith("GOLC_SCRIPT_DEBUG_RESUMED")) return null;
-  }
-  return null;
 }
 
 interface TerminationDescription {
@@ -175,23 +204,29 @@ function LogRow({ event }: { event: ScriptEventView }) {
       </li>
     );
   }
-  // script.status entries drive the status chip (statusChip/
-  // mostRecentPausedLine above) rather than their own stream row, so the
-  // same GOLC_SCRIPT_DEBUG_* text is never rendered twice.
+  // script.status entries drive the status chip (statusChip above, fed by
+  // ScriptsWorkspace.tsx's own pausedLine derivation) rather than their own
+  // stream row, so the same GOLC_SCRIPT_DEBUG_* text is never rendered
+  // twice.
   return null;
 }
 
 export default function ScriptDebugPanel({
   events,
   status,
+  pausedLine,
   terminalReason,
   stackFrames,
   onDismiss,
   onRunAgain,
+  onContinue,
+  onStepOver,
+  onStepInto,
+  onStepOut,
+  onSelectFrame,
 }: ScriptDebugPanelProps) {
   const [traceExpanded, setTraceExpanded] = useState(false);
 
-  const pausedLine = useMemo(() => mostRecentPausedLine(events), [events]);
   const chip = statusChip(status, pausedLine);
   const isTerminal = status === "succeeded" || status === "failed" || status === "terminated";
   const termination = isTerminal && terminalReason ? describeTermination(status, terminalReason) : null;
@@ -212,6 +247,30 @@ export default function ScriptDebugPanel({
         {chip ? <Chip tone={chip.tone}>{chip.label}</Chip> : null}
         {status === "offline" ? <span className={styles.offlineText}>{HOST_UNREACHABLE_MESSAGE}</span> : null}
         {status === "stopping" ? <span className={styles.stoppingText}>{STOPPING_MESSAGE}</span> : null}
+        {/* Step controls (D-01, 08-12-PLAN.md Task 2): rendered ONLY while
+            status === "paused" -- absent with no active debug run, and
+            absent during a plain Run even while it's running. Each click
+            calls its own prop callback exactly once; this component never
+            clears pausedLine or the chip itself -- the caller's next
+            script.status/script.terminal event, fed back in as a fresh
+            prop, is the only thing that ever changes what's rendered here
+            (T-08-53). */}
+        {status === "paused" ? (
+          <div className={styles.stepControls}>
+            <Button variant="secondary" onClick={onContinue}>
+              Continue
+            </Button>
+            <Button variant="secondary" onClick={onStepOver}>
+              Step Over
+            </Button>
+            <Button variant="secondary" onClick={onStepInto}>
+              Step Into
+            </Button>
+            <Button variant="secondary" onClick={onStepOut}>
+              Step Out
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       <ScrollRegion className={styles.stream}>
@@ -237,7 +296,30 @@ export default function ScriptDebugPanel({
               </button>
               {traceExpanded ? (
                 <ScrollRegion className={styles.traceBody}>
-                  <pre className={styles.tracePre}>{stackFrames.join("\n")}</pre>
+                  {/* Each frame is its own keyboard-focusable control
+                      (D-03, 08-12-PLAN.md Task 2): clicking (or activating
+                      via keyboard) calls onSelectFrame with the frame's
+                      parsed author-coordinate line, a no-op for a frame
+                      whose text carries no parseable line (never a wrong
+                      guess). */}
+                  <ul className={styles.traceList} aria-label="Stack trace">
+                    {stackFrames.map((frame, index) => {
+                      const line = stackFrameLine(frame);
+                      return (
+                        <li key={index}>
+                          <button
+                            type="button"
+                            className={styles.traceFrame}
+                            onClick={() => {
+                              if (line !== null) onSelectFrame(line);
+                            }}
+                          >
+                            {frame}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </ScrollRegion>
               ) : null}
             </div>
