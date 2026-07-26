@@ -271,3 +271,54 @@ changes are auto-fixed).
   `denoCheckConfig`'s definition in `internal/script/validate.go` (e.g.
   switching to a `/// <reference path="./golc.d.ts" />` comment prepended
   to the materialized script instead).
+
+## 08-09
+
+- **Same five pre-existing toolchain-bootstrap failures as 08-01/08-03/
+  08-05/08-06/08-07/08-08** (`TestBuildRouteCompilesTheProductionRepository`,
+  `TestBuildablePackagesExcludesMagefiles`, `TestScopeCrossPlatformCI`,
+  `TestScopeGreenSubprocess`, `TestScopeOfflineAcceptance`) — unrelated to
+  this plan's `internal/script/host.go`/`stacktrace.go`/`debugbridge.go`/
+  `session.go` and `internal/command/scriptdebug.go` changes. `go test
+  ./internal/script/... ./internal/api/... ./internal/scriptsdk/...` is
+  fully green; `go test ./internal/command/...` is green except these five
+  pre-existing failures.
+
+- **Every real-Deno/real-CDP-gated test added by this plan skips cleanly**
+  in this worktree, exactly like 08-05/08-06/08-07: `.tools/toolchains/
+  deno/2.9.4/windows-amd64` is pinned in `config/toolchain.toml` but not
+  provisioned here (`GOLC_DENO_TOOLCHAIN_MISSING`), so
+  `TestNoInspectorOutsideDebugMode` (host_test.go),
+  `TestDebugBridgeConnectsSetsBreakpointsAndReceivesPausedEvent` and
+  `TestPausedStillTerminates` (debugbridge_test.go), and
+  `TestScriptDebugSetsBreakpointAndCompletesCleanly`/
+  `TestScriptDebugNoBreakpointsResumesImmediately`/
+  `TestScriptDebugCrashReportsSourceMappedStackFrames`
+  (scriptdebug_test.go) all skip with a clear "run 'mage Bootstrap' first"
+  message rather than running for real. This is the exact class of gap the
+  plan's own `must_haves` backstop item names explicitly ("the CDP
+  breakpoint-to-source-line mapping is verified against a real paused Deno
+  process on Windows... at implementation time") — it could not be closed
+  in this environment. Every behavior these tests exercise IS implemented
+  and structurally reviewed against `mafredri/cdp`'s real API (the
+  `SetBreakpointByURL`/`Debugger.paused`/`Runtime.exceptionThrown`/
+  `Runtime.runIfWaitingForDebugger` call shapes were read directly from
+  the vendored module source, not guessed from documentation alone), but
+  the live pause-at-the-correct-line, step, and crash-with-source-mapped-
+  trace transcript this plan's acceptance criteria ask to record in the
+  SUMMARY could not be captured here. Re-run the full suite (no `-run`
+  filter) on a machine where `mage Bootstrap` has completed with a
+  matching Deno pin before treating D-01's real breakpoint/step debugger
+  as fully verified end to end.
+
+- **`TestNoInspectorOutsideDebugMode`'s proof that a plain Run opens no
+  inspector is textual (absence of Deno's own "Debugger listening"/`ws://`
+  banner in captured output), not OS-level socket enumeration.** Directly
+  enumerating a child process's open listening sockets from a Go test is
+  platform-specific (would need `netstat`-equivalent parsing keyed by
+  PID) and was judged more fragile than the structural proof
+  `TestDenoCommandLineHasNoAllowFlags` already gives (Run mode's command
+  line never carries `--inspect`/`--inspect-brk` at all, so no inspector
+  process is ever started) combined with this textual absence check. Both
+  together are the load-bearing D-02 proof; a future plan could add real
+  socket enumeration if a stronger guarantee is ever needed.
