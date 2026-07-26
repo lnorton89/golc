@@ -168,6 +168,20 @@ None - no external service configuration required.
 - `show.Script`/`show.CapabilityProfile` and the six `script *` CLI routes are the stable, tested foundation every remaining Phase 8 plan (08-02 through 08-11: Deno host, capability enforcement, SDK generation, script workspace UI, debugger) reads and writes -- no later plan needs to re-derive where a script lives, which scope enum it uses, or what its list/show JSON projection looks like.
 - No blockers. `internal/script`/`internal/scriptsdk` (this phase's later, still-greenfield packages) can now depend on `show.Script`/`show.CapabilityProfile` as a stable import.
 
+## Self-Check: PASSED
+
+- FOUND: internal/show/scripts.go
+- FOUND: internal/show/scripts_test.go
+- FOUND: internal/command/script.go
+- FOUND: internal/command/script_test.go
+- FOUND: .planning/phases/08-isolated-typescript-automation/08-01-SUMMARY.md
+- FOUND: .planning/phases/08-isolated-typescript-automation/deferred-items.md
+- FOUND commit: af2cd1b (test: Script entity RED)
+- FOUND commit: d2fc5e2 (feat: Script entity GREEN)
+- FOUND commit: 07161d0 (test: script CLI RED)
+- FOUND commit: 4439177 (feat: script CLI GREEN)
+- FOUND commit: 2914d6f (docs: plan completion)
+
 ---
 *Phase: 08-isolated-typescript-automation*
 *Completed: 2026-07-26*
