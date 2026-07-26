@@ -397,6 +397,53 @@ export interface RecoveryPointView {
   revision: number;
 }
 
+/** ScriptSummaryView mirrors internal/wails.ScriptSummaryView's JSON shape
+ * exactly (08-04-PLAN.md, SCRP-01/D-16): one script's identity, last-run
+ * status, and flattened capability-profile summary -- the D-16 library-row
+ * projection (Source omitted). */
+export interface ScriptSummaryView {
+  id: string;
+  name: string;
+  lastRunStatus: string;
+  lastRunReason?: string;
+  scope: string;
+  preset: string;
+  deadlineSeconds: number;
+  ratePerSecond: number;
+  memoryLimitMB: number;
+  cpuCapPercent: number;
+}
+
+/** ScriptDetailView mirrors internal/wails.ScriptDetailView's JSON shape
+ * exactly: ScriptSummaryView's fields plus source, the script's full
+ * TypeScript text. */
+export interface ScriptDetailView extends ScriptSummaryView {
+  source: string;
+}
+
+/** ScriptServiceBinding mirrors internal/wails/svc_script.go's bound
+ * methods field-for-field (08-04-PLAN.md, SCRP-01): every method forwards
+ * to the existing "script *" command routes -- CreateScript/
+ * SaveScriptSource/DeleteScript/SetScriptProfile are mutations,
+ * ListScripts/GetScript are read-only projections of the loaded
+ * ShowState. */
+interface ScriptServiceBinding {
+  ListScripts(): Promise<ScriptSummaryView[]>;
+  GetScript(name: string): Promise<ScriptDetailView>;
+  CreateScript(name: string): Promise<WailsResult>;
+  SaveScriptSource(name: string, source: string): Promise<WailsResult>;
+  DeleteScript(name: string): Promise<WailsResult>;
+  SetScriptProfile(
+    name: string,
+    scope: string,
+    preset: string,
+    deadlineSeconds: number,
+    ratePerSecond: number,
+    memoryLimitMB: number,
+    cpuCapPercent: number,
+  ): Promise<WailsResult>;
+}
+
 /** ShowServiceBinding mirrors internal/wails/svc_show.go's bound methods
  * field-for-field: Save/SaveAs forward to the existing "show save"/"show
  * save-as" command routes; Inspect/Diagnose/DetectRecoveryPoints are
@@ -438,6 +485,7 @@ declare global {
         ArtnetConfigService?: ArtnetConfigServiceBinding;
         ProgrammingService?: ProgrammingServiceBinding;
         ShowService?: ShowServiceBinding;
+        ScriptService?: ScriptServiceBinding;
       };
     };
     runtime?: {
@@ -1035,4 +1083,108 @@ export async function discardRecoveryPoints(): Promise<WailsResult> {
   const svc = showService();
   if (!svc) return bridgeUnavailableResult();
   return svc.DiscardRecoveryPoints();
+}
+
+function scriptService(): ScriptServiceBinding | undefined {
+  return window.go?.wails?.ScriptService;
+}
+
+/** offlineScriptList mirrors offlineProgrammingView/offlinePatchView's
+ * identical "never blank" fallback contract: a missing bridge renders the
+ * same explicit empty projection as a genuinely empty show, never
+ * undefined/null. */
+export function offlineScriptList(): ScriptSummaryView[] {
+  return [];
+}
+
+/** listScripts calls the bound ScriptService.ListScripts (D-16), returning
+ * offlineScriptList() when the bridge is unavailable or the call itself
+ * rejects -- never throws (mirrors listProgramming/listPatch's identical
+ * contract). ScriptsWorkspace.tsx separately detects a missing bridge to
+ * render its own inline "can't reach the script host" copy alongside the
+ * resulting empty state. */
+export async function listScripts(): Promise<ScriptSummaryView[]> {
+  const svc = scriptService();
+  if (!svc) return offlineScriptList();
+  try {
+    return await svc.ListScripts();
+  } catch {
+    return offlineScriptList();
+  }
+}
+
+/** offlineScriptDetail is GetScript's explicit, non-throwing fallback when
+ * the bridge is unavailable -- mirrors offlineDiagnosticReport's identical
+ * "never blank" contract. */
+function offlineScriptDetail(name: string): ScriptDetailView {
+  return {
+    id: "",
+    name,
+    source: "",
+    lastRunStatus: "never_run",
+    scope: "",
+    preset: "",
+    deadlineSeconds: 0,
+    ratePerSecond: 0,
+    memoryLimitMB: 0,
+    cpuCapPercent: 0,
+  };
+}
+
+/** getScript calls the bound ScriptService.GetScript, returning
+ * offlineScriptDetail(name) when the bridge is unavailable or the call
+ * itself rejects -- never throws. */
+export async function getScript(name: string): Promise<ScriptDetailView> {
+  const svc = scriptService();
+  if (!svc) return offlineScriptDetail(name);
+  try {
+    return await svc.GetScript(name);
+  } catch {
+    return offlineScriptDetail(name);
+  }
+}
+
+/** createScript calls the bound ScriptService.CreateScript (SCRP-01:
+ * create a named, empty script via "script create"). */
+export async function createScript(name: string): Promise<WailsResult> {
+  const svc = scriptService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.CreateScript(name);
+}
+
+/** saveScriptSource calls the bound ScriptService.SaveScriptSource (D-14:
+ * persist source verbatim via "script edit --source-file"). */
+export async function saveScriptSource(
+  name: string,
+  source: string,
+): Promise<WailsResult> {
+  const svc = scriptService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.SaveScriptSource(name, source);
+}
+
+/** deleteScript calls the bound ScriptService.DeleteScript (removes the
+ * named script via "script delete"). */
+export async function deleteScript(name: string): Promise<WailsResult> {
+  const svc = scriptService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.DeleteScript(name);
+}
+
+/** setScriptProfile calls the bound ScriptService.SetScriptProfile (D-07/
+ * D-09: set a script's saved capability/resource-limit profile via
+ * "script profile set", forwarding only the fields the caller actually
+ * supplied). */
+export async function setScriptProfile(
+  name: string,
+  scope: string,
+  preset: string,
+  deadlineSeconds: number,
+  ratePerSecond: number,
+  memoryLimitMB: number,
+  cpuCapPercent: number,
+): Promise<WailsResult> {
+  const svc = scriptService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.SetScriptProfile(name, scope, preset, deadlineSeconds, ratePerSecond, memoryLimitMB, cpuCapPercent);
 }
