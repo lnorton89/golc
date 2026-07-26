@@ -106,13 +106,14 @@ func buildExcludedRoutes() map[string]string {
 		"preset delete", "preset record", "preset rename",
 		"programmer clear", "programmer set",
 		"scene activate", "scene create", "scene delete", "scene duplicate", "scene layer set", "scene rename",
+		"script create", "script delete", "script edit", "script profile set",
 		"show open", "show save", "show save-as",
 		"theme create", "theme delete", "theme rename",
 	)
 	addAll(reasonReadFutureWork,
 		"config explain", "fixture inspect", "fixture validate",
 		"operatorsurface list", "operatorsurface show",
-		"programmer inspect", "show diagnose", "show export",
+		"programmer inspect", "script list", "script show", "show diagnose", "show export",
 	)
 
 	return excluded

@@ -526,6 +526,19 @@ var excludedRouteTable = map[string]string{
 	"linear unlink":      "planning-traceability tooling, not a show-domain capability",
 	"linear map migrate": "planning-traceability tooling, not a show-domain capability",
 	"linear validate":    "planning-traceability tooling, not a show-domain capability",
+
+	// script lifecycle (CLI/GUI authoring surface, 08-01): a running script
+	// must not be able to create/list/inspect/edit/delete/reconfigure other
+	// Script entities through its own SDK -- self-modification of the
+	// sandbox's own catalog is an application/CLI concern, not a
+	// show-domain capability exposed to script code (same class as
+	// "artnet serve": daemon/catalog lifecycle, owned by the application).
+	"script create":     "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
+	"script list":       "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
+	"script show":       "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
+	"script edit":       "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
+	"script delete":     "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
+	"script profile set": "script entity lifecycle, owned by the application/CLI, not a capability exposed to a running script",
 }
 
 func init() {
