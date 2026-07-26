@@ -420,7 +420,7 @@ Plans:
   3. Before execution, a user can inspect and assign script capabilities, deadlines, rate limits, and resource limits; the runtime has no ambient filesystem, network, environment, subprocess, native-code, or uncached dependency access.
   4. A user can inspect structured logs, diagnostics, source locations, command outcomes, and cancellation state, and can terminate a runaway, crashed, or blocked script without interrupting playback or Art-Net.
 
-**Plans:** 8/13 plans executed
+**Plans:** 9/13 plans executed
 
 Plans:
 **Wave 1**
@@ -445,7 +445,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 08-09-PLAN.md — Debug-mode-only inspector, CDP debug bridge, and source-mapped stack traces
+- [x] 08-09-PLAN.md — Debug-mode-only inspector, CDP debug bridge, and source-mapped stack traces
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
@@ -511,7 +511,7 @@ Plans:
 | 5. Durable Shows and Recovery | 5/5 | Complete    | 2026-07-23 |
 | 6. Wails Authoring and Operator Surface | 12/12 | In Progress|  |
 | 7. Versioned External Control API | 15/15 | Complete    | 2026-07-25 |
-| 8. Isolated TypeScript Automation | 8/13 | In Progress|  |
+| 8. Isolated TypeScript Automation | 9/13 | In Progress|  |
 | 9. Provider-Neutral AI and Bounded Autonomy | 0/TBD | Not started | - |
 | 10. Windows Release Qualification | 0/TBD | Not started | - |
 | 11. Telemetry, Usage Statistics, and Auto Crash Submission Pipeline | 0/TBD | Not started | - |
