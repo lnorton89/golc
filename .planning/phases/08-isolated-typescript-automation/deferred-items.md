@@ -93,3 +93,67 @@ changes are auto-fixed).
   Re-run this plan's full suite, including the skipped tests above and the
   plan's manual Deno-denial-surface check, on a machine where `mage
   Bootstrap` (with a matching Deno pin) has completed successfully.
+
+## 08-07
+
+- **Same five pre-existing toolchain-bootstrap failures as 08-01/08-03/
+  08-05** (`TestBuildRouteCompilesTheProductionRepository`,
+  `TestBuildablePackagesExcludesMagefiles`, `TestScopeCrossPlatformCI`,
+  `TestScopeGreenSubprocess`, `TestScopeOfflineAcceptance`) — unrelated to
+  this plan's `internal/script/validate.go` /
+  `internal/command/scriptvalidate.go` changes. `go test
+  ./internal/script/... ./internal/scriptsdk/...` is fully green; `go test
+  ./internal/command/...` is green except these five pre-existing
+  failures.
+
+- **Real-Deno-gated tests skip in this worktree**, same partial/unverified
+  `.tools/toolchains/deno/` condition 08-05 recorded
+  (`GOLC_DENO_TOOLCHAIN_MISSING: verified install does not match pin`):
+  - `internal/script`: `TestValidateCleanScriptReportsZeroDiagnostics`,
+    `TestValidateWrongFieldTypeReportsDiagnostic`,
+    `TestValidateUnknownMethodReportsDiagnostic`
+  - `internal/command`: `TestScriptValidateCleanScript`,
+    `TestScriptValidateWrongFieldTypeScript`
+
+  Every other `<behavior>`/acceptance-criteria bullet these tests would
+  additionally exercise for real (a clean script validating with zero
+  diagnostics; `golc.scene.activate({wrongField:1})` and
+  `golc.notAMethod()` each producing a real `deno check` type-error
+  diagnostic, proving the generated `.d.ts` is actually loaded; the exact
+  transcript the plan's acceptance criteria ask to be recorded in this
+  SUMMARY) could not be captured in this environment. The size bound and
+  the structural zero-import gate are independently proven never to spawn
+  a subprocess by `TestValidateModuleGateNeverSpawnsSubprocess` /
+  `TestValidateSizeGateNeverSpawnsSubprocess` (real environment, no Deno
+  toolchain present, no mock), and the shim-offset math
+  (`shimLineOffsetFor`/`parseDenoCheckDiagnostics`) is independently unit
+  tested against hand-crafted fixture text that mirrors `deno check`'s
+  documented `TS#### [ERROR]: ...` / `at file://...:LINE:COL` diagnostic
+  format — but that fixture format was not independently verified against
+  a real `deno check` invocation on the pinned Deno version in this
+  environment. **Action required before this plan's validate verb is
+  trusted in production:** on a machine where `mage Bootstrap` (with a
+  matching Deno 2.9.4 pin) has completed, run
+  `go test ./internal/script/... ./internal/command/... -count=1` and
+  confirm (a) the five skipped tests above pass for real, and (b) the
+  `deno check` output `internal/script/validate.go`'s
+  `denoCheckDiagnosticHeaderPattern`/`denoCheckDiagnosticLocationPattern`
+  regexes assume actually matches what that Deno version emits -- if it
+  does not, `parseDenoCheckDiagnostics` will fall back to the generic
+  `GOLC_SCRIPT_TYPECHECK_FAILED` diagnostic (still correct/fail-closed,
+  but loses per-diagnostic line/column precision) rather than silently
+  reporting a clean result.
+
+- **`deno.json`'s `compilerOptions.types` was not independently verified
+  against a real `deno check` invocation**, for the same toolchain-
+  availability reason. The plan's action step explicitly asks for this
+  verification ("verify against the pinned Deno version's behaviour at
+  implementation time and record which you used"); `denoCheckConfig` in
+  `internal/script/validate.go` documents the choice made
+  (`{"compilerOptions":{"types":["./golc.d.ts"]}}`, auto-discovered by
+  `deno check` from the checked file's own directory) but this could not
+  be confirmed against a live `deno check` process here. If this does not
+  work on the pinned Deno version, the single call site to change is
+  `denoCheckConfig`'s definition in `internal/script/validate.go` (e.g.
+  switching to a `/// <reference path="./golc.d.ts" />` comment prepended
+  to the materialized script instead).
