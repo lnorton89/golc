@@ -420,7 +420,23 @@ Plans:
   3. Before execution, a user can inspect and assign script capabilities, deadlines, rate limits, and resource limits; the runtime has no ambient filesystem, network, environment, subprocess, native-code, or uncached dependency access.
   4. A user can inspect structured logs, diagnostics, source locations, command outcomes, and cancellation state, and can terminate a runaway, crashed, or blocked script without interrupting playback or Art-Net.
 
-**Plans:** TBD
+**Plans:** 13 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Script entity, capability profile, and `script` CLI CRUD routes in show.State
+- [ ] 08-02-PLAN.md — Deno toolchain pin, bootstrap provisioning, and the single executable resolver
+- [ ] 08-03-PLAN.md — Typed SDK generator, committed golc.d.ts/runtime shim, and route-coverage gate
+- [ ] 08-04-PLAN.md — Scripts workspace: library view, editor, save/delete, and shell navigation
+- [ ] 08-05-PLAN.md — Zero-permission Deno host, stdio session protocol, and `script run`
+- [ ] 08-06-PLAN.md — Capability/rate/deadline enforcement, Windows Job Object caps, Stop, Art-Net non-interference
+- [ ] 08-07-PLAN.md — Zero-import gate, `deno check` validation, and source-mapped diagnostics
+- [ ] 08-08-PLAN.md — Live script event stream, per-call outcomes, and audit-pipeline integration
+- [ ] 08-09-PLAN.md — Debug-mode-only inspector, CDP debug bridge, and source-mapped stack traces
+- [ ] 08-10-PLAN.md — Run/Debug launch dialog, toolbar actions, and live debug panel with terminal states
+- [ ] 08-11-PLAN.md — Monaco editor with live type-checking against the generated SDK (gated on package legitimacy)
+- [ ] 08-12-PLAN.md — Breakpoint gutter, execution-line highlight, and step controls
+- [ ] 08-13-PLAN.md — Phase acceptance: sandbox denial surface and full authoring-to-debugging workflow
+
 **UI hint:** yes
 **Research:** Deeper phase research required for Deno distribution, offline dependency policy, process and IPC isolation, Windows CPU/memory enforcement, debugger scope, supervision, cancellation, and defensible sandbox claims.
 
