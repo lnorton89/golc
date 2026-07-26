@@ -379,8 +379,9 @@ func renderNamespaceTypes(node *namespaceNode, indent string, out *strings.Build
 
 // renderNamespaceRuntime recursively renders node as a golc-runtime.ts
 // object-literal fragment: every leaf method as an arrow function that
-// marshals a {id, route, params} frame over stdio and awaits its matching
-// response, every child as a nested object literal.
+// marshals a {kind:"cmd-call", id, method, params} frame over stdio
+// (internal/script/protocol.go's CmdCallFrame, 08-05) and awaits its
+// matching response, every child as a nested object literal.
 func renderNamespaceRuntime(node *namespaceNode, indent string, out *strings.Builder) {
 	names := append(append([]string{}, sortedKeys(node.methods)...), sortedKeys(node.children)...)
 	sort.Strings(names)
@@ -402,17 +403,21 @@ func renderNamespaceRuntime(node *namespaceNode, indent string, out *strings.Bui
 
 // runtimeTransportPrelude is the newline-delimited-JSON stdio request/
 // response client every generated golc-runtime.ts commits verbatim: a
-// monotonically increasing request id correlates each {id, route, params}
-// frame written to stdout with its {id, ok, result}/{id, ok:false, code,
-// message} response read from stdin. It never uses an import or export
-// statement -- the shim is injected by the host alongside the user's
-// zero-import script (08-05), and assigns itself onto globalThis exactly
-// like the ambient golc.d.ts types describe.
+// monotonically increasing request id (stringified) correlates each
+// {kind:"cmd-call", id, method, params} frame written to stdout with its
+// {kind:"cmd-result", id, ok, result}/{kind:"cmd-result", id, ok:false,
+// code, message} response read from stdin -- internal/script/protocol.go's
+// CmdCallFrame/CmdResultFrame shape exactly (08-05: the Go decoder and
+// this generated shim must agree byte-for-byte on the wire frame shape).
+// It never uses an import or export statement -- the shim is injected by
+// the host alongside the user's zero-import script (08-05), and assigns
+// itself onto globalThis exactly like the ambient golc.d.ts types
+// describe.
 const runtimeTransportPrelude = `const __golcEncoder = new TextEncoder();
 const __golcDecoder = new TextDecoder();
 
 let __golcRequestID = 0;
-const __golcPending = new Map<number, { resolve: (value: any) => void; reject: (reason: any) => void }>();
+const __golcPending = new Map<string, { resolve: (value: any) => void; reject: (reason: any) => void }>();
 let __golcReaderStarted = false;
 
 function __golcStartReader(): void {
@@ -432,6 +437,9 @@ function __golcStartReader(): void {
           continue;
         }
         const frame = JSON.parse(line);
+        if (frame.kind !== "cmd-result") {
+          continue;
+        }
         const pending = __golcPending.get(frame.id);
         if (!pending) {
           continue;
@@ -447,10 +455,10 @@ function __golcStartReader(): void {
   })();
 }
 
-function __golcCall(route: string, params: unknown): Promise<any> {
+function __golcCall(method: string, params: unknown): Promise<any> {
   __golcStartReader();
-  const id = ++__golcRequestID;
-  const line = JSON.stringify({ id, route, params }) + "\n";
+  const id = String(++__golcRequestID);
+  const line = JSON.stringify({ kind: "cmd-call", id, method, params }) + "\n";
   return (globalThis as any).Deno.stdout.write(__golcEncoder.encode(line)).then(() => {
     return new Promise((resolve, reject) => {
       __golcPending.set(id, { resolve, reject });
