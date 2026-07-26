@@ -416,6 +416,24 @@ func renderNamespaceRuntime(node *namespaceNode, indent string, out *strings.Bui
 const runtimeTransportPrelude = `const __golcEncoder = new TextEncoder();
 const __golcDecoder = new TextDecoder();
 
+// console.* is redirected to Deno.stderr, never left on Deno.stdout: stdout
+// is reserved exclusively for this file's own strict newline-delimited JSON
+// protocol frames (cmd-call/cmd-result/done), and the host's frame decoder
+// treats any non-JSON stdout line as a fatal protocol violation. A script's
+// ordinary console.log/info/warn/error/debug calls are still the natural
+// way to produce D-04's live log stream -- they are just carried over the
+// same stderr channel the host already redacts and captures as log lines
+// (session.go's runDispatchIO), never mixed into the control channel.
+function __golcWriteConsoleLine(args: unknown[]): void {
+  const text = args
+    .map((a) => (typeof a === "string" ? a : (globalThis as any).Deno.inspect(a)))
+    .join(" ");
+  (globalThis as any).Deno.stderr.writeSync(__golcEncoder.encode(text + "\n"));
+}
+for (const __golcMethod of ["log", "info", "warn", "error", "debug"] as const) {
+  (globalThis as any).console[__golcMethod] = (...args: unknown[]) => __golcWriteConsoleLine(args);
+}
+
 let __golcRequestID = 0;
 const __golcPending = new Map<string, { resolve: (value: any) => void; reject: (reason: any) => void }>();
 let __golcReaderStarted = false;

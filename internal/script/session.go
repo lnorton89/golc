@@ -47,6 +47,36 @@ const maxCapturedLogLines = 1000
 // internal/trace/transport/process.go's defaultStderrBudget exactly.
 const stderrTailBudget = 8192
 
+// runCompletionTrailerTS is appended after target.Source (never before
+// it, so it never shifts shimLineOffsetFor's line-number math or any
+// breakpoint/stack-trace mapping, all of which are anchored to the shim
+// that precedes the user's own source). scriptsdk.RuntimeShimTS's own
+// __golcStartReader keeps a `for await (const chunk of Deno.stdin.
+// readable)` loop pinned open for the life of the process -- by design,
+// so a script can make cmd-calls at any point -- but that same open
+// stream means Deno's event loop never drains on its own once the
+// user's top-level code finishes: nothing ever signals completion, and
+// runDispatchIO (session.go) keeps reading until the run's own deadline
+// kills it (found during 08-13's acceptance pass against the real
+// pinned Deno toolchain -- deferred-items.md's 08-13 section -- every
+// prior test of a real run happened to skip because Deno was never
+// actually provisioned until then).
+//
+// This trailer is textually the last thing in the materialized file, so
+// module evaluation only reaches it once every top-level statement in
+// the user's own source -- including any top-level `await` on a golc.*
+// call -- has settled. It writes the DoneFrame protocol.go's
+// runDispatchIO already listens for (and has since 08-05, unused until
+// now) and then force-exits, since nothing else will ever close the
+// process on its own. A script that throws is unaffected: an uncaught
+// top-level exception aborts module evaluation before reaching this
+// trailer, and the process's own non-zero exit already closes stdout
+// (runDispatchIO's existing !ok break) -- Run's cmd.Wait() error and the
+// captured stderr tail are what report that case, exactly as before.
+const runCompletionTrailerTS = `await (globalThis as any).Deno.stdout.write(__golcEncoder.encode(JSON.stringify({ kind: "done" }) + "\n"));
+(globalThis as any).Deno.exit(0);
+`
+
 // Run is one script execution's identity: a fresh, distinct RunID every
 // time (D-13: two sequential runs of the same script are always
 // independent, never resuming state from a prior run).
@@ -572,6 +602,22 @@ func (h *Host) runDispatchIO(run *Run, stdin io.Writer, stdout, stderr io.Reader
 			if f.ExitReason != "" {
 				outcome.Reason = f.ExitReason
 			}
+			// Debug mode (08-13's acceptance pass, deferred-items.md's
+			// 08-13 section): V8's inspector agent holds the process
+			// open ("Waiting for the debugger to disconnect...") even
+			// after runCompletionTrailerTS's own Deno.exit(0), for as
+			// long as a CDP client stays attached -- Deno mirrors
+			// Node's identical --inspect behavior here. Host.Run's own
+			// `defer bridge.Close()` cannot break that hold: it only
+			// runs once this loop returns, and this loop cannot return
+			// until stdout reaches EOF, which is exactly what the
+			// inspector is withholding. Closing the bridge here, the
+			// moment the child signals it is done with its own code,
+			// is what actually lets the held-open process exit and
+			// this loop see its EOF.
+			if bridge := run.Bridge(); bridge != nil {
+				bridge.Close()
+			}
 		case CmdCallFrame:
 			result, callOutcome := h.dispatchCmdCall(run, f)
 			outcome.Outcomes = append(outcome.Outcomes, callOutcome)
@@ -733,7 +779,7 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode, bre
 	defer os.RemoveAll(runDir)
 
 	scriptPath := filepath.Join(runDir, runID.String()+".ts")
-	materialized := scriptsdk.RuntimeShimTS + "\n" + target.Source
+	materialized := scriptsdk.RuntimeShimTS + "\n" + target.Source + "\n" + runCompletionTrailerTS
 	if err := os.WriteFile(scriptPath, []byte(materialized), 0o600); err != nil {
 		return RunOutcome{}, fmt.Errorf("GOLC_SCRIPT_RUN_SOURCE_WRITE_FAILED: %v", err)
 	}
