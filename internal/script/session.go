@@ -54,6 +54,63 @@ type Run struct {
 	ScriptName string
 	Profile    show.CapabilityProfile
 	StartedAt  time.Time
+
+	// terminationMu guards termination/cancel/job below: multiple
+	// goroutines can race to observe or set them (the dispatch loop, a
+	// deadline timer, and -- once 08-06 Task 3 exists -- a "script stop"
+	// caller running on a completely different goroutine).
+	terminationMu sync.Mutex
+	// termination is nil until the run's first hard-termination cause
+	// (scope violation, rate overrun, deadline, or an explicit Stop) is
+	// recorded; once set it is never overwritten (D-11: the exact
+	// TerminationReason a script sees for every call after the instant
+	// termination begins is the one that began it).
+	termination *TerminationReason
+	// cancel is Run's own context.CancelFunc, wired the moment Run
+	// derives its deadline-bound context: calling it is this run's
+	// always-present kill fallback (before a Job Object exists, or on a
+	// non-Windows/no-op Job Object where the real kill work happens in
+	// jobObject.Close itself).
+	cancel context.CancelFunc
+}
+
+// beginTermination records reason as run's TerminationReason if none is
+// set yet (first writer wins -- D-11: the reason a script observes is
+// always the one that actually began termination, never a later,
+// possibly-unrelated cause racing in afterward) and reports whether this
+// call actually set it.
+func (r *Run) beginTermination(reason TerminationReason) bool {
+	r.terminationMu.Lock()
+	defer r.terminationMu.Unlock()
+	if r.termination != nil {
+		return false
+	}
+	r.termination = &reason
+	return true
+}
+
+// terminationReason returns run's recorded TerminationReason, if any.
+func (r *Run) terminationReason() (TerminationReason, bool) {
+	r.terminationMu.Lock()
+	defer r.terminationMu.Unlock()
+	if r.termination == nil {
+		return TerminationReason{}, false
+	}
+	return *r.termination, true
+}
+
+// terminate triggers run's kill path: cancelling its context, which asks
+// exec.CommandContext to kill the child process. This is the whole kill
+// mechanism until 08-06 Task 2 adds a Windows Job Object close as the
+// primary, kernel-enforced, uninterceptable path (SCRP-06) -- terminate
+// is deliberately the single seam Task 2 extends rather than a new one.
+func (r *Run) terminate() {
+	r.terminationMu.Lock()
+	cancel := r.cancel
+	r.terminationMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 }
 
 // LogLine is one captured, already-redacted stdout/stderr line (D-04's
@@ -128,14 +185,21 @@ func appendBoundedLog(lines []LogLine, line LogLine) []LogLine {
 	return lines
 }
 
-// enforce is the single seam 08-06 fills with D-06/D-08 host-side
-// capability/deadline/rate/resource-limit enforcement (08-05-PLAN.md
-// Task 2 action step 7), inserted between the method lookup and the
-// Executor call. It always allows for now: this plan does not implement
-// capability enforcement, only the seam 08-06 fills with one function
-// rather than restructuring the dispatch loop.
-func (h *Host) enforce(descriptor scriptsdk.SDKMethodDescriptor, run *Run) error {
-	return nil
+// enforce is the seam 08-05 left as an always-allow stub and 08-06 Task 1
+// fills with D-06/D-08 host-side capability-scope and rate enforcement,
+// inserted between the method lookup and the Executor call: it calls
+// Enforce (capability.go) with run's own profile/RunID against
+// descriptor's route, using h.limiter as the run's own rate bucket. A
+// non-nil TerminationReason is recorded on run (first writer wins,
+// beginTermination) and triggers run's kill path before being returned
+// to the caller, which never lets the call reach the Executor.
+func (h *Host) enforce(descriptor scriptsdk.SDKMethodDescriptor, run *Run) *TerminationReason {
+	reason := Enforce(run.Profile, run.RunID, descriptor.Route, h.limiter)
+	if reason != nil {
+		run.beginTermination(*reason)
+		run.terminate()
+	}
+	return reason
 }
 
 // methodDescriptorsByRoute builds a lookup from scriptsdk.
@@ -186,6 +250,20 @@ func wrapExecutorResult(descriptor scriptsdk.SDKMethodDescriptor, stdout []byte)
 func (h *Host) dispatchCmdCall(run *Run, call CmdCallFrame) (CmdResultFrame, CallOutcome) {
 	started := time.Now()
 
+	// D-11: once a TerminationReason is set for run, every subsequent
+	// inbound cmd-call is answered with that same reason and never
+	// reaches the Executor. A call already past this check when
+	// termination begins on another goroutine is unaffected -- Go gives
+	// this function no preemption point until it returns, so it always
+	// runs to completion and its outcome is still recorded below.
+	if reason, terminating := run.terminationReason(); terminating {
+		outcome := CallOutcome{
+			Method: call.Method, DurationMS: time.Since(started).Milliseconds(),
+			Ok: false, Code: reason.Code, Message: reason.Message,
+		}
+		return CmdResultFrame{ID: call.ID, Ok: false, Code: reason.Code, Message: security.Redact(reason.Message)}, outcome
+	}
+
 	descriptor, known := methodDescriptorsByRoute()[call.Method]
 	if !known {
 		message := fmt.Sprintf("no SDK method registered for %q", call.Method)
@@ -196,12 +274,12 @@ func (h *Host) dispatchCmdCall(run *Run, call CmdCallFrame) (CmdResultFrame, Cal
 		return CmdResultFrame{ID: call.ID, Ok: false, Code: outcome.Code, Message: "GOLC_SCRIPT_METHOD_UNKNOWN: " + message}, outcome
 	}
 
-	if err := h.enforce(descriptor, run); err != nil {
+	if reason := h.enforce(descriptor, run); reason != nil {
 		outcome := CallOutcome{
 			Method: call.Method, Route: descriptor.Route, DurationMS: time.Since(started).Milliseconds(),
-			Ok: false, Code: "GOLC_SCRIPT_CAPABILITY_DENIED", Message: err.Error(),
+			Ok: false, Code: reason.Code, Message: reason.Message,
 		}
-		return CmdResultFrame{ID: call.ID, Ok: false, Code: outcome.Code, Message: security.Redact(err.Error())}, outcome
+		return CmdResultFrame{ID: call.ID, Ok: false, Code: reason.Code, Message: security.Redact(reason.Message)}, outcome
 	}
 
 	args, buildErr := buildRouteArgs(descriptor.Route, h.cfg.ShowPath, call.Params)
@@ -349,6 +427,19 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode) (Ru
 	}
 	run := &Run{RunID: runID, ScriptName: target.Name, Profile: target.CapabilityProfile, StartedAt: time.Now()}
 
+	// D-08: every run carries its own wall-clock deadline, resolved from
+	// the profile's capability preset (deadlineFor delegates entirely to
+	// show.CapabilityProfile.ResolveResourceLimits -- the single place
+	// the safe-default discipline lives). runCtx.Err() == context.
+	// DeadlineExceeded is checked below once the run ends; the deadline
+	// itself never grants a grace period beyond it.
+	deadline := deadlineFor(target.CapabilityProfile)
+	runCtx, cancel := context.WithDeadline(ctx, run.StartedAt.Add(deadline))
+	defer cancel()
+	run.terminationMu.Lock()
+	run.cancel = cancel
+	run.terminationMu.Unlock()
+
 	runDir, err := os.MkdirTemp("", "golc-script-run-*")
 	if err != nil {
 		return RunOutcome{}, fmt.Errorf("GOLC_SCRIPT_RUN_TEMP_DIR_FAILED: %v", err)
@@ -361,7 +452,7 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode) (Ru
 		return RunOutcome{}, fmt.Errorf("GOLC_SCRIPT_RUN_SOURCE_WRITE_FAILED: %v", err)
 	}
 
-	cmd := exec.CommandContext(ctx, h.denoPath, buildDenoArgs(scriptPath, mode)...)
+	cmd := exec.CommandContext(runCtx, h.denoPath, buildDenoArgs(scriptPath, mode)...)
 	cmd.Dir = runDir
 	// Explicit, never-inherited environment (T-08-16): the daemon's own
 	// environment variables are never passed through to a script process.
@@ -387,13 +478,30 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode) (Ru
 	outcome := h.runDispatchIO(run, stdin, stdout, stderr)
 	waitErr := cmd.Wait()
 
-	switch {
-	case ctx.Err() != nil:
+	// run.terminationReason() (a scope violation, rate overrun, or --
+	// once 08-06 Task 3 exists -- an explicit Stop) takes priority over a
+	// generic runCtx.Err() interpretation: D-11's "the reason a script
+	// observes is the one that actually began termination".
+	if reason, terminated := run.terminationReason(); terminated {
+		outcome.Status = show.ScriptRunStatusTerminated
+		outcome.Reason = reason.String()
+	} else if runCtx.Err() == context.DeadlineExceeded {
+		outcome.Status = show.ScriptRunStatusTerminated
+		reason := checkDeadline(time.Since(run.StartedAt), deadline)
+		if reason == nil {
+			reason = &TerminationReason{
+				Code:    "GOLC_SCRIPT_DEADLINE_EXCEEDED",
+				Message: fmt.Sprintf("run exceeded its %s deadline", deadline),
+				At:      time.Now(),
+			}
+		}
+		outcome.Reason = reason.String()
+	} else if runCtx.Err() != nil {
 		outcome.Status = show.ScriptRunStatusTerminated
 		if outcome.Reason == "" {
-			outcome.Reason = ctx.Err().Error()
+			outcome.Reason = runCtx.Err().Error()
 		}
-	case waitErr != nil && outcome.Status == show.ScriptRunStatusSucceeded:
+	} else if waitErr != nil && outcome.Status == show.ScriptRunStatusSucceeded {
 		outcome.Status = show.ScriptRunStatusFailed
 		if outcome.Reason == "" {
 			outcome.Reason = waitErr.Error()
