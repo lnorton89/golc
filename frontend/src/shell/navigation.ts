@@ -11,6 +11,7 @@ export type DestinationId =
   | "build-fixture-library"
   | "build-patch-pools"
   | "build-scenes-looks"
+  | "build-scripts"
   | "operate-operator-surface"
   | "operate-midi-mapping"
   | "output-artnet"
@@ -40,6 +41,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: "build-fixture-library", label: "Fixture Library" },
       { id: "build-patch-pools", label: "Patch & Pools" },
       { id: "build-scenes-looks", label: "Scenes & Looks" },
+      { id: "build-scripts", label: "Scripts" },
     ],
   },
   {
