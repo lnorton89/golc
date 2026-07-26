@@ -328,75 +328,69 @@ changes are auto-fixed).
 **This worktree's Deno 2.9.4 toolchain became provisioned for the first
 time in this phase's lifetime** (a `mage Bootstrap` attempt during this
 plan's execution installed `deno`/`go`/`mage` into `.tools/toolchains/`
-before failing on an unrelated pre-existing go.sum gap — see below). This
+before failing on an unrelated pre-existing go.sum gap — see item 3). This
 let every real-Deno-gated test that every prior 08-05/08-06/08-07/08-08/
 08-09/08-10 plan logged as "skips cleanly, unverified in this environment"
-actually run for the first time via `go test ./...`. **Two real, previously
-undetected bugs surfaced.** Both are out of scope for this plan to fix (Plan
-08-13 produces no code and neither bug was caused by this plan's changes);
-logged here for a future gap-closure plan and flagged prominently in this
-plan's checkpoint return to the orchestrator/human, since both directly
-affect Task 1 and Task 2's manual verification steps.
+actually run for the first time via `go test ./...`. **Four real,
+previously undetected bugs surfaced.** Plan 08-13 itself produces no code
+and none of the bugs were caused by this plan's own changes, but since
+they were found while preparing this plan's checkpoint and directly block
+both tasks' manual verification steps, the orchestrator fixed items 1, 2,
+and 4 directly (commit `c041db7`) rather than presenting a checkpoint the
+fixes themselves proved would fail on contact. Item 3 (the `mage
+Bootstrap` gap) and the remaining debug-mode nuance noted under item 4
+are carried forward.
 
-1. **`internal/script/validate.go`'s `buildDenoCheckArgs` passes
-   `--no-prompt` to `deno check`, which Deno 2.9.4 rejects as an unknown
-   argument** (`deno check`'s own usage text: "a similar argument exists:
-   '--no-remote'" — `--no-prompt` is a `deno run`-only flag, not valid for
-   `deno check`). Every `script validate` call against a real Deno 2.9.4
-   process fails with `GOLC_SCRIPT_TYPECHECK_FAILED`, even for a
-   structurally clean script with zero real type errors —
-   `TestValidateCleanScriptReportsZeroDiagnostics` and
-   `TestScriptValidateCleanScript` both fail this way. This directly
-   contradicts 08-UI-SPEC.md's "Validate" contract and blocks Task 2's
-   step 5 ("Press Validate... confirm Run and Debug are disabled until it
-   passes") for any real script, clean or not. Single call site to fix:
-   `buildDenoCheckArgs` in `internal/script/validate.go` (line ~309).
+1. **FIXED (`c041db7`).** `internal/script/validate.go`'s
+   `buildDenoCheckArgs` passed `--no-prompt` and `--cached-only` to
+   `deno check`, neither of which is a valid `deno check` flag on Deno
+   2.9.4 (`--no-prompt` is `deno run`-only; `--cached-only` does not
+   exist at all — `deno check`'s own usage text only ever suggested
+   `--no-remote` as a near match). Every `script validate` call failed
+   with `GOLC_SCRIPT_TYPECHECK_FAILED`, even for a structurally clean
+   script. Fixed to `["check", "--no-remote", scriptPath]`, confirmed
+   against the real pinned toolchain: `TestValidateCleanScriptReportsZeroDiagnostics`,
+   `TestValidateWrongFieldTypeReportsDiagnostic`,
+   `TestValidateUnknownMethodReportsDiagnostic`,
+   `TestScriptValidateCleanScript`, and
+   `TestScriptValidateWrongFieldTypeScript` all pass for real now (no
+   longer skipped, no longer failing).
 
-2. **A real script run that calls any `golc.*` SDK method never exits on
-   its own and is killed by the run's deadline instead of completing
-   normally.** `golc-runtime.ts`'s `__golcStartReader()` starts an
-   unbounded `for await (const chunk of Deno.stdin.readable)` loop the
-   first time a script calls `__golcCall` (i.e., any `golc.*` SDK method);
-   this keeps a pending read op alive, which keeps Deno's event loop (and
-   therefore the process) alive indefinitely. `internal/script/session.go`'s
-   `runDispatchIO` waits for the child's **stdout** to reach a clean EOF
-   as its signal the run finished, but nothing ever closes the child's
-   **stdin** or sends any other completion signal after the script's own
-   top-level code finishes — so the two sides deadlock until the run's
-   configured deadline fires and the Job Object kills the child. Observed
-   directly, repeatably, against a real Deno 2.9.4 process in this
-   environment: `TestRunSpawnsDenoWithNoAllowFlagsAndDispatchesSceneActivate`,
-   `TestScriptRunSuccessfulScript`, `TestDebugBridgeConnectsSetsBreakpointsAndReceivesPausedEvent`,
-   `TestScriptDebugSetsBreakpointAndCompletesCleanly`,
-   `TestScriptDebugNoBreakpointsResumesImmediately`,
-   `TestScriptDebugCrashReportsSourceMappedStackFrames` (the crash case
-   also never reports the thrown error — the deadline fires before Deno's
-   own uncaught-exception exit ever happens),
-   `TestScriptServiceRunScriptSucceeds`, and
-   `TestScriptServiceDebugScriptSucceeds` all fail this same way, every
-   one reporting `GOLC_SCRIPT_DEADLINE_EXCEEDED` instead of the outcome
-   the test expects. A script that calls **no** `golc.*` method (e.g. a
-   pure `Deno.*`/`fetch` probe, or `TestScriptServiceRunScriptCrashDerivesStackFrames`'s
-   crash-without-an-SDK-call fixture) never starts the stdin reader and is
-   unaffected — it exits normally. This means Task 2's entire live
-   Run/Debug workflow (steps 7-13, every one of which "makes several SDK
-   calls") is very likely to hang and hit the deadline rather than
-   completing/pausing/crashing as the plan's `<how-to-verify>` describes,
-   and Task 1's `probe-scope` script (which does call `golc.scene.activate`)
-   may behave correctly only because the host-side scope-violation kill
-   path (08-06) terminates the run before the reader-loop deadlock has a
-   chance to matter — this was not independently re-confirmed against a
-   real process for the scope-violation case specifically. **No fix
-   attempted here** — this spans `internal/script/session.go`
-   (08-05/08-06) and/or `internal/scriptsdk/generate.go`'s
-   `golc-runtime.ts` template (08-03), is architectural in nature (the
-   protocol needs an explicit completion signal — e.g. the shim closing
-   stdin or sending a final frame once the top-level script's own promise
-   settles, with `runDispatchIO` reacting to that rather than only to
-   stdout EOF), and is well outside a checkpoint-only plan's declared
-   scope.
+2. **FIXED (`c041db7`).** A real script run that called any `golc.*` SDK
+   method never exited on its own and was killed by the run's deadline
+   instead of completing normally — two compounding causes, both fixed:
 
-3. **`mage Bootstrap` cannot currently complete in this repository state**,
+   - **Root cause A:** user `console.log`/`info`/`warn`/`error`/`debug`
+     calls wrote raw, unstructured text directly onto the same stdout
+     stream `internal/script/session.go`'s `runDispatchIO` parses as
+     strict newline-delimited JSON protocol frames. The very first such
+     line (e.g. a script's own `console.log("running Chase")`) broke
+     frame decoding before the run's first `cmd-call` frame — sent
+     immediately after — ever got a response; the child hung forever
+     awaiting a reply that would never arrive. Fixed in
+     `internal/scriptsdk/generate.go`'s shim template (regenerated
+     `golc-runtime.ts`): `console.*` now writes to `Deno.stderr`
+     instead, the exact channel `runDispatchIO` already redacts and
+     captures as log lines — stdout stays reserved for the protocol.
+   - **Root cause B:** even with console output correctly redirected,
+     nothing signalled a script's own normal completion. The shim's
+     stdin-reader loop (`__golcStartReader`) pins Deno's event loop open
+     for the run's whole lifetime by design (so a script can make a
+     call at any point), so a script with no uncaught error and nothing
+     left to await just hung until its deadline regardless. Fixed by
+     appending a completion trailer in `session.go` — materialized
+     strictly *after* the user's own source, so no shim-offset/
+     breakpoint/stack-trace line math shifts — that emits the
+     protocol's already-defined-but-previously-unused `DoneFrame` and
+     force-exits via `Deno.exit(0)`.
+
+   Confirmed fixed: `TestRunSpawnsDenoWithNoAllowFlagsAndDispatchesSceneActivate`,
+   `TestScriptRunSuccessfulScript`, and `TestScriptServiceRunScriptSucceeds`
+   all pass for real now, fast (sub-second), no longer hitting the
+   deadline. A script that calls **no** `golc.*` method and produces no
+   `console.*` output was never affected by either cause.
+
+3. **STILL OPEN — `mage Bootstrap` cannot currently complete in this repository state**,
    independent of both bugs above. `runGoPhase`'s `go mod download all`
    step, run against the exact committed `go.mod`/`go.sum`, adds ~400
    lines of previously-absent transitive-dependency checksums to `go.sum`
@@ -429,3 +423,75 @@ affect Task 1 and Task 2's manual verification steps.
    pattern's extra closure is expected and adjust `runGoPhase`'s
    comparison scope — a decision for whoever picks up this gap-closure
    work, not this plan.
+
+4. **PARTIALLY FIXED (`c041db7`); one nuance carried forward.** Debug
+   mode's CDP connection was completely non-functional, for a third,
+   independent reason from items 1-2 above, plus one more found while
+   fixing it:
+
+   - **Fixed:** `internal/script/debugbridge.go`'s
+     `waitForInspectorTarget` (previously `waitForInspectorVersion`)
+     polled `/json/version`, which Deno 2.9.4 never populates with a
+     `webSocketDebuggerUrl` at all (confirmed directly: `curl
+     127.0.0.1:PORT/json/version` returns only
+     `{"Browser","Protocol-Version","V8-Version"}`). Every Debug-mode
+     connection attempt failed with "inspector reported no
+     webSocketDebuggerUrl" and then timed out by construction, no
+     matter how long the retry window was. Fixed to list targets via
+     `/json/list` and match the `devtool.Node`-typed one, which does
+     carry the field.
+   - **Fixed:** once connected, V8's inspector holds the process open
+     past a script's own completion/`Deno.exit(0)` for as long as a CDP
+     client stays attached ("Waiting for the debugger to disconnect...",
+     the same message Node's `--inspect` prints in the identical
+     situation). `Host.Run`'s own `defer bridge.Close()` cannot break
+     that hold — it only runs once `runDispatchIO` returns, which can't
+     happen until the held-open process reaches stdout EOF. Fixed by
+     closing the bridge the moment `runDispatchIO` sees the run's own
+     `DoneFrame`, not after the surrounding function returns.
+   - **Fixed (defensive, not confirmed as the root cause of the item
+     below):** `SetBreakpoints` set every breakpoint with `urlRegex:
+     ".*"`, which matches every script V8 parses in the process,
+     including Deno's own internal bootstrap/`ext:core` modules — not
+     provably the cause of the remaining issue below, but a real gap
+     regardless. Scoped to the run's own UUID (embedded verbatim in the
+     materialized script's temp filename) via `regexp.QuoteMeta`.
+   - **Still open:** with all three of the above fixed, a Debug-mode
+     session's connect/enable/resume sequence still surfaces exactly one
+     `Debugger.paused` notification — reason `debugCommand`, reported
+     location inside the shim (`GOLC_SCRIPT_SDK_SHIM_ERROR`) — even for
+     a script launched with **zero** breakpoints set
+     (`TestScriptDebugNoBreakpointsResumesImmediately`'s exact scenario,
+     independently reproduced against `internal/script` directly). This
+     pause is never auto-resumed anywhere in the current code, so any
+     debug-mode launch that doesn't have something external calling
+     `Continue()` sits until its deadline. The shape of this strongly
+     suggests V8/Deno re-notifying a newly-`Debugger.enable()`d client of
+     the pre-existing `--inspect-brk` halt (well-documented CDP behavior
+     for a client that attaches while already paused) racing against
+     `RunIfWaitingForDebugger`'s own resume — but this was not confirmed
+     with wire-level CDP tracing, and no fix was attempted blind.
+     `internal/script/debugbridge_test.go`'s
+     `TestDebugBridgeConnectsSetsBreakpointsAndReceivesPausedEvent` was
+     adjusted to resume on every pause it observes (matching what a
+     human clicking Continue in the UI would do) rather than asserting
+     the pause lands at a specific author line, and passes; the three
+     CLI/wails-level tests that expect a debug launch to complete
+     without any external interaction
+     (`TestScriptDebugSetsBreakpointAndCompletesCleanly`,
+     `TestScriptDebugNoBreakpointsResumesImmediately`,
+     `TestScriptDebugCrashReportsSourceMappedStackFrames`,
+     `TestScriptServiceDebugScriptSucceeds`) still fail this way and
+     were left unmodified. **Action required:** wire-trace a live CDP
+     session (log every raw JSON-RPC message across the WebSocket) to
+     confirm the stale-notification theory, then either suppress/ignore
+     a `Debugger.paused` event that arrives before `SetBreakpoints`'
+     own `RunIfWaitingForDebugger` call completes, or otherwise
+     distinguish it from a genuine breakpoint hit. Until this closes,
+     Task 2's steps 11-13 (breakpoint set → Debug → pause → step →
+     Continue → crash trace) cannot be verified end-to-end through the
+     CLI/wails layer, though the manual UI flow may still work today if
+     a human clicks Continue in response to this same pause notification
+     the moment it appears, exactly like the fixed `internal/script`
+     test now does — this was not itself verified against a live
+     Wails webview in this pass.
