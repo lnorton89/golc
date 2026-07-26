@@ -7,7 +7,7 @@ const __golcEncoder = new TextEncoder();
 const __golcDecoder = new TextDecoder();
 
 let __golcRequestID = 0;
-const __golcPending = new Map<number, { resolve: (value: any) => void; reject: (reason: any) => void }>();
+const __golcPending = new Map<string, { resolve: (value: any) => void; reject: (reason: any) => void }>();
 let __golcReaderStarted = false;
 
 function __golcStartReader(): void {
@@ -27,6 +27,9 @@ function __golcStartReader(): void {
           continue;
         }
         const frame = JSON.parse(line);
+        if (frame.kind !== "cmd-result") {
+          continue;
+        }
         const pending = __golcPending.get(frame.id);
         if (!pending) {
           continue;
@@ -42,10 +45,10 @@ function __golcStartReader(): void {
   })();
 }
 
-function __golcCall(route: string, params: unknown): Promise<any> {
+function __golcCall(method: string, params: unknown): Promise<any> {
   __golcStartReader();
-  const id = ++__golcRequestID;
-  const line = JSON.stringify({ id, route, params }) + "\n";
+  const id = String(++__golcRequestID);
+  const line = JSON.stringify({ kind: "cmd-call", id, method, params }) + "\n";
   return (globalThis as any).Deno.stdout.write(__golcEncoder.encode(line)).then(() => {
     return new Promise((resolve, reject) => {
       __golcPending.set(id, { resolve, reject });
