@@ -423,18 +423,44 @@ Plans:
 **Plans:** 13 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 08-01-PLAN.md — Script entity, capability profile, and `script` CLI CRUD routes in show.State
 - [ ] 08-02-PLAN.md — Deno toolchain pin, bootstrap provisioning, and the single executable resolver
 - [ ] 08-03-PLAN.md — Typed SDK generator, committed golc.d.ts/runtime shim, and route-coverage gate
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 08-04-PLAN.md — Scripts workspace: library view, editor, save/delete, and shell navigation
 - [ ] 08-05-PLAN.md — Zero-permission Deno host, stdio session protocol, and `script run`
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 08-06-PLAN.md — Capability/rate/deadline enforcement, Windows Job Object caps, Stop, Art-Net non-interference
 - [ ] 08-07-PLAN.md — Zero-import gate, `deno check` validation, and source-mapped diagnostics
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 08-08-PLAN.md — Live script event stream, per-call outcomes, and audit-pipeline integration
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 08-09-PLAN.md — Debug-mode-only inspector, CDP debug bridge, and source-mapped stack traces
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
 - [ ] 08-10-PLAN.md — Run/Debug launch dialog, toolbar actions, and live debug panel with terminal states
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
 - [ ] 08-11-PLAN.md — Monaco editor with live type-checking against the generated SDK (gated on package legitimacy)
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
 - [ ] 08-12-PLAN.md — Breakpoint gutter, execution-line highlight, and step controls
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
 - [ ] 08-13-PLAN.md — Phase acceptance: sandbox denial surface and full authoring-to-debugging workflow
 
 **UI hint:** yes
