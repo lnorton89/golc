@@ -12,7 +12,11 @@
 // of the Linear adapter's Node process, per 08-PATTERNS.md.
 package script
 
-import "sync"
+import (
+	"fmt"
+	"net"
+	"sync"
+)
 
 // LaunchMode selects which Deno command line buildDenoArgs composes.
 // Only these two values exist: 08-09 adds the debug behaviour behind
@@ -97,17 +101,57 @@ var forbiddenDenoArgPrefixes = []string{"--allow-", "-A"}
 
 // buildDenoArgs is the single call site that composes the Deno argument
 // list for one script run (08-RESEARCH.md Pitfall 2): the
-// --inspect-brk=127.0.0.1:<port> argument 08-09 adds for LaunchModeDebug
-// may only ever be appended here, driven by mode, never by an
-// environment variable, build tag, or "debug build" convention. This
-// plan implements LaunchModeRun's exact, final behavior; LaunchModeDebug
-// is intentionally indistinguishable from Run at this call site until
-// 08-09 threads the inspector flag through mode here and nowhere else.
-// No branch of this function ever appends a permission-granting flag --
-// SCRP-03's zero-ambient-access guarantee rests on that being
-// permanently true, verified structurally by
-// TestDenoCommandLineHasNoAllowFlags rather than by inspection alone.
-func buildDenoArgs(scriptPath string, mode LaunchMode) []string {
-	_ = mode
-	return []string{"run", "--no-prompt", scriptPath}
+// --inspect-brk=127.0.0.1:<port> argument may only ever be appended here,
+// driven purely by mode, never by an environment variable, build tag, or
+// "debug build" convention (08-RESEARCH.md Pitfall 2's exact concern).
+// debugPort is only ever read when mode == LaunchModeDebug; a LaunchModeRun
+// call never inspects it, so an accidentally non-zero debugPort passed
+// alongside LaunchModeRun can never leak an inspector argument into a
+// plain Run's command line -- the branch on mode is what gates the
+// argument, not debugPort's value. No branch of this function ever
+// appends a permission-granting flag -- SCRP-03's zero-ambient-access
+// guarantee rests on that being permanently true, verified structurally
+// by TestDenoCommandLineHasNoAllowFlags rather than by inspection alone.
+// The caller (session.go's Run) resolves debugPort once via
+// pickEphemeralLoopbackPort before calling this function, so the exact
+// same port value is used both for the spawned process's inspector flag
+// and for debugbridge.go's later CDP dial -- buildDenoArgs itself never
+// picks a port, keeping it a pure function of its three inputs.
+func buildDenoArgs(scriptPath string, mode LaunchMode, debugPort int) []string {
+	args := []string{"run", "--no-prompt"}
+	if mode == LaunchModeDebug {
+		// --inspect-brk (not --inspect): the daemon's CDP client must be
+		// guaranteed attached and every UI-configured breakpoint set
+		// before the first authored line ever executes (08-RESEARCH.md
+		// "Debug-mode-only inspector launch" -- --inspect races a short
+		// script, --inspect-brk does not).
+		args = append(args, fmt.Sprintf("--inspect-brk=127.0.0.1:%d", debugPort))
+	}
+	args = append(args, scriptPath)
+	return args
+}
+
+// pickEphemeralLoopbackPort binds 127.0.0.1:0 (letting the OS assign an
+// unused ephemeral port), reads the assigned port back, and immediately
+// closes the listener -- the standard "reserve then release" pattern for
+// handing a caller a concrete port number to pass to a child process's
+// own listener a moment later. Binding to 127.0.0.1 specifically (never
+// 0.0.0.0 or an unspecified address) is itself part of T-08-40's
+// mitigation: the port this function returns is only ever used to build
+// the --inspect-brk=127.0.0.1:<port> argument, so the picked port is
+// loopback-scoped from the moment it is chosen. Two consecutive calls do
+// not collide: each call's listener is bound and closed before the next
+// call runs, so the OS is free to (and in practice does) hand out a
+// distinct ephemeral port each time.
+func pickEphemeralLoopbackPort() (int, error) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, fmt.Errorf("GOLC_SCRIPT_DEBUG_PORT_FAILED: %v", err)
+	}
+	defer listener.Close()
+	addr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0, fmt.Errorf("GOLC_SCRIPT_DEBUG_PORT_FAILED: unexpected listener address type %T", listener.Addr())
+	}
+	return addr.Port, nil
 }
