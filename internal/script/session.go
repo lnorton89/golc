@@ -305,7 +305,13 @@ func (h *Host) runDispatchIO(run *Run, stdin io.Writer, stdout, stderr io.Reader
 	}
 
 	<-stderrDone
-	if outcome.Reason == "" && outcome.Status == show.ScriptRunStatusFailed {
+	// Fill Reason from the captured stderr tail whenever nothing else set
+	// it, regardless of Status: a script that throws exits the Deno
+	// process non-zero without ever sending an explicit done frame, so
+	// Run (not this loop) is what later learns the run failed from
+	// cmd.Wait()'s error -- the stderr tail (source-mapped stack trace,
+	// D-03) must already be populated here so Run has it to attach.
+	if outcome.Reason == "" {
 		if tail := strings.TrimSpace(stderrTail.String()); tail != "" {
 			outcome.Reason = tail
 		}
