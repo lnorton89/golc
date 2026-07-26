@@ -18,3 +18,13 @@ changes are auto-fixed).
   `internal/show`, `internal/command`, and `internal/routecatalog` passes.
   Not fixed here; run `mage Bootstrap` in this worktree (or verify in a
   bootstrapped environment) before relying on those five tests.
+
+- **`go build ./...` fails on `cmd/golc-desktop`, unrelated to this
+  plan.** `cmd\golc-desktop\main.go:28:12: pattern all:frontend/dist: no
+  matching files found` — the desktop binary's `//go:embed` directive
+  requires a built `frontend/dist` that does not exist in this worktree
+  (no frontend build has run here). `go build ./internal/...
+  ./cmd/golc-project/...` (the packages 08-01 actually touches) builds
+  cleanly. Not fixed here; run the frontend build (or verify in an
+  environment where it already ran) before relying on a whole-repo
+  `go build ./...`.
