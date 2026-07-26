@@ -605,3 +605,44 @@ func TestScriptServiceControlRoutesNoActiveDebugReturnsResult(t *testing.T) {
 		}
 	}
 }
+
+// --- 08-11-PLAN.md Task 2: GetSDKTypeDefinitions (D-15) -------------------
+
+// TestScriptServiceGetSDKTypeDefinitionsReadsCommittedFile proves
+// GetSDKTypeDefinitions returns the exact bytes of root's committed
+// internal/scriptsdk/generated/golc.d.ts.
+func TestScriptServiceGetSDKTypeDefinitionsReadsCommittedFile(t *testing.T) {
+	svc, root, _ := newTestScriptService(t)
+
+	typesDir := filepath.Join(root, "internal", "scriptsdk", "generated")
+	if err := os.MkdirAll(typesDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	want := "declare namespace golc {\n  function ping(): Promise<void>;\n}\n"
+	if err := os.WriteFile(filepath.Join(typesDir, "golc.d.ts"), []byte(want), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	got, err := svc.GetSDKTypeDefinitions()
+	if err != nil {
+		t.Fatalf("GetSDKTypeDefinitions: %v", err)
+	}
+	if got != want {
+		t.Fatalf("expected golc.d.ts contents to round-trip verbatim, got %q want %q", got, want)
+	}
+}
+
+// TestScriptServiceGetSDKTypeDefinitionsMissingReturnsError proves a root
+// with no committed golc.d.ts surfaces GOLC_SCRIPTSDK_TYPES_MISSING rather
+// than a raw os.ReadFile error.
+func TestScriptServiceGetSDKTypeDefinitionsMissingReturnsError(t *testing.T) {
+	svc, _, _ := newTestScriptService(t)
+
+	_, err := svc.GetSDKTypeDefinitions()
+	if err == nil {
+		t.Fatal("expected GetSDKTypeDefinitions to return an error when golc.d.ts is absent")
+	}
+	if !strings.Contains(err.Error(), "GOLC_SCRIPTSDK_TYPES_MISSING") {
+		t.Fatalf("expected GOLC_SCRIPTSDK_TYPES_MISSING, got %v", err)
+	}
+}
