@@ -208,6 +208,44 @@ func platformArchiveLayout(tool, version, goos, goarch string) (platformLayout, 
 		default:
 			return platformLayout{}, fmt.Errorf("GOLC_BOOTSTRAP_UNSUPPORTED_PLATFORM: Mage has no mapping for %s-%s", goos, goarch)
 		}
+	case "deno":
+		// Deno's release archives (unlike go/node/mage above) carry no
+		// version segment in the asset filename itself -- the version
+		// lives only in the release tag path (.../releases/download/
+		// v<version>/deno-<triple>.zip) -- and the archive's sole
+		// top-level entry is the executable itself (Root stays empty,
+		// mirroring Mage's layout above, not Go/Node's nested Root
+		// directory). Every platform ships as .zip (08-RESEARCH.md
+		// Assumption A3, confirmed against the live release asset list).
+		switch goos + "-" + goarch {
+		case "windows-amd64":
+			return platformLayout{
+				FileName: "deno-x86_64-pc-windows-msvc.zip",
+				Format:   ".zip", Executable: "deno.exe",
+			}, nil
+		case "linux-amd64":
+			return platformLayout{
+				FileName: "deno-x86_64-unknown-linux-gnu.zip",
+				Format:   ".zip", Executable: "deno",
+			}, nil
+		case "linux-arm64":
+			return platformLayout{
+				FileName: "deno-aarch64-unknown-linux-gnu.zip",
+				Format:   ".zip", Executable: "deno",
+			}, nil
+		case "darwin-amd64":
+			return platformLayout{
+				FileName: "deno-x86_64-apple-darwin.zip",
+				Format:   ".zip", Executable: "deno",
+			}, nil
+		case "darwin-arm64":
+			return platformLayout{
+				FileName: "deno-aarch64-apple-darwin.zip",
+				Format:   ".zip", Executable: "deno",
+			}, nil
+		default:
+			return platformLayout{}, fmt.Errorf("GOLC_BOOTSTRAP_UNSUPPORTED_PLATFORM: Deno has no mapping for %s-%s", goos, goarch)
+		}
 	default:
 		return platformLayout{}, fmt.Errorf("GOLC_BOOTSTRAP_UNSUPPORTED_TOOL: %q", tool)
 	}
@@ -302,6 +340,7 @@ type bootstrapEngine struct {
 	goPin    manifestPin
 	magePin  manifestPin
 	nodePin  manifestPin
+	denoPin  manifestPin
 	output   io.Writer
 }
 
@@ -333,7 +372,7 @@ func runBootstrap(ctx context.Context, root string, options Options, dependencie
 	if err != nil {
 		return err
 	}
-	goPin, magePin, nodePin, err := validateManifestForPlatform(document, options)
+	goPin, magePin, nodePin, denoPin, err := validateManifestForPlatform(document, options)
 	if err != nil {
 		return err
 	}
@@ -356,7 +395,7 @@ func runBootstrap(ctx context.Context, root string, options Options, dependencie
 	engine := &bootstrapEngine{
 		root: resolvedRoot, options: options, document: document, layout: layout,
 		policy: policy, source: source, runner: runner, goPin: goPin, magePin: magePin, nodePin: nodePin,
-		output: output,
+		denoPin: denoPin, output: output,
 	}
 	engine.env = mergedEnvironment(layout.Environment().AsMap())
 	setEnvironmentValue(engine.env, "GOLC_PROJECT_ROOT", resolvedRoot)
@@ -405,7 +444,7 @@ func readBootstrapManifest(root string) (bootstrapManifest, OfficialSourcePolicy
 	return document, OfficialSourcePolicy{Patterns: patterns}, nil
 }
 
-func validateManifestForPlatform(document bootstrapManifest, options Options) (manifestPin, manifestPin, manifestPin, error) {
+func validateManifestForPlatform(document bootstrapManifest, options Options) (manifestPin, manifestPin, manifestPin, manifestPin, error) {
 	names := make([]string, 0, len(document.Tools))
 	for name := range document.Tools {
 		names = append(names, name)
@@ -413,27 +452,27 @@ func validateManifestForPlatform(document bootstrapManifest, options Options) (m
 	sort.Strings(names)
 	for _, name := range names {
 		if !validToolName.MatchString(name) {
-			return manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_TOOLCHAIN_PARSE: invalid tool name %q", name)
+			return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_TOOLCHAIN_PARSE: invalid tool name %q", name)
 		}
 		if err := validatePin("tools."+name, document.Tools[name]); err != nil {
-			return manifestPin{}, manifestPin{}, manifestPin{}, err
+			return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, err
 		}
 	}
 	goParent, ok := document.Toolchain["go"]
 	if !ok {
-		return manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_GO_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.go]")
+		return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_GO_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.go]")
 	}
 	goPin, err := selectPlatformPin("go", goParent)
 	if err != nil {
-		return manifestPin{}, manifestPin{}, manifestPin{}, err
+		return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, err
 	}
 	mageParent, ok := document.Toolchain["mage"]
 	if !ok {
-		return manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_MAGE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.mage]")
+		return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_MAGE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.mage]")
 	}
 	magePin, err := selectPlatformPin("mage", mageParent)
 	if err != nil {
-		return manifestPin{}, manifestPin{}, manifestPin{}, err
+		return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, err
 	}
 	// Node is resolved (and, in run(), installed) unconditionally now,
 	// not only when options.IncludeLinearSync is set: cmd/golc-desktop's
@@ -443,11 +482,24 @@ func validateManifestForPlatform(document bootstrapManifest, options Options) (m
 	// the separate tools/linear-sync npm ci/tsc build stays opt-in.
 	nodeParent, ok := document.Toolchain["node"]
 	if !ok {
-		return manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.node]")
+		return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.node]")
 	}
 	nodePin, err := selectPlatformPin("node", nodeParent)
 	if err != nil {
-		return manifestPin{}, manifestPin{}, manifestPin{}, err
+		return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, err
+	}
+	// Deno is resolved and installed unconditionally, exactly like
+	// Go/Mage/Node above: it is the sandboxed TypeScript automation
+	// runtime every internal/script route later in Phase 8 spawns, not
+	// an opt-in contributor tool like tools/linear-sync's Node workspace
+	// (SCRP-03, 08-RESEARCH.md).
+	denoParent, ok := document.Toolchain["deno"]
+	if !ok {
+		return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_DENO_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.deno]")
+	}
+	denoPin, err := selectPlatformPin("deno", denoParent)
+	if err != nil {
+		return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, err
 	}
 	goInstallNames := make([]string, 0, len(document.GoInstall))
 	for name := range document.GoInstall {
@@ -456,13 +508,13 @@ func validateManifestForPlatform(document bootstrapManifest, options Options) (m
 	sort.Strings(goInstallNames)
 	for _, name := range goInstallNames {
 		if !validToolName.MatchString(name) {
-			return manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_TOOLCHAIN_PARSE: invalid go_install tool name %q", name)
+			return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_TOOLCHAIN_PARSE: invalid go_install tool name %q", name)
 		}
 		if err := validateGoInstallPin("go_install."+name, document.GoInstall[name]); err != nil {
-			return manifestPin{}, manifestPin{}, manifestPin{}, err
+			return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, err
 		}
 	}
-	return goPin, magePin, nodePin, nil
+	return goPin, magePin, nodePin, denoPin, nil
 }
 
 var (
@@ -579,6 +631,16 @@ func (engine *bootstrapEngine) run(ctx context.Context) error {
 	if info, err := os.Stat(goExecutable); err != nil || !info.Mode().IsRegular() {
 		return fmt.Errorf("GOLC_GO_TOOLCHAIN_MISSING: expected pinned executable at %s", goExecutable)
 	}
+	denoPin := engine.denoPin
+	denoInstall := filepath.Join(engine.root, ".tools", "toolchains", "deno", denoPin.Version, PlatformKey())
+	if err := engine.installPin("deno", denoPin, denoInstall); err != nil {
+		return fmt.Errorf("GOLC_DENO_TOOLCHAIN_INSTALL: %w", err)
+	}
+	denoLayout, _ := platformArchiveLayout("deno", denoPin.Version, runtime.GOOS, runtime.GOARCH)
+	denoExecutable := filepath.Join(denoInstall, denoLayout.Executable)
+	if info, err := os.Lstat(denoExecutable); err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return fmt.Errorf("GOLC_DENO_TOOLCHAIN_MISSING: expected regular pinned executable at %s", denoExecutable)
+	}
 	engine.progress("warming go module cache and building golc-project...")
 	if err := engine.runGoPhase(ctx, goExecutable); err != nil {
 		return err
@@ -637,6 +699,52 @@ func ResolveMageExecutable(root string) (string, error) {
 	info, err := os.Lstat(executable)
 	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
 		return "", fmt.Errorf("GOLC_MAGE_TOOLCHAIN_MISSING: expected regular pinned executable at %s", executable)
+	}
+	return executable, nil
+}
+
+// ResolveDenoExecutable returns the current platform's verified
+// project-local Deno executable -- the pinned, checksum-verified
+// TypeScript automation sandbox runtime SCRP-03 rests on. It never
+// downloads or consults the host PATH, mirroring ResolveMageExecutable
+// exactly.
+func ResolveDenoExecutable(root string) (string, error) {
+	absoluteRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", fmt.Errorf("GOLC_BOOTSTRAP_ROOT: %w", err)
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(absoluteRoot)
+	if err != nil {
+		return "", fmt.Errorf("GOLC_BOOTSTRAP_ROOT: %w", err)
+	}
+	document, _, err := readBootstrapManifest(resolvedRoot)
+	if err != nil {
+		return "", err
+	}
+	parent, ok := document.Toolchain["deno"]
+	if !ok {
+		return "", fmt.Errorf("GOLC_DENO_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.deno]")
+	}
+	pin, err := selectPlatformPin("deno", parent)
+	if err != nil {
+		return "", err
+	}
+	installDir := filepath.Join(resolvedRoot, ".tools", "toolchains", "deno", pin.Version, PlatformKey())
+	matches, err := InstalledMatches(installDir, pin.ArchiveSHA256)
+	if err != nil {
+		return "", fmt.Errorf("GOLC_DENO_TOOLCHAIN_MISSING: %w", err)
+	}
+	if !matches {
+		return "", fmt.Errorf("GOLC_DENO_TOOLCHAIN_MISSING: verified install does not match pin at %s", installDir)
+	}
+	layout, err := platformArchiveLayout("deno", pin.Version, runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		return "", err
+	}
+	executable := filepath.Join(installDir, layout.Executable)
+	info, err := os.Lstat(executable)
+	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return "", fmt.Errorf("GOLC_DENO_TOOLCHAIN_MISSING: expected regular pinned executable at %s", executable)
 	}
 	return executable, nil
 }
