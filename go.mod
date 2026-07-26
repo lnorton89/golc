@@ -9,6 +9,7 @@ require (
 	github.com/go-chi/chi/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/invopop/jsonschema v0.14.0
+	github.com/mafredri/cdp v0.35.0
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	github.com/wailsapp/wails/v2 v2.13.0
 	gitlab.com/gomidi/midi/v2 v2.3.24

@@ -79,6 +79,14 @@ type Run struct {
 	// kernel-enforced kill path; terminate() closes it before falling back
 	// to cancel(). nil until Run assigns it, immediately after cmd.Start().
 	job *jobObject
+	// bridge is run's CDP debug bridge (08-09-PLAN.md Task 2), non-nil
+	// only for a LaunchModeDebug run whose bridge connected successfully.
+	// terminate() closes it before job, so a debug run's termination
+	// sequence is always "close the CDP connection, then the Job
+	// Object" -- a script paused at a breakpoint is not exempt from
+	// Stop, the deadline, or any resource limit; pausing changes nothing
+	// about how or when this run can be killed.
+	bridge *DebugBridge
 
 	// done is closed exactly once, by Run, the moment run's final
 	// RunOutcome (below) is ready -- Stop (registry.go) blocks on this so
@@ -116,18 +124,26 @@ func (r *Run) terminationReason() (TerminationReason, bool) {
 	return *r.termination, true
 }
 
-// terminate triggers run's kill path: closing its assigned Job Object
-// first -- the primary, kernel-enforced, uninterceptable kill (SCRP-06),
-// which on Windows is a strict superset of a process-tree kill -- and
-// only then cancelling its context as an always-present fallback (the
-// window before job assignment completes, and the entire mechanism on a
-// non-Windows/no-op jobObject, whose own Close already does the real
-// kill work).
+// terminate triggers run's kill path: closing its CDP debug bridge (if
+// any) first, then its assigned Job Object -- the primary,
+// kernel-enforced, uninterceptable kill (SCRP-06), which on Windows is a
+// strict superset of a process-tree kill -- and only then cancelling its
+// context as an always-present fallback (the window before job
+// assignment completes, and the entire mechanism on a non-Windows/no-op
+// jobObject, whose own Close already does the real kill work). A script
+// paused at a breakpoint is killed exactly like a running one: closing
+// the bridge never pauses or delays the Job Object close that follows it
+// (08-09-PLAN.md Task 2 -- pausing must never become a way to hold a run
+// open past any limit).
 func (r *Run) terminate() {
 	r.terminationMu.Lock()
+	bridge := r.bridge
 	job := r.job
 	cancel := r.cancel
 	r.terminationMu.Unlock()
+	if bridge != nil {
+		_ = bridge.Close()
+	}
 	if job != nil {
 		_ = job.Close()
 	}
@@ -192,6 +208,18 @@ func (r *Run) Name() string {
 // ID returns run's RunID.
 func (r *Run) ID() uuid.UUID {
 	return r.RunID
+}
+
+// Bridge returns run's CDP debug bridge, or nil if run is not a Debug
+// launch or its bridge never connected -- the seam
+// internal/command/scriptdebug.go's continue/step-over/step-into/
+// step-out routes use to resolve their single active debug run's control
+// surface (08-09-PLAN.md Task 3), without reaching into any other
+// unexported Run field.
+func (r *Run) Bridge() *DebugBridge {
+	r.terminationMu.Lock()
+	defer r.terminationMu.Unlock()
+	return r.bridge
 }
 
 // Stop terminates run with reason and blocks until Run's own goroutine
@@ -693,7 +721,21 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode, bre
 		return RunOutcome{}, fmt.Errorf("GOLC_SCRIPT_RUN_SOURCE_WRITE_FAILED: %v", err)
 	}
 
-	cmd := exec.CommandContext(runCtx, h.denoPath, buildDenoArgs(scriptPath, mode, 0)...)
+	// 08-09-PLAN.md Task 1/2: a debug port is only ever picked for
+	// LaunchModeDebug -- picking it here (before cmd is built) lets the
+	// exact same port value drive both buildDenoArgs' --inspect-brk
+	// argument and, a few lines below, NewDebugBridge's CDP dial, without
+	// buildDenoArgs itself ever choosing a port.
+	debugPort := 0
+	if mode == LaunchModeDebug {
+		port, portErr := pickEphemeralLoopbackPort()
+		if portErr != nil {
+			return RunOutcome{}, fmt.Errorf("GOLC_SCRIPT_DEBUG_PORT_FAILED: %v", portErr)
+		}
+		debugPort = port
+	}
+
+	cmd := exec.CommandContext(runCtx, h.denoPath, buildDenoArgs(scriptPath, mode, debugPort)...)
 	cmd.Dir = runDir
 	// Explicit, never-inherited environment (T-08-16): the daemon's own
 	// environment variables are never passed through to a script process.
@@ -737,9 +779,44 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode, bre
 		defer job.Close()
 	}
 
+	// 08-09-PLAN.md Task 2: Debug mode's CDP bridge is constructed after
+	// Job Object assignment (so a debug run is never less supervised than
+	// a plain Run for even a moment) and before runDispatchIO starts
+	// reading frames -- SetBreakpoints' own Runtime.runIfWaitingForDebugger
+	// call is what actually lets the child's first authored line run, so
+	// the dispatch loop below would otherwise never see a single frame. A
+	// bridge construction or breakpoint-set failure never blocks the run
+	// itself (it degrades to a plain, undebugged execution) but is never
+	// silently ignored either -- logged exactly like a Job Object failure
+	// above.
+	var debugLog *LogLine
+	if mode == LaunchModeDebug {
+		shimLineCount := shimLineOffsetFor(scriptsdk.RuntimeShimTS)
+		bridge, bridgeErr := NewDebugBridge(runCtx, run.RunID, debugPort, shimLineCount, target.Name)
+		if bridgeErr != nil {
+			debugLog = &LogLine{Level: "error", Message: security.Redact(bridgeErr.Error())}
+		} else if bpErr := bridge.SetBreakpoints(breakpoints); bpErr != nil {
+			_ = bridge.Close()
+			debugLog = &LogLine{Level: "error", Message: security.Redact(bpErr.Error())}
+		} else {
+			run.terminationMu.Lock()
+			run.bridge = bridge
+			run.terminationMu.Unlock()
+			// Registered after the Job Object's own defer above, so
+			// (LIFO) this bridge closes BEFORE the Job Object closes on
+			// every normal exit path too -- the same "CDP connection,
+			// then Job Object" ordering terminate() enforces on an
+			// explicit Stop/deadline/limit kill.
+			defer bridge.Close()
+		}
+	}
+
 	outcome := h.runDispatchIO(run, stdin, stdout, stderr)
 	if jobLog != nil {
 		outcome.Logs = appendBoundedLog(outcome.Logs, *jobLog)
+	}
+	if debugLog != nil {
+		outcome.Logs = appendBoundedLog(outcome.Logs, *debugLog)
 	}
 	waitErr := cmd.Wait()
 
