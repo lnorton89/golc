@@ -106,7 +106,7 @@ func buildExcludedRoutes() map[string]string {
 		"preset delete", "preset record", "preset rename",
 		"programmer clear", "programmer set",
 		"scene activate", "scene create", "scene delete", "scene duplicate", "scene layer set", "scene rename",
-		"script create", "script delete", "script edit", "script profile set",
+		"script create", "script delete", "script edit", "script profile set", "script run",
 		"show open", "show save", "show save-as",
 		"theme create", "theme delete", "theme rename",
 	)
