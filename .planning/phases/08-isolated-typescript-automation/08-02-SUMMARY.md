@@ -245,3 +245,7 @@ None - no external service configuration required. Deno is provisioned automatic
 ---
 *Phase: 08-isolated-typescript-automation*
 *Completed: 2026-07-26*
+
+## Self-Check: PASSED
+
+All created/modified files confirmed present on disk (config/toolchain.toml, internal/projectconfig/model.go, internal/projectconfig/model_test.go, internal/projectconfig/strict_test.go, internal/bootstrap/engine.go, internal/bootstrap/engine_test.go, internal/script/toolchain.go, internal/script/toolchain_test.go, this SUMMARY.md). All three commit hashes (`2eb85f8`, `323050f`, `b804131`) confirmed present in `git log --oneline --all`.
