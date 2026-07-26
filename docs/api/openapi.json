@@ -309,6 +309,33 @@
           "reason"
         ],
         "type": "object"
+      },
+      "ScriptEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "description": "The termination reason, populated once Status reaches a terminal value.",
+            "type": "string"
+          },
+          "runId": {
+            "description": "The script run's UUIDv7 identity.",
+            "type": "string"
+          },
+          "scriptName": {
+            "description": "The script's name at the time of this event.",
+            "type": "string"
+          },
+          "status": {
+            "description": "The run's lifecycle status at this event, e.g. \"running\", \"succeeded\", \"failed\", or \"terminated\".",
+            "type": "string"
+          }
+        },
+        "required": [
+          "runId",
+          "scriptName",
+          "status"
+        ],
+        "type": "object"
       }
     }
   },
@@ -493,6 +520,32 @@
                           "event"
                         ],
                         "title": "Event resync",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/ScriptEventPayload"
+                          },
+                          "event": {
+                            "const": "script",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event script",
                         "type": "object"
                       },
                       {
