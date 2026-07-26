@@ -547,6 +547,15 @@ var excludedRouteTable = map[string]string{
 	"script run":      "script lifecycle control; a script must not be able to launch another script",
 	"script stop":     "script lifecycle control; a script must not be able to terminate itself or another run through the SDK",
 	"script validate": "script lifecycle control; a script must not validate or introspect other scripts through the SDK",
+
+	// script debugger control (08-09): a running script must not be able
+	// to launch, debug, or step another script's debug session through
+	// the SDK -- same class as the script lifecycle control routes above.
+	"script debug":     "script lifecycle and debugger control; a script must not launch, debug, or step another script through the SDK",
+	"script continue":  "script lifecycle and debugger control; a script must not launch, debug, or step another script through the SDK",
+	"script step-over": "script lifecycle and debugger control; a script must not launch, debug, or step another script through the SDK",
+	"script step-into": "script lifecycle and debugger control; a script must not launch, debug, or step another script through the SDK",
+	"script step-out":  "script lifecycle and debugger control; a script must not launch, debug, or step another script through the SDK",
 }
 
 func init() {
