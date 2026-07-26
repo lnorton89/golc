@@ -173,7 +173,7 @@ func runScriptRun(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
-	outcome, runErr := host.Run(context.Background(), target, script.LaunchModeRun)
+	outcome, runErr := host.Run(context.Background(), target, script.LaunchModeRun, nil)
 	if runErr != nil {
 		return Result{ExitCode: 1, Stderr: []byte(runErr.Error() + "\n")}
 	}
