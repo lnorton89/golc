@@ -544,6 +544,11 @@ var excludedRouteTable = map[string]string{
 	// to launch another script -- same class as "artnet serve" and the
 	// script CRUD routes above.
 	"script run": "script lifecycle control; a script must not be able to launch another script",
+
+	// script lifecycle control (08-07): a running script must not be able
+	// to validate or introspect another script's source -- same class as
+	// "script run" above.
+	"script validate": "script lifecycle control; a script must not validate or introspect other scripts through the SDK",
 }
 
 func init() {
