@@ -1,15 +1,16 @@
-// ScriptEditor.test.tsx (08-11-PLAN.md Task 3): Monaco cannot instantiate
-// under jsdom (there is no real canvas/text-measurement layer, jsdom does
-// not implement Worker at all, and the real monaco-editor package touches
+// ScriptEditor.test.tsx (08-11-PLAN.md Task 3; extended by 08-12-PLAN.md
+// Task 1, D-01): Monaco cannot instantiate under jsdom (there is no real
+// canvas/text-measurement layer, jsdom does not implement Worker at all,
+// and the real monaco-editor package touches
 // `document.queryCommandSupported` at its own module-evaluation time -- see
 // ScriptEditor.tsx's own doc comments), so this file vi.mock()s
 // "monaco-editor" with a fake exposing editor.create/createModel/
-// defineTheme/setTheme and the TypeScript-defaults surface, then asserts
-// this component's <behavior> bullets against the fake's recorded calls
-// (options passed, extra lib registered once per distinct value, dispose
-// called on unmount, theme switched on a media-query change). This is the
-// only tractable way to test Monaco here -- a later reader should not try
-// to "fix" this into a real Monaco instantiation.
+// defineTheme/setTheme/MouseTargetType and the TypeScript-defaults surface,
+// then asserts this component's <behavior> bullets against the fake's
+// recorded calls (options passed, extra lib registered once per distinct
+// value, dispose called on unmount, theme switched on a media-query
+// change). This is the only tractable way to test Monaco here -- a later
+// reader should not try to "fix" this into a real Monaco instantiation.
 //
 // ScriptEditor.tsx dynamically imports "monaco-editor" inside its mount
 // effect (rather than a static top-level import), so mounting resolves on
@@ -22,8 +23,32 @@
 // onDidChangeContent wiring and lets ScriptsWorkspace.test.tsx interact
 // with the mounted (fake) editor exactly like it did with 08-04's plain
 // <textarea>.
+//
+// 08-12-PLAN.md Task 1 extends the fake's editor.create() return value with
+// onMouseDown (recording listeners, exposing __emitMouseDown to simulate a
+// glyph-margin/line-number/text-area mouse-down) and
+// createDecorationsCollection (recording every .set()/.clear() call on a
+// fake IEditorDecorationsCollection) -- ScriptEditor.tsx creates exactly
+// two collections per mount, in order: breakpoints first, then the
+// current-execution-line highlight (see decorationsCollectionAt below).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+
+// MOCK_MOUSE_TARGET_TYPE mirrors the real monaco.editor.MouseTargetType
+// enum's relevant members (GUTTER_GLYPH_MARGIN, GUTTER_LINE_NUMBERS,
+// TEXTAREA) -- exact numeric values don't matter, only that
+// ScriptEditor.tsx and this test file agree on the same object. Declared
+// via vi.hoisted() (not a plain top-level const) because vi.mock's factory
+// below is hoisted above this test file's own static
+// `import * as monacoMock from "monaco-editor"` -- a plain const here would
+// still be in its temporal dead zone when the factory first runs.
+const { MOCK_MOUSE_TARGET_TYPE } = vi.hoisted(() => ({
+  MOCK_MOUSE_TARGET_TYPE: {
+    TEXTAREA: 1,
+    GUTTER_GLYPH_MARGIN: 2,
+    GUTTER_LINE_NUMBERS: 3,
+  } as const,
+}));
 
 vi.mock("monaco-editor", () => {
   function createFakeModel(initialValue: string) {
@@ -51,6 +76,30 @@ vi.mock("monaco-editor", () => {
 
   const createModel = vi.fn((value: string) => createFakeModel(value));
 
+  // createFakeDecorationsCollection mirrors Monaco's own
+  // IEditorDecorationsCollection contract closely enough to assert
+  // ScriptEditor.tsx's own decoration-replacement behavior: .set() records
+  // the full replacement list (never an append), .clear() records an empty
+  // list.
+  function createFakeDecorationsCollection() {
+    let current: Array<Record<string, unknown>> = [];
+    const set = vi.fn((decorations: Array<Record<string, unknown>>) => {
+      current = decorations;
+      return decorations.map((_, index) => `dec-${index}`);
+    });
+    const clear = vi.fn(() => {
+      current = [];
+    });
+    return {
+      set,
+      clear,
+      get length() {
+        return current.length;
+      },
+      __current: () => current,
+    };
+  }
+
   const create = vi.fn((container: HTMLElement, options: Record<string, unknown>) => {
     const textarea = document.createElement("textarea");
     if (typeof options.ariaLabel === "string") {
@@ -63,12 +112,39 @@ vi.mock("monaco-editor", () => {
     });
     container.appendChild(textarea);
 
+    const mouseDownListeners: Array<(event: unknown) => void> = [];
+    const onMouseDown = vi.fn((listener: (event: unknown) => void) => {
+      mouseDownListeners.push(listener);
+      return {
+        dispose: vi.fn(() => {
+          const index = mouseDownListeners.indexOf(listener);
+          if (index >= 0) mouseDownListeners.splice(index, 1);
+        }),
+      };
+    });
+
+    const decorationsCollections: Array<ReturnType<typeof createFakeDecorationsCollection>> = [];
+    const createDecorationsCollection = vi.fn(
+      (initial?: Array<Record<string, unknown>>) => {
+        const collection = createFakeDecorationsCollection();
+        if (initial && initial.length > 0) collection.set(initial);
+        decorationsCollections.push(collection);
+        return collection;
+      },
+    );
+
     return {
       dispose: vi.fn(),
       updateOptions: vi.fn(),
       getModel: () => model,
+      onMouseDown,
+      createDecorationsCollection,
       __options: options,
       __textarea: textarea,
+      __decorationsCollections: decorationsCollections,
+      __emitMouseDown: (event: unknown) => {
+        mouseDownListeners.slice().forEach((listener) => listener(event));
+      },
     };
   });
 
@@ -78,7 +154,13 @@ vi.mock("monaco-editor", () => {
   const setCompilerOptions = vi.fn();
 
   return {
-    editor: { create, createModel, defineTheme, setTheme },
+    editor: {
+      create,
+      createModel,
+      defineTheme,
+      setTheme,
+      MouseTargetType: MOCK_MOUSE_TARGET_TYPE,
+    },
     // monaco-editor@0.55.1's real TypeScript language-service surface is
     // the top-level `typescript` namespace (see ScriptEditor.tsx's own
     // doc comment) -- `monaco.languages.typescript` is deprecated in this
@@ -122,6 +204,15 @@ function stubMatchMedia(initialMatches: boolean) {
 // resolve and editor.create() to have actually run.
 async function waitForMount(): Promise<void> {
   await waitFor(() => expect(monacoMock.editor.create).toHaveBeenCalled());
+}
+
+// createdEditorAt returns the fake editor object returned by the Nth
+// (0-indexed) editor.create() call in the current test.
+// __decorationsCollections[0] is always the breakpoint collection and [1]
+// is always the current-execution-line collection -- ScriptEditor.tsx's
+// mount effect creates them in that fixed order (08-12-PLAN.md Task 1).
+function createdEditorAt(index: number) {
+  return (monacoMock.editor.create as ReturnType<typeof vi.fn>).mock.results[index].value;
 }
 
 describe("ScriptEditor", () => {
@@ -217,5 +308,138 @@ describe("ScriptEditor", () => {
     second.unmount();
     const secondCreated = (monacoMock.editor.create as ReturnType<typeof vi.fn>).mock.results[1].value;
     expect(secondCreated.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  // --- 08-12-PLAN.md Task 1: glyph-margin breakpoint gutter and the
+  // current-execution-line highlight (D-01) ---
+
+  it("calls onToggleBreakpoint exactly once for a glyph-margin mouse-down on line N, and not for the line-number column or text area", async () => {
+    const handleToggle = vi.fn();
+    render(
+      <ScriptEditor
+        value=""
+        onChange={() => {}}
+        sdkTypeDefinitions=""
+        breakpointLines={[]}
+        onToggleBreakpoint={handleToggle}
+      />,
+    );
+    await waitForMount();
+    const editor = createdEditorAt(0);
+
+    editor.__emitMouseDown({
+      target: { type: MOCK_MOUSE_TARGET_TYPE.GUTTER_GLYPH_MARGIN, position: { lineNumber: 5 } },
+    });
+    expect(handleToggle).toHaveBeenCalledTimes(1);
+    expect(handleToggle).toHaveBeenCalledWith(5);
+
+    editor.__emitMouseDown({
+      target: { type: MOCK_MOUSE_TARGET_TYPE.GUTTER_LINE_NUMBERS, position: { lineNumber: 5 } },
+    });
+    editor.__emitMouseDown({ target: { type: MOCK_MOUSE_TARGET_TYPE.TEXTAREA, position: null } });
+
+    // Neither the line-number column nor the text area ever call
+    // onToggleBreakpoint -- still exactly the one call from the real
+    // glyph-margin mouse-down above.
+    expect(handleToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders no glyph decorations when breakpointLines is empty", async () => {
+    render(<ScriptEditor value="" onChange={() => {}} sdkTypeDefinitions="" breakpointLines={[]} />);
+    await waitForMount();
+    const editor = createdEditorAt(0);
+    const breakpointCollection = editor.__decorationsCollections[0];
+
+    expect(breakpointCollection.__current()).toEqual([]);
+  });
+
+  it("gives one breakpoint and three breakpoints the identical glyph decoration class, with no count-dependent variant", async () => {
+    const { rerender } = render(
+      <ScriptEditor value="" onChange={() => {}} sdkTypeDefinitions="" breakpointLines={[3]} />,
+    );
+    await waitForMount();
+    const editor = createdEditorAt(0);
+    const breakpointCollection = editor.__decorationsCollections[0];
+    await waitFor(() => expect(breakpointCollection.__current()).toHaveLength(1));
+
+    const oneBreakpointClass = (
+      breakpointCollection.__current()[0].options as Record<string, unknown>
+    ).glyphMarginClassName;
+    expect(oneBreakpointClass).toBeTruthy();
+
+    rerender(<ScriptEditor value="" onChange={() => {}} sdkTypeDefinitions="" breakpointLines={[3, 7, 12]} />);
+    await waitFor(() => expect(breakpointCollection.__current()).toHaveLength(3));
+
+    const classes = breakpointCollection
+      .__current()
+      .map((decoration: Record<string, unknown>) => (decoration.options as Record<string, unknown>).glyphMarginClassName);
+    expect(new Set(classes).size).toBe(1);
+    expect(classes[0]).toBe(oneBreakpointClass);
+  });
+
+  it("replaces the breakpoint decoration set rather than accumulating, across three successive breakpointLines changes", async () => {
+    const { rerender } = render(
+      <ScriptEditor value="" onChange={() => {}} sdkTypeDefinitions="" breakpointLines={[1]} />,
+    );
+    await waitForMount();
+    const editor = createdEditorAt(0);
+    const breakpointCollection = editor.__decorationsCollections[0];
+    await waitFor(() => expect(breakpointCollection.__current()).toHaveLength(1));
+
+    rerender(<ScriptEditor value="" onChange={() => {}} sdkTypeDefinitions="" breakpointLines={[1, 2]} />);
+    await waitFor(() => expect(breakpointCollection.__current()).toHaveLength(2));
+
+    rerender(<ScriptEditor value="" onChange={() => {}} sdkTypeDefinitions="" breakpointLines={[5]} />);
+    await waitFor(() => expect(breakpointCollection.__current()).toHaveLength(1));
+
+    // The final decoration set names only line 5 -- line 1's earlier
+    // decoration was replaced, not left behind alongside the new one.
+    const lines = breakpointCollection
+      .__current()
+      .map((decoration: Record<string, unknown>) => (decoration.range as Record<string, unknown>).startLineNumber);
+    expect(lines).toEqual([5]);
+    // Three distinct breakpointLines values -> exactly three .set() calls,
+    // each carrying the FULL replacement list -- never an append.
+    expect(breakpointCollection.set).toHaveBeenCalledTimes(3);
+  });
+
+  it("applies an armed current-execution-line decoration for currentExecutionLine, and removes it when null", async () => {
+    const { rerender } = render(
+      <ScriptEditor value="" onChange={() => {}} sdkTypeDefinitions="" currentExecutionLine={7} />,
+    );
+    await waitForMount();
+    const editor = createdEditorAt(0);
+    const currentLineCollection = editor.__decorationsCollections[1];
+    await waitFor(() => expect(currentLineCollection.__current()).toHaveLength(1));
+
+    const decoration = currentLineCollection.__current()[0] as Record<string, unknown>;
+    expect((decoration.range as Record<string, unknown>).startLineNumber).toBe(7);
+    expect((decoration.options as Record<string, unknown>).className).toBeTruthy();
+
+    rerender(<ScriptEditor value="" onChange={() => {}} sdkTypeDefinitions="" currentExecutionLine={null} />);
+    await waitFor(() => expect(currentLineCollection.__current()).toEqual([]));
+  });
+
+  it("clears both decoration collections on unmount, along with the existing editor disposal", async () => {
+    const { unmount } = render(
+      <ScriptEditor
+        value=""
+        onChange={() => {}}
+        sdkTypeDefinitions=""
+        breakpointLines={[2]}
+        currentExecutionLine={4}
+      />,
+    );
+    await waitForMount();
+    const editor = createdEditorAt(0);
+    const breakpointCollection = editor.__decorationsCollections[0];
+    const currentLineCollection = editor.__decorationsCollections[1];
+    await waitFor(() => expect(breakpointCollection.__current()).toHaveLength(1));
+
+    unmount();
+
+    expect(breakpointCollection.clear).toHaveBeenCalledTimes(1);
+    expect(currentLineCollection.clear).toHaveBeenCalledTimes(1);
+    expect(editor.dispose).toHaveBeenCalledTimes(1);
   });
 });

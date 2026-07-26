@@ -1,11 +1,22 @@
-// ScriptEditor.tsx (08-11-PLAN.md Task 3, D-15): a real Monaco editor
-// running the TypeScript language service against the generated GOLC SDK
-// -- live type-checking and autocomplete from a bare `golc.` with nothing
-// imported, not syntax highlighting with validate-on-demand. Replaces
-// ScriptsWorkspace.tsx's 08-04 placeholder <textarea> in place; the
-// D-01/D-02 breakpoint gutter (glyph-margin click handling) is scaffolded
-// by this task's `glyphMargin: true` option but its click wiring lands in a
-// later plan.
+// ScriptEditor.tsx (08-11-PLAN.md Task 3, D-15; extended by 08-12-PLAN.md
+// Task 1, D-01): a real Monaco editor running the TypeScript language
+// service against the generated GOLC SDK -- live type-checking and
+// autocomplete from a bare `golc.` with nothing imported, not syntax
+// highlighting with validate-on-demand. Replaces ScriptsWorkspace.tsx's
+// 08-04 placeholder <textarea> in place.
+//
+// 08-12-PLAN.md Task 1 wires the D-01/D-02 breakpoint gutter (glyph-margin
+// click toggling a breakpoint) and the paused current-execution-line
+// highlight on top of 08-11's `glyphMargin: true` scaffold:
+// breakpointLines/onToggleBreakpoint/currentExecutionLine are optional and
+// default to "no breakpoints, no highlight" so this task's own
+// `npm run build` passes before ScriptsWorkspace.tsx's own wiring lands in
+// Task 2. Both the breakpoint-glyph set and the current-execution-line
+// highlight are maintained through Monaco's IEditorDecorationsCollection --
+// each distinct prop value calls .set() with the FULL replacement decoration
+// list (never accumulating a stale decoration from a since-removed line or
+// a previous pause), and currentExecutionLine === null clears the
+// collection outright.
 //
 // A controlled component: `value`/`onChange` mirror the plain <textarea>
 // contract it replaces. The Monaco model is created once at mount (in an
@@ -68,6 +79,35 @@ const SDK_EXTRA_LIB_PATH = "file:///golc-sdk.d.ts";
 const READY_PLACEHOLDER = "Loading editor…";
 const LOAD_FAILED_MESSAGE = "The script editor failed to load. Reload GOLC to try again.";
 
+// EMPTY_BREAKPOINT_LINES is a stable module-level reference for the
+// breakpointLines default -- a `= []` default parameter would create a NEW
+// array on every render a caller omits the prop, churning the breakpoint
+// sync effect's dependency identity on every re-render for no reason.
+const EMPTY_BREAKPOINT_LINES: number[] = [];
+
+// breakpointDecorations builds the full glyph-margin decoration list for a
+// given set of author-coordinate breakpoint lines (D-01, 08-12-PLAN.md Task
+// 1): every breakpoint -- one or many -- gets the identical
+// glyphMarginClassName, never a count-dependent variant.
+function breakpointDecorations(lines: number[]): Monaco.editor.IModelDeltaDecoration[] {
+  return lines.map((line) => ({
+    range: { startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 1 },
+    options: { glyphMarginClassName: styles.breakpointGlyph },
+  }));
+}
+
+// currentLineDecoration builds the single whole-line `armed` highlight
+// decoration for the paused current-execution line (D-01, 08-12-PLAN.md
+// Task 1).
+function currentLineDecoration(line: number): Monaco.editor.IModelDeltaDecoration[] {
+  return [
+    {
+      range: { startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 1 },
+      options: { isWholeLine: true, className: styles.currentExecutionLine },
+    },
+  ];
+}
+
 // environmentConfigured guards configureMonacoEnvironment against
 // reconfiguring self.MonacoEnvironment on every ScriptEditor mount --
 // module-level because the worker loader is a process-wide singleton, not
@@ -114,9 +154,28 @@ interface ScriptEditorProps {
   readOnly?: boolean;
   sdkTypeDefinitions: string;
   ariaLabel?: string;
+  /** breakpointLines/onToggleBreakpoint/currentExecutionLine (D-01,
+   * 08-12-PLAN.md Task 1): the glyph-margin breakpoint gutter and the
+   * paused current-execution-line highlight. All three are optional and
+   * default to "no breakpoints, no highlight" -- this task only extends
+   * ScriptEditor itself; ScriptsWorkspace.tsx's own wiring (holding the
+   * breakpoint line set, deriving currentExecutionLine from script events)
+   * lands in Task 2. */
+  breakpointLines?: number[];
+  onToggleBreakpoint?: (line: number) => void;
+  currentExecutionLine?: number | null;
 }
 
-export default function ScriptEditor({ value, onChange, readOnly, sdkTypeDefinitions, ariaLabel }: ScriptEditorProps) {
+export default function ScriptEditor({
+  value,
+  onChange,
+  readOnly,
+  sdkTypeDefinitions,
+  ariaLabel,
+  breakpointLines = EMPTY_BREAKPOINT_LINES,
+  onToggleBreakpoint,
+  currentExecutionLine = null,
+}: ScriptEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const monacoRef = useRef<typeof Monaco | null>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -127,6 +186,11 @@ export default function ScriptEditor({ value, onChange, readOnly, sdkTypeDefinit
   const sdkTypeDefinitionsRef = useRef(sdkTypeDefinitions);
   const extraLibRef = useRef<Monaco.IDisposable | null>(null);
   const lastRegisteredTypesRef = useRef<string | null>(null);
+  const onToggleBreakpointRef = useRef(onToggleBreakpoint);
+  const breakpointLinesRef = useRef(breakpointLines);
+  const currentExecutionLineRef = useRef(currentExecutionLine);
+  const breakpointDecorationsRef = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null);
+  const currentLineDecorationsRef = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null);
   const [ready, setReady] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -134,6 +198,9 @@ export default function ScriptEditor({ value, onChange, readOnly, sdkTypeDefinit
   valueRef.current = value;
   readOnlyRef.current = readOnly;
   sdkTypeDefinitionsRef.current = sdkTypeDefinitions;
+  onToggleBreakpointRef.current = onToggleBreakpoint;
+  breakpointLinesRef.current = breakpointLines;
+  currentExecutionLineRef.current = currentExecutionLine;
 
   // Mount effect: dynamically imports monaco-editor, creates the model +
   // editor exactly once (using the *ref* snapshots above, not this
@@ -205,6 +272,39 @@ export default function ScriptEditor({ value, onChange, readOnly, sdkTypeDefinit
         onChangeRef.current(model.getValue());
       });
 
+      // Glyph-margin breakpoint toggling (D-01, 08-12-PLAN.md Task 1):
+      // filters to exactly MouseTargetType.GUTTER_GLYPH_MARGIN -- a
+      // mouse-down in the line-number column (GUTTER_LINE_NUMBERS) or the
+      // text area (TEXTAREA/CONTENT_TEXT) never calls onToggleBreakpoint.
+      // Reads onToggleBreakpointRef (not this effect's own closured prop --
+      // see this file's header comment) so a later-supplied handler is
+      // always the one actually invoked.
+      const mouseDownSubscription = editor.onMouseDown((event) => {
+        if (
+          event.target.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN &&
+          event.target.position
+        ) {
+          onToggleBreakpointRef.current?.(event.target.position.lineNumber);
+        }
+      });
+
+      // Breakpoint-glyph and current-execution-line decoration collections
+      // (D-01, 08-12-PLAN.md Task 1): created once per editor instance via
+      // Monaco's own IEditorDecorationsCollection, seeded with the freshest
+      // known prop values (via the refs, not this effect's own closured
+      // props -- same race this file's header comment already documents for
+      // value/readOnly/sdkTypeDefinitions). Each collection's own .set()
+      // (used by the dedicated sync effects below) always replaces the
+      // full decoration list, never accumulates.
+      breakpointDecorationsRef.current = editor.createDecorationsCollection(
+        breakpointDecorations(breakpointLinesRef.current),
+      );
+      currentLineDecorationsRef.current = editor.createDecorationsCollection(
+        currentExecutionLineRef.current !== null && currentExecutionLineRef.current !== undefined
+          ? currentLineDecoration(currentExecutionLineRef.current)
+          : [],
+      );
+
       const handleSchemeChange = (event: MediaQueryListEvent) => {
         monaco.editor.setTheme(resolveThemeName(event.matches));
       };
@@ -225,6 +325,11 @@ export default function ScriptEditor({ value, onChange, readOnly, sdkTypeDefinit
       cleanupMounted = () => {
         prefersDarkQuery?.removeEventListener("change", handleSchemeChange);
         changeSubscription.dispose();
+        mouseDownSubscription.dispose();
+        breakpointDecorationsRef.current?.clear();
+        breakpointDecorationsRef.current = null;
+        currentLineDecorationsRef.current?.clear();
+        currentLineDecorationsRef.current = null;
         extraLibRef.current?.dispose();
         extraLibRef.current = null;
         lastRegisteredTypesRef.current = null;
@@ -296,6 +401,30 @@ export default function ScriptEditor({ value, onChange, readOnly, sdkTypeDefinit
   useEffect(() => {
     editorRef.current?.updateOptions({ readOnly: readOnly ?? false });
   }, [readOnly]);
+
+  // Breakpoint gutter decorations (D-01, 08-12-PLAN.md Task 1): replaces
+  // the entire glyph-margin decoration set on every distinct
+  // breakpointLines value via the decorations collection's own .set()
+  // semantics -- a removed line's decoration is gone the instant this
+  // runs, never accumulating alongside the ones still present. The mount
+  // effect above already applies the freshest value once at completion
+  // (via breakpointLinesRef); this effect only reacts to a genuinely later
+  // change.
+  useEffect(() => {
+    breakpointDecorationsRef.current?.set(breakpointDecorations(breakpointLines));
+  }, [breakpointLines]);
+
+  // Current-execution-line decoration (D-01, 08-12-PLAN.md Task 1): mirrors
+  // the same replace-not-accumulate discipline -- currentExecutionLine ===
+  // null clears the collection outright rather than leaving a stale
+  // highlighted line from a previous pause.
+  useEffect(() => {
+    currentLineDecorationsRef.current?.set(
+      currentExecutionLine !== null && currentExecutionLine !== undefined
+        ? currentLineDecoration(currentExecutionLine)
+        : [],
+    );
+  }, [currentExecutionLine]);
 
   return (
     <div className={styles.wrapper}>

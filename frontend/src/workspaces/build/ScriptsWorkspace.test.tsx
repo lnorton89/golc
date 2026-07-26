@@ -60,7 +60,26 @@ vi.mock("monaco-editor", () => {
     });
     container.appendChild(textarea);
 
-    return { dispose: vi.fn(), updateOptions: vi.fn(), getModel: () => model };
+    // onMouseDown/createDecorationsCollection (08-12-PLAN.md Task 1, D-01):
+    // ScriptEditor.tsx registers a glyph-margin mouse-down handler and two
+    // decoration collections on every mount, so this fake needs the same
+    // minimal surfaces ScriptEditor.test.tsx's own fake exposes -- this
+    // file only exercises ScriptsWorkspace's own breakpoint/paused-line
+    // wiring (added in Task 2), not the gutter's low-level decoration
+    // mechanics, which ScriptEditor.test.tsx already covers directly.
+    const onMouseDown = vi.fn(() => ({ dispose: vi.fn() }));
+    const createDecorationsCollection = vi.fn(() => ({
+      set: vi.fn(),
+      clear: vi.fn(),
+    }));
+
+    return {
+      dispose: vi.fn(),
+      updateOptions: vi.fn(),
+      getModel: () => model,
+      onMouseDown,
+      createDecorationsCollection,
+    };
   });
 
   return {
@@ -69,6 +88,7 @@ vi.mock("monaco-editor", () => {
       createModel,
       defineTheme: vi.fn(),
       setTheme: vi.fn(),
+      MouseTargetType: { TEXTAREA: 1, GUTTER_GLYPH_MARGIN: 2, GUTTER_LINE_NUMBERS: 3 },
     },
     // monaco-editor@0.55.1's real TypeScript language-service surface is
     // the top-level `typescript` namespace, not `languages.typescript`
