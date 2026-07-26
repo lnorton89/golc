@@ -421,12 +421,96 @@ export interface ScriptDetailView extends ScriptSummaryView {
   source: string;
 }
 
+/** ScriptRunLogView mirrors internal/wails.ScriptRunLogView's JSON shape
+ * exactly: one captured, already-redacted stdout/stderr line (D-04). */
+export interface ScriptRunLogView {
+  level: string;
+  message: string;
+  source?: string;
+}
+
+/** ScriptRunOutcomeEntryView mirrors internal/wails.ScriptRunOutcomeEntryView's
+ * JSON shape exactly: one SDK call's recorded outcome (D-05). */
+export interface ScriptRunOutcomeEntryView {
+  method: string;
+  route?: string;
+  durationMs: number;
+  ok: boolean;
+  code?: string;
+  message?: string;
+}
+
+/** ScriptRunOutcomeView mirrors internal/wails.ScriptRunOutcomeView's JSON
+ * shape exactly (08-10-PLAN.md Task 1) -- RunScript/DebugScript/
+ * StopScript's uniform return shape. stackFrames is derived Go-side from
+ * reason's own multi-line text (D-03: reason's first line is the crash
+ * summary, every remaining non-blank line is one expandable trace entry).
+ * logs/outcomes/stackFrames are always present (never undefined/null)
+ * arrays. */
+export interface ScriptRunOutcomeView {
+  runId: string;
+  status: string;
+  reason?: string;
+  logs: ScriptRunLogView[];
+  outcomes: ScriptRunOutcomeEntryView[];
+  stackFrames: string[];
+}
+
+/** ScriptDiagnosticView mirrors internal/wails.ScriptDiagnosticView's JSON
+ * shape exactly: one script.Diagnostic (SCRP-01/SCRP-03). */
+export interface ScriptDiagnosticView {
+  code: string;
+  message: string;
+  line: number;
+  column: number;
+  severity: string;
+}
+
+/** ScriptValidationView mirrors internal/wails.ScriptValidationView's
+ * JSON shape exactly -- ValidateScript's return shape. diagnostics is
+ * always a present (never undefined/null) array. */
+export interface ScriptValidationView {
+  valid: boolean;
+  diagnostics: ScriptDiagnosticView[];
+}
+
+/** ScriptEventView mirrors internal/wails.ScriptEventView's JSON shape
+ * exactly (08-08-PLAN.md Task 3, D-04/D-05): every field a plain string/
+ * number/bool. A view with kind "script.gap" carries only gapCount -- the
+ * synthetic overflow signal internal/wails/events.go's flush emits ahead
+ * of the surviving staged events it precedes, so a subscriber can resync
+ * instead of silently missing lines (ScriptDebugPanel.tsx renders this as
+ * a visible resync notice, never a new status-chip colour). */
+export interface ScriptEventView {
+  seq: number;
+  kind: string;
+  runId?: string;
+  scriptName?: string;
+  at?: string;
+  level?: string;
+  message?: string;
+  source?: string;
+  method?: string;
+  route?: string;
+  durationMs?: number;
+  ok?: boolean;
+  code?: string;
+  status?: string;
+  reason?: string;
+  gapCount?: number;
+}
+
 /** ScriptServiceBinding mirrors internal/wails/svc_script.go's bound
- * methods field-for-field (08-04-PLAN.md, SCRP-01): every method forwards
- * to the existing "script *" command routes -- CreateScript/
- * SaveScriptSource/DeleteScript/SetScriptProfile are mutations,
- * ListScripts/GetScript are read-only projections of the loaded
- * ShowState. */
+ * methods field-for-field (08-04-PLAN.md/08-10-PLAN.md, SCRP-01/SCRP-04/
+ * SCRP-05): every method forwards to the existing "script *" command
+ * routes -- CreateScript/SaveScriptSource/DeleteScript/SetScriptProfile/
+ * RunScript/DebugScript/StopScript/ContinueScript/StepOverScript/
+ * StepIntoScript/StepOutScript are mutations (RunScript/DebugScript/
+ * StopScript still resolve, never reject, on a failed/terminated run --
+ * the outcome's own status/reason field carries that, mirroring
+ * scriptrun.go's own "the run info is valid even when the run itself
+ * failed" contract), ListScripts/GetScript/ValidateScript are read-only
+ * projections. */
 interface ScriptServiceBinding {
   ListScripts(): Promise<ScriptSummaryView[]>;
   GetScript(name: string): Promise<ScriptDetailView>;
@@ -442,6 +526,14 @@ interface ScriptServiceBinding {
     memoryLimitMB: number,
     cpuCapPercent: number,
   ): Promise<WailsResult>;
+  RunScript(name: string): Promise<ScriptRunOutcomeView>;
+  DebugScript(name: string, breakpointLines: number[]): Promise<ScriptRunOutcomeView>;
+  StopScript(name: string): Promise<WailsResult>;
+  ValidateScript(name: string): Promise<ScriptValidationView>;
+  ContinueScript(): Promise<WailsResult>;
+  StepOverScript(): Promise<WailsResult>;
+  StepIntoScript(): Promise<WailsResult>;
+  StepOutScript(): Promise<WailsResult>;
 }
 
 /** ShowServiceBinding mirrors internal/wails/svc_show.go's bound methods
@@ -1187,4 +1279,139 @@ export async function setScriptProfile(
   const svc = scriptService();
   if (!svc) return bridgeUnavailableResult();
   return svc.SetScriptProfile(name, scope, preset, deadlineSeconds, ratePerSecond, memoryLimitMB, cpuCapPercent);
+}
+
+/** offlineScriptRunOutcome is the explicit, non-throwing fallback
+ * runScript/debugScript/stopScript return when the bridge is unavailable
+ * or the call itself rejects -- mirrors offlineScriptDetail/
+ * offlineDiagnosticReport's identical "never blank" contract. status
+ * stays "failed" with a GOLC_WAILS_BRIDGE_UNAVAILABLE reason so a missing
+ * bridge never renders as a silently successful run. */
+export function offlineScriptRunOutcome(): ScriptRunOutcomeView {
+  return {
+    runId: "",
+    status: "failed",
+    reason: "GOLC_WAILS_BRIDGE_UNAVAILABLE: not running inside the GOLC desktop shell",
+    logs: [],
+    outcomes: [],
+    stackFrames: [],
+  };
+}
+
+/** runScript calls the bound ScriptService.RunScript (SCRP-04/SCRP-05:
+ * launch name in a fresh, zero-permission process via "script run"),
+ * returning offlineScriptRunOutcome() when the bridge is unavailable or
+ * the call itself rejects -- never throws (mirrors listScripts/getScript's
+ * identical contract). */
+export async function runScript(name: string): Promise<ScriptRunOutcomeView> {
+  const svc = scriptService();
+  if (!svc) return offlineScriptRunOutcome();
+  try {
+    return await svc.RunScript(name);
+  } catch (err) {
+    return { ...offlineScriptRunOutcome(), reason: errorMessage(err) };
+  }
+}
+
+/** debugScript calls the bound ScriptService.DebugScript (D-01/D-02:
+ * launch name in Debug mode with breakpointLines set via "script debug"),
+ * returning offlineScriptRunOutcome() when the bridge is unavailable or
+ * the call itself rejects. */
+export async function debugScript(
+  name: string,
+  breakpointLines: number[],
+): Promise<ScriptRunOutcomeView> {
+  const svc = scriptService();
+  if (!svc) return offlineScriptRunOutcome();
+  try {
+    return await svc.DebugScript(name, breakpointLines);
+  } catch (err) {
+    return { ...offlineScriptRunOutcome(), reason: errorMessage(err) };
+  }
+}
+
+/** stopScript calls the bound ScriptService.StopScript (D-10: a single-
+ * script-scoped stop with no confirmation gesture via "script stop"). */
+export async function stopScript(name: string): Promise<WailsResult> {
+  const svc = scriptService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.StopScript(name);
+}
+
+/** offlineScriptValidation is validateScript's explicit, non-throwing
+ * fallback when the bridge is unavailable -- valid stays false so a
+ * missing bridge never renders as an honest "clean validation" result. */
+export function offlineScriptValidation(): ScriptValidationView {
+  return { valid: false, diagnostics: [] };
+}
+
+/** validateScript calls the bound ScriptService.ValidateScript (SCRP-01/
+ * SCRP-03: the structural zero-import gate plus a deno check type-check,
+ * never executing the script, via "script validate"), returning
+ * offlineScriptValidation() when the bridge is unavailable or the call
+ * itself rejects. */
+export async function validateScript(name: string): Promise<ScriptValidationView> {
+  const svc = scriptService();
+  if (!svc) return offlineScriptValidation();
+  try {
+    return await svc.ValidateScript(name);
+  } catch {
+    return offlineScriptValidation();
+  }
+}
+
+/** continueScript calls the bound ScriptService.ContinueScript (resumes
+ * the single active debug run via "script continue"). */
+export async function continueScript(): Promise<WailsResult> {
+  const svc = scriptService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.ContinueScript();
+}
+
+/** stepOverScript calls the bound ScriptService.StepOverScript (steps
+ * over the current statement in the single active debug run via
+ * "script step-over"). */
+export async function stepOverScript(): Promise<WailsResult> {
+  const svc = scriptService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.StepOverScript();
+}
+
+/** stepIntoScript calls the bound ScriptService.StepIntoScript (steps
+ * into the current call in the single active debug run via
+ * "script step-into"). */
+export async function stepIntoScript(): Promise<WailsResult> {
+  const svc = scriptService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.StepIntoScript();
+}
+
+/** stepOutScript calls the bound ScriptService.StepOutScript (steps out
+ * of the current call in the single active debug run via
+ * "script step-out"). */
+export async function stepOutScript(): Promise<WailsResult> {
+  const svc = scriptService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.StepOutScript();
+}
+
+/** onScriptEvent subscribes to the Go host's "script:event" EventsEmit
+ * push (internal/wails/events.go's QueueScriptEvent, 08-08-PLAN.md
+ * Task 3), invoking callback with each pushed ScriptEventView. Unlike
+ * onStatusUpdate/onMidiFeedback's throttled-latest-snapshot contract,
+ * every distinct staged event survives to its own EventsEmit call
+ * (QueueScriptEvent's own doc comment: log lines/outcomes are never
+ * coalesced), so callback fires once per log/outcome/status/terminal/gap
+ * event, in Seq order. Returns an unsubscribe function; a missing bridge
+ * returns a no-op unsubscribe rather than throwing -- mirrors
+ * onStatusUpdate/onMidiFeedback's identical undefined-runtime guard. */
+export function onScriptEvent(
+  callback: (event: ScriptEventView) => void,
+): () => void {
+  const runtime = window.runtime;
+  if (!runtime) return () => {};
+  return runtime.EventsOn("script:event", (...data: unknown[]) => {
+    const event = data[0] as ScriptEventView | undefined;
+    if (event) callback(event);
+  });
 }
