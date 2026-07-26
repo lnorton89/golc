@@ -322,3 +322,110 @@ changes are auto-fixed).
   process is ever started) combined with this textual absence check. Both
   together are the load-bearing D-02 proof; a future plan could add real
   socket enumeration if a stronger guarantee is ever needed.
+
+## 08-13
+
+**This worktree's Deno 2.9.4 toolchain became provisioned for the first
+time in this phase's lifetime** (a `mage Bootstrap` attempt during this
+plan's execution installed `deno`/`go`/`mage` into `.tools/toolchains/`
+before failing on an unrelated pre-existing go.sum gap — see below). This
+let every real-Deno-gated test that every prior 08-05/08-06/08-07/08-08/
+08-09/08-10 plan logged as "skips cleanly, unverified in this environment"
+actually run for the first time via `go test ./...`. **Two real, previously
+undetected bugs surfaced.** Both are out of scope for this plan to fix (Plan
+08-13 produces no code and neither bug was caused by this plan's changes);
+logged here for a future gap-closure plan and flagged prominently in this
+plan's checkpoint return to the orchestrator/human, since both directly
+affect Task 1 and Task 2's manual verification steps.
+
+1. **`internal/script/validate.go`'s `buildDenoCheckArgs` passes
+   `--no-prompt` to `deno check`, which Deno 2.9.4 rejects as an unknown
+   argument** (`deno check`'s own usage text: "a similar argument exists:
+   '--no-remote'" — `--no-prompt` is a `deno run`-only flag, not valid for
+   `deno check`). Every `script validate` call against a real Deno 2.9.4
+   process fails with `GOLC_SCRIPT_TYPECHECK_FAILED`, even for a
+   structurally clean script with zero real type errors —
+   `TestValidateCleanScriptReportsZeroDiagnostics` and
+   `TestScriptValidateCleanScript` both fail this way. This directly
+   contradicts 08-UI-SPEC.md's "Validate" contract and blocks Task 2's
+   step 5 ("Press Validate... confirm Run and Debug are disabled until it
+   passes") for any real script, clean or not. Single call site to fix:
+   `buildDenoCheckArgs` in `internal/script/validate.go` (line ~309).
+
+2. **A real script run that calls any `golc.*` SDK method never exits on
+   its own and is killed by the run's deadline instead of completing
+   normally.** `golc-runtime.ts`'s `__golcStartReader()` starts an
+   unbounded `for await (const chunk of Deno.stdin.readable)` loop the
+   first time a script calls `__golcCall` (i.e., any `golc.*` SDK method);
+   this keeps a pending read op alive, which keeps Deno's event loop (and
+   therefore the process) alive indefinitely. `internal/script/session.go`'s
+   `runDispatchIO` waits for the child's **stdout** to reach a clean EOF
+   as its signal the run finished, but nothing ever closes the child's
+   **stdin** or sends any other completion signal after the script's own
+   top-level code finishes — so the two sides deadlock until the run's
+   configured deadline fires and the Job Object kills the child. Observed
+   directly, repeatably, against a real Deno 2.9.4 process in this
+   environment: `TestRunSpawnsDenoWithNoAllowFlagsAndDispatchesSceneActivate`,
+   `TestScriptRunSuccessfulScript`, `TestDebugBridgeConnectsSetsBreakpointsAndReceivesPausedEvent`,
+   `TestScriptDebugSetsBreakpointAndCompletesCleanly`,
+   `TestScriptDebugNoBreakpointsResumesImmediately`,
+   `TestScriptDebugCrashReportsSourceMappedStackFrames` (the crash case
+   also never reports the thrown error — the deadline fires before Deno's
+   own uncaught-exception exit ever happens),
+   `TestScriptServiceRunScriptSucceeds`, and
+   `TestScriptServiceDebugScriptSucceeds` all fail this same way, every
+   one reporting `GOLC_SCRIPT_DEADLINE_EXCEEDED` instead of the outcome
+   the test expects. A script that calls **no** `golc.*` method (e.g. a
+   pure `Deno.*`/`fetch` probe, or `TestScriptServiceRunScriptCrashDerivesStackFrames`'s
+   crash-without-an-SDK-call fixture) never starts the stdin reader and is
+   unaffected — it exits normally. This means Task 2's entire live
+   Run/Debug workflow (steps 7-13, every one of which "makes several SDK
+   calls") is very likely to hang and hit the deadline rather than
+   completing/pausing/crashing as the plan's `<how-to-verify>` describes,
+   and Task 1's `probe-scope` script (which does call `golc.scene.activate`)
+   may behave correctly only because the host-side scope-violation kill
+   path (08-06) terminates the run before the reader-loop deadlock has a
+   chance to matter — this was not independently re-confirmed against a
+   real process for the scope-violation case specifically. **No fix
+   attempted here** — this spans `internal/script/session.go`
+   (08-05/08-06) and/or `internal/scriptsdk/generate.go`'s
+   `golc-runtime.ts` template (08-03), is architectural in nature (the
+   protocol needs an explicit completion signal — e.g. the shim closing
+   stdin or sending a final frame once the top-level script's own promise
+   settles, with `runDispatchIO` reacting to that rather than only to
+   stdout EOF), and is well outside a checkpoint-only plan's declared
+   scope.
+
+3. **`mage Bootstrap` cannot currently complete in this repository state**,
+   independent of both bugs above. `runGoPhase`'s `go mod download all`
+   step, run against the exact committed `go.mod`/`go.sum`, adds ~400
+   lines of previously-absent transitive-dependency checksums to `go.sum`
+   (packages reachable only through magefile build tags / dev-tooling
+   dependency graphs, e.g. `pterm`, `cobra`, `go-git`, `bluemonday`) —
+   `internal/bootstrap/engine.go`'s `runGoPhase` correctly detects this as
+   a `go.mod`/`go.sum` mutation, restores the original bytes, and fails
+   loudly with `GOLC_BOOTSTRAP_LOCK_MUTATION` by design (it must never
+   silently accept a lockfile rewrite). Reproduced twice, deterministically,
+   in this worktree; go.sum was confirmed restored to the exact committed
+   state after each attempt (`git status --short go.mod go.sum` clean).
+   This is a pre-existing repository/dependency-graph gap, not something
+   introduced by this plan — the most likely trigger is 08-09's addition
+   of `github.com/mafredri/cdp` as a new `go.mod` dependency, since no
+   plan after 08-02 (the only prior plan to run a real, complete `mage
+   Bootstrap`) is recorded as having re-run a full bootstrap in an
+   otherwise-clean worktree. **Worked around for this plan's own
+   automated-gate prerequisite** by using the pinned-equivalent local `go`
+   (already `go1.26.5`, matching `config/toolchain.toml`'s pin) directly:
+   `go build ./...` passes cleanly; `go test ./...` surfaces the two real
+   bugs above (previously masked by every test that spawns Deno skipping
+   for lack of a provisioned toolchain) plus the five pre-existing
+   toolchain-bootstrap-only test failures every prior 08-* plan already
+   logged; `npm --prefix frontend run build` (via `npm --prefix frontend
+   ci` against the globally available Node, not the pinned 24.18.0) is
+   fully green — 40 test files, 210 tests, `tsc`/`vitest`/`vite build`
+   all pass. **Action required before `mage Bootstrap` is trusted again:**
+   either `go mod tidy`/re-pin `go.sum` deliberately (a reviewed, explicit
+   change, not a silent bootstrap side effect) or confirm the "all"
+   pattern's extra closure is expected and adjust `runGoPhase`'s
+   comparison scope — a decision for whoever picks up this gap-closure
+   work, not this plan.
