@@ -66,9 +66,20 @@ dist/
 # Wails compiles into <wails.json-dir>/build/bin -- cmd/golc-desktop/wails.json
 # (not a repo-root wails.json; see cmd/golc-desktop/wails.json's own
 # "frontend:dir"/"wailsjsdir" comment in internal/command/dev.go for why),
-# so that is cmd/golc-desktop/build/, not /build/bin/ at the repo root.
-# Packaging jobs produce their own artifacts elsewhere.
-/cmd/golc-desktop/build/
+# so that is cmd/golc-desktop/build/bin/, not /build/bin/ at the repo root.
+# Packaging jobs produce their own artifacts elsewhere. The rest of
+# cmd/golc-desktop/build/ (appicon.png, windows/icon.ico, windows/
+# wails.exe.manifest, windows/info.json) is real, committed source/template
+# content, not output -- a prior version of this rule ignored the whole
+# directory, which silently meant the actual app icon never made it into
+# the repository at all (every checkout fell back to Wails' own generic
+# scaffold "W" placeholder icon until someone happened to generate one
+# locally). cmd/golc-desktop/rsrc_windows_amd64.syso (also committed, not
+# ignored) is the Go-toolchain-auto-linked Windows resource compiled from
+# windows/icon.ico via `go-winres simply` -- required because this repo's
+# `mage build`/`mage run` path is a plain `go build`, which never invokes
+# Wails' own icon-embedding step the way `wails build`/`mage Dev` do.
+/cmd/golc-desktop/build/bin/
 
 # Wails' own npm-install-skip checksum (pkg/commands/build/base.go's
 # packageChecksumFile) -- parallel to this repo's own
