@@ -5,6 +5,7 @@
 // (the sketch's own "what to avoid": permanently displaying every
 // look-creation form).
 import { useState } from "react";
+import { Plus, X, Check, Layers } from "lucide-react";
 
 import type { ProgSceneView } from "../../lib/wailsBridge";
 import Button from "../primitives/Button/Button";
@@ -39,7 +40,7 @@ export default function SceneList({ scenes, selectedName, onSelect, onCreate }: 
     <div className={styles.column}>
       <div className={styles.header}>
         <span className={styles.label}>Scenes</span>
-        <Button variant="secondary" onClick={() => setCreating((current) => !current)}>
+        <Button variant="secondary" icon={creating ? X : Plus} onClick={() => setCreating((current) => !current)}>
           {creating ? "Cancel" : "+ New"}
         </Button>
       </div>
@@ -62,7 +63,7 @@ export default function SceneList({ scenes, selectedName, onSelect, onCreate }: 
             aria-label="Bars per loop"
             onChange={(event) => setBars(event.target.value)}
           />
-          <Button variant="primary" onClick={handleCreate}>
+          <Button variant="primary" icon={Check} onClick={handleCreate}>
             Create
           </Button>
         </div>
@@ -70,13 +71,17 @@ export default function SceneList({ scenes, selectedName, onSelect, onCreate }: 
 
       <ScrollRegion>
         {scenes.length === 0 ? (
-          <p className={styles.emptyState}>No scenes yet — create one above.</p>
+          <p className={styles.emptyState}>
+            <Layers size={14} aria-hidden="true" />
+            No scenes yet — create one above.
+          </p>
         ) : (
           <ul className={styles.list} aria-label="Scene list">
             {scenes.map((scene) => (
               <li key={scene.name}>
                 <ListRow
                   label={scene.name}
+                  icon={Layers}
                   meta={scene.active ? "LIVE" : `${scene.barsPerLoop}bar`}
                   selected={scene.name === selectedName}
                   onSelect={() => onSelect(scene.name)}

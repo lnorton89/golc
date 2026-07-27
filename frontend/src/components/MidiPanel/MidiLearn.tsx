@@ -16,6 +16,7 @@
 // message text isn't phrased as user-facing copy.
 
 import { useState } from "react";
+import { Radio, X } from "lucide-react";
 
 import styles from "./MidiPanel.module.css";
 import type { ControlRefInput } from "./MidiPanel";
@@ -126,6 +127,7 @@ export default function MidiLearn({
       <div className={styles.learnListening} role="status" aria-live="polite">
         <span>Listening for MIDI input…</span>
         <button type="button" className={styles.cancelButton} onClick={handleCancel}>
+          <X size={13} aria-hidden="true" />
           Cancel
         </button>
       </div>
@@ -140,6 +142,7 @@ export default function MidiLearn({
         onClick={handleLearn}
         aria-label={`Learn MIDI mapping for ${controlLabel}`}
       >
+        <Radio size={13} aria-hidden="true" />
         Learn
       </button>
       {message && (status === "conflict" || status === "timeout" || status === "error") && (

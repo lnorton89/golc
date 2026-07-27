@@ -1,6 +1,7 @@
 .chip {
   display: inline-flex;
   align-items: center;
+  gap: 3px;
   padding: 2px var(--space-sm);
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
@@ -12,6 +13,10 @@
   text-transform: uppercase;
   color: var(--text2);
   white-space: nowrap;
+}
+
+.icon {
+  flex-shrink: 0;
 }
 
 .neutral {

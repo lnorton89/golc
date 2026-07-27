@@ -32,6 +32,11 @@ button.row:hover:not(:disabled) {
   cursor: default;
 }
 
+.icon {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
 .label {
   overflow: hidden;
   text-overflow: ellipsis;

@@ -26,7 +26,9 @@
 }
 
 .item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
   width: 100%;
   padding: var(--space-xs) var(--space-sm);
   border: none;
@@ -39,6 +41,15 @@
   text-align: left;
   cursor: pointer;
   transition: background-color var(--motion-tap), border-color var(--motion-tap), color var(--motion-tap);
+}
+
+.itemIcon {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.itemActive .itemIcon {
+  color: var(--accent);
 }
 
 .item:hover {

@@ -35,6 +35,7 @@
 // <OperatorSurface /> is never changed.
 
 import { useCallback, useEffect, useState } from "react";
+import { Eye, ArrowLeft } from "lucide-react";
 
 import { useGolcStore } from "../../store/store";
 import {
@@ -301,6 +302,11 @@ export default function OperatorSurface() {
                   className={styles.modeButton}
                   onClick={() => setMode((current) => (current === "author" ? "operate" : "author"))}
                 >
+                  {mode === "author" ? (
+                    <Eye size={13} aria-hidden="true" />
+                  ) : (
+                    <ArrowLeft size={13} aria-hidden="true" />
+                  )}
                   {mode === "author" ? "Preview as Operator" : "Back to Authoring"}
                 </button>
               </div>

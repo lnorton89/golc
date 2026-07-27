@@ -8,6 +8,7 @@
 // command line; there is no separate pool/deployment mutation path here,
 // Build workspace already owns that (ScenesLooksWorkspace/PatchPoolsWorkspace).
 import { useCallback, useEffect, useState } from "react";
+import { LayoutDashboard, Activity, Package, Boxes } from "lucide-react";
 
 import {
   diagnoseShow,
@@ -24,6 +25,7 @@ import Button from "../../components/primitives/Button/Button";
 import Chip from "../../components/primitives/Chip/Chip";
 import ListRow from "../../components/primitives/ListRow/ListRow";
 import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion";
+import EmptyState from "../../components/primitives/EmptyState/EmptyState";
 import styles from "./OverviewWorkspace.module.css";
 
 export default function OverviewWorkspace() {
@@ -64,7 +66,7 @@ export default function OverviewWorkspace() {
 
   return (
     <div className={styles.workspace}>
-      <Toolbar title="Overview" />
+      <Toolbar title="Overview" icon={LayoutDashboard} />
       <div className={styles.canvas}>
         {loading ? (
           <p className={styles.loading}>Loading show overview…</p>
@@ -76,7 +78,12 @@ export default function OverviewWorkspace() {
                 <PanelHeader
                   label="Show"
                   action={
-                    <Button variant="secondary" disabled={diagnosing} onClick={() => void handleDiagnose()}>
+                    <Button
+                      variant="secondary"
+                      icon={Activity}
+                      disabled={diagnosing}
+                      onClick={() => void handleDiagnose()}
+                    >
                       {diagnosing ? "Diagnosing…" : "Diagnose"}
                     </Button>
                   }
@@ -111,13 +118,14 @@ export default function OverviewWorkspace() {
                 <PanelHeader label={`Pools (${view.pools.length})`} />
                 <ScrollRegion>
                   {view.pools.length === 0 ? (
-                    <p className={styles.emptyState}>No fixture pools yet.</p>
+                    <EmptyState icon={Package}>No fixture pools yet.</EmptyState>
                   ) : (
                     <ul className={styles.list} aria-label="Pool list">
                       {view.pools.map((pool) => (
                         <li key={pool.id}>
                           <ListRow
                             label={pool.name}
+                            icon={Package}
                             meta={`${pool.memberCount} member${pool.memberCount === 1 ? "" : "s"}`}
                           />
                         </li>
@@ -131,13 +139,14 @@ export default function OverviewWorkspace() {
                 <PanelHeader label={`Deployments (${view.deployments.length})`} />
                 <ScrollRegion>
                   {view.deployments.length === 0 ? (
-                    <p className={styles.emptyState}>No deployments yet.</p>
+                    <EmptyState icon={Boxes}>No deployments yet.</EmptyState>
                   ) : (
                     <ul className={styles.list} aria-label="Deployment list">
                       {view.deployments.map((deployment) => (
                         <li key={deployment.id}>
                           <ListRow
                             label={deployment.name}
+                            icon={Boxes}
                             meta={
                               deployment.active
                                 ? "Active"

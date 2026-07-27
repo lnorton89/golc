@@ -24,6 +24,7 @@
 // for <MidiPanel /> is never changed.
 
 import { useCallback, useEffect, useState } from "react";
+import { Music2, Trash2 } from "lucide-react";
 
 import { useGolcStore } from "../../store/store";
 import { onMidiFeedback, type MidiFeedback } from "../../lib/wailsBridge";
@@ -302,7 +303,10 @@ export default function MidiPanel() {
                 <h3 className={styles.sectionHeading}>MIDI mappings</h3>
                 {mappings.length === 0 ? (
                   <div className={styles.emptyState}>
-                    <p className={styles.emptyHeading}>No MIDI mappings yet</p>
+                    <p className={styles.emptyHeading}>
+                      <Music2 size={18} aria-hidden="true" />
+                      No MIDI mappings yet
+                    </p>
                     <p className={styles.emptyBody}>
                       Click Learn on any assigned control, then move or press the
                       matching hardware control.
@@ -344,6 +348,7 @@ export default function MidiPanel() {
                             onClick={() => handleRemove(mapping)}
                             aria-label={`Remove mapping from ${mapping.label}`}
                           >
+                            <Trash2 size={13} aria-hidden="true" />
                             Remove
                           </button>
                         </li>

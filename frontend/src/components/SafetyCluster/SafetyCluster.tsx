@@ -35,6 +35,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
+import { PowerOff, Ban, Square, type LucideIcon } from "lucide-react";
 
 import { useGolcStore } from "../../store/store";
 import {
@@ -50,6 +51,7 @@ const HOLD_DURATION_MS = 750;
 
 interface HoldButtonProps {
   label: string;
+  icon: LucideIcon;
   controlColorVar?: string;
   textColorVar?: string;
   active: boolean;
@@ -58,6 +60,7 @@ interface HoldButtonProps {
 
 function HoldButton({
   label,
+  icon: Icon,
   controlColorVar,
   textColorVar,
   active,
@@ -148,6 +151,7 @@ function HoldButton({
           ACTIVE
         </span>
       )}
+      <Icon size={16} className={styles.controlIcon} aria-hidden="true" />
       <span className={styles.label}>{label}</span>
     </button>
   );
@@ -173,6 +177,7 @@ export default function SafetyCluster() {
     <div className={styles.cluster} aria-label="Safety cluster">
       <HoldButton
         label={blackoutOrStopActive ? "Hold to Release Blackout" : "Hold to Blackout"}
+        icon={PowerOff}
         controlColorVar="var(--status-blackout)"
         textColorVar="var(--status-blackout-text)"
         active={blackoutOrStopActive}
@@ -182,6 +187,7 @@ export default function SafetyCluster() {
       />
       <HoldButton
         label={revokeActive ? "Hold to Restore Automation" : "Hold to Revoke Automation"}
+        icon={Ban}
         controlColorVar="var(--status-revoked)"
         textColorVar="var(--page)"
         active={revokeActive}
@@ -191,6 +197,7 @@ export default function SafetyCluster() {
       />
       <HoldButton
         label={blackoutOrStopActive ? "Hold to Release Stop / Release All" : "Hold to Stop / Release All"}
+        icon={Square}
         active={blackoutOrStopActive}
         onActivate={() => {
           void safetyStopReleaseAll(!blackoutOrStopActive);

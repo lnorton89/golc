@@ -1,7 +1,11 @@
 // AppShell is the persistent top-level layout (application-shell-
 // navigation.md's Focused Command Rail, Sketch 001 Variant D): a fixed
-// CSS grid with a global header, left nav, one workspace canvas, a
-// contextual right inspector, and a fixed safety footer.
+// CSS grid with a global header, a fixed safety row directly beneath it,
+// left nav, one workspace canvas, and a contextual right inspector. The
+// safety row was moved here from a bottom footer (icon/polish pass) --
+// still full-width and unconditionally mounted, so D-13's "visible and
+// interactive on every workspace, independent of daemon reachability"
+// guarantee is unchanged, only its screen position moved.
 //
 // Navigation-selection state lives here as plain useState, not in
 // useGolcStore or Context: store.ts is documented as "cache of Go-pushed
@@ -47,6 +51,9 @@ function ShellBody() {
       <div className={styles.header}>
         <GlobalFrame />
       </div>
+      <div className={styles.safety}>
+        <SafetyCluster />
+      </div>
       <div className={styles.rail}>
         <CommandRail active={activeDestination} onSelect={setActiveDestination} />
       </div>
@@ -57,9 +64,6 @@ function ShellBody() {
       </main>
       <div className={styles.inspector}>
         <ContextualInspector onContainerReady={setInspectorContainer} />
-      </div>
-      <div className={styles.footer}>
-        <SafetyCluster />
       </div>
       <HelpOverlay open={helpOpen} onClose={closeHelp} />
     </div>

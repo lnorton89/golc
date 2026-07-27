@@ -9,6 +9,7 @@
 // browsing), this workspace's whole job is the diagnostic report, so it
 // runs automatically on mount rather than waiting for a manual click.
 import { useCallback, useEffect, useState } from "react";
+import { Activity, RefreshCw, ListChecks } from "lucide-react";
 
 import {
   diagnoseShow,
@@ -21,6 +22,7 @@ import Panel from "../../components/primitives/Panel/Panel";
 import PanelHeader from "../../components/primitives/PanelHeader/PanelHeader";
 import Button from "../../components/primitives/Button/Button";
 import Chip from "../../components/primitives/Chip/Chip";
+import EmptyState from "../../components/primitives/EmptyState/EmptyState";
 import styles from "./DiagnosticsWorkspace.module.css";
 
 export default function DiagnosticsWorkspace() {
@@ -51,7 +53,7 @@ export default function DiagnosticsWorkspace() {
 
   return (
     <div className={styles.workspace}>
-      <Toolbar title="Diagnostics" />
+      <Toolbar title="Diagnostics" icon={Activity} />
       <div className={styles.canvas}>
         {loading ? (
           <p className={styles.loading}>Running diagnostics…</p>
@@ -61,8 +63,9 @@ export default function DiagnosticsWorkspace() {
             <Panel>
               <PanelHeader
                 label="Integrity Check"
+                icon={ListChecks}
                 action={
-                  <Button variant="secondary" onClick={() => void handleRerun()}>
+                  <Button variant="secondary" icon={RefreshCw} onClick={() => void handleRerun()}>
                     Re-run
                   </Button>
                 }
@@ -89,7 +92,7 @@ export default function DiagnosticsWorkspace() {
               ) : null}
 
               {report.fileLevelIssues.length === 0 ? (
-                <p className={styles.emptyState}>No file-level integrity issues found.</p>
+                <EmptyState>No file-level integrity issues found.</EmptyState>
               ) : (
                 <ul className={styles.issueList} aria-label="File-level issues">
                   {report.fileLevelIssues.map((issue, index) => (

@@ -7,6 +7,7 @@
 // (no separate "Set" button) -- matching WORKFLOW-MAP.md's "BPM + bar/beat"
 // persistent-transport contract without duplicating the number itself.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Gauge, Hand } from "lucide-react";
 
 import { usePlaybackSnapshot } from "../../shell/PlaybackSnapshotContext";
 import { dispatch } from "../../lib/playbackDispatch";
@@ -71,10 +72,12 @@ export default function TempoControls() {
         />
       ) : (
         <button type="button" className={styles.bpmDisplay} onClick={startEditing}>
+          <Gauge size={13} className={styles.bpmIcon} aria-hidden="true" />
           {bpm} BPM
         </button>
       )}
       <button type="button" className={styles.button} onClick={() => void handleTap()}>
+        <Hand size={13} aria-hidden="true" />
         Tap
       </button>
     </div>

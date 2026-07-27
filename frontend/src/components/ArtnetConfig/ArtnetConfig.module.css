@@ -122,6 +122,9 @@
 }
 
 .primaryButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
   padding: var(--space-sm) var(--space-md);
   border: none;
   border-radius: 4px;
@@ -142,6 +145,9 @@
 }
 
 .secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
   padding: var(--space-xs) var(--space-sm);
   border: 1px solid var(--accent);
   border-radius: 4px;
@@ -172,6 +178,9 @@
 }
 
 .emptyHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
   margin: 0;
   font-size: 20px;
   font-weight: 600;

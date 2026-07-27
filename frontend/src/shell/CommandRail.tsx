@@ -5,6 +5,7 @@
 // destination replaces the workspace + inspector; it never mutates
 // playback or output.
 import { NAV_GROUPS, type DestinationId } from "./navigation";
+import { DESTINATION_ICONS } from "./destinationIcons";
 import styles from "./CommandRail.module.css";
 
 interface CommandRailProps {
@@ -20,6 +21,7 @@ export default function CommandRail({ active, onSelect }: CommandRailProps) {
           <span className={styles.groupLabel}>{group.label}</span>
           {group.destinations.map((destination) => {
             const isActive = destination.id === active;
+            const Icon = DESTINATION_ICONS[destination.id];
             return (
               <button
                 key={destination.id}
@@ -28,6 +30,7 @@ export default function CommandRail({ active, onSelect }: CommandRailProps) {
                 aria-current={isActive ? "page" : undefined}
                 onClick={() => onSelect(destination.id)}
               >
+                <Icon size={15} className={styles.itemIcon} aria-hidden="true" />
                 {destination.label}
               </button>
             );

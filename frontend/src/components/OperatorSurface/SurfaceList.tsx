@@ -10,6 +10,7 @@
 // OperatorSurface.tsx, the component that mounts this one.
 
 import { useState } from "react";
+import { Plus, Trash2, SlidersHorizontal } from "lucide-react";
 
 import styles from "./OperatorSurface.module.css";
 import type { SurfaceSummary } from "./OperatorSurface";
@@ -66,13 +67,17 @@ export default function SurfaceList({
           aria-label="New operator surface name"
         />
         <button type="button" className={styles.primaryButton} onClick={handleCreate}>
+          <Plus size={14} aria-hidden="true" />
           Create Operator Surface
         </button>
       </div>
 
       {surfaces.length === 0 ? (
         <div className={styles.emptyState}>
-          <p className={styles.emptyHeading}>No operator surfaces yet</p>
+          <p className={styles.emptyHeading}>
+            <SlidersHorizontal size={18} aria-hidden="true" />
+            No operator surfaces yet
+          </p>
           <p className={styles.emptyBody}>
             Build one by assigning scenes, layers, and masters from the authoring
             view, then hand it to your operator.
@@ -116,6 +121,7 @@ export default function SurfaceList({
                     }}
                     aria-label={`Remove ${surface.name}`}
                   >
+                    <Trash2 size={13} aria-hidden="true" />
                     Remove
                   </button>
                 </li>
