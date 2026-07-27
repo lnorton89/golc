@@ -34,13 +34,13 @@ export function useGlobalKeyboardWorkflow(): GlobalKeyboardWorkflow {
   const { state } = usePlaybackSnapshot();
   const [helpOpen, setHelpOpen] = useState(false);
 
-  const activeScene = state?.scenes.find((scene) => scene.active) ?? state?.scenes[0];
+  const activeScene = state?.scenes?.find((scene) => scene.active) ?? state?.scenes?.[0];
   const activeSceneName = activeScene?.name ?? null;
   const layerEnabled: Record<string, boolean> = {};
   for (const layer of activeScene?.layers ?? []) {
     layerEnabled[layer.kind] = layer.enabled;
   }
-  const sceneNames = state?.scenes.map((scene) => scene.name) ?? [];
+  const sceneNames = state?.scenes?.map((scene) => scene.name) ?? [];
   const bpm = state?.bpm ?? 0;
 
   useKeyboardWorkflow({ sceneNames, activeSceneName, layerEnabled, bpm });

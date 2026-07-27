@@ -473,3 +473,41 @@ func TestPlaybackServiceGetState(t *testing.T) {
 		t.Fatalf("expected 4 fixed layer slots, got %d", len(decoded.Scenes[0].Layers))
 	}
 }
+
+// TestPlaybackServiceGetStateEmptyShowScenesIsArrayNotNull proves a
+// fresh/scene-less show's GetState renders "scenes":[] on the wire, never
+// "scenes":null. Decoding the payload into playbackStateSummary and
+// checking len(Scenes) == 0 would NOT catch a regression here: both a nil
+// slice and an empty slice decode identically. The frontend's
+// PlaybackStateSummary.scenes is typed as a non-nullable array
+// (frontend/src/lib/playbackDispatch.ts) and several consumers call
+// state.scenes.find/map/some directly -- a raw `null` on the wire crashed
+// the entire webview with "Cannot read properties of null" the moment a
+// genuinely scene-less show (playback.NewEngine's own no-active-scene
+// idle state) reached this route, so this test asserts the literal JSON
+// bytes, not just the decoded Go value.
+func TestPlaybackServiceGetStateEmptyShowScenesIsArrayNotNull(t *testing.T) {
+	svc, _, _ := newTestPlaybackService(t)
+
+	result := svc.GetState()
+	if result.ExitCode != 0 {
+		t.Fatalf("GetState failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	var raw struct {
+		Scenes json.RawMessage `json:"scenes"`
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &raw); err != nil {
+		t.Fatalf("failed to decode GetState payload: %v (stdout=%s)", err, result.Stdout)
+	}
+	if strings.TrimSpace(string(raw.Scenes)) == "null" {
+		t.Fatalf("GetState rendered scenes as the literal JSON null instead of an empty array: %s", result.Stdout)
+	}
+	var scenes []sceneSummary
+	if err := json.Unmarshal(raw.Scenes, &scenes); err != nil {
+		t.Fatalf("scenes field did not decode as a JSON array: %v (raw=%s)", err, raw.Scenes)
+	}
+	if len(scenes) != 0 {
+		t.Fatalf("expected zero scenes on a fresh show, got %d", len(scenes))
+	}
+}
