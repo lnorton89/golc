@@ -8,6 +8,7 @@ package command_test
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -111,7 +112,11 @@ func TestScriptStopTerminatesActiveRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDefaultCommandRegistry: %v", err)
 	}
-	showPath := "show.golc"
+	// An absolute temp path, not one relative to root: root is the real
+	// repository root here (needed for Deno toolchain resolution), and
+	// this show must never collide with a repeat run's own script names
+	// against a stray repo-root show.golc.
+	showPath := filepath.Join(t.TempDir(), "show.golc")
 
 	createScriptWithSource(t, registry, root, showPath, "Runaway", `
 while (true) {
