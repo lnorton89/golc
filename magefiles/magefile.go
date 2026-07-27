@@ -153,7 +153,12 @@ func runRouteTarget(runtime targetRuntime, root string, target delivery.MageTarg
 		return err
 	}
 	arguments := append([]string{target.Route}, target.Args...)
-	result := registry.Execute(command.Request{Root: root, Args: append([]string(nil), arguments...)})
+	result := registry.Execute(command.Request{
+		Root:   root,
+		Args:   append([]string(nil), arguments...),
+		Stdout: runtime.stdout,
+		Stderr: runtime.stderr,
+	})
 	if exitCode := command.WriteResult(runtime.stdout, runtime.stderr, result); exitCode != 0 {
 		return fmt.Errorf("GOLC_MAGE_TARGET_FAILED: %s exited %d", target.Name, exitCode)
 	}

@@ -27,6 +27,16 @@ type Request struct {
 	Args []string
 	// Root is the absolute repository root the invocation operates on.
 	Root string
+	// Stdout and Stderr are optional live-progress sinks a real invocation
+	// (magefile.go's runRouteTarget) wires to the actual process output so
+	// a long-running handler can stream progress as it happens instead of
+	// going silent until its Result is returned and flushed. Nil in every
+	// existing test and every other non-live caller, which is exactly the
+	// prior fully-buffered behavior (Result.Stdout/Stderr populated once,
+	// asserted directly) -- a handler that never reads these two fields is
+	// completely unaffected either way.
+	Stdout io.Writer
+	Stderr io.Writer
 }
 
 // Result is a handler outcome with a stable result-to-exit mapping:
@@ -198,9 +208,11 @@ func (r *CommandRegistry) Execute(request Request) Result {
 		return Result{ExitCode: 2, Stderr: []byte(diagnostic)}
 	}
 	return registration.Handler(Request{
-		Route: registration.Route,
-		Args:  rest,
-		Root:  request.Root,
+		Route:  registration.Route,
+		Args:   rest,
+		Root:   request.Root,
+		Stdout: request.Stdout,
+		Stderr: request.Stderr,
 	})
 }
 
