@@ -90,6 +90,33 @@
   }
 }
 
+/* Explicit overrides for the Settings workspace's light/dark toggle
+   (frontend/src/lib/theme.ts) -- higher specificity than the
+   prefers-color-scheme query above, so a manual choice always wins over
+   the OS default. Omitting data-theme (the "system" choice) leaves the
+   media query above in control. */
+:root[data-theme="light"] {
+  --page: #e4e0d8;
+  --panel: #f4f1eb;
+  --ink: #17181c;
+  --text: #4a4941;
+  --text2: #57564e;
+  --muted: #8a887f;
+  --line: #d2ccc0;
+  --accent: #1b44d9;
+}
+
+:root[data-theme="dark"] {
+  --page: #131419;
+  --panel: #1e2027;
+  --ink: #ecead3;
+  --text: #b7b5ac;
+  --text2: #a6a49b;
+  --muted: #87857d;
+  --line: #2e3038;
+  --accent: #1b44d9;
+}
+
 html,
 body {
   margin: 0;

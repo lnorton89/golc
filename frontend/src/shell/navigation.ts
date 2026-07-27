@@ -8,6 +8,7 @@
 export type DestinationId =
   | "show-overview"
   | "show-save-recovery"
+  | "show-settings"
   | "build-fixture-library"
   | "build-patch-pools"
   | "build-scenes-looks"
@@ -33,6 +34,7 @@ export const NAV_GROUPS: NavGroup[] = [
     destinations: [
       { id: "show-overview", label: "Overview" },
       { id: "show-save-recovery", label: "Save & Recovery" },
+      { id: "show-settings", label: "Settings" },
     ],
   },
   {
