@@ -82,7 +82,7 @@ func TestAppStartupAttemptsDaemonSpawnWhenPipeUnreachable(t *testing.T) {
 	}
 
 	var spawnCalls int32
-	app.spawn = func(ctx context.Context, cfg Config) (*exec.Cmd, error) {
+	app.spawn = func(ctx context.Context, cfg Config) (*exec.Cmd, *daemonStderrBuffer, error) {
 		atomic.AddInt32(&spawnCalls, 1)
 		if cfg.PipeName != pipeName {
 			t.Errorf("spawn called with PipeName %q, want %q", cfg.PipeName, pipeName)
@@ -91,7 +91,7 @@ func TestAppStartupAttemptsDaemonSpawnWhenPipeUnreachable(t *testing.T) {
 		// brings a daemon up on pipeName -- OnStartup's retry loop must
 		// observe the pipe stays unreachable and give up rather than
 		// hang.
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	app.OnStartup(context.Background())
@@ -117,9 +117,9 @@ func TestAppStartupSkipsSpawnWhenDaemonAlreadyReachable(t *testing.T) {
 	}
 
 	var spawnCalls int32
-	app.spawn = func(ctx context.Context, cfg Config) (*exec.Cmd, error) {
+	app.spawn = func(ctx context.Context, cfg Config) (*exec.Cmd, *daemonStderrBuffer, error) {
 		atomic.AddInt32(&spawnCalls, 1)
-		return nil, nil
+		return nil, nil, nil
 	}
 	app.dial = func(name string) (net.Conn, error) {
 		return fakeConn{}, nil
