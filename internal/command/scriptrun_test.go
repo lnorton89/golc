@@ -63,7 +63,11 @@ func createScriptWithSource(t *testing.T, registry *command.CommandRegistry, roo
 		t.Fatalf("script create failed: exit=%d stderr=%s", create.ExitCode, create.Stderr)
 	}
 
-	sourcePath := filepath.Join(root, name+".ts")
+	// t.TempDir() rather than root: root may be the real repository root
+	// (skipUnlessDenoProvisionedForCommandTest's real-Deno-gated callers
+	// need it there for toolchain resolution), and this fixture file must
+	// never land in the repository working tree itself.
+	sourcePath := filepath.Join(t.TempDir(), name+".ts")
 	if err := os.WriteFile(sourcePath, []byte(source), 0o644); err != nil {
 		t.Fatalf("write source fixture: %v", err)
 	}
@@ -152,7 +156,11 @@ func TestScriptRunSuccessfulScript(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDefaultCommandRegistry: %v", err)
 	}
-	showPath := "show.golc"
+	// An absolute path in a fresh temp dir, not a path relative to root:
+	// root is the real repository root here (needed for Deno toolchain
+	// resolution), and this show must never collide with a repeat run's
+	// own script names against a stray repo-root show.golc.
+	showPath := filepath.Join(t.TempDir(), "show.golc")
 
 	createScriptWithSource(t, registry, root, showPath, "Chase", `
 console.log("running Chase");
@@ -210,7 +218,9 @@ func TestScriptRunThrowingScriptFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDefaultCommandRegistry: %v", err)
 	}
-	showPath := "show.golc"
+	// See TestScriptRunSuccessfulScript: an absolute temp path, not one
+	// relative to the real repository root.
+	showPath := filepath.Join(t.TempDir(), "show.golc")
 
 	createScriptWithSource(t, registry, root, showPath, "Broken", `
 throw new Error("deliberate failure");

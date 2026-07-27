@@ -283,6 +283,19 @@ func (b *DebugBridge) setPaused(paused bool) {
 	b.mu.Unlock()
 }
 
+// staleEnableNotificationReason is the CDP pause reason V8/Deno reports
+// when Debugger.enable() re-notifies a newly-connected client of a
+// target that is already halted at the pre-existing --inspect-brk
+// initial break (D-01/D-02, 08-13's acceptance-pass finding,
+// deferred-items.md's 08-13 section) -- never a genuine breakpoint hit,
+// which CDP reports as reason "other" with HitBreakpoints populated, nor
+// an exception ("exception"/"promiseRejection"). Left unhandled, this
+// notification can arrive after SetBreakpoints' own
+// Runtime.RunIfWaitingForDebugger call has already resumed the target,
+// re-reporting a pause nothing else will ever resume, so the run just
+// hangs until its deadline kills it.
+const staleEnableNotificationReason = "debugCommand"
+
 // handlePaused translates one Debugger.paused event into a script.status
 // ScriptEvent carrying the paused author-coordinate line number (D-01: a
 // hit breakpoint publishes a paused state with that line number) --
@@ -293,14 +306,34 @@ func (b *DebugBridge) handlePaused(reply *debugger.PausedReply) {
 
 	if len(reply.CallFrames) == 0 {
 		b.publishDebugStatus(fmt.Sprintf("GOLC_SCRIPT_DEBUG_PAUSED: reason=%s", reply.Reason))
+	} else {
+		userLine, inShim := authorLineFromCDP(reply.CallFrames[0].Location.LineNumber, b.shimLineCount)
+		if inShim {
+			b.publishDebugStatus(fmt.Sprintf("GOLC_SCRIPT_DEBUG_PAUSED: reason=%s, %s", reply.Reason, shimErrorMarker))
+		} else {
+			b.publishDebugStatus(fmt.Sprintf("GOLC_SCRIPT_DEBUG_PAUSED: line=%d, reason=%s", userLine, reply.Reason))
+		}
+	}
+
+	b.autoResumeStaleEnableNotification(reply)
+}
+
+// autoResumeStaleEnableNotification resumes execution immediately when
+// reply carries staleEnableNotificationReason with no HitBreakpoints --
+// a re-notification of the already-resumed (or about-to-be-resumed)
+// initial halt, never a genuine breakpoint hit or exception, so a real
+// pause set by the author is never silently skipped. Resume errors are
+// swallowed: by the time this notification is processed the target may
+// already be running again (RunIfWaitingForDebugger having won the
+// race), in which case Debugger.resume legitimately fails and there is
+// nothing to recover from.
+func (b *DebugBridge) autoResumeStaleEnableNotification(reply *debugger.PausedReply) {
+	if reply.Reason != staleEnableNotificationReason || len(reply.HitBreakpoints) != 0 {
 		return
 	}
-	userLine, inShim := authorLineFromCDP(reply.CallFrames[0].Location.LineNumber, b.shimLineCount)
-	if inShim {
-		b.publishDebugStatus(fmt.Sprintf("GOLC_SCRIPT_DEBUG_PAUSED: reason=%s, %s", reply.Reason, shimErrorMarker))
-		return
+	if err := b.client.Debugger.Resume(context.Background(), nil); err == nil {
+		b.setPaused(false)
 	}
-	b.publishDebugStatus(fmt.Sprintf("GOLC_SCRIPT_DEBUG_PAUSED: line=%d, reason=%s", userLine, reply.Reason))
 }
 
 // framesFromCDPCallFrames renders CDP's runtime.CallFrame slice (as
