@@ -11,7 +11,7 @@
       "Read(*.golc-shm)",
       "Read(node_modules/**)",
       "Read(dist/**)",
-      "Read(build/**)",
+      "Read(/build/**)",
       "Read(.tools/**)",
       "Read(tmp/**)"
     ]
