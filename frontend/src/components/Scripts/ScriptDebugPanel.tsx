@@ -19,6 +19,7 @@
 // only way a new run starts is the caller's own onRunAgain handler, wired
 // to re-opening the launch dialog -- never a direct relaunch from here.
 import { useState } from "react";
+import { Play, ChevronsRight, ArrowDownToLine, ArrowUpToLine, X, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
 
 import type { ScriptEventView } from "../../lib/wailsBridge";
 import Chip, { type ChipTone } from "../primitives/Chip/Chip";
@@ -257,16 +258,16 @@ export default function ScriptDebugPanel({
             (T-08-53). */}
         {status === "paused" ? (
           <div className={styles.stepControls}>
-            <Button variant="secondary" onClick={onContinue}>
+            <Button variant="secondary" icon={Play} onClick={onContinue}>
               Continue
             </Button>
-            <Button variant="secondary" onClick={onStepOver}>
+            <Button variant="secondary" icon={ChevronsRight} onClick={onStepOver}>
               Step Over
             </Button>
-            <Button variant="secondary" onClick={onStepInto}>
+            <Button variant="secondary" icon={ArrowDownToLine} onClick={onStepInto}>
               Step Into
             </Button>
-            <Button variant="secondary" onClick={onStepOut}>
+            <Button variant="secondary" icon={ArrowUpToLine} onClick={onStepOut}>
               Step Out
             </Button>
           </div>
@@ -292,6 +293,11 @@ export default function ScriptDebugPanel({
                 onClick={() => setTraceExpanded((current) => !current)}
                 aria-expanded={traceExpanded}
               >
+                {traceExpanded ? (
+                  <ChevronUp size={14} aria-hidden="true" />
+                ) : (
+                  <ChevronDown size={14} aria-hidden="true" />
+                )}
                 {traceExpanded ? "Hide stack trace" : "Show stack trace"}
               </button>
               {traceExpanded ? (
@@ -334,10 +340,10 @@ export default function ScriptDebugPanel({
           </p>
           <p className={styles.bannerBody}>{RESTART_DISCLAIMER}</p>
           <div className={styles.bannerActions}>
-            <Button variant="secondary" onClick={onDismiss}>
+            <Button variant="secondary" icon={X} onClick={onDismiss}>
               Dismiss
             </Button>
-            <Button variant="primary" onClick={onRunAgain}>
+            <Button variant="primary" icon={RotateCcw} onClick={onRunAgain}>
               Run Again
             </Button>
           </div>

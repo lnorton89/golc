@@ -7,6 +7,7 @@
 // BarTimelinePanel (bottom evaluation panel, absorbing PlaybackControls'
 // old Transport/Evaluate control). No ProgrammingService call changed.
 import { useCallback, useEffect, useState } from "react";
+import { Layers, Zap } from "lucide-react";
 
 import {
   activateScene,
@@ -209,7 +210,7 @@ export default function ScenesLooksWorkspace() {
   return (
     <div className={styles.workspace}>
       {inspectorPortal}
-      <Toolbar title="Scenes & Looks" />
+      <Toolbar title="Scenes & Looks" icon={Layers} />
       <div className={styles.canvas}>
         {loading ? (
           <p className={styles.loading}>Loading scene programming…</p>
@@ -239,6 +240,7 @@ export default function ScenesLooksWorkspace() {
                           className={styles.activateButton}
                           onClick={() => void handleActivateScene(selectedScene.name)}
                         >
+                          <Zap size={13} aria-hidden="true" />
                           Activate
                         </button>
                       )}
@@ -263,7 +265,10 @@ export default function ScenesLooksWorkspace() {
                     </ScrollRegion>
                   </>
                 ) : (
-                  <p className={styles.emptyState}>Create a scene to start pointing its layers at reusable looks.</p>
+                  <p className={styles.emptyState}>
+                    <Layers size={14} aria-hidden="true" />
+                    Create a scene to start pointing its layers at reusable looks.
+                  </p>
                 )}
 
                 <BarTimelinePanel activeSceneName={selectedScene?.name ?? null} />

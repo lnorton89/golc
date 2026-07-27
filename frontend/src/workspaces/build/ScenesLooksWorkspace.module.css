@@ -71,6 +71,9 @@
 }
 
 .activateButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
   height: 28px;
   padding: 0 var(--space-sm);
   border: 1px solid var(--accent);
@@ -93,6 +96,9 @@
 }
 
 .emptyState {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
   color: var(--muted);
   font-family: "Archivo", system-ui, sans-serif;
   font-size: var(--text-sm);
