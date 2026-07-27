@@ -2,8 +2,8 @@
   height: 100vh;
   display: grid;
   grid-template-columns: 186px minmax(0, 1fr) 258px;
-  /* safety row is "auto", not a fixed px guess: SafetyCluster's own D-14
-     hold-buttons are a 64px min-height (see SafetyCluster.module.css) --
+  /* safety row is "auto", not a fixed px guess: SafetyCluster's own
+     hold-buttons have a fixed min-height (see SafetyCluster.module.css) --
      "auto" tracks SafetyCluster's real rendered height regardless of
      future token changes, instead of re-guessing a px number here.
      Moved from a bottom footer row to directly under the 52px header
