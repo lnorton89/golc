@@ -147,6 +147,9 @@
 }
 
 .emptyHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
   margin: 0;
   font-family: "Archivo", system-ui, sans-serif;
   font-size: var(--text-xl);

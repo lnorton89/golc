@@ -17,6 +17,7 @@
 // launch callback" is satisfied by the caller's own onSubmit
 // implementation, not by two separate props here.
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { X, Play, Bug } from "lucide-react";
 
 import { errorMessage } from "../../lib/wailsBridge";
 import Field from "../primitives/Field/Field";
@@ -144,7 +145,10 @@ export default function ScriptRunDialog({ mode, scriptName, profile, onSubmit, o
       >
         <form className={styles.form} onSubmit={handleSubmit}>
           <div className={styles.header}>
-            <span className={styles.title}>{title}</span>
+            <span className={styles.title}>
+              {mode === "run" ? <Play size={16} aria-hidden="true" /> : <Bug size={16} aria-hidden="true" />}
+              {title}
+            </span>
           </div>
 
           <div className={styles.body}>
@@ -229,10 +233,16 @@ export default function ScriptRunDialog({ mode, scriptName, profile, onSubmit, o
           </div>
 
           <div className={styles.actions}>
-            <Button type="button" variant="secondary" onClick={onCancel} disabled={submitting}>
+            <Button type="button" variant="secondary" icon={X} onClick={onCancel} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" disabled={submitting} aria-label={submitAriaLabel}>
+            <Button
+              type="submit"
+              variant="primary"
+              icon={mode === "run" ? Play : Bug}
+              disabled={submitting}
+              aria-label={submitAriaLabel}
+            >
               {submitting ? "Launching…" : submitLabel}
             </Button>
           </div>

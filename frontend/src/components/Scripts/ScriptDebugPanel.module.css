@@ -113,6 +113,9 @@
 }
 
 .traceToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
   align-self: flex-start;
   border: none;
   background: none;

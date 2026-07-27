@@ -40,6 +40,7 @@
 // user click on Run/Debug, or "Run Again" re-opening the launch dialog
 // (never relaunching directly) so the profile is always reviewed (D-07).
 import { useCallback, useEffect, useState } from "react";
+import { FileCode2, Plus, X, Check, Save, Trash2, ShieldCheck, Play, Bug, Square } from "lucide-react";
 
 import {
   assertOk,
@@ -603,7 +604,7 @@ export default function ScriptsWorkspace() {
           }
         }}
       />
-      <Button variant="primary" onClick={handleCreate}>
+      <Button variant="primary" icon={Check} onClick={handleCreate}>
         Create
       </Button>
     </div>
@@ -611,16 +612,16 @@ export default function ScriptsWorkspace() {
 
   const toolbarActions = (
     <div className={styles.toolbarActions}>
-      <Button variant="secondary" onClick={() => setCreating((current) => !current)}>
+      <Button variant="secondary" icon={creating ? X : Plus} onClick={() => setCreating((current) => !current)}>
         {creating ? "Cancel" : "New Script"}
       </Button>
-      <Button variant="primary" onClick={handleSave} disabled={!selectedName}>
+      <Button variant="primary" icon={Save} onClick={handleSave} disabled={!selectedName}>
         Save
       </Button>
-      <Button variant="destructive" onClick={() => setConfirmingDelete(true)} disabled={!selectedName}>
+      <Button variant="destructive" icon={Trash2} onClick={() => setConfirmingDelete(true)} disabled={!selectedName}>
         Delete Script
       </Button>
-      <Button variant="secondary" onClick={handleValidate} disabled={!selectedName || validating}>
+      <Button variant="secondary" icon={ShieldCheck} onClick={handleValidate} disabled={!selectedName || validating}>
         Validate
       </Button>
       {/* Run/Debug/Stop Script (D-10): standard 32px Button height, not
@@ -628,6 +629,7 @@ export default function ScriptsWorkspace() {
           top-of-file doc comment. */}
       <Button
         variant="primary"
+        icon={Play}
         onClick={() => setDialogMode("run")}
         disabled={!selectedName || isRunActive || validationBlocksLaunch}
       >
@@ -635,12 +637,13 @@ export default function ScriptsWorkspace() {
       </Button>
       <Button
         variant="secondary"
+        icon={Bug}
         onClick={() => setDialogMode("debug")}
         disabled={!selectedName || isRunActive || validationBlocksLaunch}
       >
         Debug
       </Button>
-      <Button variant="destructive" onClick={handleStop} disabled={!selectedName || !isRunActive}>
+      <Button variant="destructive" icon={Square} onClick={handleStop} disabled={!selectedName || !isRunActive}>
         Stop Script
       </Button>
     </div>
@@ -649,18 +652,21 @@ export default function ScriptsWorkspace() {
   return (
     <div className={styles.workspace}>
       {inspectorPortal}
-      <Toolbar title="Scripts" action={toolbarActions} />
+      <Toolbar title="Scripts" icon={FileCode2} action={toolbarActions} />
       <div className={styles.canvas}>
         {error ? <p className={styles.errorText}>{error}</p> : null}
 
         {!loading && scripts.length === 0 ? (
           <div className={styles.emptyState}>
-            <h3 className={styles.emptyHeading}>No scripts yet</h3>
+            <h3 className={styles.emptyHeading}>
+              <FileCode2 size={20} aria-hidden="true" />
+              No scripts yet
+            </h3>
             <p className={styles.emptyBody}>
               {"Create a script to automate GOLC through the typed SDK. Scripts run in an isolated process and can't touch playback or Art-Net directly."}
             </p>
             {creating ? null : (
-              <Button variant="primary" onClick={() => setCreating(true)}>
+              <Button variant="primary" icon={Plus} onClick={() => setCreating(true)}>
                 New Script
               </Button>
             )}
@@ -681,6 +687,7 @@ export default function ScriptsWorkspace() {
                       <li key={script.id}>
                         <ListRow
                           label={script.name}
+                          icon={FileCode2}
                           meta={
                             <span className={styles.rowMeta}>
                               <Chip tone={chipToneForStatus(script.lastRunStatus)}>
@@ -714,10 +721,10 @@ export default function ScriptsWorkspace() {
                         {`Delete Script: This permanently removes ${selectedScript.name} and its saved capability profile from this show. This can't be undone.`}
                       </p>
                       <div className={styles.deleteConfirmActions}>
-                        <Button variant="destructive" onClick={handleDelete}>
+                        <Button variant="destructive" icon={Trash2} onClick={handleDelete}>
                           Delete Script
                         </Button>
-                        <Button variant="secondary" onClick={() => setConfirmingDelete(false)}>
+                        <Button variant="secondary" icon={X} onClick={() => setConfirmingDelete(false)}>
                           Cancel
                         </Button>
                       </div>

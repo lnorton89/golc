@@ -37,6 +37,9 @@
 }
 
 .title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
   font-family: "Archivo", system-ui, sans-serif;
   font-size: var(--text-lg);
   font-weight: 600;
