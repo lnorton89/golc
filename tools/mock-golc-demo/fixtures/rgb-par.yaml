@@ -1,0 +1,28 @@
+# RGB Par: matches bonzupii/mock-golc's built-in "RGB Par" profile exactly
+# (Dimmer, Red, Green, Blue, in that DMX order) so a deployment.Instance
+# patched to this fixture's "4ch" mode drives the mock rig's default Par
+# fixtures (addresses 1, 5, 9, 13 on universe 0) correctly over Art-Net.
+schema_version: 1
+manufacturer: "GOLC Test Rig"
+model: "RGB Par"
+capabilities:
+  - type: intensity
+    range: [0, 1]
+    comment: "Dimmer"
+  - type: color_red
+    range: [0, 1]
+  - type: color_green
+    range: [0, 1]
+  - type: color_blue
+    range: [0, 1]
+modes:
+  - name: "4ch"
+    channels:
+      - type: intensity
+        occurrence: 0
+      - type: color_red
+        occurrence: 0
+      - type: color_green
+        occurrence: 0
+      - type: color_blue
+        occurrence: 0
