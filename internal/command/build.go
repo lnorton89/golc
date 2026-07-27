@@ -20,6 +20,7 @@ package command
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,6 +29,61 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/lnorton89/golc/internal/bootstrap"
 )
+
+// progressSink is a build-progress destination that behaves two different
+// ways depending on whether a real invocation supplied a live writer.
+//
+// With no live writer (every existing test: Request.Stdout/Stderr are nil,
+// asserting directly against the returned Result), it is a pure
+// bytes.Buffer -- byte-for-byte the prior fully-buffered behavior.
+//
+// With a live writer (magefile.go's runRouteTarget wires the real process
+// stdout/stderr through for an actual "mage Build"), every write is teed to
+// it immediately as it happens, so a long silent step like `go build`
+// shows progress instead of the whole route going quiet until it returns.
+// buffered() then reports nothing, since the content already reached the
+// terminal in real time -- returning it too would print everything a
+// second time when magefile.go flushes the final Result.
+type progressSink struct {
+	live io.Writer
+	buf  bytes.Buffer
+}
+
+func (s *progressSink) Write(p []byte) (int, error) {
+	if s.live != nil {
+		if _, err := s.live.Write(p); err != nil {
+			return 0, err
+		}
+		return len(p), nil
+	}
+	return s.buf.Write(p)
+}
+
+func (s *progressSink) writeString(text string) {
+	_, _ = s.Write([]byte(text))
+}
+
+func (s *progressSink) buffered() []byte {
+	if s.live != nil {
+		return nil
+	}
+	return s.buf.Bytes()
+}
+
+// runProjectGoLive executes one pinned-toolchain Go invocation inside root,
+// writing its stdout/stderr directly to the given sinks as the subprocess
+// produces them (exec.Cmd copies into an io.Writer concurrently, so a
+// progressSink with a live writer streams in real time rather than only
+// after the process exits) -- mirrors test.go's runProjectGo environment
+// setup exactly, just without the fully-buffered-only contract.
+func runProjectGoLive(goExecutable, root string, arguments []string, stdout, stderr io.Writer) error {
+	execution := exec.Command(goExecutable, arguments...)
+	execution.Dir = root
+	execution.Env = projectGoEnvironment(root)
+	execution.Stdout = stdout
+	execution.Stderr = stderr
+	return execution.Run()
+}
 
 var _ = MustDeclareScope(ScopeRegistration{
 	Scope:   "build",
@@ -124,7 +180,7 @@ func resolvePinnedNodeExecutable(root string) (string, error) {
 // <dir>/node_modules/typescript/bin/tsc -p <dir>/tsconfig.json`. It never
 // runs npm install/ci (bootstrap already exact-lock-installed
 // node_modules) and never falls back to a host-PATH `tsc`.
-func runBuildNodeScope(root string, registration NodeBuildScopeRegistration) Result {
+func runBuildNodeScope(root string, registration NodeBuildScopeRegistration, liveStdout, liveStderr io.Writer) Result {
 	nodeExecutable, err := resolvePinnedNodeExecutable(root)
 	if err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
@@ -138,23 +194,23 @@ func runBuildNodeScope(root string, registration NodeBuildScopeRegistration) Res
 	}
 	tsconfigPath := filepath.Join(scopeDir, "tsconfig.json")
 
+	stdout := &progressSink{live: liveStdout}
+	stderr := &progressSink{live: liveStderr}
+	stdout.writeString(fmt.Sprintf("GOLC build: scope %s -> tsc -p %s\n", registration.Scope, tsconfigPath))
+
 	execution := exec.Command(nodeExecutable, tscPath, "-p", tsconfigPath)
 	execution.Dir = scopeDir
 	execution.Env = upsertEnvironment(os.Environ(), "GOLC_PROJECT_ROOT", root)
-	var stdoutBuffer, stderrBuffer bytes.Buffer
-	execution.Stdout = &stdoutBuffer
-	execution.Stderr = &stderrBuffer
+	execution.Stdout = stdout
+	execution.Stderr = stderr
 	err = execution.Run()
 
-	var output bytes.Buffer
-	fmt.Fprintf(&output, "GOLC build: scope %s -> tsc -p %s\n", registration.Scope, tsconfigPath)
-	output.Write(stdoutBuffer.Bytes())
 	if err != nil {
-		stderr := append(stderrBuffer.Bytes(), []byte(fmt.Sprintf("GOLC_BUILD_FAILED: scope %s: %v\n", registration.Scope, err))...)
-		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: stderr}
+		stderr.writeString(fmt.Sprintf("GOLC_BUILD_FAILED: scope %s: %v\n", registration.Scope, err))
+		return Result{ExitCode: 1, Stdout: stdout.buffered(), Stderr: stderr.buffered()}
 	}
-	output.WriteString("GOLC build: scope " + registration.Scope + " compiled cleanly.\n")
-	return Result{Stdout: output.Bytes(), Stderr: stderrBuffer.Bytes()}
+	stdout.writeString("GOLC build: scope " + registration.Scope + " compiled cleanly.\n")
+	return Result{Stdout: stdout.buffered(), Stderr: stderr.buffered()}
 }
 
 // parseBuildArgs accepts exactly two supported forms: no arguments (build
@@ -202,7 +258,7 @@ func runBuild(request Request) Result {
 			diagnostic := fmt.Sprintf("GOLC_BUILD_SCOPE_UNKNOWN: no registered build scope named %q\n", scopeName)
 			return Result{ExitCode: 1, Stderr: []byte(diagnostic)}
 		}
-		return runBuildNodeScope(request.Root, registration)
+		return runBuildNodeScope(request.Root, registration, request.Stdout, request.Stderr)
 	}
 
 	goExecutable, err := resolvePinnedGoExecutable(request.Root)
@@ -215,8 +271,9 @@ func runBuild(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_BUILD_FAILED: %v\n", err))}
 	}
 
-	var output bytes.Buffer
-	output.WriteString("GOLC build: compiling every project package with the pinned toolchain.\n")
+	stdoutSink := &progressSink{live: request.Stdout}
+	stderrSink := &progressSink{live: request.Stderr}
+	stdoutSink.writeString("GOLC build: compiling every project package with the pinned toolchain.\n")
 	// -o <root>/ (a directory target, trailing separator required) makes
 	// `go build` write each main package's binary into the repository
 	// root using its default name (golc-project[.exe],
@@ -243,14 +300,19 @@ func runBuild(request Request) Result {
 	// invocation (cmd/golc-project, tools/golc-mcp): neither defines any
 	// //go:build constraint on "desktop" or "production", so the extra
 	// tags are simply ignored for them.
-	buildArgs := append([]string{"build", "-tags", "desktop,production", "-o", request.Root + string(filepath.Separator)}, packages...)
-	stdout, stderr, err := runProjectGo(goExecutable, request.Root, buildArgs)
-	output.Write(stdout)
+	// -v streams each package's import path to stderr as `go build` gets to
+	// it (Go's own progress output), which combined with runProjectGoLive
+	// writing straight to stdoutSink/stderrSink as the subprocess produces
+	// output (rather than buffering it all and copying it in after Run
+	// returns) is what actually makes a real "mage Build" show progress
+	// instead of going silent for the whole compile.
+	buildArgs := append([]string{"build", "-v", "-tags", "desktop,production", "-o", request.Root + string(filepath.Separator)}, packages...)
+	err = runProjectGoLive(goExecutable, request.Root, buildArgs, stdoutSink, stderrSink)
 	if err != nil {
-		stderr = append(stderr, []byte(fmt.Sprintf("GOLC_BUILD_FAILED: %v\n", err))...)
-		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: stderr}
+		stderrSink.writeString(fmt.Sprintf("GOLC_BUILD_FAILED: %v\n", err))
+		return Result{ExitCode: 1, Stdout: stdoutSink.buffered(), Stderr: stderrSink.buffered()}
 	}
-	output.WriteString("GOLC build: every project package compiled cleanly.\n")
+	stdoutSink.writeString("GOLC build: every project package compiled cleanly.\n")
 
 	// internal/wails/app.go's Wails host spawns the Art-Net daemon from the
 	// SEPARATE pinned copy at .tools/installs/golc_project/<platform>/bin/
@@ -264,11 +326,12 @@ func runBuild(request Request) Result {
 	// GOLC_PLAYBACK_NO_ACTIVE_SCENE startup error well after the fix
 	// landed and "mage Build" reported success). Refreshing it here too
 	// keeps both binaries a single "mage Build" away from current source.
-	if err := refreshPinnedGolcProject(goExecutable, request.Root); err != nil {
-		stderr = append(stderr, []byte(fmt.Sprintf("GOLC_BUILD_PINNED_INSTALL_FAILED: %v\n", err))...)
-		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: stderr}
+	stdoutSink.writeString("GOLC build: refreshing the pinned golc-project daemon binary.\n")
+	if err := refreshPinnedGolcProject(goExecutable, request.Root, stdoutSink, stderrSink); err != nil {
+		stderrSink.writeString(fmt.Sprintf("GOLC_BUILD_PINNED_INSTALL_FAILED: %v\n", err))
+		return Result{ExitCode: 1, Stdout: stdoutSink.buffered(), Stderr: stderrSink.buffered()}
 	}
-	return Result{Stdout: output.Bytes(), Stderr: stderr}
+	return Result{Stdout: stdoutSink.buffered(), Stderr: stderrSink.buffered()}
 }
 
 // refreshPinnedGolcProject rebuilds the pinned golc-project[.exe] copy the
@@ -278,7 +341,7 @@ func runBuild(request Request) Result {
 // missing cmd/golc-project directory is not an error here (mirrors
 // bootstrap's own defensive os.Stat guard) -- a synthetic test fixture
 // repository legitimately has no such directory.
-func refreshPinnedGolcProject(goExecutable, root string) error {
+func refreshPinnedGolcProject(goExecutable, root string, liveStdout, liveStderr io.Writer) error {
 	projectDir := filepath.Join(root, "cmd", "golc-project")
 	info, err := os.Stat(projectDir)
 	if err != nil || !info.IsDir() {
@@ -288,9 +351,14 @@ func refreshPinnedGolcProject(goExecutable, root string) error {
 	if err := os.MkdirAll(filepath.Dir(installPath), 0o755); err != nil {
 		return fmt.Errorf("create pinned install directory: %w", err)
 	}
-	_, stderr, err := runProjectGo(goExecutable, root, []string{"build", "-trimpath", "-o", installPath, "./cmd/golc-project"})
+	var stderrBuffer bytes.Buffer
+	var stderr io.Writer = &stderrBuffer
+	if liveStderr != nil {
+		stderr = io.MultiWriter(&stderrBuffer, liveStderr)
+	}
+	err = runProjectGoLive(goExecutable, root, []string{"build", "-trimpath", "-o", installPath, "./cmd/golc-project"}, liveStdout, stderr)
 	if err != nil {
-		return fmt.Errorf("%w: %s", err, stderr)
+		return fmt.Errorf("%w: %s", err, stderrBuffer.Bytes())
 	}
 	return nil
 }
