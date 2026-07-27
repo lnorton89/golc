@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -17,6 +18,24 @@ const unixSocketName = "artnet.sock"
 // PipeName is the deterministic short per-user Unix-domain socket shared
 // by separately started daemon and client processes.
 var PipeName = filepath.Join("/tmp", fmt.Sprintf("golc-%d", os.Getuid()), unixSocketName)
+
+// ResolveCustomPipeName turns a bare "--pipe <name>" value (every artnet CLI
+// route's own usage string advertises this as just a short name, matching
+// Windows' flat named-pipe namespace) into a full endpoint path inside the
+// same secured per-user directory PipeName already uses -- never a path
+// relative to the caller's own working directory, which secureEndpointDirectory
+// would then require to already be an owner-only 0700 directory (it almost
+// never is: a git checkout is 0755, and a directory on a filesystem that
+// cannot represent Unix permission bits at all can never satisfy that check).
+// A value that already contains a path separator is assumed to be a
+// deliberately chosen full endpoint path (e.g. a test's own private
+// directory) and is returned unchanged.
+func ResolveCustomPipeName(name string) string {
+	if name == "" || strings.ContainsRune(name, '/') {
+		return name
+	}
+	return filepath.Join(filepath.Dir(PipeName), name)
+}
 
 const staleProbeTimeout = 100 * time.Millisecond
 
