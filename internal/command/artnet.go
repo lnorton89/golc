@@ -45,6 +45,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -222,10 +223,14 @@ func parseArtnetArgs(usage string, args []string, boolFlags map[string]bool) (ma
 // pipeNameFromFlags resolves the "--pipe <name>" override every artnet
 // route accepts (tests dial an isolated per-test pipe so they never
 // collide with a real running daemon), defaulting to the production
-// artnetipc.PipeName.
+// artnetipc.PipeName. A bare name is resolved by ResolveCustomPipeName into
+// the same safe per-platform namespace the default endpoint lives in
+// (rather than a raw path taken literally, which on Unix would resolve
+// relative to the caller's current working directory); a value that already
+// looks like a full endpoint path (as tests pass) is returned unchanged.
 func pipeNameFromFlags(values map[string]string) string {
 	if v, ok := values["pipe"]; ok && v != "" {
-		return v
+		return artnetipc.ResolveCustomPipeName(v)
 	}
 	return artnetipc.PipeName
 }
@@ -488,7 +493,12 @@ func runArtnetServe(request Request) Result {
 		Subsystems:     []artnet.Subsystem{apiServer},
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	// os.Interrupt alone only catches Ctrl+C: a Linux process manager
+	// (systemd, Docker, or a bare `kill`) sends SIGTERM by default, which
+	// would otherwise kill this process before shutdownSubsystems (daemon.go)
+	// ever runs, skipping the ordered subsystem teardown and leaving the
+	// Unix-domain socket file behind.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	if err := artnet.Run(ctx, cfg); err != nil {
@@ -694,7 +704,7 @@ func runArtnetDiscover(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	nodes, err := artnet.Discover(ctx, iface, parsed.window)
@@ -1096,7 +1106,7 @@ func fetchArtnetStatus(pipeName, root string) (artnetStatusPayload, Result, bool
 // operator interrupts (Ctrl+C) or a fetch fails.
 func runArtnetStatusWatch(pipeName, root string) Result {
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(sigCh)
 
 	ticker := time.NewTicker(artnetWatchInterval)
