@@ -8,6 +8,7 @@ import type { DestinationId } from "./navigation";
 
 import OverviewWorkspace from "../workspaces/show/OverviewWorkspace";
 import SaveRecoveryWorkspace from "../workspaces/show/SaveRecoveryWorkspace";
+import SettingsWorkspace from "../workspaces/show/SettingsWorkspace";
 import FixtureLibraryWorkspace from "../workspaces/build/FixtureLibraryWorkspace";
 import PatchPoolsWorkspace from "../workspaces/build/PatchPoolsWorkspace";
 import ScenesLooksWorkspace from "../workspaces/build/ScenesLooksWorkspace";
@@ -27,6 +28,8 @@ export default function WorkspaceRouter({ active }: WorkspaceRouterProps) {
       return <OverviewWorkspace />;
     case "show-save-recovery":
       return <SaveRecoveryWorkspace />;
+    case "show-settings":
+      return <SettingsWorkspace />;
     case "build-fixture-library":
       return <FixtureLibraryWorkspace />;
     case "build-patch-pools":

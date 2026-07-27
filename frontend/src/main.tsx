@@ -20,6 +20,12 @@ import "@fontsource/jetbrains-mono/600.css";
 
 import App from "./App";
 import "./index.css";
+import { applyTheme, getStoredTheme } from "./lib/theme";
+
+// Applied before the first render (not inside a component effect) so a
+// stored light/dark preference takes effect immediately -- no flash of the
+// OS-default theme on launch.
+applyTheme(getStoredTheme());
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
