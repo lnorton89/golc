@@ -68,7 +68,7 @@ commands below work offline.
 `config inspect`/`config set`/`config explain`, `test --quick --scope
 <name>`, and `docs` below are not in Mage's fixed target set (`mage
 Bootstrap`, `Generate`, `GenerateCheck`, `Check`, `CheckOffline`,
-`Build`, `Test`, `TestQuick`, `Package`/`PackageFoundation`, `Pr` — see
+`Build`, `Dev`, `Test`, `TestQuick`, `Package`/`PackageFoundation`, `Pr` — see
 the [repository README](../README.md#every-mage-target) for what each
 one does): they take variable arguments a fixed Mage target descriptor
 can't model, so they're invoked directly against the CLI binary
@@ -208,5 +208,7 @@ Originally out of scope for Phase 1 (now delivered — see
 
 At Phase 1 time, none of GOLC's lighting-domain behavior existed yet.
 Fixture pools/deployments (Phase 2), deterministic show programming and
-playback (Phase 3), and observable Art-Net output (Phase 4) have since
-shipped; TypeScript scripting and AI features (Phases 8-9) have not.
+playback (Phase 3), observable Art-Net output (Phase 4), and the
+versioned external `/v1` control API (Phase 7) have since shipped;
+isolated TypeScript scripting (Phase 8) is in progress and AI features
+(Phase 9) have not started.
