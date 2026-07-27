@@ -318,14 +318,25 @@ type playbackStateSummary struct {
 // than mirroring a CLI route: no such read route exists) and returns
 // every scene's layer/active state plus the current BPM as canonical
 // JSON. A show that fails to load surfaces its own diagnostic in
-// Result.Stderr, never a panic.
+// Result.Stderr, never a panic. A fresh/empty show's Scenes is an explicit
+// zero-length slice, never null (mirrors ProgrammingService.ListProgramming's
+// own "every slice present but zero-length" contract): the zero-value
+// playbackStateSummary{} literal below leaves Scenes nil, and Go's
+// encoding/json renders a nil slice as JSON null, not [] -- the frontend's
+// PlaybackStateSummary.scenes is typed as a non-nullable array, so an
+// unguarded consumer (any of the several `state.scenes.find/map/some`
+// call sites) crashed the whole webview with "Cannot read properties of
+// null" the first time a genuinely scene-less show reached this route.
 func (s *PlaybackService) GetState() Result {
 	state, err := show.Load(s.root, s.showPath)
 	if err != nil {
 		return Result{ExitCode: 1, Stderr: err.Error()}
 	}
 
-	summary := playbackStateSummary{BPM: state.Tempo.BPM}
+	summary := playbackStateSummary{
+		BPM:    state.Tempo.BPM,
+		Scenes: make([]sceneSummary, 0, len(state.Scenes)),
+	}
 	for _, sc := range state.Scenes {
 		layers := make([]layerSummary, 0, len(sc.Layers))
 		for _, layer := range sc.Layers {

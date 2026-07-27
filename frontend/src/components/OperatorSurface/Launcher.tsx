@@ -50,7 +50,7 @@ export default function Launcher({ controls }: LauncherProps) {
 
   const sceneControls = controls.filter((control) => control.kind === "scene" && control.scene);
   const masterControls = controls.filter((control) => control.kind === "master");
-  const activeScene = state?.scenes.find((scene) => scene.active) ?? null;
+  const activeScene = state?.scenes?.find((scene) => scene.active) ?? null;
   const activeSceneLayerControls = activeScene
     ? controls.filter((control) => control.kind === "layer" && control.scene === activeScene.name)
     : [];
@@ -65,7 +65,7 @@ export default function Launcher({ controls }: LauncherProps) {
           <div className={styles.grid}>
             {sceneControls.map((control) => {
               const sceneName = control.scene ?? control.label;
-              const isLive = state?.scenes.some((scene) => scene.name === sceneName && scene.active) ?? false;
+              const isLive = state?.scenes?.some((scene) => scene.name === sceneName && scene.active) ?? false;
               return (
                 <ScenePad
                   key={sceneName}
