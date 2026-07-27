@@ -20,6 +20,7 @@
 package wails
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -28,6 +29,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -103,8 +105,50 @@ type dialFunc func(pipeName string) (net.Conn, error)
 
 // spawnFunc launches the supervised daemon child process; App.spawn is
 // swapped for a test double so OnStartup's spawn-on-unreachable path never
-// actually launches a real golc-project.exe during tests.
-type spawnFunc func(ctx context.Context, cfg Config) (*exec.Cmd, error)
+// actually launches a real golc-project.exe during tests. The returned
+// *daemonStderrBuffer (nil in every test double) captures the child's
+// stderr as it runs, so ensureDaemon can surface *why* a spawned daemon
+// never became reachable instead of only the generic dial-timeout
+// message -- a daemon that exits immediately (a bad --show, a
+// config-resolution failure, an engine construction failure) previously
+// failed completely silently, since nothing read the child's stderr at
+// all.
+type spawnFunc func(ctx context.Context, cfg Config) (*exec.Cmd, *daemonStderrBuffer, error)
+
+// maxDaemonStderrBytes bounds daemonStderrBuffer's retained size: the
+// supervised daemon child is long-lived (it runs for the app's whole
+// session, not just the spawn-retry window), so capturing its stderr must
+// never grow unbounded -- only the most recent maxDaemonStderrBytes are
+// kept, oldest bytes dropped first.
+const maxDaemonStderrBytes = 4096
+
+// daemonStderrBuffer is a concurrency-safe io.Writer that retains at most
+// maxDaemonStderrBytes of the most recently written data. Go's os/exec
+// package writes to this Writer from its own internal copy goroutine for
+// as long as the child runs, while ensureDaemon reads String() from a
+// separate goroutine after the dial-retry loop ends -- a plain
+// bytes.Buffer is not safe for that concurrent access, so every access
+// here is mutex-guarded.
+type daemonStderrBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *daemonStderrBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.buf.Write(p)
+	if excess := b.buf.Len() - maxDaemonStderrBytes; excess > 0 {
+		b.buf.Next(excess)
+	}
+	return len(p), nil
+}
+
+func (b *daemonStderrBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
 
 // App is the Wails-bound host struct (cmd/golc-desktop/main.go's
 // options.App{OnStartup: app.OnStartup, OnShutdown: app.OnShutdown}).
@@ -118,6 +162,7 @@ type App struct {
 
 	mu                sync.Mutex
 	daemonCmd         *exec.Cmd
+	daemonStderr      *daemonStderrBuffer
 	daemonSpawned     bool
 	daemonUnreachable bool
 	hotkeyFailures    []HotkeyFailure
@@ -198,7 +243,7 @@ func (a *App) ensureDaemon(ctx context.Context) {
 		return
 	}
 
-	cmd, err := a.spawn(ctx, a.cfg)
+	cmd, stderr, err := a.spawn(ctx, a.cfg)
 	if err != nil {
 		log.Printf("GOLC_WAILS_DAEMON_SPAWN_FAILED: %v", err)
 		a.mu.Lock()
@@ -208,6 +253,7 @@ func (a *App) ensureDaemon(ctx context.Context) {
 	}
 	a.mu.Lock()
 	a.daemonCmd = cmd
+	a.daemonStderr = stderr
 	a.daemonSpawned = true
 	a.mu.Unlock()
 
@@ -222,7 +268,24 @@ func (a *App) ensureDaemon(ctx context.Context) {
 	a.mu.Lock()
 	a.daemonUnreachable = true
 	a.mu.Unlock()
-	log.Printf("GOLC_WAILS_DAEMON_UNREACHABLE: daemon spawned but never became reachable on %s after %d retries", pipeName, a.cfg.DialRetries)
+	log.Printf("GOLC_WAILS_DAEMON_UNREACHABLE: daemon spawned but never became reachable on %s after %d retries%s",
+		pipeName, a.cfg.DialRetries, daemonStderrDetail(stderr))
+}
+
+// daemonStderrDetail returns a ": <trimmed captured stderr>" suffix when
+// stderr is non-nil and non-empty, or "" otherwise -- so the unreachable
+// diagnostic surfaces exactly why a spawned daemon exited/never listened
+// (e.g. GOLC_ARTNET_SERVE_FAILED: ...) instead of leaving the operator
+// with only a generic timeout and no other data to act on.
+func daemonStderrDetail(stderr *daemonStderrBuffer) string {
+	if stderr == nil {
+		return ""
+	}
+	trimmed := strings.TrimSpace(stderr.String())
+	if trimmed == "" {
+		return ""
+	}
+	return ": " + trimmed
 }
 
 // DaemonUnreachable reports whether the most recent OnStartup ended with
@@ -267,10 +330,10 @@ func resolveDaemonExecutable(cfg Config) (string, error) {
 // child process (WIN-02 pattern), mirroring internal/command/artnet.go's
 // runArtnetServe argument shape exactly so the spawned daemon accepts the
 // identical flags a "golc artnet serve" CLI invocation would.
-func defaultSpawn(ctx context.Context, cfg Config) (*exec.Cmd, error) {
+func defaultSpawn(ctx context.Context, cfg Config) (*exec.Cmd, *daemonStderrBuffer, error) {
 	exePath, err := resolveDaemonExecutable(cfg)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	args := []string{
@@ -292,8 +355,10 @@ func defaultSpawn(ctx context.Context, cfg Config) (*exec.Cmd, error) {
 	if cfg.ProjectRoot != "" {
 		cmd.Env = append(os.Environ(), "GOLC_PROJECT_ROOT="+cfg.ProjectRoot)
 	}
+	stderr := &daemonStderrBuffer{}
+	cmd.Stderr = stderr
 	if startErr := cmd.Start(); startErr != nil {
-		return nil, fmt.Errorf("GOLC_WAILS_DAEMON_SPAWN_FAILED: %v", startErr)
+		return nil, nil, fmt.Errorf("GOLC_WAILS_DAEMON_SPAWN_FAILED: %v", startErr)
 	}
-	return cmd, nil
+	return cmd, stderr, nil
 }

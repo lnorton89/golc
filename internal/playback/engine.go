@@ -30,6 +30,7 @@ package playback
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -83,15 +84,35 @@ type Engine struct {
 	cancel context.CancelFunc
 }
 
-// NewEngine compiles state (CONTEXT D-06: an invalid initial state is
-// rejected before any Engine is ever returned -- there is no such thing as
-// an Engine running an invalid plan), establishes a fresh loopStart epoch
-// at bar 0 (03-RESEARCH.md Pitfall 3), and publishes the first activePlan/
-// activeFrame.
+// NewEngine compiles state (CONTEXT D-06: an initial state whose active
+// scene itself fails to resolve is rejected before any Engine is ever
+// returned -- there is no such thing as an Engine running an invalid
+// plan), establishes a fresh loopStart epoch at bar 0 (03-RESEARCH.md
+// Pitfall 3), and publishes the first activePlan/activeFrame.
+//
+// A state with no active scene at all is NOT one of those invalid states
+// (scene.ValidateSingleActiveScene's own doc comment: "zero active scenes
+// is valid, nothing playing" -- SCEN-04): NewEngine instead returns a
+// live, idle Engine with no activePlan/activeFrame published yet.
+// tick/CurrentFrame/CurrentPlan/CurrentPosition/ActiveSceneName already
+// treat a nil activePlan as the idle steady-state (see their own doc
+// comments), and Worker.tick already no-ops on a nil Frame -- so every
+// downstream consumer already tolerated this state; only construction
+// itself refused to produce it. Without this, the daemon (internal/artnet
+// Run, which calls NewEngine before ever opening its IPC listener) could
+// never start against a genuinely fresh show, only ever manifesting one
+// layer up as a generic, silent GOLC_WAILS_DAEMON_UNREACHABLE. lastState
+// is still stored in the idle case so a later SwitchScene (once an
+// operator activates a scene) has a state to activate against.
 func NewEngine(state show.State) (*Engine, error) {
 	plan, err := Compile(state)
 	if err != nil {
-		return nil, err
+		if !errors.Is(err, ErrNoActiveScene) {
+			return nil, err
+		}
+		e := &Engine{loopStart: time.Now(), lastBar: -1}
+		e.lastState.Store(&state)
+		return e, nil
 	}
 
 	e := &Engine{loopStart: time.Now(), lastBar: -1}

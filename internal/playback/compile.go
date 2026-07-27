@@ -11,6 +11,7 @@
 package playback
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -19,6 +20,19 @@ import (
 	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/show"
 )
+
+// ErrNoActiveScene is Compile's sentinel for "state has no active scene"
+// (CONTEXT SCEN-04's own "zero active scenes is valid, nothing playing"
+// invariant, mirrored by scene.ValidateSingleActiveScene's doc comment):
+// distinct from every other Compile failure, which always means the
+// active scene ITSELF is broken. NewEngine relies on errors.Is against
+// this exact value to tell "nothing playing yet" (a legitimate idle
+// steady-state the engine and its daemon should still start into) apart
+// from "the active scene fails to resolve" (still a hard construction
+// failure). Compile's error text is unchanged by this sentinel -- every
+// existing strings.Contains(err.Error(), "GOLC_PLAYBACK_NO_ACTIVE_SCENE")
+// caller keeps matching.
+var ErrNoActiveScene = errors.New("GOLC_PLAYBACK_NO_ACTIVE_SCENE: state has no active scene")
 
 // CompiledChaseStep is one Chase step fully resolved at compile time: the
 // step's authored Attributes plus its effective instance-membership set
@@ -218,7 +232,7 @@ func findActiveScene(scenes []scene.Scene) (scene.Scene, bool) {
 func Compile(state show.State) (CompiledPlan, error) {
 	activeScene, found := findActiveScene(state.Scenes)
 	if !found {
-		return CompiledPlan{}, fmt.Errorf("GOLC_PLAYBACK_NO_ACTIVE_SCENE: state has no active scene")
+		return CompiledPlan{}, ErrNoActiveScene
 	}
 	if err := ValidateBPM(state.Tempo.BPM); err != nil {
 		return CompiledPlan{}, fmt.Errorf("GOLC_PLAYBACK_PLAN_INVALID: %v", err)
