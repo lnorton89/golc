@@ -1,0 +1,33 @@
+# RGBW Wash: matches bonzupii/mock-golc's built-in "RGBW Wash" profile
+# exactly (Dimmer, Red, Green, Blue, White, in that DMX order) so a
+# deployment.Instance patched to this fixture's "5ch" mode drives the mock
+# rig's default Wash fixtures (addresses 17, 22 on universe 0) correctly
+# over Art-Net.
+schema_version: 1
+manufacturer: "GOLC Test Rig"
+model: "RGBW Wash"
+capabilities:
+  - type: intensity
+    range: [0, 1]
+    comment: "Dimmer"
+  - type: color_red
+    range: [0, 1]
+  - type: color_green
+    range: [0, 1]
+  - type: color_blue
+    range: [0, 1]
+  - type: color_white
+    range: [0, 1]
+modes:
+  - name: "5ch"
+    channels:
+      - type: intensity
+        occurrence: 0
+      - type: color_red
+        occurrence: 0
+      - type: color_green
+        occurrence: 0
+      - type: color_blue
+        occurrence: 0
+      - type: color_white
+        occurrence: 0

@@ -18,17 +18,27 @@ package fixture
 type CapabilityType string
 
 // The nine v1 capability types (CONTEXT D-05: PARs, washes, and
-// moving-head spot/wash fixtures).
+// moving-head spot/wash fixtures), plus four additive RGBW color-mixing
+// channel types (CapabilityColor remains the discrete wheel/gel
+// single-value selection; ColorRed/Green/Blue/White are independent
+// continuous per-channel intensities for fixtures that mix color from
+// separate DMX bytes rather than selecting a wheel slot -- distinct
+// CapabilityTypes so each rides its own key in scene.AttributeSet.Values
+// and needs no change to the one-value-per-type engine).
 const (
-	CapabilityIntensity CapabilityType = "intensity"
-	CapabilityColor     CapabilityType = "color"
-	CapabilityPan       CapabilityType = "pan"
-	CapabilityTilt      CapabilityType = "tilt"
-	CapabilityZoom      CapabilityType = "zoom"
-	CapabilityFocus     CapabilityType = "focus"
-	CapabilityGobo      CapabilityType = "gobo"
-	CapabilityShutter   CapabilityType = "shutter"
-	CapabilityStrobe    CapabilityType = "strobe"
+	CapabilityIntensity  CapabilityType = "intensity"
+	CapabilityColor      CapabilityType = "color"
+	CapabilityColorRed   CapabilityType = "color_red"
+	CapabilityColorGreen CapabilityType = "color_green"
+	CapabilityColorBlue  CapabilityType = "color_blue"
+	CapabilityColorWhite CapabilityType = "color_white"
+	CapabilityPan        CapabilityType = "pan"
+	CapabilityTilt       CapabilityType = "tilt"
+	CapabilityZoom       CapabilityType = "zoom"
+	CapabilityFocus      CapabilityType = "focus"
+	CapabilityGobo       CapabilityType = "gobo"
+	CapabilityShutter    CapabilityType = "shutter"
+	CapabilityStrobe     CapabilityType = "strobe"
 )
 
 // SupportedCapabilityTypes is the exact declared enum, in declaration
@@ -36,6 +46,10 @@ const (
 var SupportedCapabilityTypes = []CapabilityType{
 	CapabilityIntensity,
 	CapabilityColor,
+	CapabilityColorRed,
+	CapabilityColorGreen,
+	CapabilityColorBlue,
+	CapabilityColorWhite,
 	CapabilityPan,
 	CapabilityTilt,
 	CapabilityZoom,

@@ -1,0 +1,53 @@
+# Moving Head: matches bonzupii/mock-golc's built-in "Moving Head" profile
+# exactly (Dimmer, Pan, Pan Fine, Tilt, Tilt Fine, Color Wheel, Gobo Wheel,
+# Shutter, Zoom, in that DMX order) so a deployment.Instance patched to
+# this fixture's "9ch" mode drives the mock rig's default Mover fixtures
+# (addresses 27, 36 on universe 0) correctly over Art-Net.
+#
+# Pan Fine/Tilt Fine reuse occurrence 0 of the single pan/tilt capability:
+# GOLC's engine holds one normalized value per capability type per
+# instance (scene.AttributeSet), so the fine channel carries the same
+# scaled byte as its coarse channel rather than true 16-bit sub-degree
+# precision -- a working, if coarse-only, pan/tilt signal.
+schema_version: 1
+manufacturer: "GOLC Test Rig"
+model: "Moving Head"
+capabilities:
+  - type: intensity
+    range: [0, 1]
+    comment: "Dimmer"
+  - type: pan
+    range: [0, 1]
+  - type: tilt
+    range: [0, 1]
+  - type: color
+    range: [0, 1]
+    comment: "Color Wheel"
+  - type: gobo
+    range: [0, 1]
+    comment: "Gobo Wheel"
+  - type: shutter
+    range: [0, 1]
+  - type: zoom
+    range: [0, 1]
+modes:
+  - name: "9ch"
+    channels:
+      - type: intensity
+        occurrence: 0
+      - type: pan
+        occurrence: 0
+      - type: pan
+        occurrence: 0
+      - type: tilt
+        occurrence: 0
+      - type: tilt
+        occurrence: 0
+      - type: color
+        occurrence: 0
+      - type: gobo
+        occurrence: 0
+      - type: shutter
+        occurrence: 0
+      - type: zoom
+        occurrence: 0
