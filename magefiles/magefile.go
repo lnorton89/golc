@@ -218,6 +218,18 @@ func Pr(ctx context.Context) error { return runTarget("pr", ctx) }
 // panics if midicat is missing -- runs before main() unconditionally).
 func Run() error { return runTarget("run", context.Background()) }
 
+// Dev launches `wails dev` -- the hot-reload sibling to Run above -- with
+// the project-local pinned Go/Node/Wails toolchains (.tools/cache/go-bin
+// plus each pinned toolchain's own bin directory) prepended onto the
+// CHILD process's own PATH before it starts, for the same reason Run
+// prepends go-bin for midicat: `wails dev` shells out to bare `go` and
+// `npm` internally (wails.json's own frontend:dev:watcher = "npm run
+// dev"), neither parameterized with an explicit toolchain path, so PATH is
+// the only lever this route has to keep it off whatever host Go/Node/Wails
+// the invoking shell happens to have. See internal/command/dev.go's doc
+// comment for the full analysis.
+func Dev() error { return runTarget("dev", context.Background()) }
+
 func runPRTarget(ctx context.Context, runtime targetRuntime, root string, bootstrapOptions bootstrap.Options) error {
 	graph, err := runtime.loadPRGraph(root)
 	if err != nil {

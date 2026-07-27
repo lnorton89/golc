@@ -258,6 +258,8 @@ func TestScopeConfigStrict(t *testing.T) {
 			"cache.gomodcache",
 			"go_install.midicat.module",
 			"go_install.midicat.version",
+			"go_install.wails.module",
+			"go_install.wails.version",
 			"toolchain.deno.official_host",
 			"toolchain.deno.official_path_prefix",
 			"toolchain.deno.platforms.darwin-amd64.archive_sha256",

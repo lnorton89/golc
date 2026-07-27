@@ -63,8 +63,25 @@ dist/
 
 # --- Wails desktop build output (Phase 6+) --------------------------------------
 
-# Wails compiles into build/bin; packaging jobs produce their own artifacts.
-/build/bin/
+# Wails compiles into <wails.json-dir>/build/bin -- cmd/golc-desktop/wails.json
+# (not a repo-root wails.json; see cmd/golc-desktop/wails.json's own
+# "frontend:dir"/"wailsjsdir" comment in internal/command/dev.go for why),
+# so that is cmd/golc-desktop/build/, not /build/bin/ at the repo root.
+# Packaging jobs produce their own artifacts elsewhere.
+/cmd/golc-desktop/build/
+
+# Wails' own npm-install-skip checksum (pkg/commands/build/base.go's
+# packageChecksumFile) -- parallel to this repo's own
+# frontend/node_modules/.golc-frontend-build-manifest.json, but Wails'
+# independent mechanism, written whenever `mage Dev` runs.
+/frontend/package.json.md5
+
+# `mage Dev`'s `wails dev` auto-generates TS bindings into
+# cmd/golc-desktop/wails.json's own "wailsjsdir" -- unused by this app (the
+# frontend calls the Go backend through its own hand-written
+# frontend/src/lib/wailsBridge.ts, never Wails' generated bindings), but
+# still real build output that must never be committed.
+/frontend/wailsjs/
 
 # --- Foundation package output (mage PackageFoundation) ------------------
 

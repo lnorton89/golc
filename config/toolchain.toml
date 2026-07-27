@@ -151,6 +151,21 @@ archive_sha256 = "5fd6f61170bb7584a4ca3ce4fd01137fe5a8edaf6c096d9f2ad30754d1d927
 version = "v1.0.7"
 module = "gitlab.com/gomidi/tools/midicat"
 
+# wails is the Wails v2 CLI, needed only for `mage RunDev`'s hot-reload dev
+# loop (`wails dev`) -- never for a plain `mage Build`/`mage Run`, which
+# compile cmd/golc-desktop directly with `go build -tags desktop,production`
+# and never shell out to this binary. Installed the same way as midicat:
+# `go install <module>@<version>` using the already-pinned Go toolchain,
+# best-effort/non-fatal per installGoInstallTools (internal/bootstrap/
+# engine.go). Version/module here must stay in sync with
+# internal/bootstrap/cache.go's WailsVersion/WailsModule constants, which
+# reserved this exact GoBin path (WailsBinaryPath) before this pin existed;
+# TestScopeBootstrapCache's toolchain-drift test in bootstrap_test.go
+# enforces the two never disagree.
+[go_install.wails]
+version = "v2.13.0"
+module = "github.com/wailsapp/wails/v2/cmd/wails"
+
 [cache]
 downloads = ".tools/cache/downloads"
 gomodcache = ".tools/cache/go-mod"

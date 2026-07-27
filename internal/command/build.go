@@ -144,11 +144,12 @@ func lookupNodeBuildScope(scopeName string) (NodeBuildScopeRegistration, bool) {
 	return NodeBuildScopeRegistration{}, false
 }
 
-// resolvePinnedNodeExecutable locates the bootstrap-provisioned Node
+// resolvePinnedNodeInstallation locates the bootstrap-provisioned Node
 // toolchain from the committed pin in config/toolchain.toml, mirroring
 // resolvePinnedGoExecutable exactly (never a host PATH lookup, CONTEXT
-// D-01/D-02).
-func resolvePinnedNodeExecutable(root string) (string, error) {
+// D-01/D-02). It returns the full bootstrap.NodeInstallation (not just the
+// node executable) because ensureFrontendDistFresh below needs NPMCLI too.
+func resolvePinnedNodeInstallation(root string) (bootstrap.NodeInstallation, error) {
 	manifestPath := filepath.Join(root, "config", "toolchain.toml")
 	manifest := struct {
 		Toolchain struct {
@@ -158,21 +159,77 @@ func resolvePinnedNodeExecutable(root string) (string, error) {
 		} `toml:"toolchain"`
 	}{}
 	if _, err := toml.DecodeFile(manifestPath, &manifest); err != nil {
-		return "", fmt.Errorf("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: config/toolchain.toml: %v", err)
+		return bootstrap.NodeInstallation{}, fmt.Errorf("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: config/toolchain.toml: %v", err)
 	}
 	version := manifest.Toolchain.Node.Version
 	if version == "" {
-		return "", fmt.Errorf("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: config/toolchain.toml does not pin toolchain.node.version")
+		return bootstrap.NodeInstallation{}, fmt.Errorf("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: config/toolchain.toml does not pin toolchain.node.version")
 	}
 	if !toolchainVersionPattern.MatchString(version) {
-		return "", fmt.Errorf("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: pinned toolchain.node.version %q is not a safe dotted version", version)
+		return bootstrap.NodeInstallation{}, fmt.Errorf("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: pinned toolchain.node.version %q is not a safe dotted version", version)
 	}
 	nodeInstall := filepath.Join(root, ".tools", "toolchains", "node", version, bootstrap.PlatformKey())
 	node, err := bootstrap.ResolveNodeInstallation(nodeInstall)
 	if err != nil {
-		return "", fmt.Errorf("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: %s: set GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC=1 and run 'mage Bootstrap' first: %v", nodeInstall, err)
+		return bootstrap.NodeInstallation{}, fmt.Errorf("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: %s: set GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC=1 and run 'mage Bootstrap' first: %v", nodeInstall, err)
+	}
+	return node, nil
+}
+
+// resolvePinnedNodeExecutable locates the bootstrap-provisioned Node
+// executable alone, for callers (runBuildNodeScope) that never need NPMCLI.
+func resolvePinnedNodeExecutable(root string) (string, error) {
+	node, err := resolvePinnedNodeInstallation(root)
+	if err != nil {
+		return "", err
 	}
 	return node.Executable, nil
+}
+
+// ensureFrontendDistFresh keeps the bare "build" route in sync with
+// frontend source changes: cmd/golc-desktop's `//go:embed all:frontend/dist`
+// only ever reflects whatever was last written there, and bootstrap's own
+// frontend build gate previously only reacted to package.json/
+// package-lock.json changes (dependency drift), never source-only edits --
+// so a source-only change (a .tsx/.module.css edit, vite.config.ts, ...)
+// never reached a freshly built golc-desktop[.exe] without a manual
+// `npm run build`. bootstrap.FrontendDistFresh's hash gate is now
+// source-tree-aware, so this is a cheap no-op on every build where nothing
+// changed, and a real `node <NPMCLI> run build` only when it did. It never
+// runs npm ci (mirrors runBuildNodeScope's own "node_modules is bootstrap's
+// job, not build's" contract) -- a stale/missing node_modules fails here
+// with Node's own diagnostic instead.
+func ensureFrontendDistFresh(root string, stdout, stderr *progressSink) error {
+	frontendDir := filepath.Join(root, "frontend")
+	distIndexPath := filepath.Join(root, "cmd", "golc-desktop", "frontend", "dist", "index.html")
+	fresh, err := bootstrap.FrontendDistFresh(frontendDir, distIndexPath)
+	if err != nil {
+		return err
+	}
+	if fresh {
+		return nil
+	}
+	node, err := resolvePinnedNodeInstallation(root)
+	if err != nil {
+		return err
+	}
+	stdout.writeString("GOLC build: frontend source changed -> npm run build...\n")
+	execution := exec.Command(node.Executable, node.NPMCLI, "run", "build")
+	execution.Dir = frontendDir
+	execution.Env = upsertEnvironment(os.Environ(), "GOLC_PROJECT_ROOT", root)
+	execution.Stdout = stdout
+	execution.Stderr = stderr
+	if err := execution.Run(); err != nil {
+		return fmt.Errorf("GOLC_BUILD_FRONTEND_FAILED: %w", err)
+	}
+	if info, statErr := os.Stat(distIndexPath); statErr != nil || !info.Mode().IsRegular() {
+		return fmt.Errorf("GOLC_BUILD_FRONTEND_FAILED: expected %s after npm run build", distIndexPath)
+	}
+	if err := bootstrap.WriteFrontendBuildManifest(frontendDir); err != nil {
+		return err
+	}
+	stdout.writeString("GOLC build: frontend dist rebuilt.\n")
+	return nil
 }
 
 // runBuildNodeScope compiles one registered Node build scope with the
@@ -266,13 +323,18 @@ func runBuild(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
-	packages, err := buildablePackages(goExecutable, request.Root)
-	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_BUILD_FAILED: %v\n", err))}
-	}
-
 	stdoutSink := &progressSink{live: request.Stdout}
 	stderrSink := &progressSink{live: request.Stderr}
+	if err := ensureFrontendDistFresh(request.Root, stdoutSink, stderrSink); err != nil {
+		stderrSink.writeString(err.Error() + "\n")
+		return Result{ExitCode: 1, Stdout: stdoutSink.buffered(), Stderr: stderrSink.buffered()}
+	}
+
+	packages, err := buildablePackages(goExecutable, request.Root)
+	if err != nil {
+		return Result{ExitCode: 1, Stdout: stdoutSink.buffered(), Stderr: []byte(fmt.Sprintf("GOLC_BUILD_FAILED: %v\n", err))}
+	}
+
 	stdoutSink.writeString("GOLC build: compiling every project package with the pinned toolchain.\n")
 	// -o <root>/ (a directory target, trailing separator required) makes
 	// `go build` write each main package's binary into the repository

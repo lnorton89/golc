@@ -45,6 +45,7 @@ var mageTargets = []MageTarget{
 	{Name: "build", Kind: MageTargetKindRoute, Route: "build", Authority: "internal/command registry"},
 	{Name: "check", Kind: MageTargetKindRoute, Route: "check", Args: []string{"--concern", "project"}, Authority: "internal/command registry"},
 	{Name: "checkoffline", Kind: MageTargetKindRoute, Route: "check", Args: []string{"--offline"}, Authority: "internal/command registry"},
+	{Name: "dev", Kind: MageTargetKindRoute, Route: "dev", Authority: "internal/command registry"},
 	{Name: "generate", Kind: MageTargetKindRoute, Route: "generate", Authority: "internal/command registry"},
 	{Name: "generatecheck", Kind: MageTargetKindRoute, Route: "generate", Args: []string{"--check"}, Authority: "internal/command registry"},
 	{Name: "package", Kind: MageTargetKindRoute, Route: "package", Args: []string{"--foundation"}, Authority: "internal/command registry"},

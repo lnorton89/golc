@@ -90,7 +90,7 @@ func buildExcludedRoutes() map[string]string {
 		"linear validate", "package", "test", "tools update",
 	)
 	addAll(reasonDaemonLifecycle, "artnet serve")
-	addAll(reasonLocalProcessLaunch, "run")
+	addAll(reasonLocalProcessLaunch, "run", "dev")
 	addAll(reasonArtnetFutureWork,
 		"artnet configure", "artnet discover", "artnet interface list",
 		"artnet master set", "artnet safety blackout", "artnet safety revoke-automation",
