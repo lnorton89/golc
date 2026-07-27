@@ -11,7 +11,7 @@ A modern lighting-control application for operators of small live shows — club
 
 GOLC combines a fast, modular show-authoring workflow with TypeScript scripting, autonomous LLM control, and a well-documented API, so people, scripts, external programs, and AI agents can all create and operate fixture patches, scenes, chases, and show playback through the same system. The first release targets Windows and outputs Art-Net.
 
-> **Status: early development, pre-alpha.** GOLC is being built in dependency-ordered phases; see [Roadmap](#roadmap). Phases 1–6 are complete: offline configuration and delivery traceability, modular fixtures and deployments, deterministic show programming and playback, observable Art-Net output, durable show storage/recovery, and the full Wails authoring and operator surface (on-screen and keyboard playback, the safety cluster, the operator-surface builder, and generic MIDI Note/CC learn with soft takeover, verified against real hardware) are implemented and tested. Phase 7 (Versioned External Control API) is in progress — a Chi+Huma `/v1` HTTP API hosted inside the existing Art-Net daemon, with scoped API-key auth, revision-checked/dry-run/idempotent mutations, and a post-mutation observer seam are done; atomic batching, the audit log, revisioned SSE, and the generated OpenAPI contract remain.
+> **Status: early development, pre-alpha.** GOLC is being built in dependency-ordered phases; see [Roadmap](#roadmap). Phases 1–7 are complete: offline configuration and delivery traceability, modular fixtures and deployments, deterministic show programming and playback, observable Art-Net output, durable show storage/recovery, the full Wails authoring and operator surface (on-screen and keyboard playback, the safety cluster, the operator-surface builder, and generic MIDI Note/CC learn with soft takeover, verified against real hardware), and the versioned external `/v1` control API (Chi+Huma, scoped API-key auth, revision-checked/dry-run/idempotent mutations and atomic batching, revisioned SSE, and a drift-checked generated OpenAPI contract) are implemented and tested. Phase 8 (Isolated TypeScript Automation) is in progress — capability-limited script authoring and execution in a sandboxed Deno runtime, with a Monaco-based script editor and a source-mapped step debugger.
 
 ## TL;DR
 
@@ -110,7 +110,8 @@ Bootstrap verifies every tool archive against committed SHA-256 pins in `config/
 | `mage GenerateCheck` | Reports generated-file drift without writing — what CI runs. |
 | `mage Check` | Runs the strict project configuration concern check. |
 | `mage CheckOffline` | Runs `generate`, `check`, `build`, and `test --quick` in order with network access denied — the offline core graph. |
-| `mage Build` | Compiles every project package, including `cmd/golc-desktop`. |
+| `mage Build` | Compiles every project package, including `cmd/golc-desktop`; rebuilds the embedded frontend first if any frontend source changed. |
+| `mage Dev` | Runs `wails dev` (hot-reload desktop dev loop) with the pinned Go/Node/Wails toolchains prepended onto its PATH. |
 | `mage Test` | Runs the complete test route: the full Go suite plus every registered Node scope (requires the Linear-sync workspace bootstrap above). |
 | `mage TestQuick` | Fast `go vet`-only quick test route — never touches Node scopes or the Linear process-transport tests, so it works without the Linear-sync bootstrap opt-in. |
 | `mage Package` / `mage PackageFoundation` | Builds the deterministic developer-tool foundation ZIP (`dist/foundation/`) — see [Configuration model](#configuration-model)'s `commands.toml`. Windows-AMD64-specific by design (a developer-tool bundle, not a cross-platform release artifact). |
@@ -224,8 +225,8 @@ tests/                  Acceptance tests and data-only fixtures
 | 4 | Observable Art-Net Live Output | Complete |
 | 5 | Durable Shows and Recovery | Complete |
 | 6 | Wails Authoring and Operator Surface | Complete |
-| 7 | Versioned External Control API | **In progress (5/9 plans)** |
-| 8 | Isolated TypeScript Automation | Not started |
+| 7 | Versioned External Control API | Complete |
+| 8 | Isolated TypeScript Automation | **In progress (12/13 plans)** |
 | 9 | Provider-Neutral AI and Bounded Autonomy | Not started |
 | 10 | Windows Release Qualification | Not started |
 | 11 | Telemetry, Usage Statistics, and Auto Crash Submission Pipeline | Not started |
@@ -238,8 +239,8 @@ Full phase goals and success criteria live in [.planning/ROADMAP.md](.planning/R
 - **Desktop UI:** Wails, React, TypeScript, Zustand (delivered, Phase 6)
 - **Output protocol:** Art-Net 4 (delivered, Phase 4)
 - **Operator input:** generic MIDI Note/CC learn with soft takeover (delivered, Phase 6 — verified against real hardware)
-- **External control:** versioned HTTP API (Chi + Huma, OpenAPI-generated) (in progress, Phase 7)
-- **Scripting:** TypeScript in an isolated, capability-limited runtime (planned, Phase 8)
+- **External control:** versioned HTTP API (Chi + Huma, OpenAPI-generated) (delivered, Phase 7)
+- **Scripting:** TypeScript in an isolated, capability-limited runtime (in progress, Phase 8)
 - **Fixture format:** strict YAML 1.2 subset with versioned schemas
 - **Show storage:** single-file, versioned SQLite `.golc` store with rotating recovery points and verified-backup schema migration (delivered, Phase 5)
 - **Delivery tracking:** Linear, reconciled offline-safe from repository-owned identities

@@ -16,7 +16,7 @@ Mage (`magefiles/magefile.go`) is the sole contributor entrypoint; it calls `int
 | `golc_list_phases` | Every roadmap phase’s number/title/goal/status/plan-progress |
 | `golc_get_phase_detail` | One phase’s full detail section (goal, mode, deps, requirements, waves) |
 | `golc_list_command_routes` | Every route reachable right now, live from the command API’s own registry |
-| `golc_list_mage_targets` | All eleven shared Mage descriptors; Bootstrap reports `GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC=1` as the pinned Node/Linear tooling prerequisite, and the PR record includes authority keys, ordered steps, arguments, network policy, and mutation policy |
+| `golc_list_mage_targets` | All thirteen shared Mage descriptors; Bootstrap reports `GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC=1` as the pinned Node/Linear tooling prerequisite, and the PR record includes authority keys, ordered steps, arguments, network policy, and mutation policy |
 | `golc_list_test_scopes` | Every valid `test --quick --scope <name>` value (best-effort source scan) |
 | `golc_list_config_concerns` | The concern/key registry: which file owns which canonical config keys |
 | `golc_config_inspect` | Resolved JSON for one config concern |
