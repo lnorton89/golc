@@ -1,4 +1,21 @@
 {
+  "permissions": {
+    "deny": [
+      "Read(*.exe)",
+      "Read(*.dll)",
+      "Read(*.so)",
+      "Read(*.dylib)",
+      "Read(*.log)",
+      "Read(*.golc)",
+      "Read(*.golc-wal)",
+      "Read(*.golc-shm)",
+      "Read(node_modules/**)",
+      "Read(dist/**)",
+      "Read(build/**)",
+      "Read(.tools/**)",
+      "Read(tmp/**)"
+    ]
+  },
   "hooks": {
     "Stop": [
       {
