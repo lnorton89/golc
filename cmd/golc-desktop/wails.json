@@ -10,5 +10,9 @@
   "wailsjsdir": "../../frontend/wailsjs",
   "author": {
     "name": "GOLC"
+  },
+  "info": {
+    "companyName": "GOLC",
+    "productName": "GOLC"
   }
 }
