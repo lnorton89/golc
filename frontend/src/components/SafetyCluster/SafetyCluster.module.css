@@ -1,15 +1,14 @@
 /*
  * SafetyCluster.module.css -- the dedicated, visually distinct, fixed-
  * position safety cluster (D-13/D-15): a full-width strip fixed directly
- * under the header, grouping the three 64px hold-to-confirm controls
- * (D-14, 06-UI-SPEC.md's "Spacing exception: fixed 64px minimum
- * touch-target height ... these are the phase's highest-consequence,
- * must-hit-under-pressure targets and should read as unmistakably larger
- * than any other on-screen control"). Icon/polish pass: moved from a
- * boxed, all-sides-bordered bottom footer to a compact toolbar-style strip
- * (thin bottom rule instead of a full border, tighter padding/gaps) --
- * the 64px control height itself is unchanged, so the hold-to-confirm
- * targets are exactly as easy to hit under pressure as before.
+ * under the header, grouping the three hold-to-confirm controls (D-14).
+ * Icon/polish pass: moved from a boxed, all-sides-bordered bottom footer
+ * to a compact toolbar-style strip (thin bottom rule instead of a full
+ * border, tighter padding/gaps). Sizing pass: the row was shrunk to sit
+ * clearly under the 52px header's own height -- the original 64px
+ * min-height read as oversized next to it -- while keeping the controls
+ * visually distinct via color, the ACTIVE badge, and the fill/progress
+ * indicator rather than sheer size.
  */
 
 .cluster {
@@ -23,7 +22,7 @@
 .control {
   position: relative;
   overflow: hidden;
-  min-height: 64px;
+  min-height: 36px;
   min-width: 132px;
   display: flex;
   align-items: center;
