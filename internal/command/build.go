@@ -251,7 +251,48 @@ func runBuild(request Request) Result {
 		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: stderr}
 	}
 	output.WriteString("GOLC build: every project package compiled cleanly.\n")
+
+	// internal/wails/app.go's Wails host spawns the Art-Net daemon from the
+	// SEPARATE pinned copy at .tools/installs/golc_project/<platform>/bin/
+	// golc-project[.exe] (bootstrap.installGoInstallTools's own
+	// GOLC_BOOTSTRAP_PROJECT_BUILD step first provisions it) -- never the
+	// repo-root golc-project[.exe] this route just wrote above. Without
+	// this, "mage Build" gives every appearance of being up to date while
+	// "mage Run" silently launches whatever daemon build `mage Bootstrap`
+	// last happened to produce, however stale (observed live: a
+	// day-old pinned copy kept failing with a since-fixed
+	// GOLC_PLAYBACK_NO_ACTIVE_SCENE startup error well after the fix
+	// landed and "mage Build" reported success). Refreshing it here too
+	// keeps both binaries a single "mage Build" away from current source.
+	if err := refreshPinnedGolcProject(goExecutable, request.Root); err != nil {
+		stderr = append(stderr, []byte(fmt.Sprintf("GOLC_BUILD_PINNED_INSTALL_FAILED: %v\n", err))...)
+		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: stderr}
+	}
 	return Result{Stdout: output.Bytes(), Stderr: stderr}
+}
+
+// refreshPinnedGolcProject rebuilds the pinned golc-project[.exe] copy the
+// Wails host's daemon-spawn path resolves (internal/wails/app.go's
+// resolveDaemonExecutable), mirroring bootstrap.installGoInstallTools's own
+// build invocation exactly so the two can never drift out of sync. A
+// missing cmd/golc-project directory is not an error here (mirrors
+// bootstrap's own defensive os.Stat guard) -- a synthetic test fixture
+// repository legitimately has no such directory.
+func refreshPinnedGolcProject(goExecutable, root string) error {
+	projectDir := filepath.Join(root, "cmd", "golc-project")
+	info, err := os.Stat(projectDir)
+	if err != nil || !info.IsDir() {
+		return nil
+	}
+	installPath := bootstrap.PlatformExecutablePath(filepath.Join(root, ".tools", "installs", "golc_project"), "golc-project")
+	if err := os.MkdirAll(filepath.Dir(installPath), 0o755); err != nil {
+		return fmt.Errorf("create pinned install directory: %w", err)
+	}
+	_, stderr, err := runProjectGo(goExecutable, root, []string{"build", "-trimpath", "-o", installPath, "./cmd/golc-project"})
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, stderr)
+	}
+	return nil
 }
 
 // magefilesImportSuffix is the import-path suffix of the magefiles package,
