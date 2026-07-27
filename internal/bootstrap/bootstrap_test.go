@@ -1475,6 +1475,27 @@ func TestScopeBootstrapCache(t *testing.T) {
 		if got, want := layout.WailsBinaryPath(""), filepath.Join(layout.GoBin, "wails"); got != want {
 			t.Fatalf("expected WailsBinaryPath(\"\") = %q, got %q", want, got)
 		}
+
+		// config/toolchain.toml's [go_install.wails] pin (installGoInstallTools'
+		// generic go_install provisioning loop) must never drift from these
+		// constants -- WailsBinaryPath above reserves the exact GoBin path this
+		// pin's install actually lands the binary at, so a version/module
+		// mismatch between the two would silently provision the wrong Wails CLI
+		// at the path mage RunDev (internal/command/rundev.go) expects.
+		document, _, err := readBootstrapManifest(filepath.Join("..", ".."))
+		if err != nil {
+			t.Fatalf("read production manifest: %v", err)
+		}
+		wails, ok := document.GoInstall["wails"]
+		if !ok {
+			t.Fatal("production manifest missing go_install.wails")
+		}
+		if wails.Version != WailsVersion {
+			t.Fatalf("go_install.wails version = %q, want WailsVersion %q", wails.Version, WailsVersion)
+		}
+		if wails.Module != WailsModule {
+			t.Fatalf("go_install.wails module = %q, want WailsModule %q", wails.Module, WailsModule)
+		}
 	})
 
 	t.Run("EnsureDirectories creates missing directories and rejects a path that is already a file", func(t *testing.T) {

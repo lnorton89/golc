@@ -254,6 +254,15 @@ func DefaultSpec() Spec {
 					// database verifies it instead.
 					"go_install.midicat.version": {Pattern: goInstallVersionPattern, Required: true},
 					"go_install.midicat.module":  {Pattern: goInstallModulePattern, Required: true},
+					// go_install.wails pins the Wails v2 CLI `mage Dev`
+					// (internal/command/dev.go) shells `wails dev` through --
+					// never needed for a plain build/run, which compile
+					// cmd/golc-desktop directly. Version/module must match
+					// internal/bootstrap/cache.go's WailsVersion/WailsModule
+					// constants (bootstrap_test.go's
+					// TestScopeBootstrapCache enforces this).
+					"go_install.wails.version": {Pattern: goInstallVersionPattern, Required: true},
+					"go_install.wails.module":  {Pattern: goInstallModulePattern, Required: true},
 				},
 			},
 			{
