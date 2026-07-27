@@ -5,6 +5,8 @@
 // that's retired now: showing it alongside OperatorSurface's own Launcher
 // would duplicate scene-switching UI the moment a surface is in operate
 // mode.
+import { SlidersHorizontal } from "lucide-react";
+
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
 import OperatorSurface from "../../components/OperatorSurface/OperatorSurface";
 import styles from "../workspace.module.css";
@@ -12,7 +14,7 @@ import styles from "../workspace.module.css";
 export default function OperatorSurfaceWorkspace() {
   return (
     <div className={styles.workspace}>
-      <Toolbar title="Operator Surface" />
+      <Toolbar title="Operator Surface" icon={SlidersHorizontal} />
       <div className={styles.canvas}>
         <OperatorSurface />
       </div>

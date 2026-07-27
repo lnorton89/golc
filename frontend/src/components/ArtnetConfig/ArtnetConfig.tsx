@@ -34,6 +34,7 @@
 // interactive mid-execution checkpoint.
 
 import { useCallback, useEffect, useState } from "react";
+import { Plus, Power, PowerOff, Network, TriangleAlert } from "lucide-react";
 
 import {
   configureArtnetTarget,
@@ -166,6 +167,7 @@ export default function ArtnetConfig() {
             <div className={styles.offlinePanel}>
               <span className={styles.offlineChip}>offline</span>
               <p className={styles.offlineText}>
+                <TriangleAlert size={14} aria-hidden="true" style={{ verticalAlign: "-2px", marginRight: 4 }} />
                 Can&rsquo;t reach the playback engine. GOLC will try to
                 reconnect automatically — Blackout and Stop/Release-All
                 remain available.
@@ -178,7 +180,10 @@ export default function ArtnetConfig() {
             <h3 className={styles.subsectionHeading}>Network Interfaces</h3>
             {interfaces.length === 0 ? (
               <div className={styles.emptyState}>
-                <p className={styles.emptyHeading}>No network interfaces found</p>
+                <p className={styles.emptyHeading}>
+                  <Network size={18} aria-hidden="true" />
+                  No network interfaces found
+                </p>
               </div>
             ) : (
               <ul className={styles.rowScroll} aria-label="Interface list">
@@ -249,13 +254,17 @@ export default function ArtnetConfig() {
                 disabled={actionLoading}
                 onClick={() => void handleAddTarget()}
               >
+                <Plus size={14} aria-hidden="true" />
                 {actionLoading ? "Configuring…" : "Add Target"}
               </button>
             </div>
 
             {targets.length === 0 ? (
               <div className={styles.emptyState}>
-                <p className={styles.emptyHeading}>No Art-Net targets configured</p>
+                <p className={styles.emptyHeading}>
+                  <Network size={18} aria-hidden="true" />
+                  No Art-Net targets configured
+                </p>
                 <p className={styles.emptyBody}>
                   Configure a universe and unicast IP target above to start
                   sending Art-Net output.
@@ -294,6 +303,11 @@ export default function ArtnetConfig() {
                           disabled={actionLoading}
                           onClick={() => void handleToggleTarget(target)}
                         >
+                          {target.enabled ? (
+                            <PowerOff size={13} aria-hidden="true" />
+                          ) : (
+                            <Power size={13} aria-hidden="true" />
+                          )}
                           {target.enabled ? "Disable" : "Enable"}
                         </button>
                       </div>

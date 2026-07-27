@@ -8,6 +8,18 @@
   flex-shrink: 0;
 }
 
+.labelGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.icon {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
 .label {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: var(--text-xs);

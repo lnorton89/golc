@@ -18,6 +18,7 @@
 // action (a verified backup, then an atomic schema rewrite) this round
 // keeps as an explicit, deliberate command-line step.
 import { useCallback, useEffect, useState } from "react";
+import { Save as SaveIcon, Copy, History, Check, Trash2 } from "lucide-react";
 
 import {
   acceptRecoveryPoint,
@@ -35,6 +36,7 @@ import Panel from "../../components/primitives/Panel/Panel";
 import PanelHeader from "../../components/primitives/PanelHeader/PanelHeader";
 import Button from "../../components/primitives/Button/Button";
 import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion";
+import EmptyState from "../../components/primitives/EmptyState/EmptyState";
 import styles from "./SaveRecoveryWorkspace.module.css";
 
 export default function SaveRecoveryWorkspace() {
@@ -125,7 +127,7 @@ export default function SaveRecoveryWorkspace() {
 
   return (
     <div className={styles.workspace}>
-      <Toolbar title="Save & Recovery" />
+      <Toolbar title="Save & Recovery" icon={SaveIcon} />
       <div className={styles.canvas}>
         {loading ? (
           <p className={styles.loading}>Loading save & recovery…</p>
@@ -142,9 +144,9 @@ export default function SaveRecoveryWorkspace() {
 
             <div className={styles.layout}>
               <Panel>
-                <PanelHeader label="Save" />
+                <PanelHeader label="Save" icon={SaveIcon} />
                 <div className={styles.saveRow}>
-                  <Button variant="primary" disabled={saving} onClick={() => void handleSave()}>
+                  <Button variant="primary" icon={SaveIcon} disabled={saving} onClick={() => void handleSave()}>
                     {saving ? "Saving…" : "Save"}
                   </Button>
                   <input
@@ -160,7 +162,7 @@ export default function SaveRecoveryWorkspace() {
                       }
                     }}
                   />
-                  <Button variant="secondary" disabled={savingAs} onClick={() => void handleSaveAs()}>
+                  <Button variant="secondary" icon={Copy} disabled={savingAs} onClick={() => void handleSaveAs()}>
                     {savingAs ? "Saving…" : "Save As"}
                   </Button>
                 </div>
@@ -169,9 +171,15 @@ export default function SaveRecoveryWorkspace() {
               <Panel>
                 <PanelHeader
                   label={`Recovery Points (${points.length})`}
+                  icon={History}
                   action={
                     points.length > 0 ? (
-                      <Button variant="destructive" disabled={discarding} onClick={() => void handleDiscardAll()}>
+                      <Button
+                        variant="destructive"
+                        icon={Trash2}
+                        disabled={discarding}
+                        onClick={() => void handleDiscardAll()}
+                      >
                         {discarding ? "Discarding…" : "Discard All"}
                       </Button>
                     ) : undefined
@@ -179,9 +187,9 @@ export default function SaveRecoveryWorkspace() {
                 />
                 <ScrollRegion>
                   {points.length === 0 ? (
-                    <p className={styles.emptyState}>
+                    <EmptyState icon={History}>
                       No interrupted-session recovery points are currently offered.
-                    </p>
+                    </EmptyState>
                   ) : (
                     <ul className={styles.list} aria-label="Recovery point list">
                       {points.map((point) => (
@@ -192,6 +200,7 @@ export default function SaveRecoveryWorkspace() {
                           </div>
                           <Button
                             variant="primary"
+                            icon={Check}
                             disabled={acceptingId !== null}
                             onClick={() => void handleAccept(point.id)}
                           >

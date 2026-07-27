@@ -1,0 +1,13 @@
+.emptyState {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: var(--space-sm) var(--space-md);
+  color: var(--muted);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+}
+
+.icon {
+  flex-shrink: 0;
+}

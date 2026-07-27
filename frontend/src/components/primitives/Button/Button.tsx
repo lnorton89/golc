@@ -3,7 +3,13 @@
 // --panel), and destructive (--status-revoked, for Remove/Unassign-class
 // actions). A native <button> underneath -- no Radix here, nothing in this
 // primitive needs its composition (see shell restructure plan Step 8).
+//
+// `icon` is an optional leading glyph (lucide-react component reference,
+// not an element -- callers pass `icon={Save}`, not `icon={<Save />}`, so
+// this primitive controls size/aria-hidden consistently everywhere). Purely
+// additive: every existing text-only call site is unaffected.
 import type { ButtonHTMLAttributes } from "react";
+import type { LucideIcon } from "lucide-react";
 
 import styles from "./Button.module.css";
 
@@ -11,6 +17,7 @@ export type ButtonVariant = "primary" | "secondary" | "destructive";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
+  icon?: LucideIcon;
 }
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
@@ -19,9 +26,21 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
   destructive: styles.destructive,
 };
 
-export default function Button({ variant = "secondary", className, type = "button", ...rest }: ButtonProps) {
+export default function Button({
+  variant = "secondary",
+  icon: Icon,
+  className,
+  type = "button",
+  children,
+  ...rest
+}: ButtonProps) {
   const combinedClassName = className
     ? `${styles.button} ${VARIANT_CLASS[variant]} ${className}`
     : `${styles.button} ${VARIANT_CLASS[variant]}`;
-  return <button type={type} className={combinedClassName} {...rest} />;
+  return (
+    <button type={type} className={combinedClassName} {...rest}>
+      {Icon ? <Icon size={14} className={styles.icon} aria-hidden="true" /> : null}
+      {children}
+    </button>
+  );
 }

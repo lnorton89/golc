@@ -6,6 +6,9 @@
 }
 
 .bpmDisplay {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
   height: 28px;
   padding: 0 var(--space-sm);
   border: 1px solid transparent;
@@ -17,6 +20,11 @@
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.bpmIcon {
+  flex-shrink: 0;
+  color: var(--muted);
 }
 
 .bpmDisplay:hover {
@@ -37,6 +45,9 @@
 }
 
 .button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
   height: 28px;
   padding: 0 var(--space-sm);
   border: 1px solid var(--line);

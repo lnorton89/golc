@@ -6,6 +6,7 @@
 // through shared Go commands" is documented as a *programming*-workspace
 // concern, not a performance one.
 import { useState } from "react";
+import { Zap } from "lucide-react";
 
 import Button from "../primitives/Button/Button";
 import { dispatch } from "../../lib/playbackDispatch";
@@ -42,7 +43,7 @@ export default function BarTimelinePanel({ activeSceneName }: BarTimelinePanelPr
           value={evaluateAt}
           onChange={(event) => setEvaluateAt(event.target.value)}
         />
-        <Button variant="primary" onClick={() => void handleEvaluate()}>
+        <Button variant="primary" icon={Zap} onClick={() => void handleEvaluate()}>
           Evaluate
         </Button>
       </div>

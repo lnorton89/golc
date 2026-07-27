@@ -2,19 +2,20 @@
   height: 100vh;
   display: grid;
   grid-template-columns: 186px minmax(0, 1fr) 258px;
-  /* footer is "auto", not a fixed px guess: SafetyCluster's own D-14
-     hold-buttons are a 64px min-height (see SafetyCluster.module.css)
-     plus the cluster's own padding, which adds up to well over the 48px
-     this row was previously fixed at -- clipping the safety controls at
-     the bottom of the window (confirmed live: the safety cluster's own
-     red border was cut off mid-button in a real golc-desktop.exe run).
+  /* safety row is "auto", not a fixed px guess: SafetyCluster's own D-14
+     hold-buttons are a 64px min-height (see SafetyCluster.module.css) --
      "auto" tracks SafetyCluster's real rendered height regardless of
-     future token changes, instead of re-guessing a px number here. */
-  grid-template-rows: 52px minmax(0, 1fr) auto;
+     future token changes, instead of re-guessing a px number here.
+     Moved from a bottom footer row to directly under the 52px header
+     (still full-width, still fixed/always-mounted -- see
+     SafetyCluster.tsx's own doc comment: D-13 requires this region stay
+     visible and interactive on every workspace, independent of daemon
+     reachability, regardless of screen position). */
+  grid-template-rows: 52px auto minmax(0, 1fr);
   grid-template-areas:
     "header header header"
-    "rail main inspector"
-    "footer footer footer";
+    "safety safety safety"
+    "rail main inspector";
   overflow: hidden;
   background: var(--page);
   color: var(--ink);
@@ -22,6 +23,11 @@
 
 .header {
   grid-area: header;
+  min-width: 0;
+}
+
+.safety {
+  grid-area: safety;
   min-width: 0;
 }
 
@@ -40,11 +46,6 @@
 .inspector {
   grid-area: inspector;
   min-height: 0;
-}
-
-.footer {
-  grid-area: footer;
-  min-width: 0;
 }
 
 /* Compact desktop widths: collapse the inspector column and let the rail

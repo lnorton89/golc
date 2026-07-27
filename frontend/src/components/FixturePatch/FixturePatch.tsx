@@ -43,6 +43,7 @@
 // than an interactive mid-execution checkpoint.
 
 import { useCallback, useEffect, useState } from "react";
+import { Plus, Eye, X, Check, Zap, Package, Boxes } from "lucide-react";
 
 import {
   activateDeployment,
@@ -284,13 +285,17 @@ export default function FixturePatch() {
                 className={styles.primaryButton}
                 onClick={() => void handleCreatePool()}
               >
+                <Plus size={14} aria-hidden="true" />
                 Create Pool
               </button>
             </div>
 
             {pools.length === 0 ? (
               <div className={styles.emptyState}>
-                <p className={styles.emptyHeading}>No fixture pools yet</p>
+                <p className={styles.emptyHeading}>
+                  <Package size={18} aria-hidden="true" />
+                  No fixture pools yet
+                </p>
                 <p className={styles.emptyBody}>
                   Create a pool, then add a fixture at a mode to patch it into a
                   deployment.
@@ -317,6 +322,7 @@ export default function FixturePatch() {
                           className={styles.secondaryButton}
                           onClick={() => handleStartAddMember(p.name)}
                         >
+                          <Plus size={13} aria-hidden="true" />
                           Add Fixture
                         </button>
                       </div>
@@ -367,6 +373,7 @@ export default function FixturePatch() {
                               disabled={previewLoading}
                               onClick={() => void handlePreviewAddMember()}
                             >
+                              <Eye size={14} aria-hidden="true" />
                               {previewLoading ? "Reviewing…" : "Review Impact"}
                             </button>
                             <button
@@ -374,6 +381,7 @@ export default function FixturePatch() {
                               className={styles.secondaryButton}
                               onClick={() => setAddPoolTarget(null)}
                             >
+                              <X size={13} aria-hidden="true" />
                               Cancel
                             </button>
                           </div>
@@ -454,6 +462,7 @@ export default function FixturePatch() {
                                   }
                                   onClick={() => void handleApplyPreview()}
                                 >
+                                  <Check size={14} aria-hidden="true" />
                                   {applyLoading ? "Applying…" : "Apply"}
                                 </button>
                                 <button
@@ -461,6 +470,7 @@ export default function FixturePatch() {
                                   className={styles.secondaryButton}
                                   onClick={handleCancelPreview}
                                 >
+                                  <X size={13} aria-hidden="true" />
                                   Cancel
                                 </button>
                               </div>
@@ -497,13 +507,17 @@ export default function FixturePatch() {
                 className={styles.primaryButton}
                 onClick={() => void handleCreateDeployment()}
               >
+                <Plus size={14} aria-hidden="true" />
                 Create Deployment
               </button>
             </div>
 
             {deployments.length === 0 ? (
               <div className={styles.emptyState}>
-                <p className={styles.emptyHeading}>No deployments yet</p>
+                <p className={styles.emptyHeading}>
+                  <Boxes size={18} aria-hidden="true" />
+                  No deployments yet
+                </p>
                 <p className={styles.emptyBody}>
                   Create a deployment, then activate it to patch pool fixtures
                   into concrete instances.
@@ -530,6 +544,7 @@ export default function FixturePatch() {
                             className={styles.secondaryButton}
                             onClick={() => void handleActivateDeployment(d.name)}
                           >
+                            <Zap size={13} aria-hidden="true" />
                             Activate
                           </button>
                         )}

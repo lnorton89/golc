@@ -4,19 +4,31 @@
 // a plain row. `locked` never dispatches onSelect -- mirrors the D-04
 // "visible but locked, never hidden" convention already established by
 // OperatorSurface.tsx's operate-mode rendering.
+//
+// `icon` is optional (same lucide-react component-reference convention as
+// Button/PanelHeader/Toolbar) -- every existing call site is unaffected.
 import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 
 import styles from "./ListRow.module.css";
 
 interface ListRowProps {
   label: string;
+  icon?: LucideIcon;
   meta?: ReactNode;
   selected?: boolean;
   locked?: boolean;
   onSelect?: () => void;
 }
 
-export default function ListRow({ label, meta, selected = false, locked = false, onSelect }: ListRowProps) {
+export default function ListRow({
+  label,
+  icon: Icon,
+  meta,
+  selected = false,
+  locked = false,
+  onSelect,
+}: ListRowProps) {
   const className = [
     styles.row,
     selected ? styles.selected : "",
@@ -25,11 +37,18 @@ export default function ListRow({ label, meta, selected = false, locked = false,
     .filter(Boolean)
     .join(" ");
 
+  const content = (
+    <>
+      {Icon ? <Icon size={14} className={styles.icon} aria-hidden="true" /> : null}
+      <span className={styles.label}>{label}</span>
+      {meta ? <span className={styles.meta}>{meta}</span> : null}
+    </>
+  );
+
   if (!onSelect) {
     return (
       <div className={className} aria-disabled={locked} title={label}>
-        <span className={styles.label}>{label}</span>
-        {meta ? <span className={styles.meta}>{meta}</span> : null}
+        {content}
       </div>
     );
   }
@@ -44,8 +63,7 @@ export default function ListRow({ label, meta, selected = false, locked = false,
       title={label}
       onClick={onSelect}
     >
-      <span className={styles.label}>{label}</span>
-      {meta ? <span className={styles.meta}>{meta}</span> : null}
+      {content}
     </button>
   );
 }

@@ -17,6 +17,7 @@
 // explicit "no new Go services" non-goal), assigned masters are shown as
 // an honest, non-interactive "assigned, not yet controllable" note.
 import { useCallback } from "react";
+import { Layers, Play } from "lucide-react";
 
 import type { ControlRefView } from "./OperatorSurface";
 import ScenePad from "./ScenePad";
@@ -60,7 +61,10 @@ export default function Launcher({ controls }: LauncherProps) {
       <div className={styles.section}>
         <span className={styles.label}>Scenes</span>
         {sceneControls.length === 0 ? (
-          <p className={styles.emptyState}>No scenes assigned to this surface yet.</p>
+          <p className={styles.emptyState}>
+            <Layers size={14} aria-hidden="true" />
+            No scenes assigned to this surface yet.
+          </p>
         ) : (
           <div className={styles.grid}>
             {sceneControls.map((control) => {
@@ -83,7 +87,10 @@ export default function Launcher({ controls }: LauncherProps) {
       <div className={styles.section}>
         <span className={styles.label}>Layers{activeScene ? ` — ${activeScene.name}` : ""}</span>
         {!activeScene ? (
-          <p className={styles.emptyState}>No scene is live yet.</p>
+          <p className={styles.emptyState}>
+            <Play size={14} aria-hidden="true" />
+            No scene is live yet.
+          </p>
         ) : (
           <div className={styles.layerStrip}>
             {LAYER_KINDS.map((kind) => {

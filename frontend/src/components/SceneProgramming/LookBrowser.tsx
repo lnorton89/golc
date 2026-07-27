@@ -5,11 +5,13 @@
 // "Permanently displaying every look-creation form" is the sketch's own
 // explicit "what to avoid".
 import { useState } from "react";
+import { Plus, Check, Sparkles, Palette } from "lucide-react";
 
 import type { ProgrammingView } from "../../lib/wailsBridge";
 import Button from "../primitives/Button/Button";
 import PanelHeader from "../primitives/PanelHeader/PanelHeader";
 import ScrollRegion from "../primitives/ScrollRegion/ScrollRegion";
+import EmptyState from "../primitives/EmptyState/EmptyState";
 import styles from "./LookBrowser.module.css";
 
 type FormKind = "theme" | "motion" | "chase" | "preset" | "blend";
@@ -68,7 +70,7 @@ export default function LookBrowser({
 
   return (
     <div className={styles.browser}>
-      <PanelHeader label="Looks" />
+      <PanelHeader label="Looks" icon={Sparkles} />
 
       <p className={styles.countSummary}>
         {looksTotal === 0
@@ -77,16 +79,16 @@ export default function LookBrowser({
       </p>
 
       <div className={styles.categoryRow}>
-        <Button variant={activeForm === "theme" ? "primary" : "secondary"} onClick={() => toggle("theme")}>
+        <Button variant={activeForm === "theme" ? "primary" : "secondary"} icon={Plus} onClick={() => toggle("theme")}>
           + Theme
         </Button>
-        <Button variant={activeForm === "motion" ? "primary" : "secondary"} onClick={() => toggle("motion")}>
+        <Button variant={activeForm === "motion" ? "primary" : "secondary"} icon={Plus} onClick={() => toggle("motion")}>
           + Motion
         </Button>
-        <Button variant={activeForm === "chase" ? "primary" : "secondary"} onClick={() => toggle("chase")}>
+        <Button variant={activeForm === "chase" ? "primary" : "secondary"} icon={Plus} onClick={() => toggle("chase")}>
           + Chase
         </Button>
-        <Button variant={activeForm === "preset" ? "primary" : "secondary"} onClick={() => toggle("preset")}>
+        <Button variant={activeForm === "preset" ? "primary" : "secondary"} icon={Plus} onClick={() => toggle("preset")}>
           + Preset
         </Button>
       </div>
@@ -103,6 +105,7 @@ export default function LookBrowser({
           />
           <Button
             variant="primary"
+            icon={Check}
             onClick={() => {
               if (themeName.trim() === "") return;
               onCreateTheme(themeName.trim());
@@ -127,6 +130,7 @@ export default function LookBrowser({
           />
           <Button
             variant="primary"
+            icon={Check}
             onClick={() => {
               if (motionName.trim() === "") return;
               onCreateMotion(motionName.trim());
@@ -171,6 +175,7 @@ export default function LookBrowser({
           </div>
           <Button
             variant="primary"
+            icon={Check}
             onClick={() => {
               const stepDuration = Number.parseFloat(chaseStepDuration);
               if (chaseName.trim() === "" || Number.isNaN(stepDuration)) return;
@@ -230,6 +235,7 @@ export default function LookBrowser({
           />
           <Button
             variant="primary"
+            icon={Check}
             disabled={presetLoading}
             onClick={() => {
               const attrs = parseAttrs(presetAttrs);
@@ -280,8 +286,9 @@ export default function LookBrowser({
 
       <PanelHeader
         label="Blend Presets"
+        icon={Palette}
         action={
-          <Button variant={activeForm === "blend" ? "primary" : "secondary"} onClick={() => toggle("blend")}>
+          <Button variant={activeForm === "blend" ? "primary" : "secondary"} icon={Plus} onClick={() => toggle("blend")}>
             + Blend
           </Button>
         }
@@ -320,6 +327,7 @@ export default function LookBrowser({
           </div>
           <Button
             variant="primary"
+            icon={Check}
             onClick={() => {
               const duration = Number.parseFloat(blendDuration);
               if (blendName.trim() === "" || Number.isNaN(duration)) return;
@@ -334,7 +342,7 @@ export default function LookBrowser({
       ) : null}
 
       {view.blends.length === 0 ? (
-        <p className={styles.emptyState}>No blend presets yet.</p>
+        <EmptyState icon={Palette}>No blend presets yet.</EmptyState>
       ) : (
         <ul className={styles.rows} aria-label="Blend list">
           {view.blends.map((blend) => (

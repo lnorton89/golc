@@ -18,6 +18,7 @@
 // accommodate a long name (06-UI-SPEC.md overflow rule).
 
 import { useEffect, type CSSProperties } from "react";
+import { TriangleAlert } from "lucide-react";
 
 import { useGolcStore } from "../../store/store";
 import {
@@ -153,6 +154,7 @@ export default function LiveStatusBar() {
 
       {!status.reachable && (
         <span className={styles.unreachableCopy}>
+          <TriangleAlert size={14} className={styles.unreachableIcon} aria-hidden="true" />
           Can&rsquo;t reach the playback engine. GOLC will try to reconnect
           automatically — Blackout and Stop/Release-All remain available.
         </span>

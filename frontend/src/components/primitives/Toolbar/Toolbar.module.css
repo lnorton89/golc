@@ -9,6 +9,18 @@
   border-bottom: 1px solid var(--line);
 }
 
+.titleGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.icon {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
 .title {
   margin: 0;
   font-family: "Archivo", system-ui, sans-serif;

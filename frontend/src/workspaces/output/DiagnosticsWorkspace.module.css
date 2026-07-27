@@ -63,10 +63,3 @@
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: var(--text-xs);
 }
-
-.emptyState {
-  margin: var(--space-sm) var(--space-md) var(--space-md);
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-}

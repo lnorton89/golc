@@ -86,8 +86,15 @@
 }
 
 .unreachableCopy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
   flex-shrink: 0;
   color: var(--status-offline);
   font-family: "Archivo", system-ui, sans-serif;
   font-size: 13px;
+}
+
+.unreachableIcon {
+  flex-shrink: 0;
 }

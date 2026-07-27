@@ -112,6 +112,9 @@
 }
 
 .learnButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
   min-height: 44px;
   padding: var(--space-xs) var(--space-md);
   border: 1px solid var(--accent);
@@ -141,6 +144,9 @@
 }
 
 .cancelButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
   padding: var(--space-xs) var(--space-sm);
   border: 1px solid #fff;
   border-radius: 4px;
@@ -177,6 +183,9 @@
 }
 
 .emptyHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
   margin: 0;
   font-size: 20px;
   font-weight: 600;
@@ -233,6 +242,9 @@
 }
 
 .removeButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
   min-height: 44px;
   padding: var(--space-xs) var(--space-sm);
   border: 1px solid var(--status-revoked);
