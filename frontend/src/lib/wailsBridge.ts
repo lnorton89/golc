@@ -557,6 +557,68 @@ interface ShowServiceBinding {
   DiscardRecoveryPoints(): Promise<WailsResult>;
 }
 
+/** FixtureLibraryRowView mirrors internal/wails.FixtureLibraryRowView's
+ * JSON shape exactly -- one local-fixture-directory entry (09-01-PLAN.md,
+ * CONTEXT D-01 local half). An invalid entry carries status "invalid"
+ * with detail set to its decode/pin failure and manufacturer/model left
+ * empty (stableKey falls back to fileName); a valid entry carries status
+ * "valid" with its pinned stableKey. */
+export interface FixtureLibraryRowView {
+  stableKey: string;
+  manufacturer: string;
+  model: string;
+  fileName: string;
+  source: string;
+  status: string;
+  detail: string;
+}
+
+/** FixtureLibraryView mirrors internal/wails.FixtureLibraryView's JSON
+ * shape exactly. rows is always a present (never undefined/null) array --
+ * the Go side normalizes this for the same "null.length throws with no
+ * error boundary" reason offlineShowInspectView/offlinePatchView already
+ * document. */
+export interface FixtureLibraryView {
+  directory: string;
+  rows: FixtureLibraryRowView[];
+}
+
+/** FixtureWarningView mirrors internal/wails.FixtureWarningView's JSON
+ * shape exactly -- one lossy/unsupported-attribute warning (FIXT-06). */
+export interface FixtureWarningView {
+  severity: string;
+  capabilityType: string;
+  detail: string;
+}
+
+/** FixtureInspectView mirrors internal/wails.FixtureInspectView's JSON
+ * shape exactly: the "fixture inspect" route's own identity/provenance
+ * envelope, plus valid/errors so a rejected fixture renders as an
+ * explicit state rather than a thrown exception. errors/warnings are
+ * always present (never undefined/null) arrays. */
+export interface FixtureInspectView {
+  path: string;
+  valid: boolean;
+  errors: string[];
+  schemaVersion: number;
+  stableKey: string;
+  contentHash: string;
+  revision: string;
+  source: string;
+  validationResult: string;
+  warnings: FixtureWarningView[];
+}
+
+/** FixtureLibraryServiceBinding mirrors internal/wails/
+ * svc_fixturelibrary.go's bound methods field-for-field: ListLocal is a
+ * Wails-only read projection over the single extracted
+ * internal/fixture.ListDirectory scan (no CLI-parity route); Inspect
+ * forwards to the existing, already-tested "fixture inspect" route. */
+interface FixtureLibraryServiceBinding {
+  ListLocal(): Promise<FixtureLibraryView>;
+  Inspect(path: string): Promise<FixtureInspectView>;
+}
+
 // Single, centralized `window.go.wails` shape (Wails v2's runtime-injected
 // bridge, one property per struct bound in cmd/golc-desktop/main.go's
 // options.App{Bind: [...]}). Every component imports its binding call
@@ -582,6 +644,7 @@ declare global {
         ProgrammingService?: ProgrammingServiceBinding;
         ShowService?: ShowServiceBinding;
         ScriptService?: ScriptServiceBinding;
+        FixtureLibraryService?: FixtureLibraryServiceBinding;
       };
     };
     runtime?: {
@@ -1179,6 +1242,65 @@ export async function discardRecoveryPoints(): Promise<WailsResult> {
   const svc = showService();
   if (!svc) return bridgeUnavailableResult();
   return svc.DiscardRecoveryPoints();
+}
+
+function fixtureLibraryService(): FixtureLibraryServiceBinding | undefined {
+  return window.go?.wails?.FixtureLibraryService;
+}
+
+/** offlineFixtureLibraryView mirrors offlineShowInspectView/
+ * offlinePatchView's identical "never blank" fallback shape: rows is
+ * always a present empty array, so a missing bridge and a genuinely
+ * empty library render identically in FixtureLibraryWorkspace.tsx. */
+export function offlineFixtureLibraryView(): FixtureLibraryView {
+  return { directory: "", rows: [] };
+}
+
+/** listLocalFixtures calls the bound FixtureLibraryService.ListLocal,
+ * returning offlineFixtureLibraryView() when the bridge is unavailable or
+ * the call itself rejects -- callers never need their own try/catch
+ * (mirrors inspectShow/listPatch/listProgramming's identical contract). */
+export async function listLocalFixtures(): Promise<FixtureLibraryView> {
+  const svc = fixtureLibraryService();
+  if (!svc) return offlineFixtureLibraryView();
+  try {
+    return await svc.ListLocal();
+  } catch {
+    return offlineFixtureLibraryView();
+  }
+}
+
+/** offlineFixtureInspectView is Inspect's explicit, non-throwing fallback
+ * when the bridge is unavailable -- valid stays false so a missing bridge
+ * never renders as an honest "this fixture is fine" result (mirrors
+ * offlineDiagnosticReport's identical "never lie about health" contract). */
+function offlineFixtureInspectView(path: string): FixtureInspectView {
+  return {
+    path,
+    valid: false,
+    errors: ["GOLC_WAILS_BRIDGE_UNAVAILABLE: not running inside the GOLC desktop shell"],
+    schemaVersion: 0,
+    stableKey: "",
+    contentHash: "",
+    revision: "",
+    source: "",
+    validationResult: "",
+    warnings: [],
+  };
+}
+
+/** inspectFixtureFile calls the bound FixtureLibraryService.Inspect,
+ * returning offlineFixtureInspectView() when the bridge is unavailable or
+ * the call itself rejects -- never throws (mirrors listLocalFixtures'
+ * identical contract). */
+export async function inspectFixtureFile(path: string): Promise<FixtureInspectView> {
+  const svc = fixtureLibraryService();
+  if (!svc) return offlineFixtureInspectView(path);
+  try {
+    return await svc.Inspect(path);
+  } catch {
+    return offlineFixtureInspectView(path);
+  }
 }
 
 function scriptService(): ScriptServiceBinding | undefined {

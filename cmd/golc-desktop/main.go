@@ -84,6 +84,7 @@ func main() {
 	programmingService := golcwails.NewProgrammingService(cfg.PipeName, cfg.ProjectRoot, cfg.ShowPath)
 	showService := golcwails.NewShowService(cfg.PipeName, cfg.ProjectRoot, cfg.ShowPath)
 	scriptService := golcwails.NewScriptService(cfg.PipeName, cfg.ProjectRoot, cfg.ShowPath)
+	fixtureLibraryService := golcwails.NewFixtureLibraryService(cfg.PipeName, cfg.ProjectRoot, cfg.FixturesDir)
 
 	err := wails.Run(&options.App{
 		Title:  "GOLC",
@@ -150,6 +151,7 @@ func main() {
 			programmingService,
 			showService,
 			scriptService,
+			fixtureLibraryService,
 		},
 	})
 	if err != nil {
