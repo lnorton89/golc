@@ -178,3 +178,27 @@
   font-family: "Archivo", system-ui, sans-serif;
   font-size: var(--text-sm);
 }
+
+/* Import candidate body (09-06-PLAN.md, D-02): the fixture-key field,
+   Preview action, and inline inspect result for a selected manufacturer --
+   the same sm/md spacing tokens the rest of this workspace already uses,
+   no new size introduced. */
+.candidateBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.candidateManufacturer {
+  margin: 0;
+  font-family: "Archivo", system-ui, sans-serif;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.alreadyExists {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
