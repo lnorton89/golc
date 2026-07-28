@@ -484,7 +484,17 @@ Plans:
   2. A user can open an existing show, create a new show, and switch between shows through on-screen controls — the CLI flow (`show open`, recovery accept/discard) already exists; this surfaces it, and `SaveRecoveryWorkspace.tsx` no longer documents a single-show-path-at-startup limitation.
   3. A first-time user can complete Guided First Show onboarding (Sketch 004-B, approved but never built) to go from empty app to a patched fixture and a scene on screen.
 
-**Plans:** TBD
+**Plans:** 7 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — Fixture Library: browse and inspect local fixtures (wave 1)
+- [ ] 09-02-PLAN.md — Shows: open / new / switch via supervised self-relaunch (wave 2)
+- [ ] 09-03-PLAN.md — Guided First Show: overlay, entry points, Fixtures and Patch stages (wave 3)
+- [ ] 09-04-PLAN.md — Guided First Show: Program, Assign, Verify stages and the readiness gate (wave 4)
+- [ ] 09-05-PLAN.md — Fixture Library: imported artifacts in the library, OFL manufacturer search (wave 3)
+- [ ] 09-06-PLAN.md — Fixture Library: OFL import preview and commit (wave 4)
+- [ ] 09-07-PLAN.md — Fixture Library: custom YAML fixture via native picker (wave 5)
+
 **UI hint:** yes
 **Research:** Scoped by `.planning/POST-PHASE-8-PLAN.md` section 2 (owner decisions 2026-07-25) — this is UI wiring against existing backend routes, not new product design; standard `/gsd-discuss-phase` and `/gsd-plan-phase` should confirm scope and any remaining gray areas (e.g. whether show open/new/switch lives in the existing Show nav group or needs a new entry point) before planning.
 
