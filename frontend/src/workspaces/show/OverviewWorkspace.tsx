@@ -7,13 +7,25 @@
 // pointed operators at "golc show open"/"golc show inspect" from the
 // command line; there is no separate pool/deployment mutation path here,
 // Build workspace already owns that (ScenesLooksWorkspace/PatchPoolsWorkspace).
+//
+// 09-03-PLAN.md (FDUI-03, D-08/D-10) extends the load callback to also
+// read ListProgramming and, once both reads succeed, evaluate the
+// auto-launch condition: a non-empty showPath (never the offline/no-
+// bridge fallback, whose showPath is always "") AND zero pools AND zero
+// deployments AND zero scenes. requestAutoLaunch() is itself a no-op
+// after its first process-lifetime call (GuidedFirstShowContext.tsx), so
+// a later remount with content already added never re-triggers it. The
+// "Start Guide" action is the deliberate manual entry point for anyone
+// else (D-10) -- no auto-launch banner, the guide simply takes over the
+// canvas.
 import { useCallback, useEffect, useState } from "react";
-import { LayoutDashboard, Activity, Package, Boxes } from "lucide-react";
+import { LayoutDashboard, Activity, Package, Boxes, Compass } from "lucide-react";
 
 import {
   diagnoseShow,
   errorMessage,
   inspectShow,
+  listProgramming,
   offlineShowInspectView,
   type DiagnosticReportView,
   type ShowInspectView,
@@ -26,6 +38,7 @@ import Chip from "../../components/primitives/Chip/Chip";
 import ListRow from "../../components/primitives/ListRow/ListRow";
 import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion";
 import EmptyState from "../../components/primitives/EmptyState/EmptyState";
+import { useGuidedFirstShow } from "./GuidedFirstShow/GuidedFirstShowContext";
 import styles from "./OverviewWorkspace.module.css";
 
 export default function OverviewWorkspace() {
@@ -34,18 +47,28 @@ export default function OverviewWorkspace() {
   const [loading, setLoading] = useState(true);
   const [diagnosing, setDiagnosing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { startGuide, requestAutoLaunch } = useGuidedFirstShow();
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
-      const next = await inspectShow();
+      const [next, programming] = await Promise.all([inspectShow(), listProgramming()]);
       setView(next);
       setError(null);
+
+      const isGenuinelyEmpty =
+        next.showPath !== "" &&
+        next.pools.length === 0 &&
+        next.deployments.length === 0 &&
+        programming.scenes.length === 0;
+      if (isGenuinelyEmpty) {
+        requestAutoLaunch();
+      }
     } catch (err) {
       setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [requestAutoLaunch]);
 
   useEffect(() => {
     void refresh();
@@ -159,6 +182,19 @@ export default function OverviewWorkspace() {
                   )}
                 </ScrollRegion>
               </Panel>
+            </div>
+
+            {/* Start Guide (D-10): the deliberate manual entry point into
+                Guided First Show for a show that already has content --
+                separated from the rest of the surface by the 48px
+                major-section-break token, per 09-UI-SPEC.md's Spacing
+                Scale. No auto-launch banner anywhere here; a genuinely
+                empty show (see refresh() above) takes over the canvas
+                immediately instead. */}
+            <div className={styles.guideCta}>
+              <Button variant="primary" icon={Compass} onClick={startGuide}>
+                Start Guide
+              </Button>
             </div>
           </>
         )}
