@@ -412,3 +412,336 @@ func TestHotkeyKeydownReleasesWhenAlreadyActive(t *testing.T) {
 		t.Fatal("timed out waiting for the hotkey Keydown callback to dial+forward the daemon route")
 	}
 }
+
+// --- 09-02-PLAN.md Task 1: RelaunchWithShow / PickShowPath / PickNewShowPath ---
+//
+// These tests pin RelaunchWithShow's exact contract (D-05/D-06/D-07): the
+// injected app.relaunchSpawn/app.quit fields are overwritten directly, this
+// package's own test-double discipline (mirrors app.spawn/app.dial above --
+// never an exported setter). newTestRelaunchApp seeds a fresh, always-
+// openable per-test root/show path (mirrors svc_show_test.go's
+// newTestShowService) so "show save" succeeds by default; individual tests
+// override relaunchSpawn/quit/dial/spawn as needed.
+
+// newTestRelaunchApp constructs an App whose Config.ProjectRoot/ShowPath
+// point at a fresh per-test location where "show save" succeeds, with ctx
+// set directly (mirroring OnStartup's own first-statement assignment)
+// so RelaunchWithShow's ensureDaemon/quit calls never see a nil context.
+func newTestRelaunchApp(t *testing.T) *App {
+	t.Helper()
+	root := t.TempDir()
+	showPath := filepath.Join(root, "show.golc")
+	app := NewApp(Config{ProjectRoot: root, ShowPath: showPath})
+	app.ctx = context.Background()
+	return app
+}
+
+// lastEnvValue scans env for the LAST "key=" entry and returns its value --
+// os/exec deduplicates environment entries keeping the last occurrence, so
+// this is the value the child process would actually observe.
+func lastEnvValue(env []string, key string) string {
+	prefix := key + "="
+	value := ""
+	for _, entry := range env {
+		if strings.HasPrefix(entry, prefix) {
+			value = strings.TrimPrefix(entry, prefix)
+		}
+	}
+	return value
+}
+
+// TestRelaunchWithShowRejectsEmptyPath proves an empty or whitespace-only
+// path is refused before any save/spawn/quit, carrying
+// GOLC_WAILS_RELAUNCH_PATH_EMPTY.
+func TestRelaunchWithShowRejectsEmptyPath(t *testing.T) {
+	for _, path := range []string{"", "   "} {
+		t.Run(fmt.Sprintf("path=%q", path), func(t *testing.T) {
+			app := newTestRelaunchApp(t)
+
+			var spawnCalls, quitCalls int32
+			app.relaunchSpawn = func(exePath string, env []string) error {
+				atomic.AddInt32(&spawnCalls, 1)
+				return nil
+			}
+			app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
+
+			result := app.RelaunchWithShow(path)
+			if result.ExitCode == 0 {
+				t.Fatalf("expected a non-zero exit code for path %q", path)
+			}
+			if !strings.Contains(result.Stderr, "GOLC_WAILS_RELAUNCH_PATH_EMPTY") {
+				t.Fatalf("expected GOLC_WAILS_RELAUNCH_PATH_EMPTY, got %q", result.Stderr)
+			}
+			if got := atomic.LoadInt32(&spawnCalls); got != 0 {
+				t.Fatalf("expected zero spawn calls, got %d", got)
+			}
+			if got := atomic.LoadInt32(&quitCalls); got != 0 {
+				t.Fatalf("expected zero quit calls, got %d", got)
+			}
+		})
+	}
+}
+
+// TestRelaunchWithShowAcceptsNonExistentAndCurrentPathsWithNoSpecialCase
+// proves the remaining two BOUNDARY clauses (09-02-PLAN.md must_haves): a
+// path whose file does not exist yet is accepted (D-06 -- the identical
+// relaunch path a brand-new show takes, never a distinct "create" branch),
+// and a path equal to the currently-open show (cfg.ShowPath) is accepted
+// and takes the identical relaunch path with no special-case short
+// circuit -- both spawn and quit exactly once, just like any other path.
+func TestRelaunchWithShowAcceptsNonExistentAndCurrentPathsWithNoSpecialCase(t *testing.T) {
+	t.Run("path whose file does not exist yet", func(t *testing.T) {
+		app := newTestRelaunchApp(t)
+		nonExistent := filepath.Join(t.TempDir(), "never-created.golc")
+
+		var spawnCalls, quitCalls int32
+		app.relaunchSpawn = func(exePath string, env []string) error {
+			atomic.AddInt32(&spawnCalls, 1)
+			return nil
+		}
+		app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
+
+		result := app.RelaunchWithShow(nonExistent)
+		if result.ExitCode != 0 {
+			t.Fatalf("expected a not-yet-existing path to be accepted, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
+		}
+		if got := atomic.LoadInt32(&spawnCalls); got != 1 {
+			t.Fatalf("expected exactly one spawn call, got %d", got)
+		}
+		if got := atomic.LoadInt32(&quitCalls); got != 1 {
+			t.Fatalf("expected exactly one quit call, got %d", got)
+		}
+	})
+
+	t.Run("path equal to the currently-open show", func(t *testing.T) {
+		app := newTestRelaunchApp(t)
+
+		var spawnCalls, quitCalls int32
+		var gotEnv []string
+		app.relaunchSpawn = func(exePath string, env []string) error {
+			atomic.AddInt32(&spawnCalls, 1)
+			gotEnv = env
+			return nil
+		}
+		app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
+
+		result := app.RelaunchWithShow(app.cfg.ShowPath)
+		if result.ExitCode != 0 {
+			t.Fatalf("expected the current show path to be accepted with no special case, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
+		}
+		if got := atomic.LoadInt32(&spawnCalls); got != 1 {
+			t.Fatalf("expected exactly one spawn call (the identical relaunch path), got %d", got)
+		}
+		if got := atomic.LoadInt32(&quitCalls); got != 1 {
+			t.Fatalf("expected exactly one quit call, got %d", got)
+		}
+		if got := lastEnvValue(gotEnv, DesktopShowPathEnvName); got != app.cfg.ShowPath {
+			t.Fatalf("relaunchSpawn env's last %s = %q, want the current show path %q", DesktopShowPathEnvName, got, app.cfg.ShowPath)
+		}
+	})
+}
+
+// TestRelaunchWithShowPassesShowPathThroughEnvironmentVerbatim proves the
+// injected relaunchSpawn double receives an env slice whose last
+// GOLC_DESKTOP_SHOW= assignment is byte-identical to the requested path
+// (including a space and a non-ASCII character), and that the executable
+// argument is the running executable, not the daemon executable.
+func TestRelaunchWithShowPassesShowPathThroughEnvironmentVerbatim(t *testing.T) {
+	app := newTestRelaunchApp(t)
+
+	wantExe, err := os.Executable()
+	if err != nil {
+		t.Fatalf("os.Executable: %v", err)
+	}
+
+	newPath := filepath.Join(t.TempDir(), "spécial dir", "shöw with spaces.golc")
+
+	var gotExe string
+	var gotEnv []string
+	app.relaunchSpawn = func(exePath string, env []string) error {
+		gotExe = exePath
+		gotEnv = env
+		return nil
+	}
+	app.quit = func(ctx context.Context) {}
+
+	result := app.RelaunchWithShow(newPath)
+	if result.ExitCode != 0 {
+		t.Fatalf("expected success, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if gotExe != wantExe {
+		t.Fatalf("relaunchSpawn exePath = %q, want the running executable %q", gotExe, wantExe)
+	}
+	if got := lastEnvValue(gotEnv, DesktopShowPathEnvName); got != newPath {
+		t.Fatalf("relaunchSpawn env's last %s = %q, want %q", DesktopShowPathEnvName, got, newPath)
+	}
+}
+
+// TestRelaunchWithShowQuitsOnlyAfterSuccessfulSpawn proves quit is called
+// exactly once when the spawn double succeeds, and never called (with
+// GOLC_WAILS_RELAUNCH_SPAWN_FAILED surfaced) when it returns an error.
+func TestRelaunchWithShowQuitsOnlyAfterSuccessfulSpawn(t *testing.T) {
+	t.Run("spawn succeeds", func(t *testing.T) {
+		app := newTestRelaunchApp(t)
+
+		var quitCalls int32
+		app.relaunchSpawn = func(exePath string, env []string) error { return nil }
+		app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
+
+		result := app.RelaunchWithShow(filepath.Join(t.TempDir(), "new.golc"))
+		if result.ExitCode != 0 {
+			t.Fatalf("expected success, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
+		}
+		if got := atomic.LoadInt32(&quitCalls); got != 1 {
+			t.Fatalf("expected exactly one quit call, got %d", got)
+		}
+	})
+
+	t.Run("spawn fails", func(t *testing.T) {
+		app := newTestRelaunchApp(t)
+		app.cfg.PipeName = testWailsPipeName(t)
+		app.cfg.DialRetries = 1
+		app.cfg.DialRetryDelay = time.Millisecond
+		// Safe doubles for the daemon-supervision fields ensureDaemon
+		// touches on the spawn-failure recovery path -- this test must
+		// never touch a real named pipe or spawn a real golc-project.exe.
+		app.dial = func(name string) (net.Conn, error) { return nil, errors.New("unreachable") }
+		app.spawn = func(ctx context.Context, cfg Config) (*exec.Cmd, *daemonStderrBuffer, error) {
+			return nil, nil, nil
+		}
+
+		var quitCalls int32
+		app.relaunchSpawn = func(exePath string, env []string) error {
+			return errors.New("boom")
+		}
+		app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
+
+		result := app.RelaunchWithShow(filepath.Join(t.TempDir(), "new.golc"))
+		if result.ExitCode == 0 {
+			t.Fatalf("expected a non-zero exit code when spawn fails")
+		}
+		if !strings.Contains(result.Stderr, "GOLC_WAILS_RELAUNCH_SPAWN_FAILED") {
+			t.Fatalf("expected GOLC_WAILS_RELAUNCH_SPAWN_FAILED, got %q", result.Stderr)
+		}
+		if got := atomic.LoadInt32(&quitCalls); got != 0 {
+			t.Fatalf("expected zero quit calls when spawn fails, got %d", got)
+		}
+	})
+}
+
+// TestRelaunchWithShowIsNotReentrant proves a second concurrent
+// RelaunchWithShow call, issued while the first is blocked inside its spawn
+// double, returns GOLC_WAILS_RELAUNCH_IN_PROGRESS and never invokes spawn a
+// second time.
+func TestRelaunchWithShowIsNotReentrant(t *testing.T) {
+	app := newTestRelaunchApp(t)
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var spawnCalls int32
+	app.relaunchSpawn = func(exePath string, env []string) error {
+		atomic.AddInt32(&spawnCalls, 1)
+		close(started)
+		<-release
+		return nil
+	}
+	var quitCalls int32
+	app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
+
+	resultCh := make(chan Result, 1)
+	go func() {
+		resultCh <- app.RelaunchWithShow(filepath.Join(t.TempDir(), "new.golc"))
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for the first relaunch's spawn to start")
+	}
+
+	second := app.RelaunchWithShow(filepath.Join(t.TempDir(), "another.golc"))
+	if second.ExitCode == 0 {
+		t.Fatal("expected the concurrent call to fail with a non-zero exit code")
+	}
+	if !strings.Contains(second.Stderr, "GOLC_WAILS_RELAUNCH_IN_PROGRESS") {
+		t.Fatalf("expected GOLC_WAILS_RELAUNCH_IN_PROGRESS, got %q", second.Stderr)
+	}
+	if got := atomic.LoadInt32(&spawnCalls); got != 1 {
+		t.Fatalf("expected exactly one spawn call while the first was in flight, got %d", got)
+	}
+
+	close(release)
+	select {
+	case first := <-resultCh:
+		if first.ExitCode != 0 {
+			t.Fatalf("expected the first relaunch to succeed, got exit=%d stderr=%s", first.ExitCode, first.Stderr)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for the first relaunch to finish")
+	}
+	if got := atomic.LoadInt32(&spawnCalls); got != 1 {
+		t.Fatalf("expected exactly one spawn call in total, got %d", got)
+	}
+	if got := atomic.LoadInt32(&quitCalls); got != 1 {
+		t.Fatalf("expected exactly one quit call from the first (successful) relaunch, got %d", got)
+	}
+}
+
+// TestRelaunchWithShowAbortsWhenSaveFails proves a save failure (here: the
+// configured show path is a pre-existing file that is not a valid GOLC/
+// SQLite document, so "show save" cannot succeed) aborts the switch with
+// GOLC_WAILS_RELAUNCH_SAVE_FAILED and neither spawns nor quits.
+func TestRelaunchWithShowAbortsWhenSaveFails(t *testing.T) {
+	root := t.TempDir()
+	showPath := filepath.Join(root, "corrupt.golc")
+	if err := os.WriteFile(showPath, []byte("this is not a sqlite database"), 0o644); err != nil {
+		t.Fatalf("seeding a corrupt show file: %v", err)
+	}
+
+	app := NewApp(Config{ProjectRoot: root, ShowPath: showPath})
+	app.ctx = context.Background()
+
+	var spawnCalls, quitCalls int32
+	app.relaunchSpawn = func(exePath string, env []string) error {
+		atomic.AddInt32(&spawnCalls, 1)
+		return nil
+	}
+	app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
+
+	result := app.RelaunchWithShow(filepath.Join(root, "new-show.golc"))
+	if result.ExitCode == 0 {
+		t.Fatal("expected a non-zero exit code when the working show cannot be saved")
+	}
+	if !strings.Contains(result.Stderr, "GOLC_WAILS_RELAUNCH_SAVE_FAILED") {
+		t.Fatalf("expected GOLC_WAILS_RELAUNCH_SAVE_FAILED, got %q", result.Stderr)
+	}
+	if got := atomic.LoadInt32(&spawnCalls); got != 0 {
+		t.Fatalf("expected zero spawn calls when save fails, got %d", got)
+	}
+	if got := atomic.LoadInt32(&quitCalls); got != 0 {
+		t.Fatalf("expected zero quit calls when save fails, got %d", got)
+	}
+
+	// The relaunching guard must have been cleared on this failure path --
+	// a subsequent call must be able to proceed rather than incorrectly
+	// reporting GOLC_WAILS_RELAUNCH_IN_PROGRESS forever.
+	second := app.RelaunchWithShow(filepath.Join(root, "another-new-show.golc"))
+	if strings.Contains(second.Stderr, "GOLC_WAILS_RELAUNCH_IN_PROGRESS") {
+		t.Fatalf("expected the relaunching guard to be cleared after a save failure, got %q", second.Stderr)
+	}
+}
+
+// TestPickShowPathWithoutRuntimeContextFails proves calling either picker on
+// an App whose OnStartup has never run (ctx nil) returns
+// GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE rather than panicking or reaching
+// the real Wails runtime dialog call.
+func TestPickShowPathWithoutRuntimeContextFails(t *testing.T) {
+	app := NewApp(Config{})
+
+	if _, err := app.PickShowPath(); err == nil || !strings.Contains(err.Error(), "GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE") {
+		t.Fatalf("PickShowPath() error = %v, want GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE", err)
+	}
+	if _, err := app.PickNewShowPath(); err == nil || !strings.Contains(err.Error(), "GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE") {
+		t.Fatalf("PickNewShowPath() error = %v, want GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE", err)
+	}
+}
