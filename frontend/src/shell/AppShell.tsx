@@ -27,6 +27,16 @@
 // hands its DOM node up on mount) and handed to InspectorPortalProvider --
 // workspaces portal content into it directly (InspectorSlot.tsx), so no
 // per-publish state update ever touches ShellBody.
+//
+// GuidedFirstShowProvider wraps ShellCanvas (09-03-PLAN.md, D-08/D-10):
+// the guide's open/exit/navigate state and its once-per-process
+// auto-launch guard must survive whichever workspace WorkspaceRouter
+// happens to mount/unmount, so it lives here rather than inside
+// OverviewWorkspace itself. ShellCanvas renders <GuidedFirstShow /> in
+// place of <WorkspaceRouter /> only while the guide is open -- the guide
+// replaces the canvas alone; SafetyCluster/GlobalFrame/CommandRail/
+// ContextualInspector stay mounted unconditionally exactly as before
+// (application-shell-navigation.md's interaction contract).
 import { useState } from "react";
 
 import SafetyCluster from "../components/SafetyCluster/SafetyCluster";
@@ -39,7 +49,14 @@ import { InspectorPortalProvider } from "./InspectorSlot";
 import { PlaybackSnapshotProvider } from "./PlaybackSnapshotContext";
 import { useGlobalKeyboardWorkflow } from "./useGlobalKeyboardWorkflow";
 import { DEFAULT_DESTINATION, type DestinationId } from "./navigation";
+import { GuidedFirstShowProvider, useGuidedFirstShow } from "../workspaces/show/GuidedFirstShow/GuidedFirstShowContext";
+import GuidedFirstShow from "../workspaces/show/GuidedFirstShow/GuidedFirstShow";
 import styles from "./AppShell.module.css";
+
+function ShellCanvas({ active }: { active: DestinationId }) {
+  const { open } = useGuidedFirstShow();
+  return open ? <GuidedFirstShow /> : <WorkspaceRouter active={active} />;
+}
 
 function ShellBody() {
   const [activeDestination, setActiveDestination] = useState<DestinationId>(DEFAULT_DESTINATION);
@@ -58,9 +75,11 @@ function ShellBody() {
         <CommandRail active={activeDestination} onSelect={setActiveDestination} />
       </div>
       <main className={styles.main}>
-        <InspectorPortalProvider container={inspectorContainer}>
-          <WorkspaceRouter active={activeDestination} />
-        </InspectorPortalProvider>
+        <GuidedFirstShowProvider activeDestination={activeDestination} onNavigate={setActiveDestination}>
+          <InspectorPortalProvider container={inspectorContainer}>
+            <ShellCanvas active={activeDestination} />
+          </InspectorPortalProvider>
+        </GuidedFirstShowProvider>
       </main>
       <div className={styles.inspector}>
         <ContextualInspector onContainerReady={setInspectorContainer} />
