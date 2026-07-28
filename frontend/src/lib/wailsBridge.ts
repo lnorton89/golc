@@ -557,18 +557,20 @@ interface ShowServiceBinding {
   DiscardRecoveryPoints(): Promise<WailsResult>;
 }
 
-/** AppBinding mirrors internal/wails.App's bound show-picker/relaunch
- * methods field-for-field (09-02-PLAN.md, FDUI-02): PickShowPath/
- * PickNewShowPath open a native OS file picker (an empty-string result is a
- * cancelled dialog, never an error); RelaunchWithShow saves the working
- * show, starts a replacement golc-desktop process bound to the requested
- * path, and quits this process only once that replacement has actually
- * started -- so a successful call's own Promise may never observably
- * settle from the caller's perspective (the process is exiting). */
+/** AppBinding mirrors internal/wails.App's bound show-picker/relaunch/
+ * fixture-picker methods field-for-field (09-02-PLAN.md FDUI-02;
+ * 09-07-PLAN.md D-04): PickShowPath/PickNewShowPath/PickFixtureFile each
+ * open a native OS file picker (an empty-string result is a cancelled
+ * dialog, never an error); RelaunchWithShow saves the working show, starts
+ * a replacement golc-desktop process bound to the requested path, and
+ * quits this process only once that replacement has actually started -- so
+ * a successful call's own Promise may never observably settle from the
+ * caller's perspective (the process is exiting). */
 interface AppBinding {
   PickShowPath(): Promise<string>;
   PickNewShowPath(): Promise<string>;
   RelaunchWithShow(showPath: string): Promise<WailsResult>;
+  PickFixtureFile(): Promise<string>;
 }
 
 /** FixtureLibraryRowView mirrors internal/wails.FixtureLibraryRowView's
@@ -668,7 +670,9 @@ export interface FixturePreviewView {
  * manufacturer index (09-05-PLAN.md Task 3); PreviewOFL/CommitPreview/
  * DiscardPreview stage, commit, and discard an OFL import candidate
  * (09-06-PLAN.md, D-02) by forwarding to the existing "fixture import"
- * route -- never a second decode/normalize/pin implementation. */
+ * route; PreviewFile stages a hand-authored YAML fixture file the same way
+ * (09-07-PLAN.md, D-04), sharing CommitPreview/DiscardPreview with the OFL
+ * path -- never a second decode/normalize/pin implementation. */
 interface FixtureLibraryServiceBinding {
   ListLocal(): Promise<FixtureLibraryView>;
   Inspect(path: string): Promise<FixtureInspectView>;
@@ -676,6 +680,7 @@ interface FixtureLibraryServiceBinding {
   PreviewOFL(manufacturerKey: string, fixtureKey: string): Promise<FixturePreviewView>;
   CommitPreview(previewToken: string, overwrite: boolean): Promise<WailsResult>;
   DiscardPreview(previewToken: string): Promise<WailsResult>;
+  PreviewFile(path: string): Promise<FixturePreviewView>;
 }
 
 // Single, centralized `window.go.wails` shape (Wails v2's runtime-injected
@@ -1348,6 +1353,21 @@ export async function relaunchWithShow(showPath: string): Promise<WailsResult> {
   return app.RelaunchWithShow(showPath);
 }
 
+/** pickFixtureFile calls the bound App.PickFixtureFile (09-07-PLAN.md,
+ * D-04): opens a native "Add Custom Fixture" file picker filtered to
+ * *.yaml/*.yml. An absent bridge degrades to the identical observable
+ * outcome as a cancelled dialog -- an empty string, never a throw --
+ * mirroring pickShowPath/pickNewShowPath's identical contract. */
+export async function pickFixtureFile(): Promise<string> {
+  const app = appBinding();
+  if (!app) return "";
+  try {
+    return await app.PickFixtureFile();
+  } catch {
+    return "";
+  }
+}
+
 function fixtureLibraryService(): FixtureLibraryServiceBinding | undefined {
   return window.go?.wails?.FixtureLibraryService;
 }
@@ -1485,6 +1505,23 @@ export async function discardFixturePreview(previewToken: string): Promise<Wails
   const svc = fixtureLibraryService();
   if (!svc) return bridgeUnavailableResult();
   return svc.DiscardPreview(previewToken);
+}
+
+/** previewFixtureFile calls the bound FixtureLibraryService.PreviewFile
+ * (09-07-PLAN.md, D-04): stages a hand-authored YAML fixture file the
+ * operator picked (or typed) for inline inspection before anything is
+ * committed -- shares commitFixturePreview/discardFixturePreview with the
+ * OFL catalog path. Returns offlineFixturePreviewView() when the bridge is
+ * unavailable or the call itself rejects -- callers never need their own
+ * try/catch (mirrors previewOflFixture's identical contract). */
+export async function previewFixtureFile(path: string): Promise<FixturePreviewView> {
+  const svc = fixtureLibraryService();
+  if (!svc) return offlineFixturePreviewView();
+  try {
+    return await svc.PreviewFile(path);
+  } catch {
+    return offlineFixturePreviewView();
+  }
 }
 
 function scriptService(): ScriptServiceBinding | undefined {
