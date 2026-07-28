@@ -1,6 +1,7 @@
 // FixturesStage is the Guided First Show's first stage (09-03-PLAN.md
 // Task 3, FDUI-03): on every mount it calls listLocalFixtures() and
-// derives its GuideStageStatus purely from the returned rows -- no
+// derives its GuideStageStatus purely via readiness.ts's
+// deriveFixturesStatus (extracted in 09-04-PLAN.md Task 2) -- no
 // persisted flag, no cached boolean, no state carried over from a
 // previous visit (onboarding-readiness-impact.md's own interaction
 // contract: "the guide reads actual domain readiness; it does not own
@@ -10,6 +11,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { errorMessage, listLocalFixtures } from "../../../../lib/wailsBridge";
+import { deriveFixturesStatus } from "../readiness";
 import type { GuideStageStatus } from "../stages";
 
 interface FixturesStageProps {
@@ -26,32 +28,7 @@ export default function FixturesStage({ onStatusChange }: FixturesStageProps) {
   const refresh = useCallback(async (): Promise<void> => {
     try {
       const view = await listLocalFixtures();
-      const validCount = view.rows.filter((row) => row.status === "valid").length;
-      const invalidCount = view.rows.length - validCount;
-
-      const items: GuideStageStatus["items"] = [];
-      if (validCount === 0) {
-        items.push({
-          tone: "blocker",
-          label: "No fixtures yet",
-          detail: "The show has no fixture definitions available to patch yet.",
-        });
-      } else {
-        items.push({
-          tone: "evidence",
-          label: "Fixture library",
-          detail: `${validCount} fixture${validCount === 1 ? "" : "s"} available in your library.`,
-        });
-      }
-      if (invalidCount > 0) {
-        items.push({
-          tone: "warning",
-          label: "Validation issues",
-          detail: `${invalidCount} definition${invalidCount === 1 ? "" : "s"} failed validation.`,
-        });
-      }
-
-      onStatusChange({ items, primaryLabel: PRIMARY_LABEL, primaryDisabled: false });
+      onStatusChange(deriveFixturesStatus(view));
       setError(null);
     } catch (err) {
       setError(errorMessage(err));
@@ -61,7 +38,7 @@ export default function FixturesStage({ onStatusChange }: FixturesStageProps) {
     }
   }, [onStatusChange]);
 
-  // Re-reads the library on every mount (no cached progress flag) -- see
+  // Re-reads the library on every mount (no cached readiness flag) -- see
   // this file's own top-of-file doc comment. Deliberately keyed on an
   // empty dependency array: this must run once per mount, not once per
   // render.
