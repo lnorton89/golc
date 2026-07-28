@@ -139,13 +139,28 @@ func (s *FixtureLibraryService) ListLocal() (FixtureLibraryView, error) {
 			Manufacturer: entry.Definition.Manufacturer,
 			Model:        entry.Definition.Model,
 			FileName:     entry.FileName,
-			Source:       "local",
+			Source:       rowSource(entry.Provenance),
 			Status:       "valid",
 		})
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].StableKey < rows[j].StableKey })
 
 	return FixtureLibraryView{Directory: directory, Rows: rows}, nil
+}
+
+// rowSource projects a DirectoryEntry's Provenance into ListLocal's row
+// "source" field: "ofl" when the provenance names an OFL source (its
+// Source carries the "ofl:" prefix ofl.Normalize's NewProvenance call
+// always applies), "local" otherwise -- a hand-authored .yaml/.yml entry
+// carries a zero-valued Provenance, so its Source is always empty and
+// projects as "local". This makes an imported fixture's catalog origin
+// visible in the library rather than indistinguishable from a
+// hand-authored one (T-09-05-05).
+func rowSource(provenance fixture.Provenance) string {
+	if strings.HasPrefix(provenance.Source, "ofl:") {
+		return "ofl"
+	}
+	return "local"
 }
 
 // FixtureWarningView mirrors internal/fixture.LossyImportWarning's JSON
