@@ -43,9 +43,12 @@ Requirements: FDUI-01, FDUI-02, FDUI-03.
 - **D-09:** Show open/new/switch (D-05..D-07) lives as a **new entry in the existing Show nav group**, alongside Overview and Save & Recovery — not folded into Overview's own workspace, not a new top-level entry point outside Show/Build/Operate/Output. Matches `application-shell-navigation.md`'s grouped-by-intent model.
 - **D-10:** Guided First Show is **an overlay/flow reachable via auto-launch or a "Start Guide" action on Overview, not a permanent command-rail destination** — matches Sketch 004-B's HTML structure (a guided-flow section that takes over the canvas). Exiting returns to normal navigation.
 
+### Guided First Show Visual Exception
+- **D-11:** The Guided First Show `.guided-flow` stage-rail grid (`grid-template-columns: 210px minmax(0, 1fr); gap: 7px;`) reproduces the locked CSS **verbatim** from `.planning/sketches/references/onboarding-readiness-impact.md`, including its 7px grid gap — not a multiple of the project's 4px spacing scale used everywhere else. This is not a gray area the user was asked to weigh in on during discuss-phase; it is a pre-existing value inherited from an already-approved, explicitly "do not re-open" sketch reference (per D-08/D-10's own precedent), formally recorded here at UI-phase (gsd-ui-checker Dimension 5) so the exception carries the same locked-decision weight as D-01..D-10 rather than being introduced unilaterally in a UI-SPEC's own prose. Executors reproduce 210px/7px verbatim rather than rounding to the 8px spacing-scale token.
+
 ### Claude's Discretion
 None — every gray area discussed converged on an explicit user selection; all
-recommended options were chosen.
+recommended options were chosen. (D-11 above is a formalized pre-existing constraint, not a discussed gray area — see its own note.)
 
 </decisions>
 
