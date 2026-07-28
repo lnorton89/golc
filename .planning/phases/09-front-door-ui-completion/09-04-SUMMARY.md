@@ -210,3 +210,10 @@ None - no external service configuration required.
 ---
 *Phase: 09-front-door-ui-completion*
 *Completed: 2026-07-28*
+
+## Self-Check: PASSED
+
+All 8 claimed created/modified source files plus the SUMMARY.md itself
+verified present in `git ls-files` (4 created, 4 modified); all 4
+referenced commit hashes (`9a8bb342`, `ff82fdc6`, `3fac9c10`, `419621f0`)
+verified present in `git log`.
