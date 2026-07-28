@@ -90,8 +90,8 @@ type FixtureLibraryRowView struct {
 // (or "external:<basename>" when outside root) -- never the resolved
 // absolute path (T-09-01-01).
 type FixtureLibraryView struct {
-	Directory string                   `json:"directory"`
-	Rows      []FixtureLibraryRowView  `json:"rows"`
+	Directory string                  `json:"directory"`
+	Rows      []FixtureLibraryRowView `json:"rows"`
 }
 
 // fixtureLibraryDirectoryLabel projects fixturesDir with the exact
@@ -162,16 +162,16 @@ type FixtureWarningView struct {
 // as an explicit state (Valid:false, Errors populated) rather than a
 // thrown exception. Errors and Warnings are always non-nil.
 type FixtureInspectView struct {
-	Path             string                `json:"path"`
-	Valid            bool                  `json:"valid"`
-	Errors           []string              `json:"errors"`
-	SchemaVersion    int                   `json:"schemaVersion"`
-	StableKey        string                `json:"stableKey"`
-	ContentHash      string                `json:"contentHash"`
-	Revision         string                `json:"revision"`
-	Source           string                `json:"source"`
-	ValidationResult string                `json:"validationResult"`
-	Warnings         []FixtureWarningView  `json:"warnings"`
+	Path             string               `json:"path"`
+	Valid            bool                 `json:"valid"`
+	Errors           []string             `json:"errors"`
+	SchemaVersion    int                  `json:"schemaVersion"`
+	StableKey        string               `json:"stableKey"`
+	ContentHash      string               `json:"contentHash"`
+	Revision         string               `json:"revision"`
+	Source           string               `json:"source"`
+	ValidationResult string               `json:"validationResult"`
+	Warnings         []FixtureWarningView `json:"warnings"`
 }
 
 // fixtureInspectRouteView mirrors internal/command/fixture.go's private
