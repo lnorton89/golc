@@ -495,3 +495,45 @@ are carried forward.
      the moment it appears, exactly like the fixed `internal/script`
      test now does — this was not itself verified against a live
      Wails webview in this pass.
+
+5. **FIXED (`ad4da15`), closing item 4's "Action required."** A follow-up
+   pass confirmed the stale-notification theory without needing wire-level
+   CDP tracing: `debugbridge.go`'s `handlePaused` now auto-resumes any
+   `Debugger.paused` event whose `Reason == "debugCommand"` and carries no
+   `HitBreakpoints` — the CDP-documented shape of a re-notified initial
+   halt, never a genuine breakpoint hit (`reason: "other"` with
+   `HitBreakpoints` populated) or an exception. The four CLI/wails-level
+   tests item 4 left failing (`TestScriptDebugSetsBreakpointAndCompletesCleanly`,
+   `TestScriptDebugNoBreakpointsResumesImmediately`,
+   `TestScriptDebugCrashReportsSourceMappedStackFrames`,
+   `TestScriptServiceDebugScriptSucceeds`) plus `TestScriptStopTerminatesActiveRun`
+   all pass now, fast, confirmed run twice back-to-back. Task 2's steps
+   11-13 (breakpoint set → Debug → pause → step → Continue → crash trace)
+   are now provable end-to-end through the CLI/wails layer; only the live
+   Wails-webview walkthrough itself remains unverified (see item 7).
+
+6. **NEW, not fixed — memory-limit termination copy gap.** A
+   `--preset advanced --memory-limit-mb 64` script that allocates past its
+   limit is correctly bounded by the Windows Job Object (confirmed: it
+   never exceeds the configured ceiling), but the failure surfaces as a
+   catchable V8 `RangeError: Array buffer allocation failed`
+   (`status: "failed"`, a raw stack trace as the reason) rather than
+   08-UI-SPEC.md:126's promised `"Terminated: {limit name} exceeded
+   ({limit value})..."` copy — that copy is only ever constructed on the
+   deadline path (`GOLC_SCRIPT_DEADLINE_EXCEEDED` in `session.go`); nothing
+   watches memory usage proactively. **Action required:** decide whether to
+   add a proactive memory-usage monitor that produces the promised copy, or
+   update 08-UI-SPEC.md's contract to document the raw-exception behavior
+   as intentional.
+
+7. **Human/GUI checkpoint pass deferred by the repository owner.** 08-13's
+   two `checkpoint:human-verify` tasks (sandbox denial surface + Windows
+   resource enforcement watched live; the full authoring-to-debugging
+   workflow driven through the actual desktop app) were not run in this
+   pass — see 08-13-SUMMARY.md's "Carried forward" section for the exact
+   list of GUI-only observations still open (Monaco autocomplete/typecheck
+   content, gutter breakpoint click, Stop's transient/persistent banner
+   copy, Run Again re-opening the dialog, responsive layout, dark-mode
+   following, live Art-Net watched during a kill, the Copywriting Contract
+   audit). The repository owner will run this pass personally at a later
+   session. Until then, Phase 8 and 08-13 remain unchecked in ROADMAP.md.
