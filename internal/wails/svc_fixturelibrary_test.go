@@ -18,6 +18,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/lnorton89/golc/internal/fixture/ofl"
 )
 
 const validFixtureYAMLForLibraryTest = `schema_version: 1
@@ -191,5 +193,36 @@ func TestFixtureLibraryServiceInspectReportsInvalidWithDiagnostics(t *testing.T)
 	}
 	if goodView.StableKey == "" || goodView.ContentHash == "" {
 		t.Fatalf("expected a valid Inspect to carry a pinned StableKey/ContentHash, got %+v", goodView)
+	}
+}
+
+// TestFixtureLibraryServiceSearchOFLReportsUnreachableWithoutThrowing
+// proves SearchOFL projects an index-fetch failure into a renderable view
+// -- unreachable:true, a non-nil empty manufacturers slice, and a nil
+// error -- an unreachable catalog is a state to render, never a thrown
+// exception (09-05-PLAN.md Task 1 RED / Task 3 GREEN). The service's
+// unexported oflIndexRef is pointed at an unroutable loopback address
+// (never the real network, mirroring fetch_test.go's httptest-only
+// convention) so the failure is deterministic rather than depending on
+// this test environment's actual network reachability.
+func TestFixtureLibraryServiceSearchOFLReportsUnreachableWithoutThrowing(t *testing.T) {
+	svc, _, _ := newTestFixtureLibraryService(t)
+	svc.oflIndexRef = ofl.ManufacturerIndexRef{Mirror: "http://127.0.0.1:1", AllowMirror: true}
+
+	view, err := svc.SearchOFL("acme")
+	if err != nil {
+		t.Fatalf("expected SearchOFL to never return an error, got %v", err)
+	}
+	if !view.Unreachable {
+		t.Fatalf("expected view.Unreachable to be true for a catalog this test cannot reach, got %+v", view)
+	}
+	if view.Manufacturers == nil {
+		t.Fatalf("expected a non-nil empty Manufacturers slice, got nil")
+	}
+	if len(view.Manufacturers) != 0 {
+		t.Fatalf("expected zero manufacturers for an unreachable catalog, got %d: %+v", len(view.Manufacturers), view.Manufacturers)
+	}
+	if view.Query != "acme" {
+		t.Fatalf("expected view.Query to echo the caller's query, got %q", view.Query)
 	}
 }
