@@ -45,7 +45,8 @@ An operator can author a modular show once, adapt its fixture pools to different
 - [ ] LLM actions are validated, observable, auditable, and subject to immediate operator override even when autonomous control is enabled.
 - [ ] LLM agents can inspect and control the application through the same typed command model external programs use (Phase 7 delivered the external-program-facing subset above; remaining show-domain/Art-Net-runtime routes and LLM-specific access are tracked separately under `EXTN-05` and the AI/bounded-autonomy phase).
 - [ ] UI actions, TypeScript scripts, API clients, and LLM tools share a typed application command model so all control surfaces expose consistent behavior. (UI, scripts, and the API already converge on the same command registry as of v1.0; LLM tools are the remaining unproven surface.)
-- [ ] The v1 application installs, runs, saves, restores, and outputs Art-Net reliably on supported Windows systems. (Currently dev-machine `mage Run` only; Phase 10 owns packaging and qualification.)
+- [ ] The v1 application installs, runs, saves, restores, and outputs Art-Net reliably on supported Windows systems. (Currently dev-machine `mage Run` only; Phase 11 owns packaging and qualification.)
+- [ ] A new operator can go from a fresh checkout to a patched fixture and a scene on screen using only the UI, with Guided First Show onboarding as the on-ramp. (Phase 9; Fixture Library workspace is still a `ComingSoon` stub, show open/new/switch and onboarding are not yet built.)
 
 ### Out of Scope
 
@@ -116,22 +117,28 @@ owner decisions recorded 2026-07-25):
 
 ## Next Milestone Goals
 
-Phases 9-11 (already scoped in `.planning/ROADMAP.md`, requirements defined in
-`.planning/REQUIREMENTS.md`) carry forward unchanged:
+Scoped in `.planning/ROADMAP.md`, requirements defined in `.planning/REQUIREMENTS.md`.
+The hygiene phase from `.planning/POST-PHASE-8-PLAN.md` section 1 was completed
+inline during v1.0 milestone close (2026-07-27, not as a separate roadmap phase).
+The front-door-UI phase from section 2 was inserted as **Phase 9**, pushing the
+originally-numbered Phase 9/10/11 to 10/11/12:
 
-1. **Phase 9 — Provider-Neutral AI and Bounded Autonomy**: LLM-backed fixture
+1. **Phase 9 — Front-Door UI Completion**: Fixture Library workspace, show
+   open/new/switch, and Guided First Show onboarding — closes the last UI-only
+   gaps so no CLI is required for the happy path.
+2. **Phase 10 — Provider-Neutral AI and Bounded Autonomy**: LLM-backed fixture
    authoring and explicitly armed, time-bounded live control with immediate
    operator override.
-2. **Phase 10 — Windows Release Qualification**: packaged, supervised, self-contained
+3. **Phase 11 — Windows Release Qualification**: packaged, supervised, self-contained
    Windows install with measured timing/recovery/hardware evidence.
-3. **Phase 11 — Telemetry, Usage Statistics, and Auto Crash Submission Pipeline**:
+4. **Phase 12 — Telemetry, Usage Statistics, and Auto Crash Submission Pipeline**:
    opt-in anonymized telemetry and automatic crash capture.
 
-Per the owner's 2026-07-25 decisions, a short hygiene phase and a front-door-UI
-completion phase (Fixture Library, show open/new/switch, Guided First Show
-onboarding) should be inserted before Phase 9 starts — not yet done, since touching
-`ROADMAP.md` mid-Phase-8 would have raced with the running executors. Doing so is
-the natural next step now that Phase 8 (and this milestone close) are complete.
+Phase 9 was numbered as a plain integer, not GSD's default decimal insertion
+(e.g. `8.1`) — `internal/trace/catalog`'s phase-directory grammar and
+`### Phase N:` heading regex only match two-digit integers, so a decimal phase
+would have been invisible to Linear traceability (no `phase:08.1` entity, no
+LINR-01/02 coverage). Next: `/gsd-discuss-phase 9` then `/gsd-plan-phase 9`.
 
 ## Constraints
 
@@ -158,11 +165,11 @@ the natural next step now that Phase 8 (and this milestone close) are complete.
 |----------|-----------|---------|
 | Build the desktop application in Go with Wails | Provides the requested Go core and cross-platform desktop UI model | ✓ Good — proven through v1.0's full authoring/operator/safety-hotkey surface |
 | Target small live shows first | Keeps v1 focused on a complete, practical workflow for a single operator and modest rig | ✓ Good — narrowed further to club/DJ at v1.0 close |
-| Define v1 success through complete show programming and Art-Net playback | A reliable conventional workflow must exist before AI and integrations can be trusted with it | ✓ Good — v1.0 shipped this core before Phase 9 (AI) begins |
-| Support full LLM autonomy | The LLM is intended to operate the whole program, not merely suggest content | — Pending (Phase 9, next milestone) |
+| Define v1 success through complete show programming and Art-Net playback | A reliable conventional workflow must exist before AI and integrations can be trusted with it | ✓ Good — v1.0 shipped this core before Phase 10 (AI) begins |
+| Support full LLM autonomy | The LLM is intended to operate the whole program, not merely suggest content | — Pending (Phase 10, next milestone) |
 | Make TypeScript the user scripting language | Provides a familiar, capable language for programmable show behavior | ✓ Good — validated in Phase 8 with a real sandbox and debugger |
 | Treat the API as a first-class, versioned product surface | External programs and LLMs need durable interoperability rather than UI automation | ✓ Good — validated in Phase 7 with OpenAPI contract, SSE, audit trail |
-| Route UI, scripts, API, and LLM tools through a shared typed command model | Preserves behavioral consistency, testability, and control boundaries across every interface | ✓ Good for UI/scripts/API (Phases 6-8); LLM tools remain Pending (Phase 9) |
+| Route UI, scripts, API, and LLM tools through a shared typed command model | Preserves behavioral consistency, testability, and control boundaries across every interface | ✓ Good for UI/scripts/API (Phases 6-8); LLM tools remain Pending (Phase 10) |
 | Implement Art-Net first behind a protocol abstraction | Delivers the initial real-world output path without blocking later protocol support | ✓ Good — verified against simulator and real hardware in Phase 4 |
 | Use Linear from project inception | Keeps requirements, planned work, and delivery status visible and traceable from the first implementation phase | ✓ Good — credential-free, idempotent reconciliation proven in Phase 1 |
 | Store fixture definitions as schema-validated YAML | YAML fits nested fixture modes, channels, capabilities, and ranges better than TOML while remaining friendly to people and LLMs | ✓ Good — validated in Phase 2 |
@@ -180,7 +187,7 @@ the natural next step now that Phase 8 (and this milestone close) are complete.
 | Provide an independent Revoke Automation action | The operator must be able to stop AI and scripts without waiting for them and without forcing blackout | ✓ Good — validated in Phase 6, daemon-resident and independent of UI/script/API/LLM |
 | Provide complete keyboard and on-screen playback | The application must be fully operable before and independently of the selected MIDI hardware | ✓ Good — validated in Phase 6 |
 | Defer cross-show module synchronization to v1.x | Modular deployment inside a show delivers the primary value first | ✓ Good — still deferred, unchanged |
-| Support Windows first | Concentrates v1 packaging, timing, networking, and hardware qualification on the user's required platform | — Pending (Phase 10, next milestone; dev-machine `mage Run` only today) |
+| Support Windows first | Concentrates v1 packaging, timing, networking, and hardware qualification on the user's required platform | — Pending (Phase 11, next milestone; dev-machine `mage Run` only today) |
 | Centralize project configuration while separating concerns | Makes setup and operation discoverable without collapsing unrelated configuration into one unmaintainable file | ✓ Good — validated in Phase 1 |
 | Select Akai MIDImix, Novation Launch Control XL Mk2, and Worlde EasyControl 9 together for Phase 6 physical acceptance | The three user-owned controllers can independently qualify generic MIDI learn and soft takeover without turning selection or manual evidence into a support claim | Decided 2026-07-19; MIDI-HW-01 resolved, MIDI-HW-02 remains open per device |
 | Close v1.0 at Phase 8, splitting the originally-unified 11-phase "v1" scope into v1.0 (core) and a later milestone (AI/Windows/telemetry) | Ship the proven deterministic core now rather than block release on unstarted AI/Windows/telemetry work | ✓ Good — decided 2026-07-25 (`POST-PHASE-8-PLAN.md`), executed at milestone close 2026-07-27 |

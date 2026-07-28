@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0-shipped
 milestone_name: milestone
-current_phase: 08
-current_phase_name: isolated-typescript-automation
-status: milestone_complete
-stopped_at: v1.0 milestone archived (Phases 1-8); next milestone (Phases 9-11) awaiting hygiene/front-door-UI phase insertion per POST-PHASE-8-PLAN.md
+current_phase: "09"
+current_phase_name: front-door-ui-completion
+status: phase_not_planned
+stopped_at: Phase 9 (Front-Door UI Completion) inserted into ROADMAP.md; not yet discussed or planned
 last_updated: "2026-07-27T23:15:00.000Z"
 last_activity: 2026-07-27
-last_activity_desc: v1.0 milestone closed and archived to .planning/milestones/ (Phases 1-8, 99 plans); REQUIREMENTS.md re-scoped to the remaining LLM/Windows/telemetry requirements for the next milestone
+last_activity_desc: Phase 9 (Front-Door UI Completion) inserted after v1.0 milestone close, renumbering former Phase 9/10/11 (AI autonomy, Windows qualification, telemetry) to Phase 10/11/12; FDUI-01/02/03 added to REQUIREMENTS.md
 progress:
-  total_phases: 11
+  total_phases: 12
   completed_phases: 8
   total_plans: 99
   completed_plans: 99
@@ -23,15 +23,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-27)
 
 **Core value:** An operator can author a modular show once, adapt its fixture pools to different deployments in one or two actions, and hand a simple controller surface to another person for reliable playback.
-**Current focus:** v1.0 shipped (Phases 1-8, archived to `.planning/milestones/v1.0-ROADMAP.md`). Next: insert the hygiene and front-door-UI phases from `.planning/POST-PHASE-8-PLAN.md` before starting Phase 9 (Provider-Neutral AI and Bounded Autonomy).
+**Current focus:** v1.0 shipped (Phases 1-8, archived to `.planning/milestones/v1.0-ROADMAP.md`). The hygiene phase from `.planning/POST-PHASE-8-PLAN.md` was completed inline during milestone close. Phase 9 (Front-Door UI Completion) is inserted and next up; run `/gsd-discuss-phase 9` then `/gsd-plan-phase 9`.
 
 ## Current Position
 
 Milestone v1.0: COMPLETE (Phases 1-8, 99/99 plans, shipped 2026-07-27)
-Next: Phase 9 (Provider-Neutral AI and Bounded Autonomy), pending insertion of the hygiene and front-door-UI phases `.planning/POST-PHASE-8-PLAN.md` calls for first.
-Last activity: 2026-07-27 — v1.0 milestone closed and archived (see .planning/MILESTONES.md and .planning/milestones/v1.0-ROADMAP.md)
+Next: Phase 9 (Front-Door UI Completion) — inserted 2026-07-27, not yet planned.
+Last activity: 2026-07-27 — Phase 9 inserted (Fixture Library workspace, show open/new/switch, Guided First Show onboarding), renumbering the former Phase 9/10/11 (AI autonomy, Windows qualification, telemetry) to Phase 10/11/12.
 
-Note: Phase 9 depends on Phases 2/6/7/8 (all satisfied), Phase 10 depends on Phases 1-9, and Phase 11 depends on Phase 10. These phases remain active (not archived) in `.planning/ROADMAP.md` since they were carried forward rather than shipped as part of v1.0.
+Note: Phase 9 depends on Phase 8 (satisfied). Phase 10 (AI autonomy) depends on Phases 2/6/7/8/9, Phase 11 (Windows) depends on Phases 1-10, and Phase 12 (Telemetry) depends on Phase 11. These phases remain active (not archived) in `.planning/ROADMAP.md` since they were carried forward rather than shipped as part of v1.0.
 
 Progress: [███████░░░] 73% (8/11 phases, 99/99 plans in completed phases)
 
@@ -67,6 +67,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent roadmap constrain
 ### Roadmap Evolution
 
 - Phase 11 added: Telemetry, Usage Statistics, and Auto Crash Submission Pipeline — users can opt into anonymized usage/telemetry collection and crashes are automatically captured and submitted for diagnosis without blocking playback or requiring manual repro steps.
+- 2026-07-27: Phase 9 inserted (Front-Door UI Completion — Fixture Library workspace, show open/new/switch, Guided First Show onboarding), per `.planning/POST-PHASE-8-PLAN.md` section 2 (owner decisions 2026-07-25). Former Phase 9 (Provider-Neutral AI and Bounded Autonomy) renumbered to Phase 10, former Phase 10 (Windows Release Qualification) to Phase 11, former Phase 11 (Telemetry) to Phase 12. Inserted as a plain integer, not GSD's default decimal (`8.1`), because `internal/trace/catalog` only resolves two-digit integer phase directories/headings.
 
 ### Pending Todos
 

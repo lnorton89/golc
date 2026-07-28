@@ -2654,6 +2654,34 @@
       "parent_local_id": "phase:08",
       "display": "Plan 08-13",
       "source": ".planning/phases/08-isolated-typescript-automation/08-13-PLAN.md"
+    },
+    {
+      "local_id": "phase:09",
+      "kind": "phase",
+      "parent_local_id": "milestone:v1",
+      "display": "Front-Door UI Completion",
+      "source": ".planning/ROADMAP.md"
+    },
+    {
+      "local_id": "req:FDUI-01",
+      "kind": "req",
+      "parent_local_id": "phase:09",
+      "display": "A user can browse, inspect, and import fixture definitions (Open Fixture Library and hand-authored YAML) through the Fixture Library workspace, not only the CLI.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:FDUI-02",
+      "kind": "req",
+      "parent_local_id": "phase:09",
+      "display": "A user can open an existing show, create a new show, and switch between shows through on-screen controls.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:FDUI-03",
+      "kind": "req",
+      "parent_local_id": "phase:09",
+      "display": "A first-time user can complete Guided First Show onboarding to go from an empty application to a patched fixture and a scene on screen using only the UI.",
+      "source": ".planning/REQUIREMENTS.md"
     }
   ],
   "remote_mappings": [
@@ -5667,6 +5695,38 @@
     },
     {
       "repo_id": "plan:08-13",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "phase:09",
+      "linear_type": "project_milestone",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:FDUI-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:FDUI-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:FDUI-03",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,
