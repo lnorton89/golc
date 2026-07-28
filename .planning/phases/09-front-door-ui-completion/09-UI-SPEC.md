@@ -29,6 +29,11 @@ created: 2026-07-27
 - Guided First Show is **not** a nav destination. It is an overlay/flow that replaces the canvas content: auto-launched by `OverviewWorkspace` (or its successor) when the show has no fixtures/pools/scenes (D-08), or manually entered via a **"Start Guide"** button on Overview (D-10). Exiting returns to whichever workspace was active before entry.
 - No new frontend package is required for D-04's native file picker — it is a Go-side Wails runtime call (`runtime.OpenFileDialog`), not a frontend dependency, and carries no registry-safety concern.
 
+**Primary visual anchor per surface:**
+- **Fixture Library:** the combined local/OFL list is the focal point; the inline inspect panel is secondary and stays visually quiet (collapsed/empty) until a row is selected, at which point it takes the eye via the accent-toned "Add to Library" CTA.
+- **Shows workspace:** the current-show indicator plus its "Open Show…" / "New Show…" action pair is the focal point — the operator's eye should land on "what show am I in, and how do I change it" before anything else on the surface.
+- **Guided First Show:** the active stage's primary action button in the stage content pane is the focal point (reinforced by the stage rail's `aria-current="step"` highlight as a secondary anchor pointing at it); the readiness/evidence aside is tertiary, consulted after the primary action, not competing with it.
+
 ---
 
 ## Spacing Scale
@@ -46,8 +51,8 @@ Declared values (multiples of 4), identical to the project-wide scale Phase 6 es
 | 3xl | 64px | Page-level spacing; unchanged, unrelated to this phase (safety-cluster touch target) |
 
 Exceptions:
-- **Guided First Show's `.guided-flow` grid gap is locked at 7px**, verbatim from `onboarding-readiness-impact.md`'s own committed CSS pattern (`grid-template-columns: 210px minmax(0, 1fr); gap: 7px;`). Not a multiple of 4 — but that reference document is explicitly "fully locked... do not re-open," so the executor reproduces it verbatim rather than rounding to 8px.
-- **Guided First Show's stage rail is a fixed 210px column width** (same locked CSS) — a layout dimension, not a spacing-scale token.
+- **Guided First Show's `.guided-flow` grid gap is locked at 7px** (D-11, `09-CONTEXT.md`), verbatim from `onboarding-readiness-impact.md`'s own committed CSS pattern (`grid-template-columns: 210px minmax(0, 1fr); gap: 7px;`). Not a multiple of 4 — D-11 formally records this as a locked-decision-weight exception (same weight as D-01..D-10), not merely a UI-SPEC prose note: the value is a pre-existing, already-approved constraint inherited verbatim from an explicitly "do not re-open" sketch reference, so the executor reproduces it verbatim rather than rounding to 8px.
+- **Guided First Show's stage rail is a fixed 210px column width** (same locked CSS, same D-11) — a layout dimension, not a spacing-scale token.
 - **Native file/directory picker dialogs** (D-04's custom-YAML path field, D-05/D-06's show-path picker) render through OS/Wails runtime chrome, outside this app's spacing scale.
 
 ---
