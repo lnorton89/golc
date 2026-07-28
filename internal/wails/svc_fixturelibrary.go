@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -55,6 +56,23 @@ type FixtureLibraryService struct {
 	oflFetched       bool
 	oflManufacturers []ofl.Manufacturer
 	oflFetchErr      error
+
+	// previewMirror/previewAllowMirror mirror ofl.OFLRef's own Mirror/
+	// AllowMirror opt-in shape (09-06-PLAN.md Task 1 test seam): zero-valued
+	// in production, so PreviewOFL forwards no --mirror/--allow-mirror
+	// flags to the "fixture import" route and resolves to the default
+	// upstream host exactly like a direct CLI invocation would. Only this
+	// package's own tests override these fields, to point PreviewOFL at a
+	// deterministic httptest server rather than the live catalog.
+	previewMirror      string
+	previewAllowMirror bool
+
+	// previewMu guards previewDir (lazily created on first PreviewOFL/
+	// CommitPreview/DiscardPreview call) and previewSeq (a monotonically
+	// increasing counter giving every staged preview file a unique name).
+	previewMu  sync.Mutex
+	previewDir string
+	previewSeq int
 }
 
 // NewFixtureLibraryService constructs a FixtureLibraryService targeting
@@ -366,4 +384,249 @@ func (s *FixtureLibraryService) loadOFLManufacturers() ([]ofl.Manufacturer, erro
 	}
 	s.oflManufacturers = manufacturers
 	return manufacturers, nil
+}
+
+// --- 09-06-PLAN.md: preview-then-commit OFL import (D-02, T-09-06-*) ---
+
+// FixturePreviewView is PreviewOFL's return shape: the candidate's
+// FixtureInspectView projection, an opaque previewToken the frontend
+// round-trips to CommitPreview/DiscardPreview (never rendered -- it is the
+// previewed artifact's own filesystem path, outside both the project root
+// and the library directory), whether the suggested destination already
+// exists in the library, and that suggested library file name.
+type FixturePreviewView struct {
+	Inspect           FixtureInspectView `json:"inspect"`
+	PreviewToken      string             `json:"previewToken"`
+	DestinationExists bool               `json:"destinationExists"`
+	SuggestedFileName string             `json:"suggestedFileName"`
+}
+
+// ensurePreviewDir lazily creates this service instance's own dedicated
+// preview directory under the OS temp directory -- never the library
+// directory, and never scanned by ListLocal/ListDirectory -- so a staged
+// preview is invisible to the library until CommitPreview explicitly moves
+// it there.
+func (s *FixtureLibraryService) ensurePreviewDir() (string, error) {
+	s.previewMu.Lock()
+	defer s.previewMu.Unlock()
+	if s.previewDir != "" {
+		return s.previewDir, nil
+	}
+	dir, err := os.MkdirTemp("", "golc-fixture-preview-")
+	if err != nil {
+		return "", fmt.Errorf("GOLC_WAILS_FIXTURE_PREVIEW_FAILED: creating preview directory: %v", err)
+	}
+	s.previewDir = dir
+	return dir, nil
+}
+
+// nextPreviewPath allocates a unique path inside previewDir for one
+// PreviewOFL call, keyed by a per-service monotonically increasing
+// sequence number so concurrent previews (or repeated previews of the same
+// candidate) never collide.
+func (s *FixtureLibraryService) nextPreviewPath(previewDir, manufacturerKey, fixtureKey string) string {
+	s.previewMu.Lock()
+	s.previewSeq++
+	seq := s.previewSeq
+	s.previewMu.Unlock()
+	name := fmt.Sprintf("%s_%s-%d.json", sanitizePreviewSegment(manufacturerKey), sanitizePreviewSegment(fixtureKey), seq)
+	return filepath.Join(previewDir, name)
+}
+
+// sanitizePreviewSegment strips path-separator/traversal characters from a
+// caller-supplied manufacturer/fixture key before it becomes part of a
+// filesystem path -- defensive, since every real OFL key is a plain slug,
+// but a webview-supplied string is never trusted verbatim as a path
+// component (T-09-06-01's trust boundary).
+func sanitizePreviewSegment(raw string) string {
+	replacer := strings.NewReplacer("/", "_", "\\", "_", "..", "_")
+	return replacer.Replace(raw)
+}
+
+// isPathWithinDir reports whether candidate resolves to a path strictly
+// inside dir: both sides are resolved to absolute, cleaned paths and
+// compared with filepath.Rel on a path-separator boundary (T-09-06-01) --
+// never a bare string-prefix comparison, which a crafted sibling directory
+// name could defeat. dir itself does not count as "within" dir.
+func isPathWithinDir(dir, candidate string) bool {
+	absDir, err := filepath.Abs(filepath.Clean(dir))
+	if err != nil {
+		return false
+	}
+	absCandidate, err := filepath.Abs(filepath.Clean(candidate))
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(absDir, absCandidate)
+	if err != nil {
+		return false
+	}
+	if rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return false
+	}
+	return true
+}
+
+// libraryFileNameForSource derives the library destination file name from
+// an import artifact's own Provenance.Source (the "ofl:<manufacturer>/<key>"
+// label ofl.Normalize always applies), mirroring internal/command/
+// fixture.go's own "<manufacturer>_<key>.json" corpus naming convention
+// (oflSourceFromFilename's inverse) -- so PreviewOFL's SuggestedFileName and
+// CommitPreview's own re-derivation from the previewed artifact always
+// agree on the identical destination name.
+func libraryFileNameForSource(source string) string {
+	trimmed := strings.TrimPrefix(source, "ofl:")
+	return strings.ReplaceAll(trimmed, "/", "_") + ".json"
+}
+
+// PreviewOFL stages an OFL import for manufacturerKey/fixtureKey into this
+// service's own dedicated preview directory by forwarding to the existing,
+// already-tested "fixture import" route via execute -- the Wails layer
+// performs no fetch, no normalization, no pinning, and no validation of its
+// own (T-09-06-04). A non-zero exit code from that route projects as a
+// renderable invalid-candidate view (Inspect.Valid:false, Errors built from
+// the route's own non-empty trimmed stderr lines) with a nil error, and any
+// partial preview file is removed -- PreviewOFL itself never returns a
+// non-nil error for a rejected candidate. On success the previewed artifact
+// is read back and decoded through fixture.DecodeEnvelope/fixture.Pin --
+// never re-encoded, re-normalized, or independently pinned (D-02,
+// 09-RESEARCH.md anti-patterns) -- and projected into the returned view
+// alongside the preview token (an opaque handle, never rendered) and
+// whether the suggested destination already exists in the library
+// (T-09-06-02).
+func (s *FixtureLibraryService) PreviewOFL(manufacturerKey, fixtureKey string) (FixturePreviewView, error) {
+	previewDir, err := s.ensurePreviewDir()
+	if err != nil {
+		return FixturePreviewView{}, err
+	}
+	previewPath := s.nextPreviewPath(previewDir, manufacturerKey, fixtureKey)
+
+	args := []string{"fixture", "import", "--ofl", manufacturerKey + "/" + fixtureKey}
+	if s.previewMirror != "" {
+		args = append(args, "--mirror", s.previewMirror, "--allow-mirror")
+	}
+	args = append(args, "--out", previewPath)
+
+	result := s.execute(args)
+	if result.ExitCode != 0 {
+		_ = os.Remove(previewPath)
+		return FixturePreviewView{
+			Inspect: FixtureInspectView{
+				Valid:    false,
+				Errors:   trimmedNonEmptyLines(result.Stderr),
+				Warnings: []FixtureWarningView{},
+			},
+		}, nil
+	}
+
+	data, err := os.ReadFile(previewPath)
+	if err != nil {
+		return FixturePreviewView{}, fmt.Errorf("GOLC_WAILS_FIXTURE_PREVIEW_FAILED: reading previewed artifact: %v", err)
+	}
+	envelope, err := fixture.DecodeEnvelope(data)
+	if err != nil {
+		return FixturePreviewView{}, fmt.Errorf("GOLC_WAILS_FIXTURE_PREVIEW_FAILED: %v", err)
+	}
+	identity, err := fixture.Pin(envelope.Definition)
+	if err != nil {
+		return FixturePreviewView{}, fmt.Errorf("GOLC_WAILS_FIXTURE_PREVIEW_FAILED: %v", err)
+	}
+
+	warnings := make([]FixtureWarningView, 0, len(envelope.Provenance.Warnings))
+	for _, warning := range envelope.Provenance.Warnings {
+		warnings = append(warnings, FixtureWarningView{
+			Severity:       warning.Severity,
+			CapabilityType: warning.CapabilityType,
+			Detail:         warning.Detail,
+		})
+	}
+
+	suggestedFileName := libraryFileNameForSource(envelope.Provenance.Source)
+	_, statErr := os.Stat(filepath.Join(s.fixturesDir, suggestedFileName))
+	destinationExists := statErr == nil
+
+	return FixturePreviewView{
+		Inspect: FixtureInspectView{
+			Valid:            true,
+			Errors:           []string{},
+			SchemaVersion:    identity.SchemaVersion,
+			StableKey:        identity.StableKey,
+			ContentHash:      identity.ContentHash,
+			Revision:         identity.Revision,
+			Source:           envelope.Provenance.Source,
+			ValidationResult: envelope.Provenance.ValidationResult,
+			Warnings:         warnings,
+		},
+		PreviewToken:      previewPath,
+		DestinationExists: destinationExists,
+		SuggestedFileName: suggestedFileName,
+	}, nil
+}
+
+// CommitPreview commits the previewed artifact at previewToken into the
+// library directory (T-09-06-01/T-09-06-02/T-09-06-04): previewToken must
+// resolve inside this service's own preview directory, checked before any
+// filesystem operation (GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN otherwise); the
+// destination file name is re-derived from the previewed artifact's own
+// Provenance.Source, never from caller-supplied input; and an existing
+// destination is refused with GOLC_WAILS_FIXTURE_IMPORT_EXISTS unless
+// overwrite is true, writing nothing in that case. On success the
+// previewed file is moved (never copied-and-re-encoded) to the
+// destination, so the committed bytes are byte-identical to the bytes
+// "fixture import" originally wrote.
+func (s *FixtureLibraryService) CommitPreview(previewToken string, overwrite bool) Result {
+	previewDir, err := s.ensurePreviewDir()
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: fmt.Sprintf("%v\n", err)}
+	}
+	if !isPathWithinDir(previewDir, previewToken) {
+		return Result{ExitCode: 2, Stderr: "GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN: preview token does not resolve inside this service's own preview directory\n"}
+	}
+
+	data, err := os.ReadFile(previewToken)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: fmt.Sprintf("GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN: reading preview token: %v\n", err)}
+	}
+	envelope, err := fixture.DecodeEnvelope(data)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: fmt.Sprintf("GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN: %v\n", err)}
+	}
+
+	if err := os.MkdirAll(s.fixturesDir, 0o755); err != nil {
+		return Result{ExitCode: 1, Stderr: fmt.Sprintf("GOLC_FIXTURE_IMPORT_WRITE_FAILED: creating library directory: %v\n", err)}
+	}
+
+	destFileName := libraryFileNameForSource(envelope.Provenance.Source)
+	destPath := filepath.Join(s.fixturesDir, destFileName)
+
+	if !overwrite {
+		if _, statErr := os.Stat(destPath); statErr == nil {
+			return Result{ExitCode: 1, Stderr: fmt.Sprintf("GOLC_WAILS_FIXTURE_IMPORT_EXISTS: %s already exists in the library\n", destFileName)}
+		}
+	}
+
+	if err := os.Rename(previewToken, destPath); err != nil {
+		return Result{ExitCode: 1, Stderr: fmt.Sprintf("GOLC_FIXTURE_IMPORT_WRITE_FAILED: %v\n", err)}
+	}
+
+	return Result{Stdout: fmt.Sprintf("GOLC_FIXTURE_IMPORT: wrote %s\n", destFileName)}
+}
+
+// DiscardPreview removes the staged preview at previewToken -- the
+// workspace calls this when the operator changes selection or switches
+// source, so an abandoned preview never accumulates (T-09-06-05). The same
+// containment check as CommitPreview applies before any filesystem
+// operation; removing an already-gone preview is not an error.
+func (s *FixtureLibraryService) DiscardPreview(previewToken string) Result {
+	previewDir, err := s.ensurePreviewDir()
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: fmt.Sprintf("%v\n", err)}
+	}
+	if !isPathWithinDir(previewDir, previewToken) {
+		return Result{ExitCode: 2, Stderr: "GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN: preview token does not resolve inside this service's own preview directory\n"}
+	}
+	if err := os.Remove(previewToken); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return Result{ExitCode: 1, Stderr: fmt.Sprintf("GOLC_WAILS_FIXTURE_PREVIEW_FAILED: %v\n", err)}
+	}
+	return Result{}
 }

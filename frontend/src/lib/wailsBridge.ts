@@ -645,17 +645,37 @@ export interface OflSearchView {
   detail: string;
 }
 
+/** FixturePreviewView mirrors internal/wails.FixturePreviewView's JSON
+ * shape exactly -- PreviewOFL's return value (09-06-PLAN.md, D-02):
+ * inspect is the candidate's FixtureInspectView projection; previewToken
+ * is an opaque handle round-tripped to commitFixturePreview/
+ * discardFixturePreview, never rendered; destinationExists/
+ * suggestedFileName describe the library slot the candidate would occupy
+ * if committed. */
+export interface FixturePreviewView {
+  inspect: FixtureInspectView;
+  previewToken: string;
+  destinationExists: boolean;
+  suggestedFileName: string;
+}
+
 /** FixtureLibraryServiceBinding mirrors internal/wails/
  * svc_fixturelibrary.go's bound methods field-for-field: ListLocal is a
  * Wails-only read projection over the single extracted
  * internal/fixture.ListDirectory scan (no CLI-parity route); Inspect
  * forwards to the existing, already-tested "fixture inspect" route;
  * SearchOFL is a Wails-only read projection over the cached OFL
- * manufacturer index (09-05-PLAN.md Task 3). */
+ * manufacturer index (09-05-PLAN.md Task 3); PreviewOFL/CommitPreview/
+ * DiscardPreview stage, commit, and discard an OFL import candidate
+ * (09-06-PLAN.md, D-02) by forwarding to the existing "fixture import"
+ * route -- never a second decode/normalize/pin implementation. */
 interface FixtureLibraryServiceBinding {
   ListLocal(): Promise<FixtureLibraryView>;
   Inspect(path: string): Promise<FixtureInspectView>;
   SearchOFL(query: string): Promise<OflSearchView>;
+  PreviewOFL(manufacturerKey: string, fixtureKey: string): Promise<FixturePreviewView>;
+  CommitPreview(previewToken: string, overwrite: boolean): Promise<WailsResult>;
+  DiscardPreview(previewToken: string): Promise<WailsResult>;
 }
 
 // Single, centralized `window.go.wails` shape (Wails v2's runtime-injected
@@ -1413,6 +1433,58 @@ export async function searchOflManufacturers(query: string): Promise<OflSearchVi
   } catch {
     return offlineOflSearchView(query);
   }
+}
+
+/** offlineFixturePreviewView is PreviewOFL's explicit, non-throwing
+ * fallback when the bridge is unavailable -- inspect.valid stays false (via
+ * offlineFixtureInspectView) so a missing bridge never renders as an honest
+ * "this candidate is fine" result, mirroring offlineFixtureInspectView's
+ * own "never lie about health" contract. */
+function offlineFixturePreviewView(): FixturePreviewView {
+  return {
+    inspect: offlineFixtureInspectView(""),
+    previewToken: "",
+    destinationExists: false,
+    suggestedFileName: "",
+  };
+}
+
+/** previewOflFixture calls the bound FixtureLibraryService.PreviewOFL
+ * (09-06-PLAN.md, D-02): stages an OFL import candidate for inline
+ * inspection before anything is committed. Returns
+ * offlineFixturePreviewView() when the bridge is unavailable or the call
+ * itself rejects -- callers never need their own try/catch (mirrors
+ * listLocalFixtures/inspectFixtureFile/searchOflManufacturers' identical
+ * contract). */
+export async function previewOflFixture(manufacturerKey: string, fixtureKey: string): Promise<FixturePreviewView> {
+  const svc = fixtureLibraryService();
+  if (!svc) return offlineFixturePreviewView();
+  try {
+    return await svc.PreviewOFL(manufacturerKey, fixtureKey);
+  } catch {
+    return offlineFixturePreviewView();
+  }
+}
+
+/** commitFixturePreview calls the bound FixtureLibraryService.CommitPreview
+ * (09-06-PLAN.md, D-02): the single confirm action that commits a
+ * previously-staged preview into the library. Returns
+ * bridgeUnavailableResult() when the bridge is absent, exactly like
+ * saveShow does -- never throws. */
+export async function commitFixturePreview(previewToken: string, overwrite: boolean): Promise<WailsResult> {
+  const svc = fixtureLibraryService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.CommitPreview(previewToken, overwrite);
+}
+
+/** discardFixturePreview calls the bound FixtureLibraryService.
+ * DiscardPreview (09-06-PLAN.md, D-02): removes an abandoned staged
+ * preview so it never accumulates. Returns bridgeUnavailableResult() when
+ * the bridge is absent, exactly like saveShow does -- never throws. */
+export async function discardFixturePreview(previewToken: string): Promise<WailsResult> {
+  const svc = fixtureLibraryService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.DiscardPreview(previewToken);
 }
 
 function scriptService(): ScriptServiceBinding | undefined {
