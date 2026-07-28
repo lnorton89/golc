@@ -24,18 +24,35 @@
 // searches OFL manufacturer names only -- no full fixture-model index is
 // reachable from the single SSRF-guarded host the app allows (09-RESEARCH
 // Open Question 1) -- so a permanently visible note states that scope
-// next to the results; plan 09-06 adds the fixture-key field and the
-// import action.
+// next to the results.
+//
+// 09-06-PLAN.md adds the fixture-key field and the "Add to Library"
+// confirm action (D-02): selecting a manufacturer reveals a Field for the
+// fixture key; previewing calls FixtureLibraryService.PreviewOFL and
+// renders the candidate's identity/warnings inline in this same panel --
+// never a modal, dialog, or wizard step. "Add to Library" stays disabled
+// until the candidate passes validation, mirroring ScriptsWorkspace's own
+// validation-gates-action discipline. A commit that finds the destination
+// already present renders a distinct message with a separate "Replace"
+// action rather than silently overwriting anything. An abandoned candidate
+// is discarded (DiscardPreview) when the manufacturer selection changes,
+// the fixture key is edited, or the operator switches back to "My
+// Library," so a staged preview never lingers.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Lightbulb } from "lucide-react";
 
 import {
+  commitFixturePreview,
+  discardFixturePreview,
   errorMessage,
   inspectFixtureFile,
   listLocalFixtures,
+  previewOflFixture,
   searchOflManufacturers,
   type FixtureInspectView,
   type FixtureLibraryRowView,
+  type FixturePreviewView,
+  type OflManufacturerView,
   type OflSearchView,
 } from "../../lib/wailsBridge";
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
@@ -45,6 +62,8 @@ import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion"
 import EmptyState from "../../components/primitives/EmptyState/EmptyState";
 import ListRow from "../../components/primitives/ListRow/ListRow";
 import Chip from "../../components/primitives/Chip/Chip";
+import Field from "../../components/primitives/Field/Field";
+import Button from "../../components/primitives/Button/Button";
 import styles from "./FixtureLibraryWorkspace.module.css";
 
 // oflSearchDebounceMs is the client-side debounce D-01/T-09-05-03 require
@@ -82,6 +101,19 @@ export default function FixtureLibraryWorkspace() {
   const [catalogView, setCatalogView] = useState<OflSearchView | null>(null);
   const [catalogSearching, setCatalogSearching] = useState(false);
   const catalogRequestRef = useRef(0);
+
+  // Catalog import candidate (09-06-PLAN.md, D-02): selecting a
+  // manufacturer + entering a fixture key stages a preview via PreviewOFL;
+  // "Add to Library" commits it. alreadyExists distinguishes a refused
+  // commit (destination present) from every other failure, so the
+  // "Replace" action only ever appears for that specific case.
+  const [selectedManufacturer, setSelectedManufacturer] = useState<OflManufacturerView | null>(null);
+  const [candidateFixtureKey, setCandidateFixtureKey] = useState("");
+  const [previewing, setPreviewing] = useState(false);
+  const [previewView, setPreviewView] = useState<FixturePreviewView | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [committing, setCommitting] = useState(false);
+  const [alreadyExists, setAlreadyExists] = useState(false);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -153,6 +185,84 @@ export default function FixtureLibraryWorkspace() {
     })();
   };
 
+  // discardCandidatePreview fires DiscardPreview for token (if any staged
+  // preview exists) without blocking the caller -- an abandoned preview
+  // never accumulates (T-09-06-05), but the UI never waits on the
+  // fire-and-forget cleanup call.
+  const discardCandidatePreview = (token: string | null) => {
+    if (!token) return;
+    void discardFixturePreview(token);
+  };
+
+  // resetCandidate clears every piece of catalog-candidate state and
+  // discards any staged preview -- called whenever the manufacturer
+  // selection changes, the fixture key is edited, or the operator switches
+  // back to "My Library" (D-02).
+  const resetCandidate = () => {
+    discardCandidatePreview(previewView?.previewToken ?? null);
+    setPreviewView(null);
+    setPreviewError(null);
+    setAlreadyExists(false);
+  };
+
+  const handleSelectManufacturer = (manufacturer: OflManufacturerView) => {
+    resetCandidate();
+    setSelectedManufacturer(manufacturer);
+    setCandidateFixtureKey("");
+  };
+
+  const handleFixtureKeyChange = (value: string) => {
+    resetCandidate();
+    setCandidateFixtureKey(value);
+  };
+
+  // handlePreview calls PreviewOFL against the selected manufacturer's key
+  // and the operator-entered fixture key -- never a second fetch/
+  // normalize/pin implementation on this side (D-02, T-09-06-04).
+  const handlePreview = () => {
+    if (!selectedManufacturer) return;
+    const key = candidateFixtureKey.trim();
+    if (key === "") return;
+    setPreviewing(true);
+    setPreviewError(null);
+    setAlreadyExists(false);
+    void (async () => {
+      const view = await previewOflFixture(selectedManufacturer.key, key);
+      setPreviewView(view);
+      setPreviewing(false);
+    })();
+  };
+
+  // handleCommit calls CommitPreview against the currently staged preview.
+  // A refused-existing-destination result (GOLC_WAILS_FIXTURE_IMPORT_EXISTS)
+  // renders the distinct already-in-library message with a separate
+  // Replace action -- never an automatic overwrite (T-09-06-02). On
+  // success the local library list is refreshed so the newly added fixture
+  // appears immediately, and the candidate is cleared.
+  const handleCommit = async (overwrite: boolean): Promise<void> => {
+    if (!previewView) return;
+    setCommitting(true);
+    try {
+      const result = await commitFixturePreview(previewView.previewToken, overwrite);
+      if (result.exitCode === 0) {
+        await refresh();
+        setPreviewView(null);
+        setPreviewError(null);
+        setAlreadyExists(false);
+        setSelectedManufacturer(null);
+        setCandidateFixtureKey("");
+        return;
+      }
+      if (result.stderr.includes("GOLC_WAILS_FIXTURE_IMPORT_EXISTS")) {
+        setAlreadyExists(true);
+        return;
+      }
+      setPreviewError(result.stderr.trim() || "Add to Library failed");
+    } finally {
+      setCommitting(false);
+    }
+  };
+
   return (
     <div className={styles.workspace}>
       <Toolbar title="Fixture Library" icon={Lightbulb} />
@@ -167,7 +277,12 @@ export default function FixtureLibraryWorkspace() {
                 type="button"
                 className={source === "local" ? styles.sourceButtonActive : styles.sourceButton}
                 aria-pressed={source === "local"}
-                onClick={() => setSource("local")}
+                onClick={() => {
+                  resetCandidate();
+                  setSelectedManufacturer(null);
+                  setCandidateFixtureKey("");
+                  setSource("local");
+                }}
               >
                 My Library
               </button>
@@ -249,7 +364,12 @@ export default function FixtureLibraryWorkspace() {
                       <ul className={styles.list} aria-label="Open Fixture Library manufacturers">
                         {catalogView.manufacturers.map((manufacturer) => (
                           <li key={manufacturer.key}>
-                            <ListRow label={manufacturer.name} meta={manufacturer.key} />
+                            <ListRow
+                              label={manufacturer.name}
+                              meta={manufacturer.key}
+                              selected={selectedManufacturer?.key === manufacturer.key}
+                              onSelect={() => handleSelectManufacturer(manufacturer)}
+                            />
                           </li>
                         ))}
                       </ul>
@@ -314,11 +434,90 @@ export default function FixtureLibraryWorkspace() {
                 </Panel>
               ) : (
                 <Panel className={styles.inspectPanel}>
-                  <PanelHeader label="About this search" />
-                  <p className={styles.catalogScopeNote}>
-                    This search matches Open Fixture Library manufacturer names only. After choosing a
-                    manufacturer, you enter the fixture&apos;s key yourself to import it.
-                  </p>
+                  <PanelHeader label={selectedManufacturer ? "Import Candidate" : "About this search"} />
+                  {!selectedManufacturer ? (
+                    <p className={styles.catalogScopeNote}>
+                      This search matches Open Fixture Library manufacturer names only. After choosing a
+                      manufacturer, you enter the fixture&apos;s key yourself to import it.
+                    </p>
+                  ) : (
+                    <div className={styles.candidateBody}>
+                      <p className={styles.candidateManufacturer}>{selectedManufacturer.name}</p>
+                      <Field
+                        label="Fixture key"
+                        value={candidateFixtureKey}
+                        placeholder="e.g. led-par-64-tri-b"
+                        onChange={(event) => handleFixtureKeyChange(event.target.value)}
+                      />
+                      <Button
+                        variant="secondary"
+                        onClick={handlePreview}
+                        disabled={candidateFixtureKey.trim() === "" || previewing}
+                      >
+                        {previewing ? "Previewing…" : "Preview"}
+                      </Button>
+
+                      {previewError ? <p className={styles.errorText}>{previewError}</p> : null}
+
+                      {previewView ? (
+                        <div className={styles.inspectBody}>
+                          <div className={styles.techReadout}>
+                            {`${previewView.inspect.stableKey || "—"} · ${previewView.inspect.contentHash || "—"}`}
+                          </div>
+                          <div className={styles.techReadout}>
+                            {`Schema ${previewView.inspect.schemaVersion} · Revision ${previewView.inspect.revision || "—"}`}
+                          </div>
+                          <Chip tone={previewView.inspect.valid ? "frame-lock" : "revoked"}>
+                            {previewView.inspect.valid ? "Valid" : "Invalid"}
+                          </Chip>
+
+                          {!previewView.inspect.valid ? (
+                            <>
+                              <p className={styles.errorText}>
+                                {`This fixture definition has ${previewView.inspect.errors.length} error(s) and can't be added. Fix them and try again.`}
+                              </p>
+                              <ul className={styles.diagnosticList}>
+                                {previewView.inspect.errors.map((message, index) => (
+                                  <li key={index}>{message}</li>
+                                ))}
+                              </ul>
+                            </>
+                          ) : null}
+
+                          {previewView.inspect.warnings.length > 0 ? (
+                            <>
+                              <Chip tone="armed">Warning</Chip>
+                              <p className={styles.warningText}>
+                                {`This import has ${previewView.inspect.warnings.length} unsupported or approximated attribute(s) — review before adding.`}
+                              </p>
+                              <ul className={styles.diagnosticList}>
+                                {previewView.inspect.warnings.map((warning, index) => (
+                                  <li key={index}>{warning.detail}</li>
+                                ))}
+                              </ul>
+                            </>
+                          ) : null}
+
+                          {alreadyExists ? (
+                            <div className={styles.alreadyExists}>
+                              <p className={styles.warningText}>This fixture is already in your library.</p>
+                              <Button variant="secondary" onClick={() => void handleCommit(true)} disabled={committing}>
+                                Replace
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="primary"
+                              onClick={() => void handleCommit(false)}
+                              disabled={!previewView.inspect.valid || committing}
+                            >
+                              {committing ? "Adding…" : "Add to Library"}
+                            </Button>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </Panel>
               )}
             </div>
