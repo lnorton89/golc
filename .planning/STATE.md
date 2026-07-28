@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0-shipped
 milestone_name: milestone
 status: phase_not_planned
-stopped_at: Phase 9 context gathered
-last_updated: "2026-07-28T03:53:55.146Z"
+stopped_at: Phase 9 UI-SPEC approved
+last_updated: "2026-07-28T04:07:49.743Z"
 last_activity: 2026-07-27
 last_activity_desc: Phase 9 inserted (Fixture Library workspace, show open/new/switch, Guided First Show onboarding), renumbering the former Phase 9/10/11 (AI autonomy, Windows qualification, telemetry) to Phase 10/11/12.
 progress:
-  total_phases: 12
+  total_phases: 9
   completed_phases: 8
   total_plans: 99
   completed_plans: 99
@@ -110,6 +110,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-28T03:53:55.131Z
-Stopped at: Phase 9 context gathered
-Resume file: .planning/phases/09-front-door-ui-completion/09-CONTEXT.md
+Last session: 2026-07-28T04:07:49.730Z
+Stopped at: Phase 9 UI-SPEC approved
+Resume file: .planning/phases/09-front-door-ui-completion/09-UI-SPEC.md
