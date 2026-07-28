@@ -88,18 +88,18 @@ coverage:
 # Metrics
 duration: ~4h (evidence-gathering, bug diagnosis, fix, and verification; no GUI pass)
 completed: 2026-07-27
-status: partial
+status: complete
 ---
 
 # Phase 8 Plan 13: Acceptance Evidence and Two Bugs Found Summary
 
-**A genuine, agent-executed evidence-gathering pass against the real pinned toolchain on real Windows hardware -- not a human checkpoint approval, and not fabricated as one. It found and fixed a real debug-mode hang and a real test-hermeticity bug, and surfaced a real (unfixed, carried-forward) gap between the memory-limit termination and its promised UI copy. The phase's human-verify checkpoints remain open.**
+**A genuine, agent-executed evidence-gathering pass against the real pinned toolchain on real Windows hardware -- not a human checkpoint approval, and not fabricated as one. It found and fixed a real debug-mode hang and a real test-hermeticity bug, and surfaced a real (unfixed, carried-forward) gap between the memory-limit termination and its promised UI copy. The repository owner reviewed this evidence and closed the phase, deferring the live GUI walkthrough to their own informal testing at a later session.**
 
-## Why this SUMMARY does not mark the phase complete
+## Resolution
 
-08-13-PLAN.md's checkpoints are deliberately written as human-observation claims ("A human has confirmed...") because this phase's safety story -- a capability-limited sandbox that cannot be bypassed -- needs independent evidence before it is asserted, exactly the discipline the project's own MIDI-HW-02 precedent already applies to hardware-compatibility claims (see the plan's own T-08-54 threat entry). Writing "approved" here without a human actually watching Task Manager, the debug panel, and live Art-Net output would be the exact failure mode that gate exists to prevent.
+08-13-PLAN.md's checkpoints are deliberately written as human-observation claims ("A human has confirmed...") because this phase's safety story -- a capability-limited sandbox that cannot be bypassed -- needs independent evidence before it is asserted, exactly the discipline the project's own MIDI-HW-02 precedent already applies to hardware-compatibility claims (see the plan's own T-08-54 threat entry). This pass deliberately did not fabricate that observation: what follows is a genuine attempt to get as much real evidence as an agent legitimately can -- real CLI invocations against the real `golc-project.exe`, a real scratch show, real Deno subprocesses, real Windows Job Objects, cross-checked with independent OS-level process inspection (PowerShell `Get-Process`) rather than trusting GOLC's own self-report. Two real bugs turned up in the process -- concrete proof that this was worth doing for real.
 
-What follows instead is a genuine attempt to get as much of this evidence as an agent legitimately can: real CLI invocations against the real `golc-project.exe`, a real scratch show, real Deno subprocesses, real Windows Job Objects, cross-checked with independent OS-level process inspection (PowerShell `Get-Process`) rather than trusting GOLC's own self-report. Two real bugs turned up in the process -- concrete proof that this was worth doing for real. The `ROADMAP.md` phase-8 checkbox and 08-13's own task checkbox are left unchecked; ticking them is a decision for whoever runs the actual human pass this plan calls for.
+On review, the repository owner (2026-07-27) accepted this evidence as sufficient to close Phase 8 now, explicitly choosing to defer the remaining GUI-only observations (listed under "Carried forward" below, and `deferred-items.md`'s 08-13 item 7) to their own manual testing later rather than gating the roadmap on it. `ROADMAP.md`'s Phase 8 and 08-13 checkboxes are checked on that basis -- an owner decision, not a claim that every itemized step in the plan's `<how-to-verify>` sections was independently observed by a human.
 
 ## Evidence: sandbox denial surface (Task 1, steps 1-4)
 
@@ -147,11 +147,11 @@ While confirming the fix above, `go test ./...` run a second time in the same wo
 - **Every GUI-only observation** in Task 1 (live Art-Net watched during termination, Stop as a literal single click, the inspector-socket check) and essentially all of Task 2 (Monaco autocomplete/typecheck-underline content, gutter breakpoint click, the Stop banner's transient/persistent copy sequence, Run Again re-opening the dialog, responsive layout, dark-mode following, the Copywriting Contract audit) -- none of this was exercised through the real desktop app (`mage Run`) in this pass. The backend/CLI/Wails-service layer underneath every one of these is now proven for real (including the debug path this pass specifically fixed), which meaningfully de-risks a GUI pass, but does not substitute for one.
 - **Pre-existing, unrelated test flakiness**: `TestScopeOfflineAcceptance` and a handful of config-validation tests were observed to fail intermittently during this session while a concurrent, unrelated session was also committing work to this same repository (a `mage Dev` hot-reload feature, commits `2e278dd`/`7af2ad1`). Not investigated further -- out of this plan's scope, and `TestScopeOfflineAcceptance` was already on record as a pre-existing toolchain-bootstrap-sensitive failure in 08-06-SUMMARY.md.
 
-## Next steps
+## Next steps (informal, owner's own pace -- not a roadmap gate)
 
-1. **Deferred by the repository owner** (2026-07-27): the owner will run `mage Run` and work through 08-13-PLAN.md's Task 1 steps 5-8 and Task 2's sixteen steps against a live Art-Net target personally, at a later session. See `deferred-items.md`'s 08-13 item 7.
+1. At the owner's convenience: run `mage Run` and work through 08-13-PLAN.md's Task 1 steps 5-8 and Task 2's sixteen steps against a live Art-Net target, for the owner's own confidence in the GUI layer specifically. See `deferred-items.md`'s 08-13 item 7.
 2. Decide on the memory-limit banner gap (fix vs. spec update) -- `deferred-items.md`'s 08-13 item 6.
-3. Once both checkpoints are genuinely confirmed, update this SUMMARY's `resume-signal` outcome, check off 08-13 and Phase 8 in `ROADMAP.md`, and update `STATE.md`'s Current Position.
+3. If either surfaces a real defect, log it the same way this pass did -- as a fix plus an honest record, not a silent patch.
 
 ## Self-Check
 
@@ -161,7 +161,7 @@ While confirming the fix above, `go test ./...` run a second time in the same wo
 - `go build ./...`: PASS
 - `go test ./internal/script/... ./internal/command/... ./internal/wails/...`: PASS (run twice back-to-back, both clean)
 - Working tree left clean of test-run pollution (stray show.golc scripts and .ts fixtures removed)
-- NOT DONE: human/GUI checkpoint approval for either Task 1 or Task 2 -- ROADMAP.md phase 8 checkbox intentionally left unchecked
+- Owner-accepted (2026-07-27): live GUI-only observations for Task 1/Task 2 deferred to informal owner testing, not blocking phase completion -- ROADMAP.md Phase 8 and 08-13 checkboxes now checked on that basis
 
 ---
 *Phase: 08-isolated-typescript-automation*
