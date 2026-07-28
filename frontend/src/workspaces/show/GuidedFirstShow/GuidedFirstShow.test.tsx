@@ -165,19 +165,6 @@ describe("GuidedFirstShow", () => {
     expect(onNavigate).toHaveBeenCalledWith("show-overview");
   });
 
-  // Program and Assign are wired up in 09-04-PLAN.md Task 2; Verify remains
-  // the sole not-yet-implemented placeholder until Task 3 replaces it with
-  // the real evidence-based stage (this same test is removed/replaced then).
-  it("renders the nothing-to-preview empty state on a not-yet-implemented stage", () => {
-    stubBridge();
-    renderGuide();
-
-    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
-    expect(
-      screen.getByText("Nothing to preview yet — complete this stage's action to see it here."),
-    ).toBeInTheDocument();
-  });
-
   it("Fixtures stage reports a blocker with an empty library and evidence with a populated one", async () => {
     const { listLocal } = stubBridge({ fixtureRows: [] });
     renderGuide();

@@ -10,10 +10,11 @@
 //
 // 09-03-PLAN.md Task 3 wired Fixtures/Patch into the stage-content switch
 // below, passing each stage's own reported status up to this shared
-// rail/footer/evidence-aside contract. 09-04-PLAN.md Task 2 adds
+// rail/footer/evidence-aside contract. 09-04-PLAN.md Task 2 added
 // Program/Assign against the identical GuideStageStatus contract; Task 3
-// finishes with the real Verify stage and its evidence-based Perform
-// gate.
+// finishes with the real Verify stage -- every stage's own evidence
+// renders independently, and only Verify's Perform transition gates on a
+// blocker (T-09-04-02), never a rail item or any other workspace.
 import { useEffect, useState, type ReactNode } from "react";
 
 import Button from "../../../components/primitives/Button/Button";
@@ -25,19 +26,21 @@ import FixturesStage from "./stages/FixturesStage";
 import PatchStage from "./stages/PatchStage";
 import ProgramStage from "./stages/ProgramStage";
 import AssignStage from "./stages/AssignStage";
+import VerifyStage from "./stages/VerifyStage";
 import styles from "./GuidedFirstShow.module.css";
 
 // STAGE_DESTINATION names the real workspace each stage's primary action
 // hands off to -- the guide itself never mutates anything (T-09-03-01/
-// T-09-04-04). Verify falls through to the inert placeholder below until
-// 09-04-PLAN.md Task 3 replaces it with the real evidence-based stage,
-// whose primary action is the Perform transition rather than a plain
-// hand-off.
+// T-09-04-04). Verify's destination is the Perform transition -- its
+// button is driven by the same disabled state as every other stage
+// (status.primaryDisabled), just sourced from VerifyStage's own
+// aggregated blocker count rather than a plain "always enabled" hand-off.
 const STAGE_DESTINATION: Partial<Record<GuideStageId, DestinationId>> = {
   fixtures: "build-fixture-library",
   patch: "build-patch-pools",
   program: "build-scenes-looks",
   assign: "operate-operator-surface",
+  verify: "operate-operator-surface",
 };
 
 const PLACEHOLDER_STATUS: GuideStageStatus = { items: [], primaryLabel: "Continue", primaryDisabled: true };
@@ -78,7 +81,7 @@ export default function GuidedFirstShow() {
   } else if (stage === "assign") {
     stageContent = <AssignStage onStatusChange={setStatus} />;
   } else {
-    stageContent = <p className={styles.loading}>This stage isn't built yet — a later plan completes it.</p>;
+    stageContent = <VerifyStage onStatusChange={setStatus} />;
   }
 
   return (
