@@ -623,14 +623,39 @@ export interface FixtureInspectView {
   warnings: FixtureWarningView[];
 }
 
+/** OflManufacturerView mirrors internal/wails.OFLManufacturerView's JSON
+ * shape exactly -- one Open Fixture Library catalog search result row
+ * (09-05-PLAN.md Task 3, D-01's catalog half). */
+export interface OflManufacturerView {
+  key: string;
+  name: string;
+  website: string;
+}
+
+/** OflSearchView mirrors internal/wails.OFLSearchView's JSON shape
+ * exactly -- SearchOFL's full return value. manufacturers is always a
+ * present (never undefined/null) array, mirroring FixtureLibraryView.rows'
+ * identical "never blank" contract. unreachable:true is the catalog's own
+ * explicit renderable failure state (T-09-05-02) -- never a thrown
+ * exception. */
+export interface OflSearchView {
+  query: string;
+  manufacturers: OflManufacturerView[];
+  unreachable: boolean;
+  detail: string;
+}
+
 /** FixtureLibraryServiceBinding mirrors internal/wails/
  * svc_fixturelibrary.go's bound methods field-for-field: ListLocal is a
  * Wails-only read projection over the single extracted
  * internal/fixture.ListDirectory scan (no CLI-parity route); Inspect
- * forwards to the existing, already-tested "fixture inspect" route. */
+ * forwards to the existing, already-tested "fixture inspect" route;
+ * SearchOFL is a Wails-only read projection over the cached OFL
+ * manufacturer index (09-05-PLAN.md Task 3). */
 interface FixtureLibraryServiceBinding {
   ListLocal(): Promise<FixtureLibraryView>;
   Inspect(path: string): Promise<FixtureInspectView>;
+  SearchOFL(query: string): Promise<OflSearchView>;
 }
 
 // Single, centralized `window.go.wails` shape (Wails v2's runtime-injected
@@ -1359,6 +1384,34 @@ export async function inspectFixtureFile(path: string): Promise<FixtureInspectVi
     return await svc.Inspect(path);
   } catch {
     return offlineFixtureInspectView(path);
+  }
+}
+
+/** offlineOflSearchView is SearchOFL's explicit, non-throwing fallback
+ * when the bridge is unavailable -- unreachable stays true so a missing
+ * bridge and a genuinely unreachable catalog render identically
+ * (09-05-PLAN.md Task 3), mirroring offlineFixtureLibraryView/
+ * offlineArtnetStatus's identical "never blank, never lie" contract. */
+export function offlineOflSearchView(query: string): OflSearchView {
+  return {
+    query,
+    manufacturers: [],
+    unreachable: true,
+    detail: "GOLC_WAILS_BRIDGE_UNAVAILABLE: not running inside the GOLC desktop shell",
+  };
+}
+
+/** searchOflManufacturers calls the bound FixtureLibraryService.SearchOFL,
+ * returning offlineOflSearchView(query) when the bridge is unavailable or
+ * the call itself rejects -- callers never need their own try/catch
+ * (mirrors listLocalFixtures/inspectFixtureFile's identical contract). */
+export async function searchOflManufacturers(query: string): Promise<OflSearchView> {
+  const svc = fixtureLibraryService();
+  if (!svc) return offlineOflSearchView(query);
+  try {
+    return await svc.SearchOFL(query);
+  } catch {
+    return offlineOflSearchView(query);
   }
 }
 

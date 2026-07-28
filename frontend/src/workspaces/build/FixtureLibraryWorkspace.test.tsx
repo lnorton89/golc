@@ -56,6 +56,7 @@ function installMockFixtureLibraryService(overrides: Partial<Record<string, Retu
       validationResult: "valid",
       warnings: [],
     }),
+    SearchOFL: vi.fn().mockResolvedValue({ query: "", manufacturers: [], unreachable: false, detail: "" }),
     ...overrides,
   };
   (window as unknown as { go: unknown }).go = { wails: { FixtureLibraryService: svc } };
@@ -237,5 +238,101 @@ describe("FixtureLibraryWorkspace", () => {
     const rowElement = within(fixtureList()).getByText(longModel).closest("[title]");
     expect(rowElement).not.toBeNull();
     expect(rowElement).toHaveAttribute("title", longModel);
+  });
+
+  describe("Open Fixture Library catalog search (09-05-PLAN.md Task 1 RED / Task 3 GREEN)", () => {
+    function switchToCatalog() {
+      fireEvent.click(screen.getByRole("button", { name: "Open Fixture Library" }));
+    }
+
+    it("the source toggle switches between the local list and the catalog", async () => {
+      installMockFixtureLibraryService({
+        ListLocal: vi.fn().mockResolvedValue({ directory: "fixtures", rows: [row()] }),
+      });
+
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(within(fixtureList()).getByText("SlimPAR Pro")).toBeInTheDocument());
+
+      expect(screen.getByRole("button", { name: "My Library" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Open Fixture Library" })).toBeInTheDocument();
+
+      switchToCatalog();
+
+      expect(screen.queryByText("SlimPAR Pro")).not.toBeInTheDocument();
+      expect(screen.getByText("Search the Open Fixture Library by name or manufacturer.")).toBeInTheDocument();
+    });
+
+    it("renders the catalog empty prompt with no query", async () => {
+      installMockFixtureLibraryService();
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
+
+      switchToCatalog();
+
+      expect(screen.getByText("Search the Open Fixture Library by name or manufacturer.")).toBeInTheDocument();
+    });
+
+    it("renders the no-results copy with the query interpolated", async () => {
+      const svc = installMockFixtureLibraryService({
+        SearchOFL: vi.fn().mockResolvedValue({ query: "zzznomatch", manufacturers: [], unreachable: false, detail: "" }),
+      });
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
+
+      switchToCatalog();
+      const search = screen.getByLabelText("Search fixtures");
+      fireEvent.change(search, { target: { value: "zzznomatch" } });
+
+      await waitFor(() => expect(svc.SearchOFL).toHaveBeenCalled());
+      await waitFor(() =>
+        expect(
+          screen.getByText('No fixtures matched "zzznomatch". Try a different name or manufacturer.'),
+        ).toBeInTheDocument(),
+      );
+    });
+
+    it("renders the unreachable copy with the offline tone", async () => {
+      installMockFixtureLibraryService({
+        SearchOFL: vi.fn().mockResolvedValue({
+          query: "acme",
+          manufacturers: [],
+          unreachable: true,
+          detail: "GOLC_FIXTURE_OFL_MANUFACTURERS_FETCH_FAILED: boom",
+        }),
+      });
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
+
+      switchToCatalog();
+      const search = screen.getByLabelText("Search fixtures");
+      fireEvent.change(search, { target: { value: "acme" } });
+
+      await waitFor(() =>
+        expect(
+          screen.getByText("Can't reach the Open Fixture Library. Check your network connection and try again."),
+        ).toBeInTheDocument(),
+      );
+    });
+
+    it("renders manufacturer rows for a matching query", async () => {
+      const svc = installMockFixtureLibraryService({
+        SearchOFL: vi.fn().mockResolvedValue({
+          query: "chauvet",
+          manufacturers: [{ key: "chauvet-dj", name: "Chauvet DJ", website: "https://chauvetdj.example" }],
+          unreachable: false,
+          detail: "",
+        }),
+      });
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
+
+      switchToCatalog();
+      const search = screen.getByLabelText("Search fixtures");
+      fireEvent.change(search, { target: { value: "chauvet" } });
+
+      await waitFor(() => expect(svc.SearchOFL).toHaveBeenCalled());
+      await waitFor(() => expect(screen.getByText("Chauvet DJ")).toBeInTheDocument());
+      expect(screen.getByText("chauvet-dj")).toBeInTheDocument();
+    });
   });
 });

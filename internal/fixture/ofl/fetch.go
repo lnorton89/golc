@@ -80,8 +80,31 @@ const (
 // entrypoint is "fixture import --ofl-file", which never calls Fetch at
 // all (see internal/command/fixture.go).
 func Fetch(ctx context.Context, ref OFLRef) ([]byte, error) {
-	target := resolveTargetURL(ref)
-	parsed, err := validateTargetURL(target, ref.AllowMirror)
+	body, err := getBounded(ctx, resolveTargetURL(ref), ref.AllowMirror)
+	if err != nil {
+		return nil, err
+	}
+
+	// Best-effort local cache write (T-02-07): a cache-directory or
+	// write failure never fails an otherwise-successful fetch -- the
+	// caller already has valid bytes to normalize and pin.
+	_ = cacheOFLBytes(body)
+
+	return body, nil
+}
+
+// getBounded performs the SSRF-guarded, bounded GET (T-02-06) shared by
+// every OFL network fetch in this package (09-05-PLAN.md Task 3): target's
+// scheme and host are validated (validateTargetURL) before any request is
+// issued, the request is bounded by fetchTimeout regardless of the
+// caller's own context deadline, every redirect hop is re-validated the
+// identical way, and the response body is bounded by maxResponseBytes with
+// the existing GOLC_FIXTURE_OFL_TOO_LARGE diagnostic. Fetch (fixture
+// fetch) and FetchManufacturers (manufacturer-index fetch, manufacturers.go)
+// both call this one implementation -- the SSRF guard, the timeout, and
+// the size cap each have exactly one implementation in this package.
+func getBounded(ctx context.Context, target string, allowMirror bool) ([]byte, error) {
+	parsed, err := validateTargetURL(target, allowMirror)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +119,7 @@ func Fetch(ctx context.Context, ref OFLRef) ([]byte, error) {
 
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if _, err := validateTargetURL(req.URL.String(), ref.AllowMirror); err != nil {
+			if _, err := validateTargetURL(req.URL.String(), allowMirror); err != nil {
 				return fmt.Errorf("GOLC_FIXTURE_OFL_MIRROR_HOST: redirect to %q rejected: %v", req.URL, err)
 			}
 			return nil
@@ -120,11 +143,6 @@ func Fetch(ctx context.Context, ref OFLRef) ([]byte, error) {
 	if len(body) > maxResponseBytes {
 		return nil, fmt.Errorf("GOLC_FIXTURE_OFL_TOO_LARGE: response for %s exceeds the %d byte limit", parsed.String(), maxResponseBytes)
 	}
-
-	// Best-effort local cache write (T-02-07): a cache-directory or
-	// write failure never fails an otherwise-successful fetch -- the
-	// caller already has valid bytes to normalize and pin.
-	_ = cacheOFLBytes(body)
 
 	return body, nil
 }

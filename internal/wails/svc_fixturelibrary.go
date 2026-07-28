@@ -13,6 +13,7 @@
 package wails
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,9 +21,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/fixture"
+	"github.com/lnorton89/golc/internal/fixture/ofl"
 )
 
 // defaultFixturesDirName is the directory name resolved under root when
@@ -35,10 +38,23 @@ const defaultFixturesDirName = "fixtures"
 // forwards a relative path against (via execute); fixturesDir is the
 // single local-fixture-directory ListLocal scans (mirrors
 // FixturePatchService/ShowService's own root/showPath field convention).
+// oflIndexRef/oflMu/oflManufacturers/oflFetchErr back SearchOFL's lazy,
+// once-per-process manufacturer-index cache (T-09-05-03): oflIndexRef is
+// zero-valued in production (resolving to the default upstream host,
+// mirroring ofl.ManufacturerIndexRef's own "empty Mirror means default
+// host" contract) and is only ever overridden by a test in this same
+// package to point at a deterministic, non-live target.
 type FixtureLibraryService struct {
 	pipeName    string
 	root        string
 	fixturesDir string
+
+	oflIndexRef ofl.ManufacturerIndexRef
+
+	oflMu            sync.Mutex
+	oflFetched       bool
+	oflManufacturers []ofl.Manufacturer
+	oflFetchErr      error
 }
 
 // NewFixtureLibraryService constructs a FixtureLibraryService targeting
@@ -139,13 +155,28 @@ func (s *FixtureLibraryService) ListLocal() (FixtureLibraryView, error) {
 			Manufacturer: entry.Definition.Manufacturer,
 			Model:        entry.Definition.Model,
 			FileName:     entry.FileName,
-			Source:       "local",
+			Source:       rowSource(entry.Provenance),
 			Status:       "valid",
 		})
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].StableKey < rows[j].StableKey })
 
 	return FixtureLibraryView{Directory: directory, Rows: rows}, nil
+}
+
+// rowSource projects a DirectoryEntry's Provenance into ListLocal's row
+// "source" field: "ofl" when the provenance names an OFL source (its
+// Source carries the "ofl:" prefix ofl.Normalize's NewProvenance call
+// always applies), "local" otherwise -- a hand-authored .yaml/.yml entry
+// carries a zero-valued Provenance, so its Source is always empty and
+// projects as "local". This makes an imported fixture's catalog origin
+// visible in the library rather than indistinguishable from a
+// hand-authored one (T-09-05-05).
+func rowSource(provenance fixture.Provenance) string {
+	if strings.HasPrefix(provenance.Source, "ofl:") {
+		return "ofl"
+	}
+	return "local"
 }
 
 // FixtureWarningView mirrors internal/fixture.LossyImportWarning's JSON
@@ -254,4 +285,85 @@ func trimmedNonEmptyLines(raw string) []string {
 		}
 	}
 	return out
+}
+
+// OFLManufacturerView is one SearchOFL result row (09-05-PLAN.md Task 3,
+// D-01's catalog half): the manufacturer name FixtureLibraryWorkspace.tsx
+// renders as the row label, its key as the row's meta text.
+type OFLManufacturerView struct {
+	Key     string `json:"key"`
+	Name    string `json:"name"`
+	Website string `json:"website"`
+}
+
+// OFLSearchView is SearchOFL's full return shape. Query echoes the
+// caller's own query so the frontend can interpolate it into the
+// no-results copy without keeping its own separate copy of "what did I
+// just search for." Manufacturers is always a non-nil (possibly empty)
+// slice -- mirrors FixtureLibraryView.Rows' identical "never JSON null"
+// discipline. Unreachable is true when the manufacturer-index fetch
+// failed; an unreachable catalog is a renderable state, never a thrown
+// exception (T-09-05-02).
+type OFLSearchView struct {
+	Query         string                `json:"query"`
+	Manufacturers []OFLManufacturerView `json:"manufacturers"`
+	Unreachable   bool                  `json:"unreachable"`
+	Detail        string                `json:"detail"`
+}
+
+// SearchOFL projects a manufacturer-name/key substring search over the
+// Open Fixture Library catalog into a renderable view (09-05-PLAN.md
+// Task 3, D-01/D-03): the manufacturer index is fetched at most once per
+// process (loadOFLManufacturers' cache), so a typing burst filters the
+// already-fetched slice with no additional network call
+// (T-09-05-03). A fetch failure returns unreachable:true with the
+// diagnostic in Detail, a non-nil empty Manufacturers slice, and a nil
+// error -- SearchOFL itself never returns a non-nil error.
+func (s *FixtureLibraryService) SearchOFL(query string) (OFLSearchView, error) {
+	manufacturers, fetchErr := s.loadOFLManufacturers()
+	if fetchErr != nil {
+		return OFLSearchView{
+			Query:         query,
+			Manufacturers: []OFLManufacturerView{},
+			Unreachable:   true,
+			Detail:        fetchErr.Error(),
+		}, nil
+	}
+
+	matches := ofl.FilterManufacturers(manufacturers, query)
+	views := make([]OFLManufacturerView, 0, len(matches))
+	for _, manufacturer := range matches {
+		views = append(views, OFLManufacturerView{
+			Key:     manufacturer.Key,
+			Name:    manufacturer.Name,
+			Website: manufacturer.Website,
+		})
+	}
+
+	return OFLSearchView{Query: query, Manufacturers: views, Unreachable: false}, nil
+}
+
+// loadOFLManufacturers lazily fetches and caches the OFL manufacturer
+// index behind a mutex, so a burst of SearchOFL calls (one per operator
+// keystroke) issues at most one network request per process lifetime --
+// every subsequent call reuses the cached slice or the cached failure
+// (T-09-05-03). A cached failure is retried on the next call (never
+// permanently sticky), so a transient network blip does not permanently
+// wedge the catalog for the rest of the session.
+func (s *FixtureLibraryService) loadOFLManufacturers() ([]ofl.Manufacturer, error) {
+	s.oflMu.Lock()
+	defer s.oflMu.Unlock()
+
+	if s.oflFetched && s.oflFetchErr == nil {
+		return s.oflManufacturers, nil
+	}
+
+	manufacturers, err := ofl.FetchManufacturers(context.Background(), s.oflIndexRef)
+	s.oflFetched = true
+	s.oflFetchErr = err
+	if err != nil {
+		return nil, err
+	}
+	s.oflManufacturers = manufacturers
+	return manufacturers, nil
 }
