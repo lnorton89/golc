@@ -4,6 +4,7 @@
 // nav icon and its workspace-header icon always match.
 import {
   LayoutDashboard,
+  FolderOpen,
   Save,
   Settings,
   Lightbulb,
@@ -21,6 +22,7 @@ import type { DestinationId } from "./navigation";
 
 export const DESTINATION_ICONS: Record<DestinationId, LucideIcon> = {
   "show-overview": LayoutDashboard,
+  "show-shows": FolderOpen,
   "show-save-recovery": Save,
   "show-settings": Settings,
   "build-fixture-library": Lightbulb,
