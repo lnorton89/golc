@@ -2682,6 +2682,202 @@
       "parent_local_id": "phase:09",
       "display": "A first-time user can complete Guided First Show onboarding to go from an empty application to a patched fixture and a scene on screen using only the UI.",
       "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "plan:09-01",
+      "kind": "plan",
+      "parent_local_id": "phase:09",
+      "display": "Plan 09-01",
+      "source": ".planning/phases/09-front-door-ui-completion/09-01-PLAN.md"
+    },
+    {
+      "local_id": "task:09-01.1",
+      "kind": "task",
+      "parent_local_id": "plan:09-01",
+      "display": "Task 1: Write the failing tests for local fixture listing, projection, and workspace rendering",
+      "source": ".planning/phases/09-front-door-ui-completion/09-01-PLAN.md"
+    },
+    {
+      "local_id": "task:09-01.2",
+      "kind": "task",
+      "parent_local_id": "plan:09-01",
+      "display": "Task 2: Ship the end-to-end local library list — extracted directory scan through to rendered rows",
+      "source": ".planning/phases/09-front-door-ui-completion/09-01-PLAN.md"
+    },
+    {
+      "local_id": "task:09-01.3",
+      "kind": "task",
+      "parent_local_id": "plan:09-01",
+      "display": "Task 3: Add inline inspect and search to the Fixture Library workspace",
+      "source": ".planning/phases/09-front-door-ui-completion/09-01-PLAN.md"
+    },
+    {
+      "local_id": "plan:09-02",
+      "kind": "plan",
+      "parent_local_id": "phase:09",
+      "display": "Plan 09-02",
+      "source": ".planning/phases/09-front-door-ui-completion/09-02-PLAN.md"
+    },
+    {
+      "local_id": "task:09-02.1",
+      "kind": "task",
+      "parent_local_id": "plan:09-02",
+      "display": "Task 1: Write the failing relaunch-mechanics and Shows-workspace tests",
+      "source": ".planning/phases/09-front-door-ui-completion/09-02-PLAN.md"
+    },
+    {
+      "local_id": "task:09-02.2",
+      "kind": "task",
+      "parent_local_id": "plan:09-02",
+      "display": "Task 2: Implement the show picker and supervised self-relaunch on App",
+      "source": ".planning/phases/09-front-door-ui-completion/09-02-PLAN.md"
+    },
+    {
+      "local_id": "task:09-02.3",
+      "kind": "task",
+      "parent_local_id": "plan:09-02",
+      "display": "Task 3: Add the Shows destination and workspace, and retire the single-show-path note",
+      "source": ".planning/phases/09-front-door-ui-completion/09-02-PLAN.md"
+    },
+    {
+      "local_id": "plan:09-03",
+      "kind": "plan",
+      "parent_local_id": "phase:09",
+      "display": "Plan 09-03",
+      "source": ".planning/phases/09-front-door-ui-completion/09-03-PLAN.md"
+    },
+    {
+      "local_id": "task:09-03.1",
+      "kind": "task",
+      "parent_local_id": "plan:09-03",
+      "display": "Task 1: Write the failing entry-point and overlay-contract tests",
+      "source": ".planning/phases/09-front-door-ui-completion/09-03-PLAN.md"
+    },
+    {
+      "local_id": "task:09-03.2",
+      "kind": "task",
+      "parent_local_id": "plan:09-03",
+      "display": "Task 2: Ship the guide end to end — context, overlay, locked stage rail, evidence aside, and both entry points",
+      "source": ".planning/phases/09-front-door-ui-completion/09-03-PLAN.md"
+    },
+    {
+      "local_id": "task:09-03.3",
+      "kind": "task",
+      "parent_local_id": "plan:09-03",
+      "display": "Task 3: Implement the Fixtures and Patch stages against live domain reads",
+      "source": ".planning/phases/09-front-door-ui-completion/09-03-PLAN.md"
+    },
+    {
+      "local_id": "plan:09-04",
+      "kind": "plan",
+      "parent_local_id": "phase:09",
+      "display": "Plan 09-04",
+      "source": ".planning/phases/09-front-door-ui-completion/09-04-PLAN.md"
+    },
+    {
+      "local_id": "task:09-04.1",
+      "kind": "task",
+      "parent_local_id": "plan:09-04",
+      "display": "Task 1: Write the failing stage and readiness-rollup tests",
+      "source": ".planning/phases/09-front-door-ui-completion/09-04-PLAN.md"
+    },
+    {
+      "local_id": "task:09-04.2",
+      "kind": "task",
+      "parent_local_id": "plan:09-04",
+      "display": "Task 2: Extract pure readiness derivations and implement the Program and Assign stages",
+      "source": ".planning/phases/09-front-door-ui-completion/09-04-PLAN.md"
+    },
+    {
+      "local_id": "task:09-04.3",
+      "kind": "task",
+      "parent_local_id": "plan:09-04",
+      "display": "Task 3: Implement the Verify stage and the evidence-based Perform gate",
+      "source": ".planning/phases/09-front-door-ui-completion/09-04-PLAN.md"
+    },
+    {
+      "local_id": "plan:09-05",
+      "kind": "plan",
+      "parent_local_id": "phase:09",
+      "display": "Plan 09-05",
+      "source": ".planning/phases/09-front-door-ui-completion/09-05-PLAN.md"
+    },
+    {
+      "local_id": "task:09-05.1",
+      "kind": "task",
+      "parent_local_id": "plan:09-05",
+      "display": "Task 1: Write the failing envelope, catalog-index, and catalog-search tests",
+      "source": ".planning/phases/09-front-door-ui-completion/09-05-PLAN.md"
+    },
+    {
+      "local_id": "task:09-05.2",
+      "kind": "task",
+      "parent_local_id": "plan:09-05",
+      "display": "Task 2: Make imported fixtures visible in the library and to the Art-Net resolver",
+      "source": ".planning/phases/09-front-door-ui-completion/09-05-PLAN.md"
+    },
+    {
+      "local_id": "task:09-05.3",
+      "kind": "task",
+      "parent_local_id": "plan:09-05",
+      "display": "Task 3: Add Open Fixture Library catalog search end to end",
+      "source": ".planning/phases/09-front-door-ui-completion/09-05-PLAN.md"
+    },
+    {
+      "local_id": "plan:09-06",
+      "kind": "plan",
+      "parent_local_id": "phase:09",
+      "display": "Plan 09-06",
+      "source": ".planning/phases/09-front-door-ui-completion/09-06-PLAN.md"
+    },
+    {
+      "local_id": "task:09-06.1",
+      "kind": "task",
+      "parent_local_id": "plan:09-06",
+      "display": "Task 1: Write the failing preview-then-commit tests",
+      "source": ".planning/phases/09-front-door-ui-completion/09-06-PLAN.md"
+    },
+    {
+      "local_id": "task:09-06.2",
+      "kind": "task",
+      "parent_local_id": "plan:09-06",
+      "display": "Task 2: Implement preview-then-commit import on the Wails service",
+      "source": ".planning/phases/09-front-door-ui-completion/09-06-PLAN.md"
+    },
+    {
+      "local_id": "task:09-06.3",
+      "kind": "task",
+      "parent_local_id": "plan:09-06",
+      "display": "Task 3: Wire the catalog candidate panel and the Add to Library confirm action",
+      "source": ".planning/phases/09-front-door-ui-completion/09-06-PLAN.md"
+    },
+    {
+      "local_id": "plan:09-07",
+      "kind": "plan",
+      "parent_local_id": "phase:09",
+      "display": "Plan 09-07",
+      "source": ".planning/phases/09-front-door-ui-completion/09-07-PLAN.md"
+    },
+    {
+      "local_id": "task:09-07.1",
+      "kind": "task",
+      "parent_local_id": "plan:09-07",
+      "display": "Task 1: Write the failing custom-YAML picker and preview tests",
+      "source": ".planning/phases/09-front-door-ui-completion/09-07-PLAN.md"
+    },
+    {
+      "local_id": "task:09-07.2",
+      "kind": "task",
+      "parent_local_id": "plan:09-07",
+      "display": "Task 2: Add the YAML file picker and file-preview staging",
+      "source": ".planning/phases/09-front-door-ui-completion/09-07-PLAN.md"
+    },
+    {
+      "local_id": "task:09-07.3",
+      "kind": "task",
+      "parent_local_id": "plan:09-07",
+      "display": "Task 3: Wire the Add Custom Fixture affordance into the workspace",
+      "source": ".planning/phases/09-front-door-ui-completion/09-07-PLAN.md"
     }
   ],
   "remote_mappings": [
@@ -5727,6 +5923,230 @@
     },
     {
       "repo_id": "req:FDUI-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:09-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-01.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-01.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-01.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:09-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-02.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-02.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-02.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:09-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-03.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-03.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-03.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:09-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-04.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-04.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-04.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:09-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-05.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-05.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-05.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:09-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-06.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-06.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-06.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:09-07",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-07.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-07.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:09-07.3",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,
