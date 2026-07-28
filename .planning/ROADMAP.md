@@ -487,12 +487,26 @@ Plans:
 **Plans:** 7 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 09-01-PLAN.md — Fixture Library: browse and inspect local fixtures (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 09-02-PLAN.md — Shows: open / new / switch via supervised self-relaunch (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 09-03-PLAN.md — Guided First Show: overlay, entry points, Fixtures and Patch stages (wave 3)
-- [ ] 09-04-PLAN.md — Guided First Show: Program, Assign, Verify stages and the readiness gate (wave 4)
 - [ ] 09-05-PLAN.md — Fixture Library: imported artifacts in the library, OFL manufacturer search (wave 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 09-04-PLAN.md — Guided First Show: Program, Assign, Verify stages and the readiness gate (wave 4)
 - [ ] 09-06-PLAN.md — Fixture Library: OFL import preview and commit (wave 4)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 09-07-PLAN.md — Fixture Library: custom YAML fixture via native picker (wave 5)
 
 **UI hint:** yes
