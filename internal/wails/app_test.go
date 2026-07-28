@@ -540,6 +540,7 @@ func TestRelaunchWithShowQuitsOnlyAfterSuccessfulSpawn(t *testing.T) {
 
 	t.Run("spawn fails", func(t *testing.T) {
 		app := newTestRelaunchApp(t)
+		app.cfg.PipeName = testWailsPipeName(t)
 		app.cfg.DialRetries = 1
 		app.cfg.DialRetryDelay = time.Millisecond
 		// Safe doubles for the daemon-supervision fields ensureDaemon
