@@ -149,8 +149,8 @@ While confirming the fix above, `go test ./...` run a second time in the same wo
 
 ## Next steps
 
-1. A human (or a carefully supervised, screenshot-verified computer-use pass, if the operator prefers) runs `mage Run` and works through 08-13-PLAN.md's Task 1 steps 5-8 and Task 2's sixteen steps against a live Art-Net target.
-2. Decide on the memory-limit banner gap (fix vs. spec update).
+1. **Deferred by the repository owner** (2026-07-27): the owner will run `mage Run` and work through 08-13-PLAN.md's Task 1 steps 5-8 and Task 2's sixteen steps against a live Art-Net target personally, at a later session. See `deferred-items.md`'s 08-13 item 7.
+2. Decide on the memory-limit banner gap (fix vs. spec update) -- `deferred-items.md`'s 08-13 item 6.
 3. Once both checkpoints are genuinely confirmed, update this SUMMARY's `resume-signal` outcome, check off 08-13 and Phase 8 in `ROADMAP.md`, and update `STATE.md`'s Current Position.
 
 ## Self-Check
