@@ -22,3 +22,17 @@ before this plan's changes.
   fails with `GOLC_MIGRATE_DRIFT: .planning/linear-map.json does not match
   the canonical schema-2 migration output`. Unrelated domain (Linear
   traceability catalog); this plan never touches `.planning/linear-map.json`.
+
+## 09-02 (Show open/new/switch: supervised self-relaunch)
+
+Re-confirmed while running `go test ./...` in this plan's own (separate)
+worktree, after Task 3: the same five `internal/command` toolchain-bootstrap
+tests fail with the identical `GOLC_TEST_TOOLCHAIN_MISSING` /
+"pinned golc-project binary not built" errors — this worktree has also
+never run `mage Bootstrap`. None of the five touch `internal/wails`,
+`cmd/golc-desktop/main.go`, or any other file this plan modified. Not
+auto-fixed (out of scope, pre-existing, environmental, matches 09-01's
+identical finding above). `internal/trace/catalog`'s
+`TestScopeLinearMap/real_repository_seed_migrates_end_to_end_offline` passed
+in this worktree's run (no `.planning/linear-map.json` drift here), so it is
+not re-logged.

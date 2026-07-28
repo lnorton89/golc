@@ -557,6 +557,20 @@ interface ShowServiceBinding {
   DiscardRecoveryPoints(): Promise<WailsResult>;
 }
 
+/** AppBinding mirrors internal/wails.App's bound show-picker/relaunch
+ * methods field-for-field (09-02-PLAN.md, FDUI-02): PickShowPath/
+ * PickNewShowPath open a native OS file picker (an empty-string result is a
+ * cancelled dialog, never an error); RelaunchWithShow saves the working
+ * show, starts a replacement golc-desktop process bound to the requested
+ * path, and quits this process only once that replacement has actually
+ * started -- so a successful call's own Promise may never observably
+ * settle from the caller's perspective (the process is exiting). */
+interface AppBinding {
+  PickShowPath(): Promise<string>;
+  PickNewShowPath(): Promise<string>;
+  RelaunchWithShow(showPath: string): Promise<WailsResult>;
+}
+
 /** FixtureLibraryRowView mirrors internal/wails.FixtureLibraryRowView's
  * JSON shape exactly -- one local-fixture-directory entry (09-01-PLAN.md,
  * CONTEXT D-01 local half). An invalid entry carries status "invalid"
@@ -645,6 +659,7 @@ declare global {
         ShowService?: ShowServiceBinding;
         ScriptService?: ScriptServiceBinding;
         FixtureLibraryService?: FixtureLibraryServiceBinding;
+        App?: AppBinding;
       };
     };
     runtime?: {
@@ -1242,6 +1257,50 @@ export async function discardRecoveryPoints(): Promise<WailsResult> {
   const svc = showService();
   if (!svc) return bridgeUnavailableResult();
   return svc.DiscardRecoveryPoints();
+}
+
+function appBinding(): AppBinding | undefined {
+  return window.go?.wails?.App;
+}
+
+/** pickShowPath calls the bound App.PickShowPath (09-02-PLAN.md, FDUI-02):
+ * opens a native "Open Show" file picker filtered to *.golc. An absent
+ * bridge degrades to the identical observable outcome as a cancelled
+ * dialog -- an empty string, never a throw -- so ShowsWorkspace.tsx's
+ * cancel-is-a-no-op handling covers both cases with one code path. */
+export async function pickShowPath(): Promise<string> {
+  const app = appBinding();
+  if (!app) return "";
+  try {
+    return await app.PickShowPath();
+  } catch {
+    return "";
+  }
+}
+
+/** pickNewShowPath calls the bound App.PickNewShowPath (09-02-PLAN.md,
+ * FDUI-02, D-06): the identical mechanism pickShowPath uses, pointed at a
+ * destination that does not exist yet. Same absent-bridge/cancelled-dialog
+ * degrade-to-empty-string contract as pickShowPath. */
+export async function pickNewShowPath(): Promise<string> {
+  const app = appBinding();
+  if (!app) return "";
+  try {
+    return await app.PickNewShowPath();
+  } catch {
+    return "";
+  }
+}
+
+/** relaunchWithShow calls the bound App.RelaunchWithShow (09-02-PLAN.md,
+ * D-05/D-07): saves the working show, starts a replacement process bound
+ * to showPath, and quits this process only once that replacement has
+ * actually started. Returns bridgeUnavailableResult() when the bridge is
+ * absent, exactly like saveShow does -- never throws. */
+export async function relaunchWithShow(showPath: string): Promise<WailsResult> {
+  const app = appBinding();
+  if (!app) return bridgeUnavailableResult();
+  return app.RelaunchWithShow(showPath);
 }
 
 function fixtureLibraryService(): FixtureLibraryServiceBinding | undefined {
