@@ -42,7 +42,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -318,37 +317,27 @@ type poolMemberRef struct {
 	member pool.PoolMember
 }
 
-// loadFixtureDirectory decodes every *.yaml/*.yml file directly inside dir
-// (non-recursive) via fixture.Decode -- the same strict decode/validate
-// pipeline "fixture validate"/"pool substitute" already use, no second
-// decode path invented -- and indexes each by its fixture.Pin'd StableKey.
+// loadFixtureDirectory delegates to the single extracted
+// fixture.ListDirectory scan (internal/fixture/directory.go, 09-01-
+// PLAN.md), preserving this function's existing fail-fast contract and
+// its existing diagnostic strings byte-for-byte: a top-level scan
+// failure becomes GOLC_ARTNET_FIXTURES_DIR_READ_FAILED, and the first
+// entry carrying a non-nil Err fails the exact same way, naming that
+// entry's FileName. There is exactly one directory-scan implementation
+// in this repository after this change -- internal/wails/
+// svc_fixturelibrary.go's ListLocal calls the identical
+// fixture.ListDirectory, never a second copy of this loop.
 func loadFixtureDirectory(dir string) (map[string]fixture.FixtureDefinition, error) {
-	entries, err := os.ReadDir(dir)
+	entries, err := fixture.ListDirectory(dir)
 	if err != nil {
 		return nil, fmt.Errorf("GOLC_ARTNET_FIXTURES_DIR_READ_FAILED: %v", err)
 	}
 	byStableKey := map[string]fixture.FixtureDefinition{}
 	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
+		if entry.Err != nil {
+			return nil, fmt.Errorf("GOLC_ARTNET_FIXTURES_DIR_READ_FAILED: %s: %v", entry.FileName, entry.Err)
 		}
-		ext := strings.ToLower(filepath.Ext(entry.Name()))
-		if ext != ".yaml" && ext != ".yml" {
-			continue
-		}
-		data, readErr := os.ReadFile(filepath.Join(dir, entry.Name()))
-		if readErr != nil {
-			return nil, fmt.Errorf("GOLC_ARTNET_FIXTURES_DIR_READ_FAILED: %s: %v", entry.Name(), readErr)
-		}
-		def, decodeErr := fixture.Decode(data)
-		if decodeErr != nil {
-			return nil, fmt.Errorf("GOLC_ARTNET_FIXTURES_DIR_READ_FAILED: %s: %v", entry.Name(), decodeErr)
-		}
-		identity, pinErr := fixture.Pin(def)
-		if pinErr != nil {
-			return nil, fmt.Errorf("GOLC_ARTNET_FIXTURES_DIR_READ_FAILED: %s: %v", entry.Name(), pinErr)
-		}
-		byStableKey[identity.StableKey] = def
+		byStableKey[entry.Identity.StableKey] = entry.Definition
 	}
 	return byStableKey, nil
 }
