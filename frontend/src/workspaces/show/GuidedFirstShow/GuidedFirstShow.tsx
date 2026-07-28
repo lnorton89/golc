@@ -8,12 +8,12 @@
 // never a completion percentage (locked design's own "What to Avoid"
 // list).
 //
-// 09-03-PLAN.md Task 3 wires Fixtures/Patch into the stage-content switch
+// 09-03-PLAN.md Task 3 wired Fixtures/Patch into the stage-content switch
 // below, passing each stage's own reported status up to this shared
-// rail/footer/evidence-aside contract. Program/Assign/Verify stay the
-// same inert "not yet built" placeholder Task 2 introduced, until a later
-// plan (09-04) implements them against the identical GuideStageStatus
-// contract.
+// rail/footer/evidence-aside contract. 09-04-PLAN.md Task 2 adds
+// Program/Assign against the identical GuideStageStatus contract; Task 3
+// finishes with the real Verify stage and its evidence-based Perform
+// gate.
 import { useEffect, useState, type ReactNode } from "react";
 
 import Button from "../../../components/primitives/Button/Button";
@@ -23,16 +23,21 @@ import GuideEvidenceList from "./GuideEvidenceList";
 import { GUIDE_STAGES, GUIDE_STAGE_LABELS, type GuideStageId, type GuideStageStatus } from "./stages";
 import FixturesStage from "./stages/FixturesStage";
 import PatchStage from "./stages/PatchStage";
+import ProgramStage from "./stages/ProgramStage";
+import AssignStage from "./stages/AssignStage";
 import styles from "./GuidedFirstShow.module.css";
 
 // STAGE_DESTINATION names the real workspace each stage's primary action
-// hands off to -- the guide itself never mutates anything (T-09-03-01).
-// Only the two stages this plan implements have a destination; the
-// remaining three fall through to the inert placeholder below, whose
-// primary action stays disabled and therefore never fires this map.
+// hands off to -- the guide itself never mutates anything (T-09-03-01/
+// T-09-04-04). Verify falls through to the inert placeholder below until
+// 09-04-PLAN.md Task 3 replaces it with the real evidence-based stage,
+// whose primary action is the Perform transition rather than a plain
+// hand-off.
 const STAGE_DESTINATION: Partial<Record<GuideStageId, DestinationId>> = {
   fixtures: "build-fixture-library",
   patch: "build-patch-pools",
+  program: "build-scenes-looks",
+  assign: "operate-operator-surface",
 };
 
 const PLACEHOLDER_STATUS: GuideStageStatus = { items: [], primaryLabel: "Continue", primaryDisabled: true };
@@ -68,6 +73,10 @@ export default function GuidedFirstShow() {
     stageContent = <FixturesStage onStatusChange={setStatus} />;
   } else if (stage === "patch") {
     stageContent = <PatchStage onStatusChange={setStatus} />;
+  } else if (stage === "program") {
+    stageContent = <ProgramStage onStatusChange={setStatus} />;
+  } else if (stage === "assign") {
+    stageContent = <AssignStage onStatusChange={setStatus} />;
   } else {
     stageContent = <p className={styles.loading}>This stage isn't built yet — a later plan completes it.</p>;
   }
