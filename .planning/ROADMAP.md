@@ -484,7 +484,7 @@ Plans:
   2. A user can open an existing show, create a new show, and switch between shows through on-screen controls — the CLI flow (`show open`, recovery accept/discard) already exists; this surfaces it, and `SaveRecoveryWorkspace.tsx` no longer documents a single-show-path-at-startup limitation.
   3. A first-time user can complete Guided First Show onboarding (Sketch 004-B, approved but never built) to go from empty app to a patched fixture and a scene on screen.
 
-**Plans:** 4/7 plans executed
+**Plans:** 6/7 plans executed
 
 Plans:
 **Wave 1**
@@ -502,8 +502,8 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 09-04-PLAN.md — Guided First Show: Program, Assign, Verify stages and the readiness gate (wave 4)
-- [ ] 09-06-PLAN.md — Fixture Library: OFL import preview and commit (wave 4)
+- [x] 09-04-PLAN.md — Guided First Show: Program, Assign, Verify stages and the readiness gate (wave 4)
+- [x] 09-06-PLAN.md — Fixture Library: OFL import preview and commit (wave 4)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -558,7 +558,7 @@ Plans:
 | 6. Wails Authoring and Operator Surface | 12/12 | Complete    | 2026-07-24 |
 | 7. Versioned External Control API | 15/15 | Complete    | 2026-07-25 |
 | 8. Isolated TypeScript Automation | 13/13 | Complete    | 2026-07-27 |
-| 9. Front-Door UI Completion | 4/7 | In Progress|  |
+| 9. Front-Door UI Completion | 6/7 | In Progress|  |
 | 10. Provider-Neutral AI and Bounded Autonomy | 0/TBD | Not started | - |
 | 11. Windows Release Qualification | 0/TBD | Not started | - |
 | 12. Telemetry, Usage Statistics, and Auto Crash Submission Pipeline | 0/TBD | Not started | - |
