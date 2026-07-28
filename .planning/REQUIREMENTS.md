@@ -159,7 +159,7 @@ routes that already exist from Phases 2, 5, and 6.
 
 - [ ] **FDUI-01**: A user can browse, inspect, and import fixture definitions (Open Fixture Library and hand-authored YAML) through the Fixture Library workspace, not only the CLI.
 - [x] **FDUI-02**: A user can open an existing show, create a new show, and switch between shows through on-screen controls.
-- [ ] **FDUI-03**: A first-time user can complete Guided First Show onboarding to go from an empty application to a patched fixture and a scene on screen using only the UI.
+- [x] **FDUI-03**: A first-time user can complete Guided First Show onboarding to go from an empty application to a patched fixture and a scene on screen using only the UI.
 
 ### Telemetry and Crash Reporting
 
@@ -315,7 +315,7 @@ A v1 requirement is complete only when its implementation is committed, automate
 | WIN-04 | Phase 11 | Pending |
 | FDUI-01 | Phase 9 | Pending |
 | FDUI-02 | Phase 9 | Complete |
-| FDUI-03 | Phase 9 | Pending |
+| FDUI-03 | Phase 9 | Complete |
 | LINR-01 | Phase 1 | Complete |
 | LINR-02 | Phase 1 | Complete |
 | LINR-03 | Phase 1 | Complete |
