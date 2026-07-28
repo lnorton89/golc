@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
+milestone: v1.0-shipped
 milestone_name: milestone
 current_phase: 08
 current_phase_name: isolated-typescript-automation
-status: phase_complete
-stopped_at: Phase 8 complete (08-13 acceptance evidence recorded, owner-accepted)
+status: milestone_complete
+stopped_at: v1.0 milestone archived (Phases 1-8); next milestone (Phases 9-11) awaiting hygiene/front-door-UI phase insertion per POST-PHASE-8-PLAN.md
 last_updated: "2026-07-27T23:15:00.000Z"
 last_activity: 2026-07-27
-last_activity_desc: Phase 08 completed -- 08-13 acceptance evidence gathered, two real bugs found and fixed (debug-mode CDP hang, test hermeticity), owner accepted and closed the phase
+last_activity_desc: v1.0 milestone closed and archived to .planning/milestones/ (Phases 1-8, 99 plans); REQUIREMENTS.md re-scoped to the remaining LLM/Windows/telemetry requirements for the next milestone
 progress:
-  total_phases: 8
+  total_phases: 11
   completed_phases: 8
   total_plans: 99
   completed_plans: 99
@@ -20,21 +20,20 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-17)
+See: .planning/PROJECT.md (updated 2026-07-27)
 
 **Core value:** An operator can author a modular show once, adapt its fixture pools to different deployments in one or two actions, and hand a simple controller surface to another person for reliable playback.
-**Current focus:** Milestone v1.0 — all 8 phases complete; ready for the owner's own milestone-completion step (`/gsd-complete-milestone`) whenever desired.
+**Current focus:** v1.0 shipped (Phases 1-8, archived to `.planning/milestones/v1.0-ROADMAP.md`). Next: insert the hygiene and front-door-UI phases from `.planning/POST-PHASE-8-PLAN.md` before starting Phase 9 (Provider-Neutral AI and Bounded Autonomy).
 
 ## Current Position
 
-Phase: 08 (isolated-typescript-automation) — COMPLETE
-Plan: 13 of 13
-Status: Phase 08 complete (last phase of milestone v1.0)
-Last activity: 2026-07-27 — 08-13 acceptance evidence gathered, two real bugs found and fixed, owner accepted and closed the phase (see 08-13-SUMMARY.md's "Resolution" section for exactly what was and wasn't independently observed)
+Milestone v1.0: COMPLETE (Phases 1-8, 99/99 plans, shipped 2026-07-27)
+Next: Phase 9 (Provider-Neutral AI and Bounded Autonomy), pending insertion of the hygiene and front-door-UI phases `.planning/POST-PHASE-8-PLAN.md` calls for first.
+Last activity: 2026-07-27 — v1.0 milestone closed and archived (see .planning/MILESTONES.md and .planning/milestones/v1.0-ROADMAP.md)
 
-Note (resolved): a `.planning/phases/11-telemetry-usage-statistics-and-auto-crash-submission-pipeline/` placeholder directory (a bare `.gitkeep`, no real content) existed on disk from earlier out-of-order groundwork, which briefly pointed the automated next-phase resolver at Phase 11. It has been removed. Phase 9 depends on Phases 2/6/7/8 (now all satisfied), Phase 10 depends on Phases 1-9, and Phase 11 depends on Phase 10.
+Note: Phase 9 depends on Phases 2/6/7/8 (all satisfied), Phase 10 depends on Phases 1-9, and Phase 11 depends on Phase 10. These phases remain active (not archived) in `.planning/ROADMAP.md` since they were carried forward rather than shipped as part of v1.0.
 
-Progress: [██████████] 100% (8/8 phases, 99/99 plans)
+Progress: [███████░░░] 73% (8/11 phases, 99/99 plans in completed phases)
 
 ## Performance Metrics
 
