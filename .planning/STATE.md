@@ -4,13 +4,13 @@ milestone: v1.0-shipped
 milestone_name: milestone
 status: phase_not_planned
 stopped_at: Phase 9 UI-SPEC approved
-last_updated: "2026-07-28T04:07:49.743Z"
+last_updated: "2026-07-28T05:44:26.101Z"
 last_activity: 2026-07-27
-last_activity_desc: Phase 9 inserted (Fixture Library workspace, show open/new/switch, Guided First Show onboarding), renumbering the former Phase 9/10/11 (AI autonomy, Windows qualification, telemetry) to Phase 10/11/12.
+last_activity_desc: Phase 09 execution started
 progress:
   total_phases: 9
   completed_phases: 8
-  total_plans: 99
+  total_plans: 106
   completed_plans: 99
 current_phase: 09
 current_phase_name: front-door-ui-completion
@@ -23,13 +23,13 @@ current_phase_name: front-door-ui-completion
 See: .planning/PROJECT.md (updated 2026-07-27)
 
 **Core value:** An operator can author a modular show once, adapt its fixture pools to different deployments in one or two actions, and hand a simple controller surface to another person for reliable playback.
-**Current focus:** v1.0 shipped (Phases 1-8, archived to `.planning/milestones/v1.0-ROADMAP.md`). The hygiene phase from `.planning/POST-PHASE-8-PLAN.md` was completed inline during milestone close. Phase 9 (Front-Door UI Completion) is inserted and next up; run `/gsd-discuss-phase 9` then `/gsd-plan-phase 9`.
+**Current focus:** Phase 09 — front-door-ui-completion
 
 ## Current Position
 
 Milestone v1.0: COMPLETE (Phases 1-8, 99/99 plans, shipped 2026-07-27)
 Next: Phase 9 (Front-Door UI Completion) — inserted 2026-07-27, not yet planned.
-Last activity: 2026-07-27 — Phase 9 inserted (Fixture Library workspace, show open/new/switch, Guided First Show onboarding), renumbering the former Phase 9/10/11 (AI autonomy, Windows qualification, telemetry) to Phase 10/11/12.
+Last activity: 2026-07-27 — Phase 09 execution started
 
 Note: Phase 9 depends on Phase 8 (satisfied). Phase 10 (AI autonomy) depends on Phases 2/6/7/8/9, Phase 11 (Windows) depends on Phases 1-10, and Phase 12 (Telemetry) depends on Phase 11. These phases remain active (not archived) in `.planning/ROADMAP.md` since they were carried forward rather than shipped as part of v1.0.
 
