@@ -38,6 +38,17 @@
 // is discarded (DiscardPreview) when the manufacturer selection changes,
 // the fixture key is edited, or the operator switches back to "My
 // Library," so a staged preview never lingers.
+//
+// 09-07-PLAN.md adds the hand-authored YAML path on the "My Library" side
+// (D-04, FIXT-04): an "Add Custom Fixture…" action reveals a "Fixture file
+// path" Field with a "Browse…" button that opens the native picker
+// (pickFixtureFile) -- or the operator can type a path directly. Either
+// way, validating calls previewFixtureFile and renders the result through
+// the exact same candidate-preview rendering (renderCandidateBody) the OFL
+// catalog path already uses -- one confirm action ("Add to Library"), one
+// error presentation, no in-app YAML editor. A staged custom-fixture
+// preview is discarded when the path is edited, the affordance is
+// dismissed, or the operator switches to the catalog side.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Lightbulb } from "lucide-react";
 
@@ -47,6 +58,8 @@ import {
   errorMessage,
   inspectFixtureFile,
   listLocalFixtures,
+  pickFixtureFile,
+  previewFixtureFile,
   previewOflFixture,
   searchOflManufacturers,
   type FixtureInspectView,
@@ -114,6 +127,17 @@ export default function FixtureLibraryWorkspace() {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [committing, setCommitting] = useState(false);
   const [alreadyExists, setAlreadyExists] = useState(false);
+
+  // Custom-fixture add (09-07-PLAN.md, D-04): "Add Custom Fixture…" reveals
+  // a "Fixture file path" field (typed or picked via the native dialog).
+  // Validating it shares the exact same previewView/previewing/
+  // previewError/committing/alreadyExists state the catalog candidate
+  // above uses -- the two flows are mutually exclusive on screen, so one
+  // shared candidate slot serves the same confirm action and error
+  // presentation for both (D-02's "one shared panel" rule extended to the
+  // custom-fixture path).
+  const [addingCustomFixture, setAddingCustomFixture] = useState(false);
+  const [customFixturePath, setCustomFixturePath] = useState("");
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -263,6 +287,109 @@ export default function FixtureLibraryWorkspace() {
     }
   };
 
+  // handleToggleAddCustomFixture reveals/dismisses the custom-fixture
+  // affordance, discarding any staged candidate either way (D-04).
+  const handleToggleAddCustomFixture = () => {
+    resetCandidate();
+    setCustomFixturePath("");
+    setAddingCustomFixture((current) => !current);
+  };
+
+  // handleCustomFixturePathChange discards any staged preview whenever the
+  // operator edits the path -- a stale candidate must never linger against
+  // an edited path (D-04).
+  const handleCustomFixturePathChange = (value: string) => {
+    resetCandidate();
+    setCustomFixturePath(value);
+  };
+
+  // handleBrowseCustomFixture calls the native picker (pickFixtureFile); an
+  // empty return (cancellation, or an absent bridge) leaves the field
+  // untouched with no error, mirroring ShowsWorkspace's identical
+  // cancel-is-a-no-op contract.
+  const handleBrowseCustomFixture = () => {
+    void (async () => {
+      const path = await pickFixtureFile();
+      if (path === "") return;
+      resetCandidate();
+      setCustomFixturePath(path);
+    })();
+  };
+
+  // handleValidateCustomFixture calls PreviewFile against the typed/picked
+  // path -- the sole validation authority is the canonical "fixture
+  // inspect" route PreviewFile forwards to (T-09-07-01); this side never
+  // decodes, validates, or pins anything itself.
+  const handleValidateCustomFixture = () => {
+    const path = customFixturePath.trim();
+    if (path === "") return;
+    setPreviewing(true);
+    setPreviewError(null);
+    setAlreadyExists(false);
+    void (async () => {
+      const view = await previewFixtureFile(path);
+      setPreviewView(view);
+      setPreviewing(false);
+    })();
+  };
+
+  // renderCandidateBody is the SAME candidate-preview rendering both the
+  // OFL catalog path and the custom-fixture path render through -- one
+  // "Add to Library" confirm action, one "{N} error(s)" presentation, one
+  // lossy-warning treatment, one already-in-library/Replace path, never
+  // duplicated per source (D-02 extended to D-04 by 09-07-PLAN.md).
+  const renderCandidateBody = (view: FixturePreviewView) => (
+    <div className={styles.inspectBody}>
+      <div className={styles.techReadout}>
+        {`${view.inspect.stableKey || "—"} · ${view.inspect.contentHash || "—"}`}
+      </div>
+      <div className={styles.techReadout}>
+        {`Schema ${view.inspect.schemaVersion} · Revision ${view.inspect.revision || "—"}`}
+      </div>
+      <Chip tone={view.inspect.valid ? "frame-lock" : "revoked"}>{view.inspect.valid ? "Valid" : "Invalid"}</Chip>
+
+      {!view.inspect.valid ? (
+        <>
+          <p className={styles.errorText}>
+            {`This fixture definition has ${view.inspect.errors.length} error(s) and can't be added. Fix them and try again.`}
+          </p>
+          <ul className={styles.diagnosticList}>
+            {view.inspect.errors.map((message, index) => (
+              <li key={index}>{message}</li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+
+      {view.inspect.warnings.length > 0 ? (
+        <>
+          <Chip tone="armed">Warning</Chip>
+          <p className={styles.warningText}>
+            {`This import has ${view.inspect.warnings.length} unsupported or approximated attribute(s) — review before adding.`}
+          </p>
+          <ul className={styles.diagnosticList}>
+            {view.inspect.warnings.map((warning, index) => (
+              <li key={index}>{warning.detail}</li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+
+      {alreadyExists ? (
+        <div className={styles.alreadyExists}>
+          <p className={styles.warningText}>This fixture is already in your library.</p>
+          <Button variant="secondary" onClick={() => void handleCommit(true)} disabled={committing}>
+            Replace
+          </Button>
+        </div>
+      ) : (
+        <Button variant="primary" onClick={() => void handleCommit(false)} disabled={!view.inspect.valid || committing}>
+          {committing ? "Adding…" : "Add to Library"}
+        </Button>
+      )}
+    </div>
+  );
+
   return (
     <div className={styles.workspace}>
       <Toolbar title="Fixture Library" icon={Lightbulb} />
@@ -290,7 +417,12 @@ export default function FixtureLibraryWorkspace() {
                 type="button"
                 className={source === "catalog" ? styles.sourceButtonActive : styles.sourceButton}
                 aria-pressed={source === "catalog"}
-                onClick={() => setSource("catalog")}
+                onClick={() => {
+                  resetCandidate();
+                  setAddingCustomFixture(false);
+                  setCustomFixturePath("");
+                  setSource("catalog");
+                }}
               >
                 Open Fixture Library
               </button>
@@ -306,7 +438,15 @@ export default function FixtureLibraryWorkspace() {
             <div className={styles.layout}>
               {source === "local" ? (
                 <Panel>
-                  <PanelHeader label={`Fixture Library (${countLabel})`} icon={Lightbulb} />
+                  <PanelHeader
+                    label={`Fixture Library (${countLabel})`}
+                    icon={Lightbulb}
+                    action={
+                      <Button variant="secondary" onClick={handleToggleAddCustomFixture}>
+                        {addingCustomFixture ? "Cancel" : "Add Custom Fixture…"}
+                      </Button>
+                    }
+                  />
                   <ScrollRegion>
                     {rows.length === 0 ? (
                       <EmptyState icon={Lightbulb}>
@@ -384,8 +524,32 @@ export default function FixtureLibraryWorkspace() {
 
               {source === "local" ? (
                 <Panel className={styles.inspectPanel}>
-                  <PanelHeader label="Inspect" />
-                  {!selectedFileName ? (
+                  <PanelHeader label={addingCustomFixture ? "Add Custom Fixture" : "Inspect"} />
+                  {addingCustomFixture ? (
+                    <div className={styles.candidateBody}>
+                      <Field
+                        label="Fixture file path"
+                        value={customFixturePath}
+                        placeholder="e.g. C:\fixtures\my-fixture.yaml"
+                        onChange={(event) => handleCustomFixturePathChange(event.target.value)}
+                        disabled={previewing}
+                      />
+                      <Button variant="secondary" onClick={handleBrowseCustomFixture} disabled={previewing}>
+                        Browse…
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={handleValidateCustomFixture}
+                        disabled={customFixturePath.trim() === "" || previewing}
+                      >
+                        {previewing ? "Validating…" : "Validate"}
+                      </Button>
+
+                      {previewError ? <p className={styles.errorText}>{previewError}</p> : null}
+
+                      {previewView ? renderCandidateBody(previewView) : null}
+                    </div>
+                  ) : !selectedFileName ? (
                     <EmptyState icon={Lightbulb}>
                       Select a fixture to see its identity and validation status.
                     </EmptyState>
@@ -459,63 +623,7 @@ export default function FixtureLibraryWorkspace() {
 
                       {previewError ? <p className={styles.errorText}>{previewError}</p> : null}
 
-                      {previewView ? (
-                        <div className={styles.inspectBody}>
-                          <div className={styles.techReadout}>
-                            {`${previewView.inspect.stableKey || "—"} · ${previewView.inspect.contentHash || "—"}`}
-                          </div>
-                          <div className={styles.techReadout}>
-                            {`Schema ${previewView.inspect.schemaVersion} · Revision ${previewView.inspect.revision || "—"}`}
-                          </div>
-                          <Chip tone={previewView.inspect.valid ? "frame-lock" : "revoked"}>
-                            {previewView.inspect.valid ? "Valid" : "Invalid"}
-                          </Chip>
-
-                          {!previewView.inspect.valid ? (
-                            <>
-                              <p className={styles.errorText}>
-                                {`This fixture definition has ${previewView.inspect.errors.length} error(s) and can't be added. Fix them and try again.`}
-                              </p>
-                              <ul className={styles.diagnosticList}>
-                                {previewView.inspect.errors.map((message, index) => (
-                                  <li key={index}>{message}</li>
-                                ))}
-                              </ul>
-                            </>
-                          ) : null}
-
-                          {previewView.inspect.warnings.length > 0 ? (
-                            <>
-                              <Chip tone="armed">Warning</Chip>
-                              <p className={styles.warningText}>
-                                {`This import has ${previewView.inspect.warnings.length} unsupported or approximated attribute(s) — review before adding.`}
-                              </p>
-                              <ul className={styles.diagnosticList}>
-                                {previewView.inspect.warnings.map((warning, index) => (
-                                  <li key={index}>{warning.detail}</li>
-                                ))}
-                              </ul>
-                            </>
-                          ) : null}
-
-                          {alreadyExists ? (
-                            <div className={styles.alreadyExists}>
-                              <p className={styles.warningText}>This fixture is already in your library.</p>
-                              <Button variant="secondary" onClick={() => void handleCommit(true)} disabled={committing}>
-                                Replace
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              variant="primary"
-                              onClick={() => void handleCommit(false)}
-                              disabled={!previewView.inspect.valid || committing}
-                            >
-                              {committing ? "Adding…" : "Add to Library"}
-                            </Button>
-                          )}
-                        </div>
-                      ) : null}
+                      {previewView ? renderCandidateBody(previewView) : null}
                     </div>
                   )}
                 </Panel>
