@@ -52,35 +52,53 @@ writing to it would race with the running executors.)
 
 ---
 
-## 1. Hygiene phase (do first, right after Phase 8)
+## 1. Hygiene phase (do first, right after Phase 8) — DONE 2026-07-27
 
 Low-risk, no product-behavior change, restores trust in the state every future
-planning agent reads.
+planning agent reads. Completed as part of the v1.0 milestone close
+(`/gsd-complete-milestone`), not as a separately inserted roadmap phase.
 
-- [ ] `README.md`: fix "Phase 7 … is in progress" → reflect actual state (Phase 8
-      complete or executing, per whatever's true when this runs).
-- [ ] `.planning/STATE.md` frontmatter: `total_phases: 8` → `11` (matches ROADMAP).
-- [ ] `.planning/STATE.md`: fix velocity metrics ("Total execution time: 0 hours",
-      missing Phase 6 row, "Last 5 plans: none") — either populate from real data or
-      remove the section if it can't be made accurate mechanically.
-- [ ] `ROADMAP.md` progress table: Phase 6 row shows "In Progress" with no
-      completion date; the checklist above it already marks it complete 2026-07-24.
-      Fix the table to match.
-- [ ] `.planning/sketches/WORKFLOW-MAP.md`: still describes the pre-restructure IA
-      (Patch/Program/Perform/Setup, `Ctrl+1..4`). Update to match the shipped
-      Show/Build/Operate/Output rail (`frontend/src/shell/navigation.ts`).
-- [ ] `internal/trace/transport/process.go`: fix the `Wait()` vs.
-      `safeFailureSummary()` data race flagged in Phase 6's `deferred-items.md`.
-- [ ] Fix `TestScopeLinearCatalog`/`TestScopeLinearMap` failures against the real
-      catalog (same deferred-items entry).
-- [ ] `PROJECT.md`: narrow target-audience language to club/DJ (owner decision
-      above) — remove or reframe the church/school/community line, and add a Key
-      Decision entry recording that cue-stack/timed-fade playback is explicitly
-      out of scope for v1, not an open question.
+- [x] `README.md`: fixed "Phase 8 … is in progress" → v1.0 (Phases 1-8) shipped
+      2026-07-27; Roadmap table and tech-stack rows corrected to match.
+- [x] `.planning/STATE.md` frontmatter: `total_phases: 8` → `11` (matches ROADMAP).
+- [x] `.planning/STATE.md`: velocity metrics section removed — it showed 74 plans
+      (should be 99), was missing Phases 06/08 entirely, and had a malformed
+      table; no real per-plan duration data was ever captured to populate it
+      accurately, so it was removed rather than fabricated.
+- [x] `ROADMAP.md` progress table: Phase 6 and Phase 8 rows corrected to
+      Complete with their real completion dates.
+- [x] `.planning/sketches/WORKFLOW-MAP.md`: rewritten to describe the shipped
+      Show/Build/Operate/Output command rail (`frontend/src/shell/navigation.ts`)
+      and the real global playback keyboard shortcuts
+      (`frontend/src/hooks/useKeyboardWorkflow.ts`); the fictional
+      `Ctrl+1..4`/`F6` nav shortcuts were never implemented and are removed.
+- [x] `internal/trace/transport/process.go`: fixed the `Wait()` vs.
+      `safeFailureSummary()` data race — exit state is now tracked in
+      client-owned fields guarded by a dedicated mutex, written once by the
+      goroutine that calls `Wait()`. 10 consecutive `-race` runs pass clean.
+- [x] `TestScopeLinearCatalog`/`TestScopeLinearMap` now pass cleanly against the
+      real repository catalog (resolved incidentally by correcting
+      REQUIREMENTS.md's PLAY-10/11/12 and SCRP-03/06 status during milestone
+      close — see `.planning/MILESTONES.md`).
+- [x] `PROJECT.md`: target-audience language narrowed to club/DJ; a Key
+      Decision entry and an Out of Scope line record that cue-stack/timed-fade
+      playback is explicitly out of scope for v1, not an open question.
 
-**Exit gate:** `go test ./...` clean (including the two `internal/trace` failures
-above), README/STATE/ROADMAP internally consistent, WORKFLOW-MAP.md matches shipped
-navigation, PROJECT.md audience/scope language locked.
+**Exit gate met:** `go test ./...` is clean, README/STATE/ROADMAP are internally
+consistent, WORKFLOW-MAP.md matches shipped navigation, PROJECT.md audience/scope
+language is locked.
+
+**Note:** ROADMAP.md's Phase 1-8 detail sections were NOT collapsed/archived out
+of the live file, unlike GSD's default milestone-archival pattern — this repo's
+`internal/trace/catalog` (`BuildCatalog`) requires a live `### Phase N:` section
+plus a defined requirement key in `.planning/REQUIREMENTS.md` for every phase
+directory still present under `.planning/phases/`. Collapsing them broke the
+catalog during this same milestone close and had to be reverted (see git history
+around 2026-07-27's `chore: archive v1.0 milestone` / `fix: keep full phase
+detail and requirement definitions live` commits). A future change to
+`internal/trace/catalog` to also resolve archived phases from
+`.planning/milestones/` would be needed before that pattern can be used safely
+here.
 
 ---
 
