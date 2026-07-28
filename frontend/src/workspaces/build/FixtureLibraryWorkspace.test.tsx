@@ -57,6 +57,25 @@ function installMockFixtureLibraryService(overrides: Partial<Record<string, Retu
       warnings: [],
     }),
     SearchOFL: vi.fn().mockResolvedValue({ query: "", manufacturers: [], unreachable: false, detail: "" }),
+    PreviewOFL: vi.fn().mockResolvedValue({
+      inspect: {
+        path: "",
+        valid: true,
+        errors: [],
+        schemaVersion: 1,
+        stableKey: "",
+        contentHash: "",
+        revision: "",
+        source: "",
+        validationResult: "valid",
+        warnings: [],
+      },
+      previewToken: "",
+      destinationExists: false,
+      suggestedFileName: "",
+    }),
+    CommitPreview: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" }),
+    DiscardPreview: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" }),
     ...overrides,
   };
   (window as unknown as { go: unknown }).go = { wails: { FixtureLibraryService: svc } };
@@ -333,6 +352,190 @@ describe("FixtureLibraryWorkspace", () => {
       await waitFor(() => expect(svc.SearchOFL).toHaveBeenCalled());
       await waitFor(() => expect(screen.getByText("Chauvet DJ")).toBeInTheDocument());
       expect(screen.getByText("chauvet-dj")).toBeInTheDocument();
+    });
+  });
+
+  describe("Preview-then-commit import (09-06-PLAN.md Task 1 RED / Task 2-3 GREEN)", () => {
+    function switchToCatalog() {
+      fireEvent.click(screen.getByRole("button", { name: "Open Fixture Library" }));
+    }
+
+    function installMockWithOneManufacturer(overrides: Partial<Record<string, ReturnType<typeof vi.fn>>> = {}) {
+      return installMockFixtureLibraryService({
+        SearchOFL: vi.fn().mockResolvedValue({
+          query: "chauvet",
+          manufacturers: [{ key: "chauvet-dj", name: "Chauvet DJ", website: "" }],
+          unreachable: false,
+          detail: "",
+        }),
+        ...overrides,
+      });
+    }
+
+    async function searchAndSelectManufacturer(svc: { SearchOFL: ReturnType<typeof vi.fn> }): Promise<void> {
+      switchToCatalog();
+      const search = screen.getByLabelText("Search fixtures");
+      fireEvent.change(search, { target: { value: "chauvet" } });
+      await waitFor(() => expect(svc.SearchOFL).toHaveBeenCalled());
+      await waitFor(() => expect(screen.getByText("Chauvet DJ")).toBeInTheDocument());
+      fireEvent.click(screen.getByText("Chauvet DJ"));
+    }
+
+    it("renders the candidate inspect panel before anything is committed", async () => {
+      const svc = installMockWithOneManufacturer({
+        PreviewOFL: vi.fn().mockResolvedValue({
+          inspect: {
+            path: "",
+            valid: true,
+            errors: [],
+            schemaVersion: 1,
+            stableKey: "chauvet-dj/led-par-64-tri-b",
+            contentHash: "abc123content",
+            revision: "abc123conten",
+            source: "ofl:chauvet-dj/led-par-64-tri-b",
+            validationResult: "valid",
+            warnings: [],
+          },
+          previewToken: "/tmp/preview/chauvet-dj_led-par-64-tri-b.json",
+          destinationExists: false,
+          suggestedFileName: "chauvet-dj_led-par-64-tri-b.json",
+        }),
+      });
+
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
+      await searchAndSelectManufacturer(svc);
+
+      fireEvent.change(screen.getByLabelText("Fixture key"), { target: { value: "led-par-64-tri-b" } });
+      fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+
+      await waitFor(() => expect(svc.PreviewOFL).toHaveBeenCalledWith("chauvet-dj", "led-par-64-tri-b"));
+      await waitFor(() => expect(screen.getByText(/chauvet-dj\/led-par-64-tri-b/)).toBeInTheDocument());
+      expect(screen.getByText(/abc123content/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add to Library" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add to Library" })).toBeEnabled();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("Add to Library is disabled for an invalid candidate", async () => {
+      const svc = installMockWithOneManufacturer({
+        PreviewOFL: vi.fn().mockResolvedValue({
+          inspect: {
+            path: "",
+            valid: false,
+            errors: ["GOLC_FIXTURE_OFL_FETCH_FAILED: unexpected HTTP status 404"],
+            schemaVersion: 0,
+            stableKey: "",
+            contentHash: "",
+            revision: "",
+            source: "",
+            validationResult: "",
+            warnings: [],
+          },
+          previewToken: "",
+          destinationExists: false,
+          suggestedFileName: "",
+        }),
+      });
+
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
+      await searchAndSelectManufacturer(svc);
+
+      fireEvent.change(screen.getByLabelText("Fixture key"), { target: { value: "does-not-exist" } });
+      fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+
+      await waitFor(() =>
+        expect(
+          screen.getByText("This fixture definition has 1 error(s) and can't be added. Fix them and try again."),
+        ).toBeInTheDocument(),
+      );
+      expect(screen.getByRole("button", { name: "Add to Library" })).toBeDisabled();
+    });
+
+    it("renders the lossy-import warning copy with the count and the per-attribute details, with Add to Library still enabled", async () => {
+      const svc = installMockWithOneManufacturer({
+        PreviewOFL: vi.fn().mockResolvedValue({
+          inspect: {
+            path: "",
+            valid: true,
+            errors: [],
+            schemaVersion: 1,
+            stableKey: "chauvet-dj/led-par-64-tri-b",
+            contentHash: "abc123content",
+            revision: "abc123conten",
+            source: "ofl:chauvet-dj/led-par-64-tri-b",
+            validationResult: "valid",
+            warnings: [
+              {
+                severity: "warning",
+                capabilityType: "",
+                detail: 'channel "Effect Speed" capability type "EffectSpeed" is not represented in the v1 canonical model',
+              },
+            ],
+          },
+          previewToken: "/tmp/preview/chauvet-dj_led-par-64-tri-b.json",
+          destinationExists: false,
+          suggestedFileName: "chauvet-dj_led-par-64-tri-b.json",
+        }),
+      });
+
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
+      await searchAndSelectManufacturer(svc);
+
+      fireEvent.change(screen.getByLabelText("Fixture key"), { target: { value: "led-par-64-tri-b" } });
+      fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+
+      await waitFor(() =>
+        expect(
+          screen.getByText("This import has 1 unsupported or approximated attribute(s) — review before adding."),
+        ).toBeInTheDocument(),
+      );
+      expect(screen.getByText(/EffectSpeed/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add to Library" })).toBeEnabled();
+    });
+
+    it("an already-present fixture is reported, not silently replaced", async () => {
+      const svc = installMockWithOneManufacturer({
+        PreviewOFL: vi.fn().mockResolvedValue({
+          inspect: {
+            path: "",
+            valid: true,
+            errors: [],
+            schemaVersion: 1,
+            stableKey: "chauvet-dj/led-par-64-tri-b",
+            contentHash: "abc123content",
+            revision: "abc123conten",
+            source: "ofl:chauvet-dj/led-par-64-tri-b",
+            validationResult: "valid",
+            warnings: [],
+          },
+          previewToken: "/tmp/preview/chauvet-dj_led-par-64-tri-b.json",
+          destinationExists: true,
+          suggestedFileName: "chauvet-dj_led-par-64-tri-b.json",
+        }),
+        CommitPreview: vi.fn().mockResolvedValue({
+          exitCode: 1,
+          stdout: "",
+          stderr: "GOLC_WAILS_FIXTURE_IMPORT_EXISTS: chauvet-dj_led-par-64-tri-b.json already exists in the library",
+        }),
+      });
+
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
+      await searchAndSelectManufacturer(svc);
+
+      fireEvent.change(screen.getByLabelText("Fixture key"), { target: { value: "led-par-64-tri-b" } });
+      fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Add to Library" })).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole("button", { name: "Add to Library" }));
+
+      await waitFor(() => expect(svc.CommitPreview).toHaveBeenCalled());
+      await waitFor(() => expect(screen.getByText("This fixture is already in your library.")).toBeInTheDocument());
+      expect(screen.getByRole("button", { name: "Replace" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Add to Library" })).not.toBeInTheDocument();
     });
   });
 });
