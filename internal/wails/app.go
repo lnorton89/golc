@@ -534,6 +534,29 @@ func (a *App) RelaunchWithShow(newShowPath string) Result {
 	return Result{ExitCode: 0, Stdout: "GOLC_WAILS_RELAUNCH_STARTED: relaunching with a new show path\n"}
 }
 
+// fixtureFileFilter is the *.yaml/*.yml filter PickFixtureFile applies --
+// the custom-fixture-add path only ever picks a hand-authored YAML fixture
+// definition (09-07-PLAN.md D-04), never an arbitrary file.
+var fixtureFileFilter = wailsruntime.FileFilter{DisplayName: "GOLC fixture (*.yaml, *.yml)", Pattern: "*.yaml;*.yml"}
+
+// PickFixtureFile opens a native "Add Custom Fixture" file-picker dialog
+// filtered to *.yaml/*.yml, returning the chosen path -- or an empty string
+// and a nil error when the operator cancels (mirrors PickShowPath's
+// identical cancellation contract, 09-07-PLAN.md D-04). Returns
+// GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE when OnStartup has never run (no
+// stored ctx) rather than panicking inside the real Wails runtime dialog
+// call.
+func (a *App) PickFixtureFile() (string, error) {
+	ctx, ok := a.runtimeContext()
+	if !ok {
+		return "", fmt.Errorf("GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE: OnStartup has not run yet")
+	}
+	return wailsruntime.OpenFileDialog(ctx, wailsruntime.OpenDialogOptions{
+		Title:   "Add Custom Fixture",
+		Filters: []wailsruntime.FileFilter{fixtureFileFilter},
+	})
+}
+
 // defaultRelaunchSpawn starts exePath (the running golc-desktop.exe itself)
 // as a new, independent process with env as its complete environment --
 // deliberately exec.Command, not exec.CommandContext, because the stored

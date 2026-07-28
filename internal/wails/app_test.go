@@ -745,3 +745,18 @@ func TestPickShowPathWithoutRuntimeContextFails(t *testing.T) {
 		t.Fatalf("PickNewShowPath() error = %v, want GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE", err)
 	}
 }
+
+// --- 09-07-PLAN.md Task 1: PickFixtureFile (hand-authored YAML add) ---
+
+// TestPickFixtureFileWithoutRuntimeContextFails proves calling the
+// custom-fixture file picker on an App whose OnStartup has never run (ctx
+// nil) returns GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE rather than
+// panicking or reaching the real Wails runtime dialog call -- mirrors
+// TestPickShowPathWithoutRuntimeContextFails' identical guard.
+func TestPickFixtureFileWithoutRuntimeContextFails(t *testing.T) {
+	app := NewApp(Config{})
+
+	if _, err := app.PickFixtureFile(); err == nil || !strings.Contains(err.Error(), "GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE") {
+		t.Fatalf("PickFixtureFile() error = %v, want GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE", err)
+	}
+}

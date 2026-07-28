@@ -76,10 +76,39 @@ function installMockFixtureLibraryService(overrides: Partial<Record<string, Retu
     }),
     CommitPreview: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" }),
     DiscardPreview: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" }),
+    PreviewFile: vi.fn().mockResolvedValue({
+      inspect: {
+        path: "",
+        valid: true,
+        errors: [],
+        schemaVersion: 1,
+        stableKey: "",
+        contentHash: "",
+        revision: "",
+        source: "",
+        validationResult: "valid",
+        warnings: [],
+      },
+      previewToken: "",
+      destinationExists: false,
+      suggestedFileName: "",
+    }),
     ...overrides,
   };
   (window as unknown as { go: unknown }).go = { wails: { FixtureLibraryService: svc } };
   return svc;
+}
+
+// installMockAppWithPicker adds window.go.wails.App.PickFixtureFile alongside
+// whatever installMockFixtureLibraryService already installed at
+// window.go.wails -- never overwriting FixtureLibraryService (09-07-PLAN.md
+// Task 1: mock window.go.wails.App.PickFixtureFile in the frontend tests
+// alongside the existing FixtureLibraryService mocks).
+function installMockAppWithPicker(pickFixtureFile: ReturnType<typeof vi.fn>) {
+  const win = window as unknown as { go?: { wails?: Record<string, unknown> } };
+  if (!win.go) win.go = { wails: {} };
+  if (!win.go.wails) win.go.wails = {};
+  win.go.wails.App = { PickFixtureFile: pickFixtureFile };
 }
 
 function fixtureList(): HTMLElement {
@@ -536,6 +565,133 @@ describe("FixtureLibraryWorkspace", () => {
       await waitFor(() => expect(screen.getByText("This fixture is already in your library.")).toBeInTheDocument());
       expect(screen.getByRole("button", { name: "Replace" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Add to Library" })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Custom YAML fixture add (09-07-PLAN.md Task 1 RED / Task 2-3 GREEN)", () => {
+    it("Add Custom Fixture reveals the file path field with a Browse button", async () => {
+      installMockFixtureLibraryService();
+
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
+
+      expect(screen.queryByLabelText("Fixture file path")).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Add Custom Fixture…" }));
+
+      expect(screen.getByLabelText("Fixture file path")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Browse…" })).toBeInTheDocument();
+    });
+
+    it("Browse populates the field from the native picker", async () => {
+      installMockFixtureLibraryService();
+      const pickFixtureFile = vi.fn().mockResolvedValue("C:\\fixtures\\hand-authored.yaml");
+      installMockAppWithPicker(pickFixtureFile);
+
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Add Custom Fixture…" }));
+
+      fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+
+      await waitFor(() => expect(pickFixtureFile).toHaveBeenCalled());
+      await waitFor(() =>
+        expect(screen.getByLabelText("Fixture file path")).toHaveValue("C:\\fixtures\\hand-authored.yaml"),
+      );
+    });
+
+    it("cancelling the picker leaves the field unchanged", async () => {
+      installMockFixtureLibraryService();
+      const pickFixtureFile = vi.fn().mockResolvedValue("");
+      installMockAppWithPicker(pickFixtureFile);
+
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Add Custom Fixture…" }));
+
+      fireEvent.change(screen.getByLabelText("Fixture file path"), { target: { value: "typed-path.yaml" } });
+      fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+
+      await waitFor(() => expect(pickFixtureFile).toHaveBeenCalled());
+      expect(screen.getByLabelText("Fixture file path")).toHaveValue("typed-path.yaml");
+    });
+
+    it("the field and confirm action are disabled with a busy label while validation runs", async () => {
+      let resolvePreview: (value: unknown) => void = () => {};
+      const previewPromise = new Promise((resolve) => {
+        resolvePreview = resolve;
+      });
+      const svc = installMockFixtureLibraryService({
+        PreviewFile: vi.fn().mockReturnValue(previewPromise),
+      });
+
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Add Custom Fixture…" }));
+      fireEvent.change(screen.getByLabelText("Fixture file path"), { target: { value: "hand-authored.yaml" } });
+
+      fireEvent.click(screen.getByRole("button", { name: "Validate" }));
+
+      await waitFor(() => expect(svc.PreviewFile).toHaveBeenCalledWith("hand-authored.yaml"));
+      expect(screen.getByLabelText("Fixture file path")).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Browse…" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Validating…" })).toBeDisabled();
+
+      resolvePreview({
+        inspect: {
+          path: "hand-authored.yaml",
+          valid: true,
+          errors: [],
+          schemaVersion: 1,
+          stableKey: "Chauvet/SlimPAR Pro",
+          contentHash: "abc123content",
+          revision: "abc123conten",
+          source: "",
+          validationResult: "valid",
+          warnings: [],
+        },
+        previewToken: "/tmp/preview/custom_chauvet-slimpar-pro-1.yaml",
+        destinationExists: false,
+        suggestedFileName: "chauvet-slimpar-pro.yaml",
+      });
+
+      await waitFor(() => expect(screen.getByRole("button", { name: "Validate" })).toBeEnabled());
+    });
+
+    it("an unreadable or invalid file renders the shared {N} error(s) copy and leaves Add to Library disabled", async () => {
+      const svc = installMockFixtureLibraryService({
+        PreviewFile: vi.fn().mockResolvedValue({
+          inspect: {
+            path: "bad.yaml",
+            valid: false,
+            errors: ["GOLC_FIXTURE_EMPTY: fixture document is empty"],
+            schemaVersion: 0,
+            stableKey: "",
+            contentHash: "",
+            revision: "",
+            source: "",
+            validationResult: "",
+            warnings: [],
+          },
+          previewToken: "",
+          destinationExists: false,
+          suggestedFileName: "",
+        }),
+      });
+
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Add Custom Fixture…" }));
+      fireEvent.change(screen.getByLabelText("Fixture file path"), { target: { value: "bad.yaml" } });
+      fireEvent.click(screen.getByRole("button", { name: "Validate" }));
+
+      await waitFor(() => expect(svc.PreviewFile).toHaveBeenCalledWith("bad.yaml"));
+      await waitFor(() =>
+        expect(
+          screen.getByText("This fixture definition has 1 error(s) and can't be added. Fix them and try again."),
+        ).toBeInTheDocument(),
+      );
+      expect(screen.getByRole("button", { name: "Add to Library" })).toBeDisabled();
     });
   });
 });

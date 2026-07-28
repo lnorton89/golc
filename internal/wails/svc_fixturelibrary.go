@@ -20,6 +20,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -68,11 +69,23 @@ type FixtureLibraryService struct {
 	previewAllowMirror bool
 
 	// previewMu guards previewDir (lazily created on first PreviewOFL/
-	// CommitPreview/DiscardPreview call) and previewSeq (a monotonically
-	// increasing counter giving every staged preview file a unique name).
-	previewMu  sync.Mutex
-	previewDir string
-	previewSeq int
+	// PreviewFile/CommitPreview/DiscardPreview call), previewSeq (a
+	// monotonically increasing counter giving every staged preview file a
+	// unique name), and previewRegistry (09-07-PLAN.md Task 2): the
+	// in-memory map from a staged preview's own token (its path inside
+	// previewDir) to the library destination file name PreviewOFL/
+	// PreviewFile already computed for it. CommitPreview reads the
+	// destination from this registry rather than re-deriving it from the
+	// artifact -- the one mechanism that lets a single commit path serve
+	// both a JSON import artifact (OFL) and a hand-authored YAML file
+	// (custom) without the Wails layer ever decoding a fixture document of
+	// its own. Only PreviewOFL/PreviewFile ever add an entry (T-09-07-02):
+	// the registry maps a token this service issued to a destination this
+	// service computed, never caller-supplied input.
+	previewMu       sync.Mutex
+	previewDir      string
+	previewSeq      int
+	previewRegistry map[string]string
 }
 
 // NewFixtureLibraryService constructs a FixtureLibraryService targeting
@@ -433,6 +446,65 @@ func (s *FixtureLibraryService) nextPreviewPath(previewDir, manufacturerKey, fix
 	return filepath.Join(previewDir, name)
 }
 
+// registerPreviewDestination records token's already-computed library
+// destination file name in the preview registry (09-07-PLAN.md Task 2) --
+// called only by PreviewOFL/PreviewFile, immediately after each stages its
+// own artifact, so the registry only ever maps a token this service issued
+// to a destination this service computed.
+func (s *FixtureLibraryService) registerPreviewDestination(token, destFileName string) {
+	s.previewMu.Lock()
+	defer s.previewMu.Unlock()
+	if s.previewRegistry == nil {
+		s.previewRegistry = make(map[string]string)
+	}
+	s.previewRegistry[token] = destFileName
+}
+
+// previewDestination looks up token's registered destination file name; ok
+// is false when token was never registered (e.g. discarded already, or
+// never staged by this service at all).
+func (s *FixtureLibraryService) previewDestination(token string) (string, bool) {
+	s.previewMu.Lock()
+	defer s.previewMu.Unlock()
+	dest, ok := s.previewRegistry[token]
+	return dest, ok
+}
+
+// forgetPreviewDestination removes token's registry entry -- called once a
+// staged preview is committed or discarded, so the registry never
+// accumulates unbounded entries across a long-running session.
+func (s *FixtureLibraryService) forgetPreviewDestination(token string) {
+	s.previewMu.Lock()
+	defer s.previewMu.Unlock()
+	delete(s.previewRegistry, token)
+}
+
+// nonSlugRunPattern/repeatedHyphenPattern back
+// libraryFileNameForCustomFixture's slug derivation, below.
+var (
+	nonSlugRunPattern     = regexp.MustCompile(`[^a-z0-9-]+`)
+	repeatedHyphenPattern = regexp.MustCompile(`-+`)
+)
+
+// libraryFileNameForCustomFixture derives PreviewFile's suggested library
+// destination file name from a hand-authored fixture's own inspected
+// stable key (09-07-PLAN.md Task 2): lowercased, every run of characters
+// that is not a letter, digit, or hyphen replaced with a single hyphen,
+// consecutive hyphens collapsed, leading/trailing hyphens trimmed, with
+// ext (the source file's own extension) appended so the operator's YAML
+// stays YAML -- mirrors libraryFileNameForSource's identical "commit
+// destination mechanically derived, never caller-supplied" discipline for
+// the OFL import path.
+func libraryFileNameForCustomFixture(stableKey, ext string) string {
+	slug := nonSlugRunPattern.ReplaceAllString(strings.ToLower(stableKey), "-")
+	slug = repeatedHyphenPattern.ReplaceAllString(slug, "-")
+	slug = strings.Trim(slug, "-")
+	if slug == "" {
+		slug = "custom-fixture"
+	}
+	return slug + ext
+}
+
 // sanitizePreviewSegment strips path-separator/traversal characters from a
 // caller-supplied manufacturer/fixture key before it becomes part of a
 // filesystem path -- defensive, since every real OFL key is a plain slug,
@@ -544,6 +616,7 @@ func (s *FixtureLibraryService) PreviewOFL(manufacturerKey, fixtureKey string) (
 	suggestedFileName := libraryFileNameForSource(envelope.Provenance.Source)
 	_, statErr := os.Stat(filepath.Join(s.fixturesDir, suggestedFileName))
 	destinationExists := statErr == nil
+	s.registerPreviewDestination(previewPath, suggestedFileName)
 
 	return FixturePreviewView{
 		Inspect: FixtureInspectView{
@@ -563,17 +636,100 @@ func (s *FixtureLibraryService) PreviewOFL(manufacturerKey, fixtureKey string) (
 	}, nil
 }
 
+// --- 09-07-PLAN.md: hand-authored YAML fixture add (D-04, T-09-07-*) ---
+
+// PreviewFile stages a hand-authored YAML fixture file for inline
+// inspection before anything is committed: the sole validation authority
+// is s.Inspect(path) -- the existing forward to the registered "fixture
+// inspect" route -- so a definition the CLI would reject can never render
+// as addable here (T-09-07-01, the same canonical-pipeline guarantee
+// PreviewOFL already gives the catalog path). An unreadable path and an
+// invalid definition both project through Inspect as Valid:false with
+// nothing staged and a nil error -- there is exactly one error surface for
+// both failure modes, matching the UI-SPEC's single "{N} error(s)"
+// diagnostic. On success the operator's file is copied byte-for-byte into
+// this service's own preview directory (never re-encoded, mirroring
+// CommitPreview's own move-never-re-encode discipline), the destination
+// file name is derived from the inspected stable key
+// (libraryFileNameForCustomFixture) keeping the source file's own
+// extension, and the token/destination pair is recorded in the preview
+// registry so CommitPreview never has to decode the file itself.
+func (s *FixtureLibraryService) PreviewFile(path string) (FixturePreviewView, error) {
+	inspectView, err := s.Inspect(path)
+	if err != nil {
+		return FixturePreviewView{}, err
+	}
+	if !inspectView.Valid {
+		return FixturePreviewView{Inspect: inspectView}, nil
+	}
+
+	previewDir, err := s.ensurePreviewDir()
+	if err != nil {
+		return FixturePreviewView{}, err
+	}
+
+	ext := filepath.Ext(path)
+	if ext == "" {
+		ext = ".yaml"
+	}
+	previewPath := s.nextCustomPreviewPath(previewDir, inspectView.StableKey, ext)
+
+	if err := copyFileBytes(path, previewPath); err != nil {
+		return FixturePreviewView{}, fmt.Errorf("GOLC_WAILS_FIXTURE_PREVIEW_STAGE_FAILED: %v", err)
+	}
+
+	suggestedFileName := libraryFileNameForCustomFixture(inspectView.StableKey, ext)
+	_, statErr := os.Stat(filepath.Join(s.fixturesDir, suggestedFileName))
+	destinationExists := statErr == nil
+	s.registerPreviewDestination(previewPath, suggestedFileName)
+
+	return FixturePreviewView{
+		Inspect:           inspectView,
+		PreviewToken:      previewPath,
+		DestinationExists: destinationExists,
+		SuggestedFileName: suggestedFileName,
+	}, nil
+}
+
+// nextCustomPreviewPath allocates a unique staging path inside previewDir
+// for one PreviewFile call, keyed by the same per-service monotonically
+// increasing sequence number nextPreviewPath uses, but keeping ext (the
+// source file's own extension, never .json) so a staged custom fixture
+// stays valid YAML on disk.
+func (s *FixtureLibraryService) nextCustomPreviewPath(previewDir, stableKey, ext string) string {
+	s.previewMu.Lock()
+	s.previewSeq++
+	seq := s.previewSeq
+	s.previewMu.Unlock()
+	name := fmt.Sprintf("custom_%s-%d%s", sanitizePreviewSegment(stableKey), seq, ext)
+	return filepath.Join(previewDir, name)
+}
+
+// copyFileBytes copies src's exact bytes to dst (0o644) -- used by
+// PreviewFile to stage the operator's hand-authored fixture file
+// byte-for-byte, mirroring CommitPreview's own "move/copy, never
+// re-encode" discipline for both import paths.
+func copyFileBytes(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, 0o644)
+}
+
 // CommitPreview commits the previewed artifact at previewToken into the
-// library directory (T-09-06-01/T-09-06-02/T-09-06-04): previewToken must
-// resolve inside this service's own preview directory, checked before any
-// filesystem operation (GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN otherwise); the
-// destination file name is re-derived from the previewed artifact's own
-// Provenance.Source, never from caller-supplied input; and an existing
-// destination is refused with GOLC_WAILS_FIXTURE_IMPORT_EXISTS unless
-// overwrite is true, writing nothing in that case. On success the
-// previewed file is moved (never copied-and-re-encoded) to the
-// destination, so the committed bytes are byte-identical to the bytes
-// "fixture import" originally wrote.
+// library directory (T-09-06-01/T-09-06-02/T-09-06-04, T-09-07-02):
+// previewToken must resolve inside this service's own preview directory,
+// checked before any filesystem operation (GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN
+// otherwise); the destination file name is read from the in-memory preview
+// registry PreviewOFL/PreviewFile populated when they staged this exact
+// token (09-07-PLAN.md Task 2) -- never re-derived by decoding the staged
+// file, since a staged custom fixture is raw YAML, not the JSON import
+// envelope PreviewOFL stages -- and an existing destination is refused
+// with GOLC_WAILS_FIXTURE_IMPORT_EXISTS unless overwrite is true, writing
+// nothing in that case. On success the previewed file is moved (never
+// copied-and-re-encoded) to the destination, so the committed bytes are
+// byte-identical to the bytes originally staged.
 func (s *FixtureLibraryService) CommitPreview(previewToken string, overwrite bool) Result {
 	previewDir, err := s.ensurePreviewDir()
 	if err != nil {
@@ -583,20 +739,15 @@ func (s *FixtureLibraryService) CommitPreview(previewToken string, overwrite boo
 		return Result{ExitCode: 2, Stderr: "GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN: preview token does not resolve inside this service's own preview directory\n"}
 	}
 
-	data, err := os.ReadFile(previewToken)
-	if err != nil {
-		return Result{ExitCode: 2, Stderr: fmt.Sprintf("GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN: reading preview token: %v\n", err)}
-	}
-	envelope, err := fixture.DecodeEnvelope(data)
-	if err != nil {
-		return Result{ExitCode: 2, Stderr: fmt.Sprintf("GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN: %v\n", err)}
+	destFileName, ok := s.previewDestination(previewToken)
+	if !ok {
+		return Result{ExitCode: 2, Stderr: "GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN: preview token was never staged by this service\n"}
 	}
 
 	if err := os.MkdirAll(s.fixturesDir, 0o755); err != nil {
 		return Result{ExitCode: 1, Stderr: fmt.Sprintf("GOLC_FIXTURE_IMPORT_WRITE_FAILED: creating library directory: %v\n", err)}
 	}
 
-	destFileName := libraryFileNameForSource(envelope.Provenance.Source)
 	destPath := filepath.Join(s.fixturesDir, destFileName)
 
 	if !overwrite {
@@ -608,6 +759,7 @@ func (s *FixtureLibraryService) CommitPreview(previewToken string, overwrite boo
 	if err := os.Rename(previewToken, destPath); err != nil {
 		return Result{ExitCode: 1, Stderr: fmt.Sprintf("GOLC_FIXTURE_IMPORT_WRITE_FAILED: %v\n", err)}
 	}
+	s.forgetPreviewDestination(previewToken)
 
 	return Result{Stdout: fmt.Sprintf("GOLC_FIXTURE_IMPORT: wrote %s\n", destFileName)}
 }
@@ -616,7 +768,9 @@ func (s *FixtureLibraryService) CommitPreview(previewToken string, overwrite boo
 // workspace calls this when the operator changes selection or switches
 // source, so an abandoned preview never accumulates (T-09-06-05). The same
 // containment check as CommitPreview applies before any filesystem
-// operation; removing an already-gone preview is not an error.
+// operation; removing an already-gone preview is not an error. The
+// registry entry (if any) is forgotten regardless, so it never
+// accumulates across a long-running session.
 func (s *FixtureLibraryService) DiscardPreview(previewToken string) Result {
 	previewDir, err := s.ensurePreviewDir()
 	if err != nil {
@@ -625,6 +779,7 @@ func (s *FixtureLibraryService) DiscardPreview(previewToken string) Result {
 	if !isPathWithinDir(previewDir, previewToken) {
 		return Result{ExitCode: 2, Stderr: "GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN: preview token does not resolve inside this service's own preview directory\n"}
 	}
+	s.forgetPreviewDestination(previewToken)
 	if err := os.Remove(previewToken); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return Result{ExitCode: 1, Stderr: fmt.Sprintf("GOLC_WAILS_FIXTURE_PREVIEW_FAILED: %v\n", err)}
 	}
