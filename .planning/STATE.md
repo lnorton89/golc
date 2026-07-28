@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0-shipped
 milestone_name: milestone
-current_phase: "09"
-current_phase_name: front-door-ui-completion
 status: phase_not_planned
-stopped_at: Phase 9 (Front-Door UI Completion) inserted into ROADMAP.md; not yet discussed or planned
-last_updated: "2026-07-27T23:15:00.000Z"
+stopped_at: Phase 9 context gathered
+last_updated: "2026-07-28T03:53:55.146Z"
 last_activity: 2026-07-27
-last_activity_desc: Phase 9 (Front-Door UI Completion) inserted after v1.0 milestone close, renumbering former Phase 9/10/11 (AI autonomy, Windows qualification, telemetry) to Phase 10/11/12; FDUI-01/02/03 added to REQUIREMENTS.md
+last_activity_desc: Phase 9 inserted (Fixture Library workspace, show open/new/switch, Guided First Show onboarding), renumbering the former Phase 9/10/11 (AI autonomy, Windows qualification, telemetry) to Phase 10/11/12.
 progress:
   total_phases: 12
   completed_phases: 8
   total_plans: 99
   completed_plans: 99
+current_phase: 09
+current_phase_name: front-door-ui-completion
 ---
 
 # Project State
@@ -110,6 +110,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-25T23:48:30.467Z
-Stopped at: Phase 8 UI-SPEC approved
-Resume file: .planning/phases/08-isolated-typescript-automation/08-UI-SPEC.md
+Last session: 2026-07-28T03:53:55.131Z
+Stopped at: Phase 9 context gathered
+Resume file: .planning/phases/09-front-door-ui-completion/09-CONTEXT.md
