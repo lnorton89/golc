@@ -5,9 +5,10 @@
 
 **Milestone note (2026-07-27):** CONF/FIXT/POOL/PROG/SCEN/PLAY/ARTN/SHOW/API/SCRP/LINR
 (74 requirements) shipped as v1.0 (Phases 1-8) — see `.planning/MILESTONES.md` and
-`.planning/milestones/v1.0-ROADMAP.md`/`v1.0-REQUIREMENTS.md`. LLM/WIN/TELE (17
-requirements, Phases 9-11) remain the active target for the next milestone. All
-88 requirement definitions stay live in this file (not archived out) because
+`.planning/milestones/v1.0-ROADMAP.md`/`v1.0-REQUIREMENTS.md`. FDUI (3 requirements,
+Phase 9) plus LLM/WIN/TELE (17 requirements, Phases 10-12) remain the active target
+for the next milestone. All 91 requirement definitions stay live in this file
+(not archived out) because
 `internal/trace/catalog` resolves every phase directory under `.planning/phases/`
 against a matching `### Phase N:` section in ROADMAP.md and a defined requirement
 key here — archiving a shipped phase's requirements out of this file breaks that
@@ -149,6 +150,17 @@ resolution while its plan directory still exists on disk.
 - [x] **LINR-03**: A contributor can preview and run an idempotent reconciliation that creates or updates the intended Linear project, milestones, issues, and sub-issues without duplicating retried work.
 - [x] **LINR-04**: Linear synchronization reports ambiguity, partial GraphQL errors, pagination, and rate limiting without blocking local planning, builds, tests, or application runtime.
 
+### Front-Door Workflow
+
+Added 2026-07-27 (Phase 9 insertion) from `.planning/POST-PHASE-8-PLAN.md` section 2's
+owner-approved scope (2026-07-25): the remaining UI-only gaps that make "no CLI
+required for the happy path" genuinely true, wiring on-screen controls to backend
+routes that already exist from Phases 2, 5, and 6.
+
+- [ ] **FDUI-01**: A user can browse, inspect, and import fixture definitions (Open Fixture Library and hand-authored YAML) through the Fixture Library workspace, not only the CLI.
+- [ ] **FDUI-02**: A user can open an existing show, create a new show, and switch between shows through on-screen controls.
+- [ ] **FDUI-03**: A first-time user can complete Guided First Show onboarding to go from an empty application to a patched fixture and a scene on screen using only the UI.
+
 ### Telemetry and Crash Reporting
 
 - [ ] **TELE-01**: A user can explicitly opt into usage/telemetry collection; collection stays off by default and nothing is sent before that opt-in.
@@ -288,32 +300,35 @@ A v1 requirement is complete only when its implementation is committed, automate
 | SCRP-04 | Phase 8 | Complete |
 | SCRP-05 | Phase 8 | Complete |
 | SCRP-06 | Phase 8 | Complete |
-| LLM-01 | Phase 9 | Pending |
-| LLM-02 | Phase 9 | Pending |
-| LLM-03 | Phase 9 | Pending |
-| LLM-04 | Phase 9 | Pending |
-| LLM-05 | Phase 9 | Pending |
-| LLM-06 | Phase 9 | Pending |
-| LLM-07 | Phase 9 | Pending |
-| LLM-08 | Phase 9 | Pending |
-| LLM-09 | Phase 9 | Pending |
-| WIN-01 | Phase 10 | Pending |
-| WIN-02 | Phase 10 | Pending |
-| WIN-03 | Phase 10 | Pending |
-| WIN-04 | Phase 10 | Pending |
+| LLM-01 | Phase 10 | Pending |
+| LLM-02 | Phase 10 | Pending |
+| LLM-03 | Phase 10 | Pending |
+| LLM-04 | Phase 10 | Pending |
+| LLM-05 | Phase 10 | Pending |
+| LLM-06 | Phase 10 | Pending |
+| LLM-07 | Phase 10 | Pending |
+| LLM-08 | Phase 10 | Pending |
+| LLM-09 | Phase 10 | Pending |
+| WIN-01 | Phase 11 | Pending |
+| WIN-02 | Phase 11 | Pending |
+| WIN-03 | Phase 11 | Pending |
+| WIN-04 | Phase 11 | Pending |
+| FDUI-01 | Phase 9 | Pending |
+| FDUI-02 | Phase 9 | Pending |
+| FDUI-03 | Phase 9 | Pending |
 | LINR-01 | Phase 1 | Complete |
 | LINR-02 | Phase 1 | Complete |
 | LINR-03 | Phase 1 | Complete |
 | LINR-04 | Phase 1 | Complete |
-| TELE-01 | Phase 11 | Pending |
-| TELE-02 | Phase 11 | Pending |
-| TELE-03 | Phase 11 | Pending |
-| TELE-04 | Phase 11 | Pending |
+| TELE-01 | Phase 12 | Pending |
+| TELE-02 | Phase 12 | Pending |
+| TELE-03 | Phase 12 | Pending |
+| TELE-04 | Phase 12 | Pending |
 
 **Coverage:**
 
-- v1 requirements: 88
-- Mapped to phases: 88
+- v1 requirements: 91
+- Mapped to phases: 91
 - Unmapped: 0
 
 ---
@@ -321,3 +336,4 @@ A v1 requirement is complete only when its implementation is committed, automate
 *Last updated: 2026-07-21 after Phase 1 gap-closure: LINR-01/LINR-02 checked off to match delivered internal/trace/catalog implementation; LINR-03/LINR-04 certified Complete against CR-01/CR-02 resolution (plans 01-30/01-31)*
 *Last updated: 2026-07-23 after Phase 6 gap-closure plans 06-09..06-12: PLAY-01/02/06/07/08/09 corrected from Pending to Complete (both the checklist and the Traceability status table) to match 06-VERIFICATION.md's Requirements Coverage determination once 06-09..06-12 closed the MIDI-dispatch and on-screen fixture/deployment/programming gaps. PLAY-03/04/05 were already checked Complete but were marked prematurely at 06-01/06-03 (before the Wave 3/4 UI and MIDI-dispatch-fix plans existed); PLAY-04/05's completion is now genuinely satisfied because 06-09 closed the dispatch gap 06-VERIFICATION.md's FAILED truth #9 identified. PLAY-10/11/12 remain Pending here, tracked by their own gap-closure plans' SUMMARYs. The live/visual UAT items 06-VERIFICATION.md's `human_verification` frontmatter lists for Phase 6 (06-05/06-06/06-07/06-08/06-10/06-11/06-12 checkpoint scripts) remain deferred to end-of-phase UAT per `workflow.human_verify_mode=end-of-phase` and are not claimed as satisfied by this correction.*
 *Last updated: 2026-07-27 at v1.0 milestone close (Phases 1-8 shipped): corrected PLAY-10/11/12 from Pending to Complete against `06-VERIFICATION.md` truths #12-14 (8/5/7 passing tests, components wired) — the correction `06-12-PLAN.md` Task 4 deferred but never followed up. Corrected SCRP-03/SCRP-06 from Pending to Complete against `08-05-SUMMARY.md`/`08-06-SUMMARY.md`/`08-07-SUMMARY.md` (zero-permission Deno host, zero-import gate, `TestScriptKillDoesNotBlockArtnet`) and `08-13-SUMMARY.md`'s acceptance-pass reconfirmation. See `.planning/MILESTONES.md` for the full v1.0 close record.*
+*Last updated: 2026-07-27 (same day, Phase 9 insertion): added FDUI-01/02/03 (Front-Door Workflow) from `.planning/POST-PHASE-8-PLAN.md` section 2's owner-approved scope, mapped to new Phase 9. LLM-01..09/WIN-01..04/TELE-01..04 renumbered from Phase 9/10/11 to Phase 10/11/12 to make room. Coverage: 88 -> 91 v1 requirements.*

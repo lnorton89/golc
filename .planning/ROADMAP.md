@@ -21,9 +21,10 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
 - [x] **Phase 6: Wails Authoring and Operator Surface** - Users can complete authoring and playback on screen or by keyboard, with constrained generic MIDI control and independent local safety actions. (completed 2026-07-24)
 - [x] **Phase 7: Versioned External Control API** - External programs can safely inspect and control every public capability through the same typed command model as the desktop application. (completed 2026-07-25)
 - [x] **Phase 8: Isolated TypeScript Automation** - Users can author and debug capability-limited TypeScript automation without scripts owning or blocking playback or Art-Net. (completed 2026-07-27)
-- [ ] **Phase 9: Provider-Neutral AI and Bounded Autonomy** - Users can use hosted or local models for reviewed authoring and explicitly armed live control while retaining auditable limits and immediate override.
-- [ ] **Phase 10: Windows Release Qualification** - Operators can install and run a self-contained Windows release with measured timing, recovery, and hardware evidence under concurrent load.
-- [ ] **Phase 11: Telemetry, Usage Statistics, and Auto Crash Submission Pipeline** - Users can opt into anonymized usage/telemetry collection and crashes are automatically captured and submitted for diagnosis without blocking playback or requiring manual repro steps.
+- [ ] **Phase 9: Front-Door UI Completion** - A new operator can go from a fresh checkout to a patched fixture and a scene on screen using only the UI, through the Fixture Library workspace, show open/new/switch, and Guided First Show onboarding.
+- [ ] **Phase 10: Provider-Neutral AI and Bounded Autonomy** - Users can use hosted or local models for reviewed authoring and explicitly armed live control while retaining auditable limits and immediate override.
+- [ ] **Phase 11: Windows Release Qualification** - Operators can install and run a self-contained Windows release with measured timing, recovery, and hardware evidence under concurrent load.
+- [ ] **Phase 12: Telemetry, Usage Statistics, and Auto Crash Submission Pipeline** - Users can opt into anonymized usage/telemetry collection and crashes are automatically captured and submitted for diagnosis without blocking playback or requiring manual repro steps.
 
 ## Phase Details
 
@@ -471,11 +472,27 @@ Plans:
 **UI hint:** yes
 **Research:** Deeper phase research required for Deno distribution, offline dependency policy, process and IPC isolation, Windows CPU/memory enforcement, debugger scope, supervision, cancellation, and defensible sandbox claims.
 
-### Phase 9: Provider-Neutral AI and Bounded Autonomy
+### Phase 9: Front-Door UI Completion
+
+**Goal:** A new operator can go from a fresh checkout to a patched fixture and a scene on screen using only the UI, with Guided First Show onboarding as the on-ramp — no CLI required for the happy path.
+**Mode:** mvp
+**Depends on:** Phase 8
+**Requirements:** FDUI-01, FDUI-02, FDUI-03
+**Success Criteria** (what must be TRUE):
+
+  1. A user can browse, inspect, and import fixture definitions (OFL and hand-authored YAML) through the Fixture Library workspace, replacing its current `ComingSoon` stub — the existing `fixture validate`/`fixture inspect`/`fixture import` backend routes are already available to wire against.
+  2. A user can open an existing show, create a new show, and switch between shows through on-screen controls — the CLI flow (`show open`, recovery accept/discard) already exists; this surfaces it, and `SaveRecoveryWorkspace.tsx` no longer documents a single-show-path-at-startup limitation.
+  3. A first-time user can complete Guided First Show onboarding (Sketch 004-B, approved but never built) to go from empty app to a patched fixture and a scene on screen.
+
+**Plans:** TBD
+**UI hint:** yes
+**Research:** Scoped by `.planning/POST-PHASE-8-PLAN.md` section 2 (owner decisions 2026-07-25) — this is UI wiring against existing backend routes, not new product design; standard `/gsd-discuss-phase` and `/gsd-plan-phase` should confirm scope and any remaining gray areas (e.g. whether show open/new/switch lives in the existing Show nav group or needs a new entry point) before planning.
+
+### Phase 10: Provider-Neutral AI and Bounded Autonomy
 
 **Goal:** Users can employ hosted or local LLMs for evidence-backed authoring and explicitly bounded live control while deterministic execution and immediate operator authority remain local.
 **Mode:** mvp
-**Depends on:** Phases 2, 6, 7, and 8
+**Depends on:** Phases 2, 6, 7, 8, and 9
 **Requirements:** LLM-01, LLM-02, LLM-03, LLM-04, LLM-05, LLM-06, LLM-07, LLM-08, LLM-09
 **Success Criteria** (what must be TRUE):
 
@@ -489,11 +506,11 @@ Plans:
 **UI hint:** yes
 **Research:** Deeper phase research required for provider-wrapper maturity and parity, hosted/local structured outputs, context limits, cancellation, local deployment, evaluation corpus, safety policy, hazardous fixture restrictions, audit redaction, and staged validation before live autonomy.
 
-### Phase 10: Windows Release Qualification
+### Phase 11: Windows Release Qualification
 
 **Goal:** Operators can install and run a self-contained GOLC v1 on declared Windows systems with measured evidence that full-load operation, recovery, and real Art-Net output meet release budgets.
 **Mode:** mvp
-**Depends on:** Phases 1 through 9
+**Depends on:** Phases 1 through 10
 **Requirements:** WIN-01, WIN-02, WIN-03, WIN-04
 **Success Criteria** (what must be TRUE):
 
@@ -517,22 +534,24 @@ Plans:
 | 6. Wails Authoring and Operator Surface | 12/12 | Complete    | 2026-07-24 |
 | 7. Versioned External Control API | 15/15 | Complete    | 2026-07-25 |
 | 8. Isolated TypeScript Automation | 13/13 | Complete    | 2026-07-27 |
-| 9. Provider-Neutral AI and Bounded Autonomy | 0/TBD | Not started | - |
-| 10. Windows Release Qualification | 0/TBD | Not started | - |
-| 11. Telemetry, Usage Statistics, and Auto Crash Submission Pipeline | 0/TBD | Not started | - |
+| 9. Front-Door UI Completion | 0/TBD | Not started | - |
+| 10. Provider-Neutral AI and Bounded Autonomy | 0/TBD | Not started | - |
+| 11. Windows Release Qualification | 0/TBD | Not started | - |
+| 12. Telemetry, Usage Statistics, and Auto Crash Submission Pipeline | 0/TBD | Not started | - |
 
-### Phase 11: Telemetry, Usage Statistics, and Auto Crash Submission Pipeline
+### Phase 12: Telemetry, Usage Statistics, and Auto Crash Submission Pipeline
 
 **Goal:** Users can opt into anonymized usage/telemetry collection and crashes are automatically captured and submitted for diagnosis without blocking playback or requiring manual repro steps.
 **Requirements:** TELE-01, TELE-02, TELE-03, TELE-04
-**Depends on:** Phase 10
+**Depends on:** Phase 11
 **Plans:** 0 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 11 to break down)
+- [ ] TBD (run /gsd-plan-phase 12 to break down)
 
 ---
 *Roadmap created: 2026-07-17*
 *v1.0 (Phases 1-8) shipped 2026-07-27 — see `.planning/MILESTONES.md`. Phase Details below remain complete for every phase (not collapsed) so `internal/trace/catalog` can keep resolving every phase directory under `.planning/phases/`.*
+*2026-07-27: Phase 9 (Front-Door UI Completion) inserted per `.planning/POST-PHASE-8-PLAN.md` section 2; former Phases 9/10/11 (AI autonomy, Windows qualification, telemetry) renumbered to 10/11/12. Renumbered as plain integers, not GSD's default decimal insertion (e.g. 8.1) — `internal/trace/catalog`'s phase-directory grammar and `### Phase N:` heading regex only match two-digit integers, so a decimal phase would be invisible to Linear traceability.*
 *Coverage target: 84/84 v1 requirements mapped exactly once*
