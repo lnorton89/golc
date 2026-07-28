@@ -15,7 +15,7 @@ Linear traceability is established in Phase 1 and remains a delivery gate for ev
 - [x] **Phase 5: Durable Shows and Recovery** - Users can save, restore, migrate, recover, inspect, and export shows without storage work disturbing live output. (completed 2026-07-23)
 - [x] **Phase 6: Wails Authoring and Operator Surface** - Users can complete authoring and playback on screen or by keyboard, with constrained generic MIDI control and independent local safety actions. (completed 2026-07-24)
 - [x] **Phase 7: Versioned External Control API** - External programs can safely inspect and control every public capability through the same typed command model as the desktop application. (completed 2026-07-25)
-- [ ] **Phase 8: Isolated TypeScript Automation** - Users can author and debug capability-limited TypeScript automation without scripts owning or blocking playback or Art-Net.
+- [x] **Phase 8: Isolated TypeScript Automation** - Users can author and debug capability-limited TypeScript automation without scripts owning or blocking playback or Art-Net. (completed 2026-07-27)
 - [ ] **Phase 9: Provider-Neutral AI and Bounded Autonomy** - Users can use hosted or local models for reviewed authoring and explicitly armed live control while retaining auditable limits and immediate override.
 - [ ] **Phase 10: Windows Release Qualification** - Operators can install and run a self-contained Windows release with measured timing, recovery, and hardware evidence under concurrent load.
 - [ ] **Phase 11: Telemetry, Usage Statistics, and Auto Crash Submission Pipeline** - Users can opt into anonymized usage/telemetry collection and crashes are automatically captured and submitted for diagnosis without blocking playback or requiring manual repro steps.
@@ -420,7 +420,7 @@ Plans:
   3. Before execution, a user can inspect and assign script capabilities, deadlines, rate limits, and resource limits; the runtime has no ambient filesystem, network, environment, subprocess, native-code, or uncached dependency access.
   4. A user can inspect structured logs, diagnostics, source locations, command outcomes, and cancellation state, and can terminate a runaway, crashed, or blocked script without interrupting playback or Art-Net.
 
-**Plans:** 12/13 plans executed
+**Plans:** 13/13 plans executed
 
 Plans:
 **Wave 1**
@@ -461,7 +461,7 @@ Plans:
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
-- [ ] 08-13-PLAN.md — Phase acceptance: sandbox denial surface and full authoring-to-debugging workflow
+- [x] 08-13-PLAN.md — Phase acceptance: sandbox denial surface and full authoring-to-debugging workflow
 
 **UI hint:** yes
 **Research:** Deeper phase research required for Deno distribution, offline dependency policy, process and IPC isolation, Windows CPU/memory enforcement, debugger scope, supervision, cancellation, and defensible sandbox claims.

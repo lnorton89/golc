@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 08
 current_phase_name: isolated-typescript-automation
-status: executing
-stopped_at: Phase 8 UI-SPEC approved
-last_updated: "2026-07-26T00:38:24.954Z"
-last_activity: 2026-07-25
-last_activity_desc: Phase 08 execution started
+status: phase_complete
+stopped_at: Phase 8 complete (08-13 acceptance evidence recorded, owner-accepted)
+last_updated: "2026-07-27T23:15:00.000Z"
+last_activity: 2026-07-27
+last_activity_desc: Phase 08 completed -- 08-13 acceptance evidence gathered, two real bugs found and fixed (debug-mode CDP hang, test hermeticity), owner accepted and closed the phase
 progress:
   total_phases: 8
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 99
-  completed_plans: 86
+  completed_plans: 99
 ---
 
 # Project State
@@ -23,18 +23,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** An operator can author a modular show once, adapt its fixture pools to different deployments in one or two actions, and hand a simple controller surface to another person for reliable playback.
-**Current focus:** Phase 08 — isolated-typescript-automation
+**Current focus:** Milestone v1.0 — all 8 phases complete; ready for the owner's own milestone-completion step (`/gsd-complete-milestone`) whenever desired.
 
 ## Current Position
 
-Phase: 08 (isolated-typescript-automation) — EXECUTING
-Plan: 1 of 13
-Status: Executing Phase 08
-Last activity: 2026-07-25 — Phase 08 execution started
+Phase: 08 (isolated-typescript-automation) — COMPLETE
+Plan: 13 of 13
+Status: Phase 08 complete (last phase of milestone v1.0)
+Last activity: 2026-07-27 — 08-13 acceptance evidence gathered, two real bugs found and fixed, owner accepted and closed the phase (see 08-13-SUMMARY.md's "Resolution" section for exactly what was and wasn't independently observed)
 
-Note (resolved): a `.planning/phases/11-telemetry-usage-statistics-and-auto-crash-submission-pipeline/` placeholder directory (a bare `.gitkeep`, no real content) existed on disk from earlier out-of-order groundwork, which briefly pointed the automated next-phase resolver at Phase 11. It has been removed. Phase 8's dependency (Phase 7) is satisfied; Phase 9 depends on Phases 2/6/7/8, Phase 10 depends on Phases 1-9, and Phase 11 depends on Phase 10 — Phase 8 is the only phase whose dependencies are currently met.
+Note (resolved): a `.planning/phases/11-telemetry-usage-statistics-and-auto-crash-submission-pipeline/` placeholder directory (a bare `.gitkeep`, no real content) existed on disk from earlier out-of-order groundwork, which briefly pointed the automated next-phase resolver at Phase 11. It has been removed. Phase 9 depends on Phases 2/6/7/8 (now all satisfied), Phase 10 depends on Phases 1-9, and Phase 11 depends on Phase 10.
 
-Progress: [██████░░░░] 64%
+Progress: [██████████] 100% (8/8 phases, 99/99 plans)
 
 ## Performance Metrics
 
