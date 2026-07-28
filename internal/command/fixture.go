@@ -309,16 +309,6 @@ func oflErrorExitCode(err error) int {
 	return 1
 }
 
-// fixtureImportOutput is the canonical fixture+provenance envelope
-// "fixture import" writes to --out: the full pinned FixtureDefinition
-// plus its Provenance (including any LossyImportWarning entries),
-// canonically encoded exactly like "linear preview"'s writePreviewPlan
-// (internal/command/linear.go) writes its own plan artifacts.
-type fixtureImportOutput struct {
-	Definition fixture.FixtureDefinition `json:"definition"`
-	Provenance fixture.Provenance        `json:"provenance"`
-}
-
 // runFixtureImport serves the self-registered "fixture import" route
 // (FIXT-03/FIXT-06, D-06/D-07): it resolves exactly one source (a live,
 // SSRF-guarded OFL fetch, or a local --ofl-file with no network access
@@ -362,7 +352,7 @@ func runFixtureImport(request Request) Result {
 		return Result{ExitCode: oflErrorExitCode(normalizeErr), Stderr: []byte(normalizeErr.Error() + "\n")}
 	}
 
-	payload, encodeErr := strictjson.CanonicalEncode(fixtureImportOutput{Definition: def, Provenance: provenance})
+	payload, encodeErr := strictjson.CanonicalEncode(fixture.ImportEnvelope{Definition: def, Provenance: provenance})
 	if encodeErr != nil {
 		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_FIXTURE_IMPORT_ENCODE_FAILED: %v\n", encodeErr))}
 	}

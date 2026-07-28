@@ -74,6 +74,34 @@
   color: var(--muted);
 }
 
+/* Source toggle (09-05-PLAN.md Task 3, D-01): a two-option accessible
+   control switching the list panel between "My Library" (local) and
+   "Open Fixture Library" (catalog search) -- the active option carries
+   the accent as the selected treatment. */
+.sourceToggle {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.sourceButton,
+.sourceButtonActive {
+  height: 32px;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--page);
+  color: var(--ink);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.sourceButtonActive {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--page);
+}
+
 .searchInput {
   width: 100%;
   height: 32px;
@@ -129,6 +157,24 @@
 .warningText {
   margin: 0;
   color: var(--status-armed);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+}
+
+/* Catalog search states (09-05-PLAN.md Task 3): the unreachable copy
+   renders with the offline status tone, never a thrown error; the scope
+   note is permanently visible beside the catalog results so an operator
+   never mistakes manufacturer-name-only search for fixture-model search. */
+.catalogUnreachable {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.catalogScopeNote {
+  margin: 0;
+  color: var(--muted);
   font-family: "Archivo", system-ui, sans-serif;
   font-size: var(--text-sm);
 }

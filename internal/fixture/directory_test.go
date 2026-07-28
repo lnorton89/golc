@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/lnorton89/golc/internal/fixture"
+	"github.com/lnorton89/golc/internal/strictjson"
 )
 
 func writeDirectoryTestFile(t *testing.T, dir, name, content string) {
@@ -114,5 +115,88 @@ func TestListDirectoryMissingDirectoryReturnsNotExistError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "GOLC_FIXTURE_DIR_READ_FAILED") {
 		t.Fatalf("expected error to carry GOLC_FIXTURE_DIR_READ_FAILED, got %v", err)
+	}
+}
+
+// buildImportEnvelopeBytes builds a byte-identical "fixture import --out"
+// artifact (fixture.ImportEnvelope, canonically encoded exactly like
+// runFixtureImport writes it -- see internal/command/fixture.go) so this
+// test breaks if the artifact shape ever drifts.
+func buildImportEnvelopeBytes(t *testing.T) []byte {
+	t.Helper()
+	def, err := fixture.Decode([]byte(validRGBParYAML))
+	if err != nil {
+		t.Fatalf("Decode(valid RGB PAR): %v", err)
+	}
+	identity, err := fixture.Pin(def)
+	if err != nil {
+		t.Fatalf("Pin: %v", err)
+	}
+	provenance := fixture.NewProvenance(def, identity, "ofl:acme/test")
+	payload, err := strictjson.CanonicalEncode(fixture.ImportEnvelope{Definition: def, Provenance: provenance})
+	if err != nil {
+		t.Fatalf("CanonicalEncode(ImportEnvelope): %v", err)
+	}
+	return payload
+}
+
+// TestListDirectoryIncludesImportArtifacts proves a directory holding one
+// .yaml definition and one .json import envelope returns both as valid
+// entries with correct pinned identities (09-05-PLAN.md Task 2, FDUI-01) --
+// the import artifact is no longer invisible to the library scan. A .json
+// file that is not a valid envelope returns an entry carrying a non-nil
+// Err, not a scan abort (mirrors a malformed .yaml file's identical
+// per-entry-failure discipline).
+func TestListDirectoryIncludesImportArtifacts(t *testing.T) {
+	dir := t.TempDir()
+	writeDirectoryTestFile(t, dir, "hand-authored.yaml", validRGBParYAML)
+	writeDirectoryTestFile(t, dir, "imported.json", string(buildImportEnvelopeBytes(t)))
+	writeDirectoryTestFile(t, dir, "malformed.json", `{"not":"an envelope"}`)
+
+	entries, err := fixture.ListDirectory(dir)
+	if err != nil {
+		t.Fatalf("ListDirectory: %v", err)
+	}
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 entries (2 valid, 1 malformed), got %d: %+v", len(entries), entries)
+	}
+
+	var yamlEntry, jsonEntry, malformedEntry *fixture.DirectoryEntry
+	for i := range entries {
+		switch entries[i].FileName {
+		case "hand-authored.yaml":
+			yamlEntry = &entries[i]
+		case "imported.json":
+			jsonEntry = &entries[i]
+		case "malformed.json":
+			malformedEntry = &entries[i]
+		}
+	}
+	if yamlEntry == nil || jsonEntry == nil || malformedEntry == nil {
+		t.Fatalf("expected hand-authored.yaml, imported.json, and malformed.json entries, got %+v", entries)
+	}
+
+	if yamlEntry.Err != nil {
+		t.Fatalf("expected hand-authored.yaml to carry no error, got %v", yamlEntry.Err)
+	}
+	if yamlEntry.Identity.StableKey == "" {
+		t.Fatalf("expected hand-authored.yaml to carry a populated Identity, got %+v", yamlEntry.Identity)
+	}
+
+	if jsonEntry.Err != nil {
+		t.Fatalf("expected imported.json to carry no error, got %v", jsonEntry.Err)
+	}
+	if jsonEntry.Identity.StableKey == "" {
+		t.Fatalf("expected imported.json to carry a populated pinned Identity, got %+v", jsonEntry.Identity)
+	}
+	if jsonEntry.Definition.Manufacturer == "" || jsonEntry.Definition.Model == "" {
+		t.Fatalf("expected imported.json to carry a populated Definition, got %+v", jsonEntry.Definition)
+	}
+	if jsonEntry.Provenance.Source != "ofl:acme/test" {
+		t.Fatalf("expected imported.json to carry its envelope's Provenance, got %+v", jsonEntry.Provenance)
+	}
+
+	if malformedEntry.Err == nil {
+		t.Fatalf("expected malformed.json to carry a non-nil Err")
 	}
 }
