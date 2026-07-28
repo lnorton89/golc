@@ -2,9 +2,16 @@
 
 ## What This Is
 
-GOLC is a modern lighting-control application for operators of small live shows, built in Go with a Wails desktop interface and a cross-platform architecture. Its first supported release targets Windows. It combines a fast, modular show-authoring workflow with TypeScript scripting, autonomous LLM control, and a well-documented API so people, scripts, external programs, and AI agents can all create and operate fixture patches, scenes, chases, and show playback through the same system.
+GOLC is a modern lighting-control application for club/DJ operators running small live shows, built in Go with a Wails desktop interface and a cross-platform architecture. Its first supported release targets Windows. It combines a fast, modular show-authoring workflow with TypeScript scripting, autonomous LLM control, and a well-documented API so people, scripts, external programs, and AI agents can all create and operate fixture patches, scenes, chases, and show playback through the same system.
 
-The first release will output Art-Net and support complete show authoring and playback. Additional lighting protocols and larger-scale console capabilities can be added after the core workflow and extension model are proven.
+v1.0 (shipped 2026-07-27) delivers the deterministic core: modular fixture
+authoring, tempo-aware show programming, real Art-Net output, durable show
+storage, the full Wails authoring/operator workflow with generic MIDI control, a
+versioned external API, and isolated TypeScript scripting. LLM-driven authoring
+and autonomy, Windows release qualification, and telemetry/crash reporting are
+scoped for the next milestone. Additional lighting protocols and larger-scale
+console capabilities can be added after the core workflow and extension model are
+proven.
 
 ## Core Value
 
@@ -26,19 +33,20 @@ An operator can author a modular show once, adapt its fixture pools to different
 - [x] The application sends reliable, observable Art-Net output suitable for running a small live show. — *Validated in Phase 4: Observable Art-Net Live Output (2026-07-23), including gap-closure plans 04-08/04-09 for per-universe status values and pinned-interface degraded status*
 - [x] Operators can patch fixtures, organize controllable attributes, create looks/scenes and chases, play them back, save a show, and restore it later. — *Validated in Phase 5: Durable Shows and Recovery (2026-07-23): SQLite-backed `.golc` store, rotating recovery points genuinely reachable from an interrupted session (post-review structural fix), verified-backup schema migration, and integrity diagnostics/export*
 - [x] External programs can query and invoke a documented, coverage-gated subset of public capabilities — configuration and show inspection, fixture-pool creation, scoped API-key lifecycle, atomic multi-command batches, and revisioned change events — through a versioned HTTP API with a published OpenAPI contract, typed errors, and a compatibility/deprecation policy; every not-yet-exposed public route is explicitly named and deferred (tracked as `EXTN-05`) rather than silently unmapped. — *Validated in Phase 7: Versioned External Control API (2026-07-25), after two gap-closure rounds: fixed a live-reproduced SSE data-loss bug (batched mutations sharing one revision silently dropped replay events) and closed the mutation audit trail for all of `/v1/batch`'s failure paths (pre-flight and locked-section, 9/9 traced)*
+- [x] Keyboard and on-screen playback expose the complete operator workflow without requiring a MIDI controller. — *Validated in Phase 6: Wails Authoring and Operator Surface (2026-07-24)*
+- [x] Users can prepare a constrained MIDI playback surface that another operator can learn and use quickly without exposing the full authoring interface. — *Validated in Phase 6: Wails Authoring and Operator Surface (2026-07-24): named per-surface assignment, cross-to-catch soft-takeover MIDI learn, and server-side visible-but-locked enforcement*
+- [x] Users can create, edit, run, and debug TypeScript scripts that interact with the supported application and show-control capabilities. — *Validated in Phase 8: Isolated TypeScript Automation (2026-07-27): generated typed SDK, zero-permission Deno host, capability/rate/deadline enforcement backed by a real Windows Job Object, and a real CDP breakpoint/step debugger*
 
 ### Active
 
-- [ ] Keyboard and on-screen playback expose the complete operator workflow without requiring a MIDI controller.
-- [ ] Users can prepare a constrained MIDI playback surface that another operator can learn and use quickly without exposing the full authoring interface.
-- [ ] The desktop UI provides a modern, efficient programming and playback workflow that avoids the setup friction and clunky interaction patterns of QLC+.
-- [ ] Users can create, edit, run, and debug TypeScript scripts that interact with the supported application and show-control capabilities.
+- [ ] The desktop UI provides a modern, efficient programming and playback workflow that avoids the setup friction and clunky interaction patterns of QLC+. — v1.0 delivered the UI; the comparative claim against QLC+ is unvalidated until a First Real Show session runs (gated on the front-door-UI phase per `POST-PHASE-8-PLAN.md`).
 - [ ] Users can connect common hosted or local LLMs through an open-source, provider-neutral integration layer.
 - [ ] An LLM can create or refine fixture definitions and autonomously use the program to patch fixtures, program scenes and chases, and control playback.
 - [ ] LLM actions are validated, observable, auditable, and subject to immediate operator override even when autonomous control is enabled.
 - [ ] LLM agents can inspect and control the application through the same typed command model external programs use (Phase 7 delivered the external-program-facing subset above; remaining show-domain/Art-Net-runtime routes and LLM-specific access are tracked separately under `EXTN-05` and the AI/bounded-autonomy phase).
-- [ ] UI actions, TypeScript scripts, API clients, and LLM tools share a typed application command model so all control surfaces expose consistent behavior.
-- [ ] The v1 application installs, runs, saves, restores, and outputs Art-Net reliably on supported Windows systems.
+- [ ] UI actions, TypeScript scripts, API clients, and LLM tools share a typed application command model so all control surfaces expose consistent behavior. (UI, scripts, and the API already converge on the same command registry as of v1.0; LLM tools are the remaining unproven surface.)
+- [ ] The v1 application installs, runs, saves, restores, and outputs Art-Net reliably on supported Windows systems. (Currently dev-machine `mage Run` only; Phase 10 owns packaging and qualification.)
+
 ### Out of Scope
 
 - Lighting protocols beyond Art-Net — deferred until the output abstraction and Art-Net implementation are proven in real use.
@@ -48,11 +56,13 @@ An operator can author a modular show once, adapt its fixture pools to different
 - Official macOS and Linux support in v1 — preserve portability in the architecture, but qualify and support Windows first.
 - Cross-show module import with optional source synchronization — useful for sharing songs, playback pages, and programming collections, but lower priority than modular deployment within one show; target v1.x.
 - Proprietary AI orchestration tied to a single model provider — the integration must support common hosted providers and local models through an open-source abstraction.
+- Cue-stack/timed-fade playback — the shipped v1.0 scene/BPM/layer model is the proven workflow; not an open question, not a deferred feature to revisit without a new signal (owner decision 2026-07-25, see `POST-PHASE-8-PLAN.md`).
+- Church/school/community-venue positioning — aspirational at project init, never validated; narrowed to club/DJ at v1.0 close (owner decision 2026-07-25).
 
 ## Context
 
 - The project is motivated by QLC+: its workflow feels clunky, show setup takes too long, and it does not provide the desired scripting capability.
-- The first users are operators of clubs, churches, schools, community venues, and comparable small live shows rather than enterprise productions or large touring rigs.
+- The first users are club/DJ operators running small live shows rather than enterprise productions or large touring rigs. (Narrowed 2026-07-27 at v1.0 close from earlier church/school/community-venue language, which was aspirational and never validated — the shipped scene/BPM/layer model fits club/DJ use.)
 - The conventional lighting workflow is the v1 proof point: patch fixtures, build scenes and chases, play them back reliably, and persist the show.
 - The primary workflow is front-loaded show authoring followed by repeated deployment. A show should be reusable with all or a subset of available fixtures, and pool-size changes should update dependents without rebuilding programming manually.
 - Fixture-pool propagation behavior is configurable. The safe default is a review screen showing affected programming, warnings, and errors before applying a change.
@@ -73,6 +83,55 @@ An operator can author a modular show once, adapt its fixture pools to different
 - Linear is the project-delivery system of record from initialization onward. Planning artifacts should retain stable identifiers and map predictably to Linear projects, milestones, and issues without making offline repository context dependent on Linear availability.
 - Fixture source files are intended to be readable, reviewable, portable, and suitable for hand editing or AI generation. YAML is the authoring format; the runtime never consumes unvalidated YAML directly.
 - Project configuration covers both development and application concerns. It should be centralized for discoverability while keeping each concern logically separated and independently validatable.
+
+## Current State
+
+**Shipped: v1.0 (2026-07-27), Phases 1-8, 99 plans, ~66.5k LOC (Go + TypeScript).**
+
+The deterministic lighting-console core is complete and verified: offline-safe
+project configuration and Linear traceability; a semantic fixture catalog (OFL
+import + custom YAML) with reviewed pool/deployment impact analysis; tempo-aware
+show programming (themes, chases, motion presets, bar-loop scenes) compiled into a
+deterministic, next-bar-boundary playback engine; real Art-Net 4 output verified
+against Wireshark, an independent OLA simulator, and physical hardware; durable
+SQLite-backed show storage with recovery points and verified-backup migrations; a
+full Wails desktop authoring/operator surface with constrained operator surfaces,
+generic MIDI Note/CC learn with soft takeover, and daemon-resident safety overrides
+(Blackout, Stop/Release-All, Revoke Automation) that never wait on UI/script/API/LLM
+completion; a versioned, audited, OpenAPI-documented external HTTP API with SSE
+events and atomic batches; and isolated, capability-limited TypeScript scripting
+with a generated typed SDK, Windows Job Object sandboxing, and a real CDP
+breakpoint/step debugger.
+
+Known gaps carried into the next milestone (see `.planning/POST-PHASE-8-PLAN.md`,
+owner decisions recorded 2026-07-25):
+
+- The Fixture Library workspace is still a `ComingSoon` stub; show open/new/switch
+  and Guided First Show onboarding are not yet built through the UI (CLI-only).
+- No "First Real Show" validation session has run yet — gated on the above.
+- Doc/state drift (README phase-status wording, STATE.md velocity metrics, a
+  `internal/trace` data race, two catalog test failures) is tracked as a short
+  hygiene phase, not yet executed.
+- `MIDI-HW-02` (per-device physical Windows acceptance evidence) remains open.
+
+## Next Milestone Goals
+
+Phases 9-11 (already scoped in `.planning/ROADMAP.md`, requirements defined in
+`.planning/REQUIREMENTS.md`) carry forward unchanged:
+
+1. **Phase 9 — Provider-Neutral AI and Bounded Autonomy**: LLM-backed fixture
+   authoring and explicitly armed, time-bounded live control with immediate
+   operator override.
+2. **Phase 10 — Windows Release Qualification**: packaged, supervised, self-contained
+   Windows install with measured timing/recovery/hardware evidence.
+3. **Phase 11 — Telemetry, Usage Statistics, and Auto Crash Submission Pipeline**:
+   opt-in anonymized telemetry and automatic crash capture.
+
+Per the owner's 2026-07-25 decisions, a short hygiene phase and a front-door-UI
+completion phase (Fixture Library, show open/new/switch, Guided First Show
+onboarding) should be inserted before Phase 9 starts — not yet done, since touching
+`ROADMAP.md` mid-Phase-8 would have raced with the running executors. Doing so is
+the natural next step now that Phase 8 (and this milestone close) are complete.
 
 ## Constraints
 
@@ -97,33 +156,35 @@ An operator can author a modular show once, adapt its fixture pools to different
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Build the desktop application in Go with Wails | Provides the requested Go core and cross-platform desktop UI model | — Pending |
-| Target small live shows first | Keeps v1 focused on a complete, practical workflow for a single operator and modest rig | — Pending |
-| Define v1 success through complete show programming and Art-Net playback | A reliable conventional workflow must exist before AI and integrations can be trusted with it | — Pending |
-| Support full LLM autonomy | The LLM is intended to operate the whole program, not merely suggest content | — Pending |
-| Make TypeScript the user scripting language | Provides a familiar, capable language for programmable show behavior | — Pending |
-| Treat the API as a first-class, versioned product surface | External programs and LLMs need durable interoperability rather than UI automation | — Pending |
-| Route UI, scripts, API, and LLM tools through a shared typed command model | Preserves behavioral consistency, testability, and control boundaries across every interface | — Pending |
-| Implement Art-Net first behind a protocol abstraction | Delivers the initial real-world output path without blocking later protocol support | — Pending |
-| Use Linear from project inception | Keeps requirements, planned work, and delivery status visible and traceable from the first implementation phase | — Pending |
-| Store fixture definitions as schema-validated YAML | YAML fits nested fixture modes, channels, capabilities, and ranges better than TOML while remaining friendly to people and LLMs | — Pending |
-| Import OFL and support custom fixture definitions | Combines broad ecosystem coverage with an escape hatch for missing or venue-specific fixtures | — Pending |
-| Make show files modular around reusable fixture pools | The same authored show must adapt quickly to different quantities and deployments of compatible fixtures | — Pending |
-| Default pool and fixture-substitution changes to review-before-apply | Structural edits can affect the whole show and require an understandable impact diff before commit | — Pending |
-| Map replacement fixtures by semantic capability | Shows should survive deployment changes across compatible fixture models without relying on raw channel positions | — Pending |
-| Model scenes as bar-based loops synchronized to global BPM | Matches the primary performance workflow and makes color, chase, and motion programming musically reusable | — Pending |
-| Make color themes, chases, and motion presets independently swappable with blending | Enables fast variation within a prepared show without rebuilding scenes | — Pending |
-| Accept typed BPM and tap tempo | Covers deliberate show setup and quick live tempo adjustment without requiring external clock hardware | — Pending |
-| Run one scene at a time with combinable internal layers | Keeps operator state understandable while still allowing independent color, chase, and motion variation | — Pending |
-| Apply scene and layer changes immediately by default | Matches the intended responsive playback workflow | — Pending |
-| Express blending through reusable presets | Makes transitions consistent, shareable, and quick to assign | — Pending |
-| Make tempo-change loop behavior selectable | Different shows may need continuity or a clean restart when BPM changes | — Pending |
-| Provide an independent Revoke Automation action | The operator must be able to stop AI and scripts without waiting for them and without forcing blackout | — Pending |
-| Provide complete keyboard and on-screen playback | The application must be fully operable before and independently of the selected MIDI hardware | — Pending |
-| Defer cross-show module synchronization to v1.x | Modular deployment inside a show delivers the primary value first | — Pending |
-| Support Windows first | Concentrates v1 packaging, timing, networking, and hardware qualification on the user's required platform | — Pending |
-| Centralize project configuration while separating concerns | Makes setup and operation discoverable without collapsing unrelated configuration into one unmaintainable file | — Pending |
+| Build the desktop application in Go with Wails | Provides the requested Go core and cross-platform desktop UI model | ✓ Good — proven through v1.0's full authoring/operator/safety-hotkey surface |
+| Target small live shows first | Keeps v1 focused on a complete, practical workflow for a single operator and modest rig | ✓ Good — narrowed further to club/DJ at v1.0 close |
+| Define v1 success through complete show programming and Art-Net playback | A reliable conventional workflow must exist before AI and integrations can be trusted with it | ✓ Good — v1.0 shipped this core before Phase 9 (AI) begins |
+| Support full LLM autonomy | The LLM is intended to operate the whole program, not merely suggest content | — Pending (Phase 9, next milestone) |
+| Make TypeScript the user scripting language | Provides a familiar, capable language for programmable show behavior | ✓ Good — validated in Phase 8 with a real sandbox and debugger |
+| Treat the API as a first-class, versioned product surface | External programs and LLMs need durable interoperability rather than UI automation | ✓ Good — validated in Phase 7 with OpenAPI contract, SSE, audit trail |
+| Route UI, scripts, API, and LLM tools through a shared typed command model | Preserves behavioral consistency, testability, and control boundaries across every interface | ✓ Good for UI/scripts/API (Phases 6-8); LLM tools remain Pending (Phase 9) |
+| Implement Art-Net first behind a protocol abstraction | Delivers the initial real-world output path without blocking later protocol support | ✓ Good — verified against simulator and real hardware in Phase 4 |
+| Use Linear from project inception | Keeps requirements, planned work, and delivery status visible and traceable from the first implementation phase | ✓ Good — credential-free, idempotent reconciliation proven in Phase 1 |
+| Store fixture definitions as schema-validated YAML | YAML fits nested fixture modes, channels, capabilities, and ranges better than TOML while remaining friendly to people and LLMs | ✓ Good — validated in Phase 2 |
+| Import OFL and support custom fixture definitions | Combines broad ecosystem coverage with an escape hatch for missing or venue-specific fixtures | ✓ Good — validated in Phase 2 |
+| Make show files modular around reusable fixture pools | The same authored show must adapt quickly to different quantities and deployments of compatible fixtures | ✓ Good — validated in Phase 2 |
+| Default pool and fixture-substitution changes to review-before-apply | Structural edits can affect the whole show and require an understandable impact diff before commit | ✓ Good — validated in Phase 2 |
+| Map replacement fixtures by semantic capability | Shows should survive deployment changes across compatible fixture models without relying on raw channel positions | ✓ Good — validated in Phase 2 |
+| Model scenes as bar-based loops synchronized to global BPM | Matches the primary performance workflow and makes color, chase, and motion programming musically reusable | ✓ Good — validated in Phase 3 |
+| Make color themes, chases, and motion presets independently swappable with blending | Enables fast variation within a prepared show without rebuilding scenes | ✓ Good — validated in Phase 3 |
+| Accept typed BPM and tap tempo | Covers deliberate show setup and quick live tempo adjustment without requiring external clock hardware | ✓ Good — validated in Phase 3 |
+| Run one scene at a time with combinable internal layers | Keeps operator state understandable while still allowing independent color, chase, and motion variation | ✓ Good — validated in Phase 3 |
+| Apply scene and layer changes immediately by default | Matches the intended responsive playback workflow | ✓ Good — validated in Phase 3 |
+| Express blending through reusable presets | Makes transitions consistent, shareable, and quick to assign | ✓ Good — validated in Phase 3 |
+| Make tempo-change loop behavior selectable | Different shows may need continuity or a clean restart when BPM changes | ✓ Good — validated in Phase 3 |
+| Provide an independent Revoke Automation action | The operator must be able to stop AI and scripts without waiting for them and without forcing blackout | ✓ Good — validated in Phase 6, daemon-resident and independent of UI/script/API/LLM |
+| Provide complete keyboard and on-screen playback | The application must be fully operable before and independently of the selected MIDI hardware | ✓ Good — validated in Phase 6 |
+| Defer cross-show module synchronization to v1.x | Modular deployment inside a show delivers the primary value first | ✓ Good — still deferred, unchanged |
+| Support Windows first | Concentrates v1 packaging, timing, networking, and hardware qualification on the user's required platform | — Pending (Phase 10, next milestone; dev-machine `mage Run` only today) |
+| Centralize project configuration while separating concerns | Makes setup and operation discoverable without collapsing unrelated configuration into one unmaintainable file | ✓ Good — validated in Phase 1 |
 | Select Akai MIDImix, Novation Launch Control XL Mk2, and Worlde EasyControl 9 together for Phase 6 physical acceptance | The three user-owned controllers can independently qualify generic MIDI learn and soft takeover without turning selection or manual evidence into a support claim | Decided 2026-07-19; MIDI-HW-01 resolved, MIDI-HW-02 remains open per device |
+| Close v1.0 at Phase 8, splitting the originally-unified 11-phase "v1" scope into v1.0 (core) and a later milestone (AI/Windows/telemetry) | Ship the proven deterministic core now rather than block release on unstarted AI/Windows/telemetry work | ✓ Good — decided 2026-07-25 (`POST-PHASE-8-PLAN.md`), executed at milestone close 2026-07-27 |
+| Narrow target audience from clubs/churches/schools/community venues to club/DJ only | Church/school/community language was aspirational and never validated; the shipped scene/BPM/layer model fits club/DJ use | ✓ Good — decided 2026-07-25, applied 2026-07-27 |
 
 ## Evolution
 
@@ -143,4 +204,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-25 after Phase 7: Versioned External Control API completion*
+*Last updated: 2026-07-27 after v1.0 milestone (Phases 1-8) completion*
