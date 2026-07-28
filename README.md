@@ -7,11 +7,11 @@
 
 # GOLC
 
-A modern lighting-control application for operators of small live shows — clubs, churches, schools, and community venues — built in Go with a Wails desktop interface.
+A modern lighting-control application for club/DJ operators running small live shows, built in Go with a Wails desktop interface.
 
 GOLC combines a fast, modular show-authoring workflow with TypeScript scripting, autonomous LLM control, and a well-documented API, so people, scripts, external programs, and AI agents can all create and operate fixture patches, scenes, chases, and show playback through the same system. The first release targets Windows and outputs Art-Net.
 
-> **Status: early development, pre-alpha.** GOLC is being built in dependency-ordered phases; see [Roadmap](#roadmap). Phases 1–7 are complete: offline configuration and delivery traceability, modular fixtures and deployments, deterministic show programming and playback, observable Art-Net output, durable show storage/recovery, the full Wails authoring and operator surface (on-screen and keyboard playback, the safety cluster, the operator-surface builder, and generic MIDI Note/CC learn with soft takeover, verified against real hardware), and the versioned external `/v1` control API (Chi+Huma, scoped API-key auth, revision-checked/dry-run/idempotent mutations and atomic batching, revisioned SSE, and a drift-checked generated OpenAPI contract) are implemented and tested. Phase 8 (Isolated TypeScript Automation) is in progress — capability-limited script authoring and execution in a sandboxed Deno runtime, with a Monaco-based script editor and a source-mapped step debugger.
+> **Status: early development, pre-alpha.** GOLC ships in dependency-ordered phases; see [Roadmap](#roadmap). **v1.0 (Phases 1–8) shipped 2026-07-27** — the deterministic core: offline configuration and delivery traceability, modular fixtures and deployments, deterministic show programming and playback, observable Art-Net output, durable show storage/recovery, the full Wails authoring and operator surface (on-screen and keyboard playback, the safety cluster, the operator-surface builder, and generic MIDI Note/CC learn with soft takeover, verified against real hardware), the versioned external `/v1` control API (Chi+Huma, scoped API-key auth, revision-checked/dry-run/idempotent mutations and atomic batching, revisioned SSE, and a drift-checked generated OpenAPI contract), and isolated capability-limited TypeScript scripting (sandboxed Deno runtime, generated typed SDK, Monaco editor, and a real CDP source-mapped step debugger) are implemented and tested. Phases 9–11 (provider-neutral AI autonomy, Windows release qualification, telemetry) are planned next; see `.planning/MILESTONES.md`.
 
 ## TL;DR
 
@@ -226,7 +226,7 @@ tests/                  Acceptance tests and data-only fixtures
 | 5 | Durable Shows and Recovery | Complete |
 | 6 | Wails Authoring and Operator Surface | Complete |
 | 7 | Versioned External Control API | Complete |
-| 8 | Isolated TypeScript Automation | **In progress (12/13 plans)** |
+| 8 | Isolated TypeScript Automation | Complete |
 | 9 | Provider-Neutral AI and Bounded Autonomy | Not started |
 | 10 | Windows Release Qualification | Not started |
 | 11 | Telemetry, Usage Statistics, and Auto Crash Submission Pipeline | Not started |
@@ -240,7 +240,7 @@ Full phase goals and success criteria live in [.planning/ROADMAP.md](.planning/R
 - **Output protocol:** Art-Net 4 (delivered, Phase 4)
 - **Operator input:** generic MIDI Note/CC learn with soft takeover (delivered, Phase 6 — verified against real hardware)
 - **External control:** versioned HTTP API (Chi + Huma, OpenAPI-generated) (delivered, Phase 7)
-- **Scripting:** TypeScript in an isolated, capability-limited runtime (in progress, Phase 8)
+- **Scripting:** TypeScript in an isolated, capability-limited runtime (delivered, Phase 8)
 - **Fixture format:** strict YAML 1.2 subset with versioned schemas
 - **Show storage:** single-file, versioned SQLite `.golc` store with rotating recovery points and verified-backup schema migration (delivered, Phase 5)
 - **Delivery tracking:** Linear, reconciled offline-safe from repository-owned identities

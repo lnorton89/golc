@@ -1,64 +1,99 @@
 # GOLC Operator Workflow Map
 
+**Note (2026-07-27):** updated to match the shipped Show/Build/Operate/Output
+command-rail shell (`frontend/src/shell/navigation.ts`,
+`.planning/sketches/references/application-shell-navigation.md`), replacing the
+pre-restructure Patch/Program/Perform/Setup workspace model this document
+originally described.
+
 ## Primary End-to-End Flow
 
 ```mermaid
 flowchart LR
-    A["Open or create show"] --> B["Patch workspace"]
+    A["Show: Overview / Save & Recovery"] --> B["Build: Fixture Library"]
     B --> C["Choose fixture definitions"]
-    C --> D["Build logical pools"]
+    C --> D["Build: Patch & Pools"]
     D --> E["Map deployment instances"]
     E --> F{"Impact plan valid?"}
     F -- "Revise" --> D
-    F -- "Apply" --> G["Program workspace"]
+    F -- "Apply" --> G["Build: Scenes & Looks"]
     G --> H["Create reusable looks"]
     H --> I["Create scenes and assign layers"]
     I --> J["Preview / evaluate at bar position"]
     J --> K{"Ready for operator?"}
     K -- "Revise" --> G
-    K -- "Yes" --> L["Build constrained operator surface"]
-    L --> M["Map keyboard / MIDI controls"]
-    M --> N["Perform workspace"]
+    K -- "Yes" --> L["Operate: Operator Surface"]
+    L --> M["Operate: MIDI Mapping"]
+    M --> N["Output: Art-Net / Diagnostics"]
     N --> O["Run show"]
 ```
+
+`Build: Scripts` (TypeScript automation, Phase 8) sits alongside `Scenes &
+Looks` in the Build group and is not on the primary authoring path above — it
+is opt-in automation layered on top of the same command model, not a
+replacement step in it.
 
 ## Persistent Live-Control Contract
 
 ```mermaid
 flowchart TB
-    W["Any workspace"] --> S["Persistent live/status frame"]
+    W["Any workspace"] --> S["Global top frame"]
     S --> T["Active scene + layers"]
     S --> U["BPM + bar/beat"]
     S --> V["Controlling source"]
     S --> X["Output health"]
-    W --> Y["Independent safety cluster"]
+    W --> Y["Fixed bottom safety cluster"]
     Y --> B["Blackout"]
     Y --> R["Revoke Automation"]
     Y --> Q["Stop / Release All"]
 ```
 
-## Workspace Ownership
+Per the shell's interaction contract: selecting a command-rail destination
+replaces only the central workspace and inspector — it never mutates show
+playback or output. The top frame and bottom safety cluster stay mounted
+across every workspace.
 
-| User intent | Primary workspace | Context panel | Must remain visible |
-|-------------|-------------------|---------------|---------------------|
-| Adapt a show to a venue | Patch | Selected pool, fixture, deployment, impact plan | Output state + safety |
-| Build or revise looks | Program | Selected scene, layer, look, fixture scope | Active scene + timing + safety |
-| Hand off a show | Perform | Surface assignment / MIDI mapping overlay | Authorization + live state + safety |
-| Run a show | Perform | Selected scene/layer/master | Source + output + timing + safety |
-| Configure networking | Setup | Selected interface/target | Output state + safety |
-| Diagnose MIDI | Setup | Selected port/mapping | Live state + safety |
+## Command Rail Groups
 
-## Keyboard Focus Model
+| Group | Destinations | Primary intent |
+|-------|---------------|-----------------|
+| Show | Overview, Save & Recovery, Settings | Show identity, persistence, recovery |
+| Build | Fixture Library, Patch & Pools, Scenes & Looks, Scripts | Adapt a show to a venue; build/revise looks; author automation |
+| Operate | Operator Surface, MIDI Mapping | Hand off a show; configure/learn MIDI |
+| Output | Art-Net, Diagnostics | Configure networking; inspect output/frame health |
+
+Regardless of which destination is active, the global top frame (show
+identity/save state, transport, BPM, bar/beat, controlling source, active
+scene, output health) and the fixed bottom safety cluster (Stop/Release-All,
+Revoke Automation, Blackout) remain visible per the shell's interaction
+contract.
+
+## Keyboard Model
+
+GOLC has no per-workspace keyboard focus model or nav-switching shortcut
+(`Ctrl+1..4`/`F6` from this document's pre-restructure draft were never
+implemented). What actually shipped (`frontend/src/hooks/useKeyboardWorkflow.ts`,
+mounted globally by `frontend/src/shell/useGlobalKeyboardWorkflow.ts` so it
+fires regardless of which command-rail destination is active) is the
+documented PLAY-02 playback shortcut set:
 
 ```text
-Ctrl+1..4     Switch Patch / Program / Perform / Setup
-F6            Cycle global frame → workspace navigator → canvas → inspector
-Arrow keys    Move within scene, layer, list, or grid collections
-Enter         Open/activate selected item according to workspace
-Space         Transport action only when focus is not in an editable control
-Esc           Close transient panel / cancel learn / return focus to canvas
-?             Contextual shortcut and help overlay
+1 – 9    Switch to the Nth scene in the current show
+Q        Toggle Base Look on the active scene
+W        Toggle Color Theme on the active scene
+E        Toggle Chase on the active scene
+R        Toggle Motion on the active scene
+Space    Tap tempo (accumulates with prior taps within 2s)
+↑ / ↓    Nudge BPM up / down by 1
+Enter    Evaluate/preview the active scene at bar 0
+?        Toggle the keyboard-shortcuts help overlay
+Esc      Close the help overlay
 ```
 
-Emergency shortcuts remain fixed and global within the application window as defined by Phase 6.
-
+All of the above are suppressed while focus is in an input, textarea, or
+contenteditable element. The safety cluster (Blackout, Revoke Automation,
+Stop/Release-All) is mouse/touch-activated in the shipped UI, not bound to a
+dedicated keyboard shortcut — see `frontend/src/components/KeyboardShortcuts`
+for the live, code-sourced reference panel (it reads `PLAYBACK_SHORTCUTS`
+directly so this document and the actual bindings cannot drift apart the way
+this file itself once did).

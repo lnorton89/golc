@@ -35,42 +35,6 @@ Note: Phase 9 depends on Phases 2/6/7/8 (all satisfied), Phase 10 depends on Pha
 
 Progress: [███████░░░] 73% (8/11 phases, 99/99 plans in completed phases)
 
-## Performance Metrics
-
-**Velocity:**
-
-- Total plans completed: 74
-- Average duration: -
-- Total execution time: 0 hours
-
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 01 | 32 | - | - |
-| 02 | 6 | - | - |
-| 03 | 7 | - | - |
-| 04 | 9 | - | - |
-| 05 | 5 | - | - |
-| 07 | 15 | - | - |
-
-**Recent Trend:**
-
-- Last 5 plans: none
-- Trend: Not started
-
-| Phase 01 P01 | 7min | 1 tasks | 4 files |
-| Phase 01 P12 | 8min | 1 tasks | 0 files |
-**Per-Plan Metrics:**
-
-| Plan | Duration | Tasks | Files |
-|------|----------|-------|-------|
-| Phase 01 P16 | 25min | 1 tasks | 8 files |
-| Phase 01 P17 | 35min | 1 tasks | 10 files |
-| Phase 01 P02 | 10min | 2 tasks | 9 files |
-| Phase 01 P03 | 7min | 1 tasks | 9 files |
-| Phase 01 P08 | 16min | 1 tasks | 5 files |
-
 ## Accumulated Context
 
 ### Decisions
