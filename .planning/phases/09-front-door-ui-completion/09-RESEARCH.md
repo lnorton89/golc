@@ -415,10 +415,13 @@ route, component, or pattern.
 | A2 | No `register.json` or equivalent full fixture-name index is committed to the OFL git repo (only generated at OFL's own website build time via `cli/build-register.js`, confirmed by `package.json`'s `build:register` script and a live 404 on the expected path) [VERIFIED: live 404 + package.json script inspection this session] | Alternatives Considered, Common Pitfalls | If a future OFL repo change commits a generated register file after all, D-01's search could be upgraded from manufacturer-name-only to full fixture-name search without needing `api.github.com` — worth re-checking at implementation time |
 | A3 | Confirming or denying an unsaved-changes-before-relaunch guard for D-05/D-07 is a genuine open planning decision, not something CONTEXT.md or the UI-SPEC already resolved | Common Pitfalls (Pitfall 2) | If the plan omits this, an operator could silently lose unsaved programming work when switching shows |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does D-01's "OFL catalog search" need to search fixture names, or is manufacturer-name-only
-   search acceptable for v1?**
+1. **RESOLVED — manufacturer-name-only for v1**, per `COVERAGE.md` and `09-05-PLAN.md`'s must_haves
+   (the recommended option (a) below; disclosed on-screen, not silently hidden).
+
+   Does D-01's "OFL catalog search" need to search fixture names, or is manufacturer-name-only
+   search acceptable for v1?
    - What we know: The UI-SPEC's copy ("Search fixtures by name or manufacturer…") implies both;
      `fixtures/manufacturers.json` only gives manufacturer name/id, not fixture model names. No
      full-catalog fixture-name index is fetchable from the currently-allowed
@@ -434,7 +437,10 @@ route, component, or pattern.
      intent without a new SSRF-relevant host decision. Flag (b) as a v1.x follow-up if user
      feedback shows manufacturer-only search is insufficient.
 
-2. **Should `RelaunchWithShow` auto-save before respawning, or require an explicit confirm?**
+2. **RESOLVED — auto-save before relaunch**, per `09-02-PLAN.md`'s objective (the recommended
+   lower-risk default below: a failed save aborts the switch).
+
+   Should `RelaunchWithShow` auto-save before respawning, or require an explicit confirm?
    - What we know: Neither `09-CONTEXT.md` nor `09-UI-SPEC.md` addresses unsaved-changes handling
      for the relaunch flow; `ShowService.Save()` already exists and is cheap to call.
    - What's unclear: Whether silent auto-save-before-switch is the right UX, or whether an
@@ -444,8 +450,11 @@ route, component, or pattern.
      default (never silently loses work) and requires no new UI copy beyond what's already
      locked.
 
-3. **Where does `App`'s captured Wails context live for `PickShowPath`/`RelaunchWithShow` to
-   call it?**
+3. **RESOLVED — `PickShowPath`/`RelaunchWithShow` live on `App`**, per `09-02-PLAN.md`'s objective
+   (the recommended option below, not `ShowService`).
+
+   Where does `App`'s captured Wails context live for `PickShowPath`/`RelaunchWithShow` to
+   call it?
    - What we know: `App.ctx` doesn't exist today; `OnStartup(ctx)` is the only place a valid
      Wails runtime context is currently available in this codebase.
    - What's unclear: Whether the new picker/relaunch methods belong on `App` itself (which already
