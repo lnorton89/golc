@@ -7,6 +7,7 @@
 import type { DestinationId } from "./navigation";
 
 import OverviewWorkspace from "../workspaces/show/OverviewWorkspace";
+import ShowsWorkspace from "../workspaces/show/ShowsWorkspace";
 import SaveRecoveryWorkspace from "../workspaces/show/SaveRecoveryWorkspace";
 import SettingsWorkspace from "../workspaces/show/SettingsWorkspace";
 import FixtureLibraryWorkspace from "../workspaces/build/FixtureLibraryWorkspace";
@@ -26,6 +27,8 @@ export default function WorkspaceRouter({ active }: WorkspaceRouterProps) {
   switch (active) {
     case "show-overview":
       return <OverviewWorkspace />;
+    case "show-shows":
+      return <ShowsWorkspace />;
     case "show-save-recovery":
       return <SaveRecoveryWorkspace />;
     case "show-settings":

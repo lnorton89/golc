@@ -8,10 +8,10 @@
 // at "golc show save"/"golc show save-as"/the recovery-offer flow on
 // "golc show open" from the command line.
 //
-// This workspace does not bind "show open"/a file-picker: the desktop app
-// resolves exactly one show path at startup (cmd/golc-desktop/main.go's
-// GOLC_DESKTOP_SHOW), so there is no "open a different show" flow to wire
-// yet. A migration-required note (surfaced via Diagnose, same as
+// Opening, creating, and switching shows lives in the Shows workspace
+// (ShowsWorkspace.tsx, 09-02-PLAN.md, FDUI-02) -- this workspace remains
+// scoped to save / save-as / recovery points for the currently open show. A
+// migration-required note (surfaced via Diagnose, same as
 // OverviewWorkspace) points an operator at the CLI's own
 // "--confirm-migration" flag rather than adding a second on-screen
 // migration trigger -- migration is a rare, one-time, high-consequence
