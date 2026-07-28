@@ -80,3 +80,13 @@
   flex-direction: column;
   gap: var(--space-xs);
 }
+
+/* Guided First Show's "Start Guide" CTA (D-10, 09-UI-SPEC.md): separated
+   from the pool/deployment layout above by the 48px major-section-break
+   token, not the default 16/24px section spacing used elsewhere on this
+   surface. */
+.guideCta {
+  flex-shrink: 0;
+  margin-top: var(--space-2xl);
+  display: flex;
+}
