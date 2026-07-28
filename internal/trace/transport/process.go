@@ -140,6 +140,17 @@ type ProcessClient struct {
 
 	mu     sync.Mutex
 	closed bool
+
+	// exitMu guards exitState/exitStateKnown, which are the only safe way
+	// to read the child's exit status once terminate has handed Wait() off
+	// to a background goroutine: exec.Cmd.ProcessState is written by that
+	// goroutine's Wait() call and must never be read directly from another
+	// goroutine (safeFailureSummary can run concurrently with it via the
+	// terminate -> background-Wait / same-Call -> safeFailureSummary
+	// sequence), or the two races under go test -race.
+	exitMu         sync.Mutex
+	exitState      *os.ProcessState
+	exitStateKnown bool
 }
 
 // NewProcessClient launches cfg.NodeExecutable cfg.ScriptPath inside
@@ -235,9 +246,11 @@ func (c *ProcessClient) drainStderr(stderr io.Reader) {
 func (c *ProcessClient) safeFailureSummary() string {
 	tail := strings.TrimSpace(c.stderr.String())
 	exitDetail := "still running"
-	if c.cmd.ProcessState != nil {
-		exitDetail = c.cmd.ProcessState.String()
+	c.exitMu.Lock()
+	if c.exitStateKnown && c.exitState != nil {
+		exitDetail = c.exitState.String()
 	}
+	c.exitMu.Unlock()
 	if tail == "" {
 		return fmt.Sprintf("process state: %s", exitDetail)
 	}
@@ -270,7 +283,13 @@ func (c *ProcessClient) terminate() {
 	c.closed = true
 	killProcessTree(c.cmd)
 	_ = c.stdin.Close()
-	go func() { _ = c.cmd.Wait() }()
+	go func() {
+		_ = c.cmd.Wait()
+		c.exitMu.Lock()
+		c.exitState = c.cmd.ProcessState
+		c.exitStateKnown = true
+		c.exitMu.Unlock()
+	}()
 }
 
 // lineResult is the outcome of one background stdout-line read.
