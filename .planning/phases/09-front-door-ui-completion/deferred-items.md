@@ -36,3 +36,24 @@ identical finding above). `internal/trace/catalog`'s
 `TestScopeLinearMap/real_repository_seed_migrates_end_to_end_offline` passed
 in this worktree's run (no `.planning/linear-map.json` drift here), so it is
 not re-logged.
+
+## 09-07 (Custom-YAML fixture add: PickFixtureFile / PreviewFile)
+
+Re-confirmed while running `go test ./...` in this plan's own worktree, after
+Task 2: the same five `internal/command` toolchain-bootstrap tests
+(`TestBuildRouteCompilesTheProductionRepository`,
+`TestBuildablePackagesExcludesMagefiles`, `TestScopeCrossPlatformCI`,
+`TestScopeGreenSubprocess`, `TestScopeOfflineAcceptance`) fail with
+`GOLC_TEST_TOOLCHAIN_MISSING` — this worktree has never run
+`mage Bootstrap` either. None touch `internal/wails` or any other file this
+plan modified.
+
+Additionally, this run surfaced `link.exe: resize output file failed: There
+is not enough space on the disk` for `internal/scriptsdk`, `internal/bootstrap`,
+`internal/security`, `internal/api`, `internal/strictjson`,
+`internal/trace/apply`, and `internal/trace/catalog`'s own test binaries —
+the host filesystem (`C:`) was at 178MB free when this plan ran `go test
+./...`. A host-disk-capacity condition, not a code regression; none of the
+affected packages are touched by this plan. `internal/wails` itself (this
+plan's own package) built and linked its test binary successfully and passed
+in full.
