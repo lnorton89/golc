@@ -515,3 +515,250 @@ func TestDiscardPreviewRemovesTheCandidate(t *testing.T) {
 		t.Fatalf("expected the preview path to no longer exist after discarding, got err=%v", err)
 	}
 }
+
+// --- 09-07-PLAN.md Task 1 RED / Task 2 GREEN: hand-authored YAML add ---
+
+// TestPreviewRegistryKeepsCatalogBehaviourUnchanged proves the in-memory
+// preview registry introduced for PreviewFile (09-07-PLAN.md Task 2) does
+// not change the OFL catalog import path's own observable behaviour:
+// PreviewOFL then CommitPreview still writes byte-identical bytes to the
+// destination this service itself derived, and the committed fixture then
+// appears in ListLocal -- proving the registry refactor is non-breaking
+// rather than merely assumed.
+func TestPreviewRegistryKeepsCatalogBehaviourUnchanged(t *testing.T) {
+	server := newMirrorServingCorpusFixture(t)
+	svc, _, fixturesDir := newTestFixtureLibraryServiceWithMirror(t, server)
+
+	view, err := svc.PreviewOFL("chauvet-dj", "led-par-64-tri-b")
+	if err != nil {
+		t.Fatalf("PreviewOFL: %v", err)
+	}
+	if !view.Inspect.Valid {
+		t.Fatalf("expected a valid preview, got %+v", view.Inspect)
+	}
+	previewBytes, err := os.ReadFile(view.PreviewToken)
+	if err != nil {
+		t.Fatalf("reading previewed artifact: %v", err)
+	}
+
+	result := svc.CommitPreview(view.PreviewToken, false)
+	if result.ExitCode != 0 {
+		t.Fatalf("CommitPreview: exit %d, stderr %q", result.ExitCode, result.Stderr)
+	}
+
+	destPath := filepath.Join(fixturesDir, view.SuggestedFileName)
+	committedBytes, err := os.ReadFile(destPath)
+	if err != nil {
+		t.Fatalf("reading committed library file: %v", err)
+	}
+	if !bytes.Equal(previewBytes, committedBytes) {
+		t.Fatalf("expected the committed file to be byte-identical to the previewed artifact")
+	}
+
+	localView, err := svc.ListLocal()
+	if err != nil {
+		t.Fatalf("ListLocal: %v", err)
+	}
+	found := false
+	for _, row := range localView.Rows {
+		if row.FileName == view.SuggestedFileName {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected the committed OFL fixture to appear in ListLocal, got %+v", localView.Rows)
+	}
+}
+
+// TestPreviewFileStagesAValidDefinitionWithoutTouchingTheLibrary proves
+// previewing a valid hand-authored YAML file returns valid:true with the
+// pinned stable key, and the library directory gains no file (mirrors
+// TestPreviewOFLWritesNothingIntoTheLibrary's identical write-nothing
+// discipline for the catalog path).
+func TestPreviewFileStagesAValidDefinitionWithoutTouchingTheLibrary(t *testing.T) {
+	svc, _, fixturesDir := newTestFixtureLibraryService(t)
+	sourceDir := t.TempDir()
+	sourcePath := filepath.Join(sourceDir, "hand-authored.yaml")
+	if err := os.WriteFile(sourcePath, []byte(validFixtureYAMLForLibraryTest), 0o644); err != nil {
+		t.Fatalf("seeding hand-authored fixture file: %v", err)
+	}
+
+	view, err := svc.PreviewFile(sourcePath)
+	if err != nil {
+		t.Fatalf("PreviewFile: %v", err)
+	}
+	if !view.Inspect.Valid {
+		t.Fatalf("expected a valid preview, got %+v", view.Inspect)
+	}
+	if view.Inspect.StableKey != "Chauvet/SlimPAR Pro" {
+		t.Fatalf("expected the pinned stable key, got %q", view.Inspect.StableKey)
+	}
+	if view.PreviewToken == "" {
+		t.Fatalf("expected a non-empty preview token")
+	}
+
+	entries, err := os.ReadDir(fixturesDir)
+	if err != nil {
+		t.Fatalf("ReadDir(fixturesDir): %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected the fixtures directory to remain empty after a preview, got %d entries", len(entries))
+	}
+}
+
+// TestPreviewFileReportsAnUnreadablePath proves a path that cannot be read
+// (the file does not exist) returns valid:false with a non-empty errors
+// slice and a nil error, and stages nothing.
+func TestPreviewFileReportsAnUnreadablePath(t *testing.T) {
+	svc, root, _ := newTestFixtureLibraryService(t)
+	missing := filepath.Join(root, "does-not-exist.yaml")
+
+	view, err := svc.PreviewFile(missing)
+	if err != nil {
+		t.Fatalf("expected PreviewFile to never return an error, got %v", err)
+	}
+	if view.Inspect.Valid {
+		t.Fatalf("expected an invalid preview for an unreadable path, got %+v", view.Inspect)
+	}
+	if len(view.Inspect.Errors) == 0 {
+		t.Fatalf("expected a non-empty Errors slice for an unreadable path, got %+v", view.Inspect)
+	}
+	if view.PreviewToken != "" {
+		t.Fatalf("expected no preview token to be staged for an unreadable path, got %q", view.PreviewToken)
+	}
+}
+
+// TestPreviewFileReportsAnInvalidDefinition proves a malformed YAML file
+// returns valid:false carrying the canonical GOLC_FIXTURE_* diagnostic
+// from the route, not a locally invented message.
+func TestPreviewFileReportsAnInvalidDefinition(t *testing.T) {
+	svc, _, _ := newTestFixtureLibraryService(t)
+	sourceDir := t.TempDir()
+	sourcePath := filepath.Join(sourceDir, "bad.yaml")
+	if err := os.WriteFile(sourcePath, []byte(""), 0o644); err != nil {
+		t.Fatalf("seeding malformed fixture file: %v", err)
+	}
+
+	view, err := svc.PreviewFile(sourcePath)
+	if err != nil {
+		t.Fatalf("expected PreviewFile to never return an error, got %v", err)
+	}
+	if view.Inspect.Valid {
+		t.Fatalf("expected an invalid preview for a malformed definition, got %+v", view.Inspect)
+	}
+	if len(view.Inspect.Errors) == 0 {
+		t.Fatalf("expected a non-empty Errors slice, got %+v", view.Inspect)
+	}
+	for _, message := range view.Inspect.Errors {
+		if !strings.Contains(message, "GOLC_FIXTURE") {
+			t.Fatalf("expected the canonical route's own GOLC_FIXTURE_* diagnostic, got %q", message)
+		}
+	}
+}
+
+// TestCommitPreviewWritesTheCustomFixtureVerbatim proves committing a
+// staged custom-YAML preview places a byte-identical copy of the
+// operator's file into the library, and it then appears in ListLocal.
+func TestCommitPreviewWritesTheCustomFixtureVerbatim(t *testing.T) {
+	svc, _, fixturesDir := newTestFixtureLibraryService(t)
+	sourceDir := t.TempDir()
+	sourcePath := filepath.Join(sourceDir, "hand-authored.yaml")
+	if err := os.WriteFile(sourcePath, []byte(validFixtureYAMLForLibraryTest), 0o644); err != nil {
+		t.Fatalf("seeding hand-authored fixture file: %v", err)
+	}
+
+	view, err := svc.PreviewFile(sourcePath)
+	if err != nil {
+		t.Fatalf("PreviewFile: %v", err)
+	}
+	if !view.Inspect.Valid {
+		t.Fatalf("expected a valid preview, got %+v", view.Inspect)
+	}
+
+	result := svc.CommitPreview(view.PreviewToken, false)
+	if result.ExitCode != 0 {
+		t.Fatalf("CommitPreview: exit %d, stderr %q", result.ExitCode, result.Stderr)
+	}
+
+	destPath := filepath.Join(fixturesDir, view.SuggestedFileName)
+	committedBytes, err := os.ReadFile(destPath)
+	if err != nil {
+		t.Fatalf("reading committed library file: %v", err)
+	}
+	if string(committedBytes) != validFixtureYAMLForLibraryTest {
+		t.Fatalf("expected the committed file to be byte-identical to the operator's file, got %q", committedBytes)
+	}
+
+	localView, err := svc.ListLocal()
+	if err != nil {
+		t.Fatalf("ListLocal: %v", err)
+	}
+	found := false
+	for _, row := range localView.Rows {
+		if row.FileName == view.SuggestedFileName {
+			found = true
+			if row.Status != "valid" {
+				t.Fatalf("expected the newly added custom fixture to be valid, got %+v", row)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected the committed custom fixture to appear in ListLocal, got %+v", localView.Rows)
+	}
+}
+
+// TestCommitPreviewRefusesExistingDestinationForCustomFixtures proves the
+// same refuse-and-require-overwrite behaviour the catalog path has (see
+// TestCommitPreviewRefusesExistingDestination) also applies to a
+// hand-authored custom fixture.
+func TestCommitPreviewRefusesExistingDestinationForCustomFixtures(t *testing.T) {
+	svc, _, fixturesDir := newTestFixtureLibraryService(t)
+	sourceDir := t.TempDir()
+	sourcePath := filepath.Join(sourceDir, "hand-authored.yaml")
+	if err := os.WriteFile(sourcePath, []byte(validFixtureYAMLForLibraryTest), 0o644); err != nil {
+		t.Fatalf("seeding hand-authored fixture file: %v", err)
+	}
+
+	view, err := svc.PreviewFile(sourcePath)
+	if err != nil {
+		t.Fatalf("PreviewFile: %v", err)
+	}
+	if !view.Inspect.Valid {
+		t.Fatalf("expected a valid preview, got %+v", view.Inspect)
+	}
+
+	destPath := filepath.Join(fixturesDir, view.SuggestedFileName)
+	sentinel := []byte("hand-edited sentinel content")
+	if err := os.WriteFile(destPath, sentinel, 0o644); err != nil {
+		t.Fatalf("seeding existing destination: %v", err)
+	}
+
+	result := svc.CommitPreview(view.PreviewToken, false)
+	if result.ExitCode == 0 {
+		t.Fatalf("expected CommitPreview to refuse an existing destination, got exit 0")
+	}
+	if !strings.Contains(result.Stderr, "GOLC_WAILS_FIXTURE_IMPORT_EXISTS") {
+		t.Fatalf("expected GOLC_WAILS_FIXTURE_IMPORT_EXISTS, got %q", result.Stderr)
+	}
+
+	after, err := os.ReadFile(destPath)
+	if err != nil {
+		t.Fatalf("reading destination after refused commit: %v", err)
+	}
+	if !bytes.Equal(after, sentinel) {
+		t.Fatalf("expected the existing destination to be unchanged, got %q", after)
+	}
+
+	overwriteResult := svc.CommitPreview(view.PreviewToken, true)
+	if overwriteResult.ExitCode != 0 {
+		t.Fatalf("expected an explicit overwrite to succeed, got exit %d, stderr %q", overwriteResult.ExitCode, overwriteResult.Stderr)
+	}
+	replaced, err := os.ReadFile(destPath)
+	if err != nil {
+		t.Fatalf("reading destination after overwrite: %v", err)
+	}
+	if bytes.Equal(replaced, sentinel) {
+		t.Fatalf("expected the destination to be replaced, still carries the sentinel content")
+	}
+}
