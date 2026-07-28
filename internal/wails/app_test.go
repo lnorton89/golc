@@ -482,6 +482,65 @@ func TestRelaunchWithShowRejectsEmptyPath(t *testing.T) {
 	}
 }
 
+// TestRelaunchWithShowAcceptsNonExistentAndCurrentPathsWithNoSpecialCase
+// proves the remaining two BOUNDARY clauses (09-02-PLAN.md must_haves): a
+// path whose file does not exist yet is accepted (D-06 -- the identical
+// relaunch path a brand-new show takes, never a distinct "create" branch),
+// and a path equal to the currently-open show (cfg.ShowPath) is accepted
+// and takes the identical relaunch path with no special-case short
+// circuit -- both spawn and quit exactly once, just like any other path.
+func TestRelaunchWithShowAcceptsNonExistentAndCurrentPathsWithNoSpecialCase(t *testing.T) {
+	t.Run("path whose file does not exist yet", func(t *testing.T) {
+		app := newTestRelaunchApp(t)
+		nonExistent := filepath.Join(t.TempDir(), "never-created.golc")
+
+		var spawnCalls, quitCalls int32
+		app.relaunchSpawn = func(exePath string, env []string) error {
+			atomic.AddInt32(&spawnCalls, 1)
+			return nil
+		}
+		app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
+
+		result := app.RelaunchWithShow(nonExistent)
+		if result.ExitCode != 0 {
+			t.Fatalf("expected a not-yet-existing path to be accepted, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
+		}
+		if got := atomic.LoadInt32(&spawnCalls); got != 1 {
+			t.Fatalf("expected exactly one spawn call, got %d", got)
+		}
+		if got := atomic.LoadInt32(&quitCalls); got != 1 {
+			t.Fatalf("expected exactly one quit call, got %d", got)
+		}
+	})
+
+	t.Run("path equal to the currently-open show", func(t *testing.T) {
+		app := newTestRelaunchApp(t)
+
+		var spawnCalls, quitCalls int32
+		var gotEnv []string
+		app.relaunchSpawn = func(exePath string, env []string) error {
+			atomic.AddInt32(&spawnCalls, 1)
+			gotEnv = env
+			return nil
+		}
+		app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
+
+		result := app.RelaunchWithShow(app.cfg.ShowPath)
+		if result.ExitCode != 0 {
+			t.Fatalf("expected the current show path to be accepted with no special case, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
+		}
+		if got := atomic.LoadInt32(&spawnCalls); got != 1 {
+			t.Fatalf("expected exactly one spawn call (the identical relaunch path), got %d", got)
+		}
+		if got := atomic.LoadInt32(&quitCalls); got != 1 {
+			t.Fatalf("expected exactly one quit call, got %d", got)
+		}
+		if got := lastEnvValue(gotEnv, DesktopShowPathEnvName); got != app.cfg.ShowPath {
+			t.Fatalf("relaunchSpawn env's last %s = %q, want the current show path %q", DesktopShowPathEnvName, got, app.cfg.ShowPath)
+		}
+	})
+}
+
 // TestRelaunchWithShowPassesShowPathThroughEnvironmentVerbatim proves the
 // injected relaunchSpawn double receives an env slice whose last
 // GOLC_DESKTOP_SHOW= assignment is byte-identical to the requested path
