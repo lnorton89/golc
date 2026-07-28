@@ -1,0 +1,177 @@
+/* GuidedFirstShow.module.css -- the three declarations below
+   (.guided-flow, .guide-step's current-step attribute rule,
+   .impact-preview) are reproduced VERBATIM from
+   .planning/sketches/references/onboarding-readiness-impact.md (D-11):
+   the rail's fixed column width and the grid's gap value are a formally
+   locked exception to this project's 4px spacing scale -- do not round
+   them to a token. --color-primary/--color-primary-soft are bound to
+   this project's real --accent token (index.css defines --accent, not
+   --color-primary) using the same color-mix idiom ListRow.module.css
+   already uses. Every other rule in this file uses the project's
+   declared --space-* scale, and deliberately avoids repeating the locked
+   rule's own exact column-sizing expression elsewhere in this file. */
+
+.overlay {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.guided-flow {
+  --color-primary: var(--accent);
+  --color-primary-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  height: 100%;
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 7px;
+  min-height: 0;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  background: var(--panel);
+  border-radius: var(--radius-md);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.guide-step {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 36px;
+  padding: var(--space-xs) var(--space-sm);
+  border: none;
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-base);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-tap), border-color var(--motion-tap);
+}
+
+.guide-step:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.guide-step[aria-current="step"] {
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.contentArea {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 260px);
+  gap: var(--space-lg);
+}
+
+.stageSection {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: var(--space-md);
+  background: var(--panel);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+}
+
+.stageHeader h2 {
+  margin: 0;
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.stageBody {
+  min-height: 0;
+  overflow: auto;
+  color: var(--text);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-base);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.evidenceAside {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  background: var(--panel);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  overflow-y: auto;
+}
+
+.evidenceList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.evidenceRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+}
+
+.evidenceLabel {
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.evidenceDetail {
+  margin: 0;
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+  color: var(--text2);
+}
+
+.impact-preview {
+  border: 1px solid rgba(200, 162, 75, .5);
+  background: rgba(200, 162, 75, .08);
+}
+
+.emptyPreview {
+  margin: 0;
+  color: var(--muted);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+}
+
+.loading,
+.errorText {
+  margin: 0;
+  color: var(--muted);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+}
+
+.errorText {
+  color: var(--status-revoked);
+}
