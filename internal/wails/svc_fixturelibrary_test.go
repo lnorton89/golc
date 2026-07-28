@@ -13,7 +13,12 @@
 package wails
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
+	"io/fs"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -224,5 +229,289 @@ func TestFixtureLibraryServiceSearchOFLReportsUnreachableWithoutThrowing(t *test
 	}
 	if view.Query != "acme" {
 		t.Fatalf("expected view.Query to echo the caller's query, got %q", view.Query)
+	}
+}
+
+// --- 09-06-PLAN.md Task 1 RED / Task 2 GREEN: preview-then-commit import ---
+
+// oflFixtureCorpusPath resolves the shared chauvet-dj_led-par-64-tri-b.json
+// OFL corpus fixture (internal/fixture/ofl/normalize_test.go's own
+// TestNormalizeCanonicalPipeline fixture) relative to internal/wails, so
+// PreviewOFL's tests exercise a real, warning-bearing OFL normalize result
+// without maintaining a second copy of the corpus.
+func oflFixtureCorpusPath(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join("..", "..", "tests", "fixtures", "ofl", "chauvet-dj_led-par-64-tri-b.json")
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("OFL corpus fixture missing at %s: %v", path, err)
+	}
+	return path
+}
+
+// newMirrorServingCorpusFixture starts an httptest server serving the
+// chauvet-dj/led-par-64-tri-b corpus fixture at the exact
+// "/fixtures/<manufacturer>/<key>.json" path resolveTargetURL's mirror
+// convention expects (internal/fixture/ofl/fetch.go) -- never the live
+// network (mirrors fetch_test.go's httptest-only convention).
+func newMirrorServingCorpusFixture(t *testing.T) *httptest.Server {
+	t.Helper()
+	body, err := os.ReadFile(oflFixtureCorpusPath(t))
+	if err != nil {
+		t.Fatalf("reading OFL corpus fixture: %v", err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/fixtures/chauvet-dj/led-par-64-tri-b.json" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write(body)
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+// newTestFixtureLibraryServiceWithMirror mirrors newTestFixtureLibraryService,
+// additionally pointing the service's preview mirror seam at server so
+// PreviewOFL's "fixture import --ofl ... --mirror ... --allow-mirror" call
+// never reaches the live catalog.
+func newTestFixtureLibraryServiceWithMirror(t *testing.T, server *httptest.Server) (*FixtureLibraryService, string, string) {
+	t.Helper()
+	svc, root, fixturesDir := newTestFixtureLibraryService(t)
+	svc.previewMirror = server.URL
+	svc.previewAllowMirror = true
+	return svc, root, fixturesDir
+}
+
+// TestPreviewOFLWritesNothingIntoTheLibrary proves a successful preview
+// writes nothing into the fixtures directory and its preview token points
+// outside the library directory (T-09-06-05).
+func TestPreviewOFLWritesNothingIntoTheLibrary(t *testing.T) {
+	server := newMirrorServingCorpusFixture(t)
+	svc, _, fixturesDir := newTestFixtureLibraryServiceWithMirror(t, server)
+
+	view, err := svc.PreviewOFL("chauvet-dj", "led-par-64-tri-b")
+	if err != nil {
+		t.Fatalf("PreviewOFL: %v", err)
+	}
+	if !view.Inspect.Valid {
+		t.Fatalf("expected a valid preview, got %+v", view.Inspect)
+	}
+	if view.PreviewToken == "" {
+		t.Fatalf("expected a non-empty preview token")
+	}
+
+	entries, err := os.ReadDir(fixturesDir)
+	if err != nil {
+		t.Fatalf("ReadDir(fixturesDir): %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected the fixtures directory to remain empty after a preview, got %d entries", len(entries))
+	}
+
+	tokenDir := filepath.Dir(view.PreviewToken)
+	absFixturesDir, err := filepath.Abs(fixturesDir)
+	if err != nil {
+		t.Fatalf("filepath.Abs(fixturesDir): %v", err)
+	}
+	if tokenDir == absFixturesDir {
+		t.Fatalf("expected the preview token to live outside the library directory, got %q", view.PreviewToken)
+	}
+}
+
+// TestPreviewOFLReturnsInspectViewWithWarnings proves a candidate whose
+// normalization produces lossy warnings returns valid:true with a
+// non-empty warnings slice, each carrying severity and detail.
+func TestPreviewOFLReturnsInspectViewWithWarnings(t *testing.T) {
+	server := newMirrorServingCorpusFixture(t)
+	svc, _, _ := newTestFixtureLibraryServiceWithMirror(t, server)
+
+	view, err := svc.PreviewOFL("chauvet-dj", "led-par-64-tri-b")
+	if err != nil {
+		t.Fatalf("PreviewOFL: %v", err)
+	}
+	if !view.Inspect.Valid {
+		t.Fatalf("expected a valid preview, got %+v", view.Inspect)
+	}
+	if len(view.Inspect.Warnings) == 0 {
+		t.Fatalf("expected the chauvet-dj/led-par-64-tri-b corpus fixture to carry lossy-import warnings, got none")
+	}
+	for _, warning := range view.Inspect.Warnings {
+		if warning.Severity == "" {
+			t.Fatalf("expected every warning to carry a severity, got %+v", warning)
+		}
+		if warning.Detail == "" {
+			t.Fatalf("expected every warning to carry a detail, got %+v", warning)
+		}
+	}
+}
+
+// TestPreviewOFLReturnsErrorsForInvalidCandidate proves a fetch failure (a
+// fixture key the mirror does not serve) returns valid:false with a
+// non-empty errors slice and a nil error -- never a thrown exception.
+func TestPreviewOFLReturnsErrorsForInvalidCandidate(t *testing.T) {
+	server := newMirrorServingCorpusFixture(t)
+	svc, _, _ := newTestFixtureLibraryServiceWithMirror(t, server)
+
+	view, err := svc.PreviewOFL("chauvet-dj", "does-not-exist")
+	if err != nil {
+		t.Fatalf("expected PreviewOFL to never return an error, got %v", err)
+	}
+	if view.Inspect.Valid {
+		t.Fatalf("expected an invalid candidate for a fixture the mirror does not serve, got %+v", view.Inspect)
+	}
+	if len(view.Inspect.Errors) == 0 {
+		t.Fatalf("expected a non-empty Errors slice for an invalid candidate, got %+v", view.Inspect)
+	}
+}
+
+// TestCommitPreviewWritesTheExactPreviewedBytes proves the committed
+// library file is byte-identical to the previewed artifact -- CommitPreview
+// moves the previewed bytes rather than re-encoding them.
+func TestCommitPreviewWritesTheExactPreviewedBytes(t *testing.T) {
+	server := newMirrorServingCorpusFixture(t)
+	svc, _, fixturesDir := newTestFixtureLibraryServiceWithMirror(t, server)
+
+	view, err := svc.PreviewOFL("chauvet-dj", "led-par-64-tri-b")
+	if err != nil {
+		t.Fatalf("PreviewOFL: %v", err)
+	}
+	previewBytes, err := os.ReadFile(view.PreviewToken)
+	if err != nil {
+		t.Fatalf("reading previewed artifact: %v", err)
+	}
+
+	result := svc.CommitPreview(view.PreviewToken, false)
+	if result.ExitCode != 0 {
+		t.Fatalf("CommitPreview: exit %d, stderr %q", result.ExitCode, result.Stderr)
+	}
+
+	destPath := filepath.Join(fixturesDir, view.SuggestedFileName)
+	committedBytes, err := os.ReadFile(destPath)
+	if err != nil {
+		t.Fatalf("reading committed library file: %v", err)
+	}
+	if !bytes.Equal(previewBytes, committedBytes) {
+		t.Fatalf("expected the committed file to be byte-identical to the previewed artifact")
+	}
+	if _, err := os.Stat(view.PreviewToken); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("expected the previewed file to be moved (no longer present at the token path), got err=%v", err)
+	}
+}
+
+// TestCommitPreviewRefusesExistingDestination proves a destination that
+// already exists is refused with GOLC_WAILS_FIXTURE_IMPORT_EXISTS, leaving
+// the existing file unchanged (T-09-06-02).
+func TestCommitPreviewRefusesExistingDestination(t *testing.T) {
+	server := newMirrorServingCorpusFixture(t)
+	svc, _, fixturesDir := newTestFixtureLibraryServiceWithMirror(t, server)
+
+	view, err := svc.PreviewOFL("chauvet-dj", "led-par-64-tri-b")
+	if err != nil {
+		t.Fatalf("PreviewOFL: %v", err)
+	}
+
+	destPath := filepath.Join(fixturesDir, view.SuggestedFileName)
+	sentinel := []byte("hand-edited sentinel content")
+	if err := os.WriteFile(destPath, sentinel, 0o644); err != nil {
+		t.Fatalf("seeding existing destination: %v", err)
+	}
+
+	result := svc.CommitPreview(view.PreviewToken, false)
+	if result.ExitCode == 0 {
+		t.Fatalf("expected CommitPreview to refuse an existing destination, got exit 0")
+	}
+	if !strings.Contains(result.Stderr, "GOLC_WAILS_FIXTURE_IMPORT_EXISTS") {
+		t.Fatalf("expected GOLC_WAILS_FIXTURE_IMPORT_EXISTS, got %q", result.Stderr)
+	}
+
+	after, err := os.ReadFile(destPath)
+	if err != nil {
+		t.Fatalf("reading destination after refused commit: %v", err)
+	}
+	if !bytes.Equal(after, sentinel) {
+		t.Fatalf("expected the existing destination to be unchanged, got %q", after)
+	}
+}
+
+// TestCommitPreviewReplacesOnlyWithExplicitOverwrite proves the same call
+// with overwrite:true replaces the existing destination and succeeds.
+func TestCommitPreviewReplacesOnlyWithExplicitOverwrite(t *testing.T) {
+	server := newMirrorServingCorpusFixture(t)
+	svc, _, fixturesDir := newTestFixtureLibraryServiceWithMirror(t, server)
+
+	view, err := svc.PreviewOFL("chauvet-dj", "led-par-64-tri-b")
+	if err != nil {
+		t.Fatalf("PreviewOFL: %v", err)
+	}
+
+	destPath := filepath.Join(fixturesDir, view.SuggestedFileName)
+	sentinel := []byte("hand-edited sentinel content")
+	if err := os.WriteFile(destPath, sentinel, 0o644); err != nil {
+		t.Fatalf("seeding existing destination: %v", err)
+	}
+
+	result := svc.CommitPreview(view.PreviewToken, true)
+	if result.ExitCode != 0 {
+		t.Fatalf("expected an explicit overwrite to succeed, got exit %d, stderr %q", result.ExitCode, result.Stderr)
+	}
+
+	after, err := os.ReadFile(destPath)
+	if err != nil {
+		t.Fatalf("reading destination after overwrite: %v", err)
+	}
+	if bytes.Equal(after, sentinel) {
+		t.Fatalf("expected the destination to be replaced, still carries the sentinel content")
+	}
+}
+
+// TestCommitPreviewRejectsATokenOutsideThePreviewDirectory proves a token
+// pointing anywhere other than this service's own preview directory is
+// refused with GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN and writes nothing
+// (T-09-06-01).
+func TestCommitPreviewRejectsATokenOutsideThePreviewDirectory(t *testing.T) {
+	svc, root, fixturesDir := newTestFixtureLibraryService(t)
+	outsidePath := filepath.Join(root, "outside-preview-dir.json")
+	if err := os.WriteFile(outsidePath, []byte(`{"definition":{},"provenance":{}}`), 0o644); err != nil {
+		t.Fatalf("seeding outside-preview file: %v", err)
+	}
+
+	result := svc.CommitPreview(outsidePath, false)
+	if result.ExitCode == 0 {
+		t.Fatalf("expected CommitPreview to reject a token outside the preview directory, got exit 0")
+	}
+	if !strings.Contains(result.Stderr, "GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN") {
+		t.Fatalf("expected GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN, got %q", result.Stderr)
+	}
+
+	entries, err := os.ReadDir(fixturesDir)
+	if err != nil {
+		t.Fatalf("ReadDir(fixturesDir): %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected nothing written into the library, got %d entries", len(entries))
+	}
+}
+
+// TestDiscardPreviewRemovesTheCandidate proves discarding a staged preview
+// removes the preview file at its token path (T-09-06-05).
+func TestDiscardPreviewRemovesTheCandidate(t *testing.T) {
+	server := newMirrorServingCorpusFixture(t)
+	svc, _, _ := newTestFixtureLibraryServiceWithMirror(t, server)
+
+	view, err := svc.PreviewOFL("chauvet-dj", "led-par-64-tri-b")
+	if err != nil {
+		t.Fatalf("PreviewOFL: %v", err)
+	}
+	if _, err := os.Stat(view.PreviewToken); err != nil {
+		t.Fatalf("expected the preview file to exist before discarding: %v", err)
+	}
+
+	result := svc.DiscardPreview(view.PreviewToken)
+	if result.ExitCode != 0 {
+		t.Fatalf("DiscardPreview: exit %d, stderr %q", result.ExitCode, result.Stderr)
+	}
+
+	if _, err := os.Stat(view.PreviewToken); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("expected the preview path to no longer exist after discarding, got err=%v", err)
 	}
 }
