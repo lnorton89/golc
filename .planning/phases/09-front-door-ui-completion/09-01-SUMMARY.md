@@ -210,3 +210,9 @@ None - no external service configuration required.
 ---
 *Phase: 09-front-door-ui-completion*
 *Completed: 2026-07-27*
+
+## Self-Check: PASSED
+
+All 11 claimed files verified present on disk (7 created, plus SUMMARY.md and
+deferred-items.md); all 5 referenced commit hashes (`7e24bf8`, `18e98be`,
+`c20b1a0`, `daa238d`, `5dfac43`) verified present in `git log`.
