@@ -11,7 +11,6 @@
 package script
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -149,7 +148,7 @@ func TestNewHostFailsClosedWhenDenoMissing(t *testing.T) {
 func TestNoInspectorOutsideDebugMode(t *testing.T) {
 	root := skipUnlessDenoProvisioned(t)
 
-	host, err := NewHost(HostConfig{Root: root, ShowPath: fmt.Sprintf("%s/fixture.golc", root), Executor: &fakeExecutor{}})
+	host, err := NewHost(HostConfig{Root: root, ShowPath: root + "/fixture.golc", Executor: &fakeExecutor{}})
 	if err != nil {
 		t.Fatalf("NewHost: %v", err)
 	}

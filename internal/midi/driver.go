@@ -28,6 +28,7 @@
 package midi
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -116,7 +117,7 @@ type Driver struct {
 // registered in the running process.
 func Open(in drivers.In) (*Driver, error) {
 	if in == nil {
-		return nil, fmt.Errorf("GOLC_MIDI_PORT_OPEN_FAILED: nil MIDI input port")
+		return nil, errors.New("GOLC_MIDI_PORT_OPEN_FAILED: nil MIDI input port")
 	}
 	return newDriver([]drivers.In{in})
 }
@@ -126,7 +127,7 @@ func Open(in drivers.In) (*Driver, error) {
 func newDriver(ins []drivers.In) (*Driver, error) {
 	for _, in := range ins {
 		if in == nil {
-			return nil, fmt.Errorf("GOLC_MIDI_PORT_OPEN_FAILED: nil MIDI input port")
+			return nil, errors.New("GOLC_MIDI_PORT_OPEN_FAILED: nil MIDI input port")
 		}
 	}
 	d := &Driver{ins: ins}
@@ -161,7 +162,7 @@ func newDriver(ins []drivers.In) (*Driver, error) {
 func OpenFirstAvailable() (*Driver, error) {
 	ports := gomidi.GetInPorts()
 	if len(ports) == 0 {
-		return nil, fmt.Errorf("GOLC_MIDI_NO_PORTS_AVAILABLE: no MIDI input ports were found")
+		return nil, errors.New("GOLC_MIDI_NO_PORTS_AVAILABLE: no MIDI input ports were found")
 	}
 	return newDriver(ports)
 }

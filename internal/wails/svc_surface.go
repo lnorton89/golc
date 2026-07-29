@@ -19,6 +19,7 @@
 package wails
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/lnorton89/golc/internal/command"
@@ -63,11 +64,11 @@ func (s *SurfaceService) Ping() Result {
 // twice.
 type ControlRefInput struct {
 	Kind       string `json:"kind"`                 // "scene" | "layer" | "master" | "safety"
-	Scene      string `json:"scene,omitempty"`       // scene name -- for kind="scene" or kind="layer"
-	LayerKind  string `json:"layerKind,omitempty"`   // "base_look" | "color_theme" | "chase" | "motion" -- for kind="layer"
-	MasterKind string `json:"masterKind,omitempty"`  // "grand" | "group" -- for kind="master"
-	Group      string `json:"group,omitempty"`       // group name -- for kind="master" with masterKind="group"
-	Safety     string `json:"safety,omitempty"`      // "blackout" | "stop_release_all" | "revoke_automation" -- for kind="safety"
+	Scene      string `json:"scene,omitempty"`      // scene name -- for kind="scene" or kind="layer"
+	LayerKind  string `json:"layerKind,omitempty"`  // "base_look" | "color_theme" | "chase" | "motion" -- for kind="layer"
+	MasterKind string `json:"masterKind,omitempty"` // "grand" | "group" -- for kind="master"
+	Group      string `json:"group,omitempty"`      // group name -- for kind="master" with masterKind="group"
+	Safety     string `json:"safety,omitempty"`     // "blackout" | "stop_release_all" | "revoke_automation" -- for kind="safety"
 }
 
 // ControlRefView is ControlRefInput's read side: the same selector fields
@@ -224,7 +225,7 @@ func (s *SurfaceService) ShowSurface(surfaceName string) (SurfaceDetail, error) 
 		groupRef := operatorsurface.MasterControlRef(operatorsurface.MasterRef{Kind: operatorsurface.GroupMaster, GroupID: g.ID})
 		controls = append(controls, ControlRefView{
 			ControlRefInput: ControlRefInput{Kind: "master", MasterKind: "group", Group: g.Name},
-			Label:           fmt.Sprintf("Group Master: %s", g.Name),
+			Label:           "Group Master: " + g.Name,
 			Assigned:        target.IsAssigned(groupRef),
 		})
 	}
@@ -290,12 +291,12 @@ func (in ControlRefInput) cliSelector() (flag, value string, err error) {
 	switch in.Kind {
 	case "scene":
 		if in.Scene == "" {
-			return "", "", fmt.Errorf("GOLC_WAILS_CONTROL_REF_INVALID: kind \"scene\" requires scene")
+			return "", "", errors.New("GOLC_WAILS_CONTROL_REF_INVALID: kind \"scene\" requires scene")
 		}
 		return "--scene", in.Scene, nil
 	case "layer":
 		if in.Scene == "" || in.LayerKind == "" {
-			return "", "", fmt.Errorf("GOLC_WAILS_CONTROL_REF_INVALID: kind \"layer\" requires scene and layerKind")
+			return "", "", errors.New("GOLC_WAILS_CONTROL_REF_INVALID: kind \"layer\" requires scene and layerKind")
 		}
 		return "--layer", in.Scene + ":" + in.LayerKind, nil
 	case "master":
@@ -304,7 +305,7 @@ func (in ControlRefInput) cliSelector() (flag, value string, err error) {
 			return "--master", "grand", nil
 		case "group":
 			if in.Group == "" {
-				return "", "", fmt.Errorf("GOLC_WAILS_CONTROL_REF_INVALID: kind \"master\" with masterKind \"group\" requires group")
+				return "", "", errors.New("GOLC_WAILS_CONTROL_REF_INVALID: kind \"master\" with masterKind \"group\" requires group")
 			}
 			return "--master", "group:" + in.Group, nil
 		default:
@@ -312,7 +313,7 @@ func (in ControlRefInput) cliSelector() (flag, value string, err error) {
 		}
 	case "safety":
 		if in.Safety == "" {
-			return "", "", fmt.Errorf("GOLC_WAILS_CONTROL_REF_INVALID: kind \"safety\" requires safety")
+			return "", "", errors.New("GOLC_WAILS_CONTROL_REF_INVALID: kind \"safety\" requires safety")
 		}
 		return "--safety", in.Safety, nil
 	default:

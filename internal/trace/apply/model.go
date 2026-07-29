@@ -15,7 +15,6 @@ package apply
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/lnorton89/golc/internal/trace/reconcile"
 )
@@ -77,7 +76,7 @@ type RetryableError struct {
 }
 
 func (e *RetryableError) Error() string {
-	return fmt.Sprintf("GOLC_APPLY_RETRYABLE: %s", e.Reason)
+	return "GOLC_APPLY_RETRYABLE: " + e.Reason
 }
 
 // OperationStatus is the exact outcome apply recorded for one operation.

@@ -24,6 +24,7 @@ package scriptsdk
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -157,7 +158,7 @@ func RegisterExclusion(route, reason string) error {
 	trimmedRoute := strings.TrimSpace(route)
 	trimmedReason := strings.TrimSpace(reason)
 	if trimmedRoute == "" || trimmedReason == "" {
-		return fmt.Errorf("GOLC_SCRIPTSDK_DESCRIPTOR_INVALID: exclusion route/reason must not be blank")
+		return errors.New("GOLC_SCRIPTSDK_DESCRIPTOR_INVALID: exclusion route/reason must not be blank")
 	}
 
 	registry.mu.Lock()

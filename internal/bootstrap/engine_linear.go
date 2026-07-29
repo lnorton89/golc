@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -76,7 +77,7 @@ func runLinearSync(ctx context.Context, engine *bootstrapEngine) (resultErr erro
 			resultErr = fmt.Errorf("GOLC_BOOTSTRAP_NODE_LOCK_MUTATION: inputs changed and restoration failed: %w", restoreErr)
 			return
 		}
-		resultErr = fmt.Errorf("GOLC_BOOTSTRAP_NODE_LOCK_MUTATION: bootstrap must never rewrite tools/linear-sync/package.json or package-lock.json")
+		resultErr = errors.New("GOLC_BOOTSTRAP_NODE_LOCK_MUTATION: bootstrap must never rewrite tools/linear-sync/package.json or package-lock.json")
 	}()
 
 	packageJSONHash := hashBytes(packageJSONBefore)
@@ -117,7 +118,7 @@ func runLinearSync(ctx context.Context, engine *bootstrapEngine) (resultErr erro
 		if err := writeExactFile(packageLockPath, packageLockBefore, 0o644); err != nil {
 			return fmt.Errorf("GOLC_BOOTSTRAP_NODE_LOCK_MUTATION: restore package-lock.json: %w", err)
 		}
-		return fmt.Errorf("GOLC_BOOTSTRAP_NODE_LOCK_MUTATION: bootstrap must never rewrite tools/linear-sync/package.json or package-lock.json")
+		return errors.New("GOLC_BOOTSTRAP_NODE_LOCK_MUTATION: bootstrap must never rewrite tools/linear-sync/package.json or package-lock.json")
 	}
 	manifest := npmCIManifest{
 		SchemaVersion:     npmCIManifestSchemaVersion,

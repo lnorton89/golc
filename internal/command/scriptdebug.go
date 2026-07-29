@@ -144,21 +144,21 @@ func runScriptDebug(request Request) Result {
 	}
 	target, index, found := scriptByName(state.Scripts, name)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_NOT_FOUND: no script named %q exists\n", name))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_NOT_FOUND: no script named %q exists\n", name)}
 	}
 
 	lineCount := scriptLineCount(target.Source)
 	for _, breakpoint := range breakpoints {
 		if breakpoint > lineCount {
-			return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
+			return Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
 				"GOLC_SCRIPT_BREAKPOINT_INVALID: --breakpoint %d exceeds the script's %d line(s); usage: %s\n",
-				breakpoint, lineCount, scriptDebugUsage))}
+				breakpoint, lineCount, scriptDebugUsage)}
 		}
 	}
 
 	registry, err := NewDefaultCommandRegistry()
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_RUN_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_RUN_FAILED: %v\n", err)}
 	}
 
 	host, err := script.NewHost(script.HostConfig{
@@ -185,7 +185,7 @@ func runScriptDebug(request Request) Result {
 
 	payload, encodeErr := strictjson.CanonicalEncode(toScriptRunResultView(outcome))
 	if encodeErr != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_ENCODE_FAILED: %v\n", encodeErr))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_ENCODE_FAILED: %v\n", encodeErr)}
 	}
 
 	exitCode := 0
@@ -248,7 +248,7 @@ func runScriptDebugControl(usage string, request Request, action func(*script.De
 
 	payload, encodeErr := strictjson.CanonicalEncode(scriptDebugControlResultView{OK: true})
 	if encodeErr != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_ENCODE_FAILED: %v\n", encodeErr))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_ENCODE_FAILED: %v\n", encodeErr)}
 	}
 	return Result{Stdout: payload}
 }

@@ -19,6 +19,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -701,7 +702,7 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode, bre
 	h.mu.Lock()
 	if h.running {
 		h.mu.Unlock()
-		return RunOutcome{}, fmt.Errorf("GOLC_SCRIPT_RUN_ACTIVE: a script run is already active on this host")
+		return RunOutcome{}, errors.New("GOLC_SCRIPT_RUN_ACTIVE: a script run is already active on this host")
 	}
 	h.running = true
 	h.mu.Unlock()

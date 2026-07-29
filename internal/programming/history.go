@@ -12,7 +12,7 @@
 package programming
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/google/uuid"
 )
@@ -94,7 +94,7 @@ func (h *History) CanRedo() bool {
 // silently no-op'ing.
 func (h *History) Undo() (EditOp, error) {
 	if !h.CanUndo() {
-		return EditOp{}, fmt.Errorf("GOLC_HISTORY_NOTHING_TO_UNDO: no recorded edit to undo")
+		return EditOp{}, errors.New("GOLC_HISTORY_NOTHING_TO_UNDO: no recorded edit to undo")
 	}
 	h.cursor--
 	return h.ops[h.cursor], nil
@@ -107,7 +107,7 @@ func (h *History) Undo() (EditOp, error) {
 // no-op'ing.
 func (h *History) Redo() (EditOp, error) {
 	if !h.CanRedo() {
-		return EditOp{}, fmt.Errorf("GOLC_HISTORY_NOTHING_TO_REDO: no undone edit to redo")
+		return EditOp{}, errors.New("GOLC_HISTORY_NOTHING_TO_REDO: no undone edit to redo")
 	}
 	op := h.ops[h.cursor]
 	h.cursor++

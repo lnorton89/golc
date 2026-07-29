@@ -14,6 +14,7 @@
 package scene
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -154,7 +155,7 @@ func validateBarsPerLoop(barsPerLoop int) error {
 // never derived from Name, and never re-minted by RenameScene.
 func NewScene(name string, barsPerLoop int) (Scene, error) {
 	if strings.TrimSpace(name) == "" {
-		return Scene{}, fmt.Errorf("GOLC_SCENE_NAME_EMPTY: scene name must not be empty")
+		return Scene{}, errors.New("GOLC_SCENE_NAME_EMPTY: scene name must not be empty")
 	}
 	if err := validateBarsPerLoop(barsPerLoop); err != nil {
 		return Scene{}, err
@@ -170,7 +171,7 @@ func NewScene(name string, barsPerLoop int) (Scene, error) {
 // re-minted (identity is rename-stable).
 func RenameScene(s Scene, newName string) (Scene, error) {
 	if strings.TrimSpace(newName) == "" {
-		return Scene{}, fmt.Errorf("GOLC_SCENE_NAME_EMPTY: scene name must not be empty")
+		return Scene{}, errors.New("GOLC_SCENE_NAME_EMPTY: scene name must not be empty")
 	}
 	s.Name = newName
 	return s, nil

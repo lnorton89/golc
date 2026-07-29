@@ -20,6 +20,7 @@ package artnet
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -710,7 +711,7 @@ func TestSubsystemStartFailureUnwindsAlreadyStartedSubsystems(t *testing.T) {
 	var mu sync.Mutex
 	var log []string
 	one := &fakeSubsystem{name: "one", log: &log, mu: &mu}
-	two := &fakeSubsystem{name: "two", log: &log, mu: &mu, startErr: fmt.Errorf("boom")}
+	two := &fakeSubsystem{name: "two", log: &log, mu: &mu, startErr: errors.New("boom")}
 
 	pipeName := testDaemonPipeName(t)
 	interfaceIndex := loopbackInterfaceIndex(t)

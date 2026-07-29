@@ -11,6 +11,7 @@ package catalog
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -132,7 +133,7 @@ func MigrateV1ToV2(root string) (*Map, error) {
 
 	projectEntity, ok := lookupKind(built, KindProject)
 	if !ok {
-		return nil, fmt.Errorf("GOLC_MIGRATE_SEED_MISMATCH: catalog has no project entity")
+		return nil, errors.New("GOLC_MIGRATE_SEED_MISMATCH: catalog has no project entity")
 	}
 	if projectEntity.ID != current.Repository.ProjectID {
 		return nil, fmt.Errorf("GOLC_MIGRATE_SEED_MISMATCH: catalog project %q does not match seed %q",
@@ -140,7 +141,7 @@ func MigrateV1ToV2(root string) (*Map, error) {
 	}
 	milestoneEntity, ok := lookupKind(built, KindMilestone)
 	if !ok {
-		return nil, fmt.Errorf("GOLC_MIGRATE_SEED_MISMATCH: catalog has no milestone entity")
+		return nil, errors.New("GOLC_MIGRATE_SEED_MISMATCH: catalog has no milestone entity")
 	}
 	if milestoneEntity.ID != current.ActiveMilestone.MilestoneID {
 		return nil, fmt.Errorf("GOLC_MIGRATE_SEED_MISMATCH: catalog milestone %q does not match seed %q",

@@ -835,7 +835,7 @@ func controlRefLabel(state show.State, ref operatorsurface.ControlRef) string {
 		if ref.Master.Kind == operatorsurface.GrandMaster {
 			return "Grand Master"
 		}
-		return fmt.Sprintf("Group Master: %s", groupNameByID(state.Groups, ref.Master.GroupID))
+		return "Group Master: " + groupNameByID(state.Groups, ref.Master.GroupID)
 	case operatorsurface.ControlSafety:
 		return safetyLabel(ref.Safety)
 	default:

@@ -124,7 +124,7 @@ func runDev(request Request) Result {
 
 	layout, err := bootstrap.NewProjectCacheLayout(request.Root)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_DEV_CACHE_LAYOUT: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_DEV_CACHE_LAYOUT: %v\n", err)}
 	}
 
 	executableSuffix := ""
@@ -133,8 +133,8 @@ func runDev(request Request) Result {
 	}
 	wailsExecutable := layout.WailsBinaryPath(executableSuffix)
 	if info, err := os.Stat(wailsExecutable); err != nil || !info.Mode().IsRegular() {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-			"GOLC_DEV_WAILS_MISSING: %s: run 'mage Bootstrap' first\n", wailsExecutable))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+			"GOLC_DEV_WAILS_MISSING: %s: run 'mage Bootstrap' first\n", wailsExecutable)}
 	}
 
 	goExecutable, err := resolvePinnedGoExecutable(request.Root)
@@ -187,7 +187,7 @@ func runDev(request Request) Result {
 	if runtime.GOOS == "windows" {
 		restoreSyso, err := disableWindowsResourceSyso(execution.Dir)
 		if err != nil {
-			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_DEV_SYSO_DISABLE: %v\n", err))}
+			return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_DEV_SYSO_DISABLE: %v\n", err)}
 		}
 		// Absorb Ctrl+C/SIGTERM here so this process survives long enough to
 		// run restoreSyso below: on Windows, CTRL_C_EVENT is delivered to
@@ -220,5 +220,5 @@ func runDev(request Request) Result {
 	if errors.As(runErr, &exitErr) {
 		return Result{ExitCode: exitErr.ExitCode()}
 	}
-	return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_DEV_FAILED: %v\n", runErr))}
+	return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_DEV_FAILED: %v\n", runErr)}
 }

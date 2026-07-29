@@ -78,7 +78,7 @@ type apiCommandExecutor struct {
 func (e apiCommandExecutor) Execute(route string, args []string, root string) (exitCode int, stdout, stderr []byte) {
 	registration, rest, ok := e.registry.Lookup(strings.Fields(route))
 	if !ok || len(rest) != 0 {
-		return 2, nil, []byte(fmt.Sprintf("GOLC_ROUTE_UNKNOWN: no registered route matches %q\n", route))
+		return 2, nil, fmt.Appendf(nil, "GOLC_ROUTE_UNKNOWN: no registered route matches %q\n", route)
 	}
 	result := registration.Handler(Request{Route: registration.Route, Args: args, Root: root})
 	return result.ExitCode, result.Stdout, result.Stderr
@@ -463,11 +463,11 @@ func runArtnetServe(request Request) Result {
 	// explicit-interface requirement for remote access.
 	apiRegistry, err := NewDefaultCommandRegistry()
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_ARTNET_SERVE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_ARTNET_SERVE_FAILED: %v\n", err)}
 	}
 	apiConfig, err := api.ResolveConfig(request.Root)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_ARTNET_SERVE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_ARTNET_SERVE_FAILED: %v\n", err)}
 	}
 	apiServer := api.NewServer(apiCommandExecutor{registry: apiRegistry}, request.Root, parsed.showPath, api.WithConfig(apiConfig))
 
@@ -491,7 +491,7 @@ func runArtnetServe(request Request) Result {
 	defer stop()
 
 	if err := artnet.Run(ctx, cfg); err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_ARTNET_SERVE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_ARTNET_SERVE_FAILED: %v\n", err)}
 	}
 	return Result{Stdout: []byte("GOLC_ARTNET_SERVE: daemon stopped\n")}
 }
@@ -569,7 +569,7 @@ func runArtnetInterfaceList(request Request) Result {
 		}
 		payload, encodeErr := strictjson.CanonicalEncode(entries)
 		if encodeErr != nil {
-			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_ARTNET_INTERFACE_ENCODE_FAILED: %v\n", encodeErr))}
+			return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_ARTNET_INTERFACE_ENCODE_FAILED: %v\n", encodeErr)}
 		}
 		return Result{Stdout: payload}
 	}
@@ -698,13 +698,13 @@ func runArtnetDiscover(request Request) Result {
 
 	nodes, err := artnet.Discover(ctx, iface, parsed.window)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_ARTNET_DISCOVER_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_ARTNET_DISCOVER_FAILED: %v\n", err)}
 	}
 
 	if parsed.json {
 		payload, encodeErr := strictjson.CanonicalEncode(nodes)
 		if encodeErr != nil {
-			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_ARTNET_DISCOVER_ENCODE_FAILED: %v\n", encodeErr))}
+			return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_ARTNET_DISCOVER_ENCODE_FAILED: %v\n", encodeErr)}
 		}
 		return Result{Stdout: payload}
 	}
@@ -786,8 +786,8 @@ func runArtnetConfigure(request Request) Result {
 	if raw, ok := values["enabled"]; ok {
 		parsedEnabled, parseErr := strconv.ParseBool(raw)
 		if parseErr != nil {
-			return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
-				"GOLC_ARTNET_USAGE: --enabled value %q is not a valid bool; usage: %s\n", raw, usage))}
+			return Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+				"GOLC_ARTNET_USAGE: --enabled value %q is not a valid bool; usage: %s\n", raw, usage)}
 		}
 		enabled = parsedEnabled
 	}
@@ -865,8 +865,8 @@ func runArtnetSafetyToggle(route, usage string, request Request) Result {
 	on := "true"
 	if raw, ok := values["on"]; ok {
 		if _, parseErr := strconv.ParseBool(raw); parseErr != nil {
-			return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
-				"GOLC_ARTNET_USAGE: --on value %q is not a valid bool; usage: %s\n", raw, usage))}
+			return Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+				"GOLC_ARTNET_USAGE: --on value %q is not a valid bool; usage: %s\n", raw, usage)}
 		}
 		on = raw
 	}
@@ -910,8 +910,8 @@ func runArtnetMasterSet(request Request) Result {
 
 	if rawGrand, ok := values["grand"]; ok {
 		if _, parseErr := strconv.ParseFloat(rawGrand, 64); parseErr != nil {
-			return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
-				"GOLC_ARTNET_USAGE: --grand value %q is not a valid number; usage: %s\n", rawGrand, usage))}
+			return Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+				"GOLC_ARTNET_USAGE: --grand value %q is not a valid number; usage: %s\n", rawGrand, usage)}
 		}
 		return forwardToDaemon(pipeNameFromFlags(values), Request{
 			Route: "artnet master set",
@@ -922,21 +922,21 @@ func runArtnetMasterSet(request Request) Result {
 
 	rawGroup, ok := values["group"]
 	if !ok {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
-			"GOLC_ARTNET_USAGE: --grand or --group is required; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_USAGE: --grand or --group is required; usage: %s\n", usage)}
 	}
 	if _, parseErr := uuid.Parse(rawGroup); parseErr != nil {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
-			"GOLC_ARTNET_USAGE: --group value %q is not a valid UUID; usage: %s\n", rawGroup, usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_USAGE: --group value %q is not a valid UUID; usage: %s\n", rawGroup, usage)}
 	}
 	rawLevel, ok := values["level"]
 	if !ok {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
-			"GOLC_ARTNET_USAGE: --level is required with --group; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_USAGE: --level is required with --group; usage: %s\n", usage)}
 	}
 	if _, parseErr := strconv.ParseFloat(rawLevel, 64); parseErr != nil {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
-			"GOLC_ARTNET_USAGE: --level value %q is not a valid number; usage: %s\n", rawLevel, usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_USAGE: --level value %q is not a valid number; usage: %s\n", rawLevel, usage)}
 	}
 
 	return forwardToDaemon(pipeNameFromFlags(values), Request{
@@ -1084,8 +1084,8 @@ func fetchArtnetStatus(pipeName, root string) (artnetStatusPayload, Result, bool
 
 	var payload artnetStatusPayload
 	if err := strictjson.DecodeStrict(result.Stdout, &payload); err != nil {
-		return artnetStatusPayload{}, Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-			"GOLC_ARTNET_STATUS_DECODE_FAILED: %v\n", err))}, false
+		return artnetStatusPayload{}, Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_STATUS_DECODE_FAILED: %v\n", err)}, false
 	}
 	return payload, Result{}, true
 }
@@ -1132,8 +1132,8 @@ func runArtnetStatus(request Request) Result {
 	watch := values["watch"] == "true"
 	jsonOut := values["json"] == "true"
 	if watch && jsonOut {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
-			"GOLC_ARTNET_USAGE: --watch and --json are mutually exclusive; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_USAGE: --watch and --json are mutually exclusive; usage: %s\n", usage)}
 	}
 
 	pipeName := pipeNameFromFlags(values)

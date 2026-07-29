@@ -117,8 +117,8 @@ func runPlaybackBPMSet(request Request) Result {
 
 	bpm, parseErr := strconv.ParseFloat(rawBPM, 64)
 	if parseErr != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-			"GOLC_PLAYBACK_BPM_INVALID: %q is not a valid number: %v\n", rawBPM, parseErr))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+			"GOLC_PLAYBACK_BPM_INVALID: %q is not a valid number: %v\n", rawBPM, parseErr)}
 	}
 	if err := playback.ValidateBPM(bpm); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
@@ -133,7 +133,7 @@ func runPlaybackBPMSet(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_PLAYBACK_BPM_SET: %v\n", bpm))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_PLAYBACK_BPM_SET: %v\n", bpm)}
 }
 
 // parseTapTimestamp parses one --at value as an RFC3339 timestamp
@@ -221,7 +221,7 @@ func runPlaybackBPMTap(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_PLAYBACK_BPM_TAP: %v\n", bpm))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_PLAYBACK_BPM_TAP: %v\n", bpm)}
 }
 
 // playbackEvaluateArgs is the parsed shape of one "playback evaluate"
@@ -343,13 +343,13 @@ func runPlaybackEvaluate(request Request) Result {
 	if parsed.json {
 		payload, err := strictjson.CanonicalEncode(frame)
 		if err != nil {
-			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_PLAYBACK_FRAME_ENCODE_FAILED: %v\n", err))}
+			return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_PLAYBACK_FRAME_ENCODE_FAILED: %v\n", err)}
 		}
 		return Result{Stdout: payload}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf(
+	return Result{Stdout: fmt.Appendf(nil,
 		"GOLC_PLAYBACK_EVALUATE: bar=%d beat_fraction=%v instances=%d\n",
-		pos.BarIndex, pos.BeatFraction, len(frame.Values)))}
+		pos.BarIndex, pos.BeatFraction, len(frame.Values))}
 }
 
 // parsePlaybackSwitchArgs accepts a positional scene name followed by a
@@ -403,12 +403,12 @@ func runPlaybackSwitch(request Request) Result {
 
 	activated, err := scene.ActivateScene(state.Scenes, sceneName)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_PLAYBACK_SWITCH_UNKNOWN_SCENE: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_PLAYBACK_SWITCH_UNKNOWN_SCENE: %v\n", err)}
 	}
 	state.Scenes = activated
 
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_PLAYBACK_SWITCH: %s\n", sceneName))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_PLAYBACK_SWITCH: %s\n", sceneName)}
 }

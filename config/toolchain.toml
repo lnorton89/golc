@@ -166,6 +166,23 @@ module = "gitlab.com/gomidi/tools/midicat"
 version = "v2.13.0"
 module = "github.com/wailsapp/wails/v2/cmd/wails"
 
+# golangci-lint is contributor-facing static analysis tooling (`mage
+# Lint`), never a build/test dependency of the application itself.
+# Installed the same way as midicat/wails: `go install
+# <module>@<version>` using the already-pinned Go toolchain, best-effort/
+# non-fatal per installGoInstallTools (internal/bootstrap/engine.go). Its
+# root package is github.com/golangci/golangci-lint/v2 (the module), but
+# `go install` names the produced binary after cmd/golangci-lint's own
+# last path element -- "golangci-lint", with the internal hyphen
+# validToolName (engine.go) was extended to allow -- so this table's own
+# key must be "golangci-lint" too (installGoInstallTools looks the
+# binary up at GoBin/ExecutableName(name), i.e. it requires the go_install
+# key to equal the binary's actual basename, exactly like midicat/wails
+# above).
+[go_install.golangci-lint]
+version = "v2.12.2"
+module = "github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
+
 [cache]
 downloads = ".tools/cache/downloads"
 gomodcache = ".tools/cache/go-mod"

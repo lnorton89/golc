@@ -22,6 +22,7 @@ package wails
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -436,7 +437,7 @@ var showPathFileFilter = wailsruntime.FileFilter{DisplayName: "GOLC show (*.golc
 func (a *App) PickShowPath() (string, error) {
 	ctx, ok := a.runtimeContext()
 	if !ok {
-		return "", fmt.Errorf("GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE: OnStartup has not run yet")
+		return "", errors.New("GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE: OnStartup has not run yet")
 	}
 	return wailsruntime.OpenFileDialog(ctx, wailsruntime.OpenDialogOptions{
 		Title:   "Open Show",
@@ -452,7 +453,7 @@ func (a *App) PickShowPath() (string, error) {
 func (a *App) PickNewShowPath() (string, error) {
 	ctx, ok := a.runtimeContext()
 	if !ok {
-		return "", fmt.Errorf("GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE: OnStartup has not run yet")
+		return "", errors.New("GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE: OnStartup has not run yet")
 	}
 	return wailsruntime.SaveFileDialog(ctx, wailsruntime.SaveDialogOptions{
 		Title:           "New Show",
@@ -501,7 +502,7 @@ func (a *App) RelaunchWithShow(newShowPath string) Result {
 	}
 	saveResult := registry.Execute(command.Request{Root: a.cfg.ProjectRoot, Args: []string{"show", "save", "--show", a.cfg.ShowPath}})
 	if saveResult.ExitCode != 0 {
-		return fail(fmt.Sprintf("GOLC_WAILS_RELAUNCH_SAVE_FAILED: %s", string(saveResult.Stderr)))
+		return fail("GOLC_WAILS_RELAUNCH_SAVE_FAILED: " + string(saveResult.Stderr))
 	}
 
 	// Step 4: resolve this same running executable -- nothing has spawned
@@ -549,7 +550,7 @@ var fixtureFileFilter = wailsruntime.FileFilter{DisplayName: "GOLC fixture (*.ya
 func (a *App) PickFixtureFile() (string, error) {
 	ctx, ok := a.runtimeContext()
 	if !ok {
-		return "", fmt.Errorf("GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE: OnStartup has not run yet")
+		return "", errors.New("GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE: OnStartup has not run yet")
 	}
 	return wailsruntime.OpenFileDialog(ctx, wailsruntime.OpenDialogOptions{
 		Title:   "Add Custom Fixture",

@@ -8,6 +8,7 @@
 package programming
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -88,7 +89,7 @@ func validatePresetKind(kind PresetKind) error {
 // derived from Name, and never re-minted by RenamePreset.
 func NewPreset(name string, kind PresetKind) (Preset, error) {
 	if strings.TrimSpace(name) == "" {
-		return Preset{}, fmt.Errorf("GOLC_PRESET_NAME_EMPTY: preset name must not be empty")
+		return Preset{}, errors.New("GOLC_PRESET_NAME_EMPTY: preset name must not be empty")
 	}
 	if err := validatePresetKind(kind); err != nil {
 		return Preset{}, err
@@ -131,7 +132,7 @@ func RecordPresetFromProgrammer(ps ProgrammerState, kind PresetKind, name string
 // re-minted (identity is rename-stable).
 func RenamePreset(p Preset, newName string) (Preset, error) {
 	if strings.TrimSpace(newName) == "" {
-		return Preset{}, fmt.Errorf("GOLC_PRESET_NAME_EMPTY: preset name must not be empty")
+		return Preset{}, errors.New("GOLC_PRESET_NAME_EMPTY: preset name must not be empty")
 	}
 	p.Name = newName
 	return p, nil

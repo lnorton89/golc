@@ -8,6 +8,7 @@
 package deployment
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -55,7 +56,7 @@ type Instance struct {
 // are minted only at creation time -- never derived from Name.
 func NewDeployment(name string) (Deployment, error) {
 	if strings.TrimSpace(name) == "" {
-		return Deployment{}, fmt.Errorf("GOLC_DEPLOYMENT_NAME_EMPTY: deployment name must not be empty")
+		return Deployment{}, errors.New("GOLC_DEPLOYMENT_NAME_EMPTY: deployment name must not be empty")
 	}
 	id, err := uuid.NewV7()
 	if err != nil {

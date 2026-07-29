@@ -23,6 +23,7 @@ package command
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -76,10 +77,10 @@ func parseTestArgs(args []string) (testInvocation, error) {
 	scope := ""
 	setScope := func(value string) error {
 		if scope != "" {
-			return fmt.Errorf("GOLC_TEST_USAGE: --scope may be given only once")
+			return errors.New("GOLC_TEST_USAGE: --scope may be given only once")
 		}
 		if value == "" {
-			return fmt.Errorf("GOLC_TEST_USAGE: --scope requires a scope name")
+			return errors.New("GOLC_TEST_USAGE: --scope requires a scope name")
 		}
 		scope = value
 		return nil
@@ -92,7 +93,7 @@ func parseTestArgs(args []string) (testInvocation, error) {
 			i++
 		case argument == "--scope":
 			if i+1 >= len(args) {
-				return testInvocation{}, fmt.Errorf("GOLC_TEST_USAGE: --scope requires a scope name")
+				return testInvocation{}, errors.New("GOLC_TEST_USAGE: --scope requires a scope name")
 			}
 			if err := setScope(args[i+1]); err != nil {
 				return testInvocation{}, err
@@ -114,7 +115,7 @@ func parseTestArgs(args []string) (testInvocation, error) {
 	case quick:
 		return testInvocation{mode: "quick"}, nil
 	case scope != "":
-		return testInvocation{}, fmt.Errorf("GOLC_TEST_USAGE: --scope requires --quick; usage: test [--quick [--scope <scope-name>]]")
+		return testInvocation{}, errors.New("GOLC_TEST_USAGE: --scope requires --quick; usage: test [--quick [--scope <scope-name>]]")
 	default:
 		return testInvocation{mode: "full"}, nil
 	}
@@ -148,7 +149,7 @@ func resolvePinnedGoExecutable(root string) (string, error) {
 	}
 	version := manifest.Toolchain.Go.Version
 	if version == "" {
-		return "", fmt.Errorf("GOLC_TEST_TOOLCHAIN_MISSING: config/toolchain.toml does not pin toolchain.go.version")
+		return "", errors.New("GOLC_TEST_TOOLCHAIN_MISSING: config/toolchain.toml does not pin toolchain.go.version")
 	}
 	if !toolchainVersionPattern.MatchString(version) {
 		return "", fmt.Errorf("GOLC_TEST_TOOLCHAIN_MISSING: pinned toolchain.go.version %q is not a safe dotted version", version)
@@ -318,7 +319,7 @@ func runNodeScopeTest(root string, registration NodeScopeRegistration) Result {
 	fmt.Fprintf(&output, "GOLC test: scope %s -> Node command %s %s\n", registration.Scope, nodeExecutable, strings.Join(registration.Arguments, " "))
 	output.Write(stdoutBuffer.Bytes())
 	if err != nil {
-		stderr := append(stderrBuffer.Bytes(), []byte(fmt.Sprintf("GOLC_TEST_FAILED: scope %s: %v\n", registration.Scope, err))...)
+		stderr := append(stderrBuffer.Bytes(), fmt.Appendf(nil, "GOLC_TEST_FAILED: scope %s: %v\n", registration.Scope, err)...)
 		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: stderr}
 	}
 	return Result{Stdout: output.Bytes(), Stderr: stderrBuffer.Bytes()}
@@ -396,7 +397,7 @@ func runTestQuickScope(root, scopeName string) Result {
 	stdout, stderr, err := runProjectGo(goExecutable, root, arguments)
 	output.Write(stdout)
 	if err != nil {
-		stderr = append(stderr, []byte(fmt.Sprintf("GOLC_TEST_FAILED: scope %s: %v\n", scopeName, err))...)
+		stderr = append(stderr, fmt.Appendf(nil, "GOLC_TEST_FAILED: scope %s: %v\n", scopeName, err)...)
 		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: stderr}
 	}
 	return Result{Stdout: output.Bytes(), Stderr: stderr}
@@ -416,7 +417,7 @@ func runTestQuick(root string) Result {
 	stdout, stderr, err := runProjectGo(goExecutable, root, []string{"vet", "-tags", "mage", "./..."})
 	output.Write(stdout)
 	if err != nil {
-		stderr = append(stderr, []byte(fmt.Sprintf("GOLC_TEST_FAILED: quick vet: %v\n", err))...)
+		stderr = append(stderr, fmt.Appendf(nil, "GOLC_TEST_FAILED: quick vet: %v\n", err)...)
 		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: stderr}
 	}
 	output.WriteString("GOLC test --quick: go vet passed.\n")
@@ -438,7 +439,7 @@ func runTestFull(root string) Result {
 	stdout, stderr, err := runProjectGo(goExecutable, root, []string{"test", "-count=1", "-tags", "mage", "./..."})
 	output.Write(stdout)
 	if err != nil {
-		stderr = append(stderr, []byte(fmt.Sprintf("GOLC_TEST_FAILED: full suite: %v\n", err))...)
+		stderr = append(stderr, fmt.Appendf(nil, "GOLC_TEST_FAILED: full suite: %v\n", err)...)
 		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: stderr}
 	}
 

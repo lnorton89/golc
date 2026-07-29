@@ -28,6 +28,7 @@
 package delivery
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -148,21 +149,18 @@ func LoadGraph(root string) (Graph, error) {
 	rawCLIRoot := strings.TrimSpace(document.Commands.CLIBinary)
 	if rawCLIRoot == "" || filepath.IsAbs(rawCLIRoot) || strings.Contains(rawCLIRoot, `\`) ||
 		!strings.HasPrefix(rawCLIRoot, ".tools/") || path.Clean(rawCLIRoot) != rawCLIRoot {
-		return Graph{}, fmt.Errorf(
-			"GOLC_DELIVERY_INVENTORY_INCOMPLETE: commands.cli_binary must be a safe project-local .tools install root")
+		return Graph{}, errors.New("GOLC_DELIVERY_INVENTORY_INCOMPLETE: commands.cli_binary must be a safe project-local .tools install root")
 	}
 	resolvedCLI := bootstrap.PlatformExecutablePath(filepath.FromSlash(rawCLIRoot), "golc-project")
 	if resolvedCLI == "" {
-		return Graph{}, fmt.Errorf(
-			"GOLC_DELIVERY_INVENTORY_INCOMPLETE: commands.cli_binary could not resolve the project executable")
+		return Graph{}, errors.New("GOLC_DELIVERY_INVENTORY_INCOMPLETE: commands.cli_binary could not resolve the project executable")
 	}
 	inventory := CommandInventory{
 		CLIBinary: filepath.ToSlash(resolvedCLI),
 		GoVersion: strings.TrimSpace(document.Commands.GoVersion),
 	}
 	if inventory.CLIBinary == "" || inventory.GoVersion == "" {
-		return Graph{}, fmt.Errorf(
-			"GOLC_DELIVERY_INVENTORY_INCOMPLETE: config/commands.toml must declare cli_binary and go_version")
+		return Graph{}, errors.New("GOLC_DELIVERY_INVENTORY_INCOMPLETE: config/commands.toml must declare cli_binary and go_version")
 	}
 	return Graph{Root: root, Inventory: inventory, Steps: coreSteps()}, nil
 }
@@ -183,7 +181,7 @@ func LoadPRGraph(root string) (Graph, error) {
 	rawNetwork := values["commands.pr.network_steps"]
 	mutation := values["commands.pr.mutation_steps"]
 	if mutation != "none" {
-		return Graph{}, fmt.Errorf("GOLC_DELIVERY_PR_MUTATION_POLICY: commands.pr.mutation_steps must be none")
+		return Graph{}, errors.New("GOLC_DELIVERY_PR_MUTATION_POLICY: commands.pr.mutation_steps must be none")
 	}
 
 	networkRoutes, err := parsePRRouteSet(rawNetwork, "commands.pr.network_steps")
@@ -196,12 +194,12 @@ func LoadPRGraph(root string) (Graph, error) {
 		invocation = strings.TrimSpace(invocation)
 		fields := strings.Fields(invocation)
 		if len(fields) == 0 {
-			return Graph{}, fmt.Errorf("GOLC_DELIVERY_PR_STEP_INVALID: commands.pr.steps contains a blank invocation")
+			return Graph{}, errors.New("GOLC_DELIVERY_PR_STEP_INVALID: commands.pr.steps contains a blank invocation")
 		}
 		route := fields[0]
 		args := append([]string(nil), fields[1:]...)
 		if route == "bootstrap" && len(args) != 0 {
-			return Graph{}, fmt.Errorf("GOLC_DELIVERY_PR_STEP_INVALID: bootstrap does not accept PR graph arguments")
+			return Graph{}, errors.New("GOLC_DELIVERY_PR_STEP_INVALID: bootstrap does not accept PR graph arguments")
 		}
 		policy := NetworkDenied
 		if _, allowed := networkRoutes[route]; allowed {
@@ -228,8 +226,7 @@ func commandInventoryFromValues(values map[string]string) (CommandInventory, err
 	rawCLIRoot := strings.TrimSpace(values["commands.cli_binary"])
 	if rawCLIRoot == "" || filepath.IsAbs(rawCLIRoot) || strings.Contains(rawCLIRoot, `\`) ||
 		!strings.HasPrefix(rawCLIRoot, ".tools/") || path.Clean(rawCLIRoot) != rawCLIRoot {
-		return CommandInventory{}, fmt.Errorf(
-			"GOLC_DELIVERY_INVENTORY_INCOMPLETE: commands.cli_binary must be a safe project-local .tools install root")
+		return CommandInventory{}, errors.New("GOLC_DELIVERY_INVENTORY_INCOMPLETE: commands.cli_binary must be a safe project-local .tools install root")
 	}
 	resolvedCLI := bootstrap.PlatformExecutablePath(filepath.FromSlash(rawCLIRoot), "golc-project")
 	inventory := CommandInventory{
@@ -237,8 +234,7 @@ func commandInventoryFromValues(values map[string]string) (CommandInventory, err
 		GoVersion: strings.TrimSpace(values["commands.go_version"]),
 	}
 	if inventory.CLIBinary == "" || inventory.GoVersion == "" {
-		return CommandInventory{}, fmt.Errorf(
-			"GOLC_DELIVERY_INVENTORY_INCOMPLETE: config/commands.toml must declare cli_binary and go_version")
+		return CommandInventory{}, errors.New("GOLC_DELIVERY_INVENTORY_INCOMPLETE: config/commands.toml must declare cli_binary and go_version")
 	}
 	return inventory, nil
 }
@@ -269,7 +265,7 @@ func parsePRRouteSet(raw, key string) (map[string]struct{}, error) {
 // inventory.
 func ValidateParity(g Graph) error {
 	if len(g.Steps) == 0 {
-		return fmt.Errorf("GOLC_DELIVERY_GRAPH_EMPTY: graph declares zero steps")
+		return errors.New("GOLC_DELIVERY_GRAPH_EMPTY: graph declares zero steps")
 	}
 	seenNames := map[string]struct{}{}
 	seenInvocations := map[string]struct{}{}
@@ -277,7 +273,7 @@ func ValidateParity(g Graph) error {
 		name := strings.TrimSpace(step.Name)
 		route := strings.TrimSpace(step.Route)
 		if name == "" {
-			return fmt.Errorf("GOLC_DELIVERY_STEP_INVALID: a step has a blank name")
+			return errors.New("GOLC_DELIVERY_STEP_INVALID: a step has a blank name")
 		}
 		if route == "" {
 			return fmt.Errorf("GOLC_DELIVERY_STEP_INVALID: step %q has a blank route", name)
@@ -293,7 +289,7 @@ func ValidateParity(g Graph) error {
 		seenInvocations[invocation] = struct{}{}
 	}
 	if g.Inventory.CLIBinary == "" || g.Inventory.GoVersion == "" {
-		return fmt.Errorf("GOLC_DELIVERY_INVENTORY_INCOMPLETE: graph inventory is incomplete")
+		return errors.New("GOLC_DELIVERY_INVENTORY_INCOMPLETE: graph inventory is incomplete")
 	}
 	return nil
 }
@@ -371,7 +367,7 @@ func (env OfflineEnvironment) AsMap() map[string]string {
 // paths beyond the two that already exist.
 func resolveOfflineEnvironment(root string) (OfflineEnvironment, error) {
 	if strings.TrimSpace(root) == "" {
-		return OfflineEnvironment{}, fmt.Errorf("GOLC_DELIVERY_OFFLINE_ENV: root must not be empty")
+		return OfflineEnvironment{}, errors.New("GOLC_DELIVERY_OFFLINE_ENV: root must not be empty")
 	}
 	absoluteRoot, err := filepath.Abs(root)
 	if err != nil {

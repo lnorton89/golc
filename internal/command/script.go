@@ -154,7 +154,7 @@ func toScriptListEntryView(s show.Script) scriptListEntryView {
 func encodeScriptResult(view any) Result {
 	payload, err := strictjson.CanonicalEncode(view)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_ENCODE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_ENCODE_FAILED: %v\n", err)}
 	}
 	return Result{Stdout: payload}
 }
@@ -260,7 +260,7 @@ func runScriptCreate(request Request) Result {
 	}
 	showPath, ok := flags["show"]
 	if !ok || showPath == "" {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_USAGE: --show is required; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_USAGE: --show is required; usage: %s\n", usage)}
 	}
 
 	state, err := show.Load(request.Root, showPath)
@@ -296,7 +296,7 @@ func runScriptList(request Request) Result {
 	}
 	showPath, ok := flags["show"]
 	if !ok || showPath == "" {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_USAGE: --show is required; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_USAGE: --show is required; usage: %s\n", usage)}
 	}
 
 	state, err := show.Load(request.Root, showPath)
@@ -325,7 +325,7 @@ func runScriptShow(request Request) Result {
 	}
 	showPath, ok := flags["show"]
 	if !ok || showPath == "" {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_USAGE: --show is required; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_USAGE: --show is required; usage: %s\n", usage)}
 	}
 
 	state, err := show.Load(request.Root, showPath)
@@ -334,7 +334,7 @@ func runScriptShow(request Request) Result {
 	}
 	target, _, found := scriptByName(state.Scripts, name)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_NOT_FOUND: no script named %q exists\n", name))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_NOT_FOUND: no script named %q exists\n", name)}
 	}
 	return encodeScriptResult(toScriptView(target))
 }
@@ -356,11 +356,11 @@ func runScriptEdit(request Request) Result {
 	}
 	sourceFile, ok := flags["source-file"]
 	if !ok || sourceFile == "" {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_USAGE: --source-file is required; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_USAGE: --source-file is required; usage: %s\n", usage)}
 	}
 	showPath, ok := flags["show"]
 	if !ok || showPath == "" {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_USAGE: --show is required; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_USAGE: --show is required; usage: %s\n", usage)}
 	}
 
 	state, err := show.Load(request.Root, showPath)
@@ -369,21 +369,21 @@ func runScriptEdit(request Request) Result {
 	}
 	target, index, found := scriptByName(state.Scripts, name)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_NOT_FOUND: no script named %q exists\n", name))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_NOT_FOUND: no script named %q exists\n", name)}
 	}
 
 	resolvedSourcePath := resolveWritablePath(request.Root, sourceFile)
 	info, statErr := os.Stat(resolvedSourcePath)
 	if statErr != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_SOURCE_READ_FAILED: %v\n", statErr))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_SOURCE_READ_FAILED: %v\n", statErr)}
 	}
 	if info.Size() > maxScriptSourceBytes {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-			"GOLC_SCRIPT_SOURCE_TOO_LARGE: source file %q is %d bytes, exceeding the %d byte maximum\n", sourceFile, info.Size(), maxScriptSourceBytes))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+			"GOLC_SCRIPT_SOURCE_TOO_LARGE: source file %q is %d bytes, exceeding the %d byte maximum\n", sourceFile, info.Size(), maxScriptSourceBytes)}
 	}
 	sourceBytes, readErr := os.ReadFile(resolvedSourcePath)
 	if readErr != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_SOURCE_READ_FAILED: %v\n", readErr))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_SOURCE_READ_FAILED: %v\n", readErr)}
 	}
 
 	target.Source = string(sourceBytes)
@@ -410,7 +410,7 @@ func runScriptDelete(request Request) Result {
 	}
 	showPath, ok := flags["show"]
 	if !ok || showPath == "" {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_USAGE: --show is required; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_USAGE: --show is required; usage: %s\n", usage)}
 	}
 
 	state, err := show.Load(request.Root, showPath)
@@ -419,14 +419,14 @@ func runScriptDelete(request Request) Result {
 	}
 	_, index, found := scriptByName(state.Scripts, name)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_NOT_FOUND: no script named %q exists\n", name))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_NOT_FOUND: no script named %q exists\n", name)}
 	}
 	state.Scripts = append(state.Scripts[:index], state.Scripts[index+1:]...)
 
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_SCRIPT_DELETED: %s\n", name))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_SCRIPT_DELETED: %s\n", name)}
 }
 
 // parseScriptLimitFlag parses one optional integer limit flag, returning
@@ -472,7 +472,7 @@ func runScriptProfileSet(request Request) Result {
 	}
 	showPath, ok := flags["show"]
 	if !ok || showPath == "" {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_USAGE: --show is required; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_USAGE: --show is required; usage: %s\n", usage)}
 	}
 
 	state, err := show.Load(request.Root, showPath)
@@ -481,7 +481,7 @@ func runScriptProfileSet(request Request) Result {
 	}
 	target, index, found := scriptByName(state.Scripts, name)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_NOT_FOUND: no script named %q exists\n", name))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_NOT_FOUND: no script named %q exists\n", name)}
 	}
 
 	profile := target.CapabilityProfile

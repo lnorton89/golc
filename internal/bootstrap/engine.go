@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -351,7 +352,14 @@ func (engine *bootstrapEngine) progress(format string, args ...any) {
 	fmt.Fprintf(engine.output, "bootstrap: "+format+"\n", args...)
 }
 
-var validToolName = regexp.MustCompile(`^[a-z0-9_]+$`)
+// validToolName also allows internal hyphens (unlike validExecutableBase,
+// which additionally allows a leading digit and dots for arbitrary
+// executable basenames): a go_install tool name must exactly match the
+// binary `go install` itself produces from the module's last path element
+// (installGoInstallTools passes name straight to ExecutableName), and
+// some real Go CLI tools -- golangci-lint among them -- use a hyphenated
+// command name.
+var validToolName = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 // Bootstrap constructs production dependencies and executes the complete
 // callable bootstrap engine without changing any configuration authority.
@@ -413,7 +421,7 @@ func readBootstrapManifest(root string) (bootstrapManifest, OfficialSourcePolicy
 		return bootstrapManifest{}, OfficialSourcePolicy{}, fmt.Errorf("GOLC_TOOLCHAIN_PARSE: unsupported keys %v", undecoded)
 	}
 	if document.SchemaVersion != 2 {
-		return bootstrapManifest{}, OfficialSourcePolicy{}, fmt.Errorf("GOLC_TOOLCHAIN_PARSE: schema_version must be 2")
+		return bootstrapManifest{}, OfficialSourcePolicy{}, errors.New("GOLC_TOOLCHAIN_PARSE: schema_version must be 2")
 	}
 	var patterns []SourcePattern
 	collect := func(pins map[string]manifestPin) {
@@ -460,7 +468,7 @@ func validateManifestForPlatform(document bootstrapManifest, options Options) (m
 	}
 	goParent, ok := document.Toolchain["go"]
 	if !ok {
-		return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_GO_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.go]")
+		return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, errors.New("GOLC_GO_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.go]")
 	}
 	goPin, err := selectPlatformPin("go", goParent)
 	if err != nil {
@@ -468,7 +476,7 @@ func validateManifestForPlatform(document bootstrapManifest, options Options) (m
 	}
 	mageParent, ok := document.Toolchain["mage"]
 	if !ok {
-		return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_MAGE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.mage]")
+		return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, errors.New("GOLC_MAGE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.mage]")
 	}
 	magePin, err := selectPlatformPin("mage", mageParent)
 	if err != nil {
@@ -482,7 +490,7 @@ func validateManifestForPlatform(document bootstrapManifest, options Options) (m
 	// the separate tools/linear-sync npm ci/tsc build stays opt-in.
 	nodeParent, ok := document.Toolchain["node"]
 	if !ok {
-		return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_NODE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.node]")
+		return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, errors.New("GOLC_NODE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.node]")
 	}
 	nodePin, err := selectPlatformPin("node", nodeParent)
 	if err != nil {
@@ -495,7 +503,7 @@ func validateManifestForPlatform(document bootstrapManifest, options Options) (m
 	// (SCRP-03, 08-RESEARCH.md).
 	denoParent, ok := document.Toolchain["deno"]
 	if !ok {
-		return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, fmt.Errorf("GOLC_DENO_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.deno]")
+		return manifestPin{}, manifestPin{}, manifestPin{}, manifestPin{}, errors.New("GOLC_DENO_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.deno]")
 	}
 	denoPin, err := selectPlatformPin("deno", denoParent)
 	if err != nil {
@@ -677,7 +685,7 @@ func ResolveMageExecutable(root string) (string, error) {
 	}
 	parent, ok := document.Toolchain["mage"]
 	if !ok {
-		return "", fmt.Errorf("GOLC_MAGE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.mage]")
+		return "", errors.New("GOLC_MAGE_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.mage]")
 	}
 	pin, err := selectPlatformPin("mage", parent)
 	if err != nil {
@@ -723,7 +731,7 @@ func ResolveDenoExecutable(root string) (string, error) {
 	}
 	parent, ok := document.Toolchain["deno"]
 	if !ok {
-		return "", fmt.Errorf("GOLC_DENO_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.deno]")
+		return "", errors.New("GOLC_DENO_TOOLCHAIN_MISSING: config/toolchain.toml must pin [toolchain.deno]")
 	}
 	pin, err := selectPlatformPin("deno", parent)
 	if err != nil {
@@ -844,7 +852,7 @@ func (engine *bootstrapEngine) runGoPhase(ctx context.Context, goExecutable stri
 			resultErr = fmt.Errorf("GOLC_BOOTSTRAP_LOCK_MUTATION: locks changed and restoration failed: %w", restoreErr)
 			return
 		}
-		resultErr = fmt.Errorf("GOLC_BOOTSTRAP_LOCK_MUTATION: bootstrap must never rewrite go.mod or go.sum")
+		resultErr = errors.New("GOLC_BOOTSTRAP_LOCK_MUTATION: bootstrap must never rewrite go.mod or go.sum")
 	}()
 
 	if _, err := engine.runProcess(ctx, goExecutable, "GOLC_BOOTSTRAP_MODULE_DOWNLOAD", "mod", "download", "all"); err != nil {
@@ -997,5 +1005,5 @@ func writeExactFile(path string, data []byte, mode os.FileMode) error {
 }
 
 var linearSyncBootstrap = func(context.Context, *bootstrapEngine) error {
-	return fmt.Errorf("GOLC_BOOTSTRAP_LINEAR_SYNC_NOT_IMPLEMENTED")
+	return errors.New("GOLC_BOOTSTRAP_LINEAR_SYNC_NOT_IMPLEMENTED")
 }

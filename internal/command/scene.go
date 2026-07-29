@@ -151,7 +151,7 @@ func runSceneCreate(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_SCENE_CREATED: %s (%s)\n", newScene.Name, newScene.ID))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_SCENE_CREATED: %s (%s)\n", newScene.Name, newScene.ID)}
 }
 
 // parseSceneNameShowArgs accepts exactly a positional scene name and a
@@ -213,7 +213,7 @@ func runSceneActivate(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_SCENE_ACTIVATED: %s\n", name))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_SCENE_ACTIVATED: %s\n", name)}
 }
 
 // sceneLayerSetArgs is the parsed shape of one "scene layer set"
@@ -424,7 +424,7 @@ func runSceneLayerSet(request Request) Result {
 
 	targetScene, index, found := sceneByName(state.Scenes, parsed.sceneName)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCENE_NOT_FOUND: no scene named %q exists\n", parsed.sceneName))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCENE_NOT_FOUND: no scene named %q exists\n", parsed.sceneName)}
 	}
 
 	pools := parsed.pools
@@ -467,8 +467,8 @@ func runSceneLayerSet(request Request) Result {
 	if err := show.Save(request.Root, parsed.showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf(
-		"GOLC_SCENE_LAYER_SET: scene=%s kind=%s enabled=%t\n", updatedScene.Name, layer.Kind, layer.Enabled))}
+	return Result{Stdout: fmt.Appendf(nil,
+		"GOLC_SCENE_LAYER_SET: scene=%s kind=%s enabled=%t\n", updatedScene.Name, layer.Kind, layer.Enabled)}
 }
 
 // parseBlendCreateArgs accepts a positional blend preset name followed by a
@@ -561,5 +561,5 @@ func runBlendCreate(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_BLEND_PRESET_CREATED: %s (%s)\n", newBlend.Name, newBlend.ID))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_BLEND_PRESET_CREATED: %s (%s)\n", newBlend.Name, newBlend.ID)}
 }

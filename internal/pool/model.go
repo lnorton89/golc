@@ -8,6 +8,7 @@
 package pool
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -23,10 +24,10 @@ import (
 // may grow to any count -- pool definition never requires a member count
 // (POOL-01 boundary probe: 0, 1, and the D-12 ceiling are all valid).
 type Pool struct {
-	ID                   uuid.UUID               `json:"id"`
-	Name                 string                  `json:"name"`
+	ID                   uuid.UUID                `json:"id"`
+	Name                 string                   `json:"name"`
 	RequiredCapabilities []fixture.CapabilityType `json:"required_capabilities,omitempty"`
-	Members              []PoolMember            `json:"members,omitempty"`
+	Members              []PoolMember             `json:"members,omitempty"`
 }
 
 // PoolMember is one fixture pinned into a Pool by its stable identity
@@ -81,7 +82,7 @@ func validateRequiredCapabilities(name string, requiredCapabilities []fixture.Ca
 // never re-minted by Rename.
 func NewPool(name string, requiredCapabilities []fixture.CapabilityType) (Pool, error) {
 	if strings.TrimSpace(name) == "" {
-		return Pool{}, fmt.Errorf("GOLC_POOL_NAME_EMPTY: pool name must not be empty")
+		return Pool{}, errors.New("GOLC_POOL_NAME_EMPTY: pool name must not be empty")
 	}
 	if err := validateRequiredCapabilities(name, requiredCapabilities); err != nil {
 		return Pool{}, err
@@ -97,7 +98,7 @@ func NewPool(name string, requiredCapabilities []fixture.CapabilityType) (Pool, 
 // (POOL-01: identity is rename-stable).
 func Rename(p Pool, newName string) (Pool, error) {
 	if strings.TrimSpace(newName) == "" {
-		return Pool{}, fmt.Errorf("GOLC_POOL_NAME_EMPTY: pool name must not be empty")
+		return Pool{}, errors.New("GOLC_POOL_NAME_EMPTY: pool name must not be empty")
 	}
 	p.Name = newName
 	return p, nil
@@ -107,7 +108,7 @@ func Rename(p Pool, newName string) (Pool, error) {
 // given fixture stable key/content hash.
 func NewPoolMember(fixtureStableKey, fixtureContentHash string) (PoolMember, error) {
 	if strings.TrimSpace(fixtureStableKey) == "" {
-		return PoolMember{}, fmt.Errorf("GOLC_POOL_MEMBER_KEY_EMPTY: fixture stable key must not be empty")
+		return PoolMember{}, errors.New("GOLC_POOL_MEMBER_KEY_EMPTY: fixture stable key must not be empty")
 	}
 	id, err := uuid.NewV7()
 	if err != nil {

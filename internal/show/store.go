@@ -77,7 +77,7 @@ type storeMeta struct {
 // readMeta reads the show_meta singleton row alongside show_state's blob
 // length. A schema_version of 0 AND an empty blob marks a freshly-seeded,
 // never-yet-saved file (openStore's seed row, which always leaves
-// show_state.blob as X'') and is treated identically to sql.ErrNoRows:
+// show_state.blob as X”) and is treated identically to sql.ErrNoRows:
 // both mean "no show has been saved at this path yet," mirroring the
 // pre-SQLite Load's not-yet-existing-file short circuit. A schema_version
 // of 0 WITH a non-empty blob is a genuinely-saved historical show at that
@@ -127,7 +127,7 @@ func decodeAndValidate(db *sql.DB, expectedChecksum string) (State, error) {
 		return State{}, fmt.Errorf("GOLC_SHOW_STATE_INVALID: reading show_state: %v", err)
 	}
 	if sha256Hex(blob) != expectedChecksum {
-		return State{}, fmt.Errorf("GOLC_SHOW_STATE_INVALID: checksum mismatch -- stored content does not match show_meta.checksum")
+		return State{}, errors.New("GOLC_SHOW_STATE_INVALID: checksum mismatch -- stored content does not match show_meta.checksum")
 	}
 	var state State
 	if err := strictjson.DecodeStrict(blob, &state); err != nil {

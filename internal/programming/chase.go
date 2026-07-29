@@ -9,6 +9,7 @@
 package programming
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -113,7 +114,7 @@ func NewChase(name string, steps []ChaseStep, stepUnit StepUnit, stepDuration fl
 // re-minted (identity is rename-stable), and Steps is left untouched.
 func RenameChase(c Chase, newName string) (Chase, error) {
 	if strings.TrimSpace(newName) == "" {
-		return Chase{}, fmt.Errorf("GOLC_CHASE_NAME_EMPTY: chase name must not be empty")
+		return Chase{}, errors.New("GOLC_CHASE_NAME_EMPTY: chase name must not be empty")
 	}
 	c.Name = newName
 	return c, nil

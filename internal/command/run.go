@@ -76,13 +76,13 @@ func runRun(request Request) Result {
 
 	desktopExecutable := filepath.Join(request.Root, bootstrap.ExecutableName("golc-desktop"))
 	if info, err := os.Stat(desktopExecutable); err != nil || !info.Mode().IsRegular() {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-			"GOLC_RUN_BINARY_MISSING: %s: run 'mage Build' first\n", desktopExecutable))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+			"GOLC_RUN_BINARY_MISSING: %s: run 'mage Build' first\n", desktopExecutable)}
 	}
 
 	layout, err := bootstrap.NewProjectCacheLayout(request.Root)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_RUN_CACHE_LAYOUT: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_RUN_CACHE_LAYOUT: %v\n", err)}
 	}
 
 	execution := exec.Command(desktopExecutable)
@@ -105,7 +105,7 @@ func runRun(request Request) Result {
 	if errors.As(runErr, &exitErr) {
 		return Result{ExitCode: exitErr.ExitCode()}
 	}
-	return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_RUN_FAILED: %v\n", runErr))}
+	return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_RUN_FAILED: %v\n", runErr)}
 }
 
 // prependPathDirectory returns a copy of environment with dir prepended

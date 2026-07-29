@@ -263,6 +263,13 @@ func DefaultSpec() Spec {
 					// TestScopeBootstrapCache enforces this).
 					"go_install.wails.version": {Pattern: goInstallVersionPattern, Required: true},
 					"go_install.wails.module":  {Pattern: goInstallModulePattern, Required: true},
+					// go_install.golangci-lint pins the contributor-facing
+					// static analysis CLI `mage Lint` (internal/command/
+					// lint.go) shells out to -- never part of the offline
+					// core graph or the committed Windows PR workflow, same
+					// as midicat/wails above.
+					"go_install.golangci-lint.version": {Pattern: goInstallVersionPattern, Required: true},
+					"go_install.golangci-lint.module":  {Pattern: goInstallModulePattern, Required: true},
 				},
 			},
 			{

@@ -50,24 +50,20 @@ func Dial(pipeName string) (net.Conn, error) {
 func Forward(conn net.Conn, request Request) Result {
 	encoded, err := strictjson.CanonicalEncode(request)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(
-			fmt.Sprintf("GOLC_ARTNET_IPC_ENCODE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_ARTNET_IPC_ENCODE_FAILED: %v\n", err)}
 	}
 	if err := writeFrame(conn, encoded); err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(
-			fmt.Sprintf("GOLC_ARTNET_IPC_WRITE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_ARTNET_IPC_WRITE_FAILED: %v\n", err)}
 	}
 
 	payload, err := readFrame(conn)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(
-			fmt.Sprintf("GOLC_ARTNET_IPC_DECODE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_ARTNET_IPC_DECODE_FAILED: %v\n", err)}
 	}
 
 	var result Result
 	if err := strictjson.DecodeStrict(payload, &result); err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(
-			fmt.Sprintf("GOLC_ARTNET_IPC_DECODE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_ARTNET_IPC_DECODE_FAILED: %v\n", err)}
 	}
 	return result
 }

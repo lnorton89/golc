@@ -12,6 +12,7 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -72,7 +73,7 @@ var routeWordPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 func normalizeKey(name string) (string, error) {
 	words := strings.Fields(strings.ToLower(name))
 	if len(words) == 0 {
-		return "", fmt.Errorf("name is empty")
+		return "", errors.New("name is empty")
 	}
 	for _, word := range words {
 		if !routeWordPattern.MatchString(word) {

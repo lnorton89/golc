@@ -19,6 +19,7 @@ package command
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -163,7 +164,7 @@ func resolvePinnedNodeInstallation(root string) (bootstrap.NodeInstallation, err
 	}
 	version := manifest.Toolchain.Node.Version
 	if version == "" {
-		return bootstrap.NodeInstallation{}, fmt.Errorf("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: config/toolchain.toml does not pin toolchain.node.version")
+		return bootstrap.NodeInstallation{}, errors.New("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: config/toolchain.toml does not pin toolchain.node.version")
 	}
 	if !toolchainVersionPattern.MatchString(version) {
 		return bootstrap.NodeInstallation{}, fmt.Errorf("GOLC_BUILD_NODE_TOOLCHAIN_MISSING: pinned toolchain.node.version %q is not a safe dotted version", version)
@@ -279,14 +280,14 @@ func parseBuildArgs(args []string) (string, error) {
 	}
 	if len(args) == 2 && args[0] == "--scope" {
 		if args[1] == "" {
-			return "", fmt.Errorf("GOLC_BUILD_USAGE: --scope requires a scope name; usage: build [--scope <scope-name>]")
+			return "", errors.New("GOLC_BUILD_USAGE: --scope requires a scope name; usage: build [--scope <scope-name>]")
 		}
 		return args[1], nil
 	}
 	if len(args) == 1 && strings.HasPrefix(args[0], "--scope=") {
 		value := strings.TrimPrefix(args[0], "--scope=")
 		if value == "" {
-			return "", fmt.Errorf("GOLC_BUILD_USAGE: --scope requires a scope name; usage: build [--scope <scope-name>]")
+			return "", errors.New("GOLC_BUILD_USAGE: --scope requires a scope name; usage: build [--scope <scope-name>]")
 		}
 		return value, nil
 	}
@@ -332,7 +333,7 @@ func runBuild(request Request) Result {
 
 	packages, err := buildablePackages(goExecutable, request.Root)
 	if err != nil {
-		return Result{ExitCode: 1, Stdout: stdoutSink.buffered(), Stderr: []byte(fmt.Sprintf("GOLC_BUILD_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stdout: stdoutSink.buffered(), Stderr: fmt.Appendf(nil, "GOLC_BUILD_FAILED: %v\n", err)}
 	}
 
 	stdoutSink.writeString("GOLC build: compiling every project package with the pinned toolchain.\n")
@@ -453,7 +454,7 @@ func buildablePackages(goExecutable, root string) ([]string, error) {
 		packages = append(packages, line)
 	}
 	if len(packages) == 0 {
-		return nil, fmt.Errorf("no buildable packages found")
+		return nil, errors.New("no buildable packages found")
 	}
 	return packages, nil
 }

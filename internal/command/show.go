@@ -89,7 +89,7 @@ func runShowSave(request Request) Result {
 	if err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_SHOW_SAVED: %s (revision %d)\n", showPath, saved.Revision))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_SHOW_SAVED: %s (revision %d)\n", showPath, saved.Revision)}
 }
 
 // showSaveAsArgs is the parsed shape of one "show save-as" invocation.
@@ -156,7 +156,7 @@ func runShowSaveAs(request Request) Result {
 	if err := show.Save(request.Root, destPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_SHOW_SAVED_AS: %s -> %s\n", parsed.showPath, destPath))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_SHOW_SAVED_AS: %s -> %s\n", parsed.showPath, destPath)}
 }
 
 // showOpenArgs is the parsed shape of one "show open" invocation.
@@ -285,10 +285,10 @@ func runShowOpen(request Request) Result {
 		var migrationRequired show.ErrSchemaMigrationRequired
 		if errors.As(err, &migrationRequired) {
 			if !parsed.confirmMigration {
-				return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
+				return Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
 					"GOLC_SHOW_MIGRATION_REQUIRED: %s requires migration from schema_version %d to %d before it can be opened; "+
 						"a verified backup will be made first -- re-run with \"show open --show %s --confirm-migration\" to proceed\n",
-					parsed.showPath, migrationRequired.Found, migrationRequired.Supported, parsed.showPath))}
+					parsed.showPath, migrationRequired.Found, migrationRequired.Supported, parsed.showPath)}
 			}
 			backupPath, migrateErr := show.Migrate(request.Root, parsed.showPath)
 			if migrateErr != nil {
@@ -328,8 +328,8 @@ func runShowOpen(request Request) Result {
 			}
 		}
 		if !offered {
-			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-				"GOLC_SHOW_RECOVERY_NOT_FOUND: recovery point %d is not currently offered\n", parsed.acceptRecoveryID))}
+			return Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+				"GOLC_SHOW_RECOVERY_NOT_FOUND: recovery point %d is not currently offered\n", parsed.acceptRecoveryID)}
 		}
 		if err := show.AcceptRecoveryPoint(request.Root, parsed.showPath, parsed.acceptRecoveryID); err != nil {
 			return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}

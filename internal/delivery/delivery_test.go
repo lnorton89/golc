@@ -94,6 +94,7 @@ func TestScopeDelivery(t *testing.T) {
 			{Name: "dev", Kind: delivery.MageTargetKindRoute, Route: "dev", Authority: "internal/command registry"},
 			{Name: "generate", Kind: delivery.MageTargetKindRoute, Route: "generate", Authority: "internal/command registry"},
 			{Name: "generatecheck", Kind: delivery.MageTargetKindRoute, Route: "generate", Args: []string{"--check"}, Authority: "internal/command registry"},
+			{Name: "lint", Kind: delivery.MageTargetKindRoute, Route: "lint", Authority: "internal/command registry"},
 			{Name: "package", Kind: delivery.MageTargetKindRoute, Route: "package", Args: []string{"--foundation"}, Authority: "internal/command registry"},
 			{Name: "packagefoundation", Kind: delivery.MageTargetKindRoute, Route: "package", Args: []string{"--foundation"}, Authority: "internal/command registry"},
 			{Name: "pr", Kind: delivery.MageTargetKindPR, Authority: "config/commands.toml: commands.pr.steps, commands.pr.network_steps, commands.pr.mutation_steps"},

@@ -94,7 +94,7 @@ func runShowDiagnose(request Request) Result {
 
 	payload, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SHOW_DIAGNOSE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SHOW_DIAGNOSE_FAILED: %v\n", err)}
 	}
 	payload = append(payload, '\n')
 
@@ -122,7 +122,7 @@ func runShowExport(request Request) Result {
 
 	payload, err := strictjson.CanonicalEncode(state)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SHOW_EXPORT_ENCODE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SHOW_EXPORT_ENCODE_FAILED: %v\n", err)}
 	}
 	return Result{Stdout: payload}
 }

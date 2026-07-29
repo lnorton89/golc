@@ -340,7 +340,7 @@ func TestMagefileExportsAndImports(t *testing.T) {
 		}
 	}
 	sort.Strings(exports)
-	want := []string{"Bootstrap", "Build", "Check", "CheckOffline", "Dev", "Generate", "GenerateCheck", "Package", "PackageFoundation", "Pr", "Run", "Test", "TestQuick"}
+	want := []string{"Bootstrap", "Build", "Check", "CheckOffline", "Dev", "Generate", "GenerateCheck", "Lint", "Package", "PackageFoundation", "Pr", "Run", "Test", "TestQuick"}
 	sort.Strings(want)
 	if strings.Join(exports, ",") != strings.Join(want, ",") {
 		t.Fatalf("exported functions = %v, want %v", exports, want)

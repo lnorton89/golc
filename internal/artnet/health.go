@@ -29,6 +29,7 @@
 package artnet
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -70,7 +71,7 @@ func (f FrameHealth) Err() error {
 		return nil
 	}
 	if f.LastFrameAt.IsZero() {
-		return fmt.Errorf("GOLC_ARTNET_FRAME_STALLED: no frame has ever been recorded")
+		return errors.New("GOLC_ARTNET_FRAME_STALLED: no frame has ever been recorded")
 	}
 	return fmt.Errorf("GOLC_ARTNET_FRAME_STALLED: no new frame since %s", f.LastFrameAt.UTC().Format(time.RFC3339Nano))
 }

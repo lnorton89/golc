@@ -99,12 +99,12 @@ func runLinearValidate(request Request) Result {
 	// still matches its registered internal/contracts source.
 	changed, err := contracts.CheckDrift(request.Root)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_VALIDATE_SCHEMA: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_LINEAR_VALIDATE_SCHEMA: %v\n", err)}
 	}
 	for _, path := range changed {
 		if path == linearMapSchemaOutputPath {
-			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-				"GOLC_LINEAR_VALIDATE_SCHEMA_DRIFT: %s does not match its generated source\n", linearMapSchemaOutputPath))}
+			return Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+				"GOLC_LINEAR_VALIDATE_SCHEMA_DRIFT: %s does not match its generated source\n", linearMapSchemaOutputPath)}
 		}
 	}
 
@@ -129,7 +129,7 @@ func runLinearValidate(request Request) Result {
 	}
 	payload, err := json.MarshalIndent(view, "", "  ")
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_VALIDATE_ENCODE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_LINEAR_VALIDATE_ENCODE_FAILED: %v\n", err)}
 	}
 	return Result{Stdout: append(payload, '\n')}
 }

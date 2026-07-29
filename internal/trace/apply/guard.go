@@ -12,6 +12,7 @@
 package apply
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/lnorton89/golc/internal/strictjson"
@@ -39,7 +40,7 @@ func GuardAgainstPullRequestMutation(lookup func(string) (string, bool)) error {
 		return nil
 	}
 	if value, ok := lookup(pullRequestEventEnvVar); ok && value == pullRequestEventValue {
-		return fmt.Errorf("GOLC_APPLY_PR_BLOCKED: mutating apply is never permitted from a pull_request-triggered CI event (CONTEXT D-16)")
+		return errors.New("GOLC_APPLY_PR_BLOCKED: mutating apply is never permitted from a pull_request-triggered CI event (CONTEXT D-16)")
 	}
 	return nil
 }

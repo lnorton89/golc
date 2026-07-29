@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -42,7 +43,7 @@ func archiveFormatFromPath(archivePath string) (archiveFormat, error) {
 
 func normalizeArchiveEntryName(name string) (string, error) {
 	if strings.TrimSpace(name) == "" {
-		return "", fmt.Errorf("BOOTSTRAP_ARCHIVE_TRAVERSAL: empty entry name")
+		return "", errors.New("BOOTSTRAP_ARCHIVE_TRAVERSAL: empty entry name")
 	}
 	normalized := strings.ReplaceAll(name, "\\", "/")
 	if strings.HasPrefix(normalized, "/") || strings.Contains(normalized, ":") {
@@ -203,7 +204,7 @@ func inspectArchive(archivePath string, format archiveFormat) ([]archiveEntry, e
 	case archiveTarGz:
 		return inspectTarGzEntries(archivePath)
 	default:
-		return nil, fmt.Errorf("BOOTSTRAP_ARCHIVE_FORMAT: unsupported archive format")
+		return nil, errors.New("BOOTSTRAP_ARCHIVE_FORMAT: unsupported archive format")
 	}
 }
 
