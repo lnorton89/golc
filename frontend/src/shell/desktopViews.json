@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "groups": [
+    {
+      "label": "Show",
+      "views": [
+        {
+          "id": "show-overview",
+          "slug": "show-overview",
+          "navLabel": "Overview",
+          "title": "Show overview",
+          "purpose": "Review the open show, its programming totals, and the next useful authoring or operating step.",
+          "actions": ["Start Guided First Show", "Open a recent workspace", "Review show status and totals"],
+          "concepts": ["Show state", "Guided First Show"],
+          "operatingNotes": ["Start Guide is the repeatable entry point for the guided first-show workflow."],
+          "screenshot": "/desktop-views/show-overview.png"
+        },
+        {
+          "id": "show-shows",
+          "slug": "show-shows",
+          "navLabel": "Shows",
+          "title": "Shows",
+          "purpose": "Create, open, and switch the show database used by the desktop application.",
+          "actions": ["Create a show", "Open an existing show", "Switch among recent shows"],
+          "operatingNotes": ["Show changes use the same application state shown in the header and overview."],
+          "screenshot": "/desktop-views/show-shows.png"
+        },
+        {
+          "id": "show-save-recovery",
+          "slug": "show-save-recovery",
+          "navLabel": "Save & Recovery",
+          "title": "Save and recovery",
+          "purpose": "Inspect save state and use the available recovery controls for the current show.",
+          "actions": ["Review current save status", "Save the show", "Inspect available recovery information"],
+          "screenshot": "/desktop-views/show-save-recovery.png"
+        },
+        {
+          "id": "show-settings",
+          "slug": "show-settings",
+          "navLabel": "Settings",
+          "title": "Settings",
+          "purpose": "Configure application preferences exposed by the current desktop build.",
+          "actions": ["Review application settings", "Change available preferences", "Confirm persisted values"],
+          "screenshot": "/desktop-views/show-settings.png"
+        }
+      ]
+    },
+    {
+      "label": "Build",
+      "views": [
+        {
+          "id": "build-fixture-library",
+          "slug": "build-fixture-library",
+          "navLabel": "Fixture Library",
+          "title": "Fixture library",
+          "purpose": "Browse, import, and manage validated fixture definitions before adding fixtures to a show.",
+          "actions": ["Search fixture definitions", "Import a fixture definition", "Inspect validation details"],
+          "concepts": ["Canonical fixture definitions", "Open Fixture Library import"],
+          "screenshot": "/desktop-views/build-fixture-library.png"
+        },
+        {
+          "id": "build-patch-pools",
+          "slug": "build-patch-pools",
+          "navLabel": "Patch & Pools",
+          "title": "Patch and pools",
+          "purpose": "Patch fixture instances to universes and addresses, then organize them into reusable pools.",
+          "actions": ["Add and address fixtures", "Build fixture pools", "Preview structural changes before commit"],
+          "concepts": ["Patch", "Fixture pool", "Impact preview"],
+          "screenshot": "/desktop-views/build-patch-pools.png"
+        },
+        {
+          "id": "build-scenes-looks",
+          "slug": "build-scenes-looks",
+          "navLabel": "Scenes & Looks",
+          "title": "Scenes and looks",
+          "purpose": "Program reusable looks and tempo-aware scenes from the fixtures and pools in the show.",
+          "actions": ["Create and select scenes", "Edit look attributes", "Configure scene timing and transitions"],
+          "concepts": ["Look", "Scene", "Transition"],
+          "screenshot": "/desktop-views/build-scenes-looks.png"
+        },
+        {
+          "id": "build-scripts",
+          "slug": "build-scripts",
+          "navLabel": "Scripts",
+          "title": "Scripts",
+          "purpose": "Author, validate, run, debug, and stop show automation scripts from one workspace.",
+          "actions": ["Create and edit a script", "Validate and save source", "Run, debug, or stop a script"],
+          "concepts": ["TypeScript automation", "Command boundary"],
+          "operatingNotes": ["Script controls remain separate from deterministic playback timing."],
+          "screenshot": "/desktop-views/build-scripts.png"
+        }
+      ]
+    },
+    {
+      "label": "Operate",
+      "views": [
+        {
+          "id": "operate-operator-surface",
+          "slug": "operate-operator-surface",
+          "navLabel": "Operator Surface",
+          "title": "Operator surface",
+          "purpose": "Arrange and use the reduced control surface handed to an operator for reliable show playback.",
+          "actions": ["Select an operator surface", "Launch assigned scenes and controls", "Review active assignments"],
+          "concepts": ["Operator surface", "Live control assignment"],
+          "screenshot": "/desktop-views/operate-operator-surface.png"
+        },
+        {
+          "id": "operate-midi-mapping",
+          "slug": "operate-midi-mapping",
+          "navLabel": "MIDI Mapping",
+          "title": "MIDI mapping",
+          "purpose": "Connect incoming MIDI controls to supported show actions and inspect takeover behavior.",
+          "actions": ["Review MIDI devices", "Learn control mappings", "Inspect mapping and soft-takeover state"],
+          "concepts": ["MIDI learn", "Soft takeover"],
+          "screenshot": "/desktop-views/operate-midi-mapping.png"
+        }
+      ]
+    },
+    {
+      "label": "Output",
+      "views": [
+        {
+          "id": "output-artnet",
+          "slug": "output-artnet",
+          "navLabel": "Art-Net",
+          "title": "Art-Net output",
+          "purpose": "Configure and observe the Art-Net output path used to send DMX universes on the network.",
+          "actions": ["Select the output interface", "Configure Art-Net output", "Review universe output state"],
+          "concepts": ["Art-Net", "Universe", "Network interface"],
+          "screenshot": "/desktop-views/output-artnet.png"
+        },
+        {
+          "id": "output-diagnostics",
+          "slug": "output-diagnostics",
+          "navLabel": "Diagnostics",
+          "title": "Output diagnostics",
+          "purpose": "Inspect output health and frame information without placing timing authority in the UI.",
+          "actions": ["Review output status", "Inspect frame and universe diagnostics", "Identify reported output problems"],
+          "concepts": ["Frame health", "Output telemetry"],
+          "operatingNotes": ["Displayed telemetry is observational; the Go output loop remains authoritative."],
+          "screenshot": "/desktop-views/output-diagnostics.png"
+        }
+      ]
+    }
+  ]
+}

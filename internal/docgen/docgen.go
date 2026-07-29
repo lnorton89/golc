@@ -224,6 +224,9 @@ func GenerateAll(root string) ([]Page, error) {
 	if err := os.WriteFile(indexPath, renderIndex(pages), 0o644); err != nil {
 		return nil, fmt.Errorf("GOLC_DOCGEN_WRITE: %s: %v", indexPath, err)
 	}
+	if err := generateDesktopViews(root); err != nil {
+		return nil, err
+	}
 
 	return pages, nil
 }
