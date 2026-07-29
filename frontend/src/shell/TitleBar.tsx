@@ -12,17 +12,41 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { Minus, Square, Copy, X } from "lucide-react";
 
-import { windowMinimise, windowToggleMaximise, windowIsMaximised, windowClose } from "../lib/wailsBridge";
+import {
+  windowMinimise,
+  windowToggleMaximise,
+  windowIsMaximised,
+  windowClose,
+  inspectShow,
+} from "../lib/wailsBridge";
+import appIcon from "../assets/app-icon.png";
 import styles from "./TitleBar.module.css";
 
 const dragStyle = { "--wails-draggable": "drag" } as CSSProperties;
 const noDragStyle = { "--wails-draggable": "no-drag" } as CSSProperties;
 
+/** projectNameFromPath strips a show file's directory and .golc extension
+ * (e.g. "C:\shows\Fall Tour.golc" -> "Fall Tour"), tolerating both Windows
+ * and POSIX separators since showPath comes straight from the Go host,
+ * whichever platform it's running on. */
+function projectNameFromPath(showPath: string): string {
+  const base = showPath.split(/[\\/]/).pop() ?? "";
+  return base.replace(/\.golc$/i, "");
+}
+
 export default function TitleBar() {
   const [maximised, setMaximised] = useState(false);
+  // "(unsaved show)" mirrors OverviewWorkspace.tsx's identical fallback for
+  // an unsaved show (offlineShowInspectView's showPath is always "") or a
+  // missing bridge -- never a blank center label.
+  const [projectName, setProjectName] = useState("(unsaved show)");
 
   useEffect(() => {
     windowIsMaximised().then(setMaximised);
+    inspectShow().then((view) => {
+      const name = projectNameFromPath(view.showPath);
+      if (name) setProjectName(name);
+    });
   }, []);
 
   const toggleMaximise = () => {
@@ -32,7 +56,11 @@ export default function TitleBar() {
 
   return (
     <div className={styles.titleBar} style={dragStyle} onDoubleClick={toggleMaximise}>
-      <span className={styles.title}>GOLC</span>
+      <div className={styles.brand}>
+        <img src={appIcon} alt="" className={styles.brandIcon} />
+        <span className={styles.brandLabel}>GOLC</span>
+      </div>
+      <span className={styles.projectName}>{projectName}</span>
       <div className={styles.controls} style={noDragStyle} onDoubleClick={(event) => event.stopPropagation()}>
         <button
           type="button"
