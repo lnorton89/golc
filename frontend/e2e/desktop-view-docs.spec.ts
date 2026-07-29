@@ -6,6 +6,7 @@ import desktopViews from "../src/shell/desktopViews.json" with { type: "json" };
 
 const OUTPUT_ROOT = path.resolve(import.meta.dirname, "../../site/public/desktop-views");
 const views = desktopViews.groups.flatMap((group) => group.views);
+const DOCUMENTATION_VIEWPORT = { width: 1920, height: 1080 } as const;
 
 async function installHealthyDocumentationBindings(page: Page): Promise<void> {
   await page.addInitScript(() => {
@@ -158,9 +159,71 @@ async function settle(page: Page): Promise<void> {
   await page.waitForTimeout(250);
 }
 
+async function expectTopBarTextToBeReadable(page: Page): Promise<void> {
+  const issues = await page.locator("header").evaluate((frame) => {
+    const frameRect = frame.getBoundingClientRect();
+    const textElements = [frame, ...frame.querySelectorAll<HTMLElement>("*")].filter((element) => {
+      const hasDirectText = [...element.childNodes].some(
+        (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
+      );
+      if (!hasDirectText) return false;
+
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0;
+    });
+    const failures: string[] = [];
+    const describe = (element: HTMLElement) =>
+      (element.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 80);
+
+    for (const element of textElements) {
+      const rect = element.getBoundingClientRect();
+      if (
+        rect.left < frameRect.left - 1 ||
+        rect.right > frameRect.right + 1 ||
+        rect.top < frameRect.top - 1 ||
+        rect.bottom > frameRect.bottom + 1
+      ) {
+        failures.push(`"${describe(element)}" extends outside the top bar`);
+      }
+
+      const style = window.getComputedStyle(element);
+      const clipsHorizontally = ["auto", "clip", "hidden", "scroll"].includes(style.overflowX);
+      const clipsVertically = ["auto", "clip", "hidden", "scroll"].includes(style.overflowY);
+      if (
+        (clipsHorizontally && element.scrollWidth > element.clientWidth + 1) ||
+        (clipsVertically && element.scrollHeight > element.clientHeight + 1)
+      ) {
+        failures.push(`"${describe(element)}" is clipped inside its own box`);
+      }
+    }
+
+    for (let leftIndex = 0; leftIndex < textElements.length; leftIndex += 1) {
+      const left = textElements[leftIndex];
+      const leftRect = left.getBoundingClientRect();
+      for (let rightIndex = leftIndex + 1; rightIndex < textElements.length; rightIndex += 1) {
+        const right = textElements[rightIndex];
+        if (left.contains(right) || right.contains(left)) continue;
+
+        const rightRect = right.getBoundingClientRect();
+        const intersectionWidth = Math.min(leftRect.right, rightRect.right) - Math.max(leftRect.left, rightRect.left);
+        const intersectionHeight =
+          Math.min(leftRect.bottom, rightRect.bottom) - Math.max(leftRect.top, rightRect.top);
+        if (intersectionWidth > 1 && intersectionHeight > 1) {
+          failures.push(`"${describe(left)}" overlaps "${describe(right)}"`);
+        }
+      }
+    }
+
+    return [...new Set(failures)];
+  });
+
+  expect(issues, "top-bar text must not overlap, jumble, or clip before capture").toEqual([]);
+}
+
 test("captures every catalog desktop destination", async ({ page }) => {
   test.setTimeout(90_000);
-  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.setViewportSize(DOCUMENTATION_VIEWPORT);
   await installHealthyDocumentationBindings(page);
   await mkdir(OUTPUT_ROOT, { recursive: true });
 
@@ -186,6 +249,7 @@ test("captures every catalog desktop destination", async ({ page }) => {
     await expect(page.getByText(/GOLC_WAILS_(?:BINDING|BRIDGE)_UNAVAILABLE/i)).toHaveCount(0);
     await expect(page.getByText("Issues found", { exact: true })).toHaveCount(0);
     await expect(page.getByText("offline", { exact: true })).toHaveCount(0);
+    await expectTopBarTextToBeReadable(page);
     await page.screenshot({
       path: outputPath(view.screenshot),
       animations: "disabled",
