@@ -29,3 +29,17 @@ tests/golden/** text eol=lf
 # check even though nothing about the map actually drifted (observed
 # live: cross-platform-mage.yml run 30112915317 on windows-latest).
 .planning/linear-map.json text eol=lf
+
+# Fourth occurrence of the same class of bug, this time for the two
+# generated-artifact families internal/api and internal/scriptsdk added
+# after the fixes above landed: api.GenerateOpenAPI and
+# scriptsdk.GenerateAll both os.WriteFile LF-only output (mirroring
+# internal/contracts.GenerateAll), and generate --check compares it
+# byte-for-byte against the committed copy. Neither path was covered by
+# the pins above, so a Windows checkout's core.autocrlf conversion
+# reported all three as drifted (observed live: cross-platform-mage.yml
+# run 30499787505 on windows-latest -- docs/api/openapi.json and both
+# internal/scriptsdk/generated/*.{ts,d.ts} files, mismatched only in
+# trailing line-ending bytes).
+docs/api/openapi.json text eol=lf
+internal/scriptsdk/generated/** text eol=lf
