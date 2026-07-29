@@ -29,6 +29,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -170,12 +171,30 @@ func resolvePinnedGoExecutable(root string) (string, error) {
 // means a missing module sum fails closed with Go's own diagnostic instead
 // of a silent network fetch, even though GOFLAGS=-mod=readonly already
 // forbids the module graph from changing.
+//
+// On darwin, an additive CGO_LDFLAGS also works around an unpatched
+// upstream Wails v2.13.0 bug: internal/frontend/desktop/darwin/dialog.go
+// references UTType (guarded by "#if __has_include
+// (<UniformTypeIdentifiers/UTType.h>)", which resolves true on every
+// current macOS SDK) but its "#cgo LDFLAGS" never links
+// UniformTypeIdentifiers.framework, so any build that imports the darwin
+// frontend package fails at the final link step with "Undefined symbols
+// for architecture arm64: _OBJC_CLASS_$_UTType" (observed live:
+// cross-platform-mage.yml run 30499787505 on macos-latest; confirmed
+// unpatched as of Wails v2.13.0, the latest v2 release, and unreleased
+// v2 master -- github.com/wailsapp/wails has no commit or issue
+// referencing UniformTypeIdentifiers). Appended rather than overwritten
+// so an ambient CGO_LDFLAGS a caller already set keeps its own flags.
 func projectGoEnvironment(root string) []string {
 	environment := []string{}
+	cgoLDFlags := ""
 	for _, entry := range os.Environ() {
-		name := strings.SplitN(entry, "=", 2)[0]
+		name, value, _ := strings.Cut(entry, "=")
 		switch strings.ToUpper(name) {
 		case "GOTOOLCHAIN", "GOPROXY", "GOMODCACHE", "GOCACHE", "GOFLAGS":
+			continue
+		case "CGO_LDFLAGS":
+			cgoLDFlags = value
 			continue
 		}
 		environment = append(environment, entry)
@@ -187,6 +206,15 @@ func projectGoEnvironment(root string) []string {
 		"GOCACHE="+filepath.Join(root, ".tools", "cache", "go-build"),
 		"GOFLAGS=-mod=readonly",
 	)
+	if runtime.GOOS == "darwin" {
+		darwinLDFlags := "-framework UniformTypeIdentifiers"
+		if cgoLDFlags != "" {
+			darwinLDFlags = cgoLDFlags + " " + darwinLDFlags
+		}
+		environment = append(environment, "CGO_LDFLAGS="+darwinLDFlags)
+	} else if cgoLDFlags != "" {
+		environment = append(environment, "CGO_LDFLAGS="+cgoLDFlags)
+	}
 	return upsertEnvironment(environment, "GOLC_PROJECT_ROOT", root)
 }
 
