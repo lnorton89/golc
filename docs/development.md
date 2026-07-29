@@ -68,7 +68,7 @@ commands below work offline.
 `config inspect`/`config set`/`config explain`, `test --quick --scope
 <name>`, and `docs` below are not in Mage's fixed target set (`mage
 Bootstrap`, `Generate`, `GenerateCheck`, `Check`, `CheckOffline`,
-`Build`, `Dev`, `Test`, `TestQuick`, `Package`/`PackageFoundation`, `Pr` — see
+`Build`, `Lint`, `Dev`, `Run`, `Test`, `TestQuick`, `Package`/`PackageFoundation`, `Pr` — see
 the [repository README](../README.md#every-mage-target) for what each
 one does): they take variable arguments a fixed Mage target descriptor
 can't model, so they're invoked directly against the CLI binary
