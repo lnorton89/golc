@@ -37,6 +37,14 @@ func TestDocsRouteRegeneratesIntoDisposableRoot(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(packageDir, "widget.go"), []byte(source), 0o644); err != nil {
 		t.Fatalf("write fixture package: %v", err)
 	}
+	catalogDir := filepath.Join(root, "frontend", "src", "shell")
+	if err := os.MkdirAll(catalogDir, 0o755); err != nil {
+		t.Fatalf("prepare desktop catalog directory: %v", err)
+	}
+	catalog := `{"schemaVersion":1,"groups":[{"label":"Show","views":[{"id":"show-overview","slug":"show-overview","navLabel":"Overview","title":"Show overview","purpose":"Review the current show.","actions":["Inspect"],"screenshot":"/desktop-views/show-overview.png"}]}]}`
+	if err := os.WriteFile(filepath.Join(catalogDir, "desktopViews.json"), []byte(catalog), 0o644); err != nil {
+		t.Fatalf("write desktop catalog fixture: %v", err)
+	}
 
 	result := runDocs(Request{Route: "docs", Args: nil, Root: root})
 	if result.ExitCode != 0 {

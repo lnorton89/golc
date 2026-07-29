@@ -86,6 +86,13 @@ func TestScopeDocs(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(tempRoot, "internal", "widget", "widget.go"), []byte(widgetSource), 0o644); err != nil {
 			t.Fatalf("write fixture package: %v", err)
 		}
+		catalogPath := filepath.Join(tempRoot, filepath.FromSlash(docgen.DesktopViewsSource))
+		if err := os.MkdirAll(filepath.Dir(catalogPath), 0o755); err != nil {
+			t.Fatalf("prepare catalog directory: %v", err)
+		}
+		if err := os.WriteFile(catalogPath, validDesktopCatalog(), 0o644); err != nil {
+			t.Fatalf("write fixture catalog: %v", err)
+		}
 
 		firstRun, err := docgen.GenerateAll(tempRoot)
 		if err != nil {
@@ -136,23 +143,7 @@ func TestScopeDocs(t *testing.T) {
 }
 
 func TestDesktopViewsCatalog(t *testing.T) {
-	valid := []byte(`{
-  "schemaVersion": 1,
-  "groups": [{
-    "label": "Show",
-    "views": [{
-      "id": "show-overview",
-      "slug": "overview",
-      "navLabel": "Overview",
-      "title": "Show overview",
-      "purpose": "Review the open show and enter the guided workflow.",
-      "actions": ["Start Guided First Show"],
-      "concepts": ["Show state"],
-      "operatingNotes": ["Uses deterministic fallback data in browser previews."],
-      "screenshot": "/desktop-views/show-overview.png"
-    }]
-  }]
-}`)
+	valid := validDesktopCatalog()
 
 	t.Run("normalizes valid input byte-identically", func(t *testing.T) {
 		first, err := docgen.NormalizeDesktopViews(valid)
@@ -202,4 +193,24 @@ func TestDesktopViewsCatalog(t *testing.T) {
 			}
 		})
 	}
+}
+
+func validDesktopCatalog() []byte {
+	return []byte(`{
+  "schemaVersion": 1,
+  "groups": [{
+    "label": "Show",
+    "views": [{
+      "id": "show-overview",
+      "slug": "overview",
+      "navLabel": "Overview",
+      "title": "Show overview",
+      "purpose": "Review the open show and enter the guided workflow.",
+      "actions": ["Start Guided First Show"],
+      "concepts": ["Show state"],
+      "operatingNotes": ["Uses deterministic fallback data in browser previews."],
+      "screenshot": "/desktop-views/show-overview.png"
+    }]
+  }]
+}`)
 }

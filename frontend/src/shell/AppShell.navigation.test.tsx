@@ -21,10 +21,14 @@ describe("AppShell navigation", () => {
   const allDestinationLabels = NAV_GROUPS.flatMap((group) => group.destinations.map((destination) => destination.label));
 
   it("projects the complete, unique schema-v1 catalog into navigation", () => {
+    const catalogGroups = desktopViews.groups as ReadonlyArray<{
+      label: string;
+      views: ReadonlyArray<{ id: string; slug: string; navLabel: string }>;
+    }>;
     expect(desktopViews.schemaVersion).toBe(1);
-    expect(desktopViews.groups.map((group) => group.label)).toEqual(["Show", "Build", "Operate", "Output"]);
+    expect(catalogGroups.map((group) => group.label)).toEqual(["Show", "Build", "Operate", "Output"]);
 
-    const catalogViews = desktopViews.groups.flatMap((group) => group.views);
+    const catalogViews = catalogGroups.flatMap((group) => group.views);
     expect(catalogViews).toHaveLength(12);
     expect(new Set(catalogViews.map((view) => view.id)).size).toBe(catalogViews.length);
     expect(new Set(catalogViews.map((view) => view.slug)).size).toBe(catalogViews.length);
@@ -37,7 +41,7 @@ describe("AppShell navigation", () => {
         })),
       ),
     ).toEqual(
-      desktopViews.groups.flatMap((group) =>
+      catalogGroups.flatMap((group) =>
         group.views.map((view) => ({
           group: group.label,
           id: view.id,

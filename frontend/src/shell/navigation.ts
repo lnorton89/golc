@@ -1,9 +1,10 @@
-// navigation.ts declares the shell's locked information architecture
+// navigation.ts projects the shell's locked information architecture
 // (.planning/sketches/references/application-shell-navigation.md's grouped
 // Show/Build/Operate/Output rail). This is the single source of truth
 // CommandRail.tsx and WorkspaceRouter.tsx both read from -- adding a
-// destination means adding one entry here plus one case in
-// WorkspaceRouter.tsx's switch.
+// destination means adding one catalog entry plus one case in
+// WorkspaceRouter.tsx's switch and its exhaustive icon map.
+import desktopViews from "./desktopViews.json";
 
 export type DestinationId =
   | "show-overview"
@@ -29,39 +30,12 @@ export interface NavGroup {
   destinations: NavDestination[];
 }
 
-export const NAV_GROUPS: NavGroup[] = [
-  {
-    label: "Show",
-    destinations: [
-      { id: "show-overview", label: "Overview" },
-      { id: "show-shows", label: "Shows" },
-      { id: "show-save-recovery", label: "Save & Recovery" },
-      { id: "show-settings", label: "Settings" },
-    ],
-  },
-  {
-    label: "Build",
-    destinations: [
-      { id: "build-fixture-library", label: "Fixture Library" },
-      { id: "build-patch-pools", label: "Patch & Pools" },
-      { id: "build-scenes-looks", label: "Scenes & Looks" },
-      { id: "build-scripts", label: "Scripts" },
-    ],
-  },
-  {
-    label: "Operate",
-    destinations: [
-      { id: "operate-operator-surface", label: "Operator Surface" },
-      { id: "operate-midi-mapping", label: "MIDI Mapping" },
-    ],
-  },
-  {
-    label: "Output",
-    destinations: [
-      { id: "output-artnet", label: "Art-Net" },
-      { id: "output-diagnostics", label: "Diagnostics" },
-    ],
-  },
-];
+export const NAV_GROUPS: NavGroup[] = desktopViews.groups.map((group) => ({
+  label: group.label,
+  destinations: group.views.map((view) => ({
+    id: view.id as DestinationId,
+    label: view.navLabel,
+  })),
+}));
 
 export const DEFAULT_DESTINATION: DestinationId = "show-overview";
