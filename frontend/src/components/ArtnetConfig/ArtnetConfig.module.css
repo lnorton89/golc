@@ -240,18 +240,106 @@
   color: var(--ink);
 }
 
-.rowCounts {
-  font-size: 14px;
-  color: var(--muted);
-}
-
 .pinnedChip {
+  flex-shrink: 0;
   padding: 2px var(--space-sm);
   border-radius: 4px;
   background: var(--status-live);
   color: #fff;
   font-size: 14px;
   font-weight: 600;
+}
+
+/* Compact single-line interface rows (denser than the target-list cards
+   below: one line per interface -- status dot, name, addresses, then
+   either a Pinned chip or a small Use button). */
+
+.interfaceList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.interfaceRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 4px var(--space-sm);
+  border-bottom: 1px solid var(--line);
+  background: var(--page);
+}
+
+.interfaceRow:last-child {
+  border-bottom: none;
+}
+
+.interfaceStatusUp,
+.interfaceStatusDown {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.interfaceStatusUp {
+  background: var(--status-live);
+}
+
+.interfaceStatusDown {
+  background: var(--status-offline);
+}
+
+.interfaceName {
+  flex: 0 1 auto;
+  min-width: 80px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.interfaceAddrs {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.interfaceSelectButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 2px var(--space-xs);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.interfaceSelectButton:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.interfaceSelectButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .enabledChip {

@@ -47,6 +47,16 @@ import (
 // repository (09-02-PLAN.md).
 const DesktopShowPathEnvName = "GOLC_DESKTOP_SHOW"
 
+// DesktopInterfaceIndexEnvName/DesktopInterfaceNameEnvName are the single
+// "GOLC_DESKTOP_INTERFACE"/"GOLC_DESKTOP_INTERFACE_NAME" literals both
+// cmd/golc-desktop/main.go's startup read and SelectInterface's relaunch
+// spawn (below) use -- mirrors DesktopShowPathEnvName's single-literal
+// discipline (09-02-PLAN.md).
+const (
+	DesktopInterfaceIndexEnvName = "GOLC_DESKTOP_INTERFACE"
+	DesktopInterfaceNameEnvName  = "GOLC_DESKTOP_INTERFACE_NAME"
+)
+
 // defaultCliBinaryInstallRoot mirrors config/commands.toml's "cli_binary"
 // pin (".tools/installs/golc_project"): the single authority for where the
 // bootstrapped golc-project executable lives, resolved relative to
@@ -533,6 +543,79 @@ func (a *App) RelaunchWithShow(newShowPath string) Result {
 		a.quit(ctx)
 	}
 	return Result{ExitCode: 0, Stdout: "GOLC_WAILS_RELAUNCH_STARTED: relaunching with a new show path\n"}
+}
+
+// SelectInterface restarts only the supervised Art-Net daemon child bound
+// to a different network interface -- unlike RelaunchWithShow, it never
+// relaunches this desktop process itself (the window, frontend, MIDI
+// driver, and hotkeys all stay up). This is possible because, unlike
+// cfg.ShowPath, nothing else this process constructs is baked to the
+// interface choice at startup -- only the daemon-spawn args are (see
+// defaultSpawn). The pinned interface is still fixed for the daemon's own
+// lifetime (CONTEXT D-05: loss is terminal-until-reconfigured, never an
+// automatic switch), so "choosing" a different one always means stopping
+// and respawning the daemon child; it just no longer requires trading the
+// whole app for it.
+//
+// index/name come from the same ArtnetConfigService.ListInterfaces()
+// projection the frontend already rendered, so this method does not
+// re-validate them up front. If the daemon never becomes reachable on the
+// new interface (e.g. an index that no longer resolves to a live NIC),
+// this rolls the in-memory config back to the previously pinned interface,
+// attempts to bring the daemon back up on it, and returns
+// GOLC_WAILS_INTERFACE_SWITCH_FAILED -- an operator is never left stranded
+// on a dead interface just because a new one didn't pan out.
+func (a *App) SelectInterface(index int, name string) Result {
+	a.mu.Lock()
+	if a.relaunching {
+		a.mu.Unlock()
+		return Result{ExitCode: 1, Stderr: "GOLC_WAILS_RELAUNCH_IN_PROGRESS: a show/interface switch is already in flight\n"}
+	}
+	a.relaunching = true
+	previousIndex := a.cfg.InterfaceIndex
+	previousName := a.cfg.InterfaceName
+	a.mu.Unlock()
+
+	defer func() {
+		a.mu.Lock()
+		a.relaunching = false
+		a.mu.Unlock()
+	}()
+
+	ctx, ok := a.runtimeContext()
+	if !ok {
+		return Result{ExitCode: 1, Stderr: "GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE: OnStartup has not run yet\n"}
+	}
+
+	a.switchDaemonInterface(index, name)
+	a.ensureDaemon(ctx)
+	if !a.DaemonUnreachable() {
+		return Result{ExitCode: 0, Stdout: fmt.Sprintf(
+			"GOLC_WAILS_INTERFACE_SWITCHED: daemon restarted on interface index %d (%q)\n", index, name)}
+	}
+
+	// The new interface never came up: revert to the one that was
+	// previously working rather than leaving the daemon permanently
+	// unreachable.
+	a.switchDaemonInterface(previousIndex, previousName)
+	a.ensureDaemon(ctx)
+
+	return Result{ExitCode: 1, Stderr: fmt.Sprintf(
+		"GOLC_WAILS_INTERFACE_SWITCH_FAILED: the daemon never became reachable on interface index %d (%q); reverted to the previous interface\n",
+		index, name)}
+}
+
+// switchDaemonInterface stops the currently supervised daemon child (if
+// any, freeing the named pipe) and points a.cfg at a new pinned interface,
+// clearing daemonUnreachable so the ensureDaemon call that follows reports
+// this attempt's own fresh result rather than a stale prior failure.
+func (a *App) switchDaemonInterface(index int, name string) {
+	a.stopSupervisedDaemon()
+	a.mu.Lock()
+	a.cfg.InterfaceIndex = index
+	a.cfg.InterfaceName = name
+	a.daemonUnreachable = false
+	a.mu.Unlock()
 }
 
 // fixtureFileFilter is the *.yaml/*.yml filter PickFixtureFile applies --
