@@ -1,7 +1,25 @@
 .appShell {
   height: 100vh;
   display: grid;
-  grid-template-columns: 186px minmax(0, 1fr) 258px;
+  /* Inspector's own track width comes from --inspector-width, an inline
+     custom property AppShell.tsx sets directly (0px/258px) rather than a
+     second class/rule toggling grid-template-columns. Two earlier
+     approaches both got stuck at the track's original computed size even
+     after the thing driving it genuinely changed: an "auto" track sized
+     from a nested item's own toggled width, and then a same-specificity
+     .inspectorFilled rule overriding this rule's grid-template-columns
+     (Vite's CSS build folds grid-template-columns/rows/areas declared
+     together into one `grid-template` shorthand, and something about a
+     later separate longhand rule overriding one piece of an earlier
+     shorthand -- provably fine in isolation, verified directly against a
+     detached test element -- did not carry through for this actual,
+     live, transitioning grid item). A custom property has no such
+     ambiguity: there's exactly one grid-template-columns declaration
+     ever, inline style always wins for resolving the variable, and the
+     transition below animates its resolved value exactly like any other
+     transitionable property. */
+  grid-template-columns: 186px minmax(0, 1fr) var(--inspector-width, 0px);
+  transition: grid-template-columns var(--motion-settle);
   /* SafetyCluster now lives inline in the 52px header (GlobalFrame.tsx,
      header-merge pass) instead of its own dedicated grid row -- D-13
      still requires it stay visible and interactive on every workspace,
@@ -25,16 +43,34 @@
   min-height: 0;
 }
 
+/* main/inspector get a breathing gap below the header; .rail deliberately
+   does not -- the nav stays flush against it (only requested for "the
+   rest of content"). */
 .main {
   grid-area: main;
   min-width: 0;
   min-height: 0;
+  margin-top: var(--space-md);
   overflow: hidden;
+}
+
+.main > * {
+  animation: workspaceEnter var(--motion-settle);
+}
+
+@keyframes workspaceEnter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
 }
 
 .inspector {
   grid-area: inspector;
   min-height: 0;
+  margin-top: var(--space-md);
+  width: 100%;
+  overflow: hidden;
 }
 
 /* Compact desktop widths: collapse the inspector column and let the rail

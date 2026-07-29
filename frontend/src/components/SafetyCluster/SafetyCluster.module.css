@@ -40,6 +40,8 @@
   user-select: none;
   touch-action: none;
   -webkit-user-select: none;
+  box-shadow: 0 0 0 0 var(--control-color, var(--accent));
+  transition: box-shadow var(--motion-settle);
 }
 
 .control[data-active] {

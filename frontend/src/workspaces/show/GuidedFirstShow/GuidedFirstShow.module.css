@@ -83,10 +83,24 @@
   display: grid;
   grid-template-columns: 1fr minmax(0, 260px);
   gap: var(--space-lg);
+  /* Safety valve for the rare window narrower than stageSection's own
+     460px floor below: evidenceAside (minmax(0, 260px)) collapses toward
+     0 first, and only once that's exhausted does this scroll
+     horizontally -- stageSection itself is never clipped or squeezed
+     back into wrapping its footer buttons. */
+  overflow-x: auto;
 }
 
 .stageSection {
-  min-width: 0;
+  /* Was min-width: 0, which is exactly what let this column compress
+     narrower than its own footer's three buttons could fit on one line
+     -- they wrapped their label text inside a fixed-height button instead
+     (see Button.module.css's own doc comment for that half of the fix).
+     460px is Back+Exit Guide+the longest primary label ("Review Patch &
+     Continue") plus their gaps and this panel's own padding, so the
+     footer never needs to wrap at all -- reserving the room up front
+     beats reacting to the squeeze after the fact. */
+  min-width: 460px;
   min-height: 0;
   display: grid;
   grid-template-rows: auto 1fr auto;
@@ -116,7 +130,6 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  flex-wrap: wrap;
   gap: var(--space-sm);
 }
 

@@ -61,6 +61,12 @@ yarn-error.log*
 # Tool and frontend build output; regenerated from source.
 dist/
 
+# Playwright's own e2e run output (frontend/e2e/, playwright.config.ts) --
+# traces/screenshots/HTML report from `npm run test:e2e`, regenerated per run.
+test-results/
+playwright-report/
+blob-report/
+
 # --- Wails desktop build output (Phase 6+) --------------------------------------
 
 # Wails compiles into <wails.json-dir>/build/bin -- cmd/golc-desktop/wails.json

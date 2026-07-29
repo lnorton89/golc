@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { configDefaults } from "vitest/config";
 
 // Wails embeds this project's compiled output directly
 // (cmd/golc-desktop/main.go's `//go:embed all:frontend/dist`) -- no Wails
@@ -40,5 +41,11 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    // e2e/ holds Playwright specs (playwright.config.ts, `npm run
+    // test:e2e`), not Vitest ones -- excluded here so `npm test`/`vitest
+    // run` doesn't try to load @playwright/test's `test.describe` through
+    // Vitest's own test runner (a hard error: "Playwright Test did not
+    // expect test.describe() to be called here").
+    exclude: [...configDefaults.exclude, "e2e/**"],
   },
 });
