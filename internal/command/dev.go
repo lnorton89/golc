@@ -36,8 +36,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
+	"syscall"
 
 	"github.com/lnorton89/golc/internal/bootstrap"
 )
@@ -46,6 +48,64 @@ var _ = MustDeclareScope(ScopeRegistration{
 	Scope:   "dev",
 	Summary: "Launch `wails dev` (hot-reload desktop dev loop) with the pinned Go/Node/Wails toolchains on PATH.",
 })
+
+// windowsResourceSyso is the checked-in Windows resource file mage Build's
+// plain `go build` needs to embed the app/titlebar icon (see build.go's own
+// -tags desktop,production doc comment for why that route never invokes
+// Wails' packaging step at all: it links cmd/golc-desktop with a bare `go
+// build`). `wails dev` is a different build path entirely: Wails v2.13.0
+// hardcodes Pack:true for dev builds (cmd/wails/flags/dev.go's
+// GenerateBuildOptions -- no CLI flag disables it), so on EVERY dev
+// rebuild it regenerates its own resource file at
+// cmd/golc-desktop/golc-desktop-res.syso from the same
+// build/windows/icon.ico + wails.exe.manifest + info.json inputs
+// (pkg/commands/build/packager.go's compileResources), already at the
+// correct titlebar icon resource ID (tc-hib/winres's RT_ICON constant is
+// 3, the same ID winc.AppIconID expects -- the ID 0ed088a8 fixed for this
+// checked-in file), and deletes it again once that build finishes
+// (build.go's execBuildApplication, deferred). Go auto-links every *.syso
+// file present in a package directory, and the linker accepts only one
+// .rsrc section per binary, so the brief window where BOTH files coexist
+// fails every single `mage dev` with "too many .rsrc sections"
+// (root-caused in .planning/debug/resolved/too-many-rsrc-sections.md).
+// The checked-in file is redundant for this path -- Wails' own generated
+// one already carries the right icon at the right ID -- so this route
+// disables it for the duration of the `wails dev` child process instead
+// of trying to reconcile the two resource files.
+const windowsResourceSyso = "rsrc_windows_amd64.syso"
+
+// disabledSysoSuffix intentionally does not end in ".syso": Go's *.syso
+// auto-link rule matches on filename suffix alone, so appending this is
+// enough to drop the file out of the package's link inputs without
+// deleting it.
+const disabledSysoSuffix = ".wails-dev-disabled"
+
+// disableWindowsResourceSyso renames windowsResourceSyso out of Go's
+// *.syso auto-link path for the duration of the `wails dev` child process
+// (see windowsResourceSyso's doc comment for why), returning a restore
+// func the caller must invoke exactly once when that process exits. A
+// missing file is not an error (mirrors this file's other defensive
+// os.Stat guards): a synthetic test fixture, or a future checkout where
+// the checked-in resource is dropped entirely, still runs cleanly.
+func disableWindowsResourceSyso(desktopDir string) (func() error, error) {
+	original := filepath.Join(desktopDir, windowsResourceSyso)
+	disabled := original + disabledSysoSuffix
+	if _, err := os.Stat(original); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return func() error { return nil }, nil
+		}
+		return nil, fmt.Errorf("stat %s: %w", original, err)
+	}
+	if err := os.Rename(original, disabled); err != nil {
+		return nil, fmt.Errorf("disable %s for wails dev: %w", original, err)
+	}
+	return func() error {
+		if err := os.Rename(disabled, original); err != nil {
+			return fmt.Errorf("restore %s after wails dev: %w", original, err)
+		}
+		return nil
+	}, nil
+}
 
 var _ = MustDeclareRoute(CommandRegistration{
 	Route: "dev",
@@ -123,6 +183,34 @@ func runDev(request Request) Result {
 	execution.Stdin = os.Stdin
 	execution.Stdout = os.Stdout
 	execution.Stderr = os.Stderr
+
+	if runtime.GOOS == "windows" {
+		restoreSyso, err := disableWindowsResourceSyso(execution.Dir)
+		if err != nil {
+			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_DEV_SYSO_DISABLE: %v\n", err))}
+		}
+		// Absorb Ctrl+C/SIGTERM here so this process survives long enough to
+		// run restoreSyso below: on Windows, CTRL_C_EVENT is delivered to
+		// every process sharing this console (this process AND the `wails
+		// dev` child together, since exec.Command does not request a new
+		// process group), and Go's default disposition for an unhandled
+		// os.Interrupt is immediate termination -- which would skip the
+		// deferred restore entirely and leave the checked-in resource file
+		// renamed on disk for every subsequent `mage Build`. Registering a
+		// handler (mirrors artnet.go's existing
+		// signal.NotifyContext/signal.Notify convention in this package)
+		// overrides that default; the child process, with no handler of its
+		// own, still exits on the same signal, which is all that's needed to
+		// unblock execution.Run() below.
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+		defer signal.Stop(sigCh)
+		defer func() {
+			if restoreErr := restoreSyso(); restoreErr != nil {
+				fmt.Fprintf(os.Stderr, "GOLC_DEV_SYSO_RESTORE_FAILED: %v\n", restoreErr)
+			}
+		}()
+	}
 
 	runErr := execution.Run()
 	if runErr == nil {
