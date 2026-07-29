@@ -359,6 +359,7 @@ func TestStatusPayloadOfflineWhenDecodeFails(t *testing.T) {
 // LiveStatusBar.tsx.
 func TestSafetyServiceStartStatusPushEmitsStatusUpdate(t *testing.T) {
 	svc := NewSafetyService("test-pipe", "", "")
+	svc.windowMinimised = func(context.Context) bool { return false }
 	svc.dial = func(pipeName string, request ipc.Request) ipc.Result {
 		return ipc.Result{Stdout: daemonStatusJSON(t, map[string]interface{}{
 			"active":            true,
