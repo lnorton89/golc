@@ -215,15 +215,23 @@ func ensureFrontendDistFresh(root string, stdout, stderr *progressSink) error {
 		return err
 	}
 	stdout.writeString("GOLC build: frontend source changed -> npm run build...\n")
+	// Vite's own build output (every rebuilt module, chunk sizes, gzip
+	// stats) is captured into npmOutput rather than teed live to
+	// stdout/stderr -- a successful build only needs the concise
+	// start/done lines below, and the full dump is only useful for
+	// diagnosing a failure, where it is surfaced in full.
+	var npmOutput bytes.Buffer
 	execution := exec.Command(node.Executable, node.NPMCLI, "run", "build")
 	execution.Dir = frontendDir
 	execution.Env = upsertEnvironment(os.Environ(), "GOLC_PROJECT_ROOT", root)
-	execution.Stdout = stdout
-	execution.Stderr = stderr
+	execution.Stdout = &npmOutput
+	execution.Stderr = &npmOutput
 	if err := execution.Run(); err != nil {
+		stderr.Write(npmOutput.Bytes())
 		return fmt.Errorf("GOLC_BUILD_FRONTEND_FAILED: %w", err)
 	}
 	if info, statErr := os.Stat(distIndexPath); statErr != nil || !info.Mode().IsRegular() {
+		stderr.Write(npmOutput.Bytes())
 		return fmt.Errorf("GOLC_BUILD_FRONTEND_FAILED: expected %s after npm run build", distIndexPath)
 	}
 	if err := bootstrap.WriteFrontendBuildManifest(frontendDir); err != nil {
