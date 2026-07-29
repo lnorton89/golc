@@ -43,14 +43,15 @@
   min-height: 0;
 }
 
-/* main/inspector get a breathing gap below the header; .rail deliberately
-   does not -- the nav stays flush against it (only requested for "the
-   rest of content"). */
+/* main/inspector get a breathing gap below the header and above the
+   window's own bottom edge; .rail deliberately gets neither -- the nav
+   stays flush top-to-bottom (only requested for "the rest of content"). */
 .main {
   grid-area: main;
   min-width: 0;
   min-height: 0;
   margin-top: var(--space-md);
+  margin-bottom: var(--space-md);
   overflow: hidden;
 }
 
@@ -69,6 +70,7 @@
   grid-area: inspector;
   min-height: 0;
   margin-top: var(--space-md);
+  margin-bottom: var(--space-md);
   width: 100%;
   overflow: hidden;
 }
