@@ -50,6 +50,7 @@ That's the whole app. For the CLI's config/test/docs commands, the full command 
 - [Architecture principles](#architecture-principles)
 - [Getting started (contributors)](#getting-started-contributors)
 - [Running GOLC](#running-golc)
+- [Installing on Linux](#installing-on-linux)
 - [Configuration model](#configuration-model)
 - [Repository layout](#repository-layout)
 - [Roadmap](#roadmap)
@@ -174,9 +175,72 @@ golc docs   # generates docs/reference/*.md from source (see the alias set up ab
 
 ### Platform note
 
-Windows is the only platform this project's [ROADMAP](.planning/ROADMAP.md) qualifies for a v1 release — that's a product-support decision (Phase 10), not a build limitation. The Go code and CLI build and pass their full test suite on Windows, Linux, and macOS (proven continuously in CI); the desktop app's platform-specific pieces (global hotkeys, packaging) are written per-OS, but macOS/Linux builds of it are unqualified and untested end-to-end — build and run them yourself at your own risk, don't expect support.
+Windows is the only platform this project's [ROADMAP](.planning/ROADMAP.md) qualifies for a v1 release — that's a product-support decision (Phase 10), not a build limitation. The Go code and CLI build and pass their full test suite on Windows, Linux, and macOS (proven continuously in CI); the desktop app's platform-specific pieces (global hotkeys, packaging) are written per-OS, but macOS/Linux builds of it are unqualified and untested end-to-end — build and run them yourself at your own risk, don't expect support. See [Installing on Linux](#installing-on-linux) below for the system-package requirements and a known unpatched upstream limitation.
 
-**Linux desktop build note:** GOLC pins Wails v2 (`v2.13.0`), which links against `webkit2gtk-4.0` via `pkg-config`. Several current distributions (NixOS unstable, Ubuntu 24.04+, Fedora 40+, Linux Mint 22+) have dropped `webkit2gtk-4.0` in favor of `webkit2gtk-4.1` (upstream WebKitGTK deprecated the 4.0 API series, which depends on the also-deprecated libsoup2). Wails does have a `-tags webkit2_41` build flag intended for this, but as of this writing it lands only on the Wails v3 (alpha) line, not v2 — a v2.10.2 user confirmed in October 2025 that `-tags webkit2_41` did not fix the build on a webkit2gtk-4.1-only system ([wailsapp/wails#4661](https://github.com/wailsapp/wails/issues/4661); the flag's origin: [wailsapp/wails#3345](https://github.com/wailsapp/wails/issues/3345)). There is currently no confirmed working fix for building GOLC's desktop app against `webkit2gtk-4.1` on Wails v2. If your distribution has already removed `webkit2gtk-4.0`, the only known workaround is providing an older package snapshot that still has it (e.g. on Nix, pinning a `nixpkgs` channel/commit that predates the removal) — the CLI (`golc-project`) builds and runs fine regardless, since it has no Wails/GTK dependency.
+## Installing on Linux
+
+> As noted in [Platform note](#platform-note) above, Linux is not a qualified v1 platform — this is "how to build it yourself," not a supported install path. The CLI (`golc-project`) is fully buildable and testable on Linux with no GTK/WebKit dependency; the desktop app (`golc-desktop`) additionally needs system packages, one of which (`webkit2gtk-4.0`) is unavailable on several current distributions with no confirmed fix — see [Desktop app: the `webkit2gtk-4.0` problem](#desktop-app-the-webkit2gtk-40-problem) below before investing time in it.
+
+### Building just the CLI
+
+`golc-project` never imports `internal/wails` (the Wails/hotkey package) at all, so it has **no system-package dependency whatsoever** — not X11, not GTK, not WebKit. `mage Bootstrap` builds exactly this binary (see [Every Mage target](#every-mage-target) — it never touches `cmd/golc-desktop`), so on a bare Linux box with nothing but Go available:
+
+```bash
+go install github.com/magefile/mage@v1.17.2
+mage Bootstrap
+```
+
+leaves you a working CLI at `.tools/installs/golc_project/linux-<arch>/bin/golc-project`, ready to alias per [Getting started (contributors)](#getting-started-contributors). No further steps, no system packages, and it works identically whether or not the packages in the next two sections are ever installed.
+
+`mage Build` (and `mage Test`, `mage Dev`, `mage Run`) is a different story: those compile or link **every** project package, including `cmd/golc-desktop`, so they pull in everything below even if you only care about the CLI.
+
+### System packages (needed for `mage Build`/`mage Test`/the desktop app)
+
+`golang.design/x/hotkey`'s Linux backend (used by `internal/wails` for the safety-cluster global shortcuts) `cgo`-links against `X11/Xlib.h` at **build** time and connects to a real X11 `DISPLAY` from a package `init()` at **process start** time.
+
+```bash
+# Debian/Ubuntu
+sudo apt-get update
+sudo apt-get install -y libx11-dev xvfb
+
+# Fedora/RHEL
+sudo dnf install -y libX11-devel xorg-x11-server-Xvfb
+
+# Arch
+sudo pacman -S --needed libx11 xorg-server-xvfb
+```
+
+If you're on a headless machine (CI, SSH, containers) with no real X server, start a virtual one before running `golc-desktop` or `mage Test`:
+
+```bash
+Xvfb :99 -screen 0 1024x768x24 &
+export DISPLAY=:99
+```
+
+This exact sequence (`libx11-dev` + `Xvfb`) is what [.github/workflows/cross-platform-mage.yml](.github/workflows/cross-platform-mage.yml) runs on `ubuntu-latest` for every PR — see that file for the always-current, CI-verified command.
+
+### Desktop app: the `webkit2gtk-4.0` problem
+
+GOLC pins Wails v2 (`v2.13.0`), which links against `webkit2gtk-4.0` via `pkg-config`. On a distribution that still ships it:
+
+```bash
+# Debian 12 / Ubuntu 22.04 and earlier
+sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+
+# Fedora 39 and earlier
+sudo dnf install -y gtk3-devel webkit2gtk3-devel
+```
+
+Several current distributions (NixOS unstable, Ubuntu 24.04+, Fedora 40+, Linux Mint 22+) have dropped `webkit2gtk-4.0` in favor of `webkit2gtk-4.1` (upstream WebKitGTK deprecated the 4.0 API series, which depends on the also-deprecated libsoup2). Wails does have a `-tags webkit2_41` build flag intended for this, but as of this writing it lands only on the Wails v3 (alpha) line, not v2 — a v2.10.2 user confirmed in October 2025 that `-tags webkit2_41` did not fix the build on a webkit2gtk-4.1-only system ([wailsapp/wails#4661](https://github.com/wailsapp/wails/issues/4661); the flag's origin: [wailsapp/wails#3345](https://github.com/wailsapp/wails/issues/3345)). **There is currently no confirmed working fix for building GOLC's desktop app against `webkit2gtk-4.1` on Wails v2.** If your distribution has already removed `webkit2gtk-4.0`, the only known workaround is providing an older package snapshot that still has it (e.g. on Nix, pinning a `nixpkgs` channel/commit that predates the removal). This is also why `.github/workflows/cross-platform-mage.yml`'s `ubuntu-latest` job doesn't install GTK/WebKit at all — the hosted runner's current Ubuntu image has already dropped `webkit2gtk-4.0`, so there is nothing to install that would fix it, and the job is `continue-on-error: true` for exactly this reason (see [Platform note](#platform-note)).
+
+Once the GTK/WebKit and X11 packages above are installed, building and running the desktop app works the same as [Running GOLC](#running-golc) describes for any platform:
+
+```bash
+mage Build
+mage Run
+```
+
+If `webkit2gtk-4.0` genuinely isn't available on your system, building the CLI ([above](#building-just-the-cli)) is the only currently-working option.
 
 ## Configuration model
 
