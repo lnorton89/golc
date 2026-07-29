@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-27)
 
 Milestone v1.0: COMPLETE (Phases 1-8, 99/99 plans, shipped 2026-07-27)
 Next: Phase 9 (Front-Door UI Completion) — inserted 2026-07-27, not yet planned.
-Last activity: 2026-07-29 — Completed quick task 260729-j3o: Add the Desktop Views page beneath a Docs dropdown in the primary site navigation, with responsive and accessible behavior
+Last activity: 2026-07-29 — Completed quick task 260729-luj: Regenerate Desktop Views screenshots from the current GUI, add the site-local refresh command, and deploy production
 
 Note: Phase 9 depends on Phase 8 (satisfied). Phase 10 (AI autonomy) depends on Phases 2/6/7/8/9, Phase 11 (Windows) depends on Phases 1-10, and Phase 12 (Telemetry) depends on Phase 11. These phases remain active (not archived) in `.planning/ROADMAP.md` since they were carried forward rather than shipped as part of v1.0.
 
@@ -104,6 +104,7 @@ None yet.
 | 260729-hsx | Redesign the desktop views documentation page as one master-detail section with a compact view list on the left, a large selected screenshot and details on the right, and an accessible screenshot lightbox | 2026-07-29 | 494e9df3 | Needs Review | [260729-hsx-redesign-the-desktop-views-documentation](./quick/260729-hsx-redesign-the-desktop-views-documentation/) |
 | 260729-ia1 | Add a pinned npm deploy script for explicit Netlify production builds, repair the four Linux visual baselines from CI, and use the script to deploy and verify the redesigned desktop views page | 2026-07-29 | ecfde167 | Complete | [260729-ia1-add-a-pinned-npm-deploy-script-for-expli](./quick/260729-ia1-add-a-pinned-npm-deploy-script-for-expli/) |
 | 260729-j3o | Add the Desktop Views page beneath a Docs dropdown in the primary site navigation, with responsive and accessible behavior | 2026-07-29 | ac2b570e | Complete | [260729-j3o-add-the-desktop-views-page-beneath-a-doc](./quick/260729-j3o-add-the-desktop-views-page-beneath-a-doc/) |
+| 260729-luj | Regenerate the complete Desktop Views screenshot documentation from the current GUI source, add a maintainable site-local npm regeneration command, visually verify all generated images, commit and push in submodule order, explicitly deploy to Netlify, and verify production | 2026-07-29 | 1a000325 | Verified | [260729-luj-regenerate-the-complete-desktop-views-sc](./quick/260729-luj-regenerate-the-complete-desktop-views-sc/) |
 
 ## Deferred Items
 
