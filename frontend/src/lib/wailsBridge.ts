@@ -565,11 +565,16 @@ interface ShowServiceBinding {
  * a replacement golc-desktop process bound to the requested path, and
  * quits this process only once that replacement has actually started -- so
  * a successful call's own Promise may never observably settle from the
- * caller's perspective (the process is exiting). */
+ * caller's perspective (the process is exiting). SelectInterface, by
+ * contrast, only restarts the supervised Art-Net daemon child on a new
+ * network interface -- this process itself is never relaunched, so its
+ * Promise always resolves, with a non-zero exitCode if the daemon never
+ * became reachable on the requested interface. */
 interface AppBinding {
   PickShowPath(): Promise<string>;
   PickNewShowPath(): Promise<string>;
   RelaunchWithShow(showPath: string): Promise<WailsResult>;
+  SelectInterface(index: number, name: string): Promise<WailsResult>;
   PickFixtureFile(): Promise<string>;
 }
 
@@ -1351,6 +1356,22 @@ export async function relaunchWithShow(showPath: string): Promise<WailsResult> {
   const app = appBinding();
   if (!app) return bridgeUnavailableResult();
   return app.RelaunchWithShow(showPath);
+}
+
+/** selectInterface calls the bound App.SelectInterface: restarts only the
+ * supervised Art-Net daemon child pinned to the chosen interface's
+ * index/name -- this desktop process itself is never relaunched, so the
+ * returned Promise always resolves (a non-zero exitCode means the daemon
+ * never became reachable on the requested interface, in which case the Go
+ * side has already reverted to the previous one). Returns
+ * bridgeUnavailableResult() when the bridge is absent -- never throws. */
+export async function selectInterface(
+  index: number,
+  name: string,
+): Promise<WailsResult> {
+  const app = appBinding();
+  if (!app) return bridgeUnavailableResult();
+  return app.SelectInterface(index, name);
 }
 
 /** pickFixtureFile calls the bound App.PickFixtureFile (09-07-PLAN.md,

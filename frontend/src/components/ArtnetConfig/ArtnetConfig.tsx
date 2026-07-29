@@ -43,6 +43,7 @@ import {
   errorMessage,
   fetchArtnetStatus,
   listArtnetInterfaces,
+  selectInterface,
   type ArtnetInterfaceView,
   type ArtnetStatusView,
   type ArtnetTargetView,
@@ -55,6 +56,7 @@ export default function ArtnetConfig() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [selectingIndex, setSelectingIndex] = useState<number | null>(null);
 
   const [universe, setUniverse] = useState("1");
   const [ip, setIp] = useState("");
@@ -79,6 +81,31 @@ export default function ArtnetConfig() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // handleSelectInterface pins Art-Net output to a different network
+  // interface (ARTN-01): the pinned interface is fixed for the daemon's
+  // whole lifetime, so "choosing" one restarts the supervised daemon bound
+  // to it (App.SelectInterface) rather than sending a live reconfigure
+  // command. This only restarts the daemon, never this app itself, so the
+  // call always resolves -- on success, refresh() re-reads the interface
+  // list/status so the newly pinned interface renders immediately; a
+  // failure (daemon never came up on the requested interface, or a switch
+  // already in flight) surfaces exactly like any other action error.
+  const handleSelectInterface = async (iface: ArtnetInterfaceView) => {
+    setSelectingIndex(iface.index);
+    try {
+      const result = await selectInterface(iface.index, iface.name);
+      if (result.exitCode !== 0) {
+        throw new Error(result.stderr || "Interface switch failed");
+      }
+      setError(null);
+      await refresh();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSelectingIndex(null);
+    }
+  };
 
   const handleAddTarget = async () => {
     const universeNum = Number(universe);
@@ -186,23 +213,47 @@ export default function ArtnetConfig() {
                 </p>
               </div>
             ) : (
-              <ul className={styles.rowScroll} aria-label="Interface list">
+              <ul
+                className={styles.interfaceList}
+                aria-label="Interface list"
+              >
                 {interfaces.map((iface) => (
-                  <li key={iface.index} className={styles.row}>
-                    <div className={styles.rowHeader}>
-                      <span className={styles.rowName} title={iface.name}>
-                        {iface.name}
-                      </span>
-                      {iface.pinned && (
-                        <span className={styles.pinnedChip}>Pinned</span>
-                      )}
-                      <span className={styles.rowCounts}>
-                        {iface.up ? "up" : "down"}
-                      </span>
-                    </div>
-                    <span className={styles.technical}>
+                  <li key={iface.index} className={styles.interfaceRow}>
+                    <span
+                      className={
+                        iface.up
+                          ? styles.interfaceStatusUp
+                          : styles.interfaceStatusDown
+                      }
+                      aria-hidden="true"
+                      title={iface.up ? "up" : "down"}
+                    />
+                    <span
+                      className={styles.interfaceName}
+                      title={iface.name}
+                    >
+                      {iface.name}
+                    </span>
+                    <span
+                      className={styles.interfaceAddrs}
+                      title={iface.addrs.join(", ") || "no addresses"}
+                    >
                       {iface.addrs.join(", ") || "no addresses"}
                     </span>
+                    {iface.pinned ? (
+                      <span className={styles.pinnedChip}>In use</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.interfaceSelectButton}
+                        disabled={selectingIndex !== null}
+                        onClick={() => void handleSelectInterface(iface)}
+                        title={`Use ${iface.name} for Art-Net output`}
+                      >
+                        <Network size={12} aria-hidden="true" />
+                        {selectingIndex === iface.index ? "Switching…" : "Use"}
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>

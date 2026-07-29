@@ -52,13 +52,15 @@ const repoRootEnvName = "GOLC_PROJECT_ROOT"
 // not-yet-existing file as a fresh empty show, per store.go's own doc
 // comment) so the app works without any manual configuration.
 const (
-	// showPathEnvName is golcwails.DesktopShowPathEnvName, not a second
-	// hardcoded env-var-name literal (09-02-PLAN.md): this startup read and
-	// internal/wails.App.RelaunchWithShow's spawn share exactly one
-	// authority for the env var name.
+	// showPathEnvName/interfaceIndexEnvName/interfaceNameEnvName are
+	// golcwails.DesktopShowPathEnvName/DesktopInterfaceIndexEnvName/
+	// DesktopInterfaceNameEnvName, not second hardcoded env-var-name
+	// literals (09-02-PLAN.md): this startup read and internal/wails.App's
+	// RelaunchWithShow/SelectInterface relaunch spawns share exactly one
+	// authority per env var name.
 	showPathEnvName       = golcwails.DesktopShowPathEnvName
-	interfaceIndexEnvName = "GOLC_DESKTOP_INTERFACE"
-	interfaceNameEnvName  = "GOLC_DESKTOP_INTERFACE_NAME"
+	interfaceIndexEnvName = golcwails.DesktopInterfaceIndexEnvName
+	interfaceNameEnvName  = golcwails.DesktopInterfaceNameEnvName
 	fixturesDirEnvName    = "GOLC_DESKTOP_FIXTURES"
 	defaultShowFileName   = "show.golc"
 )

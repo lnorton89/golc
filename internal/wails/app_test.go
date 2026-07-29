@@ -731,6 +731,173 @@ func TestRelaunchWithShowAbortsWhenSaveFails(t *testing.T) {
 	}
 }
 
+// --- SelectInterface (restarting the daemon on a new network interface,
+// without relaunching the rest of the app) ---
+//
+// SelectInterface drives ensureDaemon's own dial-or-spawn-and-retry loop
+// directly, in this same process -- never a second process -- so
+// app.dial/app.spawn (not app.relaunchSpawn/app.quit) are the doubles that
+// matter here.
+
+// newTestInterfaceSwitchApp mirrors newTestRelaunchApp but also seeds fast
+// dial-retry knobs, a fake pipe name, and a starting pinned interface, so
+// tests can drive ensureDaemon's retry loop quickly and assert on the
+// before/after interface config.
+func newTestInterfaceSwitchApp(t *testing.T) *App {
+	t.Helper()
+	app := newTestRelaunchApp(t)
+	app.cfg.PipeName = testWailsPipeName(t)
+	app.cfg.DialRetries = 1
+	app.cfg.DialRetryDelay = time.Millisecond
+	app.cfg.InterfaceIndex = 1
+	app.cfg.InterfaceName = "original-nic"
+	return app
+}
+
+// TestSelectInterfaceRestartsDaemonWithoutRelaunchingTheApp proves a
+// successful switch updates cfg.InterfaceIndex/InterfaceName, drives
+// exactly one daemon-spawn attempt for the new interface, and never
+// touches relaunchSpawn/quit -- this process itself is never relaunched,
+// only its supervised daemon child.
+func TestSelectInterfaceRestartsDaemonWithoutRelaunchingTheApp(t *testing.T) {
+	app := newTestInterfaceSwitchApp(t)
+
+	var dialCalls, spawnCalls, relaunchSpawnCalls, quitCalls int32
+	app.dial = func(name string) (net.Conn, error) {
+		if atomic.AddInt32(&dialCalls, 1) == 1 {
+			return nil, errors.New("unreachable")
+		}
+		return fakeConn{}, nil
+	}
+	var gotCfg Config
+	app.spawn = func(ctx context.Context, cfg Config) (*exec.Cmd, *daemonStderrBuffer, error) {
+		atomic.AddInt32(&spawnCalls, 1)
+		gotCfg = cfg
+		return nil, nil, nil
+	}
+	app.relaunchSpawn = func(exePath string, env []string) error {
+		atomic.AddInt32(&relaunchSpawnCalls, 1)
+		return nil
+	}
+	app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
+
+	result := app.SelectInterface(42, "new-nic")
+	if result.ExitCode != 0 {
+		t.Fatalf("expected success, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if got := atomic.LoadInt32(&spawnCalls); got != 1 {
+		t.Fatalf("expected exactly one daemon spawn attempt, got %d", got)
+	}
+	if got := atomic.LoadInt32(&relaunchSpawnCalls); got != 0 {
+		t.Fatalf("expected zero relaunchSpawn calls -- this process itself must not relaunch, got %d", got)
+	}
+	if got := atomic.LoadInt32(&quitCalls); got != 0 {
+		t.Fatalf("expected zero quit calls -- this process itself must not exit, got %d", got)
+	}
+	if gotCfg.InterfaceIndex != 42 || gotCfg.InterfaceName != "new-nic" {
+		t.Fatalf("spawn cfg = index=%d name=%q, want index=42 name=%q", gotCfg.InterfaceIndex, gotCfg.InterfaceName, "new-nic")
+	}
+	app.mu.Lock()
+	gotIndex, gotName := app.cfg.InterfaceIndex, app.cfg.InterfaceName
+	app.mu.Unlock()
+	if gotIndex != 42 || gotName != "new-nic" {
+		t.Fatalf("app.cfg after switch = index=%d name=%q, want index=42 name=%q", gotIndex, gotName, "new-nic")
+	}
+	if app.DaemonUnreachable() {
+		t.Fatal("expected DaemonUnreachable() to be false after a successful switch")
+	}
+}
+
+// TestSelectInterfaceRevertsOnUnreachableDaemon proves that when the daemon
+// never becomes reachable on the requested interface, SelectInterface rolls
+// the in-memory config back to the previously pinned interface, attempts a
+// second spawn against it, and reports GOLC_WAILS_INTERFACE_SWITCH_FAILED
+// rather than leaving the operator stranded on a dead interface.
+func TestSelectInterfaceRevertsOnUnreachableDaemon(t *testing.T) {
+	app := newTestInterfaceSwitchApp(t)
+
+	var spawnCalls int32
+	var mu sync.Mutex
+	var spawnedIndexes []int
+	app.dial = func(name string) (net.Conn, error) { return nil, errors.New("unreachable") }
+	app.spawn = func(ctx context.Context, cfg Config) (*exec.Cmd, *daemonStderrBuffer, error) {
+		atomic.AddInt32(&spawnCalls, 1)
+		mu.Lock()
+		spawnedIndexes = append(spawnedIndexes, cfg.InterfaceIndex)
+		mu.Unlock()
+		return nil, nil, nil
+	}
+
+	result := app.SelectInterface(99, "bad-nic")
+	if result.ExitCode == 0 {
+		t.Fatal("expected a non-zero exit code when the daemon never becomes reachable")
+	}
+	if !strings.Contains(result.Stderr, "GOLC_WAILS_INTERFACE_SWITCH_FAILED") {
+		t.Fatalf("expected GOLC_WAILS_INTERFACE_SWITCH_FAILED, got %q", result.Stderr)
+	}
+	if got := atomic.LoadInt32(&spawnCalls); got != 2 {
+		t.Fatalf("expected exactly two spawn attempts (new interface, then rollback), got %d", got)
+	}
+	mu.Lock()
+	got := append([]int(nil), spawnedIndexes...)
+	mu.Unlock()
+	if len(got) != 2 || got[0] != 99 || got[1] != 1 {
+		t.Fatalf("spawned interface indexes = %v, want [99 1] (attempted, then reverted to the original)", got)
+	}
+	app.mu.Lock()
+	gotIndex, gotName := app.cfg.InterfaceIndex, app.cfg.InterfaceName
+	app.mu.Unlock()
+	if gotIndex != 1 || gotName != "original-nic" {
+		t.Fatalf("app.cfg after failed switch = index=%d name=%q, want the reverted index=1 name=%q", gotIndex, gotName, "original-nic")
+	}
+}
+
+// TestSelectInterfaceIsNotReentrant proves a second concurrent
+// SelectInterface call, issued while the first is blocked inside its spawn
+// double, returns GOLC_WAILS_RELAUNCH_IN_PROGRESS and never overlaps a
+// second spawn concurrently.
+func TestSelectInterfaceIsNotReentrant(t *testing.T) {
+	app := newTestInterfaceSwitchApp(t)
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var spawnCalls int32
+	app.dial = func(name string) (net.Conn, error) { return nil, errors.New("unreachable") }
+	app.spawn = func(ctx context.Context, cfg Config) (*exec.Cmd, *daemonStderrBuffer, error) {
+		if atomic.AddInt32(&spawnCalls, 1) == 1 {
+			close(started)
+			<-release
+		}
+		return nil, nil, nil
+	}
+
+	resultCh := make(chan Result, 1)
+	go func() {
+		resultCh <- app.SelectInterface(5, "nic-a")
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for the first switch's spawn to start")
+	}
+
+	second := app.SelectInterface(6, "nic-b")
+	if second.ExitCode == 0 {
+		t.Fatal("expected the concurrent call to fail with a non-zero exit code")
+	}
+	if !strings.Contains(second.Stderr, "GOLC_WAILS_RELAUNCH_IN_PROGRESS") {
+		t.Fatalf("expected GOLC_WAILS_RELAUNCH_IN_PROGRESS, got %q", second.Stderr)
+	}
+
+	close(release)
+	select {
+	case <-resultCh:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for the first switch to finish")
+	}
+}
+
 // TestPickShowPathWithoutRuntimeContextFails proves calling either picker on
 // an App whose OnStartup has never run (ctx nil) returns
 // GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE rather than panicking or reaching
