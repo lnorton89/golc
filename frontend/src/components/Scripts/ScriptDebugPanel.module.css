@@ -194,5 +194,6 @@
 
 .bannerActions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-sm);
 }
