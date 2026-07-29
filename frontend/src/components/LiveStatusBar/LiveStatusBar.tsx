@@ -10,8 +10,8 @@
 // therefore always a cache of the Go-pushed/fetched snapshot, never
 // authoritative on its own (06-RESEARCH.md anti-pattern: "Treating Wails
 // EventsEmit as ... source of truth"). When no scene is active (or the
-// daemon is unreachable), every field renders an explicit idle value
-// ("No active scene", "--") rather than a blank/undefined one (PLAY-07
+// daemon is unreachable), every field renders the same explicit idle value
+// ("--") rather than a blank/undefined one (PLAY-07
 // idle edge, D-04 "visible not hidden"); scene/layer names truncate with
 // ellipsis at a fixed column width with the full name on hover via the
 // native `title` attribute, and this bar's own height never grows to
@@ -105,7 +105,7 @@ export default function LiveStatusBar() {
   }, [setStatus, setConnectionStatus]);
 
   const loading = connectionStatus === "connecting";
-  const sceneName = status.active ? status.sceneName || "Unnamed scene" : "No active scene";
+  const sceneName = status.active ? status.sceneName || "Unnamed scene" : "--";
   const layersText =
     status.active && status.enabledLayers.length > 0
       ? status.enabledLayers.join(", ")

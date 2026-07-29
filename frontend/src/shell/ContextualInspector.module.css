@@ -18,6 +18,16 @@
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
+  /* stable (not the default auto): this pane's own vertical scrollbar only
+     appears once portaled content grows tall enough to overflow, and
+     AppShell.module.css's own .inspector wrapper margin-right assumes a
+     fixed-width column right up to that scrollbar's track -- an "auto"
+     gutter would otherwise pop the scrollbar in over already-rendered
+     content the instant that happens, narrowing it by the scrollbar's own
+     width with no layout accounted for it. Reserving the gutter always
+     keeps the margin-right gap and this pane's inner width identical
+     whether or not a scrollbar is actually showing right now. */
+  scrollbar-gutter: stable;
   padding: var(--space-md);
   border-left: 1px solid var(--line);
   background: var(--page);

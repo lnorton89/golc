@@ -12,6 +12,12 @@
   /* Light theme (default) */
   --page: #e4e0d8;
   --panel: #f4f1eb;
+  /* panel-dim sits between --page and --panel -- GlobalFrame.tsx's own
+     transport/safety row reads this instead of --panel so it renders
+     slightly dimmer than TitleBar.tsx directly above it, giving the two
+     stacked chrome bars a visible step instead of reading as one flush
+     block. */
+  --panel-dim: #f1ece6;
   --ink: #17181c;
   --text: #4a4941;
   --text2: #57564e;
@@ -81,6 +87,7 @@
   :root {
     --page: #131419;
     --panel: #1e2027;
+    --panel-dim: #1b1c23;
     --ink: #ecead3;
     --text: #b7b5ac;
     --text2: #a6a49b;
@@ -98,6 +105,7 @@
 :root[data-theme="light"] {
   --page: #e4e0d8;
   --panel: #f4f1eb;
+  --panel-dim: #f1ece6;
   --ink: #17181c;
   --text: #4a4941;
   --text2: #57564e;
@@ -109,6 +117,7 @@
 :root[data-theme="dark"] {
   --page: #131419;
   --panel: #1e2027;
+  --panel-dim: #1b1c23;
   --ink: #ecead3;
   --text: #b7b5ac;
   --text2: #a6a49b;
