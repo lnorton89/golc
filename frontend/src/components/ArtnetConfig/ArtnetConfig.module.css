@@ -102,7 +102,7 @@
 }
 
 .createInputNarrow {
-  width: 96px;
+  width: 128px;
   padding: var(--space-sm);
   border: 1px solid var(--line);
   border-radius: 4px;
