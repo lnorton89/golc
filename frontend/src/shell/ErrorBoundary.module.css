@@ -48,6 +48,9 @@
 }
 
 .reload {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   height: 36px;
   padding: 0 16px;
   border: 1px solid var(--status-revoked, #e23a2e);

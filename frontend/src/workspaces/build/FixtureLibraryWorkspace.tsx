@@ -50,7 +50,7 @@
 // preview is discarded when the path is edited, the affordance is
 // dismissed, or the operator switches to the catalog side.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Lightbulb } from "lucide-react";
+import { Lightbulb, Repeat, Plus, X, FolderOpen, ShieldCheck, Eye } from "lucide-react";
 
 import {
   commitFixturePreview,
@@ -378,12 +378,17 @@ export default function FixtureLibraryWorkspace() {
       {alreadyExists ? (
         <div className={styles.alreadyExists}>
           <p className={styles.warningText}>This fixture is already in your library.</p>
-          <Button variant="secondary" onClick={() => void handleCommit(true)} disabled={committing}>
+          <Button variant="secondary" icon={Repeat} onClick={() => void handleCommit(true)} disabled={committing}>
             Replace
           </Button>
         </div>
       ) : (
-        <Button variant="primary" onClick={() => void handleCommit(false)} disabled={!view.inspect.valid || committing}>
+        <Button
+          variant="primary"
+          icon={Plus}
+          onClick={() => void handleCommit(false)}
+          disabled={!view.inspect.valid || committing}
+        >
           {committing ? "Adding…" : "Add to Library"}
         </Button>
       )}
@@ -442,7 +447,11 @@ export default function FixtureLibraryWorkspace() {
                     label={`Fixture Library (${countLabel})`}
                     icon={Lightbulb}
                     action={
-                      <Button variant="secondary" onClick={handleToggleAddCustomFixture}>
+                      <Button
+                        variant="secondary"
+                        icon={addingCustomFixture ? X : Plus}
+                        onClick={handleToggleAddCustomFixture}
+                      >
                         {addingCustomFixture ? "Cancel" : "Add Custom Fixture…"}
                       </Button>
                     }
@@ -534,11 +543,12 @@ export default function FixtureLibraryWorkspace() {
                         onChange={(event) => handleCustomFixturePathChange(event.target.value)}
                         disabled={previewing}
                       />
-                      <Button variant="secondary" onClick={handleBrowseCustomFixture} disabled={previewing}>
+                      <Button variant="secondary" icon={FolderOpen} onClick={handleBrowseCustomFixture} disabled={previewing}>
                         Browse…
                       </Button>
                       <Button
                         variant="secondary"
+                        icon={ShieldCheck}
                         onClick={handleValidateCustomFixture}
                         disabled={customFixturePath.trim() === "" || previewing}
                       >
@@ -615,6 +625,7 @@ export default function FixtureLibraryWorkspace() {
                       />
                       <Button
                         variant="secondary"
+                        icon={Eye}
                         onClick={handlePreview}
                         disabled={candidateFixtureKey.trim() === "" || previewing}
                       >

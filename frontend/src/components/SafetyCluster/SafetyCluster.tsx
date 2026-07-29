@@ -35,7 +35,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import { PowerOff, Ban, Square, type LucideIcon } from "lucide-react";
+import { PowerOff, Power, Ban, RotateCcw, Square, Play, type LucideIcon } from "lucide-react";
 
 import { useGolcStore } from "../../store/store";
 import {
@@ -126,7 +126,8 @@ function HoldButton({
       type="button"
       className={styles.control}
       style={style}
-      aria-pressed={holding}
+      data-active={active || undefined}
+      aria-pressed={active}
       onPointerDown={handlePointerDown}
       onPointerUp={cancelHold}
       onPointerLeave={cancelHold}
@@ -146,12 +147,7 @@ function HoldButton({
         }}
         aria-hidden="true"
       />
-      {active && (
-        <span className={styles.activeBadge} aria-hidden="true">
-          ACTIVE
-        </span>
-      )}
-      <Icon size={16} className={styles.controlIcon} aria-hidden="true" />
+      <Icon size={14} className={styles.controlIcon} aria-hidden="true" />
       <span className={styles.label}>{label}</span>
     </button>
   );
@@ -176,8 +172,8 @@ export default function SafetyCluster() {
   return (
     <div className={styles.cluster} aria-label="Safety cluster">
       <HoldButton
-        label={blackoutOrStopActive ? "Hold to Release Blackout" : "Hold to Blackout"}
-        icon={PowerOff}
+        label={blackoutOrStopActive ? "Release Blackout" : "Blackout"}
+        icon={blackoutOrStopActive ? Power : PowerOff}
         controlColorVar="var(--status-blackout)"
         textColorVar="var(--status-blackout-text)"
         active={blackoutOrStopActive}
@@ -186,8 +182,8 @@ export default function SafetyCluster() {
         }}
       />
       <HoldButton
-        label={revokeActive ? "Hold to Restore Automation" : "Hold to Revoke Automation"}
-        icon={Ban}
+        label={revokeActive ? "Restore Automation" : "Automation"}
+        icon={revokeActive ? RotateCcw : Ban}
         controlColorVar="var(--status-revoked)"
         textColorVar="var(--page)"
         active={revokeActive}
@@ -196,8 +192,8 @@ export default function SafetyCluster() {
         }}
       />
       <HoldButton
-        label={blackoutOrStopActive ? "Hold to Release Stop / Release All" : "Hold to Stop / Release All"}
-        icon={Square}
+        label={blackoutOrStopActive ? "Release Stop / Release All" : "Stop / Release All"}
+        icon={blackoutOrStopActive ? Play : Square}
         active={blackoutOrStopActive}
         onActivate={() => {
           void safetyStopReleaseAll(!blackoutOrStopActive);

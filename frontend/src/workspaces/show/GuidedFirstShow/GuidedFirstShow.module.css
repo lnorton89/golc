@@ -43,6 +43,7 @@
 .guide-step {
   display: flex;
   align-items: center;
+  gap: var(--space-sm);
   width: 100%;
   min-height: 36px;
   padding: var(--space-xs) var(--space-sm);
@@ -56,6 +57,15 @@
   text-align: left;
   cursor: pointer;
   transition: background-color var(--motion-tap), border-color var(--motion-tap);
+}
+
+.stepIcon {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.guide-step[aria-current="step"] .stepIcon {
+  color: var(--color-primary);
 }
 
 .guide-step:hover {

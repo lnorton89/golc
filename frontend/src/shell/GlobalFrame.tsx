@@ -1,11 +1,20 @@
 // GlobalFrame is the shell's persistent 52px top-frame region
 // (application-shell-navigation.md): show identity, transport/BPM, live
-// truth. LiveStatusBar owns the actual status fetch/subscribe logic (it is
-// the store's sole writer of `status`/`connectionStatus` -- see store.ts)
-// and must never be conditionally rendered; GlobalFrame only composes it
-// alongside a show-identity placeholder and (from Step 5) TempoControls.
+// truth, and the safety cluster. LiveStatusBar owns the actual status
+// fetch/subscribe logic (it is the store's sole writer of
+// `status`/`connectionStatus` -- see store.ts) and must never be
+// conditionally rendered; GlobalFrame only composes it alongside a
+// show-identity placeholder, TempoControls, and (icon/polish + header-
+// merge pass) SafetyCluster, which used to be AppShell's own dedicated
+// row directly beneath this header -- moved here, to the right of Tap, so
+// it reads as one persistent transport/safety strip instead of two
+// stacked chrome rows. D-13's "visible and interactive on every
+// workspace, independent of daemon reachability" contract is unaffected:
+// SafetyCluster still mounts unconditionally, just at a new screen
+// position within the same always-mounted header.
 import LiveStatusBar from "../components/LiveStatusBar/LiveStatusBar";
 import TempoControls from "../components/TempoControls/TempoControls";
+import SafetyCluster from "../components/SafetyCluster/SafetyCluster";
 import styles from "./GlobalFrame.module.css";
 
 export default function GlobalFrame() {
@@ -18,6 +27,8 @@ export default function GlobalFrame() {
         <LiveStatusBar />
       </div>
       <TempoControls />
+      <div className={styles.safetyDivider} aria-hidden="true" />
+      <SafetyCluster />
     </header>
   );
 }
