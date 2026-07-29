@@ -15,6 +15,7 @@
 // as high as possible (wrapping AppShell in App.tsx) to cover the largest
 // practical surface.
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { RefreshCw } from "lucide-react";
 
 import styles from "./ErrorBoundary.module.css";
 
@@ -59,6 +60,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
           className={styles.reload}
           onClick={() => window.location.reload()}
         >
+          <RefreshCw size={14} aria-hidden="true" />
           Reload
         </button>
       </div>

@@ -7,11 +7,16 @@
 // (no separate "Set" button) -- matching WORKFLOW-MAP.md's "BPM + bar/beat"
 // persistent-transport contract without duplicating the number itself.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Gauge, Hand } from "lucide-react";
+import { Gauge, Hand, ChevronUp, ChevronDown } from "lucide-react";
 
 import { usePlaybackSnapshot } from "../../shell/PlaybackSnapshotContext";
 import { dispatch } from "../../lib/playbackDispatch";
 import styles from "./TempoControls.module.css";
+
+// BPM_STEP mirrors the input's own `step="0.1"` -- the custom spinner
+// buttons below (which replace the native, unstyleable up/down arrows on
+// a `type="number"` input) must nudge by the exact same increment.
+const BPM_STEP = 0.1;
 
 export default function TempoControls() {
   const { state, refreshState } = usePlaybackSnapshot();
@@ -42,6 +47,18 @@ export default function TempoControls() {
     setEditing(true);
   }, [bpm]);
 
+  // step nudges the uncommitted bpmInput by +/-BPM_STEP, clamped to the
+  // input's own min={1} -- mirrors exactly what the native spinner arrows
+  // this replaces already did (change the value, never auto-commit; only
+  // Enter/blur calls commit()).
+  const step = useCallback((delta: number) => {
+    setBpmInput((current) => {
+      const parsed = Number(current) || 0;
+      const next = Math.max(1, Math.round((parsed + delta) * 10) / 10);
+      return String(next);
+    });
+  }, []);
+
   const handleTap = useCallback(async () => {
     await dispatch.recordTap();
     await refreshState();
@@ -50,26 +67,54 @@ export default function TempoControls() {
   return (
     <div className={styles.tempo} aria-label="Tempo controls">
       {editing ? (
-        <input
-          ref={inputRef}
-          className={styles.bpmInput}
-          type="number"
-          min={1}
-          step="0.1"
-          aria-label="BPM"
-          value={bpmInput}
-          onChange={(event) => setBpmInput(event.target.value)}
-          onBlur={() => void commit()}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              void commit();
-            } else if (event.key === "Escape") {
-              event.preventDefault();
-              setEditing(false);
-            }
-          }}
-        />
+        <span className={styles.bpmInputWrap}>
+          <input
+            ref={inputRef}
+            className={styles.bpmInput}
+            type="number"
+            min={1}
+            step={BPM_STEP}
+            aria-label="BPM"
+            value={bpmInput}
+            onChange={(event) => setBpmInput(event.target.value)}
+            onBlur={() => void commit()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void commit();
+              } else if (event.key === "Escape") {
+                event.preventDefault();
+                setEditing(false);
+              }
+            }}
+          />
+          <span className={styles.bpmSpinner}>
+            {/* tabIndex={-1} + onMouseDown preventDefault: a spinner click
+                must nudge the value without ever stealing focus from the
+                input -- stealing focus would blur it and fire commit()
+                (ending edit mode) on every single click. */}
+            <button
+              type="button"
+              className={styles.bpmSpinnerButton}
+              tabIndex={-1}
+              aria-label="Increase BPM"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => step(BPM_STEP)}
+            >
+              <ChevronUp size={10} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={styles.bpmSpinnerButton}
+              tabIndex={-1}
+              aria-label="Decrease BPM"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => step(-BPM_STEP)}
+            >
+              <ChevronDown size={10} aria-hidden="true" />
+            </button>
+          </span>
+        </span>
       ) : (
         <button type="button" className={styles.bpmDisplay} onClick={startEditing}>
           <Gauge size={13} className={styles.bpmIcon} aria-hidden="true" />

@@ -1,29 +1,27 @@
 /*
- * SafetyCluster.module.css -- the dedicated, visually distinct, fixed-
- * position safety cluster (D-13/D-15): a full-width strip fixed directly
- * under the header, grouping the three hold-to-confirm controls (D-14).
- * Icon/polish pass: moved from a boxed, all-sides-bordered bottom footer
- * to a compact toolbar-style strip (thin bottom rule instead of a full
- * border, tighter padding/gaps). Sizing pass: the row was shrunk to sit
- * clearly under the 52px header's own height -- the original 64px
- * min-height read as oversized next to it -- while keeping the controls
- * visually distinct via color, the ACTIVE badge, and the fill/progress
- * indicator rather than sheer size.
+ * SafetyCluster.module.css -- the persistent safety cluster (D-13/D-15),
+ * the three hold-to-confirm controls (D-14). Icon/polish + header-merge
+ * pass: no longer its own full-width row -- it now lives inline in
+ * GlobalFrame's 52px header, to the right of TempoControls' Tap button,
+ * so its controls match that button's own 28px height/text-sm sizing
+ * instead of the old dedicated-row's taller 36px target. Still visually
+ * distinct via color (--control-color) and the fill/progress indicator;
+ * the old floating "ACTIVE" text badge didn't fit this shorter target, so
+ * an active control now shows via its own icon+label change (SafetyCluster.tsx)
+ * plus a subtle accent ring (`.control[data-active]` below) instead.
  */
 
 .cluster {
   display: flex;
-  gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-sm);
-  border-bottom: 2px solid var(--status-revoked);
-  background: var(--panel);
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
 }
 
 .control {
   position: relative;
   overflow: hidden;
-  min-height: 36px;
-  min-width: 132px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -32,7 +30,8 @@
   color: var(--control-text-color, var(--ink));
   font-family: "Archivo", system-ui, sans-serif;
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--text-sm);
+  white-space: nowrap;
   text-align: center;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -41,6 +40,10 @@
   user-select: none;
   touch-action: none;
   -webkit-user-select: none;
+}
+
+.control[data-active] {
+  box-shadow: 0 0 0 2px var(--control-color, var(--accent));
 }
 
 .controlIcon {
@@ -66,23 +69,4 @@
 .label {
   position: relative;
   z-index: 1;
-}
-
-.activeBadge {
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  z-index: 1;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  /* Fixed light text, not --page: this badge's own background is a fixed
-     semi-transparent black overlay that never flips with theme (same
-     reasoning as SafetyCluster.tsx's Blackout button label -- --page goes
-     dark in dark mode, which would pair near-black text with this
-     near-black chip and make every ACTIVE badge unreadable). */
-  color: var(--status-blackout-text);
-  background: rgba(0, 0, 0, 0.35);
-  padding: 1px 4px;
-  border-radius: 2px;
 }

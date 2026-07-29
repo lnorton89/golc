@@ -16,6 +16,18 @@
 // renders independently, and only Verify's Perform transition gates on a
 // blocker (T-09-04-02), never a rail item or any other workspace.
 import { useEffect, useState, type ReactNode } from "react";
+import {
+  ChevronLeft,
+  LogOut,
+  ArrowRight,
+  Play,
+  Lightbulb,
+  Cable,
+  Layers,
+  SlidersHorizontal,
+  ShieldCheck,
+  type LucideIcon,
+} from "lucide-react";
 
 import Button from "../../../components/primitives/Button/Button";
 import type { DestinationId } from "../../../shell/navigation";
@@ -41,6 +53,21 @@ const STAGE_DESTINATION: Partial<Record<GuideStageId, DestinationId>> = {
   program: "build-scenes-looks",
   assign: "operate-operator-surface",
   verify: "operate-operator-surface",
+};
+
+// GUIDE_STAGE_ICONS (icon/polish pass) mirrors shell/destinationIcons.tsx's
+// own discipline -- a stage's rail glyph matches its STAGE_DESTINATION's
+// nav icon (Lightbulb/Cable/Layers), so the guide and the real workspace
+// it hands off to read as the same place. Assign and Verify share one
+// destination (operate-operator-surface) but need visually distinct
+// glyphs, so Verify gets ShieldCheck (final-check semantics) instead of
+// reusing Assign's SlidersHorizontal.
+const GUIDE_STAGE_ICONS: Record<GuideStageId, LucideIcon> = {
+  fixtures: Lightbulb,
+  patch: Cable,
+  program: Layers,
+  assign: SlidersHorizontal,
+  verify: ShieldCheck,
 };
 
 const PLACEHOLDER_STATUS: GuideStageStatus = { items: [], primaryLabel: "Continue", primaryDisabled: true };
@@ -88,17 +115,21 @@ export default function GuidedFirstShow() {
     <div className={styles.overlay}>
       <div className={styles["guided-flow"]}>
         <nav aria-label="First show steps" className={styles.rail}>
-          {GUIDE_STAGES.map((id) => (
-            <button
-              key={id}
-              type="button"
-              className={styles["guide-step"]}
-              aria-current={id === stage ? "step" : undefined}
-              onClick={() => setStage(id)}
-            >
-              {GUIDE_STAGE_LABELS[id]}
-            </button>
-          ))}
+          {GUIDE_STAGES.map((id) => {
+            const StageIcon = GUIDE_STAGE_ICONS[id];
+            return (
+              <button
+                key={id}
+                type="button"
+                className={styles["guide-step"]}
+                aria-current={id === stage ? "step" : undefined}
+                onClick={() => setStage(id)}
+              >
+                <StageIcon size={15} className={styles.stepIcon} aria-hidden="true" />
+                {GUIDE_STAGE_LABELS[id]}
+              </button>
+            );
+          })}
         </nav>
 
         <div className={styles.contentArea}>
@@ -108,13 +139,18 @@ export default function GuidedFirstShow() {
             </header>
             <div className={styles.stageBody}>{stageContent}</div>
             <footer className={styles.footer}>
-              <Button variant="secondary" onClick={handleBack} disabled={currentIndex === 0}>
+              <Button variant="secondary" icon={ChevronLeft} onClick={handleBack} disabled={currentIndex === 0}>
                 Back
               </Button>
-              <Button variant="secondary" onClick={exitGuide}>
+              <Button variant="secondary" icon={LogOut} onClick={exitGuide}>
                 Exit Guide
               </Button>
-              <Button variant="primary" onClick={handlePrimary} disabled={status.primaryDisabled}>
+              <Button
+                variant="primary"
+                icon={stage === "verify" ? Play : ArrowRight}
+                onClick={handlePrimary}
+                disabled={status.primaryDisabled}
+              >
                 {status.primaryLabel}
               </Button>
             </footer>

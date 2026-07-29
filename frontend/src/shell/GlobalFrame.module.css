@@ -24,3 +24,10 @@
   flex: 1;
   min-width: 0;
 }
+
+.safetyDivider {
+  width: 1px;
+  height: 24px;
+  flex-shrink: 0;
+  background: var(--line);
+}

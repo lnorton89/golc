@@ -2,19 +2,13 @@
   height: 100vh;
   display: grid;
   grid-template-columns: 186px minmax(0, 1fr) 258px;
-  /* safety row is "auto", not a fixed px guess: SafetyCluster's own
-     hold-buttons have a fixed min-height (see SafetyCluster.module.css) --
-     "auto" tracks SafetyCluster's real rendered height regardless of
-     future token changes, instead of re-guessing a px number here.
-     Moved from a bottom footer row to directly under the 52px header
-     (still full-width, still fixed/always-mounted -- see
-     SafetyCluster.tsx's own doc comment: D-13 requires this region stay
-     visible and interactive on every workspace, independent of daemon
-     reachability, regardless of screen position). */
-  grid-template-rows: 52px auto minmax(0, 1fr);
+  /* SafetyCluster now lives inline in the 52px header (GlobalFrame.tsx,
+     header-merge pass) instead of its own dedicated grid row -- D-13
+     still requires it stay visible and interactive on every workspace,
+     independent of daemon reachability; only its screen position moved. */
+  grid-template-rows: 52px minmax(0, 1fr);
   grid-template-areas:
     "header header header"
-    "safety safety safety"
     "rail main inspector";
   overflow: hidden;
   background: var(--page);
@@ -23,11 +17,6 @@
 
 .header {
   grid-area: header;
-  min-width: 0;
-}
-
-.safety {
-  grid-area: safety;
   min-width: 0;
 }
 

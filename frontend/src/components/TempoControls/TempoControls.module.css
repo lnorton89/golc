@@ -32,16 +32,67 @@
   background: var(--panel);
 }
 
+.bpmInputWrap {
+  position: relative;
+  display: inline-flex;
+}
+
 .bpmInput {
   width: 64px;
   height: 28px;
-  padding: 0 var(--space-xs);
+  padding: 0 18px 0 var(--space-xs);
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
   background: var(--page);
   color: var(--ink);
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: var(--text-sm);
+  /* Native spin buttons can't be recolored/resized to match this design
+     system -- hidden here in favor of the custom .bpmSpinner pair, which
+     is fully styleable and matches the rest of the app's controls. */
+  -moz-appearance: textfield;
+}
+
+.bpmInput::-webkit-inner-spin-button,
+.bpmInput::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.bpmSpinner {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
+  display: flex;
+  flex-direction: column;
+  width: 16px;
+  border-left: 1px solid var(--line);
+  overflow: hidden;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.bpmSpinnerButton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.bpmSpinnerButton:hover {
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+  color: var(--ink);
+}
+
+.bpmSpinnerButton:first-child {
+  border-bottom: 1px solid var(--line);
 }
 
 .button {
