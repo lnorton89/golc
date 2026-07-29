@@ -1,16 +1,16 @@
 ---
-status: verifying
+status: awaiting_human_verify
 trigger: "actually just noticed an issue. the window size used for screenshots is small enough to show a ui bug where this text looks like crap. make the ui window wider and regenerate and commit and push. verify the text isnt jumbled in ur screenshots before commiting and pushing"
 created: 2026-07-29T21:43:33.8413066Z
-updated: 2026-07-29T22:03:02.5001135Z
+updated: 2026-07-29T22:05:32.3090312Z
 ---
 
 ## Current Focus
 
-hypothesis: The Art-Net port placeholder clips because its type=number control is fixed at 96px, leaving insufficient text space after the browser's number-control affordance.
-test: Review the exact root/submodule diffs and working-tree scope, then commit in the required order only if diff checks and dimensions are clean.
-expecting: Site contains exactly twelve modified 1920x1080 assets; root contains the capture guard/viewport, two small screenshot-visible CSS fixes, the site gitlink, and this debug artifact, with the concurrent title-bar feature already committed separately.
-next_action: Amend this final push-state update into the parent commit, push parent master, and verify origin/master exactly matches local HEAD.
+hypothesis: Confirmed — the 1440px capture viewport compressed the fixed top bar; 1920x1080 plus capture-time geometry checks resolves and guards the published screenshot defect.
+test: Self-verification is complete; the remaining checkpoint is human confirmation in the published-source workflow after the verified commits are pushed.
+expecting: The user confirms the regenerated screenshots are readable in their normal review workflow.
+next_action: Await human confirmation that the original screenshot issue is resolved; archive only after confirmation.
 reasoning_checkpoint:
   hypothesis: "The Art-Net port placeholder clips because the 96px type=number input reserves part of that width for browser number controls, leaving too little inline space for the full placeholder."
   confirming_evidence:
@@ -114,6 +114,10 @@ started: Present in the currently published screenshot set generated with the ex
   checked: Site push.
   found: site master pushed successfully and local/origin refs both resolve to a1ac93d757c0f243df022658bcd59cf804645ce1.
   implication: The parent gitlink now points to an available remote commit; parent master may be pushed safely.
+- timestamp: 2026-07-29T22:05:32.3090312Z
+  checked: Parent remote race and reconciliation.
+  found: The verified parent commit was pushed concurrently as 51e4bc37 while a local docs-only amendment was being prepared; a non-destructive ours merge preserves both equivalent histories and the final debug state without force-pushing or changing the verified source/assets.
+  implication: The reconciliation merge can be pushed as a fast-forward of origin/master, after which local and remote refs will match and the session can enter human verification.
 
 ## Resolution
 
