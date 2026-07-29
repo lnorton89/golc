@@ -68,7 +68,14 @@
   font-weight: 600;
 }
 
+/* A boxed outline reads as a foreign element here -- every other active/
+   focus treatment in this rail (.itemActive below) is a left-border
+   accent, never a full rectangle, and a boxed outline on the topmost item
+   sat close enough to GlobalFrame's border above it to look like it was
+   connecting to the header bar. This keeps focus visible via the exact
+   same left-border language .itemActive already uses, so it stays
+   consistent regardless of which item currently has keyboard focus. */
 .item:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  outline: none;
+  border-left-color: var(--accent);
 }
