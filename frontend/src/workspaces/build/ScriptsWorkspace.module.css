@@ -17,6 +17,8 @@
 
 .toolbarActions {
   display: flex;
+  flex-wrap: wrap;
+  row-gap: var(--space-xs);
   gap: var(--space-sm);
 }
 

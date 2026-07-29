@@ -1,15 +1,24 @@
+/* AppShell.module.css's own `.inspector` (the grid-area wrapper one level
+   up) owns whether this column has any width at all (0 vs 258px, driven
+   by AppShell.tsx's --inspector-width) -- this file only needs to fill
+   whatever width it's given, never a fixed 258px of its own (two places
+   independently declaring "258px" would drift). box-sizing:border-box is
+   required here, not decorative: this project has no global box-sizing
+   reset (index.css), so the default content-box would add padding+border
+   ON TOP of width:100% instead of fitting inside it -- overflowed the
+   258px column by exactly padding+border (33px) until this was added,
+   caught live by the LookBrowser inspector-panel content spilling out
+   past the window edge. :empty::before intentionally has no rule here
+   any more (was "Select an item to see details.") -- an empty inspector
+   is now zero-width and off to the side, not a visible panel with a
+   placeholder message. */
 .inspector {
+  box-sizing: border-box;
+  width: 100%;
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
   padding: var(--space-md);
   border-left: 1px solid var(--line);
   background: var(--page);
-}
-
-.inspector:empty::before {
-  content: "Select an item to see details.";
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
 }

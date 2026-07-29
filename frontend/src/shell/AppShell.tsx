@@ -40,7 +40,7 @@
 // replaces the canvas alone; SafetyCluster/GlobalFrame/CommandRail/
 // ContextualInspector stay mounted unconditionally exactly as before
 // (application-shell-navigation.md's interaction contract).
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 
 import GlobalFrame from "./GlobalFrame";
 import CommandRail from "./CommandRail";
@@ -108,10 +108,18 @@ function GuardedCommandRail({ active }: { active: DestinationId }) {
 function ShellBody() {
   const [activeDestination, setActiveDestination] = useState<DestinationId>(DEFAULT_DESTINATION);
   const [inspectorContainer, setInspectorContainer] = useState<HTMLDivElement | null>(null);
+  // inspectorHasContent drives .appShell's own --inspector-width custom
+  // property (AppShell.module.css's own doc comment covers why this is
+  // an inline style, not a second class/rule -- two class-toggling
+  // approaches both got the grid track stuck at its original computed
+  // size even after the thing driving it genuinely changed). Fed by
+  // ContextualInspector.tsx's own MutationObserver on the portal target.
+  const [inspectorHasContent, setInspectorHasContent] = useState(false);
   const { helpOpen, closeHelp } = useGlobalKeyboardWorkflow();
+  const appShellStyle = { "--inspector-width": inspectorHasContent ? "258px" : "0px" } as CSSProperties;
 
   return (
-    <div className={styles.appShell}>
+    <div className={styles.appShell} style={appShellStyle}>
       <div className={styles.header}>
         <GlobalFrame />
       </div>
@@ -126,7 +134,7 @@ function ShellBody() {
         </main>
       </GuidedFirstShowProvider>
       <div className={styles.inspector}>
-        <ContextualInspector onContainerReady={setInspectorContainer} />
+        <ContextualInspector onContainerReady={setInspectorContainer} onHasContentChange={setInspectorHasContent} />
       </div>
       <HelpOverlay open={helpOpen} onClose={closeHelp} />
     </div>

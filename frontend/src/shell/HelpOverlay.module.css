@@ -6,6 +6,7 @@
   align-items: center;
   justify-content: center;
   background: color-mix(in srgb, var(--ink) 45%, transparent);
+  animation: backdropFadeIn var(--motion-settle);
 }
 
 .dialog {
@@ -17,6 +18,20 @@
   border-radius: var(--radius-lg);
   background: var(--panel);
   overflow: hidden;
+  animation: dialogPopIn var(--motion-settle);
+}
+
+@keyframes backdropFadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialogPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
 }
 
 .header {

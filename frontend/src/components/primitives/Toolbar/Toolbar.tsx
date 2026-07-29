@@ -1,8 +1,12 @@
-// Toolbar is a workspace's fixed 42px header row (application-shell-
-// navigation.md's `.workspace{grid-template-rows:42px minmax(0,1fr)}`) --
-// holds the workspace title and a primary action slot. Distinct from
-// PanelHeader (which labels a Panel section inside the canvas), Toolbar
-// labels the whole workspace.
+// Toolbar is a workspace's header row -- 42px by default, but only a
+// min-height (Toolbar.module.css): a workspace with a crowded action
+// slot (ScriptsWorkspace's New Script/Save/Delete/Validate/Run/Debug/Stop
+// row) wraps onto extra lines rather than clipping or scrolling, and
+// every .workspace is a flex column with .canvas as `flex: 1;
+// min-height: 0` below this, so growing here never overlaps or breaks
+// anything. Holds the workspace title and a primary action slot. Distinct
+// from PanelHeader (which labels a Panel section inside the canvas),
+// Toolbar labels the whole workspace.
 //
 // `icon` (optional, lucide-react component reference) mirrors each
 // workspace's own command-rail glyph (shell/destinationIcons.tsx) so the
