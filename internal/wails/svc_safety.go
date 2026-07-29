@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+
 	"github.com/lnorton89/golc/internal/artnet/ipc"
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/operatorsurface"
@@ -53,11 +55,12 @@ const statusPollInterval = eventsTickInterval
 // cmd/golc-desktop/main.go starts/stops it alongside App's own lifecycle
 // hooks.
 type SafetyService struct {
-	pipeName string
-	root     string
-	showPath string
-	dial     dialForwardFunc
-	events   *EventPusher
+	pipeName        string
+	root            string
+	showPath        string
+	dial            dialForwardFunc
+	events          *EventPusher
+	windowMinimised func(context.Context) bool
 
 	mu            sync.Mutex
 	pollCancel    context.CancelFunc
@@ -72,7 +75,7 @@ type SafetyService struct {
 // against -- mirrored from PlaybackService/SurfaceService's identical
 // fields rather than a second, divergent copy.
 func NewSafetyService(pipeName, root, showPath string) *SafetyService {
-	return &SafetyService{pipeName: pipeName, root: root, showPath: showPath, dial: defaultDialForward, events: NewEventPusher()}
+	return &SafetyService{pipeName: pipeName, root: root, showPath: showPath, dial: defaultDialForward, events: NewEventPusher(), windowMinimised: wailsruntime.WindowIsMinimised}
 }
 
 // SetActiveSurface selects surfaceName as the operator surface
@@ -165,6 +168,17 @@ func (s *SafetyService) pollStatus(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			// A minimised window has no LiveStatusBar for this poll to
+			// feed, so skip FetchStatus's daemon round-trip (a fresh
+			// ipc.Dial + write + read + Close every tick, hotkey.go's
+			// defaultDialForward) entirely rather than doing it 40
+			// times/second for nobody to see -- this was measured
+			// background idle CPU load with no user-visible effect,
+			// since polling resumes on the very next tick once the
+			// window is restored.
+			if s.windowMinimisedFn()(ctx) {
+				continue
+			}
 			s.events.QueueStatus(s.FetchStatus())
 		}
 	}
@@ -212,6 +226,16 @@ func (s *SafetyService) dialFn() dialForwardFunc {
 		return s.dial
 	}
 	return defaultDialForward
+}
+
+// windowMinimisedFn returns s.windowMinimised, defaulting to
+// wailsruntime.WindowIsMinimised for a SafetyService constructed via a bare
+// struct literal (mirrors dialFn's identical fallback rationale).
+func (s *SafetyService) windowMinimisedFn() func(context.Context) bool {
+	if s.windowMinimised != nil {
+		return s.windowMinimised
+	}
+	return wailsruntime.WindowIsMinimised
 }
 
 // Blackout dials+forwards "artnet safety blackout --on <on> --source
