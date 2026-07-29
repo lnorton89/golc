@@ -1,6 +1,7 @@
 package docgen_test
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -132,4 +133,73 @@ func TestScopeDocs(t *testing.T) {
 			t.Fatal("expected the stale site copy to be removed once its package disappears")
 		}
 	})
+}
+
+func TestDesktopViewsCatalog(t *testing.T) {
+	valid := []byte(`{
+  "schemaVersion": 1,
+  "groups": [{
+    "label": "Show",
+    "views": [{
+      "id": "show-overview",
+      "slug": "overview",
+      "navLabel": "Overview",
+      "title": "Show overview",
+      "purpose": "Review the open show and enter the guided workflow.",
+      "actions": ["Start Guided First Show"],
+      "concepts": ["Show state"],
+      "operatingNotes": ["Uses deterministic fallback data in browser previews."],
+      "screenshot": "/desktop-views/show-overview.png"
+    }]
+  }]
+}`)
+
+	t.Run("normalizes valid input byte-identically", func(t *testing.T) {
+		first, err := docgen.NormalizeDesktopViews(valid)
+		if err != nil {
+			t.Fatalf("normalize valid catalog: %v", err)
+		}
+		second, err := docgen.NormalizeDesktopViews(first)
+		if err != nil {
+			t.Fatalf("normalize generated catalog: %v", err)
+		}
+		if !bytes.Equal(first, second) {
+			t.Fatalf("expected byte-identical normalization\nfirst:\n%s\nsecond:\n%s", first, second)
+		}
+		if !bytes.Contains(first, []byte(`"generatedBy": "github.com/lnorton89/golc/internal/docgen"`)) {
+			t.Fatalf("expected generated source marker, got:\n%s", first)
+		}
+	})
+
+	tests := []struct {
+		name    string
+		replace string
+		with    string
+		code    string
+	}{
+		{"unknown schema", `"schemaVersion": 1`, `"schemaVersion": 2`, "GOLC_DOCGEN_DESKTOP_SCHEMA"},
+		{"unknown field", `"schemaVersion": 1`, `"schemaVersion": 1, "surprise": true`, "GOLC_DOCGEN_DESKTOP_DECODE"},
+		{"duplicate id", `    }]
+  }]`, `    }, {
+      "id": "show-overview",
+      "slug": "overview-copy",
+      "navLabel": "Overview copy",
+      "title": "Overview copy",
+      "purpose": "Duplicate fixture.",
+      "actions": ["Inspect"],
+      "screenshot": "/desktop-views/show-overview-copy.png"
+    }]
+  }]`, "GOLC_DOCGEN_DESKTOP_DUPLICATE"},
+		{"invalid screenshot", `"/desktop-views/show-overview.png"`, `"../escape.png"`, "GOLC_DOCGEN_DESKTOP_SCREENSHOT"},
+		{"empty purpose", `"Review the open show and enter the guided workflow."`, `""`, "GOLC_DOCGEN_DESKTOP_REQUIRED"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			input := bytes.Replace(valid, []byte(tc.replace), []byte(tc.with), 1)
+			_, err := docgen.NormalizeDesktopViews(input)
+			if err == nil || !strings.Contains(err.Error(), tc.code) {
+				t.Fatalf("expected %s, got %v", tc.code, err)
+			}
+		})
+	}
 }
