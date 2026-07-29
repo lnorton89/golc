@@ -11,6 +11,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import AppShell from "./AppShell";
 import { NAV_GROUPS } from "./navigation";
+import desktopViews from "./desktopViews.json";
 
 describe("AppShell navigation", () => {
   afterEach(() => {
@@ -18,6 +19,33 @@ describe("AppShell navigation", () => {
   });
 
   const allDestinationLabels = NAV_GROUPS.flatMap((group) => group.destinations.map((destination) => destination.label));
+
+  it("projects the complete, unique schema-v1 catalog into navigation", () => {
+    expect(desktopViews.schemaVersion).toBe(1);
+    expect(desktopViews.groups.map((group) => group.label)).toEqual(["Show", "Build", "Operate", "Output"]);
+
+    const catalogViews = desktopViews.groups.flatMap((group) => group.views);
+    expect(catalogViews).toHaveLength(12);
+    expect(new Set(catalogViews.map((view) => view.id)).size).toBe(catalogViews.length);
+    expect(new Set(catalogViews.map((view) => view.slug)).size).toBe(catalogViews.length);
+    expect(
+      NAV_GROUPS.flatMap((group) =>
+        group.destinations.map((destination) => ({
+          group: group.label,
+          id: destination.id,
+          label: destination.label,
+        })),
+      ),
+    ).toEqual(
+      desktopViews.groups.flatMap((group) =>
+        group.views.map((view) => ({
+          group: group.label,
+          id: view.id,
+          label: view.navLabel,
+        })),
+      ),
+    );
+  });
 
   it.each(allDestinationLabels)("mounts %s without throwing or logging a console error", (label) => {
     const errors: unknown[][] = [];
