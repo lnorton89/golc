@@ -11,6 +11,17 @@
   font-weight: 600;
   cursor: pointer;
   transition: background-color var(--motion-tap), border-color var(--motion-tap), color var(--motion-tap);
+  /* A narrow container (a squeezed footer/toolbar at a small window
+     width) used to wrap this button's own label across multiple lines
+     inside its fixed 32px height -- the text spilled out past the
+     button's own box instead of the button growing to fit it. nowrap +
+     flex-shrink:0 make the button grow to its label's full width instead
+     of ever wrapping text inside it; the *container* around a group of
+     buttons is then responsible for its own overflow policy (wrap onto a
+     second line, or scroll) -- see GuidedFirstShow.module.css's
+     .footer/Toolbar.module.css's .action for the two conventions. */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .button:disabled {

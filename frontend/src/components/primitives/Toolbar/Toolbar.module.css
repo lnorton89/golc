@@ -33,4 +33,15 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  /* .toolbar is a locked 42px row (never grows to fit content, see
+     .toolbar's own comment) -- unlike a footer, it can't just wrap a
+     button group onto a second line without breaking that fixed height
+     and overlapping the canvas below it. A workspace with many action
+     buttons (ScriptsWorkspace's New Script/Save/Delete/Validate/Run/
+     Debug/Stop row) scrolls horizontally instead once it no longer fits;
+     min-width:0 is what lets this flex item actually shrink below its
+     content's natural width so the scrollable overflow can engage. */
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
