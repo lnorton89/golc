@@ -17,6 +17,13 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  /* AppShell.module.css's own .main (this overlay's grid-area parent) has
+     no left/right margin of its own -- every other workspace supplies its
+     own edge spacing, and giving .main a blanket margin-right would double
+     up with whichever ones already do. This is scoped to GuidedFirstShow
+     alone: evidenceAside was rendering flush against the window's right
+     edge with zero breathing room. */
+  padding-right: var(--space-md);
 }
 
 .guided-flow {
