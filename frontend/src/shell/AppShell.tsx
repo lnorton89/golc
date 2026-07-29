@@ -42,6 +42,7 @@
 // (application-shell-navigation.md's interaction contract).
 import { useState, type CSSProperties } from "react";
 
+import TitleBar from "./TitleBar";
 import GlobalFrame from "./GlobalFrame";
 import CommandRail from "./CommandRail";
 import ContextualInspector from "./ContextualInspector";
@@ -120,6 +121,9 @@ function ShellBody() {
 
   return (
     <div className={styles.appShell} style={appShellStyle}>
+      <div className={styles.titleBar}>
+        <TitleBar />
+      </div>
       <div className={styles.header}>
         <GlobalFrame />
       </div>

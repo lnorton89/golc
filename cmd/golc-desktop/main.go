@@ -100,6 +100,17 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 19, G: 20, B: 25, A: 1},
+		// Frameless: without it, this app has no titlebar of its own and
+		// relies entirely on the OS/window manager to draw one -- which
+		// silently produces a window with no drag handle and no
+		// minimize/maximize/close controls on a Linux session running no
+		// desktop environment (nothing there draws decorations for an
+		// undecorated-by-default window manager, or for none at all). A
+		// single Frameless: true plus the in-app TitleBar
+		// (frontend/src/shell/TitleBar.tsx) gives every platform the same
+		// self-drawn chrome instead of leaning on a per-OS/per-WM
+		// decoration that isn't guaranteed to exist.
+		Frameless: true,
 		OnStartup: func(ctx context.Context) {
 			// App's own daemon-supervision/hotkey lifecycle (app.go,
 			// unmodified by this plan) starts first, then this

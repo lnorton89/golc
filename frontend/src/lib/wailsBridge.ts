@@ -722,6 +722,10 @@ declare global {
         eventName: string,
         callback: (...data: unknown[]) => void,
       ): () => void;
+      WindowMinimise?(): void;
+      WindowToggleMaximise?(): void;
+      WindowIsMaximised?(): Promise<boolean>;
+      Quit?(): void;
     };
   }
 }
@@ -1799,4 +1803,42 @@ export function onScriptEvent(
     const event = data[0] as ScriptEventView | undefined;
     if (event) callback(event);
   });
+}
+
+/** windowMinimise calls the Wails runtime's WindowMinimise (TitleBar.tsx's
+ * minimize control, backing the app's own Frameless: true self-drawn
+ * chrome). A missing bridge (a plain browser preview, a test harness) is a
+ * silent no-op, mirroring onStatusUpdate/onScriptEvent's identical
+ * undefined-runtime guard rather than throwing. */
+export function windowMinimise(): void {
+  window.runtime?.WindowMinimise?.();
+}
+
+/** windowToggleMaximise calls the Wails runtime's WindowToggleMaximise
+ * (TitleBar.tsx's maximize/restore control and its drag-region double-click
+ * shortcut). Silent no-op when the bridge is absent. */
+export function windowToggleMaximise(): void {
+  window.runtime?.WindowToggleMaximise?.();
+}
+
+/** windowIsMaximised calls the Wails runtime's WindowIsMaximised
+ * (TitleBar.tsx's maximize-vs-restore icon), returning false when the
+ * bridge is absent or the call itself rejects -- an unmaximised icon is the
+ * safe default outside a real Wails webview host. */
+export async function windowIsMaximised(): Promise<boolean> {
+  const runtime = window.runtime;
+  if (!runtime?.WindowIsMaximised) return false;
+  try {
+    return await runtime.WindowIsMaximised();
+  } catch {
+    return false;
+  }
+}
+
+/** windowClose calls the Wails runtime's Quit (TitleBar.tsx's close
+ * control) -- this is a single-window desktop app, so closing the one
+ * window and quitting the process are the same user-visible action.
+ * Silent no-op when the bridge is absent. */
+export function windowClose(): void {
+  window.runtime?.Quit?.();
 }

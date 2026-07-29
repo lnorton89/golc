@@ -24,13 +24,19 @@
      header-merge pass) instead of its own dedicated grid row -- D-13
      still requires it stay visible and interactive on every workspace,
      independent of daemon reachability; only its screen position moved. */
-  grid-template-rows: 52px minmax(0, 1fr);
+  grid-template-rows: 32px 52px minmax(0, 1fr);
   grid-template-areas:
+    "titlebar titlebar titlebar"
     "header header header"
     "rail main inspector";
   overflow: hidden;
   background: var(--page);
   color: var(--ink);
+}
+
+.titleBar {
+  grid-area: titlebar;
+  min-width: 0;
 }
 
 .header {
