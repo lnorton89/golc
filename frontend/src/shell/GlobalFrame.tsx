@@ -1,6 +1,8 @@
 // GlobalFrame is the shell's persistent 52px top-frame region
-// (application-shell-navigation.md): show identity, transport/BPM, live
-// truth, and the safety cluster. LiveStatusBar owns the actual status
+// (application-shell-navigation.md): transport/BPM, live truth, and the
+// safety cluster. Show/app identity now lives in TitleBar.tsx (the app's
+// own self-drawn window chrome), so this no longer repeats a "GOLC" label
+// directly beneath it. LiveStatusBar owns the actual status
 // fetch/subscribe logic (it is the store's sole writer of
 // `status`/`connectionStatus` -- see store.ts) and must never be
 // conditionally rendered; GlobalFrame only composes it alongside a
@@ -20,9 +22,6 @@ import styles from "./GlobalFrame.module.css";
 export default function GlobalFrame() {
   return (
     <header className={styles.frame}>
-      <div className={styles.identity}>
-        <span className={styles.identityLabel}>GOLC</span>
-      </div>
       <div className={styles.statusSlot}>
         <LiveStatusBar />
       </div>

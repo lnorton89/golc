@@ -9,17 +9,6 @@
   overflow: hidden;
 }
 
-.identity {
-  flex-shrink: 0;
-}
-
-.identityLabel {
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--ink);
-}
-
 .statusSlot {
   flex: 1;
   min-width: 0;
