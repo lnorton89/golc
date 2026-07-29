@@ -4,9 +4,9 @@ milestone: v1.0-shipped
 milestone_name: milestone
 status: phase_not_planned
 stopped_at: Phase 9 UI-SPEC approved
-last_updated: "2026-07-29T20:03:00.000Z"
+last_updated: "2026-07-29T20:35:00.000Z"
 last_activity: 2026-07-29
-last_activity_desc: "Completed quick task 260729-hsx: Redesign desktop views documentation as a master-detail explorer with lightbox"
+last_activity_desc: "Completed quick task 260729-ia1: Add pinned Netlify deploy tooling, repair Linux baselines, and deploy production"
 progress:
   total_phases: 9
   completed_phases: 8
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-27)
 
 Milestone v1.0: COMPLETE (Phases 1-8, 99/99 plans, shipped 2026-07-27)
 Next: Phase 9 (Front-Door UI Completion) — inserted 2026-07-27, not yet planned.
-Last activity: 2026-07-29 — Completed quick task 260729-hsx: Redesign desktop views documentation as a master-detail explorer with lightbox
+Last activity: 2026-07-29 — Completed quick task 260729-ia1: Add pinned Netlify deploy tooling, repair Linux baselines, and deploy production
 
 Note: Phase 9 depends on Phase 8 (satisfied). Phase 10 (AI autonomy) depends on Phases 2/6/7/8/9, Phase 11 (Windows) depends on Phases 1-10, and Phase 12 (Telemetry) depends on Phase 11. These phases remain active (not archived) in `.planning/ROADMAP.md` since they were carried forward rather than shipped as part of v1.0.
 
@@ -102,6 +102,7 @@ None yet.
 | 260724-y2t | Final byte-for-byte verification across three CI workflows (PowerShell removal Step 9) | 2026-07-24 | 8658b32 | Complete | [260724-y2t-final-verification-across-all-three-c](./quick/260724-y2t-final-verification-across-all-three-c/) |
 | 260729-gq6 | Add a maintainable desktop views documentation page to the site submodule, generated from codebase source-of-truth metadata with screenshot tooling and reusable structured content for future in-app ingestion | 2026-07-29 | 4f6d8d1b | Needs Review | [260729-gq6-add-a-maintainable-desktop-views-documen](./quick/260729-gq6-add-a-maintainable-desktop-views-documen/) |
 | 260729-hsx | Redesign the desktop views documentation page as one master-detail section with a compact view list on the left, a large selected screenshot and details on the right, and an accessible screenshot lightbox | 2026-07-29 | 494e9df3 | Needs Review | [260729-hsx-redesign-the-desktop-views-documentation](./quick/260729-hsx-redesign-the-desktop-views-documentation/) |
+| 260729-ia1 | Add a pinned npm deploy script for explicit Netlify production builds, repair the four Linux visual baselines from CI, and use the script to deploy and verify the redesigned desktop views page | 2026-07-29 | ecfde167 | Complete | [260729-ia1-add-a-pinned-npm-deploy-script-for-expli](./quick/260729-ia1-add-a-pinned-npm-deploy-script-for-expli/) |
 
 ## Deferred Items
 
