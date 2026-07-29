@@ -8,6 +8,7 @@
 package scene
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -90,7 +91,7 @@ func NewBlendPreset(name string, durationBars float64, curve string) (BlendPrese
 // re-minted (identity is rename-stable).
 func RenameBlendPreset(b BlendPreset, newName string) (BlendPreset, error) {
 	if strings.TrimSpace(newName) == "" {
-		return BlendPreset{}, fmt.Errorf("GOLC_BLEND_PRESET_NAME_EMPTY: blend preset name must not be empty")
+		return BlendPreset{}, errors.New("GOLC_BLEND_PRESET_NAME_EMPTY: blend preset name must not be empty")
 	}
 	b.Name = newName
 	return b, nil

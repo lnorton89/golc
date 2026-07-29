@@ -14,6 +14,7 @@ package fixture
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -54,7 +55,7 @@ func DecodeEnvelope(data []byte) (ImportEnvelope, error) {
 		return ImportEnvelope{}, fmt.Errorf("GOLC_FIXTURE_ENVELOPE_INVALID: %v", err)
 	}
 	if raw.Definition == nil {
-		return ImportEnvelope{}, fmt.Errorf("GOLC_FIXTURE_ENVELOPE_INVALID: document has no \"definition\" key")
+		return ImportEnvelope{}, errors.New("GOLC_FIXTURE_ENVELOPE_INVALID: document has no \"definition\" key")
 	}
 
 	var def FixtureDefinition

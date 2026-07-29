@@ -11,6 +11,7 @@ package strictjson
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 )
@@ -45,7 +46,7 @@ func validateValue(decoder *json.Decoder) error {
 	token, err := decoder.Token()
 	if err != nil {
 		if err == io.EOF {
-			return fmt.Errorf("STRICTJSON_PARSE: unexpected end of JSON input")
+			return errors.New("STRICTJSON_PARSE: unexpected end of JSON input")
 		}
 		return fmt.Errorf("STRICTJSON_PARSE: %v", err)
 	}
@@ -113,7 +114,7 @@ func DecodeStrict(data []byte, out any) error {
 		return fmt.Errorf("STRICTJSON_DECODE: %v", err)
 	}
 	if decoder.More() {
-		return fmt.Errorf("STRICTJSON_MULTIPLE_VALUES: unexpected additional JSON value after the decoded document")
+		return errors.New("STRICTJSON_MULTIPLE_VALUES: unexpected additional JSON value after the decoded document")
 	}
 	return nil
 }

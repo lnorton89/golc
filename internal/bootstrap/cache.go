@@ -16,6 +16,7 @@
 package bootstrap
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -60,7 +61,7 @@ func NewProjectCacheLayout(root string) (ProjectCacheLayout, error) {
 
 func newProjectCacheLayout(root string, overrides map[string]string) (ProjectCacheLayout, error) {
 	if strings.TrimSpace(root) == "" {
-		return ProjectCacheLayout{}, fmt.Errorf("BOOTSTRAP_CACHE_ROOT: root must not be empty")
+		return ProjectCacheLayout{}, errors.New("BOOTSTRAP_CACHE_ROOT: root must not be empty")
 	}
 	absoluteRoot, err := filepath.Abs(root)
 	if err != nil {
@@ -110,7 +111,7 @@ func (layout ProjectCacheLayout) directories() []string {
 // bootstrap.go already enforce for extracted archive entries.
 func (layout ProjectCacheLayout) Validate() error {
 	if strings.TrimSpace(layout.Root) == "" {
-		return fmt.Errorf("BOOTSTRAP_CACHE_ROOT: root must not be empty")
+		return errors.New("BOOTSTRAP_CACHE_ROOT: root must not be empty")
 	}
 	for _, path := range layout.directories() {
 		if path == layout.Root {
@@ -187,4 +188,12 @@ func (env OfflineEnvironment) AsMap() map[string]string {
 // on Windows or "" elsewhere.
 func (layout ProjectCacheLayout) WailsBinaryPath(executableSuffix string) string {
 	return filepath.Join(layout.GoBin, "wails"+executableSuffix)
+}
+
+// LintBinaryPath is where installGoInstallTools' go_install.golangci-lint
+// pin (config/toolchain.toml) places the project-local golangci-lint CLI,
+// matching the same GoBin placement convention as WailsBinaryPath above.
+// executableSuffix is typically ".exe" on Windows or "" elsewhere.
+func (layout ProjectCacheLayout) LintBinaryPath(executableSuffix string) string {
+	return filepath.Join(layout.GoBin, "golangci-lint"+executableSuffix)
 }

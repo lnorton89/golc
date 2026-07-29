@@ -18,8 +18,10 @@ package script
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -97,7 +99,7 @@ func waitForInspectorTarget(ctx context.Context, port int) (*devtool.Target, err
 		if err != nil {
 			lastErr = err
 		} else {
-			lastErr = fmt.Errorf("inspector reported no webSocketDebuggerUrl")
+			lastErr = errors.New("inspector reported no webSocketDebuggerUrl")
 		}
 		select {
 		case <-ctx.Done():
@@ -305,7 +307,7 @@ func (b *DebugBridge) handlePaused(reply *debugger.PausedReply) {
 	b.setPaused(true)
 
 	if len(reply.CallFrames) == 0 {
-		b.publishDebugStatus(fmt.Sprintf("GOLC_SCRIPT_DEBUG_PAUSED: reason=%s", reply.Reason))
+		b.publishDebugStatus("GOLC_SCRIPT_DEBUG_PAUSED: reason=" + reply.Reason)
 	} else {
 		userLine, inShim := authorLineFromCDP(reply.CallFrames[0].Location.LineNumber, b.shimLineCount)
 		if inShim {
@@ -369,9 +371,11 @@ func framesFromCDPCallFrames(frames []runtime.CallFrame, shimLineCount int, scri
 // extending it keeps this task from touching 08-08's file).
 func formatExceptionMessage(headerText string, frames []StackFrame) string {
 	message := security.Redact(headerText)
+	var messageSb372 strings.Builder
 	for _, frame := range frames {
-		message += fmt.Sprintf("\n    at %s (%s:%d:%d)", frame.Function, frame.File, frame.Line, frame.Column)
+		messageSb372.WriteString(fmt.Sprintf("\n    at %s (%s:%d:%d)", frame.Function, frame.File, frame.Line, frame.Column))
 	}
+	message += messageSb372.String()
 	return message
 }
 

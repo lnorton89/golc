@@ -137,9 +137,8 @@ func (s *Server) listenAddr() (string, error) {
 	}
 	bindInterface := strings.TrimSpace(s.config.BindInterface)
 	if bindInterface == "" {
-		return "", fmt.Errorf(
-			"GOLC_API_REMOTE_BIND_INTERFACE_REQUIRED: api.remote_enabled is true but api.bind_interface is empty; " +
-				"an operator enabling remote access must name an explicit interface")
+		return "", errors.New("GOLC_API_REMOTE_BIND_INTERFACE_REQUIRED: api.remote_enabled is true but api.bind_interface is empty; " +
+			"an operator enabling remote access must name an explicit interface")
 	}
 	return fmt.Sprintf("%s:%d", bindInterface, port), nil
 }

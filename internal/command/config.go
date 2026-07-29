@@ -7,6 +7,7 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -80,7 +81,7 @@ func parseSetArgs(args []string) (string, string, error) {
 		}
 	}
 	if !local || len(positionals) != 2 {
-		return "", "", fmt.Errorf("GOLC_CONFIG_USAGE: usage: config set --local <key> <value>")
+		return "", "", errors.New("GOLC_CONFIG_USAGE: usage: config set --local <key> <value>")
 	}
 	return positionals[0], positionals[1], nil
 }
@@ -109,7 +110,7 @@ func parseExplainArgs(args []string) (string, error) {
 		switch {
 		case argument == "--format":
 			if i+1 >= len(args) {
-				return "", fmt.Errorf("GOLC_CONFIG_USAGE: --format requires a value")
+				return "", errors.New("GOLC_CONFIG_USAGE: --format requires a value")
 			}
 			format = args[i+1]
 			i += 2
@@ -120,14 +121,14 @@ func parseExplainArgs(args []string) (string, error) {
 			return "", fmt.Errorf("GOLC_CONFIG_USAGE: unknown flag %q", argument)
 		default:
 			if key != "" {
-				return "", fmt.Errorf("GOLC_CONFIG_USAGE: exactly one configuration key is required")
+				return "", errors.New("GOLC_CONFIG_USAGE: exactly one configuration key is required")
 			}
 			key = argument
 			i++
 		}
 	}
 	if key == "" {
-		return "", fmt.Errorf("GOLC_CONFIG_USAGE: usage: config explain <key> [--format json]")
+		return "", errors.New("GOLC_CONFIG_USAGE: usage: config explain <key> [--format json]")
 	}
 	if format != "json" {
 		return "", fmt.Errorf("GOLC_CONFIG_FORMAT_UNSUPPORTED: %q (only json is supported)", format)
@@ -145,7 +146,7 @@ func parseInspectArgs(args []string) (string, error) {
 		switch {
 		case argument == "--format":
 			if i+1 >= len(args) {
-				return "", fmt.Errorf("GOLC_CONFIG_USAGE: --format requires a value")
+				return "", errors.New("GOLC_CONFIG_USAGE: --format requires a value")
 			}
 			format = args[i+1]
 			i += 2
@@ -156,14 +157,14 @@ func parseInspectArgs(args []string) (string, error) {
 			return "", fmt.Errorf("GOLC_CONFIG_USAGE: unknown flag %q", argument)
 		default:
 			if concernID != "" {
-				return "", fmt.Errorf("GOLC_CONFIG_USAGE: exactly one concern id is required")
+				return "", errors.New("GOLC_CONFIG_USAGE: exactly one concern id is required")
 			}
 			concernID = argument
 			i++
 		}
 	}
 	if concernID == "" {
-		return "", fmt.Errorf("GOLC_CONFIG_USAGE: usage: config inspect <concern> [--format json]")
+		return "", errors.New("GOLC_CONFIG_USAGE: usage: config inspect <concern> [--format json]")
 	}
 	if format != "json" {
 		return "", fmt.Errorf("GOLC_CONFIG_FORMAT_UNSUPPORTED: %q (only json is supported)", format)

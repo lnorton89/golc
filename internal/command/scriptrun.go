@@ -50,12 +50,12 @@ type registryExecutor struct {
 // Execute implements script.Executor.
 func (e registryExecutor) Execute(route string, args []string, root string) (exitCode int, stdout, stderr []byte) {
 	if !isExposedSDKRoute(route) {
-		return 2, nil, []byte(fmt.Sprintf("GOLC_SCRIPT_ROUTE_UNKNOWN: %q is not a route the generated SDK exposes to scripts\n", route))
+		return 2, nil, fmt.Appendf(nil, "GOLC_SCRIPT_ROUTE_UNKNOWN: %q is not a route the generated SDK exposes to scripts\n", route)
 	}
 
 	registration, rest, ok := e.registry.Lookup(strings.Fields(route))
 	if !ok || len(rest) != 0 {
-		return 2, nil, []byte(fmt.Sprintf("GOLC_ROUTE_UNKNOWN: no registered route matches %q\n", route))
+		return 2, nil, fmt.Appendf(nil, "GOLC_ROUTE_UNKNOWN: no registered route matches %q\n", route)
 	}
 	result := registration.Handler(Request{Route: registration.Route, Args: args, Root: root})
 	return result.ExitCode, result.Stdout, result.Stderr
@@ -147,7 +147,7 @@ func runScriptRun(request Request) Result {
 	}
 	showPath, ok := flags["show"]
 	if !ok || showPath == "" {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_USAGE: --show is required; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_USAGE: --show is required; usage: %s\n", usage)}
 	}
 
 	state, err := show.Load(request.Root, showPath)
@@ -156,12 +156,12 @@ func runScriptRun(request Request) Result {
 	}
 	target, index, found := scriptByName(state.Scripts, name)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_NOT_FOUND: no script named %q exists\n", name))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_NOT_FOUND: no script named %q exists\n", name)}
 	}
 
 	registry, err := NewDefaultCommandRegistry()
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_RUN_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_RUN_FAILED: %v\n", err)}
 	}
 
 	host, err := script.NewHost(script.HostConfig{
@@ -188,7 +188,7 @@ func runScriptRun(request Request) Result {
 
 	payload, encodeErr := strictjson.CanonicalEncode(toScriptRunResultView(outcome))
 	if encodeErr != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_ENCODE_FAILED: %v\n", encodeErr))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_ENCODE_FAILED: %v\n", encodeErr)}
 	}
 
 	exitCode := 0

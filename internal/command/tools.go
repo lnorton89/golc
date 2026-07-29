@@ -42,6 +42,7 @@ package command
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -473,20 +474,20 @@ func applyPackageLockProposal(current []byte, linearSDK, typescriptPin NpmPackag
 	}
 	packagesRaw, ok := doc["packages"]
 	if !ok {
-		return nil, fmt.Errorf("GOLC_TOOLS_UPDATE_PACKAGE_LOCK: packages not found")
+		return nil, errors.New("GOLC_TOOLS_UPDATE_PACKAGE_LOCK: packages not found")
 	}
 	packages, ok := packagesRaw.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("GOLC_TOOLS_UPDATE_PACKAGE_LOCK: packages is not an object")
+		return nil, errors.New("GOLC_TOOLS_UPDATE_PACKAGE_LOCK: packages is not an object")
 	}
 
 	rootRaw, ok := packages[""]
 	if !ok {
-		return nil, fmt.Errorf("GOLC_TOOLS_UPDATE_PACKAGE_LOCK: root package entry not found")
+		return nil, errors.New("GOLC_TOOLS_UPDATE_PACKAGE_LOCK: root package entry not found")
 	}
 	root, ok := rootRaw.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("GOLC_TOOLS_UPDATE_PACKAGE_LOCK: root package entry is not an object")
+		return nil, errors.New("GOLC_TOOLS_UPDATE_PACKAGE_LOCK: root package entry is not an object")
 	}
 	if err := setNestedStringField(root, "dependencies", linearSDK.Name, linearSDK.Version); err != nil {
 		return nil, fmt.Errorf("GOLC_TOOLS_UPDATE_PACKAGE_LOCK: %w", err)
@@ -541,11 +542,11 @@ func verifyNpmConsistency(packageJSON, packageLock []byte) error {
 		return fmt.Errorf("GOLC_TOOLS_UPDATE_NPM_INCONSISTENT: package-lock.json: %w", err)
 	}
 	if lock.LockfileVersion == 0 {
-		return fmt.Errorf("GOLC_TOOLS_UPDATE_NPM_INCONSISTENT: package-lock.json missing lockfileVersion")
+		return errors.New("GOLC_TOOLS_UPDATE_NPM_INCONSISTENT: package-lock.json missing lockfileVersion")
 	}
 	root, ok := lock.Packages[""]
 	if !ok {
-		return fmt.Errorf("GOLC_TOOLS_UPDATE_NPM_INCONSISTENT: package-lock.json missing root package entry")
+		return errors.New("GOLC_TOOLS_UPDATE_NPM_INCONSISTENT: package-lock.json missing root package entry")
 	}
 
 	checkGroup := func(direct map[string]string, lockedByName map[string]string, kind string) error {
@@ -808,7 +809,7 @@ func (s defaultMetadataSource) Propose() (ToolsUpdateProposal, error) {
 // rejects anything else, including both together.
 func parseToolsUpdateArgs(args []string) (string, error) {
 	if len(args) != 1 {
-		return "", fmt.Errorf("GOLC_TOOLS_USAGE: usage: tools update --check|--write")
+		return "", errors.New("GOLC_TOOLS_USAGE: usage: tools update --check|--write")
 	}
 	switch args[0] {
 	case "--check":

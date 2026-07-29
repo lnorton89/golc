@@ -252,7 +252,7 @@ func (c *ProcessClient) safeFailureSummary() string {
 	}
 	c.exitMu.Unlock()
 	if tail == "" {
-		return fmt.Sprintf("process state: %s", exitDetail)
+		return "process state: " + exitDetail
 	}
 	return fmt.Sprintf("process state: %s; stderr: %s", exitDetail, security.Redact(tail))
 }

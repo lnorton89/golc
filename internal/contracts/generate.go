@@ -16,6 +16,7 @@ package contracts
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -69,7 +70,7 @@ var registry = struct {
 func RegisterSchema(descriptor SchemaDescriptor) error {
 	name := strings.TrimSpace(descriptor.Name)
 	if name == "" {
-		return fmt.Errorf("GOLC_CONTRACTS_NAME_EMPTY: schema descriptor name is blank")
+		return errors.New("GOLC_CONTRACTS_NAME_EMPTY: schema descriptor name is blank")
 	}
 	outputPath := strings.TrimSpace(descriptor.OutputPath)
 	if outputPath == "" {

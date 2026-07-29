@@ -61,12 +61,12 @@ func runScriptStop(request Request) Result {
 	}
 	showPath, ok := flags["show"]
 	if !ok || showPath == "" {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_USAGE: --show is required; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_USAGE: --show is required; usage: %s\n", usage)}
 	}
 
 	run, found := script.ActiveRun(name)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_NO_ACTIVE_RUN: no active run for script %q\n", name))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_NO_ACTIVE_RUN: no active run for script %q\n", name)}
 	}
 
 	outcome := run.Stop(script.TerminationReason{
@@ -91,7 +91,7 @@ func runScriptStop(request Request) Result {
 
 	payload, encodeErr := strictjson.CanonicalEncode(toScriptRunResultView(outcome))
 	if encodeErr != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCRIPT_ENCODE_FAILED: %v\n", encodeErr))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCRIPT_ENCODE_FAILED: %v\n", encodeErr)}
 	}
 	return Result{Stdout: payload}
 }

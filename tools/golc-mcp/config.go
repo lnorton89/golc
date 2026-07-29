@@ -10,6 +10,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -58,7 +59,7 @@ type configInspectOutput struct {
 
 func handleConfigInspect(_ context.Context, _ *mcp.CallToolRequest, input configInspectInput) (*mcp.CallToolResult, configInspectOutput, error) {
 	if input.Concern == "" {
-		return toolError[configInspectOutput](fmt.Errorf("concern is required, e.g. \"runtime\"; call golc_list_config_concerns for the full set"))
+		return toolError[configInspectOutput](errors.New("concern is required, e.g. \"runtime\"; call golc_list_config_concerns for the full set"))
 	}
 	root, err := resolveRepoRoot()
 	if err != nil {
@@ -86,7 +87,7 @@ type configExplainOutput struct {
 
 func handleConfigExplain(_ context.Context, _ *mcp.CallToolRequest, input configExplainInput) (*mcp.CallToolResult, configExplainOutput, error) {
 	if input.Key == "" {
-		return toolError[configExplainOutput](fmt.Errorf("key is required, e.g. \"runtime.log_level\""))
+		return toolError[configExplainOutput](errors.New("key is required, e.g. \"runtime.log_level\""))
 	}
 	root, err := resolveRepoRoot()
 	if err != nil {

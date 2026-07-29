@@ -7,6 +7,7 @@
 package programming
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -39,7 +40,7 @@ type Theme struct {
 // Name, and never re-minted by RenameTheme.
 func NewTheme(name string) (Theme, error) {
 	if strings.TrimSpace(name) == "" {
-		return Theme{}, fmt.Errorf("GOLC_THEME_NAME_EMPTY: theme name must not be empty")
+		return Theme{}, errors.New("GOLC_THEME_NAME_EMPTY: theme name must not be empty")
 	}
 	id, err := uuid.NewV7()
 	if err != nil {
@@ -52,7 +53,7 @@ func NewTheme(name string) (Theme, error) {
 // re-minted (identity is rename-stable).
 func RenameTheme(t Theme, newName string) (Theme, error) {
 	if strings.TrimSpace(newName) == "" {
-		return Theme{}, fmt.Errorf("GOLC_THEME_NAME_EMPTY: theme name must not be empty")
+		return Theme{}, errors.New("GOLC_THEME_NAME_EMPTY: theme name must not be empty")
 	}
 	t.Name = newName
 	return t, nil

@@ -87,7 +87,7 @@ func buildExcludedRoutes() map[string]string {
 		"build", "check", "docs", "generate",
 		"linear apply", "linear archive", "linear catalog", "linear drift",
 		"linear map migrate", "linear preview", "linear status", "linear unlink",
-		"linear validate", "package", "test", "tools update",
+		"linear validate", "lint", "package", "test", "tools update",
 	)
 	addAll(reasonDaemonLifecycle, "artnet serve")
 	addAll(reasonLocalProcessLaunch, "run", "dev")

@@ -435,7 +435,7 @@ func runProgrammerSet(request Request) Result {
 	if err := show.Save(request.Root, parsed.showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_PROGRAMMER_SET: instances=%d attributes=%d\n", len(resolved.Instances), len(parsed.attrs)))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_PROGRAMMER_SET: instances=%d attributes=%d\n", len(resolved.Instances), len(parsed.attrs))}
 }
 
 // parseProgrammerShowOnlyArgs accepts exactly a required "--show <path>"
@@ -583,7 +583,7 @@ func runThemeCreate(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_THEME_CREATED: %s (%s)\n", newTheme.Name, newTheme.ID))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_THEME_CREATED: %s (%s)\n", newTheme.Name, newTheme.ID)}
 }
 
 // parsePresetRecordArgs accepts a positional preset name followed by a
@@ -667,8 +667,8 @@ func runPresetRecord(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf(
-		"GOLC_PRESET_RECORDED: %s (%s) kind=%s attributes=%d\n", newPreset.Name, newPreset.ID, newPreset.Kind, len(newPreset.Attributes)))}
+	return Result{Stdout: fmt.Appendf(nil,
+		"GOLC_PRESET_RECORDED: %s (%s) kind=%s attributes=%d\n", newPreset.Name, newPreset.ID, newPreset.Kind, len(newPreset.Attributes))}
 }
 
 // parseChaseCreateArgs accepts a positional chase name followed by a
@@ -767,7 +767,7 @@ func runChaseCreate(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_CHASE_CREATED: %s (%s)\n", newChase.Name, newChase.ID))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_CHASE_CREATED: %s (%s)\n", newChase.Name, newChase.ID)}
 }
 
 // parseMotionCreateArgs accepts exactly a positional motion preset name
@@ -832,7 +832,7 @@ func runMotionCreate(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_MOTION_PRESET_CREATED: %s (%s)\n", newMotionPreset.Name, newMotionPreset.ID))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_MOTION_PRESET_CREATED: %s (%s)\n", newMotionPreset.Name, newMotionPreset.ID)}
 }
 
 // themeByName returns the theme in themes whose Name matches name, plus its
@@ -977,7 +977,7 @@ func runThemeRename(request Request) Result {
 
 	target, index, found := themeByName(state.Themes, oldName)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_THEME_NOT_FOUND: no theme named %q exists\n", oldName))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_THEME_NOT_FOUND: no theme named %q exists\n", oldName)}
 	}
 	renamed, err := programming.RenameTheme(target, newName)
 	if err != nil {
@@ -988,7 +988,7 @@ func runThemeRename(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_THEME_RENAMED: %s -> %s (%s)\n", oldName, renamed.Name, renamed.ID))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_THEME_RENAMED: %s -> %s (%s)\n", oldName, renamed.Name, renamed.ID)}
 }
 
 // runThemeDelete serves the self-registered "theme delete" route (PROG-07):
@@ -1014,14 +1014,14 @@ func runThemeDelete(request Request) Result {
 
 	_, index, found := themeByName(state.Themes, name)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_THEME_NOT_FOUND: no theme named %q exists\n", name))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_THEME_NOT_FOUND: no theme named %q exists\n", name)}
 	}
 	state.Themes = append(state.Themes[:index], state.Themes[index+1:]...)
 
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_THEME_DELETED: %s\n", name))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_THEME_DELETED: %s\n", name)}
 }
 
 // runPresetRename serves the self-registered "preset rename" route
@@ -1045,7 +1045,7 @@ func runPresetRename(request Request) Result {
 
 	target, index, found := presetByName(state.Presets, oldName)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_PRESET_NOT_FOUND: no preset named %q exists\n", oldName))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_PRESET_NOT_FOUND: no preset named %q exists\n", oldName)}
 	}
 	renamed, err := programming.RenamePreset(target, newName)
 	if err != nil {
@@ -1056,7 +1056,7 @@ func runPresetRename(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_PRESET_RENAMED: %s -> %s (%s)\n", oldName, renamed.Name, renamed.ID))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_PRESET_RENAMED: %s -> %s (%s)\n", oldName, renamed.Name, renamed.ID)}
 }
 
 // runPresetDelete serves the self-registered "preset delete" route
@@ -1080,14 +1080,14 @@ func runPresetDelete(request Request) Result {
 
 	_, index, found := presetByName(state.Presets, name)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_PRESET_NOT_FOUND: no preset named %q exists\n", name))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_PRESET_NOT_FOUND: no preset named %q exists\n", name)}
 	}
 	state.Presets = append(state.Presets[:index], state.Presets[index+1:]...)
 
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_PRESET_DELETED: %s\n", name))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_PRESET_DELETED: %s\n", name)}
 }
 
 // chaseUpdateArgs is the parsed shape of one "chase update" invocation.
@@ -1209,7 +1209,7 @@ func runChaseUpdate(request Request) Result {
 
 	target, index, found := chaseByName(state.Chases, parsed.chaseName)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_CHASE_NOT_FOUND: no chase named %q exists\n", parsed.chaseName))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_CHASE_NOT_FOUND: no chase named %q exists\n", parsed.chaseName)}
 	}
 
 	updated := target
@@ -1234,7 +1234,7 @@ func runChaseUpdate(request Request) Result {
 	if err := show.Save(request.Root, parsed.showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_CHASE_UPDATED: %s (%s)\n", updated.Name, updated.ID))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_CHASE_UPDATED: %s (%s)\n", updated.Name, updated.ID)}
 }
 
 // parseChaseReorderArgs accepts a positional chase name followed by a
@@ -1351,7 +1351,7 @@ func runChaseReorder(request Request) Result {
 
 	target, index, found := chaseByName(state.Chases, name)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_CHASE_NOT_FOUND: no chase named %q exists\n", name))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_CHASE_NOT_FOUND: no chase named %q exists\n", name)}
 	}
 
 	reordered, err := reorderChaseSteps(target, order)
@@ -1363,7 +1363,7 @@ func runChaseReorder(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_CHASE_REORDERED: %s (%s) steps=%d\n", reordered.Name, reordered.ID, len(reordered.Steps)))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_CHASE_REORDERED: %s (%s) steps=%d\n", reordered.Name, reordered.ID, len(reordered.Steps))}
 }
 
 // runChaseDuplicate serves the self-registered "chase duplicate" route
@@ -1392,7 +1392,7 @@ func runChaseDuplicate(request Request) Result {
 
 	source, _, found := chaseByName(state.Chases, sourceName)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_CHASE_NOT_FOUND: no chase named %q exists\n", sourceName))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_CHASE_NOT_FOUND: no chase named %q exists\n", sourceName)}
 	}
 
 	duplicate, err := programming.NewChase(newName, append([]programming.ChaseStep(nil), source.Steps...), source.StepUnit, source.StepDuration)
@@ -1404,7 +1404,7 @@ func runChaseDuplicate(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_CHASE_DUPLICATED: %s -> %s (%s)\n", sourceName, duplicate.Name, duplicate.ID))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_CHASE_DUPLICATED: %s -> %s (%s)\n", sourceName, duplicate.Name, duplicate.ID)}
 }
 
 // runChaseDelete serves the self-registered "chase delete" route
@@ -1430,14 +1430,14 @@ func runChaseDelete(request Request) Result {
 
 	_, index, found := chaseByName(state.Chases, name)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_CHASE_NOT_FOUND: no chase named %q exists\n", name))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_CHASE_NOT_FOUND: no chase named %q exists\n", name)}
 	}
 	state.Chases = append(state.Chases[:index], state.Chases[index+1:]...)
 
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_CHASE_DELETED: %s\n", name))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_CHASE_DELETED: %s\n", name)}
 }
 
 // runMotionRename serves the self-registered "motion rename" route
@@ -1464,7 +1464,7 @@ func runMotionRename(request Request) Result {
 
 	target, index, found := motionByName(state.MotionPresets, oldName)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_MOTION_PRESET_NOT_FOUND: no motion preset named %q exists\n", oldName))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_MOTION_PRESET_NOT_FOUND: no motion preset named %q exists\n", oldName)}
 	}
 	renamed, err := programming.RenameMotionPreset(target, newName)
 	if err != nil {
@@ -1475,7 +1475,7 @@ func runMotionRename(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_MOTION_PRESET_RENAMED: %s -> %s (%s)\n", oldName, renamed.Name, renamed.ID))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_MOTION_PRESET_RENAMED: %s -> %s (%s)\n", oldName, renamed.Name, renamed.ID)}
 }
 
 // runMotionDuplicate serves the self-registered "motion duplicate" route
@@ -1503,7 +1503,7 @@ func runMotionDuplicate(request Request) Result {
 
 	source, _, found := motionByName(state.MotionPresets, sourceName)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_MOTION_PRESET_NOT_FOUND: no motion preset named %q exists\n", sourceName))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_MOTION_PRESET_NOT_FOUND: no motion preset named %q exists\n", sourceName)}
 	}
 
 	duplicate, err := programming.NewMotionPreset(newName, append([]programming.MotionKeyframe(nil), source.Keyframes...))
@@ -1515,7 +1515,7 @@ func runMotionDuplicate(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_MOTION_PRESET_DUPLICATED: %s -> %s (%s)\n", sourceName, duplicate.Name, duplicate.ID))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_MOTION_PRESET_DUPLICATED: %s -> %s (%s)\n", sourceName, duplicate.Name, duplicate.ID)}
 }
 
 // runMotionDelete serves the self-registered "motion delete" route
@@ -1541,14 +1541,14 @@ func runMotionDelete(request Request) Result {
 
 	_, index, found := motionByName(state.MotionPresets, name)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_MOTION_PRESET_NOT_FOUND: no motion preset named %q exists\n", name))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_MOTION_PRESET_NOT_FOUND: no motion preset named %q exists\n", name)}
 	}
 	state.MotionPresets = append(state.MotionPresets[:index], state.MotionPresets[index+1:]...)
 
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_MOTION_PRESET_DELETED: %s\n", name))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_MOTION_PRESET_DELETED: %s\n", name)}
 }
 
 // runSceneRename serves the self-registered "scene rename" route
@@ -1574,7 +1574,7 @@ func runSceneRename(request Request) Result {
 
 	target, index, found := sceneByName(state.Scenes, oldName)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCENE_NOT_FOUND: no scene named %q exists\n", oldName))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCENE_NOT_FOUND: no scene named %q exists\n", oldName)}
 	}
 	renamed, err := scene.RenameScene(target, newName)
 	if err != nil {
@@ -1585,7 +1585,7 @@ func runSceneRename(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_SCENE_RENAMED: %s -> %s (%s)\n", oldName, renamed.Name, renamed.ID))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_SCENE_RENAMED: %s -> %s (%s)\n", oldName, renamed.Name, renamed.ID)}
 }
 
 // runSceneDuplicate serves the self-registered "scene duplicate" route
@@ -1617,7 +1617,7 @@ func runSceneDuplicate(request Request) Result {
 
 	source, _, found := sceneByName(state.Scenes, sourceName)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCENE_NOT_FOUND: no scene named %q exists\n", sourceName))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCENE_NOT_FOUND: no scene named %q exists\n", sourceName)}
 	}
 
 	duplicate, err := scene.NewScene(newName, source.BarsPerLoop)
@@ -1631,7 +1631,7 @@ func runSceneDuplicate(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_SCENE_DUPLICATED: %s -> %s (%s)\n", sourceName, duplicate.Name, duplicate.ID))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_SCENE_DUPLICATED: %s -> %s (%s)\n", sourceName, duplicate.Name, duplicate.ID)}
 }
 
 // runSceneDelete serves the self-registered "scene delete" route
@@ -1656,12 +1656,12 @@ func runSceneDelete(request Request) Result {
 
 	_, index, found := sceneByName(state.Scenes, name)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SCENE_NOT_FOUND: no scene named %q exists\n", name))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCENE_NOT_FOUND: no scene named %q exists\n", name)}
 	}
 	state.Scenes = append(state.Scenes[:index], state.Scenes[index+1:]...)
 
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_SCENE_DELETED: %s\n", name))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_SCENE_DELETED: %s\n", name)}
 }

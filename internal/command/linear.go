@@ -8,6 +8,7 @@ package command
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -190,7 +191,7 @@ func runLinearCatalog(request Request) Result {
 	}
 	payload, err := json.MarshalIndent(catalogView{Entities: catalogEntityViews(built)}, "", "  ")
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_CATALOG_ENCODE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_LINEAR_CATALOG_ENCODE_FAILED: %v\n", err)}
 	}
 	return Result{Stdout: append(payload, '\n')}
 }
@@ -376,13 +377,13 @@ func buildRemotePreview(root string) (reconcile.Plan, *processLinearClient, erro
 func writePreviewPlan(root, outPath string, plan reconcile.Plan) Result {
 	payload, err := strictjson.CanonicalEncode(plan)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_PREVIEW_ENCODE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_LINEAR_PREVIEW_ENCODE_FAILED: %v\n", err)}
 	}
 	destination := resolveWritablePath(root, outPath)
 	if err := os.WriteFile(destination, payload, 0o644); err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_PREVIEW_WRITE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_LINEAR_PREVIEW_WRITE_FAILED: %v\n", err)}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_LINEAR_PREVIEW: wrote %s\n", destination))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_LINEAR_PREVIEW: wrote %s\n", destination)}
 }
 
 // runLinearPreview serves the self-registered "linear preview" route. Its
@@ -714,7 +715,7 @@ type processLinearClient struct {
 // only when a create/update actually needs it (buildEntityFields).
 func newProcessLinearClient(root string, migrated *catalog.Map) (*processLinearClient, error) {
 	if strings.TrimSpace(os.Getenv("LINEAR_API_KEY")) == "" {
-		return nil, fmt.Errorf("GOLC_LINEAR_TRANSPORT_CREDENTIAL_MISSING: LINEAR_API_KEY is not set")
+		return nil, errors.New("GOLC_LINEAR_TRANSPORT_CREDENTIAL_MISSING: LINEAR_API_KEY is not set")
 	}
 	nodeExecutable, err := resolvePinnedNodeExecutable(root)
 	if err != nil {
@@ -1000,7 +1001,7 @@ func writeArchivePreview(request Request, localID, outPath string, build func(ca
 		}
 	}
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_ARCHIVE_UNKNOWN: %q has no recorded remote mapping\n", localID))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_LINEAR_ARCHIVE_UNKNOWN: %q has no recorded remote mapping\n", localID)}
 	}
 	preview, err := build(mapping)
 	if err != nil {
@@ -1008,13 +1009,13 @@ func writeArchivePreview(request Request, localID, outPath string, build func(ca
 	}
 	payload, err := strictjson.CanonicalEncode(preview)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_ARCHIVE_ENCODE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_LINEAR_ARCHIVE_ENCODE_FAILED: %v\n", err)}
 	}
 	destination := resolveWritablePath(request.Root, outPath)
 	if err := os.WriteFile(destination, payload, 0o644); err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_ARCHIVE_WRITE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_LINEAR_ARCHIVE_WRITE_FAILED: %v\n", err)}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_LINEAR_ARCHIVE: wrote %s\n", destination))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_LINEAR_ARCHIVE: wrote %s\n", destination)}
 }
 
 // runLinearArchive serves the self-registered "linear archive" route
@@ -1165,7 +1166,7 @@ func runLinearStatus(request Request) Result {
 	}
 	payload, err := json.MarshalIndent(view, "", "  ")
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_STATUS_ENCODE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_LINEAR_STATUS_ENCODE_FAILED: %v\n", err)}
 	}
 	return Result{Stdout: append(payload, '\n')}
 }
@@ -1409,8 +1410,8 @@ func runLinearApply(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 	if plan.PlanID != planID {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-			"GOLC_LINEAR_APPLY_PLAN_ID_MISMATCH: --plan-id %q does not match the loaded plan's own plan_id %q\n", planID, plan.PlanID))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+			"GOLC_LINEAR_APPLY_PLAN_ID_MISMATCH: --plan-id %q does not match the loaded plan's own plan_id %q\n", planID, plan.PlanID)}
 	}
 
 	if applyRemoteClientFactory == nil {
@@ -1431,7 +1432,7 @@ func runLinearApply(request Request) Result {
 
 	client, err := applyRemoteClientFactory(request.Root)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_TRANSPORT_UNAVAILABLE: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_LINEAR_TRANSPORT_UNAVAILABLE: %v\n", err)}
 	}
 	if closer, ok := client.(io.Closer); ok {
 		defer closer.Close()
@@ -1471,7 +1472,7 @@ func runLinearApply(request Request) Result {
 
 	payload, err := strictjson.CanonicalEncode(report)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_LINEAR_APPLY_REPORT_ENCODE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_LINEAR_APPLY_REPORT_ENCODE_FAILED: %v\n", err)}
 	}
 	return Result{Stdout: payload}
 }

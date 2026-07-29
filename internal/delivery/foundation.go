@@ -26,6 +26,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -68,7 +69,7 @@ func FoundationInventory(root string, inventory CommandInventory) ([]FoundationE
 	entries := make([]FoundationEntry, 0, len(foundationFixedEntries)+8)
 
 	if strings.TrimSpace(inventory.CLIBinary) == "" {
-		return nil, fmt.Errorf("GOLC_FOUNDATION_INVENTORY: graph inventory is incomplete")
+		return nil, errors.New("GOLC_FOUNDATION_INVENTORY: graph inventory is incomplete")
 	}
 	entries = append(entries,
 		FoundationEntry{ArchivePath: filepath.ToSlash(inventory.CLIBinary), SourcePath: inventory.CLIBinary},
@@ -208,7 +209,7 @@ func CanonicalManifest(root string, entries []FoundationEntry) (Manifest, [][]by
 	for _, entry := range sorted {
 		archivePath := strings.TrimSpace(entry.ArchivePath)
 		if archivePath == "" {
-			return Manifest{}, nil, fmt.Errorf("GOLC_FOUNDATION_MANIFEST: entry has a blank archive path")
+			return Manifest{}, nil, errors.New("GOLC_FOUNDATION_MANIFEST: entry has a blank archive path")
 		}
 		if _, duplicate := seen[archivePath]; duplicate {
 			return Manifest{}, nil, fmt.Errorf("GOLC_FOUNDATION_MANIFEST: duplicate archive path %q", archivePath)
@@ -315,7 +316,7 @@ func BuildFoundationBundle(root string) (FoundationBundle, error) {
 // ZIP archive, normalizing every entry's metadata.
 func buildDeterministicZIP(manifest Manifest, payloads [][]byte, manifestBytes []byte) ([]byte, error) {
 	if len(manifest.Files) != len(payloads) {
-		return nil, fmt.Errorf("GOLC_FOUNDATION_ZIP: manifest/payload count mismatch")
+		return nil, errors.New("GOLC_FOUNDATION_ZIP: manifest/payload count mismatch")
 	}
 
 	var buffer bytes.Buffer

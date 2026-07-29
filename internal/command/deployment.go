@@ -69,7 +69,7 @@ func runDeploymentCreate(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_DEPLOYMENT_CREATED: %s (%s)\n", newDeployment.Name, newDeployment.ID))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_DEPLOYMENT_CREATED: %s (%s)\n", newDeployment.Name, newDeployment.ID)}
 }
 
 // runDeploymentActivate serves the self-registered "deployment activate"
@@ -97,7 +97,7 @@ func runDeploymentActivate(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_DEPLOYMENT_ACTIVATED: %s\n", name))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_DEPLOYMENT_ACTIVATED: %s\n", name)}
 }
 
 // parseDeploymentNameShowArgs accepts exactly: a positional deployment
@@ -240,7 +240,7 @@ func runShowInspect(request Request) Result {
 
 	payload, err := json.MarshalIndent(buildShowInspectView(state), "", "  ")
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_DEPLOYMENT_INSPECT_ENCODE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_DEPLOYMENT_INSPECT_ENCODE_FAILED: %v\n", err)}
 	}
 	return Result{Stdout: append(payload, '\n')}
 }

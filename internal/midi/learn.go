@@ -1,6 +1,9 @@
 package midi
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 // MessageKind identifies whether a ControlKey refers to a Note message
 // or a ControlChange (CC) message. It is part of a ControlKey's
@@ -86,6 +89,6 @@ func CaptureCandidate(next <-chan ControlKey, timeout <-chan struct{}) (ControlK
 	case candidate := <-next:
 		return candidate, nil
 	case <-timeout:
-		return ControlKey{}, fmt.Errorf("GOLC_MIDI_LEARN_TIMEOUT: no MIDI message received before the learn capture window closed")
+		return ControlKey{}, errors.New("GOLC_MIDI_LEARN_TIMEOUT: no MIDI message received before the learn capture window closed")
 	}
 }

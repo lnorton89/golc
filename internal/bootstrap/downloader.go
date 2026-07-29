@@ -9,6 +9,7 @@
 package bootstrap
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -235,7 +236,7 @@ func (source URLSource) Fetch(rawURL string) (io.ReadCloser, error) {
 			return priorRedirect(request, via)
 		}
 		if len(via) >= 10 {
-			return fmt.Errorf("BOOTSTRAP_SOURCE_REDIRECT: too many redirects")
+			return errors.New("BOOTSTRAP_SOURCE_REDIRECT: too many redirects")
 		}
 		return nil
 	}

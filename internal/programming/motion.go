@@ -11,6 +11,7 @@
 package programming
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -126,7 +127,7 @@ func NewMotionPreset(name string, keyframes []MotionKeyframe) (MotionPreset, err
 // re-minted (identity is rename-stable), and Keyframes is left untouched.
 func RenameMotionPreset(m MotionPreset, newName string) (MotionPreset, error) {
 	if strings.TrimSpace(newName) == "" {
-		return MotionPreset{}, fmt.Errorf("GOLC_MOTION_PRESET_NAME_EMPTY: motion preset name must not be empty")
+		return MotionPreset{}, errors.New("GOLC_MOTION_PRESET_NAME_EMPTY: motion preset name must not be empty")
 	}
 	m.Name = newName
 	return m, nil

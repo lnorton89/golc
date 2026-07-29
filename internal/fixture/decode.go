@@ -16,6 +16,7 @@ package fixture
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -28,7 +29,7 @@ import (
 // decode and post-decode validation both succeed.
 func Decode(data []byte) (FixtureDefinition, error) {
 	if len(bytes.TrimSpace(data)) == 0 {
-		return FixtureDefinition{}, fmt.Errorf("GOLC_FIXTURE_EMPTY: fixture document is empty")
+		return FixtureDefinition{}, errors.New("GOLC_FIXTURE_EMPTY: fixture document is empty")
 	}
 
 	var def FixtureDefinition
@@ -72,10 +73,10 @@ func validate(def FixtureDefinition) error {
 			def.SchemaVersion)
 	}
 	if strings.TrimSpace(def.Manufacturer) == "" {
-		return fmt.Errorf("GOLC_FIXTURE_MANUFACTURER_EMPTY: fixture manufacturer must not be empty")
+		return errors.New("GOLC_FIXTURE_MANUFACTURER_EMPTY: fixture manufacturer must not be empty")
 	}
 	if strings.TrimSpace(def.Model) == "" {
-		return fmt.Errorf("GOLC_FIXTURE_MODEL_EMPTY: fixture model must not be empty")
+		return errors.New("GOLC_FIXTURE_MODEL_EMPTY: fixture model must not be empty")
 	}
 	if len(def.Modes) == 0 {
 		return fmt.Errorf(

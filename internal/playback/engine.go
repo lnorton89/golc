@@ -222,7 +222,7 @@ func (e *Engine) StageEdit(state show.State) error {
 func (e *Engine) SwitchScene(name string) error {
 	statePtr := e.lastState.Load()
 	if statePtr == nil {
-		return fmt.Errorf("GOLC_PLAYBACK_SWITCH_UNKNOWN_SCENE: no show state has been staged yet")
+		return errors.New("GOLC_PLAYBACK_SWITCH_UNKNOWN_SCENE: no show state has been staged yet")
 	}
 	state := *statePtr
 

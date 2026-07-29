@@ -18,6 +18,7 @@
 package show
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -157,7 +158,7 @@ func resolvePositiveOrDefault(value, fallback int) int {
 // and never re-minted by a later rename or source edit.
 func NewScript(name string) (Script, error) {
 	if strings.TrimSpace(name) == "" {
-		return Script{}, fmt.Errorf("GOLC_SCRIPT_NAME_EMPTY: script name must not be empty")
+		return Script{}, errors.New("GOLC_SCRIPT_NAME_EMPTY: script name must not be empty")
 	}
 	id, err := uuid.NewV7()
 	if err != nil {

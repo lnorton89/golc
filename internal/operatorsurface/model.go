@@ -19,6 +19,7 @@
 package operatorsurface
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -198,7 +199,7 @@ func cloneSurface(s Surface) Surface {
 // re-minted by Rename.
 func NewSurface(name string) (Surface, error) {
 	if strings.TrimSpace(name) == "" {
-		return Surface{}, fmt.Errorf("GOLC_OPERATORSURFACE_NAME_EMPTY: operator surface name must not be empty")
+		return Surface{}, errors.New("GOLC_OPERATORSURFACE_NAME_EMPTY: operator surface name must not be empty")
 	}
 	id, err := uuid.NewV7()
 	if err != nil {
@@ -211,7 +212,7 @@ func NewSurface(name string) (Surface, error) {
 // (identity is rename-stable).
 func Rename(s Surface, newName string) (Surface, error) {
 	if strings.TrimSpace(newName) == "" {
-		return Surface{}, fmt.Errorf("GOLC_OPERATORSURFACE_NAME_EMPTY: operator surface name must not be empty")
+		return Surface{}, errors.New("GOLC_OPERATORSURFACE_NAME_EMPTY: operator surface name must not be empty")
 	}
 	clone := cloneSurface(s)
 	clone.Name = newName

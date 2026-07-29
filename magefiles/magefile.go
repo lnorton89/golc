@@ -183,6 +183,10 @@ func CheckOffline() error { return runTarget("checkoffline", context.Background(
 // Build compiles every project package.
 func Build() error { return runTarget("build", context.Background()) }
 
+// Lint runs golangci-lint over every project Go package with the
+// project-local pinned toolchain.
+func Lint() error { return runTarget("lint", context.Background()) }
+
 // Test runs the complete project test route.
 func Test() error { return runTarget("test", context.Background()) }
 

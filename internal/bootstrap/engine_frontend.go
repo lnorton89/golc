@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -90,7 +91,7 @@ func runFrontendBuild(ctx context.Context, engine *bootstrapEngine) (resultErr e
 			resultErr = fmt.Errorf("GOLC_BOOTSTRAP_NODE_LOCK_MUTATION: inputs changed and restoration failed: %w", restoreErr)
 			return
 		}
-		resultErr = fmt.Errorf("GOLC_BOOTSTRAP_NODE_LOCK_MUTATION: bootstrap must never rewrite frontend/package.json or package-lock.json")
+		resultErr = errors.New("GOLC_BOOTSTRAP_NODE_LOCK_MUTATION: bootstrap must never rewrite frontend/package.json or package-lock.json")
 	}()
 
 	// frontend/vite.config.ts sets outDir: "../cmd/golc-desktop/frontend/dist"
@@ -129,7 +130,7 @@ func runFrontendBuild(ctx context.Context, engine *bootstrapEngine) (resultErr e
 		if err := writeExactFile(packageLockPath, packageLockBefore, 0o644); err != nil {
 			return fmt.Errorf("GOLC_BOOTSTRAP_NODE_LOCK_MUTATION: restore package-lock.json: %w", err)
 		}
-		return fmt.Errorf("GOLC_BOOTSTRAP_NODE_LOCK_MUTATION: bootstrap must never rewrite frontend/package.json or package-lock.json")
+		return errors.New("GOLC_BOOTSTRAP_NODE_LOCK_MUTATION: bootstrap must never rewrite frontend/package.json or package-lock.json")
 	}
 
 	if err := WriteFrontendBuildManifest(frontendDir); err != nil {

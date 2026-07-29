@@ -27,6 +27,7 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -97,7 +98,7 @@ func parseGenerateArgs(args []string) (bool, error) {
 		switch argument {
 		case "--check":
 			if checkOnly {
-				return false, fmt.Errorf("GOLC_GENERATE_USAGE: --check may be given only once")
+				return false, errors.New("GOLC_GENERATE_USAGE: --check may be given only once")
 			}
 			checkOnly = true
 		default:

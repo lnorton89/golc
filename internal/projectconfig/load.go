@@ -11,6 +11,7 @@ package projectconfig
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -92,7 +93,7 @@ func LoadRootIndex(root string) (RootIndex, error) {
 // dot path segments before any filesystem access happens.
 func assertRelativeConcernPath(relative string) error {
 	if strings.TrimSpace(relative) == "" {
-		return fmt.Errorf("GOLC_CONFIG_PATH_ESCAPE: concern path is empty")
+		return errors.New("GOLC_CONFIG_PATH_ESCAPE: concern path is empty")
 	}
 	normalized := strings.ReplaceAll(relative, "\\", "/")
 	if strings.HasPrefix(normalized, "/") || strings.Contains(normalized, ":") || filepath.IsAbs(relative) {

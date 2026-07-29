@@ -1,0 +1,56 @@
+# golangci-lint v2 configuration (see config/toolchain.toml's
+# [go_install.golangci-lint] pin, invoked via `mage Lint`).
+#
+# Deliberately narrow: this repository has never run a linter before, so
+# starting from golangci-lint's own broad default set would surface an
+# unknown, unreviewed volume of findings across the whole codebase in one
+# pass. Two linters are enabled, both auto-fixable:
+#   - perfsprint: avoidable-allocation fmt.Sprintf/Errorf uses.
+#   - modernize: the "fmtappendf" analyzer only (every other modernize
+#     analyzer -- any/rangeint/stringscut/etc. -- is explicitly disabled
+#     below). fmtappendf is exactly the `[]byte(fmt.Sprintf(...))` ->
+#     fmt.Appendf(...) rewrite VS Code's gopls "modernize" pass was
+#     already surfacing as editor warnings; the other ~19 modernize
+#     analyzers are broader style rewrites out of scope for this pass.
+# Broadening this set further is a deliberate future decision, not an
+# accidental side effect of adding the tool.
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - modernize
+    - perfsprint
+  settings:
+    modernize:
+      disable:
+        - any
+        - atomictypes
+        - forvar
+        - mapsloop
+        - minmax
+        - newexpr
+        - omitzero
+        - plusbuild
+        - rangeint
+        - reflecttypefor
+        - slicesbackward
+        - slicescontains
+        - slicessort
+        - stditerators
+        - stringsbuilder
+        - stringscut
+        - stringscutprefix
+        - stringsseq
+        - testingcontext
+        - unsafefuncs
+        - waitgroupgo
+
+# golangci-lint truncates repeated findings by default (3 identical-text
+# issues per linter, 50 total per linter) -- exactly the reason the first
+# report from this config looked deceptively small. This repository wants
+# every finding surfaced (and every auto-fixable one actually fixed), not
+# a sampled preview.
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

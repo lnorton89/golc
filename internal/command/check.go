@@ -30,6 +30,7 @@ package command
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -86,7 +87,7 @@ func runCheck(request Request) Result {
 	case "project":
 		return runProjectCheck(request.Root)
 	default:
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_CHECK_CONCERN_UNKNOWN: %q\n", parsed.concern))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_CHECK_CONCERN_UNKNOWN: %q\n", parsed.concern)}
 	}
 }
 
@@ -102,25 +103,22 @@ func parseCheckArgs(args []string) (checkArgs, error) {
 		switch {
 		case argument == "--concern":
 			if exclusiveSet() {
-				return checkArgs{}, fmt.Errorf(
-					"GOLC_CHECK_USAGE: --concern, --offline, and --command-parity are mutually exclusive")
+				return checkArgs{}, errors.New("GOLC_CHECK_USAGE: --concern, --offline, and --command-parity are mutually exclusive")
 			}
 			if i+1 >= len(args) {
-				return checkArgs{}, fmt.Errorf("GOLC_CHECK_USAGE: --concern requires a value")
+				return checkArgs{}, errors.New("GOLC_CHECK_USAGE: --concern requires a value")
 			}
 			parsed.concern = args[i+1]
 			i += 2
 		case argument == "--offline":
 			if exclusiveSet() {
-				return checkArgs{}, fmt.Errorf(
-					"GOLC_CHECK_USAGE: --concern, --offline, and --command-parity are mutually exclusive")
+				return checkArgs{}, errors.New("GOLC_CHECK_USAGE: --concern, --offline, and --command-parity are mutually exclusive")
 			}
 			parsed.offline = true
 			i++
 		case argument == "--command-parity":
 			if exclusiveSet() {
-				return checkArgs{}, fmt.Errorf(
-					"GOLC_CHECK_USAGE: --concern, --offline, and --command-parity are mutually exclusive")
+				return checkArgs{}, errors.New("GOLC_CHECK_USAGE: --concern, --offline, and --command-parity are mutually exclusive")
 			}
 			parsed.commandParity = true
 			i++
@@ -130,7 +128,7 @@ func parseCheckArgs(args []string) (checkArgs, error) {
 		}
 	}
 	if parsed.concern == "" && !parsed.offline && !parsed.commandParity {
-		return checkArgs{}, fmt.Errorf("GOLC_CHECK_USAGE: usage: check --concern <name>|--offline|--command-parity")
+		return checkArgs{}, errors.New("GOLC_CHECK_USAGE: usage: check --concern <name>|--offline|--command-parity")
 	}
 	return parsed, nil
 }
@@ -219,11 +217,11 @@ func runProjectCheck(root string) Result {
 	for _, key := range projectCheckPathKeys {
 		value, declared := resolved[key]
 		if !declared {
-			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-				"GOLC_CHECK_PROJECT_PATH: %q is not declared by the resolved configuration\n", key))}
+			return Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+				"GOLC_CHECK_PROJECT_PATH: %q is not declared by the resolved configuration\n", key)}
 		}
 		if _, err := projectconfig.ResolveContainedPath(root, value); err != nil {
-			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_CHECK_PROJECT_PATH: %s: %v\n", key, err))}
+			return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_CHECK_PROJECT_PATH: %s: %v\n", key, err)}
 		}
 	}
 	report.WriteString("check --concern project: every declared path stays repository-contained.\n")
@@ -233,8 +231,8 @@ func runProjectCheck(root string) Result {
 		return Result{ExitCode: 1, Stderr: []byte("GOLC_CHECK_PROJECT_GENERATED: " + err.Error() + "\n")}
 	}
 	if len(changed) > 0 {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-			"GOLC_CHECK_PROJECT_GENERATED: committed schemas drifted: %s\n", strings.Join(changed, ", ")))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+			"GOLC_CHECK_PROJECT_GENERATED: committed schemas drifted: %s\n", strings.Join(changed, ", "))}
 	}
 	report.WriteString("check --concern project: every committed schema matches its generated source.\n")
 
@@ -243,8 +241,8 @@ func runProjectCheck(root string) Result {
 		return Result{ExitCode: 1, Stderr: []byte("GOLC_CHECK_PROJECT_GENERATED: " + apiErr.Error() + "\n")}
 	}
 	if len(apiChanged) > 0 {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-			"GOLC_CHECK_PROJECT_GENERATED: committed api contract drifted: %s\n", strings.Join(apiChanged, ", ")))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+			"GOLC_CHECK_PROJECT_GENERATED: committed api contract drifted: %s\n", strings.Join(apiChanged, ", "))}
 	}
 	report.WriteString("check --concern project: the committed api OpenAPI contract matches its generated source.\n")
 
@@ -253,8 +251,8 @@ func runProjectCheck(root string) Result {
 		return Result{ExitCode: 1, Stderr: []byte("GOLC_CHECK_PROJECT_GENERATED: " + scriptsdkErr.Error() + "\n")}
 	}
 	if len(scriptsdkChanged) > 0 {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-			"GOLC_CHECK_PROJECT_GENERATED: committed scriptsdk SDK drifted: %s\n", strings.Join(scriptsdkChanged, ", ")))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+			"GOLC_CHECK_PROJECT_GENERATED: committed scriptsdk SDK drifted: %s\n", strings.Join(scriptsdkChanged, ", "))}
 	}
 	report.WriteString("check --concern project: the committed scriptsdk generated SDK matches its generated source.\n")
 
@@ -267,8 +265,8 @@ func runProjectCheck(root string) Result {
 		for _, violation := range violations {
 			details = append(details, fmt.Sprintf("%s (token %q)", violation.Source, violation.Token))
 		}
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-			"GOLC_CHECK_PROJECT_CANARY: fake-secret bytes found: %s\n", strings.Join(details, "; ")))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+			"GOLC_CHECK_PROJECT_CANARY: fake-secret bytes found: %s\n", strings.Join(details, "; "))}
 	}
 	report.WriteString("check --concern project: no fake-secret bytes found across generated schemas and the Linear map.\n")
 
@@ -508,8 +506,8 @@ func runCheckCommandParity(root string) Result {
 	workflowPath := filepath.Join(root, filepath.FromSlash(prWorkflowPath))
 	data, err := os.ReadFile(workflowPath)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-			"GOLC_CHECK_PARITY_WORKFLOW_MISSING: %s: %v\n", prWorkflowPath, err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+			"GOLC_CHECK_PARITY_WORKFLOW_MISSING: %s: %v\n", prWorkflowPath, err)}
 	}
 
 	if err := validateCommandParity(graph, data); err != nil {

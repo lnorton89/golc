@@ -15,6 +15,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -149,7 +150,7 @@ func InstallStaged(archivePath, expectedSHA256, installDir string) (err error) {
 		return err
 	}
 	if len(files) == 0 {
-		return fmt.Errorf("BOOTSTRAP_MANIFEST_WRITE: archive contains no regular files")
+		return errors.New("BOOTSTRAP_MANIFEST_WRITE: archive contains no regular files")
 	}
 	manifest := InstallManifest{SchemaVersion: InstallManifestSchemaVersion, ArchiveSHA256: expected, Files: files}
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
@@ -371,7 +372,7 @@ func InstalledMatches(installDir, expectedSHA256 string) (bool, error) {
 	return true, nil
 }
 
-var errManifestMismatch = fmt.Errorf("manifest inventory mismatch")
+var errManifestMismatch = errors.New("manifest inventory mismatch")
 
 func pathDirectory(name string) string {
 	index := strings.LastIndex(name, "/")

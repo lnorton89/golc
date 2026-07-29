@@ -64,7 +64,7 @@ func (r *Registry) Names() []string {
 func (r *Registry) Execute(route string, args []string, root string) (exitCode int, stdout, stderr []byte) {
 	registration, rest, ok := r.registry.Lookup(strings.Fields(route))
 	if !ok || len(rest) != 0 {
-		return 2, nil, []byte(fmt.Sprintf("GOLC_ROUTE_UNKNOWN: no registered route matches %q\n", route))
+		return 2, nil, fmt.Appendf(nil, "GOLC_ROUTE_UNKNOWN: no registered route matches %q\n", route)
 	}
 	result := registration.Handler(command.Request{Route: registration.Route, Args: args, Root: root})
 	return result.ExitCode, result.Stdout, result.Stderr

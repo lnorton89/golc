@@ -65,7 +65,7 @@ func runFixtureValidate(request Request) Result {
 
 	data, err := os.ReadFile(resolveWritablePath(request.Root, path))
 	if err != nil {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_FIXTURE_READ_FAILED: %v\n", err))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_FIXTURE_READ_FAILED: %v\n", err)}
 	}
 
 	def, err := fixture.Decode(data)
@@ -75,7 +75,7 @@ func runFixtureValidate(request Request) Result {
 
 	summary, err := strictjson.CanonicalEncode(def)
 	if err != nil {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_FIXTURE_ENCODE_FAILED: %v\n", err))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_FIXTURE_ENCODE_FAILED: %v\n", err)}
 	}
 	return Result{Stdout: summary}
 }
@@ -146,7 +146,7 @@ func runFixtureInspect(request Request) Result {
 	resolvedPath := resolveWritablePath(request.Root, path)
 	data, err := os.ReadFile(resolvedPath)
 	if err != nil {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_FIXTURE_READ_FAILED: %v\n", err))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_FIXTURE_READ_FAILED: %v\n", err)}
 	}
 
 	def, err := fixture.Decode(data)
@@ -173,7 +173,7 @@ func runFixtureInspect(request Request) Result {
 
 	payload, err := json.MarshalIndent(view, "", "  ")
 	if err != nil {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_FIXTURE_INSPECT_ENCODE_FAILED: %v\n", err))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_FIXTURE_INSPECT_ENCODE_FAILED: %v\n", err)}
 	}
 	return Result{Stdout: append(payload, '\n')}
 }
@@ -329,7 +329,7 @@ func runFixtureImport(request Request) Result {
 		resolvedPath := resolveWritablePath(request.Root, parsed.oflFile)
 		data, readErr := os.ReadFile(resolvedPath)
 		if readErr != nil {
-			return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_FIXTURE_READ_FAILED: %v\n", readErr))}
+			return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_FIXTURE_READ_FAILED: %v\n", readErr)}
 		}
 		raw = data
 		source = oflSourceFromFilename(resolvedPath)
@@ -354,11 +354,11 @@ func runFixtureImport(request Request) Result {
 
 	payload, encodeErr := strictjson.CanonicalEncode(fixture.ImportEnvelope{Definition: def, Provenance: provenance})
 	if encodeErr != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_FIXTURE_IMPORT_ENCODE_FAILED: %v\n", encodeErr))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_FIXTURE_IMPORT_ENCODE_FAILED: %v\n", encodeErr)}
 	}
 	destination := resolveWritablePath(request.Root, parsed.outPath)
 	if writeErr := os.WriteFile(destination, payload, 0o644); writeErr != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_FIXTURE_IMPORT_WRITE_FAILED: %v\n", writeErr))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_FIXTURE_IMPORT_WRITE_FAILED: %v\n", writeErr)}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_FIXTURE_IMPORT: wrote %s\n", destination))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_FIXTURE_IMPORT: wrote %s\n", destination)}
 }

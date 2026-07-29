@@ -20,6 +20,7 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -303,7 +304,7 @@ func resolveControlRef(state show.State, selector operatorSurfaceSelector) (oper
 			return operatorsurface.ControlRef{}, fmt.Errorf("GOLC_OPERATORSURFACE_SAFETY_INVALID: %q is not a supported safety control", selector.safetyName)
 		}
 	default:
-		return operatorsurface.ControlRef{}, fmt.Errorf("GOLC_OPERATORSURFACE_USAGE: no selector given")
+		return operatorsurface.ControlRef{}, errors.New("GOLC_OPERATORSURFACE_USAGE: no selector given")
 	}
 }
 
@@ -458,7 +459,7 @@ func runOperatorSurfaceCreate(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_OPERATORSURFACE_CREATED: %s (%s)\n", newSurface.Name, newSurface.ID))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_OPERATORSURFACE_CREATED: %s (%s)\n", newSurface.Name, newSurface.ID)}
 }
 
 // runOperatorSurfaceList serves the self-registered "operatorsurface
@@ -518,7 +519,7 @@ func runOperatorSurfaceAssignment(request Request, assign bool, usage string) Re
 
 	target, found := operatorSurfaceByName(state.OperatorSurfaces, surfaceName)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_OPERATORSURFACE_NOT_FOUND: no operator surface named %q exists\n", surfaceName))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_OPERATORSURFACE_NOT_FOUND: no operator surface named %q exists\n", surfaceName)}
 	}
 
 	ref, err := resolveControlRef(state, selector)
@@ -536,7 +537,7 @@ func runOperatorSurfaceAssignment(request Request, assign bool, usage string) Re
 	if !assign {
 		verb = "GOLC_OPERATORSURFACE_UNASSIGNED"
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("%s: %s\n", verb, surfaceName))}
+	return Result{Stdout: fmt.Appendf(nil, "%s: %s\n", verb, surfaceName)}
 }
 
 // runOperatorSurfaceShow serves the self-registered "operatorsurface
@@ -556,7 +557,7 @@ func runOperatorSurfaceShow(request Request) Result {
 
 	target, found := operatorSurfaceByName(state.OperatorSurfaces, surfaceName)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_OPERATORSURFACE_NOT_FOUND: no operator surface named %q exists\n", surfaceName))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_OPERATORSURFACE_NOT_FOUND: no operator surface named %q exists\n", surfaceName)}
 	}
 
 	var b strings.Builder
@@ -606,7 +607,7 @@ func runOperatorSurfaceRemove(request Request) Result {
 	}
 
 	if _, found := operatorSurfaceByName(state.OperatorSurfaces, surfaceName); !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_OPERATORSURFACE_NOT_FOUND: no operator surface named %q exists\n", surfaceName))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_OPERATORSURFACE_NOT_FOUND: no operator surface named %q exists\n", surfaceName)}
 	}
 
 	filtered := make([]operatorsurface.Surface, 0, len(state.OperatorSurfaces))
@@ -620,5 +621,5 @@ func runOperatorSurfaceRemove(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_OPERATORSURFACE_REMOVED: %s\n", surfaceName))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_OPERATORSURFACE_REMOVED: %s\n", surfaceName)}
 }

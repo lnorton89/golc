@@ -88,15 +88,13 @@ func handleConn(conn net.Conn, handler Handler) {
 
 	payload, err := readFrame(conn)
 	if err != nil {
-		_ = writeResult(conn, Result{ExitCode: 1, Stderr: []byte(
-			fmt.Sprintf("GOLC_ARTNET_IPC_DECODE_FAILED: %v\n", err))})
+		_ = writeResult(conn, Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_ARTNET_IPC_DECODE_FAILED: %v\n", err)})
 		return
 	}
 
 	var request Request
 	if err := strictjson.DecodeStrict(payload, &request); err != nil {
-		_ = writeResult(conn, Result{ExitCode: 1, Stderr: []byte(
-			fmt.Sprintf("GOLC_ARTNET_IPC_DECODE_FAILED: %v\n", err))})
+		_ = writeResult(conn, Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_ARTNET_IPC_DECODE_FAILED: %v\n", err)})
 		return
 	}
 

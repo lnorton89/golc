@@ -191,7 +191,7 @@ func EncodeFrame(w io.Writer, frame Frame) error {
 		return err
 	}
 	if bytes.ContainsAny(payload, "\n\r") {
-		return fmt.Errorf("GOLC_SCRIPT_PROTOCOL_VIOLATION: encoded frame contains an embedded newline")
+		return errors.New("GOLC_SCRIPT_PROTOCOL_VIOLATION: encoded frame contains an embedded newline")
 	}
 	payload = append(payload, '\n')
 	_, err = w.Write(payload)
@@ -207,7 +207,7 @@ func EncodeFrame(w io.Writer, frame Frame) error {
 // silently skip.
 func DecodeFrame(line []byte) (Frame, error) {
 	if !json.Valid(line) {
-		return nil, fmt.Errorf("GOLC_SCRIPT_FRAME_MALFORMED: line is not valid JSON")
+		return nil, errors.New("GOLC_SCRIPT_FRAME_MALFORMED: line is not valid JSON")
 	}
 
 	var envelope frameEnvelope

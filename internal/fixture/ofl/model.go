@@ -21,6 +21,7 @@ package ofl
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -122,14 +123,14 @@ type Capability struct {
 // GOLC_FIXTURE_OFL_INVALID is the sole diagnostic this function returns.
 func decodeDefinition(raw []byte) (Definition, error) {
 	if len(bytes.TrimSpace(raw)) == 0 {
-		return Definition{}, fmt.Errorf("GOLC_FIXTURE_OFL_INVALID: OFL fixture document is empty")
+		return Definition{}, errors.New("GOLC_FIXTURE_OFL_INVALID: OFL fixture document is empty")
 	}
 	var def Definition
 	if err := json.Unmarshal(raw, &def); err != nil {
 		return Definition{}, fmt.Errorf("GOLC_FIXTURE_OFL_INVALID: %v", err)
 	}
 	if strings.TrimSpace(def.Name) == "" {
-		return Definition{}, fmt.Errorf("GOLC_FIXTURE_OFL_INVALID: OFL fixture document has no name")
+		return Definition{}, errors.New("GOLC_FIXTURE_OFL_INVALID: OFL fixture document has no name")
 	}
 	if len(def.AvailableChannels) == 0 {
 		return Definition{}, fmt.Errorf("GOLC_FIXTURE_OFL_INVALID: %s declares no availableChannels", def.Name)

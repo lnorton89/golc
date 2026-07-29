@@ -13,7 +13,6 @@ package show
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -265,7 +264,7 @@ func TestMigrationForceKillLeavesOriginalIntact(t *testing.T) {
 	}
 
 	migrations[0] = func(blob []byte) ([]byte, error) {
-		return nil, fmt.Errorf("simulated mid-migration failure")
+		return nil, errors.New("simulated mid-migration failure")
 	}
 	t.Cleanup(func() { delete(migrations, 0) })
 

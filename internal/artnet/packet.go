@@ -14,6 +14,7 @@ package artnet
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 )
@@ -172,7 +173,7 @@ func DecodeArtPollReply(buf []byte) (ArtPollReply, error) {
 			"GOLC_ARTNET_POLLREPLY_INVALID: buffer length %d is shorter than the minimum ArtPollReply size %d", len(buf), artPollReplyMinLen)
 	}
 	if !bytes.Equal(buf[0:8], []byte("Art-Net\x00")) {
-		return ArtPollReply{}, fmt.Errorf("GOLC_ARTNET_POLLREPLY_INVALID: missing or malformed \"Art-Net\\0\" id")
+		return ArtPollReply{}, errors.New("GOLC_ARTNET_POLLREPLY_INVALID: missing or malformed \"Art-Net\\0\" id")
 	}
 	opcode := binary.LittleEndian.Uint16(buf[8:10])
 	if opcode != opPollReply {

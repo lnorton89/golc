@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -67,7 +68,7 @@ func (runner *engineFakeRunner) Run(_ context.Context, request processRequest) (
 	}
 	if len(request.Args) == 2 && request.Args[0] == "install" {
 		if runner.failGoInstall {
-			return nil, fmt.Errorf("simulated go_install network failure")
+			return nil, errors.New("simulated go_install network failure")
 		}
 		spec := request.Args[1]
 		modulePath := spec
@@ -893,7 +894,7 @@ func TestScopeBootstrapEngine(t *testing.T) {
 			env:  map[string]string{},
 			runner: outputCapturingFakeRunner{
 				output: []byte("--- FAIL: TestSomething\n    some_test.go:12: assertion failed\n"),
-				err:    fmt.Errorf("exit status 1"),
+				err:    errors.New("exit status 1"),
 			},
 		}
 		_, err := engine.runProcess(context.Background(), "go", "GOLC_BOOTSTRAP_PROBE_FAILED", "test", "./...")
@@ -907,7 +908,7 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		emptyOutputEngine := &bootstrapEngine{
 			root:   t.TempDir(),
 			env:    map[string]string{},
-			runner: outputCapturingFakeRunner{output: nil, err: fmt.Errorf("exit status 1")},
+			runner: outputCapturingFakeRunner{output: nil, err: errors.New("exit status 1")},
 		}
 		_, err = emptyOutputEngine.runProcess(context.Background(), "go", "GOLC_BOOTSTRAP_PROBE_FAILED", "test", "./...")
 		if err == nil {

@@ -26,7 +26,7 @@ var _ = MustDeclareRoute(CommandRegistration{
 // the repository-relative committed paths it writes.
 func runDocs(request Request) Result {
 	if len(request.Args) != 0 {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_DOCS_USAGE: docs takes no arguments, got %q\n", request.Args))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_DOCS_USAGE: docs takes no arguments, got %q\n", request.Args)}
 	}
 
 	pages, err := docgen.GenerateAll(request.Root)

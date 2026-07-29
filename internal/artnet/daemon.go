@@ -341,8 +341,8 @@ func requestSource(args []string) string {
 // --source is absent) Request is never blocked by this gate.
 func (d *daemon) handle(request ipc.Request) ipc.Result {
 	if d.safety.revokeActive() && requestSource(request.Args) == "automation" {
-		return ipc.Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-			"GOLC_ARTNET_SAFETY_REVOKED: automation is revoked; route %q rejected for a non-manual source\n", request.Route))}
+		return ipc.Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_SAFETY_REVOKED: automation is revoked; route %q rejected for a non-manual source\n", request.Route)}
 	}
 
 	switch request.Route {
@@ -363,8 +363,8 @@ func (d *daemon) handle(request ipc.Request) ipc.Result {
 	case "artnet master set":
 		return d.handleMasterSet(request.Args)
 	default:
-		return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
-			"GOLC_ARTNET_ROUTE_UNKNOWN: the daemon has no operation for route %q\n", request.Route))}
+		return ipc.Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_ROUTE_UNKNOWN: the daemon has no operation for route %q\n", request.Route)}
 	}
 }
 
@@ -650,8 +650,8 @@ func (d *daemon) handleStatus() ipc.Result {
 
 	payload, err := strictjson.CanonicalEncode(newStatusPayload(snapshot, iface, pb))
 	if err != nil {
-		return ipc.Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-			"GOLC_ARTNET_STATUS_ENCODE_FAILED: %v\n", err))}
+		return ipc.Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_STATUS_ENCODE_FAILED: %v\n", err)}
 	}
 	return ipc.Result{Stdout: payload}
 }
@@ -676,8 +676,8 @@ func (d *daemon) handleConfigure(args []string) ipc.Result {
 	if raw, ok := flags["enabled"]; ok {
 		parsed, parseErr := strconv.ParseBool(raw)
 		if parseErr != nil {
-			return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
-				"GOLC_ARTNET_USAGE: --enabled value %q is not a valid bool; usage: %s\n", raw, configureUsage))}
+			return ipc.Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+				"GOLC_ARTNET_USAGE: --enabled value %q is not a valid bool; usage: %s\n", raw, configureUsage)}
 		}
 		enabled = parsed
 	}
@@ -711,8 +711,8 @@ func (d *daemon) handleConfigure(args []string) ipc.Result {
 	d.targets[universe] = updated
 	d.reconfigureLocked()
 
-	return ipc.Result{Stdout: []byte(fmt.Sprintf(
-		"GOLC_ARTNET_CONFIGURE: universe %d target %s:%d configured (enabled=%v)\n", universe, ip, port, enabled))}
+	return ipc.Result{Stdout: fmt.Appendf(nil,
+		"GOLC_ARTNET_CONFIGURE: universe %d target %s:%d configured (enabled=%v)\n", universe, ip, port, enabled)}
 }
 
 // handleSetEnabled answers "artnet target enable"/"artnet target disable"
@@ -741,8 +741,8 @@ func (d *daemon) handleSetEnabled(args []string, enabled bool) ipc.Result {
 	d.targets[universe] = updated
 	d.reconfigureLocked()
 
-	return ipc.Result{Stdout: []byte(fmt.Sprintf(
-		"GOLC_ARTNET_TARGET_SET_ENABLED: universe %d target %s:%d enabled=%v\n", universe, ip, port, enabled))}
+	return ipc.Result{Stdout: fmt.Appendf(nil,
+		"GOLC_ARTNET_TARGET_SET_ENABLED: universe %d target %s:%d enabled=%v\n", universe, ip, port, enabled)}
 }
 
 const safetyToggleUsage = "artnet safety blackout|stop-all|revoke-automation [--on true|false] [--source manual|automation]"
@@ -772,15 +772,15 @@ func (d *daemon) handleSafetyToggle(args []string, setter func(bool), label stri
 	if raw, ok := flags["on"]; ok {
 		parsed, parseErr := strconv.ParseBool(raw)
 		if parseErr != nil {
-			return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
-				"GOLC_ARTNET_USAGE: --on value %q is not a valid bool; usage: %s\n", raw, safetyToggleUsage))}
+			return ipc.Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+				"GOLC_ARTNET_USAGE: --on value %q is not a valid bool; usage: %s\n", raw, safetyToggleUsage)}
 		}
 		on = parsed
 	}
 
 	setter(on)
 
-	return ipc.Result{Stdout: []byte(fmt.Sprintf("%s: on=%v\n", label, on))}
+	return ipc.Result{Stdout: fmt.Appendf(nil, "%s: on=%v\n", label, on)}
 }
 
 const masterSetUsage = "artnet master set --grand <0..1> | --group <id> --level <0..1> [--source manual|automation]"
@@ -801,39 +801,39 @@ func (d *daemon) handleMasterSet(args []string) ipc.Result {
 	if rawGrand, ok := flags["grand"]; ok {
 		level, parseErr := strconv.ParseFloat(rawGrand, 64)
 		if parseErr != nil {
-			return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
-				"GOLC_ARTNET_USAGE: --grand value %q is not a valid number; usage: %s\n", rawGrand, masterSetUsage))}
+			return ipc.Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+				"GOLC_ARTNET_USAGE: --grand value %q is not a valid number; usage: %s\n", rawGrand, masterSetUsage)}
 		}
 		if err := d.safety.setGrandMaster(level); err != nil {
 			return ipc.Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 		}
-		return ipc.Result{Stdout: []byte(fmt.Sprintf("GOLC_ARTNET_MASTER_SET: grand=%v\n", level))}
+		return ipc.Result{Stdout: fmt.Appendf(nil, "GOLC_ARTNET_MASTER_SET: grand=%v\n", level)}
 	}
 
 	rawGroup, ok := flags["group"]
 	if !ok {
-		return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
-			"GOLC_ARTNET_USAGE: --grand or --group is required; usage: %s\n", masterSetUsage))}
+		return ipc.Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_USAGE: --grand or --group is required; usage: %s\n", masterSetUsage)}
 	}
 	groupID, parseErr := uuid.Parse(rawGroup)
 	if parseErr != nil {
-		return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
-			"GOLC_ARTNET_USAGE: --group value %q is not a valid UUID; usage: %s\n", rawGroup, masterSetUsage))}
+		return ipc.Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_USAGE: --group value %q is not a valid UUID; usage: %s\n", rawGroup, masterSetUsage)}
 	}
 	rawLevel, ok := flags["level"]
 	if !ok {
-		return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
-			"GOLC_ARTNET_USAGE: --level is required with --group; usage: %s\n", masterSetUsage))}
+		return ipc.Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_USAGE: --level is required with --group; usage: %s\n", masterSetUsage)}
 	}
 	level, parseErr := strconv.ParseFloat(rawLevel, 64)
 	if parseErr != nil {
-		return ipc.Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf(
-			"GOLC_ARTNET_USAGE: --level value %q is not a valid number; usage: %s\n", rawLevel, masterSetUsage))}
+		return ipc.Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_USAGE: --level value %q is not a valid number; usage: %s\n", rawLevel, masterSetUsage)}
 	}
 	if err := d.safety.setGroupMaster(groupID, level); err != nil {
 		return ipc.Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return ipc.Result{Stdout: []byte(fmt.Sprintf("GOLC_ARTNET_MASTER_SET: group=%s level=%v\n", groupID, level))}
+	return ipc.Result{Stdout: fmt.Appendf(nil, "GOLC_ARTNET_MASTER_SET: group=%s level=%v\n", groupID, level)}
 }
 
 // parseFlags parses args as a sequence of "--flag value" or "--flag=value"

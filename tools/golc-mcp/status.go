@@ -13,6 +13,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -161,7 +162,7 @@ func parseCurrentPositionActivity(content string) (projectStatusActivity, error)
 	}
 	description = strings.TrimSpace(description)
 	if description == "" {
-		return projectStatusActivity{}, fmt.Errorf("description must not be empty")
+		return projectStatusActivity{}, errors.New("description must not be empty")
 	}
 
 	return projectStatusActivity{Date: date, Description: description}, nil
@@ -172,14 +173,14 @@ func parseCurrentPositionActivity(content string) (projectStatusActivity, error)
 func extractYAMLFrontmatter(content string) (string, error) {
 	lines := strings.Split(content, "\n")
 	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
-		return "", fmt.Errorf("no YAML frontmatter: expected file to start with a \"---\" line")
+		return "", errors.New("no YAML frontmatter: expected file to start with a \"---\" line")
 	}
 	for i := 1; i < len(lines); i++ {
 		if strings.TrimSpace(lines[i]) == "---" {
 			return strings.Join(lines[1:i], "\n"), nil
 		}
 	}
-	return "", fmt.Errorf("no closing \"---\" delimiter found for YAML frontmatter")
+	return "", errors.New("no closing \"---\" delimiter found for YAML frontmatter")
 }
 
 // splitFrontmatterBlock pulls the lines nested under one top-level

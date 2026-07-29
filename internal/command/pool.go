@@ -95,7 +95,7 @@ func runPoolCreate(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_POOL_CREATED: %s (%s)\n", newPool.Name, newPool.ID))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_POOL_CREATED: %s (%s)\n", newPool.Name, newPool.ID)}
 }
 
 // parsePoolCreateArgs accepts exactly: a positional pool name, an
@@ -323,13 +323,13 @@ func resolvePoolUpdateReview(root, override string) (string, error) {
 func writeImpactPlan(root, outPath string, plan pool.ImpactPlan) Result {
 	payload, err := strictjson.CanonicalEncode(plan)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_POOL_PLAN_ENCODE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_POOL_PLAN_ENCODE_FAILED: %v\n", err)}
 	}
 	destination := resolveWritablePath(root, outPath)
 	if err := os.WriteFile(destination, payload, 0o644); err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_POOL_PLAN_WRITE_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_POOL_PLAN_WRITE_FAILED: %v\n", err)}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_POOL_PLAN: wrote %s\n", destination))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_POOL_PLAN: wrote %s\n", destination)}
 }
 
 // runPoolUpdate serves the self-registered "pool update" route (CONTEXT
@@ -355,7 +355,7 @@ func runPoolUpdate(request Request) Result {
 
 	targetPool, found := poolByName(state.Pools, parsed.poolName)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_POOL_NOT_FOUND: no pool named %q exists\n", parsed.poolName))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_POOL_NOT_FOUND: no pool named %q exists\n", parsed.poolName)}
 	}
 
 	propagate, err := resolvePoolUpdateReview(request.Root, parsed.propagateOverride)
@@ -380,13 +380,13 @@ func runPoolUpdate(request Request) Result {
 	if parsed.json {
 		payload, err := strictjson.CanonicalEncode(plan)
 		if err != nil {
-			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_POOL_PLAN_ENCODE_FAILED: %v\n", err))}
+			return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_POOL_PLAN_ENCODE_FAILED: %v\n", err)}
 		}
 		return Result{Stdout: payload}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf(
+	return Result{Stdout: fmt.Appendf(nil,
 		"GOLC_POOL_PLAN: pool=%s operations=%d plan_id=%s propagate=%s\n",
-		targetPool.Name, len(plan.Operations), plan.PlanID, plan.Propagate))}
+		targetPool.Name, len(plan.Operations), plan.PlanID, plan.Propagate)}
 }
 
 // parsePoolApplyArgs accepts exactly the supported apply form: a plan
@@ -449,18 +449,18 @@ func runPoolApply(request Request) Result {
 	resolvedPlanFile := resolveWritablePath(request.Root, planFile)
 	data, err := os.ReadFile(resolvedPlanFile)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_POOL_APPLY_PLAN_READ: %s: %v\n", resolvedPlanFile, err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_POOL_APPLY_PLAN_READ: %s: %v\n", resolvedPlanFile, err)}
 	}
 	var plan pool.ImpactPlan
 	if err := strictjson.DecodeStrict(data, &plan); err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_POOL_APPLY_PLAN_DECODE: %s: %v\n", resolvedPlanFile, err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_POOL_APPLY_PLAN_DECODE: %s: %v\n", resolvedPlanFile, err)}
 	}
 	if err := pool.ValidatePlanIntegrity(plan); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 	if plan.PlanID != planIDValue {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf(
-			"GOLC_POOL_APPLY_PLAN_ID_MISMATCH: --plan-id %q does not match the loaded plan's own plan_id %q\n", planIDValue, plan.PlanID))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil,
+			"GOLC_POOL_APPLY_PLAN_ID_MISMATCH: --plan-id %q does not match the loaded plan's own plan_id %q\n", planIDValue, plan.PlanID)}
 	}
 
 	state, err := show.Load(request.Root, showPath)
@@ -482,7 +482,7 @@ func runPoolApply(request Request) Result {
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_POOL_APPLY: applied %s (%d operations)\n", plan.PlanID, len(plan.Operations)))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_POOL_APPLY: applied %s (%d operations)\n", plan.PlanID, len(plan.Operations))}
 }
 
 // poolSubstituteArgs is the parsed shape of one "pool substitute"
@@ -591,12 +591,12 @@ func runPoolSubstitute(request Request) Result {
 
 	targetPool, found := poolByName(state.Pools, parsed.poolName)
 	if !found {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_POOL_NOT_FOUND: no pool named %q exists\n", parsed.poolName))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_POOL_NOT_FOUND: no pool named %q exists\n", parsed.poolName)}
 	}
 
 	fromData, err := os.ReadFile(resolveWritablePath(request.Root, parsed.fromPath))
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_FIXTURE_READ_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_FIXTURE_READ_FAILED: %v\n", err)}
 	}
 	from, err := fixture.Decode(fromData)
 	if err != nil {
@@ -605,11 +605,11 @@ func runPoolSubstitute(request Request) Result {
 
 	toData, err := os.ReadFile(resolveWritablePath(request.Root, parsed.toPath))
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_FIXTURE_READ_FAILED: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_FIXTURE_READ_FAILED: %v\n", err)}
 	}
 	to, err := fixture.Decode(toData)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_SUBSTITUTION_TARGET_INVALID: %v\n", err))}
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SUBSTITUTION_TARGET_INVALID: %v\n", err)}
 	}
 
 	fromIdentity, err := fixture.Pin(from)
@@ -637,11 +637,11 @@ func runPoolSubstitute(request Request) Result {
 	if parsed.json {
 		payload, err := strictjson.CanonicalEncode(plan)
 		if err != nil {
-			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_POOL_PLAN_ENCODE_FAILED: %v\n", err))}
+			return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_POOL_PLAN_ENCODE_FAILED: %v\n", err)}
 		}
 		return Result{Stdout: payload}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf(
+	return Result{Stdout: fmt.Appendf(nil,
 		"GOLC_POOL_PLAN: pool=%s operations=%d warnings=%d errors=%d plan_id=%s\n",
-		targetPool.Name, len(plan.Operations), len(plan.Warnings), len(plan.Errors), plan.PlanID))}
+		targetPool.Name, len(plan.Operations), len(plan.Warnings), len(plan.Errors), plan.PlanID)}
 }

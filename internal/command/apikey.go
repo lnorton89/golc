@@ -144,24 +144,24 @@ func runAPIKeyCreate(request Request) Result {
 
 	scopes, err := parseAPIKeyScopeList(values["scope"])
 	if err != nil {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_APIKEY_USAGE: %v; usage: %s\n", err, usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_APIKEY_USAGE: %v; usage: %s\n", err, usage)}
 	}
 
 	rawExpires, ok := values["expires"]
 	if !ok || rawExpires == "" {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_APIKEY_USAGE: --expires is required; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_APIKEY_USAGE: --expires is required; usage: %s\n", usage)}
 	}
 	duration, parseErr := time.ParseDuration(rawExpires)
 	if parseErr != nil {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_APIKEY_USAGE: --expires value %q is not a valid duration; usage: %s\n", rawExpires, usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_APIKEY_USAGE: --expires value %q is not a valid duration; usage: %s\n", rawExpires, usage)}
 	}
 	if duration <= 0 {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_APIKEY_USAGE: --expires must be positive; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_APIKEY_USAGE: --expires must be positive; usage: %s\n", usage)}
 	}
 
 	showPath, ok := values["show"]
 	if !ok || showPath == "" {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_APIKEY_USAGE: --show is required; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_APIKEY_USAGE: --show is required; usage: %s\n", usage)}
 	}
 
 	generated, err := show.GenerateAPIKey()
@@ -185,7 +185,7 @@ func runAPIKeyCreate(request Request) Result {
 			RawToken:  generated.RawToken,
 		})
 		if encodeErr != nil {
-			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_APIKEY_ENCODE_FAILED: %v\n", encodeErr))}
+			return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_APIKEY_ENCODE_FAILED: %v\n", encodeErr)}
 		}
 		return Result{Stdout: payload}
 	}
@@ -210,7 +210,7 @@ func runAPIKeyList(request Request) Result {
 	}
 	showPath, ok := values["show"]
 	if !ok || showPath == "" {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_APIKEY_USAGE: --show is required; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_APIKEY_USAGE: --show is required; usage: %s\n", usage)}
 	}
 
 	keys, err := show.ListAPIKeys(request.Root, showPath)
@@ -225,7 +225,7 @@ func runAPIKeyList(request Request) Result {
 		}
 		payload, encodeErr := strictjson.CanonicalEncode(apiKeyListView{Keys: views})
 		if encodeErr != nil {
-			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_APIKEY_ENCODE_FAILED: %v\n", encodeErr))}
+			return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_APIKEY_ENCODE_FAILED: %v\n", encodeErr)}
 		}
 		return Result{Stdout: payload}
 	}
@@ -257,11 +257,11 @@ func runAPIKeyRevoke(request Request) Result {
 	}
 	id, ok := values["id"]
 	if !ok || id == "" {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_APIKEY_USAGE: --id is required; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_APIKEY_USAGE: --id is required; usage: %s\n", usage)}
 	}
 	showPath, ok := values["show"]
 	if !ok || showPath == "" {
-		return Result{ExitCode: 2, Stderr: []byte(fmt.Sprintf("GOLC_APIKEY_USAGE: --show is required; usage: %s\n", usage))}
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_APIKEY_USAGE: --show is required; usage: %s\n", usage)}
 	}
 
 	if err := show.RevokeAPIKey(request.Root, showPath, id); err != nil {
@@ -271,9 +271,9 @@ func runAPIKeyRevoke(request Request) Result {
 	if values["json"] == "true" {
 		payload, encodeErr := strictjson.CanonicalEncode(apiKeyRevokeView{ID: id, Revoked: true})
 		if encodeErr != nil {
-			return Result{ExitCode: 1, Stderr: []byte(fmt.Sprintf("GOLC_APIKEY_ENCODE_FAILED: %v\n", encodeErr))}
+			return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_APIKEY_ENCODE_FAILED: %v\n", encodeErr)}
 		}
 		return Result{Stdout: payload}
 	}
-	return Result{Stdout: []byte(fmt.Sprintf("GOLC_APIKEY_REVOKED: %s\n", id))}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_APIKEY_REVOKED: %s\n", id)}
 }

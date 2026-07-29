@@ -48,6 +48,7 @@ var mageTargets = []MageTarget{
 	{Name: "dev", Kind: MageTargetKindRoute, Route: "dev", Authority: "internal/command registry"},
 	{Name: "generate", Kind: MageTargetKindRoute, Route: "generate", Authority: "internal/command registry"},
 	{Name: "generatecheck", Kind: MageTargetKindRoute, Route: "generate", Args: []string{"--check"}, Authority: "internal/command registry"},
+	{Name: "lint", Kind: MageTargetKindRoute, Route: "lint", Authority: "internal/command registry"},
 	{Name: "package", Kind: MageTargetKindRoute, Route: "package", Args: []string{"--foundation"}, Authority: "internal/command registry"},
 	{Name: "packagefoundation", Kind: MageTargetKindRoute, Route: "package", Args: []string{"--foundation"}, Authority: "internal/command registry"},
 	{Name: "pr", Kind: MageTargetKindPR, Authority: "config/commands.toml: commands.pr.steps, commands.pr.network_steps, commands.pr.mutation_steps"},

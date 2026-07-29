@@ -59,7 +59,7 @@ var validAPIKeyScopes = map[APIKeyScope]bool{
 // the closed D-08 set (GOLC_APIKEY_SCOPE_INVALID).
 func ValidateAPIKeyScopes(scopes []APIKeyScope) error {
 	if len(scopes) == 0 {
-		return fmt.Errorf("GOLC_APIKEY_SCOPE_INVALID: at least one scope is required")
+		return errors.New("GOLC_APIKEY_SCOPE_INVALID: at least one scope is required")
 	}
 	for _, scope := range scopes {
 		if !validAPIKeyScopes[scope] {
