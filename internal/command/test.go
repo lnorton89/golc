@@ -127,7 +127,8 @@ func scopeTestMarker(scopeName string) string {
 	var builder strings.Builder
 	builder.WriteString("TestScope")
 	for _, segment := range strings.Split(scopeName, "-") {
-		builder.WriteString(strings.ToUpper(segment[:1]) + segment[1:])
+		builder.WriteString(strings.ToUpper(segment[:1]))
+		builder.WriteString(segment[1:])
 	}
 	return builder.String()
 }
