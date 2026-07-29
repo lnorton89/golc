@@ -601,10 +601,14 @@ func computeLineDiff(oldContent, newContent []byte) []byte {
 			continue
 		}
 		if haveOld {
-			buf.WriteString("-" + oldLine + "\n")
+			buf.WriteString("-")
+			buf.WriteString(oldLine)
+			buf.WriteString("\n")
 		}
 		if haveNew {
-			buf.WriteString("+" + newLine + "\n")
+			buf.WriteString("+")
+			buf.WriteString(newLine)
+			buf.WriteString("\n")
 		}
 	}
 	return buf.Bytes()
