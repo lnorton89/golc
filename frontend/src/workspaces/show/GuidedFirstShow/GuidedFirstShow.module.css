@@ -89,7 +89,10 @@
   min-height: 0;
   display: grid;
   grid-template-columns: 1fr minmax(0, 260px);
-  gap: var(--space-lg);
+  /* space-md (not space-lg): matches .overlay's own right-edge
+     padding-right so the gap between stageSection/evidenceAside doesn't
+     read wider than the gap between evidenceAside and the window edge. */
+  gap: var(--space-md);
   /* Safety valve for the rare window narrower than stageSection's own
      460px floor below: evidenceAside (minmax(0, 260px)) collapses toward
      0 first, and only once that's exhausted does this scroll
