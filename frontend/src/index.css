@@ -139,6 +139,46 @@ body {
   min-height: 100vh;
 }
 
+/* Scrollbars (icon/polish pass): every overflow:auto/scroll region in the
+   app (command rail, inspector, script editor/debug stream, dialogs,
+   etc.) was rendering the OS-default scrollbar chrome, which reads as
+   foreign against this flat/paper, border-based-separation brand. Styled
+   once globally -- via inheritable standard properties on :root plus the
+   WebKit/Blink pseudo-elements (Wails' webview is Chromium-based) -- so
+   no per-component opt-in is needed and both themes fall out of the
+   existing --line/--muted tokens automatically. */
+:root {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--line);
+  /* A content-box thumb inset by its own transparent border reads as a
+     floating pill with breathing room on each side, rather than a bar
+     flush against the track's edges. */
+  border: 2px solid transparent;
+  border-radius: var(--radius-pill);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 code,
 .technical {
   font-family: "JetBrains Mono", ui-monospace, monospace;
