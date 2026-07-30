@@ -426,7 +426,7 @@ Plans:
   3. Before execution, a user can inspect and assign script capabilities, deadlines, rate limits, and resource limits; the runtime has no ambient filesystem, network, environment, subprocess, native-code, or uncached dependency access.
   4. A user can inspect structured logs, diagnostics, source locations, command outcomes, and cancellation state, and can terminate a runaway, crashed, or blocked script without interrupting playback or Art-Net.
 
-**Plans:** 13/13 plans executed
+**Plans:** 13/14 plans executed (08-14 is a gap-closure plan from 08-VERIFICATION.md)
 
 Plans:
 **Wave 1**
@@ -468,6 +468,10 @@ Plans:
 **Wave 9** *(blocked on Wave 8 completion)*
 
 - [x] 08-13-PLAN.md — Phase acceptance: sandbox denial surface and full authoring-to-debugging workflow
+
+**Gap closure** *(from 08-VERIFICATION.md, status: gaps_found)*
+
+- [ ] 08-14-PLAN.md — Proactive Job Object memory monitor so a memory-limit kill renders its named Copywriting Contract sentence instead of a raw V8 RangeError
 
 **UI hint:** yes
 **Research:** Deeper phase research required for Deno distribution, offline dependency policy, process and IPC isolation, Windows CPU/memory enforcement, debugger scope, supervision, cancellation, and defensible sandbox claims.
