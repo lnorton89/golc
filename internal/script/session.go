@@ -426,11 +426,12 @@ func (h *Host) dispatchCmdCall(run *Run, call CmdCallFrame) (CmdResultFrame, Cal
 	// this function no preemption point until it returns, so it always
 	// runs to completion and its outcome is still recorded below.
 	if reason, terminating := run.terminationReason(); terminating {
+		redactedMessage := security.Redact(reason.Message)
 		outcome := CallOutcome{
 			Method: call.Method, DurationMS: time.Since(started).Milliseconds(),
-			Ok: false, Code: reason.Code, Message: reason.Message,
+			Ok: false, Code: reason.Code, Message: redactedMessage,
 		}
-		return CmdResultFrame{ID: call.ID, Ok: false, Code: reason.Code, Message: security.Redact(reason.Message)}, outcome
+		return CmdResultFrame{ID: call.ID, Ok: false, Code: reason.Code, Message: redactedMessage}, outcome
 	}
 
 	descriptor, known := methodDescriptorsByRoute()[call.Method]
@@ -444,20 +445,22 @@ func (h *Host) dispatchCmdCall(run *Run, call CmdCallFrame) (CmdResultFrame, Cal
 	}
 
 	if reason := h.enforce(descriptor, run); reason != nil {
+		redactedMessage := security.Redact(reason.Message)
 		outcome := CallOutcome{
 			Method: call.Method, Route: descriptor.Route, DurationMS: time.Since(started).Milliseconds(),
-			Ok: false, Code: reason.Code, Message: reason.Message,
+			Ok: false, Code: reason.Code, Message: redactedMessage,
 		}
-		return CmdResultFrame{ID: call.ID, Ok: false, Code: reason.Code, Message: security.Redact(reason.Message)}, outcome
+		return CmdResultFrame{ID: call.ID, Ok: false, Code: reason.Code, Message: redactedMessage}, outcome
 	}
 
 	args, buildErr := buildRouteArgs(descriptor.Route, h.cfg.ShowPath, call.Params)
 	if buildErr != nil {
+		redactedMessage := security.Redact(buildErr.Error())
 		outcome := CallOutcome{
 			Method: call.Method, Route: descriptor.Route, DurationMS: time.Since(started).Milliseconds(),
-			Ok: false, Code: "GOLC_SCRIPT_PARAMS_INVALID", Message: buildErr.Error(),
+			Ok: false, Code: "GOLC_SCRIPT_PARAMS_INVALID", Message: redactedMessage,
 		}
-		return CmdResultFrame{ID: call.ID, Ok: false, Code: outcome.Code, Message: security.Redact(buildErr.Error())}, outcome
+		return CmdResultFrame{ID: call.ID, Ok: false, Code: outcome.Code, Message: redactedMessage}, outcome
 	}
 
 	exitCode, stdout, stderr := h.cfg.Executor.Execute(descriptor.Route, args, h.cfg.Root)
