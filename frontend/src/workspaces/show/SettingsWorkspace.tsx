@@ -4,7 +4,18 @@
 // so unlike OverviewWorkspace/SaveRecoveryWorkspace it does not go through
 // wailsBridge.ts at all.
 import { useState } from "react";
-import { Settings as SettingsIcon, Palette, Sun, Moon, Monitor, Info, type LucideIcon } from "lucide-react";
+import {
+  Settings as SettingsIcon,
+  Palette,
+  Sun,
+  Moon,
+  Monitor,
+  Info,
+  ChevronRight,
+  ChevronDown,
+  ExternalLink,
+  type LucideIcon,
+} from "lucide-react";
 
 import { getStoredTheme, setStoredTheme, type ThemePreference } from "../../lib/theme";
 import { openExternalURL } from "../../lib/wailsBridge";
@@ -12,7 +23,6 @@ import Toolbar from "../../components/primitives/Toolbar/Toolbar";
 import Panel from "../../components/primitives/Panel/Panel";
 import PanelHeader from "../../components/primitives/PanelHeader/PanelHeader";
 import Button from "../../components/primitives/Button/Button";
-import ListRow from "../../components/primitives/ListRow/ListRow";
 import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion";
 import styles from "./SettingsWorkspace.module.css";
 
@@ -204,12 +214,67 @@ const FRONTEND_CREDITS: Credit[] = [
   },
 ];
 
+interface CreditRowProps {
+  credit: Credit;
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+function CreditRow({ credit, expanded, onToggle }: CreditRowProps) {
+  const ChevronIcon = expanded ? ChevronDown : ChevronRight;
+
+  return (
+    <li>
+      <button
+        type="button"
+        className={styles.creditRow}
+        aria-expanded={expanded}
+        onClick={onToggle}
+      >
+        <ChevronIcon size={14} className={styles.creditChevron} aria-hidden="true" />
+        <span className={styles.creditName}>{credit.name}</span>
+        <span className={styles.creditDescription}>{credit.description}</span>
+        <span className={styles.creditMeta}>
+          {credit.license} · v{credit.version}
+        </span>
+      </button>
+
+      {expanded ? (
+        <div className={styles.creditDetail}>
+          <p className={styles.creditUsage}>{credit.usage}</p>
+          <button
+            type="button"
+            className={styles.creditLink}
+            onClick={() => void openExternalURL(credit.url)}
+          >
+            View project
+            <ExternalLink size={12} aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
 export default function SettingsWorkspace() {
   const [theme, setTheme] = useState<ThemePreference>(() => getStoredTheme());
+  const [expandedCredits, setExpandedCredits] = useState<Set<string>>(() => new Set());
 
   const handleSelect = (next: ThemePreference) => {
     setStoredTheme(next);
     setTheme(next);
+  };
+
+  const toggleCredit = (key: string) => {
+    setExpandedCredits((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
   };
 
   return (
@@ -247,34 +312,34 @@ export default function SettingsWorkspace() {
                   <div className={styles.creditsColumn}>
                     <span className={styles.creditsLabel}>Open Source — Backend</span>
                     <ul className={styles.creditsList} aria-label="Backend open source credits">
-                      {BACKEND_CREDITS.map((credit) => (
-                        <li key={credit.name}>
-                          <ListRow
-                            label={credit.name}
-                            meta={`${credit.license} · v${credit.version}`}
-                            onSelect={() => void openExternalURL(credit.url)}
+                      {BACKEND_CREDITS.map((credit) => {
+                        const key = `backend-${credit.name}`;
+                        return (
+                          <CreditRow
+                            key={key}
+                            credit={credit}
+                            expanded={expandedCredits.has(key)}
+                            onToggle={() => toggleCredit(key)}
                           />
-                          <p className={styles.creditDescription}>{credit.description}</p>
-                          <p className={styles.creditUsage}>{credit.usage}</p>
-                        </li>
-                      ))}
+                        );
+                      })}
                     </ul>
                   </div>
 
                   <div className={styles.creditsColumn}>
                     <span className={styles.creditsLabel}>Open Source — Frontend</span>
                     <ul className={styles.creditsList} aria-label="Frontend open source credits">
-                      {FRONTEND_CREDITS.map((credit) => (
-                        <li key={credit.name}>
-                          <ListRow
-                            label={credit.name}
-                            meta={`${credit.license} · v${credit.version}`}
-                            onSelect={() => void openExternalURL(credit.url)}
+                      {FRONTEND_CREDITS.map((credit) => {
+                        const key = `frontend-${credit.name}`;
+                        return (
+                          <CreditRow
+                            key={key}
+                            credit={credit}
+                            expanded={expandedCredits.has(key)}
+                            onToggle={() => toggleCredit(key)}
                           />
-                          <p className={styles.creditDescription}>{credit.description}</p>
-                          <p className={styles.creditUsage}>{credit.usage}</p>
-                        </li>
-                      ))}
+                        );
+                      })}
                     </ul>
                   </div>
                 </div>
