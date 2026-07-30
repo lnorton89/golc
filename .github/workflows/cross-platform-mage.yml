@@ -23,6 +23,26 @@
 # archive pins -- apt's own package integrity is the trust boundary
 # here, the same way it already is for the ambient ubuntu-latest/
 # macos-latest Go used to install Mage.
+#
+# The three steps that actually cgo-link Wails' Linux frontend
+# (CheckOffline, Build, Test) run through shell.nix on Linux instead of
+# apt: ubuntu-latest's current image has dropped the webkit2gtk-4.0
+# package entirely (superseded by webkit2gtk-4.1, which Wails v2 does
+# not support -- see README.md's "Desktop app: the webkit2gtk-4.0
+# problem"), so there is no apt package left to install that would fix
+# `pkg-config: Package gtk+-3.0/webkit2gtk-4.0 was not found` (observed
+# live: run 30499787505). shell.nix already solves this for local
+# contributor use on Nix/NixOS by overlaying webkitgtk_4_0 from a
+# pinned pre-removal nixpkgs release (nixos-25.05) inside a
+# buildFHSEnv; this reuses that exact same file rather than duplicating
+# the pin, so CI and a contributor's `nix-shell` never drift apart.
+# NIX_PATH is set explicitly (not left to the installer's default
+# channel setup) so `<nixpkgs>` resolves deterministically to the same
+# release shell.nix's own overlay pins from, without depending on
+# `nix-channel --update` ever having run in this fresh, ephemeral
+# install. GenerateCheck and PackageFoundation do not link the darwin/
+# linux frontend at all (see build.go/package.go) and stay on the
+# native runner directly.
 name: cross-platform Mage observation
 
 on:
@@ -57,6 +77,10 @@ jobs:
         if: runner.os == 'Linux'
         run: Xvfb :99 -screen 0 1024x768x24 & echo "DISPLAY=:99" >> "$GITHUB_ENV"
 
+      - name: Install Nix (Linux only)
+        if: runner.os == 'Linux'
+        run: sh <(curl -L https://nixos.org/nix/install) --no-daemon && echo "NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixos-25.05.tar.gz" >> "$GITHUB_ENV"
+
       - name: Install pinned Mage (Linux/macOS)
         if: runner.os != 'Windows'
         run: bash scripts/ci/install-pinned-mage.sh
@@ -71,13 +95,28 @@ jobs:
       - name: Check generated files
         run: mage GenerateCheck
 
+      - name: Check offline graph (Linux, via pinned Nix webkit2gtk-4.0)
+        if: runner.os == 'Linux'
+        run: . "$HOME/.nix-profile/etc/profile.d/nix.sh" && nix-shell shell.nix --run "mage CheckOffline"
+
       - name: Check offline graph
+        if: runner.os != 'Linux'
         run: mage CheckOffline
 
+      - name: Build (Linux, via pinned Nix webkit2gtk-4.0)
+        if: runner.os == 'Linux'
+        run: . "$HOME/.nix-profile/etc/profile.d/nix.sh" && nix-shell shell.nix --run "mage Build"
+
       - name: Build
+        if: runner.os != 'Linux'
         run: mage Build
 
+      - name: Test (Linux, via pinned Nix webkit2gtk-4.0)
+        if: runner.os == 'Linux'
+        run: . "$HOME/.nix-profile/etc/profile.d/nix.sh" && nix-shell shell.nix --run "mage Test"
+
       - name: Test
+        if: runner.os != 'Linux'
         run: mage Test
 
       - name: Package foundation
