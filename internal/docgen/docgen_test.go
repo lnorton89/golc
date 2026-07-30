@@ -195,6 +195,79 @@ func TestDesktopViewsCatalog(t *testing.T) {
 	}
 }
 
+func TestDesktopViewsCatalogOnboarding(t *testing.T) {
+	valid := validDesktopCatalogWithOnboarding()
+
+	t.Run("normalizes valid onboarding input byte-identically", func(t *testing.T) {
+		first, err := docgen.NormalizeDesktopViews(valid)
+		if err != nil {
+			t.Fatalf("normalize valid catalog: %v", err)
+		}
+		second, err := docgen.NormalizeDesktopViews(first)
+		if err != nil {
+			t.Fatalf("normalize generated catalog: %v", err)
+		}
+		if !bytes.Equal(first, second) {
+			t.Fatalf("expected byte-identical normalization\nfirst:\n%s\nsecond:\n%s", first, second)
+		}
+		if !bytes.Contains(first, []byte(`"onboarding"`)) {
+			t.Fatalf("expected onboarding section to round-trip, got:\n%s", first)
+		}
+	})
+
+	tests := []struct {
+		name    string
+		replace string
+		with    string
+		code    string
+	}{
+		{"onboarding id must use the guide- prefix, not its label", `"id": "guide-fixtures"`, `"id": "guided-setup-fixtures"`, "GOLC_DOCGEN_DESKTOP_REFERENCE"},
+		{"onboarding screenshot must match its id", `"/desktop-views/guide-fixtures.png"`, `"/desktop-views/guided-setup-fixtures.png"`, "GOLC_DOCGEN_DESKTOP_SCREENSHOT"},
+		{"onboarding view still requires content", `"Get at least one fixture ready."`, `""`, "GOLC_DOCGEN_DESKTOP_REQUIRED"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			input := bytes.Replace(valid, []byte(tc.replace), []byte(tc.with), 1)
+			_, err := docgen.NormalizeDesktopViews(input)
+			if err == nil || !strings.Contains(err.Error(), tc.code) {
+				t.Fatalf("expected %s, got %v", tc.code, err)
+			}
+		})
+	}
+}
+
+func validDesktopCatalogWithOnboarding() []byte {
+	return []byte(`{
+  "schemaVersion": 1,
+  "groups": [{
+    "label": "Show",
+    "views": [{
+      "id": "show-overview",
+      "slug": "overview",
+      "navLabel": "Overview",
+      "title": "Show overview",
+      "purpose": "Review the open show and enter the guided workflow.",
+      "actions": ["Start Guided First Show"],
+      "concepts": ["Show state"],
+      "operatingNotes": ["Uses deterministic fallback data in browser previews."],
+      "screenshot": "/desktop-views/show-overview.png"
+    }]
+  }],
+  "onboarding": {
+    "label": "Guided Setup",
+    "views": [{
+      "id": "guide-fixtures",
+      "slug": "guide-fixtures",
+      "navLabel": "Fixtures",
+      "title": "Guided Setup: Fixtures",
+      "purpose": "Get at least one fixture ready.",
+      "actions": ["Continue to the Fixture Library"],
+      "screenshot": "/desktop-views/guide-fixtures.png"
+    }]
+  }
+}`)
+}
+
 func validDesktopCatalog() []byte {
 	return []byte(`{
   "schemaVersion": 1,
