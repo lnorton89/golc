@@ -128,6 +128,72 @@ func newJobObject(limits show.ResolvedLimits) (*jobObject, error) {
 	return job, nil
 }
 
+// queryExtendedLimits reads j's current JOBOBJECT_EXTENDED_LIMIT_
+// INFORMATION via a single read-only QueryInformationJobObject call --
+// the shared syscall block peakMemoryBytes and jobMemoryLimitBytes both
+// read from, so the query is never duplicated. Takes j.mu and refuses to
+// query an already-closed handle (j.closed), which is what makes the
+// monitor goroutine safe against Run's own `defer job.Close()`: a query
+// racing a close either completes first (mu ordering) or observes
+// j.closed and errors, but never touches a released handle.
+//
+// This call is strictly read-only and adds no SetInformationJobObject
+// call, so the kernel-enforced memory and CPU configuration newJobObject
+// establishes above is untouched. PeakJobMemoryUsed is only maintained
+// because JOB_OBJECT_LIMIT_JOB_MEMORY is already set by newJobObject,
+// and the value remains readable after the child has exited for as long
+// as the handle stays open -- which is what lets Run sample it once more
+// after cmd.Wait() returns (classifyMemoryExhaustion's post-exit
+// backstop).
+//
+// Note QueryInformationJobObject's signature returns only err, unlike
+// the two SetInformationJobObject calls above (which return
+// (ret int, err error)) -- do not copy that two-value arity here.
+func (j *jobObject) queryExtendedLimits() (windows.JOBOBJECT_EXTENDED_LIMIT_INFORMATION, error) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	var info windows.JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+	if j.closed {
+		return info, fmt.Errorf("GOLC_SCRIPT_JOBOBJECT_QUERY_FAILED: job handle already closed")
+	}
+
+	err := windows.QueryInformationJobObject(
+		j.handle, windows.JobObjectExtendedLimitInformation,
+		uintptr(unsafe.Pointer(&info)), uint32(unsafe.Sizeof(info)), nil,
+	)
+	if err != nil {
+		return info, fmt.Errorf("GOLC_SCRIPT_JOBOBJECT_QUERY_FAILED: %v", err)
+	}
+	return info, nil
+}
+
+// peakMemoryBytes returns j's assigned process(es)' peak committed
+// memory usage, as reported by the kernel's own PeakJobMemoryUsed
+// accounting -- the memorySampler seam memorywatch.go's startMemoryWatch
+// polls, and the value session.go's post-exit classifier reads once more
+// after cmd.Wait() returns. Returns a non-nil error (never touching a
+// released handle) once j has been closed.
+func (j *jobObject) peakMemoryBytes() (uint64, error) {
+	info, err := j.queryExtendedLimits()
+	if err != nil {
+		return 0, err
+	}
+	return uint64(info.PeakJobMemoryUsed), nil
+}
+
+// jobMemoryLimitBytes returns j's configured JobMemoryLimit -- used only
+// by memorylimit_windows_test.go to prove the read-only query above
+// round-trips the exact ceiling the two existing SetInformationJobObject
+// calls in newJobObject configured.
+func (j *jobObject) jobMemoryLimitBytes() (uint64, error) {
+	info, err := j.queryExtendedLimits()
+	if err != nil {
+		return 0, err
+	}
+	return uint64(info.JobMemoryLimit), nil
+}
+
 // assign opens pid with PROCESS_SET_QUOTA|PROCESS_TERMINATE and assigns
 // it to j -- session.go calls this immediately after cmd.Start() and
 // before the reader goroutines start, so the child cannot outrun

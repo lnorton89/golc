@@ -832,8 +832,15 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode, bre
 	// fallback -- but is never silently ignored either: it is appended to
 	// the run's own captured logs so a "why didn't the cap apply" question
 	// is answerable from the run's own outcome.
-	job, jobErr := newJobObject(resourceLimitsFor(target.CapabilityProfile))
+	limits := resourceLimitsFor(target.CapabilityProfile)
+	job, jobErr := newJobObject(limits)
 	var jobLog *LogLine
+	// memSampler is the memorywatch.go seam: only ever set (to job) in the
+	// success branch immediately below, so a run whose job creation or
+	// assignment failed leaves it nil and therefore gets no proactive
+	// memory supervision -- correct, and already visible through jobLog
+	// above.
+	var memSampler memorySampler
 	if jobErr != nil {
 		jobLog = &LogLine{Level: "error", Message: security.Redact(fmt.Sprintf("GOLC_SCRIPT_JOBOBJECT_CREATE_FAILED: %v", jobErr))}
 	} else if assignErr := job.assign(uint32(cmd.Process.Pid)); assignErr != nil {
@@ -843,7 +850,20 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode, bre
 		run.terminationMu.Lock()
 		run.job = job
 		run.terminationMu.Unlock()
+		memSampler = job
 		defer job.Close()
+	}
+
+	// 08-14-PLAN.md Task 2: the proactive half of D-08's resource cause
+	// (08-VERIFICATION.md's gap) -- a Job-Object-bound poll that can
+	// terminate a memory-exhausting run while it is still alive, through
+	// the exact beginTermination/terminate pair (*Host).enforce already
+	// uses. Started before the debug-bridge block below, mirroring the
+	// existing rule that a debug run is never less supervised than a
+	// plain Run for even a moment.
+	if memSampler != nil {
+		stopMemoryWatch := startMemoryWatch(runCtx, run, limits, memSampler)
+		defer stopMemoryWatch()
 	}
 
 	// 08-09-PLAN.md Task 2: Debug mode's CDP bridge is constructed after
@@ -914,6 +934,27 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode, bre
 		outcome.Status = show.ScriptRunStatusFailed
 		if outcome.Reason == "" {
 			outcome.Reason = waitErr.Error()
+		}
+		// 08-14-PLAN.md Task 2: the post-exit backstop for D-08's resource
+		// cause, alongside the proactive monitor above -- V8 can request a
+		// single allocation large enough to be denied before the monitor's
+		// next 100ms tick, in which case the process dies with an
+		// allocation-failure exception while the job's peak never crossed
+		// the proactive trigger. Both mechanisms produce the identical
+		// GOLC_SCRIPT_MEMORY_EXCEEDED reason text (memoryLimitReason is
+		// their single shared constructor), so which one wins here is not
+		// observable to the user. A nil memSampler (job creation/assign
+		// failed) or a query error is treated as a peak of 0, which never
+		// meets classifyMemoryExhaustion's corroboration floor.
+		var peak uint64
+		if memSampler != nil {
+			if sampled, sampleErr := memSampler.peakMemoryBytes(); sampleErr == nil {
+				peak = sampled
+			}
+		}
+		if reason := classifyMemoryExhaustion(outcome.Reason, peak, limits); reason != nil {
+			outcome.Status = show.ScriptRunStatusTerminated
+			outcome.Reason = reason.String()
 		}
 	}
 
