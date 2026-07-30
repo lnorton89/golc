@@ -175,13 +175,18 @@ func checkDeadline(elapsed, deadline time.Duration) *TerminationReason {
 const memoryPressureTriggerPercent = 95
 
 // memoryExhaustionCorroborationPercent is classifyMemoryExhaustion's
-// lower, post-exit corroboration floor -- deliberately lower than
-// memoryPressureTriggerPercent because, by the time this is consulted,
-// V8 has already reported an allocation failure, so the only job left is
-// distinguishing a genuine ceiling collision (peak climbed substantially
-// toward the limit) from one absurd single allocation on an otherwise-
-// idle heap.
-const memoryExhaustionCorroborationPercent = 50
+// post-exit corroboration floor. It is set close to (rather than far
+// below) memoryPressureTriggerPercent because a script fully controls
+// its own stderr and can legitimately -- but harmlessly -- allocate any
+// amount of in-budget memory before forging one of
+// v8AllocationFailureSignatures to have an unrelated crash reported as a
+// benign limit kill (T-08G-02, WR-01). Requiring the kernel-observed
+// peak to have reached nearly the same threshold the proactive monitor
+// itself uses to declare a genuine ceiling collision makes that forgery
+// require the script to have been genuinely at risk of hitting the real
+// ceiling, closing off the wide, cheaply-reachable window a much lower
+// floor would leave open.
+const memoryExhaustionCorroborationPercent = 90
 
 // v8AllocationFailureSignatures are the lowercased V8/Deno out-of-memory
 // substrings classifyMemoryExhaustion looks for in an already-redacted
