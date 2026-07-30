@@ -44,6 +44,17 @@ var errMemoryUsageUnsupported = errors.New("GOLC_SCRIPT_MEMORY_USAGE_UNSUPPORTED
 // off the playback/Art-Net path.
 const memoryWatchInterval = 100 * time.Millisecond
 
+// memoryPressureDebounceSamples is the number of consecutive
+// above-trigger samples startMemoryWatch requires before terminating
+// (WR-03, 08-14 gap closure): a single transient spike at
+// memoryWatchInterval granularity should not be enough to kill a run
+// that is about to finish successfully, but requiring this many
+// consecutive samples (~200ms of sustained pressure at
+// memoryWatchInterval) still leaves a generous safety margin ahead of
+// the kernel's actual OOM denial, since memoryPressureTriggerPercent
+// itself is already a proactive trigger below the real ceiling.
+const memoryPressureDebounceSamples = 2
+
 // startMemoryWatch starts one goroutine polling sampler at
 // memoryWatchInterval and returns a stop function. On each tick it calls
 // sampler.peakMemoryBytes(): an error satisfying errors.Is(err,
@@ -51,7 +62,10 @@ const memoryWatchInterval = 100 * time.Millisecond
 // (proves the non-Windows build spins no busy loop); any other error
 // skips this tick and continues (a transient query failure must never
 // disable supervision); a successful sample is passed to
-// checkMemoryPressure and, when it returns non-nil, this calls
+// checkMemoryPressure and, when it returns non-nil for
+// memoryPressureDebounceSamples consecutive ticks in a row (WR-03: a
+// single transient spike never terminates a run on its own; any tick
+// that samples back below the trigger resets the streak), this calls
 // run.beginTermination(*reason) then run.terminate() -- the identical
 // two-call pattern (*Host).enforce already uses -- and returns.
 // beginTermination's first-writer-wins semantics (D-11) mean a deadline,
@@ -71,6 +85,7 @@ func startMemoryWatch(ctx context.Context, run *Run, limits show.ResolvedLimits,
 	go func() {
 		ticker := time.NewTicker(memoryWatchInterval)
 		defer ticker.Stop()
+		var aboveTriggerStreak int
 		for {
 			select {
 			case <-ctx.Done():
@@ -85,11 +100,18 @@ func startMemoryWatch(ctx context.Context, run *Run, limits show.ResolvedLimits,
 					}
 					continue
 				}
-				if reason := checkMemoryPressure(peak, limits); reason != nil {
-					run.beginTermination(*reason)
-					run.terminate()
-					return
+				reason := checkMemoryPressure(peak, limits)
+				if reason == nil {
+					aboveTriggerStreak = 0
+					continue
 				}
+				aboveTriggerStreak++
+				if aboveTriggerStreak < memoryPressureDebounceSamples {
+					continue
+				}
+				run.beginTermination(*reason)
+				run.terminate()
+				return
 			}
 		}
 	}()
