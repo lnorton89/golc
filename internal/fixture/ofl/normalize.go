@@ -80,13 +80,29 @@ func Normalize(raw []byte, source string) (fixture.FixtureDefinition, fixture.Pr
 	ranges := map[fixture.CapabilityType][2]float64{}
 	var warnings []fixture.LossyImportWarning
 
+	// referencedTemplates: a template channel a mode references only via
+	// a matrix "insert" expansion object stays genuinely per-pixel-only
+	// (still unmodeled, still just a matrixChannelWarning below); one a
+	// mode references as one of its own plain channel-key entries (for
+	// example "Red Master", a named pixelGroup covering every pixel) is
+	// no longer per-pixel-addressable *in that mode* -- it is one
+	// discrete, whole-fixture channel exactly like an available channel,
+	// so it is folded into ranges the same way rather than misrepresented
+	// as still-unmodeled (see referencedTemplateChannels).
+	referencedTemplates := referencedTemplateChannels(def.Modes, def.AvailableChannels, def.TemplateChannels)
+
 	for _, name := range sortedChannelNames(def.AvailableChannels) {
 		warnings = append(warnings, normalizeChannel(name, def.AvailableChannels[name], ranges)...)
 	}
 	for _, name := range sortedChannelNames(def.TemplateChannels) {
-		// Every template (pixel/matrix) channel construct is unmodeled in
-		// v1 regardless of its own capability type: per-pixel addressing
-		// is a structurally different capability shape than the flat,
+		if referencedTemplates[name] {
+			warnings = append(warnings, normalizeChannel(name, def.TemplateChannels[name], ranges)...)
+			continue
+		}
+		// Every template (pixel/matrix) channel construct no mode
+		// references as a plain channel stays unmodeled in v1 regardless
+		// of its own capability type: per-pixel addressing is a
+		// structurally different capability shape than the flat,
 		// fixture-level Capabilities list the canonical model declares,
 		// so folding a template channel's ColorIntensity/Intensity/etc.
 		// into the same fixture-level capability a plain channel produces
@@ -149,9 +165,15 @@ func canonicalModes(modes []Mode, availableChannels, templateChannels map[string
 // Mode's own doc comment) is skipped here rather than guessed -- its
 // per-pixel template channels are already surfaced as unmodeled-construct
 // warnings via matrixChannelWarning's separate TemplateChannels walk. A
-// resolved key is looked up in availableChannels then templateChannels; a
-// key with no match, or whose channel's capabilities all fail to map onto
-// a v1 fixture.CapabilityType (mapCapabilityType returns ok=false for
+// resolved key is looked up in availableChannels, then templateChannels
+// verbatim, then (matchTemplateChannel) as a named pixel/pixelGroup
+// instance of a templateChannels pattern -- OFL's own convention for a
+// mode that exposes a template channel as one discrete, non-per-pixel
+// control (for example a "Red Master" entry naming the pixelGroup that
+// covers every pixel, generated from a "Red $pixelKey" template) rather
+// than expanding it per-pixel via a matrix insert object. A key with no
+// match at all, or whose channel's capabilities all fail to map onto a
+// v1 fixture.CapabilityType (mapCapabilityType returns ok=false for
 // every entry -- see firstMappedCapabilityType), is likewise skipped, so
 // the resulting slice can be shorter than the OFL mode's own channel
 // count. normalize.go's own capability mapping intentionally merges every
@@ -177,6 +199,9 @@ func resolveModeChannels(channelEntries []json.RawMessage, availableChannels, te
 			channel, ok = templateChannels[key]
 		}
 		if !ok {
+			_, channel, ok = matchTemplateChannel(key, templateChannels)
+		}
+		if !ok {
 			continue
 		}
 		capabilityType, ok := firstMappedCapabilityType(key, channel)
@@ -186,6 +211,82 @@ func resolveModeChannels(channelEntries []json.RawMessage, availableChannels, te
 		slots = append(slots, fixture.ChannelSlot{Type: capabilityType, Occurrence: 0})
 	}
 	return slots
+}
+
+// pixelKeyPlaceholder is the substitution token OFL's own schema embeds
+// in a templateChannels key (for example "Red $pixelKey") to derive each
+// concrete per-pixel or per-pixelGroup channel instance name a mode's
+// plain channel-key list may reference directly (for example "Red 1", or
+// "Red Master" naming a pixelGroup that covers every pixel).
+const pixelKeyPlaceholder = "$pixelKey"
+
+// matchTemplateChannel finds the templateChannels entry whose key --
+// with pixelKeyPlaceholder treated as a wildcard for the substituted
+// pixel/pixelGroup key -- matches key exactly, and returns that
+// template's own key (never key itself) alongside its Channel. This
+// deliberately does not consult the fixture's matrix.pixelKeys/
+// pixelGroups declaration to confirm the substituted portion is a
+// pixel/pixelGroup key OFL's own schema actually declares: normalize.go
+// already trusts other OFL-internal references (a WheelSlot capability's
+// wheel name, for instance) without independently re-validating them
+// against their own definition, and a prefix/suffix match against the
+// one concrete template pattern this fixture declares is exact enough
+// not to produce a false match in practice. Ties (two templateChannels
+// keys both matching key) are resolved by sortedChannelNames' stable
+// order, though no real OFL fixture's template keys are ambiguous this
+// way (each names a distinct capability, e.g. "Red $pixelKey" vs "Green
+// $pixelKey").
+func matchTemplateChannel(key string, templateChannels map[string]Channel) (string, Channel, bool) {
+	for _, templateKey := range sortedChannelNames(templateChannels) {
+		idx := strings.Index(templateKey, pixelKeyPlaceholder)
+		if idx < 0 {
+			continue
+		}
+		prefix, suffix := templateKey[:idx], templateKey[idx+len(pixelKeyPlaceholder):]
+		if len(key) < len(prefix)+len(suffix) {
+			continue
+		}
+		if strings.HasPrefix(key, prefix) && strings.HasSuffix(key, suffix) {
+			return templateKey, templateChannels[templateKey], true
+		}
+	}
+	return "", Channel{}, false
+}
+
+// referencedTemplateChannels returns the set of templateChannels keys
+// (for example "Red $pixelKey") that at least one mode's own plain
+// channel-key list resolves to -- verbatim, or via matchTemplateChannel's
+// pixel/pixelGroup substitution (for example a "Red Master" entry). Such
+// a template channel is exposed by at least one mode as one discrete,
+// whole-fixture channel rather than expanded per-pixel via a matrix
+// insert object, so Normalize folds it into the fixture's own
+// Capabilities the same way an available channel would (see Normalize's
+// TemplateChannels loop) instead of only ever surfacing it as a
+// matrixChannelWarning. A template channel no mode references this way --
+// used only inside matrix insert objects, still unresolved by
+// resolveModeChannels -- stays genuinely per-pixel-only and is absent
+// from the returned set.
+func referencedTemplateChannels(modes []Mode, availableChannels, templateChannels map[string]Channel) map[string]bool {
+	referenced := map[string]bool{}
+	for _, mode := range modes {
+		for _, entry := range mode.Channels {
+			var key string
+			if err := json.Unmarshal(entry, &key); err != nil {
+				continue
+			}
+			if _, ok := availableChannels[key]; ok {
+				continue
+			}
+			if _, ok := templateChannels[key]; ok {
+				referenced[key] = true
+				continue
+			}
+			if templateKey, _, ok := matchTemplateChannel(key, templateChannels); ok {
+				referenced[templateKey] = true
+			}
+		}
+	}
+	return referenced
 }
 
 // firstMappedCapabilityType returns the first of channel's capabilities
