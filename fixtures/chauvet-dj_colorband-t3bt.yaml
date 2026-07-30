@@ -1,0 +1,54 @@
+# Chauvet DJ COLORband T3 BT: a 12-LED tri-color (RGB) wash bar. Matches
+# the manufacturer's published 3- and 5-channel DMX personalities exactly,
+# in DMX order, per the COLORband T3BT User Manual Rev. 5 "DMX Channel
+# Assignments and Values" table:
+# https://www.chauvetdj.com/wp-content/uploads/2017/12/COLORband_T3BT_UM_Rev5.pdf
+#
+# The fixture also offers a 13-channel personality that addresses its 3
+# LED zones independently, but GOLC's v1 capability model has no way to
+# represent multiple simultaneous physical channels of the same type
+# (only non-overlapping sub-ranges of a single channel, per
+# fixture.Capability's doc comment) -- the same per-pixel/zone modeling
+# gap internal/fixture/ofl's importer already declines to represent for
+# matrix/pixel fixtures (D-06). 13Ch is intentionally omitted rather than
+# published as a mode that can't actually drive its zones independently.
+schema_version: 1
+manufacturer: "Chauvet DJ"
+model: "COLORband T3 BT"
+capabilities:
+  - type: color_red
+    range: [0, 1]
+    comment: "Red"
+  - type: color_green
+    range: [0, 1]
+    comment: "Green"
+  - type: color_blue
+    range: [0, 1]
+    comment: "Blue"
+  - type: intensity
+    range: [0, 1]
+    comment: "Dimmer, 0-100%"
+  - type: strobe
+    range: [0, 1]
+    comment: "000-015 no function; 016-255 strobe, slow to fast"
+modes:
+  - name: "3ch"
+    channels:
+      - type: color_red
+        occurrence: 0
+      - type: color_green
+        occurrence: 0
+      - type: color_blue
+        occurrence: 0
+  - name: "5ch"
+    channels:
+      - type: color_red
+        occurrence: 0
+      - type: color_green
+        occurrence: 0
+      - type: color_blue
+        occurrence: 0
+      - type: intensity
+        occurrence: 0
+      - type: strobe
+        occurrence: 0
