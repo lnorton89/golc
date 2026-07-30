@@ -44,6 +44,7 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 			"      fail-fast: false",
 			`      GOLC_BOOTSTRAP_INCLUDE_LINEAR_SYNC: "1"`,
 			"        if: runner.os == 'Linux'",
+			"        if: runner.os != 'Linux'",
 			"        if: runner.os != 'Windows'",
 			"        if: runner.os == 'Windows'",
 		} {
@@ -74,12 +75,16 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 		wantExecutable := []string{
 			"sudo apt-get update && sudo apt-get install -y libx11-dev xvfb",
 			`Xvfb :99 -screen 0 1024x768x24 & echo "DISPLAY=:99" >> "$GITHUB_ENV"`,
+			`sh <(curl -L https://nixos.org/nix/install) --no-daemon && echo "NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixos-25.05.tar.gz" >> "$GITHUB_ENV"`,
 			"bash scripts/ci/install-pinned-mage.sh",
 			"pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/ci/install-pinned-mage.ps1",
 			"mage Bootstrap",
 			"mage GenerateCheck",
+			`. "$HOME/.nix-profile/etc/profile.d/nix.sh" && nix-shell shell.nix --run "mage CheckOffline"`,
 			"mage CheckOffline",
+			`. "$HOME/.nix-profile/etc/profile.d/nix.sh" && nix-shell shell.nix --run "mage Build"`,
 			"mage Build",
+			`. "$HOME/.nix-profile/etc/profile.d/nix.sh" && nix-shell shell.nix --run "mage Test"`,
 			"mage Test",
 			"mage PackageFoundation",
 		}
