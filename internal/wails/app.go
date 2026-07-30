@@ -641,6 +641,38 @@ func (a *App) PickFixtureFile() (string, error) {
 	})
 }
 
+// httpURLPrefixes bounds OpenExternalURL to the schemes a system browser
+// launch is meant for -- rejecting anything else (file://, custom schemes)
+// since url ultimately reaches an OS-level "open this" call.
+var httpURLPrefixes = [...]string{"https://", "http://"}
+
+// OpenExternalURL opens url in the operator's OS-default browser via the
+// Wails runtime's BrowserOpenURL (Settings' About panel's open-source
+// credits, each a link to its package's info page). url must be
+// http(s) -- this is a frontend-reachable IPC method, so even though every
+// current caller passes a static, hand-authored URL, the boundary itself
+// is treated as untrusted input rather than assumed safe.
+func (a *App) OpenExternalURL(url string) error {
+	trimmed := strings.TrimSpace(url)
+	allowed := false
+	for _, prefix := range httpURLPrefixes {
+		if strings.HasPrefix(trimmed, prefix) {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		return fmt.Errorf("GOLC_WAILS_OPEN_URL_REJECTED: only http(s) URLs may be opened, got %q", trimmed)
+	}
+
+	ctx, ok := a.runtimeContext()
+	if !ok {
+		return errors.New("GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE: OnStartup has not run yet")
+	}
+	wailsruntime.BrowserOpenURL(ctx, trimmed)
+	return nil
+}
+
 // defaultRelaunchSpawn starts exePath (the running golc-desktop.exe itself)
 // as a new, independent process with env as its complete environment --
 // deliberately exec.Command, not exec.CommandContext, because the stored

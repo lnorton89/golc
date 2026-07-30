@@ -927,3 +927,29 @@ func TestPickFixtureFileWithoutRuntimeContextFails(t *testing.T) {
 		t.Fatalf("PickFixtureFile() error = %v, want GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE", err)
 	}
 }
+
+// --- OpenExternalURL (Settings' About panel open-source credit links) ---
+
+// TestOpenExternalURLRejectsNonHTTPScheme proves a non-http(s) URL is
+// rejected before ever reaching runtimeContext -- the same call rejects it
+// with no OnStartup/ctx required.
+func TestOpenExternalURLRejectsNonHTTPScheme(t *testing.T) {
+	app := NewApp(Config{})
+
+	if err := app.OpenExternalURL("file:///etc/passwd"); err == nil || !strings.Contains(err.Error(), "GOLC_WAILS_OPEN_URL_REJECTED") {
+		t.Fatalf("OpenExternalURL(file://...) error = %v, want GOLC_WAILS_OPEN_URL_REJECTED", err)
+	}
+}
+
+// TestOpenExternalURLWithoutRuntimeContextFails proves calling
+// OpenExternalURL on an App whose OnStartup has never run (ctx nil) returns
+// GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE rather than panicking or reaching
+// the real Wails runtime call -- mirrors
+// TestPickShowPathWithoutRuntimeContextFails' identical guard.
+func TestOpenExternalURLWithoutRuntimeContextFails(t *testing.T) {
+	app := NewApp(Config{})
+
+	if err := app.OpenExternalURL("https://pkg.go.dev/github.com/wailsapp/wails/v2"); err == nil || !strings.Contains(err.Error(), "GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE") {
+		t.Fatalf("OpenExternalURL() error = %v, want GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE", err)
+	}
+}
