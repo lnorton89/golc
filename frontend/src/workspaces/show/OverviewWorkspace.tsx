@@ -47,7 +47,7 @@ export default function OverviewWorkspace() {
   const [loading, setLoading] = useState(true);
   const [diagnosing, setDiagnosing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { startGuide, requestAutoLaunch } = useGuidedFirstShow();
+  const { startGuide, requestAutoLaunch, navigateTo } = useGuidedFirstShow();
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -150,6 +150,7 @@ export default function OverviewWorkspace() {
                             label={pool.name}
                             icon={Package}
                             meta={`${pool.memberCount} member${pool.memberCount === 1 ? "" : "s"}`}
+                            onSelect={() => navigateTo("build-patch-pools")}
                           />
                         </li>
                       ))}
@@ -175,6 +176,7 @@ export default function OverviewWorkspace() {
                                 ? "Active"
                                 : `${deployment.instanceCount} instance${deployment.instanceCount === 1 ? "" : "s"}`
                             }
+                            onSelect={() => navigateTo("build-patch-pools")}
                           />
                         </li>
                       ))}

@@ -19,14 +19,15 @@
 // path.
 //
 // Universe/address are never manually entered anywhere in this component
-// (06-10-PLAN.md's flagged assumption): the add-fixture control only
-// accepts a fixture's stable key/content hash/mode triple (sourced from
-// "fixture inspect" output, since internal/command/fixture.go exposes no
-// structured fixture-list read yet); every displayed universe/address is
+// (06-10-PLAN.md's flagged assumption): every displayed universe/address is
 // the backend's own system-computed value, surfaced in the impact preview
 // (proposed_universe/proposed_address) and in the deployment/instance list
 // (persisted Instance.Universe/Address) -- never a second, GUI-owned
-// addressing calculation.
+// addressing calculation. The add-fixture control's own stable key/content
+// hash/mode triple is likewise never hand-typed: it is picked from
+// FixtureLibraryService.ListLocal's already-pinned rows (loaded fresh each
+// time "Add Fixture" opens), with the mode dropdown scoped to the exact
+// fixture selected -- no "fixture inspect" copy/paste round trip.
 //
 // State coverage (Task 3, 06-UI-SPEC.md-style backstop): listLoading
 // renders a skeleton placeholder; a failed bridge call's own stderr
@@ -53,8 +54,10 @@ import {
   createDeployment,
   createPool,
   errorMessage,
+  listLocalFixtures,
   listPatch,
   offlinePatchView,
+  type FixtureLibraryRowView,
   type PatchView,
 } from "../../lib/wailsBridge";
 // NOTE: FixturePatchService.RemovePoolMemberPreview has a bridge wrapper
@@ -92,7 +95,12 @@ interface ImpactPlan {
   remove?: string[];
   propagate: string;
   expected_revision: number;
-  operations: ImpactOperation[];
+  // internal/pool/impact.go's own Operations field carries no `omitempty`
+  // and is left as a nil slice (never explicitly initialized to []) when
+  // no deployment references the pool yet -- encoding/json marshals that
+  // as JSON null, not []. Every read of this field must go through
+  // `?? []`, mirroring warnings/errors below (T-FIXPATCH-NULL-OPS).
+  operations: ImpactOperation[] | null;
   warnings?: { code: string; message: string }[];
   errors?: { code: string; message: string }[];
   plan_id: string;
@@ -119,8 +127,9 @@ export default function FixturePatch() {
   const [newPoolRequires, setNewPoolRequires] = useState("");
 
   const [addPoolTarget, setAddPoolTarget] = useState<string | null>(null);
-  const [addStableKey, setAddStableKey] = useState("");
-  const [addContentHash, setAddContentHash] = useState("");
+  const [libraryRows, setLibraryRows] = useState<FixtureLibraryRowView[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [selectedFixture, setSelectedFixture] = useState<FixtureLibraryRowView | null>(null);
   const [addMode, setAddMode] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [pendingPreview, setPendingPreview] = useState<PendingPreview | null>(null);
@@ -162,23 +171,32 @@ export default function FixturePatch() {
 
   const handleStartAddMember = (poolName: string) => {
     setAddPoolTarget(poolName);
-    setAddStableKey("");
-    setAddContentHash("");
+    setSelectedFixture(null);
     setAddMode("");
     setPendingPreview(null);
+    setLibraryLoading(true);
+    void listLocalFixtures()
+      .then((view) => setLibraryRows(view.rows))
+      .finally(() => setLibraryLoading(false));
+  };
+
+  const handleSelectFixture = (stableKey: string) => {
+    const row = libraryRows.find((candidate) => candidate.stableKey === stableKey) ?? null;
+    setSelectedFixture(row);
+    setAddMode(row?.modes[0] ?? "");
   };
 
   const handlePreviewAddMember = async () => {
-    if (!addPoolTarget) {
+    if (!addPoolTarget || !selectedFixture || !addMode) {
       return;
     }
     setPreviewLoading(true);
     try {
       const result = await addPoolMemberPreview(
         addPoolTarget,
-        addStableKey.trim(),
-        addContentHash.trim(),
-        addMode.trim(),
+        selectedFixture.stableKey,
+        selectedFixture.contentHash,
+        addMode,
       );
       assertOk(result, "AddPoolMemberPreview");
       const plan = JSON.parse(result.stdout) as ImpactPlan;
@@ -340,37 +358,49 @@ export default function FixturePatch() {
 
                       {addPoolTarget === p.name && (
                         <div className={styles.addMemberForm}>
-                          <input
+                          <select
                             className={styles.createInput}
-                            type="text"
-                            value={addStableKey}
-                            placeholder="Fixture stable key (fixture inspect)"
-                            onChange={(event) => setAddStableKey(event.target.value)}
-                            aria-label="Fixture stable key"
-                          />
-                          <input
+                            value={selectedFixture?.stableKey ?? ""}
+                            onChange={(event) => handleSelectFixture(event.target.value)}
+                            aria-label="Fixture"
+                            disabled={libraryLoading}
+                          >
+                            <option value="" disabled>
+                              {libraryLoading
+                                ? "Loading fixture library…"
+                                : libraryRows.filter((row) => row.status === "valid").length === 0
+                                  ? "No fixtures in library -- import one first"
+                                  : "Select a fixture…"}
+                            </option>
+                            {libraryRows
+                              .filter((row) => row.status === "valid")
+                              .map((row) => (
+                                <option key={row.stableKey} value={row.stableKey}>
+                                  {row.manufacturer} {row.model}
+                                </option>
+                              ))}
+                          </select>
+                          <select
                             className={styles.createInput}
-                            type="text"
-                            value={addContentHash}
-                            placeholder="Fixture content hash (fixture inspect)"
-                            onChange={(event) =>
-                              setAddContentHash(event.target.value)
-                            }
-                            aria-label="Fixture content hash"
-                          />
-                          <input
-                            className={styles.createInput}
-                            type="text"
                             value={addMode}
-                            placeholder="Mode"
                             onChange={(event) => setAddMode(event.target.value)}
                             aria-label="Fixture mode"
-                          />
+                            disabled={!selectedFixture}
+                          >
+                            <option value="" disabled>
+                              Select a mode…
+                            </option>
+                            {(selectedFixture?.modes ?? []).map((mode) => (
+                              <option key={mode} value={mode}>
+                                {mode}
+                              </option>
+                            ))}
+                          </select>
                           <div className={styles.formActions}>
                             <button
                               type="button"
                               className={styles.primaryButton}
-                              disabled={previewLoading}
+                              disabled={previewLoading || !selectedFixture || !addMode}
                               onClick={() => void handlePreviewAddMember()}
                             >
                               <Eye size={14} aria-hidden="true" />
@@ -396,7 +426,7 @@ export default function FixturePatch() {
                                 )
                               </p>
                               <ul className={styles.previewList}>
-                                {pendingPreview.plan.operations
+                                {(pendingPreview.plan.operations ?? [])
                                   .filter(
                                     (op) =>
                                       op.dependent_kind === "deployment_instance" &&
@@ -417,7 +447,7 @@ export default function FixturePatch() {
                                       </span>
                                     </li>
                                   ))}
-                                {pendingPreview.plan.operations.filter(
+                                {(pendingPreview.plan.operations ?? []).filter(
                                   (op) =>
                                     op.dependent_kind === "deployment_instance" &&
                                     op.action === "add",

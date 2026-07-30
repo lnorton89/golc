@@ -132,14 +132,23 @@ func (s *FixtureLibraryService) execute(args []string) Result {
 // projects Status "invalid" with Detail carrying that failure's message
 // and Manufacturer/Model left empty (StableKey falls back to FileName);
 // a clean entry projects Status "valid" with its pinned StableKey.
+// ContentHash and Modes are populated only for a "valid" row -- an
+// "invalid" row carries its zero value (empty string / nil slice) for
+// both, since a decode/pin failure never produces a pinned identity or a
+// canonical mode list. Modes exists so a fixture picker (FixturePatch.tsx's
+// add-to-pool control, PLAY-10) can offer a mode dropdown scoped to the
+// exact fixture the operator selected, without a second "fixture inspect"
+// round trip.
 type FixtureLibraryRowView struct {
-	StableKey    string `json:"stableKey"`
-	Manufacturer string `json:"manufacturer"`
-	Model        string `json:"model"`
-	FileName     string `json:"fileName"`
-	Source       string `json:"source"`
-	Status       string `json:"status"`
-	Detail       string `json:"detail"`
+	StableKey    string   `json:"stableKey"`
+	ContentHash  string   `json:"contentHash"`
+	Manufacturer string   `json:"manufacturer"`
+	Model        string   `json:"model"`
+	Modes        []string `json:"modes"`
+	FileName     string   `json:"fileName"`
+	Source       string   `json:"source"`
+	Status       string   `json:"status"`
+	Detail       string   `json:"detail"`
 }
 
 // FixtureLibraryView is ListLocal's full return shape. Rows is always a
@@ -187,6 +196,7 @@ func (s *FixtureLibraryService) ListLocal() (FixtureLibraryView, error) {
 		if entry.Err != nil {
 			rows = append(rows, FixtureLibraryRowView{
 				StableKey: entry.FileName,
+				Modes:     []string{},
 				FileName:  entry.FileName,
 				Source:    "local",
 				Status:    "invalid",
@@ -196,8 +206,10 @@ func (s *FixtureLibraryService) ListLocal() (FixtureLibraryView, error) {
 		}
 		rows = append(rows, FixtureLibraryRowView{
 			StableKey:    entry.Identity.StableKey,
+			ContentHash:  entry.Identity.ContentHash,
 			Manufacturer: entry.Definition.Manufacturer,
 			Model:        entry.Definition.Model,
+			Modes:        modeNames(entry.Definition.Modes),
 			FileName:     entry.FileName,
 			Source:       rowSource(entry.Provenance),
 			Status:       "valid",
@@ -206,6 +218,18 @@ func (s *FixtureLibraryService) ListLocal() (FixtureLibraryView, error) {
 	sort.Slice(rows, func(i, j int) bool { return rows[i].StableKey < rows[j].StableKey })
 
 	return FixtureLibraryView{Directory: directory, Rows: rows}, nil
+}
+
+// modeNames projects a fixture definition's Modes into their declared-order
+// Name list -- always a non-nil (possibly empty) slice, mirroring this
+// file's established "never JSON null" discipline for every row/view slice
+// field.
+func modeNames(modes []fixture.Mode) []string {
+	names := make([]string, 0, len(modes))
+	for _, mode := range modes {
+		names = append(names, mode.Name)
+	}
+	return names
 }
 
 // rowSource projects a DirectoryEntry's Provenance into ListLocal's row
