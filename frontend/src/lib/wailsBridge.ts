@@ -587,8 +587,10 @@ interface AppBinding {
  * "valid" with its pinned stableKey. */
 export interface FixtureLibraryRowView {
   stableKey: string;
+  contentHash: string;
   manufacturer: string;
   model: string;
+  modes: string[];
   fileName: string;
   source: string;
   status: string;
