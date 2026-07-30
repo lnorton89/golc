@@ -115,6 +115,23 @@ function humanizeFixtureKey(key: string): string {
     .join(" ");
 }
 
+// summarizeDiagnostics collapses byte-identical diagnostic messages into
+// one entry per distinct message with an occurrence count. OFL's
+// per-capability-entry warnings frequently repeat many times over on a
+// single channel (an "Auto Program" wheel with a dozen-plus near-identical
+// "Pattern N" capability entries all map to the same unmapped-construct
+// detail string -- see internal/fixture/ofl/normalize.go's
+// unmappedCapabilityDetail), and rendering every one of those as its own
+// <li> read as a wall of nonsensical duplicate lines rather than N
+// distinct issues.
+function summarizeDiagnostics(messages: string[]): { text: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const message of messages) {
+    counts.set(message, (counts.get(message) ?? 0) + 1);
+  }
+  return Array.from(counts.entries()).map(([text, count]) => ({ text, count }));
+}
+
 type LibrarySource = "local" | "catalog";
 
 export default function FixtureLibraryWorkspace() {
@@ -380,7 +397,7 @@ export default function FixtureLibraryWorkspace() {
   // lossy-warning treatment, one already-in-library/Replace path, never
   // duplicated per source (D-02 extended to D-04 by 09-07-PLAN.md).
   const renderCandidateBody = (view: FixturePreviewView) => (
-    <div className={styles.inspectBody}>
+    <ScrollRegion className={styles.inspectBody}>
       <div className={styles.techReadout}>
         {`${view.inspect.stableKey || "—"} · ${view.inspect.contentHash || "—"}`}
       </div>
@@ -395,8 +412,8 @@ export default function FixtureLibraryWorkspace() {
             {`This fixture definition has ${view.inspect.errors.length} error(s) and can't be added. Fix them and try again.`}
           </p>
           <ul className={styles.diagnosticList}>
-            {view.inspect.errors.map((message, index) => (
-              <li key={index}>{message}</li>
+            {summarizeDiagnostics(view.inspect.errors).map((entry) => (
+              <li key={entry.text}>{entry.count > 1 ? `${entry.text} (×${entry.count})` : entry.text}</li>
             ))}
           </ul>
         </>
@@ -409,8 +426,8 @@ export default function FixtureLibraryWorkspace() {
             {`This import has ${view.inspect.warnings.length} unsupported or approximated attribute(s) — review before adding.`}
           </p>
           <ul className={styles.diagnosticList}>
-            {view.inspect.warnings.map((warning, index) => (
-              <li key={index}>{warning.detail}</li>
+            {summarizeDiagnostics(view.inspect.warnings.map((warning) => warning.detail)).map((entry) => (
+              <li key={entry.text}>{entry.count > 1 ? `${entry.text} (×${entry.count})` : entry.text}</li>
             ))}
           </ul>
         </>
@@ -433,7 +450,7 @@ export default function FixtureLibraryWorkspace() {
           {committing ? "Adding…" : "Add to Library"}
         </Button>
       )}
-    </div>
+    </ScrollRegion>
   );
 
   return (
@@ -630,7 +647,7 @@ export default function FixtureLibraryWorkspace() {
                   ) : inspecting ? (
                     <p className={styles.loading}>Inspecting…</p>
                   ) : inspectView ? (
-                    <div className={styles.inspectBody}>
+                    <ScrollRegion className={styles.inspectBody}>
                       <div
                         className={styles.techReadout}
                       >{`${inspectView.stableKey || "—"} · ${inspectView.contentHash || "—"}`}</div>
@@ -647,8 +664,8 @@ export default function FixtureLibraryWorkspace() {
                             {`This fixture definition has ${inspectView.errors.length} error(s) and can't be added. Fix them and try again.`}
                           </p>
                           <ul className={styles.diagnosticList}>
-                            {inspectView.errors.map((message, index) => (
-                              <li key={index}>{message}</li>
+                            {summarizeDiagnostics(inspectView.errors).map((entry) => (
+                              <li key={entry.text}>{entry.count > 1 ? `${entry.text} (×${entry.count})` : entry.text}</li>
                             ))}
                           </ul>
                         </>
@@ -661,13 +678,13 @@ export default function FixtureLibraryWorkspace() {
                             {`This import has ${inspectView.warnings.length} unsupported or approximated attribute(s) — review before adding.`}
                           </p>
                           <ul className={styles.diagnosticList}>
-                            {inspectView.warnings.map((warning, index) => (
-                              <li key={index}>{warning.detail}</li>
+                            {summarizeDiagnostics(inspectView.warnings.map((warning) => warning.detail)).map((entry) => (
+                              <li key={entry.text}>{entry.count > 1 ? `${entry.text} (×${entry.count})` : entry.text}</li>
                             ))}
                           </ul>
                         </>
                       ) : null}
-                    </div>
+                    </ScrollRegion>
                   ) : null}
                 </Panel>
               ) : (
