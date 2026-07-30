@@ -189,6 +189,54 @@ describe("ScriptDebugPanel", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders the exact memory-limit-termination sentence (D-08)", () => {
+    render(
+      <ScriptDebugPanel
+        {...baseProps({
+          status: "terminated",
+          terminalReason: "GOLC_SCRIPT_MEMORY_EXCEEDED: run exceeded its 64 MB memory limit",
+        })}
+      />,
+    );
+    expect(
+      screen.getByText(
+        "Terminated: memory limit exceeded (64 MB). Increase the limit in this script's profile if this is expected.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the memory-limit-termination sentence with a parsed (not hardcoded) megabyte figure", () => {
+    render(
+      <ScriptDebugPanel
+        {...baseProps({
+          status: "terminated",
+          terminalReason: "GOLC_SCRIPT_MEMORY_EXCEEDED: run exceeded its 256 MB memory limit",
+        })}
+      />,
+    );
+    expect(
+      screen.getByText(
+        "Terminated: memory limit exceeded (256 MB). Increase the limit in this script's profile if this is expected.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the memory-limit-termination sentence in the stopped banner form", () => {
+    render(
+      <ScriptDebugPanel
+        {...baseProps({
+          status: "terminated",
+          terminalReason: "GOLC_SCRIPT_MEMORY_EXCEEDED: run exceeded its 64 MB memory limit",
+        })}
+      />,
+    );
+    expect(
+      screen.getByText(
+        "Stopped: memory limit exceeded (64 MB). Increase the limit in this script's profile if this is expected.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("renders the exact capability-scope-violation sentence", () => {
     render(
       <ScriptDebugPanel

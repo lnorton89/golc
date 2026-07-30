@@ -126,15 +126,19 @@ interface TerminationDescription {
 }
 
 // describeTermination translates a terminal event's machine-readable
-// Reason into the exact Copywriting Contract sentence for a deadline/rate/
-// scope termination (D-08) or a crash (D-03). internal/script currently
-// has no structured signal for a memory/CPU resource-limit kill (the
-// Windows Job Object terminates the process directly, with no
-// TerminationReason recorded) or for an explicit user Stop beyond its own
-// GOLC_SCRIPT_STOPPED_BY_USER message text -- both, and any other
-// unrecognized termination cause, fall back to a generic
-// "Terminated: {reason}" rendering rather than guessing a limit name that
-// was never reported.
+// Reason into the exact Copywriting Contract sentence for a deadline/
+// rate/memory/scope termination (D-08) or a crash (D-03). The Go host
+// (internal/script) publishes GOLC_SCRIPT_MEMORY_EXCEEDED for a memory-
+// ceiling kill -- produced by both a proactive Job Object usage monitor
+// (memorywatch.go) and a post-exit classifier (classifyMemoryExhaustion,
+// capability.go), which emit identical text, so which one actually fired
+// is never observable here. The CPU cap deliberately has no termination
+// code of its own: it throttles rather than kills, so a CPU-bound run
+// always ends on its deadline instead (08-RESEARCH.md Pitfall 3). An
+// explicit user Stop (its own GOLC_SCRIPT_STOPPED_BY_USER message text)
+// and any other unrecognized termination cause both fall back to a
+// generic "Terminated: {reason}" rendering rather than guessing a limit
+// name that was never reported.
 function describeTermination(status: ScriptPanelStatus, reason: string): TerminationDescription {
   if (status === "failed") {
     const summary = reason.split("\n")[0]?.trim() || reason;
@@ -153,6 +157,14 @@ function describeTermination(status: ScriptPanelStatus, reason: string): Termina
   if (rateMatch) {
     return {
       sentence: `Terminated: rate limit exceeded (${rateMatch[1]} calls/sec). Increase the limit in this script's profile if this is expected.`,
+      isCrash: false,
+    };
+  }
+
+  const memoryMatch = /GOLC_SCRIPT_MEMORY_EXCEEDED: run exceeded its (\d+) MB memory limit/.exec(reason);
+  if (memoryMatch) {
+    return {
+      sentence: `Terminated: memory limit exceeded (${memoryMatch[1]} MB). Increase the limit in this script's profile if this is expected.`,
       isCrash: false,
     };
   }
