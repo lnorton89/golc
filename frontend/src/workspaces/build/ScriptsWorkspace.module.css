@@ -137,15 +137,17 @@
   font-size: var(--text-sm);
 }
 
+/* Panel-wrapped (matches every other workspace's own empty/stub state,
+   e.g. FixtureLibraryWorkspace's Panel + EmptyState convention) --
+   top-anchored content in a bordered --panel surface, not bare text
+   centered across the whole canvas height. */
 .emptyState {
-  flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  justify-content: center;
   gap: var(--space-sm);
   max-width: 480px;
+  padding: var(--space-lg);
 }
 
 .emptyHeading {

@@ -68,6 +68,7 @@ import {
 } from "../../lib/wailsBridge";
 
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
+import Panel from "../../components/primitives/Panel/Panel";
 import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion";
 import ListRow from "../../components/primitives/ListRow/ListRow";
 import Chip, { type ChipTone } from "../../components/primitives/Chip/Chip";
@@ -657,7 +658,7 @@ export default function ScriptsWorkspace() {
         {error ? <p className={styles.errorText}>{error}</p> : null}
 
         {!loading && scripts.length === 0 ? (
-          <div className={styles.emptyState}>
+          <Panel className={styles.emptyState}>
             <h3 className={styles.emptyHeading}>
               <FileCode2 size={20} aria-hidden="true" />
               No scripts yet
@@ -671,7 +672,7 @@ export default function ScriptsWorkspace() {
               </Button>
             )}
             {newScriptForm}
-          </div>
+          </Panel>
         ) : (
           <div className={styles.layout}>
             <div className={styles.library}>
