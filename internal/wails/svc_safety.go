@@ -22,8 +22,6 @@ import (
 	"sync"
 	"time"
 
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-
 	"github.com/lnorton89/golc/internal/artnet/ipc"
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/operatorsurface"
@@ -32,14 +30,36 @@ import (
 
 // statusPollInterval is how often StartStatusPush re-fetches the daemon's
 // status via FetchStatus and stages it for the next throttled EventsEmit
-// (events.go's own eventsTickInterval-cadence flush loop): reusing the
-// same constant keeps this poll no faster than the flush that actually
-// coalesces it, so a burst of polls between flushes never emits more than
-// one "status:update" per eventsTickInterval (06-RESEARCH.md Open
-// Question 3, "independent cadence, never share one ticker" -- this is
-// the status feature's own independent cadence, decoupled from both the
-// 40Hz Art-Net Worker tick and any MIDI message rate).
-const statusPollInterval = eventsTickInterval
+// (events.go's own eventsTickInterval-cadence flush loop). This is
+// deliberately its own, coarser cadence -- NOT eventsTickInterval's 25ms
+// (06-RESEARCH.md Open Question 3, "independent cadence, never share one
+// ticker" -- this is the status feature's own independent cadence,
+// decoupled from both the 40Hz Art-Net Worker tick and any MIDI message
+// rate). Each tick pays a full FetchStatus round-trip -- a fresh
+// ipc.Dial + write + read + Close to the daemon (hotkey.go's
+// defaultDialForward), never a reused connection, since server.go's Serve
+// protocol is one request per connection by design -- so eventsTickInterval
+// (a frame-budget cadence chosen for cheap, non-fatal in-process staging)
+// is far faster than a live status bar actually needs: 250ms of staleness
+// is imperceptible for scene/BPM/state display, and cuts this loop's
+// idle-CPU cost (measured background load from dialing 40 times/second
+// forever, even minimised, while investigating a reported idle-CPU spike)
+// roughly tenfold with no observable UI difference. An earlier attempt at
+// this fix polled wailsruntime.WindowIsMinimised(ctx) to skip dialing
+// while minimised instead of slowing the cadence, but that call reaches a
+// raw CGo GTK/GDK widget read on Linux (window.go's IsMinimised) that
+// Wails' own Linux frontend never marshals onto the GTK main thread the
+// way its mutating window calls do (ExecuteOnMainThread) -- called from
+// this poll's own goroutine (frontend.go's Run starts OnStartup, and
+// everything StartStatusPush spawns, on a goroutine separate from the
+// thread running gtk_main()), it produced continuous
+// "gdk_window_get_state: assertion 'GDK_IS_WINDOW (window)' failed"
+// GTK-criticals and, under some startup timing, a permanently
+// unrealised/mis-sized window -- a real thread-safety gap in the vendored
+// library, not something to route around from here. This slower-cadence
+// fix avoids that entire class of hazard by never touching a GTK object
+// from a non-GTK-main-thread goroutine.
+const statusPollInterval = 250 * time.Millisecond
 
 // SafetyService is bound to the frontend via cmd/golc-desktop/main.go's
 // options.App{Bind: [...]}. dial defaults to defaultDialForward
@@ -55,12 +75,11 @@ const statusPollInterval = eventsTickInterval
 // cmd/golc-desktop/main.go starts/stops it alongside App's own lifecycle
 // hooks.
 type SafetyService struct {
-	pipeName        string
-	root            string
-	showPath        string
-	dial            dialForwardFunc
-	events          *EventPusher
-	windowMinimised func(context.Context) bool
+	pipeName string
+	root     string
+	showPath string
+	dial     dialForwardFunc
+	events   *EventPusher
 
 	mu            sync.Mutex
 	pollCancel    context.CancelFunc
@@ -75,7 +94,7 @@ type SafetyService struct {
 // against -- mirrored from PlaybackService/SurfaceService's identical
 // fields rather than a second, divergent copy.
 func NewSafetyService(pipeName, root, showPath string) *SafetyService {
-	return &SafetyService{pipeName: pipeName, root: root, showPath: showPath, dial: defaultDialForward, events: NewEventPusher(), windowMinimised: wailsruntime.WindowIsMinimised}
+	return &SafetyService{pipeName: pipeName, root: root, showPath: showPath, dial: defaultDialForward, events: NewEventPusher()}
 }
 
 // SetActiveSurface selects surfaceName as the operator surface
@@ -168,17 +187,6 @@ func (s *SafetyService) pollStatus(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// A minimised window has no LiveStatusBar for this poll to
-			// feed, so skip FetchStatus's daemon round-trip (a fresh
-			// ipc.Dial + write + read + Close every tick, hotkey.go's
-			// defaultDialForward) entirely rather than doing it 40
-			// times/second for nobody to see -- this was measured
-			// background idle CPU load with no user-visible effect,
-			// since polling resumes on the very next tick once the
-			// window is restored.
-			if s.windowMinimisedFn()(ctx) {
-				continue
-			}
 			s.events.QueueStatus(s.FetchStatus())
 		}
 	}
@@ -226,16 +234,6 @@ func (s *SafetyService) dialFn() dialForwardFunc {
 		return s.dial
 	}
 	return defaultDialForward
-}
-
-// windowMinimisedFn returns s.windowMinimised, defaulting to
-// wailsruntime.WindowIsMinimised for a SafetyService constructed via a bare
-// struct literal (mirrors dialFn's identical fallback rationale).
-func (s *SafetyService) windowMinimisedFn() func(context.Context) bool {
-	if s.windowMinimised != nil {
-		return s.windowMinimised
-	}
-	return wailsruntime.WindowIsMinimised
 }
 
 // Blackout dials+forwards "artnet safety blackout --on <on> --source
