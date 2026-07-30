@@ -1,4 +1,13 @@
 .frame {
+  /* This project has no global box-sizing: border-box reset -- a fixed
+     height plus border-bottom under default content-box rendered 53px
+     total (border added on top of the specified height), 1px taller
+     than this row's own 52px grid track (AppShell.module.css). That
+     extra pixel bled into the rail/main row below, where the rail's own
+     background painted over it -- breaking the border-bottom's
+     continuity specifically over the rail's width (dimming the rail, as
+     GuidedFirstShow does, hid the seam rather than fixing it). */
+  box-sizing: border-box;
   height: 52px;
   display: flex;
   align-items: center;

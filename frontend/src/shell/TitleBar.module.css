@@ -1,4 +1,9 @@
 .titleBar {
+  /* Same box-sizing pitfall as GlobalFrame.module.css's own .frame:
+     no global border-box reset in this project, so height + border-bottom
+     under content-box rendered 1px taller than this row's own 32px grid
+     track and bled into the row below. */
+  box-sizing: border-box;
   height: 32px;
   display: flex;
   align-items: center;
