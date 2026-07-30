@@ -35,6 +35,7 @@ package script
 import (
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -160,6 +161,134 @@ func checkDeadline(elapsed, deadline time.Duration) *TerminationReason {
 		Message: fmt.Sprintf("run exceeded its %s deadline (elapsed %s)", deadline, elapsed),
 		At:      time.Now(),
 	}
+}
+
+// memoryPressureTriggerPercent is the fraction of the Job Object ceiling
+// at which a live run is treated as having exhausted its memory limit
+// (D-08's resource cause, checkMemoryPressure's proactive trigger): the
+// kernel denies the commit that would cross the ceiling rather than
+// killing the process, so a job whose peak committed memory has reached
+// 95% of its ceiling is one small allocation away from a denied commit,
+// while a well-behaved script under the 256 MB safe default never
+// approaches it. A lower trigger would terminate healthy scripts (see
+// 08-14-PLAN.md's threat register, T-08G-06).
+const memoryPressureTriggerPercent = 95
+
+// memoryExhaustionCorroborationPercent is classifyMemoryExhaustion's
+// lower, post-exit corroboration floor -- deliberately lower than
+// memoryPressureTriggerPercent because, by the time this is consulted,
+// V8 has already reported an allocation failure, so the only job left is
+// distinguishing a genuine ceiling collision (peak climbed substantially
+// toward the limit) from one absurd single allocation on an otherwise-
+// idle heap.
+const memoryExhaustionCorroborationPercent = 50
+
+// v8AllocationFailureSignatures are the lowercased V8/Deno out-of-memory
+// substrings classifyMemoryExhaustion looks for in an already-redacted
+// stderr tail: the exact string 08-13-SUMMARY.md's real repro recorded
+// (array buffer allocation failed), the two other well-known V8 OOM
+// shapes, and (found empirically during this plan's own real-Deno
+// acceptance pass against a genuinely provisioned toolchain, 08-14-
+// PLAN.md Task 2) V8's uncatchable "Fatal JavaScript out of memory"
+// engine crash -- the same Job Object memory ceiling produces either
+// shape nondeterministically depending on which allocation loses the
+// race first: an explicit script-level `new ArrayBuffer`/typed-array
+// call (the catchable RangeError) or V8's own internal GC trying to
+// grow/promote its managed heap (the uncatchable engine-level abort).
+// Both are genuine V8-authored OOM signals, never text a script could
+// plausibly produce on its own via console output. This list is only
+// ever a corroborating signal and never the sole basis for a
+// reclassification, because a script controls its own stderr and could
+// forge any of these strings (T-08G-02) -- see the peakBytes
+// corroboration check in classifyMemoryExhaustion below.
+var v8AllocationFailureSignatures = []string{
+	"array buffer allocation failed",
+	"javascript heap out of memory",
+	"reached heap limit",
+	"fatal javascript out of memory",
+}
+
+// memoryTriggerBytes resolves limits' MB ceiling into the byte threshold
+// at percent of that ceiling, delegating the MB->bytes conversion to
+// memoryLimitBytes so an invalid or absent limit (mb <= 0, or an
+// overflowing conversion) is never treated as a trigger of zero -- it is
+// instead reported as unresolvable via the boolean return. The threshold
+// is computed as limitBytes/100*percent: divide before multiply so the
+// product can never wrap; the truncation this ordering costs is under
+// 100 bytes against a minimum 1 MiB limit and is therefore immaterial.
+func memoryTriggerBytes(mb int, percent int) (uint64, bool) {
+	limitBytes, err := memoryLimitBytes(mb)
+	if err != nil {
+		return 0, false
+	}
+	return limitBytes/100*uint64(percent), true
+}
+
+// memoryLimitReason is the single constructor both checkMemoryPressure
+// and classifyMemoryExhaustion call, so the Code and Message text exist
+// in exactly one place: Code GOLC_SCRIPT_MEMORY_EXCEEDED, Message
+// "run exceeded its {N} MB memory limit". This Message's shape is a
+// rendered-copy contract consumed by describeTermination in
+// ScriptDebugPanel.tsx -- changing its wording requires updating that
+// parser in the same commit.
+func memoryLimitReason(mb int) TerminationReason {
+	return TerminationReason{
+		Code:    "GOLC_SCRIPT_MEMORY_EXCEEDED",
+		Message: fmt.Sprintf("run exceeded its %d MB memory limit", mb),
+		At:      time.Now(),
+	}
+}
+
+// checkMemoryPressure is checkDeadline's sibling for D-08's resource
+// cause: given a run's own currently-observed peak Job Object memory
+// usage, it returns a GOLC_SCRIPT_MEMORY_EXCEEDED TerminationReason once
+// peakBytes reaches memoryPressureTriggerPercent of the configured
+// ceiling -- exactly like checkDeadline, the boundary itself triggers
+// with no grace period beyond it -- or nil when the limit cannot be
+// resolved (memoryTriggerBytes reports unresolvable) or peakBytes is
+// still strictly below the trigger.
+func checkMemoryPressure(peakBytes uint64, limits show.ResolvedLimits) *TerminationReason {
+	trigger, ok := memoryTriggerBytes(limits.MemoryLimitMB, memoryPressureTriggerPercent)
+	if !ok || peakBytes < trigger {
+		return nil
+	}
+	reason := memoryLimitReason(limits.MemoryLimitMB)
+	return &reason
+}
+
+// classifyMemoryExhaustion is the post-exit backstop for D-08's resource
+// cause: reason arrives already redacted from runDispatchIO's stderr
+// tail (security.Redact having already run there) and this function
+// must never redact it again, never store it, and never copy any
+// substring of it into the returned reason -- the returned Message is
+// host-authored text plus one integer from the run's own profile,
+// nothing else. A script fully controls its own stderr and could print
+// one of v8AllocationFailureSignatures verbatim to try to have an
+// unrelated crash reported as a limit kill, masking a real bug behind a
+// benign-looking limit message (T-08G-02) -- the signature match alone
+// is therefore never sufficient: peakBytes must also be at or above
+// memoryExhaustionCorroborationPercent of the configured ceiling, a
+// value the script can only move by genuinely committing memory.
+func classifyMemoryExhaustion(reason string, peakBytes uint64, limits show.ResolvedLimits) *TerminationReason {
+	lower := strings.ToLower(reason)
+	matched := false
+	for _, signature := range v8AllocationFailureSignatures {
+		if strings.Contains(lower, signature) {
+			matched = true
+			break
+		}
+	}
+	if !matched {
+		return nil
+	}
+
+	trigger, ok := memoryTriggerBytes(limits.MemoryLimitMB, memoryExhaustionCorroborationPercent)
+	if !ok || peakBytes < trigger {
+		return nil
+	}
+
+	result := memoryLimitReason(limits.MemoryLimitMB)
+	return &result
 }
 
 // bytesPerMB is the exact integer multiplier memoryLimitBytes uses --

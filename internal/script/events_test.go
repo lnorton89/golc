@@ -294,16 +294,19 @@ func TestComputeTerminalEventEverySevenTerminationCauses(t *testing.T) {
 			wantReason: "GOLC_SCRIPT_SCOPE_DENIED: method requires a wider scope",
 		},
 		{
-			// A Job-Object memory-limit kill surfaces through cmd.Wait()'s
-			// own error, populating Status/Reason from session.go's Run
-			// failure branch rather than a distinct TerminationReason --
-			// this case pins that this bus's guarantee holds regardless of
-			// which of Run's several code paths actually set the final
+			// A Job-Object memory-limit kill is now a termination, not a
+			// failure (08-14-PLAN.md Task 2): the proactive monitor records
+			// a GOLC_SCRIPT_MEMORY_EXCEEDED TerminationReason via
+			// beginTermination (branch 1 of the post-Wait chain), and the
+			// post-exit classifyMemoryExhaustion backstop reclassifies the
+			// same code in branch 4 when V8's own allocation failure wins
+			// the race -- either way this bus's guarantee holds regardless
+			// of which of Run's code paths actually set the final
 			// Status/Reason.
 			name:       "jobobject_resource_kill",
-			result:     RunOutcome{Status: show.ScriptRunStatusFailed, Reason: "GOLC_SCRIPT_JOBOBJECT_MEMORY_LIMIT_EXCEEDED: process killed"},
-			wantStatus: show.ScriptRunStatusFailed,
-			wantReason: "GOLC_SCRIPT_JOBOBJECT_MEMORY_LIMIT_EXCEEDED: process killed",
+			result:     RunOutcome{Status: show.ScriptRunStatusTerminated, Reason: "GOLC_SCRIPT_MEMORY_EXCEEDED: run exceeded its 64 MB memory limit"},
+			wantStatus: show.ScriptRunStatusTerminated,
+			wantReason: "GOLC_SCRIPT_MEMORY_EXCEEDED: run exceeded its 64 MB memory limit",
 		},
 	}
 
@@ -372,7 +375,7 @@ func TestPublishScriptEventTerminalPublishesExactlyOnePerCause(t *testing.T) {
 		{"deadline_exceeded", RunOutcome{Status: show.ScriptRunStatusTerminated, Reason: "GOLC_SCRIPT_DEADLINE_EXCEEDED: x"}, nil},
 		{"rate_exceeded", RunOutcome{Status: show.ScriptRunStatusTerminated, Reason: "GOLC_SCRIPT_RATE_EXCEEDED: x"}, nil},
 		{"scope_denied", RunOutcome{Status: show.ScriptRunStatusTerminated, Reason: "GOLC_SCRIPT_SCOPE_DENIED: x"}, nil},
-		{"jobobject_resource_kill", RunOutcome{Status: show.ScriptRunStatusFailed, Reason: "GOLC_SCRIPT_JOBOBJECT_MEMORY_LIMIT_EXCEEDED: x"}, nil},
+		{"jobobject_resource_kill", RunOutcome{Status: show.ScriptRunStatusTerminated, Reason: "GOLC_SCRIPT_MEMORY_EXCEEDED: x"}, nil},
 	}
 
 	for _, tc := range causes {
