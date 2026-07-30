@@ -37,10 +37,14 @@
 # buildFHSEnv; this reuses that exact same file rather than duplicating
 # the pin, so CI and a contributor's `nix-shell` never drift apart.
 # NIX_PATH is set explicitly (not left to the installer's default
-# channel setup) so `<nixpkgs>` resolves deterministically to the same
-# release shell.nix's own overlay pins from, without depending on
-# `nix-channel --update` ever having run in this fresh, ephemeral
-# install. GenerateCheck and PackageFoundation do not link the darwin/
+# channel setup, which needs `nix-channel --update` to have ever run) so
+# `<nixpkgs>` resolves deterministically -- to nixpkgs-unstable, NOT the
+# same nixos-25.05 shell.nix's overlay pins webkitgtk_4_0/libsoup_2_4
+# from: shell.nix's targetPkgs list also depends on go_1_26 from the
+# BASE <nixpkgs> (unrelated to the overlay), which nixos-25.05 predates
+# entirely (observed live: run 30502664783, "error: undefined variable
+# 'go_1_26' at shell.nix:25:5" once NIX_PATH was pinned to nixos-25.05).
+# GenerateCheck and PackageFoundation do not link the darwin/
 # linux frontend at all (see build.go/package.go) and stay on the
 # native runner directly.
 name: cross-platform Mage observation
@@ -79,7 +83,7 @@ jobs:
 
       - name: Install Nix (Linux only)
         if: runner.os == 'Linux'
-        run: sh <(curl -L https://nixos.org/nix/install) --no-daemon && echo "NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixos-25.05.tar.gz" >> "$GITHUB_ENV"
+        run: sh <(curl -L https://nixos.org/nix/install) --no-daemon && echo "NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixpkgs-unstable.tar.gz" >> "$GITHUB_ENV"
 
       - name: Install pinned Mage (Linux/macOS)
         if: runner.os != 'Windows'
