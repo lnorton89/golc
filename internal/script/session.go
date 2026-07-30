@@ -522,7 +522,7 @@ func publishCallOutcome(run *Run, method string, outcome CallOutcome) {
 		ScriptName: run.ScriptName,
 		At:         time.Now(),
 		Method:     outcome.Method,
-		Route:      outcome.Route,
+		Route:      route,
 		DurationMS: outcome.DurationMS,
 		Ok:         outcome.Ok,
 		Code:       outcome.Code,
