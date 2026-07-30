@@ -118,6 +118,19 @@ func denoArchiveFileName(t *testing.T) string {
 func TestScopeScriptToolchain(t *testing.T) {
 	t.Run("resolves the pinned Deno executable when a verified install exists", func(t *testing.T) {
 		root := t.TempDir()
+		// bootstrap.ResolveDenoExecutable resolves its root through
+		// filepath.EvalSymlinks before ever building the executable path
+		// (mirrors ResolveMageExecutable/runBootstrap exactly), so this
+		// test's own "want" must be resolved the same way -- otherwise a
+		// CI runner whose temp directory sits behind an OS-level
+		// indirection (macOS's /var -> /private/var, or a Windows
+		// short/8.3 alias for a long account name like GitHub Actions'
+		// "runneradmin") produces two textually different strings for the
+		// exact same directory (observed live: cross-platform-mage.yml
+		// run 30502664783 on both macos-latest and windows-latest).
+		if resolved, err := filepath.EvalSymlinks(root); err == nil {
+			root = resolved
+		}
 		version := "2.9.4"
 		executableName := "deno"
 		if bootstrap.PlatformKey() == "windows-amd64" {
