@@ -76,6 +76,7 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 			"sudo apt-get update && sudo apt-get install -y libx11-dev xvfb",
 			`Xvfb :99 -screen 0 1024x768x24 & echo "DISPLAY=:99" >> "$GITHUB_ENV"`,
 			`sh <(curl -L https://nixos.org/nix/install) --no-daemon && echo "NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixpkgs-unstable.tar.gz" >> "$GITHUB_ENV"`,
+			"sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0",
 			"bash scripts/ci/install-pinned-mage.sh",
 			"pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/ci/install-pinned-mage.ps1",
 			"mage Bootstrap",

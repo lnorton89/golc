@@ -44,9 +44,15 @@
 # BASE <nixpkgs> (unrelated to the overlay), which nixos-25.05 predates
 # entirely (observed live: run 30502664783, "error: undefined variable
 # 'go_1_26' at shell.nix:25:5" once NIX_PATH was pinned to nixos-25.05).
-# GenerateCheck and PackageFoundation do not link the darwin/
-# linux frontend at all (see build.go/package.go) and stay on the
-# native runner directly.
+# buildFHSEnv's sandbox is built with bubblewrap (bwrap), which needs an
+# unprivileged user namespace to set up its uid/gid mapping -- current
+# ubuntu-latest images ship an AppArmor profile that blocks unprivileged
+# userns creation by default (a security hardening default, not a Nix
+# issue), so bwrap fails closed with "setting up uid map: Permission
+# denied" unless that restriction is lifted first (observed live: run
+# 30503477786). GenerateCheck and PackageFoundation do not link the
+# darwin/linux frontend at all (see build.go/package.go) and stay on
+# the native runner directly.
 name: cross-platform Mage observation
 
 on:
@@ -84,6 +90,10 @@ jobs:
       - name: Install Nix (Linux only)
         if: runner.os == 'Linux'
         run: sh <(curl -L https://nixos.org/nix/install) --no-daemon && echo "NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixpkgs-unstable.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Allow unprivileged user namespaces for bubblewrap (Linux only)
+        if: runner.os == 'Linux'
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: Install pinned Mage (Linux/macOS)
         if: runner.os != 'Windows'
