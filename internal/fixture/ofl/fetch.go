@@ -47,9 +47,19 @@ func (ref OFLRef) Source() string {
 }
 
 const (
-	// defaultOFLHost is the only host Fetch ever requests without an
+	// defaultOFLHost is the host Fetch/FetchManufacturers request without an
 	// explicit --allow-mirror opt-in (T-02-06).
 	defaultOFLHost = "raw.githubusercontent.com"
+	// githubAPIHost is the second SSRF-allowed default host (09-RESEARCH
+	// Open Question 1's flagged v1.x follow-up, now implemented): the
+	// GitHub REST "get a tree" endpoint FetchFixtureIndex uses to enumerate
+	// every fixture key across all manufacturers, which raw-content fetches
+	// alone cannot do (raw.githubusercontent.com serves file content, never
+	// directory listings). Unlike defaultOFLHost, this host is never
+	// resolved from a caller-supplied Mirror in production -- only a test
+	// points FixtureIndexRef.Mirror at an httptest server, mirroring
+	// ManufacturerIndexRef's identical test-only seam.
+	githubAPIHost = "api.github.com"
 	// defaultOFLURLPattern is the confirmed raw-JSON-by-key fetch URL
 	// (RESEARCH Open Question 2, confirmed against the live upstream
 	// repository at plan-execution time): OFL's whole repository,
@@ -61,11 +71,18 @@ const (
 	// fetchTimeout bounds every Fetch call's request, regardless of the
 	// caller's own context deadline (T-02-06).
 	fetchTimeout = 15 * time.Second
-	// maxResponseBytes bounds the response body Fetch will read; a real
-	// OFL fixture JSON document is at most tens of kilobytes, so this cap
-	// is generous while still bounding a hostile/misbehaving mirror
-	// (T-02-06).
-	maxResponseBytes = 2 * 1024 * 1024
+	// maxResponseBytes bounds the response body every OFL network call in
+	// this package will read: a real OFL fixture JSON document or the
+	// manufacturer index is at most a few hundred kilobytes, and the
+	// recursive repository tree FetchFixtureIndex reads (~600 fixtures'
+	// worth of paths, a few hundred KB today) fits the same generous cap
+	// with headroom for catalog growth, while still bounding a hostile or
+	// misbehaving mirror (T-02-06).
+	maxResponseBytes = 4 * 1024 * 1024
+	// userAgent is sent on every OFL network call: harmless for
+	// raw.githubusercontent.com, required by api.github.com (which returns
+	// 403 without one).
+	userAgent = "golc-desktop"
 )
 
 // Fetch retrieves ref's OFL fixture JSON: a live GET against the default
@@ -80,7 +97,7 @@ const (
 // entrypoint is "fixture import --ofl-file", which never calls Fetch at
 // all (see internal/command/fixture.go).
 func Fetch(ctx context.Context, ref OFLRef) ([]byte, error) {
-	body, err := getBounded(ctx, resolveTargetURL(ref), ref.AllowMirror)
+	body, err := getBounded(ctx, resolveTargetURL(ref), defaultOFLHost, ref.AllowMirror)
 	if err != nil {
 		return nil, err
 	}
@@ -95,16 +112,18 @@ func Fetch(ctx context.Context, ref OFLRef) ([]byte, error) {
 
 // getBounded performs the SSRF-guarded, bounded GET (T-02-06) shared by
 // every OFL network fetch in this package (09-05-PLAN.md Task 3): target's
-// scheme and host are validated (validateTargetURL) before any request is
-// issued, the request is bounded by fetchTimeout regardless of the
-// caller's own context deadline, every redirect hop is re-validated the
-// identical way, and the response body is bounded by maxResponseBytes with
-// the existing GOLC_FIXTURE_OFL_TOO_LARGE diagnostic. Fetch (fixture
-// fetch) and FetchManufacturers (manufacturer-index fetch, manufacturers.go)
-// both call this one implementation -- the SSRF guard, the timeout, and
-// the size cap each have exactly one implementation in this package.
-func getBounded(ctx context.Context, target string, allowMirror bool) ([]byte, error) {
-	parsed, err := validateTargetURL(target, allowMirror)
+// scheme and host are validated against defaultHost (validateTargetURL)
+// before any request is issued, the request is bounded by fetchTimeout
+// regardless of the caller's own context deadline, every redirect hop is
+// re-validated the identical way, and the response body is bounded by
+// maxResponseBytes with the existing GOLC_FIXTURE_OFL_TOO_LARGE
+// diagnostic. Fetch (fixture fetch, defaultOFLHost), FetchManufacturers
+// (manufacturer-index fetch, manufacturers.go, defaultOFLHost), and
+// FetchFixtureIndex (repository-tree fetch, fixtureindex.go, githubAPIHost)
+// all call this one implementation -- the SSRF guard, the timeout, and the
+// size cap each have exactly one implementation in this package.
+func getBounded(ctx context.Context, target string, defaultHost string, allowMirror bool) ([]byte, error) {
+	parsed, err := validateTargetURL(target, defaultHost, allowMirror)
 	if err != nil {
 		return nil, err
 	}
@@ -116,10 +135,14 @@ func getBounded(ctx context.Context, target string, allowMirror bool) ([]byte, e
 	if err != nil {
 		return nil, fmt.Errorf("GOLC_FIXTURE_OFL_FETCH_FAILED: %v", err)
 	}
+	request.Header.Set("User-Agent", userAgent)
+	if parsed.Hostname() == githubAPIHost {
+		request.Header.Set("Accept", "application/vnd.github+json")
+	}
 
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if _, err := validateTargetURL(req.URL.String(), allowMirror); err != nil {
+			if _, err := validateTargetURL(req.URL.String(), defaultHost, allowMirror); err != nil {
 				return fmt.Errorf("GOLC_FIXTURE_OFL_MIRROR_HOST: redirect to %q rejected: %v", req.URL, err)
 			}
 			return nil
@@ -161,10 +184,11 @@ func resolveTargetURL(ref OFLRef) string {
 
 // validateTargetURL enforces the SSRF guard (T-02-06) before Fetch issues
 // any request: the resolved URL must parse and use an http(s) scheme
-// (GOLC_FIXTURE_OFL_MIRROR_SCHEME otherwise), and must either target the
-// default upstream host or have the caller's explicit --allow-mirror
-// opt-in (GOLC_FIXTURE_OFL_MIRROR_HOST otherwise).
-func validateTargetURL(raw string, allowMirror bool) (*url.URL, error) {
+// (GOLC_FIXTURE_OFL_MIRROR_SCHEME otherwise), and must either target
+// defaultHost (the specific call's own expected host -- defaultOFLHost or
+// githubAPIHost, never both at once) or have the caller's explicit
+// --allow-mirror opt-in (GOLC_FIXTURE_OFL_MIRROR_HOST otherwise).
+func validateTargetURL(raw string, defaultHost string, allowMirror bool) (*url.URL, error) {
 	parsed, err := url.Parse(raw)
 	if err != nil {
 		return nil, fmt.Errorf("GOLC_FIXTURE_OFL_MIRROR_SCHEME: %v", err)
@@ -172,10 +196,10 @@ func validateTargetURL(raw string, allowMirror bool) (*url.URL, error) {
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
 		return nil, fmt.Errorf("GOLC_FIXTURE_OFL_MIRROR_SCHEME: scheme %q is not http or https", parsed.Scheme)
 	}
-	if parsed.Hostname() != defaultOFLHost && !allowMirror {
+	if parsed.Hostname() != defaultHost && !allowMirror {
 		return nil, fmt.Errorf(
 			"GOLC_FIXTURE_OFL_MIRROR_HOST: host %q is not the default OFL host %q; pass --allow-mirror to opt in",
-			parsed.Hostname(), defaultOFLHost)
+			parsed.Hostname(), defaultHost)
 	}
 	return parsed, nil
 }

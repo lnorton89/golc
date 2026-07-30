@@ -51,12 +51,25 @@ type FixtureLibraryService struct {
 	root        string
 	fixturesDir string
 
-	oflIndexRef ofl.ManufacturerIndexRef
+	oflIndexRef        ofl.ManufacturerIndexRef
+	oflFixtureIndexRef ofl.FixtureIndexRef
 
 	oflMu            sync.Mutex
 	oflFetched       bool
 	oflManufacturers []ofl.Manufacturer
 	oflFetchErr      error
+
+	// oflFixtureIndexMu/oflFixtureIndexFetched/oflFixtureIndex/
+	// oflFixtureIndexErr back SearchOFL's fixture-key half (fixtureindex.go):
+	// a separate lazy, once-per-process cache from oflManufacturers' own,
+	// because the two indexes come from different upstream endpoints and
+	// either can independently succeed or fail. A fixture-index fetch
+	// failure never marks the whole SearchOFL result unreachable --
+	// manufacturer-name search still works with an empty Fixtures list.
+	oflFixtureIndexMu      sync.Mutex
+	oflFixtureIndexFetched bool
+	oflFixtureIndex        []ofl.FixtureIndexEntry
+	oflFixtureIndexErr     error
 
 	// previewMirror/previewAllowMirror mirror ofl.OFLRef's own Mirror/
 	// AllowMirror opt-in shape (09-06-PLAN.md Task 1 test seam): zero-valued
@@ -327,51 +340,93 @@ type OFLManufacturerView struct {
 	Website string `json:"website"`
 }
 
+// OFLFixtureView is one SearchOFL fixture-match result row (fixture-name
+// half of D-01's catalog search, fixtureindex.go): FixtureKey is the value
+// PreviewOFL expects as its second argument, ManufacturerKey its first --
+// selecting this row previews the exact candidate directly, with no
+// hand-typed fixture key required. ManufacturerName is resolved from the
+// already-loaded manufacturer index for display; it falls back to
+// ManufacturerKey when that manufacturer is absent from the index (an
+// inconsistency between the two upstream endpoints this view tolerates
+// rather than hides the row for).
+type OFLFixtureView struct {
+	ManufacturerKey  string `json:"manufacturerKey"`
+	ManufacturerName string `json:"manufacturerName"`
+	FixtureKey       string `json:"fixtureKey"`
+}
+
 // OFLSearchView is SearchOFL's full return shape. Query echoes the
 // caller's own query so the frontend can interpolate it into the
 // no-results copy without keeping its own separate copy of "what did I
-// just search for." Manufacturers is always a non-nil (possibly empty)
-// slice -- mirrors FixtureLibraryView.Rows' identical "never JSON null"
-// discipline. Unreachable is true when the manufacturer-index fetch
-// failed; an unreachable catalog is a renderable state, never a thrown
-// exception (T-09-05-02).
+// just search for." Manufacturers and Fixtures are always non-nil
+// (possibly empty) slices -- mirrors FixtureLibraryView.Rows' identical
+// "never JSON null" discipline. Unreachable is true when the
+// manufacturer-index fetch failed; an unreachable catalog is a renderable
+// state, never a thrown exception (T-09-05-02). A fixture-index fetch
+// failure never sets Unreachable -- it only leaves Fixtures empty, since
+// manufacturer-name search still works from the (successfully fetched)
+// manufacturer index alone.
 type OFLSearchView struct {
 	Query         string                `json:"query"`
 	Manufacturers []OFLManufacturerView `json:"manufacturers"`
+	Fixtures      []OFLFixtureView      `json:"fixtures"`
 	Unreachable   bool                  `json:"unreachable"`
 	Detail        string                `json:"detail"`
 }
 
-// SearchOFL projects a manufacturer-name/key substring search over the
-// Open Fixture Library catalog into a renderable view (09-05-PLAN.md
-// Task 3, D-01/D-03): the manufacturer index is fetched at most once per
-// process (loadOFLManufacturers' cache), so a typing burst filters the
-// already-fetched slice with no additional network call
-// (T-09-05-03). A fetch failure returns unreachable:true with the
-// diagnostic in Detail, a non-nil empty Manufacturers slice, and a nil
-// error -- SearchOFL itself never returns a non-nil error.
+// SearchOFL projects a manufacturer-name/key and fixture-key substring
+// search over the Open Fixture Library catalog into a renderable view
+// (09-05-PLAN.md Task 3, D-01/D-03, extended by the fixture-name index):
+// both indexes are fetched at most once per process (loadOFLManufacturers/
+// loadOFLFixtureIndex's own caches), so a typing burst filters the
+// already-fetched slices with no additional network call (T-09-05-03). A
+// manufacturer-index fetch failure returns unreachable:true with the
+// diagnostic in Detail, non-nil empty Manufacturers/Fixtures slices, and a
+// nil error -- SearchOFL itself never returns a non-nil error. A
+// fixture-index fetch failure is independent and best-effort: Fixtures
+// stays empty but Manufacturers still renders normally.
 func (s *FixtureLibraryService) SearchOFL(query string) (OFLSearchView, error) {
 	manufacturers, fetchErr := s.loadOFLManufacturers()
 	if fetchErr != nil {
 		return OFLSearchView{
 			Query:         query,
 			Manufacturers: []OFLManufacturerView{},
+			Fixtures:      []OFLFixtureView{},
 			Unreachable:   true,
 			Detail:        fetchErr.Error(),
 		}, nil
 	}
 
 	matches := ofl.FilterManufacturers(manufacturers, query)
-	views := make([]OFLManufacturerView, 0, len(matches))
+	manufacturerViews := make([]OFLManufacturerView, 0, len(matches))
 	for _, manufacturer := range matches {
-		views = append(views, OFLManufacturerView{
+		manufacturerViews = append(manufacturerViews, OFLManufacturerView{
 			Key:     manufacturer.Key,
 			Name:    manufacturer.Name,
 			Website: manufacturer.Website,
 		})
 	}
 
-	return OFLSearchView{Query: query, Manufacturers: views, Unreachable: false}, nil
+	fixtureViews := []OFLFixtureView{}
+	if fixtureIndex, err := s.loadOFLFixtureIndex(); err == nil {
+		nameByKey := make(map[string]string, len(manufacturers))
+		for _, manufacturer := range manufacturers {
+			nameByKey[manufacturer.Key] = manufacturer.Name
+		}
+		for _, entry := range ofl.FilterFixtureIndex(fixtureIndex, query) {
+			name := nameByKey[entry.ManufacturerKey]
+			if name == "" {
+				name = entry.ManufacturerKey
+			}
+			fixtureViews = append(fixtureViews, OFLFixtureView{
+				ManufacturerKey:  entry.ManufacturerKey,
+				ManufacturerName: name,
+				FixtureKey:       entry.FixtureKey,
+			})
+		}
+	}
+
+	return OFLSearchView{Query: query, Manufacturers: manufacturerViews, Fixtures: fixtureViews, Unreachable: false}, nil
 }
 
 // loadOFLManufacturers lazily fetches and caches the OFL manufacturer
@@ -397,6 +452,31 @@ func (s *FixtureLibraryService) loadOFLManufacturers() ([]ofl.Manufacturer, erro
 	}
 	s.oflManufacturers = manufacturers
 	return manufacturers, nil
+}
+
+// loadOFLFixtureIndex lazily fetches and caches the OFL fixture-key index
+// behind its own mutex, mirroring loadOFLManufacturers' identical
+// once-per-process cache and "retry a cached failure on the next call"
+// discipline -- kept as a separate cache/mutex/error triple from
+// loadOFLManufacturers because the two indexes come from different
+// upstream endpoints (fetch.go's defaultOFLHost vs githubAPIHost) and
+// either can independently succeed or fail.
+func (s *FixtureLibraryService) loadOFLFixtureIndex() ([]ofl.FixtureIndexEntry, error) {
+	s.oflFixtureIndexMu.Lock()
+	defer s.oflFixtureIndexMu.Unlock()
+
+	if s.oflFixtureIndexFetched && s.oflFixtureIndexErr == nil {
+		return s.oflFixtureIndex, nil
+	}
+
+	entries, err := ofl.FetchFixtureIndex(context.Background(), s.oflFixtureIndexRef)
+	s.oflFixtureIndexFetched = true
+	s.oflFixtureIndexErr = err
+	if err != nil {
+		return nil, err
+	}
+	s.oflFixtureIndex = entries
+	return entries, nil
 }
 
 // --- 09-06-PLAN.md: preview-then-commit OFL import (D-02, T-09-06-*) ---

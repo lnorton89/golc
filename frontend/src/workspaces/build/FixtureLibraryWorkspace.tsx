@@ -20,11 +20,7 @@
 // 09-05-PLAN.md's Task 3 adds the source toggle ("My Library" / "Open
 // Fixture Library") and the catalog search side: the same search input
 // debounces and calls FixtureLibraryService.SearchOFL, rendering the
-// UI-SPEC's exact empty/no-results/unreachable copy. This version
-// searches OFL manufacturer names only -- no full fixture-model index is
-// reachable from the single SSRF-guarded host the app allows (09-RESEARCH
-// Open Question 1) -- so a permanently visible note states that scope
-// next to the results.
+// UI-SPEC's exact empty/no-results/unreachable copy.
 //
 // 09-06-PLAN.md adds the fixture-key field and the "Add to Library"
 // confirm action (D-02): selecting a manufacturer reveals a Field for the
@@ -38,6 +34,17 @@
 // is discarded (DiscardPreview) when the manufacturer selection changes,
 // the fixture key is edited, or the operator switches back to "My
 // Library," so a staged preview never lingers.
+//
+// A later revision implements 09-RESEARCH.md Open Question 1's flagged
+// follow-up: SearchOFL now also matches fixture keys (not just
+// manufacturer names), backed by a second catalog index fetched from a
+// second, discretely reviewed SSRF-allowed host
+// (internal/fixture/ofl/fixtureindex.go's githubAPIHost). Fixture search
+// results render above the manufacturer list; selecting one (
+// handleSelectFixture) fills in both the manufacturer and fixture key and
+// calls PreviewOFL immediately -- unlike a manufacturer row, a fixture row
+// already identifies one specific candidate, so there is nothing left for
+// the operator to type.
 //
 // 09-07-PLAN.md adds the hand-authored YAML path on the "My Library" side
 // (D-04, FIXT-04): an "Add Custom Fixture…" action reveals a "Fixture file
@@ -65,6 +72,7 @@ import {
   type FixtureInspectView,
   type FixtureLibraryRowView,
   type FixturePreviewView,
+  type OflFixtureView,
   type OflManufacturerView,
   type OflSearchView,
 } from "../../lib/wailsBridge";
@@ -92,6 +100,19 @@ function matchesSearch(row: FixtureLibraryRowView, query: string): boolean {
   if (query.trim() === "") return true;
   const needle = query.trim().toLowerCase();
   return row.manufacturer.toLowerCase().includes(needle) || row.model.toLowerCase().includes(needle);
+}
+
+// humanizeFixtureKey renders an OFL fixture key ("colorband-pix") as a
+// readable label ("Colorband Pix") for the catalog fixture-result rows --
+// an inferred display label, not the fixture's official branded name (OFL
+// does not expose that in the tree-listing index this search reads), so
+// the row's meta text always shows the raw key/manufacturer alongside it.
+function humanizeFixtureKey(key: string): string {
+  return key
+    .split("-")
+    .filter((segment) => segment !== "")
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
 }
 
 type LibrarySource = "local" | "catalog";
@@ -240,21 +261,41 @@ export default function FixtureLibraryWorkspace() {
     setCandidateFixtureKey(value);
   };
 
-  // handlePreview calls PreviewOFL against the selected manufacturer's key
-  // and the operator-entered fixture key -- never a second fetch/
-  // normalize/pin implementation on this side (D-02, T-09-06-04).
-  const handlePreview = () => {
-    if (!selectedManufacturer) return;
-    const key = candidateFixtureKey.trim();
-    if (key === "") return;
+  // beginPreview calls PreviewOFL against manufacturerKey/fixtureKey --
+  // never a second fetch/normalize/pin implementation on this side (D-02,
+  // T-09-06-04). Shared by handlePreview (the operator-entered fixture-key
+  // field) and handleSelectFixture (a fixture search result row, which
+  // already carries both keys and so previews immediately on selection).
+  const beginPreview = (manufacturerKey: string, fixtureKey: string) => {
     setPreviewing(true);
     setPreviewError(null);
     setAlreadyExists(false);
     void (async () => {
-      const view = await previewOflFixture(selectedManufacturer.key, key);
+      const view = await previewOflFixture(manufacturerKey, fixtureKey);
       setPreviewView(view);
       setPreviewing(false);
     })();
+  };
+
+  // handlePreview calls PreviewOFL against the selected manufacturer's key
+  // and the operator-entered fixture key.
+  const handlePreview = () => {
+    if (!selectedManufacturer) return;
+    const key = candidateFixtureKey.trim();
+    if (key === "") return;
+    beginPreview(selectedManufacturer.key, key);
+  };
+
+  // handleSelectFixture (D-01's fixture-name search result) fills in both
+  // the manufacturer and fixture-key fields from the selected row and
+  // previews the candidate immediately -- unlike selecting a manufacturer
+  // row, a fixture row already identifies one specific fixture, so there is
+  // nothing left for the operator to type.
+  const handleSelectFixture = (fixture: OflFixtureView) => {
+    resetCandidate();
+    setSelectedManufacturer({ key: fixture.manufacturerKey, name: fixture.manufacturerName, website: "" });
+    setCandidateFixtureKey(fixture.fixtureKey);
+    beginPreview(fixture.manufacturerKey, fixture.fixtureKey);
   };
 
   // handleCommit calls CommitPreview against the currently staged preview.
@@ -496,7 +537,7 @@ export default function FixtureLibraryWorkspace() {
                   <ScrollRegion>
                     {trimmedQuery === "" ? (
                       <EmptyState icon={Lightbulb}>
-                        Search the Open Fixture Library by name or manufacturer.
+                        Search the Open Fixture Library by fixture or manufacturer name.
                       </EmptyState>
                     ) : catalogView?.unreachable ? (
                       <div className={styles.catalogUnreachable}>
@@ -505,23 +546,46 @@ export default function FixtureLibraryWorkspace() {
                           Can&apos;t reach the Open Fixture Library. Check your network connection and try again.
                         </p>
                       </div>
-                    ) : catalogView && catalogView.manufacturers.length === 0 ? (
+                    ) : catalogView && catalogView.fixtures.length === 0 && catalogView.manufacturers.length === 0 ? (
                       <EmptyState icon={Lightbulb}>
                         {`No fixtures matched "${trimmedQuery}". Try a different name or manufacturer.`}
                       </EmptyState>
                     ) : catalogView ? (
-                      <ul className={styles.list} aria-label="Open Fixture Library manufacturers">
-                        {catalogView.manufacturers.map((manufacturer) => (
-                          <li key={manufacturer.key}>
-                            <ListRow
-                              label={manufacturer.name}
-                              meta={manufacturer.key}
-                              selected={selectedManufacturer?.key === manufacturer.key}
-                              onSelect={() => handleSelectManufacturer(manufacturer)}
-                            />
-                          </li>
-                        ))}
-                      </ul>
+                      <>
+                        {catalogView.fixtures.length > 0 ? (
+                          <ul className={styles.list} aria-label="Open Fixture Library fixtures">
+                            {catalogView.fixtures.map((fixture) => (
+                              <li key={`${fixture.manufacturerKey}/${fixture.fixtureKey}`}>
+                                <ListRow
+                                  label={humanizeFixtureKey(fixture.fixtureKey)}
+                                  meta={`${fixture.manufacturerName} · ${fixture.fixtureKey}`}
+                                  selected={
+                                    selectedManufacturer?.key === fixture.manufacturerKey &&
+                                    candidateFixtureKey === fixture.fixtureKey
+                                  }
+                                  onSelect={() => handleSelectFixture(fixture)}
+                                />
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                        {catalogView.manufacturers.length > 0 ? (
+                          <ul className={styles.list} aria-label="Open Fixture Library manufacturers">
+                            {catalogView.manufacturers.map((manufacturer) => (
+                              <li key={manufacturer.key}>
+                                <ListRow
+                                  label={manufacturer.name}
+                                  meta={manufacturer.key}
+                                  selected={
+                                    selectedManufacturer?.key === manufacturer.key && candidateFixtureKey === ""
+                                  }
+                                  onSelect={() => handleSelectManufacturer(manufacturer)}
+                                />
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </>
                     ) : catalogSearching ? (
                       <p className={styles.loading} aria-live="polite">
                         Searching…
@@ -611,8 +675,9 @@ export default function FixtureLibraryWorkspace() {
                   <PanelHeader label={selectedManufacturer ? "Import Candidate" : "About this search"} />
                   {!selectedManufacturer ? (
                     <p className={styles.catalogScopeNote}>
-                      This search matches Open Fixture Library manufacturer names only. After choosing a
-                      manufacturer, you enter the fixture&apos;s key yourself to import it.
+                      This search matches Open Fixture Library manufacturer names and fixture keys. Selecting a
+                      fixture previews it directly; selecting a manufacturer instead lets you enter a fixture key
+                      yourself.
                     </p>
                   ) : (
                     <div className={styles.candidateBody}>
