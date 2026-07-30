@@ -13,6 +13,7 @@ export type DestinationId =
   | "show-settings"
   | "build-fixture-library"
   | "build-patch-pools"
+  | "build-project-fixtures"
   | "build-scenes-looks"
   | "build-scripts"
   | "operate-operator-surface"

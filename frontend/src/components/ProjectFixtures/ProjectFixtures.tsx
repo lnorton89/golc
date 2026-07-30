@@ -1,0 +1,478 @@
+// ProjectFixtures.tsx is the "fixtures already in the project, plus add
+// more from the library" surface: it lists every patched deployment
+// instance (flattened, one row per instance, resolved against the fixture
+// library for a friendly manufacturer/model name) and offers an "Add from
+// Library" panel that picks a fixture + mode + quantity, optionally an
+// explicit starting universe/address, and reviews the backend's own
+// non-committing impact preview before an explicit Apply commit -- exactly
+// FixturePatch.tsx's review-before-apply discipline (POOL-04/D-15), reused
+// rather than reinvented.
+//
+// This page never introduces a second fixture-patch data model: it reads
+// and writes the exact same Pool/Deployment/Instance show-state data
+// FixturePatch.tsx (Patch & Pools) does, via the same wailsBridge.ts
+// FixturePatchService helpers. What's new here is that the user is never
+// required to understand pools/deployments as separate concepts: adding a
+// fixture transparently reuses an existing pool by a deterministic
+// manufacturer/model name (or creates one), and reuses the active
+// deployment (or creates/activates a "Default" one) as the force-attach
+// target for AddPoolMembersPreview's AttachDeployments -- closing the
+// "adopt a never-before-used pool" gap described in internal/pool/impact.go.
+//
+// All Go-bound calls go through wailsBridge.ts's FixturePatchService/
+// FixtureLibraryService helpers -- this file never re-declares
+// `declare global` itself and never adds a second pool/deployment mutation
+// path (mirrors FixturePatch.tsx's own header comment).
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Plus, Eye, X, Check, PackagePlus } from "lucide-react";
+
+import {
+  activateDeployment,
+  addPoolMembersPreview,
+  applyPatch,
+  assertOk,
+  createDeployment,
+  createPool,
+  errorMessage,
+  listLocalFixtures,
+  listPatch,
+  offlinePatchView,
+  type FixtureLibraryRowView,
+  type PatchPoolMemberView,
+  type PatchView,
+} from "../../lib/wailsBridge";
+import styles from "./ProjectFixtures.module.css";
+
+// ImpactOperation/ImpactPlan mirror internal/pool/impact.go's own
+// snake_case JSON tags exactly -- duplicated locally rather than
+// centralized in wailsBridge.ts, matching FixturePatch.tsx's own stated
+// reasoning (these mirror the impact plan's raw encoding, never the
+// camelCase view types wailsBridge.ts otherwise exposes).
+interface ImpactOperation {
+  dependent_kind: string;
+  dependent_ref: string;
+  dependent_id: string;
+  action: string;
+  proposed_universe?: number;
+  proposed_address?: number;
+  status: string;
+}
+
+interface ImpactPlan {
+  schema_version: number;
+  pool_id: string;
+  operations: ImpactOperation[] | null;
+  warnings?: { code: string; message: string }[];
+  errors?: { code: string; message: string }[];
+  plan_id: string;
+}
+
+interface FixtureRow {
+  key: string;
+  displayName: string;
+  mode: string;
+  universe: number;
+  address: number;
+  deploymentName: string;
+}
+
+function fixtureDisplayName(row: FixtureLibraryRowView): string {
+  const name = `${row.manufacturer} ${row.model}`.trim();
+  return name !== "" ? name : row.stableKey;
+}
+
+function resolveMemberDisplayName(
+  member: PatchPoolMemberView | undefined,
+  libraryRows: FixtureLibraryRowView[],
+): string {
+  if (!member) {
+    return "Unknown fixture";
+  }
+  const row =
+    libraryRows.find((candidate) => candidate.stableKey === member.fixtureStableKey) ??
+    libraryRows.find((candidate) => candidate.contentHash === member.fixtureContentHash);
+  if (row) {
+    return fixtureDisplayName(row);
+  }
+  return member.fixtureStableKey || member.fixtureContentHash;
+}
+
+function buildFixtureRows(patch: PatchView, libraryRows: FixtureLibraryRowView[]): FixtureRow[] {
+  const rows: FixtureRow[] = [];
+  for (const deployment of patch.deployments) {
+    for (const instance of deployment.instances) {
+      const pool = patch.pools.find((candidate) => candidate.id === instance.poolId);
+      const member = pool?.members.find((candidate) => candidate.id === instance.poolMemberId);
+      rows.push({
+        key: instance.id,
+        displayName: resolveMemberDisplayName(member, libraryRows),
+        mode: instance.mode,
+        universe: instance.universe,
+        address: instance.address,
+        deploymentName: deployment.name,
+      });
+    }
+  }
+  return rows;
+}
+
+function parsePositiveInt(raw: string): number {
+  const trimmed = raw.trim();
+  if (trimmed === "") {
+    return 0;
+  }
+  const value = Number(trimmed);
+  if (!Number.isFinite(value) || value < 1) {
+    return 0;
+  }
+  return Math.floor(value);
+}
+
+export default function ProjectFixtures() {
+  const [patch, setPatch] = useState<PatchView>(offlinePatchView());
+  const [listLoading, setListLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [libraryRows, setLibraryRows] = useState<FixtureLibraryRowView[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [selectedFixture, setSelectedFixture] = useState<FixtureLibraryRowView | null>(null);
+  const [mode, setMode] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [startUniverse, setStartUniverse] = useState("");
+  const [startAddress, setStartAddress] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [pendingPreview, setPendingPreview] = useState<ImpactPlan | null>(null);
+  const [applyLoading, setApplyLoading] = useState(false);
+
+  const refreshPatch = useCallback(async (): Promise<PatchView> => {
+    const view = await listPatch();
+    setPatch(view);
+    return view;
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        await refreshPatch();
+        setError(null);
+      } catch (err) {
+        setError(errorMessage(err));
+      } finally {
+        setListLoading(false);
+      }
+    })();
+  }, [refreshPatch]);
+
+  const rows = useMemo(() => buildFixtureRows(patch, libraryRows), [patch, libraryRows]);
+
+  const handleOpenAddForm = () => {
+    setShowAddForm(true);
+    setSelectedFixture(null);
+    setMode("");
+    setQuantity("1");
+    setStartUniverse("");
+    setStartAddress("");
+    setPendingPreview(null);
+    setLibraryLoading(true);
+    void listLocalFixtures()
+      .then((view) => setLibraryRows(view.rows))
+      .finally(() => setLibraryLoading(false));
+  };
+
+  const handleCancelAddForm = () => {
+    setShowAddForm(false);
+    setPendingPreview(null);
+  };
+
+  const handleSelectFixture = (stableKey: string) => {
+    const row = libraryRows.find((candidate) => candidate.stableKey === stableKey) ?? null;
+    setSelectedFixture(row);
+    setMode(row?.modes[0] ?? "");
+    setPendingPreview(null);
+  };
+
+  const handleReviewImpact = async () => {
+    if (!selectedFixture || !mode) {
+      return;
+    }
+    const qty = parsePositiveInt(quantity);
+    if (qty < 1) {
+      setError("Quantity must be at least 1.");
+      return;
+    }
+
+    setPreviewLoading(true);
+    setError(null);
+    try {
+      let current = await refreshPatch();
+
+      let activeDeployment = current.deployments.find((d) => d.active);
+      if (!activeDeployment && current.deployments.length > 0) {
+        assertOk(await activateDeployment(current.deployments[0].name), "ActivateDeployment");
+        current = await refreshPatch();
+        activeDeployment = current.deployments.find((d) => d.active);
+      }
+      if (!activeDeployment) {
+        assertOk(await createDeployment("Default"), "CreateDeployment");
+        assertOk(await activateDeployment("Default"), "ActivateDeployment");
+        current = await refreshPatch();
+        activeDeployment = current.deployments.find((d) => d.active);
+      }
+      if (!activeDeployment) {
+        throw new Error("no active deployment available after bootstrap");
+      }
+
+      const poolName = fixtureDisplayName(selectedFixture);
+      let targetPool = current.pools.find((p) => p.name === poolName);
+      if (!targetPool) {
+        assertOk(await createPool(poolName, []), "CreatePool");
+        current = await refreshPatch();
+        targetPool = current.pools.find((p) => p.name === poolName);
+      }
+      if (!targetPool) {
+        throw new Error(`pool ${poolName} was not found after creation`);
+      }
+
+      const result = await addPoolMembersPreview(
+        targetPool.name,
+        selectedFixture.stableKey,
+        selectedFixture.contentHash,
+        mode,
+        qty,
+        activeDeployment.id,
+        parsePositiveInt(startUniverse),
+        parsePositiveInt(startAddress),
+      );
+      assertOk(result, "AddPoolMembersPreview");
+      const plan = JSON.parse(result.stdout) as ImpactPlan;
+      setPendingPreview(plan);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleApply = async () => {
+    if (!pendingPreview) {
+      return;
+    }
+    setApplyLoading(true);
+    try {
+      const result = await applyPatch(pendingPreview.plan_id);
+      assertOk(result, "ApplyPatch");
+      setPendingPreview(null);
+      setShowAddForm(false);
+      await refreshPatch();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setApplyLoading(false);
+    }
+  };
+
+  return (
+    <section className={styles.panel} aria-label="Project fixtures" aria-busy={listLoading}>
+      {listLoading ? (
+        <div className={styles.skeleton}>Loading project fixtures…</div>
+      ) : (
+        <>
+          {error && <p className={styles.errorText}>{error}</p>}
+
+          <div className={styles.subsection}>
+            <div className={styles.createRow}>
+              <span className={styles.countSummary}>
+                {rows.length} fixture{rows.length === 1 ? "" : "s"} in this project
+              </span>
+              {!showAddForm && (
+                <button type="button" className={styles.primaryButton} onClick={handleOpenAddForm}>
+                  <Plus size={14} aria-hidden="true" />
+                  Add from Library
+                </button>
+              )}
+            </div>
+
+            {rows.length === 0 ? (
+              <div className={styles.emptyState}>
+                <p className={styles.emptyHeading}>
+                  <PackagePlus size={18} aria-hidden="true" />
+                  No fixtures added yet
+                </p>
+                <p className={styles.emptyBody}>
+                  Add a fixture from the library to patch it into the show with a universe and address.
+                </p>
+              </div>
+            ) : (
+              <ul className={styles.rowScroll} aria-label="Project fixture list">
+                {rows.map((row) => (
+                  <li key={row.key} className={styles.row}>
+                    <span className={styles.rowName} title={row.displayName}>
+                      {row.displayName}
+                    </span>
+                    <span className={styles.rowMeta}>{row.mode}</span>
+                    <span className={styles.technical}>
+                      Universe {row.universe}, Address {row.address}
+                    </span>
+                    <span className={styles.rowMeta}>{row.deploymentName}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {showAddForm && (
+              <div className={styles.addForm}>
+                <select
+                  className={styles.createInput}
+                  value={selectedFixture?.stableKey ?? ""}
+                  onChange={(event) => handleSelectFixture(event.target.value)}
+                  aria-label="Fixture"
+                  disabled={libraryLoading}
+                >
+                  <option value="" disabled>
+                    {libraryLoading
+                      ? "Loading fixture library…"
+                      : libraryRows.filter((row) => row.status === "valid").length === 0
+                        ? "No fixtures in library -- import one first"
+                        : "Select a fixture…"}
+                  </option>
+                  {libraryRows
+                    .filter((row) => row.status === "valid")
+                    .map((row) => (
+                      <option key={row.stableKey} value={row.stableKey}>
+                        {row.manufacturer} {row.model}
+                      </option>
+                    ))}
+                </select>
+                <select
+                  className={styles.createInput}
+                  value={mode}
+                  onChange={(event) => setMode(event.target.value)}
+                  aria-label="Fixture mode"
+                  disabled={!selectedFixture}
+                >
+                  <option value="" disabled>
+                    Select a mode…
+                  </option>
+                  {(selectedFixture?.modes ?? []).map((modeOption) => (
+                    <option key={modeOption} value={modeOption}>
+                      {modeOption}
+                    </option>
+                  ))}
+                </select>
+                <label className={styles.fieldLabel}>
+                  Quantity
+                  <input
+                    className={styles.numberInput}
+                    type="number"
+                    min={1}
+                    value={quantity}
+                    onChange={(event) => setQuantity(event.target.value)}
+                    aria-label="Quantity"
+                  />
+                </label>
+                <label className={styles.fieldLabel}>
+                  Starting universe (optional)
+                  <input
+                    className={styles.numberInput}
+                    type="number"
+                    min={1}
+                    value={startUniverse}
+                    onChange={(event) => setStartUniverse(event.target.value)}
+                    placeholder="Auto"
+                    aria-label="Starting universe"
+                  />
+                </label>
+                <label className={styles.fieldLabel}>
+                  Starting address (optional)
+                  <input
+                    className={styles.numberInput}
+                    type="number"
+                    min={1}
+                    value={startAddress}
+                    onChange={(event) => setStartAddress(event.target.value)}
+                    placeholder="Auto"
+                    aria-label="Starting address"
+                  />
+                </label>
+
+                <div className={styles.formActions}>
+                  <button
+                    type="button"
+                    className={styles.primaryButton}
+                    disabled={previewLoading || !selectedFixture || !mode}
+                    onClick={() => void handleReviewImpact()}
+                  >
+                    <Eye size={14} aria-hidden="true" />
+                    {previewLoading ? "Reviewing…" : "Review Impact"}
+                  </button>
+                  <button type="button" className={styles.secondaryButton} onClick={handleCancelAddForm}>
+                    <X size={13} aria-hidden="true" />
+                    Cancel
+                  </button>
+                </div>
+
+                {pendingPreview && (
+                  <div className={styles.previewPanel}>
+                    <p className={styles.previewHeading}>
+                      Impact Preview (plan{" "}
+                      <span className={styles.technical}>{pendingPreview.plan_id.slice(0, 12)}</span>)
+                    </p>
+                    <ul className={styles.previewList}>
+                      {(pendingPreview.operations ?? [])
+                        .filter((op) => op.dependent_kind === "deployment_instance" && op.action === "add")
+                        .map((op, index) => (
+                          <li key={`${op.dependent_id}-${index}`} className={styles.previewRow}>
+                            {op.dependent_ref} → Universe{" "}
+                            <span className={styles.technical}>{op.proposed_universe}</span>, Address{" "}
+                            <span className={styles.technical}>{op.proposed_address}</span>
+                          </li>
+                        ))}
+                    </ul>
+                    {(pendingPreview.warnings ?? []).length > 0 && (
+                      <ul className={styles.previewList}>
+                        {pendingPreview.warnings?.map((warning, index) => (
+                          <li key={`warning-${index}`} className={styles.previewWarning}>
+                            {warning.code}: {warning.message}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {(pendingPreview.errors ?? []).length > 0 && (
+                      <ul className={styles.previewList}>
+                        {pendingPreview.errors?.map((planError, index) => (
+                          <li key={`error-${index}`} className={styles.previewError}>
+                            {planError.code}: {planError.message}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className={styles.formActions}>
+                      <button
+                        type="button"
+                        className={styles.primaryButton}
+                        disabled={applyLoading || (pendingPreview.errors ?? []).length > 0}
+                        onClick={() => void handleApply()}
+                      >
+                        <Check size={14} aria-hidden="true" />
+                        {applyLoading ? "Applying…" : "Apply"}
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.secondaryButton}
+                        onClick={() => setPendingPreview(null)}
+                      >
+                        <X size={13} aria-hidden="true" />
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}

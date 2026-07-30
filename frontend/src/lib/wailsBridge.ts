@@ -184,6 +184,16 @@ interface FixturePatchServiceBinding {
     contentHash: string,
     mode: string,
   ): Promise<WailsResult>;
+  AddPoolMembersPreview(
+    poolName: string,
+    stableKey: string,
+    contentHash: string,
+    mode: string,
+    count: number,
+    attachDeploymentId: string,
+    startUniverse: number,
+    startAddress: number,
+  ): Promise<WailsResult>;
   RemovePoolMemberPreview(poolName: string, memberId: string): Promise<WailsResult>;
   ApplyPatch(planId: string): Promise<WailsResult>;
   CreateDeployment(name: string): Promise<WailsResult>;
@@ -1177,6 +1187,42 @@ export async function addPoolMemberPreview(
   const svc = fixturePatchService();
   if (!svc) return bridgeUnavailableResult();
   return svc.AddPoolMemberPreview(poolName, stableKey, contentHash, mode);
+}
+
+/** addPoolMembersPreview calls the bound
+ * FixturePatchService.AddPoolMembersPreview (browse-library-and-add-to-
+ * project: the backend's non-committing impact preview for adding `count`
+ * units of one fixture reference to a pool in a single batch, optionally
+ * force-attaching attachDeploymentId so a pool with no existing dependent
+ * deployment can still receive proposed instances -- closes the "adopt a
+ * never-before-used pool" gap -- and optionally anchoring the universe/
+ * address scan at startUniverse/startAddress, either left 0 for the
+ * system-suggested next-free slot). Never mutates the ShowState document --
+ * the returned Result's stdout carries the impact-preview JSON for the
+ * frontend to parse and render before an applyPatch(planId) commit
+ * (review-before-apply, POOL-04/D-15). */
+export async function addPoolMembersPreview(
+  poolName: string,
+  stableKey: string,
+  contentHash: string,
+  mode: string,
+  count: number,
+  attachDeploymentId: string,
+  startUniverse: number,
+  startAddress: number,
+): Promise<WailsResult> {
+  const svc = fixturePatchService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.AddPoolMembersPreview(
+    poolName,
+    stableKey,
+    contentHash,
+    mode,
+    count,
+    attachDeploymentId,
+    startUniverse,
+    startAddress,
+  );
 }
 
 /** removePoolMemberPreview calls the bound

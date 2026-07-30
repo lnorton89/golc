@@ -149,15 +149,41 @@ func ValidateInstanceAddress(instance Instance) error {
 // GOLC_DEPLOYMENT_ADDRESS_EXHAUSTED, as does exhausting the entire
 // maxUniverseSearch scan range.
 func NextFreeAddress(existing []Instance, channelCount int) (universe int, address int, err error) {
+	return NextFreeAddressFrom(existing, channelCount, 1, 1)
+}
+
+// NextFreeAddressFrom is NextFreeAddress's general form: it starts the
+// universe/address scan at startUniverse/startAddress instead of always at
+// (1, 1) (CONTEXT: manual starting-address override for a browse-library-
+// and-add-to-project batch add). startUniverse/startAddress below 1
+// (including the Go zero value, i.e. "no override supplied") are clamped to
+// 1, so a caller passing (0, 0) reproduces NextFreeAddress's own behavior
+// exactly. Only the first universe scanned honors startAddress as its
+// floor; every universe after it (a rollover) resumes at address 1, exactly
+// mirroring NextFreeAddress's own per-universe reset.
+func NextFreeAddressFrom(existing []Instance, channelCount, startUniverse, startAddress int) (universe int, address int, err error) {
 	if channelCount < 1 {
 		return 0, 0, fmt.Errorf("GOLC_DEPLOYMENT_ADDRESS_EXHAUSTED: channelCount must be at least 1, got %d", channelCount)
 	}
 	if channelCount > channelsPerUniverse {
 		return 0, 0, fmt.Errorf("GOLC_DEPLOYMENT_ADDRESS_EXHAUSTED: channelCount %d cannot fit in any %d-channel universe", channelCount, channelsPerUniverse)
 	}
+	if startUniverse < 1 {
+		startUniverse = 1
+	}
+	if startAddress < 1 {
+		startAddress = 1
+	}
+	if startUniverse > maxUniverseSearch {
+		return 0, 0, fmt.Errorf("GOLC_DEPLOYMENT_ADDRESS_EXHAUSTED: start universe %d exceeds the %d-universe search ceiling", startUniverse, maxUniverseSearch)
+	}
 
-	for candidateUniverse := 1; candidateUniverse <= maxUniverseSearch; candidateUniverse++ {
-		for candidateAddress := 1; candidateAddress+channelCount-1 <= channelsPerUniverse; candidateAddress++ {
+	for candidateUniverse := startUniverse; candidateUniverse <= maxUniverseSearch; candidateUniverse++ {
+		addressFloor := 1
+		if candidateUniverse == startUniverse {
+			addressFloor = startAddress
+		}
+		for candidateAddress := addressFloor; candidateAddress+channelCount-1 <= channelsPerUniverse; candidateAddress++ {
 			if !overlapsExisting(existing, candidateUniverse, candidateAddress, channelCount) {
 				return candidateUniverse, candidateAddress, nil
 			}

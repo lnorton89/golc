@@ -12,6 +12,7 @@ import SaveRecoveryWorkspace from "../workspaces/show/SaveRecoveryWorkspace";
 import SettingsWorkspace from "../workspaces/show/SettingsWorkspace";
 import FixtureLibraryWorkspace from "../workspaces/build/FixtureLibraryWorkspace";
 import PatchPoolsWorkspace from "../workspaces/build/PatchPoolsWorkspace";
+import ProjectFixturesWorkspace from "../workspaces/build/ProjectFixturesWorkspace";
 import ScenesLooksWorkspace from "../workspaces/build/ScenesLooksWorkspace";
 import ScriptsWorkspace from "../workspaces/build/ScriptsWorkspace";
 import OperatorSurfaceWorkspace from "../workspaces/operate/OperatorSurfaceWorkspace";
@@ -37,6 +38,8 @@ export default function WorkspaceRouter({ active }: WorkspaceRouterProps) {
       return <FixtureLibraryWorkspace />;
     case "build-patch-pools":
       return <PatchPoolsWorkspace />;
+    case "build-project-fixtures":
+      return <ProjectFixturesWorkspace />;
     case "build-scenes-looks":
       return <ScenesLooksWorkspace />;
     case "build-scripts":

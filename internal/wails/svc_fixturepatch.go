@@ -33,6 +33,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -129,6 +130,49 @@ func (s *FixturePatchService) AddPoolMemberPreview(poolName, stableKey, contentH
 		"--show", s.showPath,
 	})
 	return s.cachePlan(result)
+}
+
+// AddPoolMembersPreview returns the backend's non-committing impact preview
+// for adding `count` units of one fixture reference (stableKey/contentHash/
+// mode) to pool in a single batch (CONTEXT: browse-library-and-add-to-
+// project), optionally force-attaching attachDeploymentID (non-empty) so a
+// pool with no existing dependent deployment can still receive proposed
+// instances (closes the "adopt a never-before-used pool" gap -- see
+// internal/pool/impact.go's ImpactRequest.AttachDeployments), and optionally
+// anchoring the universe/address scan at startUniverse/startAddress
+// (either left 0 to keep today's system-suggested next-free slot). The
+// pool's members remain unchanged until a matching ApplyPatch(planId) call
+// commits the returned plan.
+func (s *FixturePatchService) AddPoolMembersPreview(
+	poolName, stableKey, contentHash, mode string,
+	count int,
+	attachDeploymentID string,
+	startUniverse, startAddress int,
+) Result {
+	for _, field := range []string{stableKey, contentHash, mode} {
+		if strings.Contains(field, "|") {
+			return Result{ExitCode: 2, Stderr: "GOLC_WAILS_POOL_MEMBER_FIELD_INVALID: fixture stable key/content hash/mode must not contain \"|\"\n"}
+		}
+	}
+	if count < 1 {
+		return Result{ExitCode: 2, Stderr: "GOLC_WAILS_POOL_MEMBER_COUNT_INVALID: count must be at least 1\n"}
+	}
+	spec := fmt.Sprintf("%s|%s|%s", stableKey, contentHash, mode)
+	args := []string{"pool", "update", poolName}
+	for i := 0; i < count; i++ {
+		args = append(args, "--add", spec)
+	}
+	if attachDeploymentID != "" {
+		args = append(args, "--attach-deployment", attachDeploymentID)
+	}
+	if startUniverse > 0 {
+		args = append(args, "--start-universe", strconv.Itoa(startUniverse))
+	}
+	if startAddress > 0 {
+		args = append(args, "--start-address", strconv.Itoa(startAddress))
+	}
+	args = append(args, "--propagate", "preview", "--json", "--show", s.showPath)
+	return s.cachePlan(s.execute(args))
 }
 
 // RemovePoolMemberPreview returns the backend's non-committing impact

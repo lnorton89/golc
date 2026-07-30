@@ -378,3 +378,82 @@ func TestFixturePatchServiceApplyStalePlanRejected(t *testing.T) {
 		t.Fatalf("expected an unknown plan-id apply to fail, got exit=%d stdout=%s", unknown.ExitCode, unknown.Stdout)
 	}
 }
+
+// seedFreshFixturePatchShowState builds and saves a minimal ShowState with
+// one pool (no members yet) and one deployment with zero instances of it --
+// the exact state a brand-new pool starts in, with no adopting deployment.
+// Returns the pool's own Name and the deployment's own ID string.
+func seedFreshFixturePatchShowState(t *testing.T, root, showPath string) (poolName, deploymentID string) {
+	t.Helper()
+
+	p, err := pool.NewPool("Fresh Pool", nil)
+	if err != nil {
+		t.Fatalf("NewPool: %v", err)
+	}
+	d, err := deployment.NewDeployment("Venue A")
+	if err != nil {
+		t.Fatalf("NewDeployment: %v", err)
+	}
+	d.Active = true
+
+	state := show.State{Pools: []pool.Pool{p}, Deployments: []deployment.Deployment{d}}
+	if err := show.Save(root, showPath, state); err != nil {
+		t.Fatalf("show.Save (seed): %v", err)
+	}
+	return p.Name, d.ID.String()
+}
+
+// TestAddPoolMembersPreview proves the batch-add-with-force-attach flow: a
+// fresh pool with zero dependents plus attachDeploymentID still yields one
+// proposed instance per unit, all distinct and in-bounds, and the returned
+// plan applies successfully with ListPatch reflecting every new instance
+// afterward.
+func TestAddPoolMembersPreview(t *testing.T) {
+	root := t.TempDir()
+	showPath := filepath.Join(t.TempDir(), "show.golc")
+	poolName, deploymentID := seedFreshFixturePatchShowState(t, root, showPath)
+	svc := NewFixturePatchService("", root, showPath)
+
+	preview := svc.AddPoolMembersPreview(poolName, "acme/par64", "sha256:aaaaaaaa", "Standard", 3, deploymentID, 0, 0)
+	if preview.ExitCode != 0 {
+		t.Fatalf("AddPoolMembersPreview failed: exit=%d stderr=%s", preview.ExitCode, preview.Stderr)
+	}
+	plan, err := decodeImpactPlan(preview.Stdout)
+	if err != nil {
+		t.Fatalf("decode impact preview: %v", err)
+	}
+
+	var addOps []pool.ImpactOp
+	for _, op := range plan.Operations {
+		if op.DependentKind == "deployment_instance" && op.Action == "add" {
+			addOps = append(addOps, op)
+		}
+	}
+	if len(addOps) != 3 {
+		t.Fatalf("expected 3 proposed instances, got %d: %+v", len(addOps), addOps)
+	}
+	seen := map[[2]int]bool{}
+	for _, op := range addOps {
+		if op.ProposedUniverse < 1 || op.ProposedAddress < 1 {
+			t.Fatalf("expected a positive proposed universe/address, got %+v", op)
+		}
+		key := [2]int{op.ProposedUniverse, op.ProposedAddress}
+		if seen[key] {
+			t.Fatalf("expected distinct proposed addresses across the batch, got a collision at %+v", op)
+		}
+		seen[key] = true
+	}
+
+	if result := svc.ApplyPatch(plan.PlanID); result.ExitCode != 0 {
+		t.Fatalf("ApplyPatch failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	after, err := svc.ListPatch()
+	if err != nil {
+		t.Fatalf("ListPatch after apply: %v", err)
+	}
+	appliedDeployment := findPatchDeploymentView(after.Deployments, "Venue A")
+	if appliedDeployment == nil || len(appliedDeployment.Instances) != 3 {
+		t.Fatalf("expected the deployment to gain 3 new instances, got %+v", appliedDeployment)
+	}
+}

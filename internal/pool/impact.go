@@ -76,10 +76,27 @@ type PoolMemberSpec struct {
 // never rejects any other value -- internal/command/pool.go resolves and
 // validates the default/override before calling BuildImpactPlan.
 type ImpactRequest struct {
-	PoolID    uuid.UUID        `json:"pool_id"`
-	Add       []PoolMemberSpec `json:"add,omitempty"`
-	Remove    []uuid.UUID      `json:"remove,omitempty"`
-	Propagate string           `json:"propagate"`
+	PoolID uuid.UUID        `json:"pool_id"`
+	Add    []PoolMemberSpec `json:"add,omitempty"`
+	Remove []uuid.UUID      `json:"remove,omitempty"`
+	// AttachDeployments force-includes each named deployment in the add
+	// dependent walk below even if it has never before referenced this pool
+	// (CONTEXT: closes the "adopt a never-before-used pool" gap -- without
+	// this, a brand-new pool's first member can never be instantiated into
+	// any deployment, since deploymentUsesPool requires an existing
+	// instance that nothing else in this codebase ever creates). Every ID
+	// must already exist in the deployments slice BuildImpactPlan is
+	// called with; an unknown ID fails with GOLC_POOL_PLAN_UNKNOWN_DEPLOYMENT
+	// before any operation is computed.
+	AttachDeployments []uuid.UUID `json:"attach_deployments,omitempty"`
+	// StartUniverse/StartAddress optionally seed the NextFreeAddressFrom
+	// scan for every newly proposed instance in this request, instead of
+	// the default (1, 1) NextFreeAddress always uses. Zero (the Go zero
+	// value -- "no manual override supplied") reproduces today's default
+	// exactly.
+	StartUniverse int    `json:"start_universe,omitempty"`
+	StartAddress  int    `json:"start_address,omitempty"`
+	Propagate     string `json:"propagate"`
 }
 
 // ImpactOp is one planned effect on a single dependent (a deployment
@@ -127,16 +144,19 @@ type Error struct {
 // identical request against an identical show model always produces a
 // byte-identical plan.
 type ImpactPlan struct {
-	SchemaVersion    int              `json:"schema_version"`
-	PoolID           uuid.UUID        `json:"pool_id"`
-	Add              []PoolMemberSpec `json:"add,omitempty"`
-	Remove           []uuid.UUID      `json:"remove,omitempty"`
-	Propagate        string           `json:"propagate"`
-	ExpectedRevision int              `json:"expected_revision"`
-	Operations       []ImpactOp       `json:"operations"`
-	Warnings         []Warning        `json:"warnings,omitempty"`
-	Errors           []Error          `json:"errors,omitempty"`
-	PlanID           string           `json:"plan_id"`
+	SchemaVersion     int              `json:"schema_version"`
+	PoolID            uuid.UUID        `json:"pool_id"`
+	Add               []PoolMemberSpec `json:"add,omitempty"`
+	Remove            []uuid.UUID      `json:"remove,omitempty"`
+	AttachDeployments []uuid.UUID      `json:"attach_deployments,omitempty"`
+	StartUniverse     int              `json:"start_universe,omitempty"`
+	StartAddress      int              `json:"start_address,omitempty"`
+	Propagate         string           `json:"propagate"`
+	ExpectedRevision  int              `json:"expected_revision"`
+	Operations        []ImpactOp       `json:"operations"`
+	Warnings          []Warning        `json:"warnings,omitempty"`
+	Errors            []Error          `json:"errors,omitempty"`
+	PlanID            string           `json:"plan_id"`
 }
 
 // planBody is the exact byte-hashed subset of ImpactPlan: it excludes
@@ -145,28 +165,34 @@ type ImpactPlan struct {
 // inputs always hash identically (mirrors internal/trace/reconcile's
 // unexported planBody).
 type planBody struct {
-	SchemaVersion    int              `json:"schema_version"`
-	PoolID           uuid.UUID        `json:"pool_id"`
-	Add              []PoolMemberSpec `json:"add,omitempty"`
-	Remove           []uuid.UUID      `json:"remove,omitempty"`
-	Propagate        string           `json:"propagate"`
-	ExpectedRevision int              `json:"expected_revision"`
-	Operations       []ImpactOp       `json:"operations"`
-	Warnings         []Warning        `json:"warnings,omitempty"`
-	Errors           []Error          `json:"errors,omitempty"`
+	SchemaVersion     int              `json:"schema_version"`
+	PoolID            uuid.UUID        `json:"pool_id"`
+	Add               []PoolMemberSpec `json:"add,omitempty"`
+	Remove            []uuid.UUID      `json:"remove,omitempty"`
+	AttachDeployments []uuid.UUID      `json:"attach_deployments,omitempty"`
+	StartUniverse     int              `json:"start_universe,omitempty"`
+	StartAddress      int              `json:"start_address,omitempty"`
+	Propagate         string           `json:"propagate"`
+	ExpectedRevision  int              `json:"expected_revision"`
+	Operations        []ImpactOp       `json:"operations"`
+	Warnings          []Warning        `json:"warnings,omitempty"`
+	Errors            []Error          `json:"errors,omitempty"`
 }
 
 func bodyOf(plan ImpactPlan) planBody {
 	return planBody{
-		SchemaVersion:    plan.SchemaVersion,
-		PoolID:           plan.PoolID,
-		Add:              plan.Add,
-		Remove:           plan.Remove,
-		Propagate:        plan.Propagate,
-		ExpectedRevision: plan.ExpectedRevision,
-		Operations:       plan.Operations,
-		Warnings:         plan.Warnings,
-		Errors:           plan.Errors,
+		SchemaVersion:     plan.SchemaVersion,
+		PoolID:            plan.PoolID,
+		Add:               plan.Add,
+		Remove:            plan.Remove,
+		AttachDeployments: plan.AttachDeployments,
+		StartUniverse:     plan.StartUniverse,
+		StartAddress:      plan.StartAddress,
+		Propagate:         plan.Propagate,
+		ExpectedRevision:  plan.ExpectedRevision,
+		Operations:        plan.Operations,
+		Warnings:          plan.Warnings,
+		Errors:            plan.Errors,
 	}
 }
 
@@ -238,6 +264,22 @@ func BuildImpactPlan(pools []Pool, deployments []deployment.Deployment, groups [
 		removeSet[id] = true
 	}
 
+	attachDeployments := append([]uuid.UUID(nil), req.AttachDeployments...)
+	attachSet := make(map[uuid.UUID]bool, len(attachDeployments))
+	for _, id := range attachDeployments {
+		found := false
+		for _, d := range deployments {
+			if d.ID == id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return ImpactPlan{}, fmt.Errorf("GOLC_POOL_PLAN_UNKNOWN_DEPLOYMENT: deployment %s does not exist in the current show state", id)
+		}
+		attachSet[id] = true
+	}
+
 	adds := append([]PoolMemberSpec(nil), req.Add...)
 
 	var operations []ImpactOp
@@ -254,10 +296,10 @@ func BuildImpactPlan(pools []Pool, deployments []deployment.Deployment, groups [
 	for addIndex, spec := range adds {
 		_ = spec
 		for _, d := range deployments {
-			if !deploymentUsesPool(d, req.PoolID) {
+			if !deploymentUsesPool(d, req.PoolID) && !attachSet[d.ID] {
 				continue
 			}
-			universe, address, err := deployment.NextFreeAddress(proposedByDeployment[d.ID], defaultInstanceChannelCount)
+			universe, address, err := deployment.NextFreeAddressFrom(proposedByDeployment[d.ID], defaultInstanceChannelCount, req.StartUniverse, req.StartAddress)
 			if err != nil {
 				return ImpactPlan{}, fmt.Errorf("GOLC_POOL_PLAN_ADDRESS_EXHAUSTED: deployment %q: %v", d.Name, err)
 			}
@@ -310,13 +352,16 @@ func BuildImpactPlan(pools []Pool, deployments []deployment.Deployment, groups [
 	}
 
 	plan := ImpactPlan{
-		SchemaVersion:    ImpactSchemaVersion,
-		PoolID:           req.PoolID,
-		Add:              adds,
-		Remove:           removeIDs,
-		Propagate:        req.Propagate,
-		ExpectedRevision: revision,
-		Operations:       operations,
+		SchemaVersion:     ImpactSchemaVersion,
+		PoolID:            req.PoolID,
+		Add:               adds,
+		Remove:            removeIDs,
+		AttachDeployments: attachDeployments,
+		StartUniverse:     req.StartUniverse,
+		StartAddress:      req.StartAddress,
+		Propagate:         req.Propagate,
+		ExpectedRevision:  revision,
+		Operations:        operations,
 	}
 	id, err := computePlanID(bodyOf(plan))
 	if err != nil {

@@ -117,3 +117,56 @@ func TestNextFreeAddressBoundary(t *testing.T) {
 		t.Fatalf("expected GOLC_DEPLOYMENT_DUPLICATE_NAME, got %v", err)
 	}
 }
+
+func TestNextFreeAddressFromStartOverride(t *testing.T) {
+	universe, address, err := deployment.NextFreeAddressFrom(nil, 1, 5, 100)
+	if err != nil {
+		t.Fatalf("NextFreeAddressFrom: %v", err)
+	}
+	if universe != 5 || address != 100 {
+		t.Fatalf("expected the scan to anchor at (5, 100), got (%d, %d)", universe, address)
+	}
+
+	existing := []deployment.Instance{{Universe: 5, Address: 100}}
+	universe, address, err = deployment.NextFreeAddressFrom(existing, 1, 5, 100)
+	if err != nil {
+		t.Fatalf("NextFreeAddressFrom (occupied start): %v", err)
+	}
+	if universe != 5 || address != 101 {
+		t.Fatalf("expected the scan to skip the occupied slot and land at (5, 101), got (%d, %d)", universe, address)
+	}
+
+	// Forcing exhaustion of universe 5 from address 510 (channelCount=4, so
+	// only address 509 would fit -- 510 doesn't) rolls over to universe 6,
+	// address 1, mirroring NextFreeAddress's own per-universe reset.
+	universe, address, err = deployment.NextFreeAddressFrom(nil, 4, 5, 510)
+	if err != nil {
+		t.Fatalf("NextFreeAddressFrom (rollover): %v", err)
+	}
+	if universe != 6 || address != 1 {
+		t.Fatalf("expected rollover to (6, 1), got (%d, %d)", universe, address)
+	}
+
+	if _, _, err := deployment.NextFreeAddressFrom(nil, 1, 65, 1); err == nil || !strings.Contains(err.Error(), "GOLC_DEPLOYMENT_ADDRESS_EXHAUSTED") {
+		t.Fatalf("expected GOLC_DEPLOYMENT_ADDRESS_EXHAUSTED for a start universe beyond the search ceiling, got %v", err)
+	}
+}
+
+func TestNextFreeAddressFromZeroMeansDefault(t *testing.T) {
+	var existing []deployment.Instance
+	for i := 0; i < 10; i++ {
+		wantUniverse, wantAddress, err := deployment.NextFreeAddress(existing, 4)
+		if err != nil {
+			t.Fatalf("NextFreeAddress iteration %d: %v", i, err)
+		}
+		gotUniverse, gotAddress, err := deployment.NextFreeAddressFrom(existing, 4, 0, 0)
+		if err != nil {
+			t.Fatalf("NextFreeAddressFrom iteration %d: %v", i, err)
+		}
+		if gotUniverse != wantUniverse || gotAddress != wantAddress {
+			t.Fatalf("iteration %d: NextFreeAddressFrom(existing, 4, 0, 0) = (%d, %d), want NextFreeAddress's (%d, %d)",
+				i, gotUniverse, gotAddress, wantUniverse, wantAddress)
+		}
+		existing = append(existing, deployment.Instance{Universe: gotUniverse, Address: gotAddress})
+	}
+}
