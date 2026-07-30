@@ -56,7 +56,7 @@ function installMockFixtureLibraryService(overrides: Partial<Record<string, Retu
       validationResult: "valid",
       warnings: [],
     }),
-    SearchOFL: vi.fn().mockResolvedValue({ query: "", manufacturers: [], unreachable: false, detail: "" }),
+    SearchOFL: vi.fn().mockResolvedValue({ query: "", manufacturers: [], fixtures: [], unreachable: false, detail: "" }),
     PreviewOFL: vi.fn().mockResolvedValue({
       inspect: {
         path: "",
@@ -307,7 +307,7 @@ describe("FixtureLibraryWorkspace", () => {
       switchToCatalog();
 
       expect(screen.queryByText("SlimPAR Pro")).not.toBeInTheDocument();
-      expect(screen.getByText("Search the Open Fixture Library by name or manufacturer.")).toBeInTheDocument();
+      expect(screen.getByText("Search the Open Fixture Library by fixture or manufacturer name.")).toBeInTheDocument();
     });
 
     it("renders the catalog empty prompt with no query", async () => {
@@ -317,12 +317,12 @@ describe("FixtureLibraryWorkspace", () => {
 
       switchToCatalog();
 
-      expect(screen.getByText("Search the Open Fixture Library by name or manufacturer.")).toBeInTheDocument();
+      expect(screen.getByText("Search the Open Fixture Library by fixture or manufacturer name.")).toBeInTheDocument();
     });
 
     it("renders the no-results copy with the query interpolated", async () => {
       const svc = installMockFixtureLibraryService({
-        SearchOFL: vi.fn().mockResolvedValue({ query: "zzznomatch", manufacturers: [], unreachable: false, detail: "" }),
+        SearchOFL: vi.fn().mockResolvedValue({ query: "zzznomatch", manufacturers: [], fixtures: [], unreachable: false, detail: "" }),
       });
       render(<FixtureLibraryWorkspace />);
       await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
@@ -344,6 +344,7 @@ describe("FixtureLibraryWorkspace", () => {
         SearchOFL: vi.fn().mockResolvedValue({
           query: "acme",
           manufacturers: [],
+          fixtures: [],
           unreachable: true,
           detail: "GOLC_FIXTURE_OFL_MANUFACTURERS_FETCH_FAILED: boom",
         }),
@@ -367,6 +368,7 @@ describe("FixtureLibraryWorkspace", () => {
         SearchOFL: vi.fn().mockResolvedValue({
           query: "chauvet",
           manufacturers: [{ key: "chauvet-dj", name: "Chauvet DJ", website: "https://chauvetdj.example" }],
+          fixtures: [],
           unreachable: false,
           detail: "",
         }),
@@ -382,6 +384,70 @@ describe("FixtureLibraryWorkspace", () => {
       await waitFor(() => expect(screen.getByText("Chauvet DJ")).toBeInTheDocument());
       expect(screen.getByText("chauvet-dj")).toBeInTheDocument();
     });
+
+    it("renders fixture rows above manufacturer rows for a matching query", async () => {
+      const svc = installMockFixtureLibraryService({
+        SearchOFL: vi.fn().mockResolvedValue({
+          query: "colorband",
+          manufacturers: [],
+          fixtures: [{ manufacturerKey: "chauvet-dj", manufacturerName: "Chauvet DJ", fixtureKey: "colorband-pix" }],
+          unreachable: false,
+          detail: "",
+        }),
+      });
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
+
+      switchToCatalog();
+      const search = screen.getByLabelText("Search fixtures");
+      fireEvent.change(search, { target: { value: "colorband" } });
+
+      await waitFor(() => expect(svc.SearchOFL).toHaveBeenCalled());
+      await waitFor(() => expect(screen.getByText("Colorband Pix")).toBeInTheDocument());
+      expect(screen.getByText("Chauvet DJ · colorband-pix")).toBeInTheDocument();
+    });
+
+    it("selecting a fixture result previews it immediately with no fixture-key typing", async () => {
+      const svc = installMockFixtureLibraryService({
+        SearchOFL: vi.fn().mockResolvedValue({
+          query: "colorband",
+          manufacturers: [],
+          fixtures: [{ manufacturerKey: "chauvet-dj", manufacturerName: "Chauvet DJ", fixtureKey: "colorband-pix" }],
+          unreachable: false,
+          detail: "",
+        }),
+        PreviewOFL: vi.fn().mockResolvedValue({
+          inspect: {
+            path: "",
+            valid: true,
+            errors: [],
+            schemaVersion: 1,
+            stableKey: "chauvet-dj/colorband-pix",
+            contentHash: "abc123content",
+            revision: "abc123conten",
+            source: "ofl:chauvet-dj/colorband-pix",
+            validationResult: "valid",
+            warnings: [],
+          },
+          previewToken: "/tmp/preview/chauvet-dj_colorband-pix.json",
+          destinationExists: false,
+          suggestedFileName: "chauvet-dj_colorband-pix.json",
+        }),
+      });
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
+
+      switchToCatalog();
+      const search = screen.getByLabelText("Search fixtures");
+      fireEvent.change(search, { target: { value: "colorband" } });
+      await waitFor(() => expect(screen.getByText("Colorband Pix")).toBeInTheDocument());
+
+      fireEvent.click(screen.getByText("Colorband Pix"));
+
+      await waitFor(() => expect(svc.PreviewOFL).toHaveBeenCalledWith("chauvet-dj", "colorband-pix"));
+      await waitFor(() => expect(screen.getByText(/chauvet-dj\/colorband-pix/)).toBeInTheDocument());
+      expect(screen.getByRole("button", { name: "Add to Library" })).toBeEnabled();
+    });
   });
 
   describe("Preview-then-commit import (09-06-PLAN.md Task 1 RED / Task 2-3 GREEN)", () => {
@@ -394,6 +460,7 @@ describe("FixtureLibraryWorkspace", () => {
         SearchOFL: vi.fn().mockResolvedValue({
           query: "chauvet",
           manufacturers: [{ key: "chauvet-dj", name: "Chauvet DJ", website: "" }],
+          fixtures: [],
           unreachable: false,
           detail: "",
         }),

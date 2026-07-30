@@ -74,7 +74,7 @@ func FetchManufacturers(ctx context.Context, ref ManufacturerIndexRef) ([]Manufa
 		target = strings.TrimRight(ref.Mirror, "/") + "/fixtures/manufacturers.json"
 	}
 
-	body, err := getBounded(ctx, target, ref.AllowMirror)
+	body, err := getBounded(ctx, target, defaultOFLHost, ref.AllowMirror)
 	if err != nil {
 		if strings.Contains(err.Error(), "GOLC_FIXTURE_OFL_MIRROR_SCHEME") || strings.Contains(err.Error(), "GOLC_FIXTURE_OFL_MIRROR_HOST") || strings.Contains(err.Error(), "GOLC_FIXTURE_OFL_TOO_LARGE") {
 			return nil, err

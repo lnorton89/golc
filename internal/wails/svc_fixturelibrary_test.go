@@ -232,6 +232,124 @@ func TestFixtureLibraryServiceSearchOFLReportsUnreachableWithoutThrowing(t *test
 	}
 }
 
+const searchOFLManufacturerIndexBody = `{
+  "chauvet-dj": {"name": "Chauvet DJ", "website": "https://chauvetdj.example"},
+  "acme": {"name": "Acme Lighting", "website": "https://acme.example"}
+}`
+
+const searchOFLFixtureTreeBody = `{
+  "tree": [
+    {"path": "fixtures/chauvet-dj/colorband-pix.json", "type": "blob"},
+    {"path": "fixtures/chauvet-dj/led-par-64-tri-b.json", "type": "blob"},
+    {"path": "fixtures/acme/spotlight-1000.json", "type": "blob"},
+    {"path": "fixtures/manufacturers.json", "type": "blob"}
+  ],
+  "truncated": false
+}`
+
+// newTestFixtureLibraryServiceWithOFLCatalog points a fresh service's
+// oflIndexRef/oflFixtureIndexRef at two local httptest servers serving a
+// small, deterministic manufacturer index and fixture-tree listing --
+// never the live network (mirrors fetch_test.go's httptest-only
+// convention).
+func newTestFixtureLibraryServiceWithOFLCatalog(t *testing.T) *FixtureLibraryService {
+	t.Helper()
+	svc, _, _ := newTestFixtureLibraryService(t)
+
+	manufacturerServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(searchOFLManufacturerIndexBody))
+	}))
+	t.Cleanup(manufacturerServer.Close)
+	svc.oflIndexRef = ofl.ManufacturerIndexRef{Mirror: manufacturerServer.URL, AllowMirror: true}
+
+	fixtureServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(searchOFLFixtureTreeBody))
+	}))
+	t.Cleanup(fixtureServer.Close)
+	svc.oflFixtureIndexRef = ofl.FixtureIndexRef{Mirror: fixtureServer.URL, AllowMirror: true}
+
+	return svc
+}
+
+// TestFixtureLibraryServiceSearchOFLMatchesFixtureKeys proves SearchOFL's
+// fixture-name half: a query matching a fixture's own key ("colorband"),
+// not any manufacturer's name or key, still returns that fixture --
+// exactly the gap manufacturer-only search left (the "colorbar"/"colorband"
+// bug report this feature fixes). The returned OFLFixtureView carries both
+// keys, ready for PreviewOFL, and its ManufacturerName is resolved from the
+// manufacturer index rather than left as a raw key.
+func TestFixtureLibraryServiceSearchOFLMatchesFixtureKeys(t *testing.T) {
+	svc := newTestFixtureLibraryServiceWithOFLCatalog(t)
+
+	view, err := svc.SearchOFL("colorband")
+	if err != nil {
+		t.Fatalf("expected SearchOFL to never return an error, got %v", err)
+	}
+	if view.Unreachable {
+		t.Fatalf("expected a reachable catalog, got %+v", view)
+	}
+	if len(view.Manufacturers) != 0 {
+		t.Fatalf("expected zero manufacturer matches for a fixture-key-only query, got %+v", view.Manufacturers)
+	}
+	if len(view.Fixtures) != 1 {
+		t.Fatalf("expected exactly one fixture match for %q, got %d: %+v", "colorband", len(view.Fixtures), view.Fixtures)
+	}
+	got := view.Fixtures[0]
+	if got.ManufacturerKey != "chauvet-dj" || got.FixtureKey != "colorband-pix" {
+		t.Fatalf("expected chauvet-dj/colorband-pix, got %+v", got)
+	}
+	if got.ManufacturerName != "Chauvet DJ" {
+		t.Fatalf("expected the fixture match's manufacturer name resolved from the manufacturer index, got %q", got.ManufacturerName)
+	}
+}
+
+// TestFixtureLibraryServiceSearchOFLManufacturerQueryOmitsFixtures proves a
+// manufacturer-name query ("chauvet") does not also flood Fixtures with
+// every one of that manufacturer's fixtures -- FilterFixtureIndex matches
+// FixtureKey only, so manufacturer-name and fixture-key search stay two
+// distinct, uncluttered result lists.
+func TestFixtureLibraryServiceSearchOFLManufacturerQueryOmitsFixtures(t *testing.T) {
+	svc := newTestFixtureLibraryServiceWithOFLCatalog(t)
+
+	view, err := svc.SearchOFL("chauvet")
+	if err != nil {
+		t.Fatalf("expected SearchOFL to never return an error, got %v", err)
+	}
+	if len(view.Manufacturers) != 1 || view.Manufacturers[0].Key != "chauvet-dj" {
+		t.Fatalf("expected exactly one manufacturer match (chauvet-dj), got %+v", view.Manufacturers)
+	}
+	if len(view.Fixtures) != 0 {
+		t.Fatalf("expected zero fixture matches for a manufacturer-name query, got %+v", view.Fixtures)
+	}
+}
+
+// TestFixtureLibraryServiceSearchOFLFixtureIndexFailureStaysReachable
+// proves a fixture-index-only fetch failure never marks the whole search
+// unreachable -- manufacturer-name search still works from the
+// (independently, successfully fetched) manufacturer index alone, with
+// Fixtures simply empty.
+func TestFixtureLibraryServiceSearchOFLFixtureIndexFailureStaysReachable(t *testing.T) {
+	svc := newTestFixtureLibraryServiceWithOFLCatalog(t)
+	svc.oflFixtureIndexRef = ofl.FixtureIndexRef{Mirror: "http://127.0.0.1:1", AllowMirror: true}
+
+	view, err := svc.SearchOFL("chauvet")
+	if err != nil {
+		t.Fatalf("expected SearchOFL to never return an error, got %v", err)
+	}
+	if view.Unreachable {
+		t.Fatalf("expected a fixture-index-only failure to leave the catalog reachable, got %+v", view)
+	}
+	if len(view.Manufacturers) != 1 || view.Manufacturers[0].Key != "chauvet-dj" {
+		t.Fatalf("expected manufacturer search to still work, got %+v", view.Manufacturers)
+	}
+	if view.Fixtures == nil {
+		t.Fatalf("expected a non-nil empty Fixtures slice, got nil")
+	}
+	if len(view.Fixtures) != 0 {
+		t.Fatalf("expected zero fixtures for an unreachable fixture index, got %+v", view.Fixtures)
+	}
+}
+
 // --- 09-06-PLAN.md Task 1 RED / Task 2 GREEN: preview-then-commit import ---
 
 // oflFixtureCorpusPath resolves the shared chauvet-dj_led-par-64-tri-b.json

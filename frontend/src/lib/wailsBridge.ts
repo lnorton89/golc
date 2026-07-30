@@ -576,6 +576,7 @@ interface AppBinding {
   RelaunchWithShow(showPath: string): Promise<WailsResult>;
   SelectInterface(index: number, name: string): Promise<WailsResult>;
   PickFixtureFile(): Promise<string>;
+  OpenExternalURL(url: string): Promise<void>;
 }
 
 /** FixtureLibraryRowView mirrors internal/wails.FixtureLibraryRowView's
@@ -639,15 +640,29 @@ export interface OflManufacturerView {
   website: string;
 }
 
+/** OflFixtureView mirrors internal/wails.OFLFixtureView's JSON shape
+ * exactly -- one fixture-key search result row (the fixture-name half of
+ * catalog search): selecting it previews manufacturerKey/fixtureKey
+ * directly, with no hand-typed fixture key required. */
+export interface OflFixtureView {
+  manufacturerKey: string;
+  manufacturerName: string;
+  fixtureKey: string;
+}
+
 /** OflSearchView mirrors internal/wails.OFLSearchView's JSON shape
- * exactly -- SearchOFL's full return value. manufacturers is always a
- * present (never undefined/null) array, mirroring FixtureLibraryView.rows'
- * identical "never blank" contract. unreachable:true is the catalog's own
- * explicit renderable failure state (T-09-05-02) -- never a thrown
- * exception. */
+ * exactly -- SearchOFL's full return value. manufacturers/fixtures are
+ * always present (never undefined/null) arrays, mirroring
+ * FixtureLibraryView.rows' identical "never blank" contract.
+ * unreachable:true is the catalog's own explicit renderable failure state
+ * (T-09-05-02) -- never a thrown exception; it reflects the manufacturer
+ * index only, since the fixture-key index (fixtures) fails independently
+ * and best-effort (an empty fixtures array with unreachable:false just
+ * means that index alone was unavailable). */
 export interface OflSearchView {
   query: string;
   manufacturers: OflManufacturerView[];
+  fixtures: OflFixtureView[];
   unreachable: boolean;
   detail: string;
 }
@@ -1393,6 +1408,23 @@ export async function pickFixtureFile(): Promise<string> {
   }
 }
 
+/** openExternalURL calls the bound App.OpenExternalURL (Settings' About
+ * panel open-source credit links), which opens url in the operator's
+ * OS-default browser via the Wails runtime -- never inside the app's own
+ * webview. An absent bridge (a plain browser preview, a test harness) is a
+ * silent no-op; a rejected call (e.g. a non-http(s) url) is swallowed the
+ * same way, mirroring windowMinimise/windowToggleMaximise's identical
+ * "best-effort, never throws" contract for host-chrome calls. */
+export async function openExternalURL(url: string): Promise<void> {
+  const app = appBinding();
+  if (!app) return;
+  try {
+    await app.OpenExternalURL(url);
+  } catch {
+    // best-effort -- see doc comment
+  }
+}
+
 function fixtureLibraryService(): FixtureLibraryServiceBinding | undefined {
   return window.go?.wails?.FixtureLibraryService;
 }
@@ -1461,6 +1493,7 @@ export function offlineOflSearchView(query: string): OflSearchView {
   return {
     query,
     manufacturers: [],
+    fixtures: [],
     unreachable: true,
     detail: "GOLC_WAILS_BRIDGE_UNAVAILABLE: not running inside the GOLC desktop shell",
   };

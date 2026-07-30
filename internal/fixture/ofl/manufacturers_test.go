@@ -70,7 +70,7 @@ func TestFetchManufacturersRejectsForeignHostWithoutOptIn(t *testing.T) {
 // unboundedly -- the exact shared bound fetch.go's Fetch already enforces.
 func TestFetchManufacturersBoundsResponseSize(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		oversized := make([]byte, 3*1024*1024) // exceeds the 2 MiB cap
+		oversized := make([]byte, 5*1024*1024) // exceeds the 4 MiB cap
 		_, _ = w.Write(oversized)
 	}))
 	defer server.Close()
