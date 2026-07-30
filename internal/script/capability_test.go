@@ -255,6 +255,127 @@ func TestCpuRateForRejectsOutOfRange(t *testing.T) {
 	}
 }
 
+// --- memoryTriggerBytes / checkMemoryPressure ---------------------------
+
+// TestMemoryTriggerBytesResolvesPercentOfConfiguredLimit covers
+// memoryTriggerBytes' divide-before-multiply threshold computation and
+// its "invalid/absent limit is never treated as a trigger of zero"
+// unresolvable case.
+func TestMemoryTriggerBytesResolvesPercentOfConfiguredLimit(t *testing.T) {
+	trigger, ok := memoryTriggerBytes(64, 95)
+	if !ok {
+		t.Fatal("expected a resolvable trigger for a valid MemoryLimitMB")
+	}
+	want := (uint64(64) * 1024 * 1024) / 100 * 95
+	if trigger != want {
+		t.Fatalf("memoryTriggerBytes(64, 95) = %d, want %d", trigger, want)
+	}
+
+	if _, ok := memoryTriggerBytes(0, 95); ok {
+		t.Fatal("expected memoryTriggerBytes to report unresolvable for an invalid MemoryLimitMB")
+	}
+}
+
+// TestCheckMemoryPressureBoundary covers checkMemoryPressure's
+// <behavior> table: below the trigger is nil, at or above it is a
+// populated GOLC_SCRIPT_MEMORY_EXCEEDED reason, and an invalid limit
+// never panics or divides by zero.
+func TestCheckMemoryPressureBoundary(t *testing.T) {
+	limits64 := show.ResolvedLimits{MemoryLimitMB: 64}
+	trigger, ok := memoryTriggerBytes(64, memoryPressureTriggerPercent)
+	if !ok {
+		t.Fatal("expected a resolvable 64 MB trigger")
+	}
+
+	tests := []struct {
+		name      string
+		peakBytes uint64
+		limits    show.ResolvedLimits
+		wantNil   bool
+	}{
+		{"98.4% of a 64 MB ceiling terminates", 63 * 1024 * 1024, limits64, false},
+		{"exactly the 95% trigger terminates", trigger, limits64, false},
+		{"50% of a 64 MB ceiling does not terminate", 32 * 1024 * 1024, limits64, true},
+		{"zero peak against a 256 MB ceiling does not terminate", 0, show.ResolvedLimits{MemoryLimitMB: 256}, true},
+		{"an invalid MemoryLimitMB never panics and never terminates", 1 << 20, show.ResolvedLimits{MemoryLimitMB: 0}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reason := checkMemoryPressure(tt.peakBytes, tt.limits)
+			if tt.wantNil {
+				if reason != nil {
+					t.Fatalf("expected nil, got %+v", reason)
+				}
+				return
+			}
+			if reason == nil {
+				t.Fatal("expected a termination reason")
+			}
+			if reason.Code != "GOLC_SCRIPT_MEMORY_EXCEEDED" {
+				t.Fatalf("Code = %q, want GOLC_SCRIPT_MEMORY_EXCEEDED", reason.Code)
+			}
+		})
+	}
+}
+
+// TestCheckMemoryPressureRendersExactSentence covers the exact String()
+// rendering memoryLimitReason produces -- the text describeTermination
+// (ScriptDebugPanel.tsx) parses.
+func TestCheckMemoryPressureRendersExactSentence(t *testing.T) {
+	reason := checkMemoryPressure(64*1024*1024, show.ResolvedLimits{MemoryLimitMB: 64})
+	if reason == nil {
+		t.Fatal("expected a termination reason")
+	}
+	if got, want := reason.String(), "GOLC_SCRIPT_MEMORY_EXCEEDED: run exceeded its 64 MB memory limit"; got != want {
+		t.Fatalf("String() = %q, want %q", got, want)
+	}
+}
+
+// --- classifyMemoryExhaustion ---------------------------------------------
+
+// TestClassifyMemoryExhaustionSignatureAndCorroboration covers
+// classifyMemoryExhaustion's <behavior> table: every recognized V8/Deno
+// OOM signature (case-insensitively), the corroboration floor that
+// rejects a signature on an otherwise-healthy heap, and the reverse
+// (near-ceiling peak alone never reclassifies an unrelated crash).
+func TestClassifyMemoryExhaustionSignatureAndCorroboration(t *testing.T) {
+	limits64 := show.ResolvedLimits{MemoryLimitMB: 64}
+	limits256 := show.ResolvedLimits{MemoryLimitMB: 256}
+
+	tests := []struct {
+		name      string
+		reason    string
+		peakBytes uint64
+		limits    show.ResolvedLimits
+		wantNil   bool
+	}{
+		{"array buffer allocation failed corroborated at 62 of 64 MB", "RangeError: Array buffer allocation failed", 62 * 1024 * 1024, limits64, false},
+		{"javascript heap out of memory corroborated at 62 of 64 MB", "JavaScript heap out of memory", 62 * 1024 * 1024, limits64, false},
+		{"reached heap limit corroborated at 62 of 64 MB", "Reached heap limit", 62 * 1024 * 1024, limits64, false},
+		{"case-insensitive signature match", "RANGEERROR: ARRAY BUFFER ALLOCATION FAILED", 62 * 1024 * 1024, limits64, false},
+		{"signature without corroboration is a script bug, not a limit kill", "RangeError: Array buffer allocation failed", 8 * 1024 * 1024, limits256, true},
+		{"corroboration without a signature never reclassifies an unrelated crash", "TypeError: cannot read properties of undefined", 63 * 1024 * 1024, limits64, true},
+		{"an empty reason never matches", "", 63 * 1024 * 1024, limits64, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reason := classifyMemoryExhaustion(tt.reason, tt.peakBytes, tt.limits)
+			if tt.wantNil {
+				if reason != nil {
+					t.Fatalf("expected nil, got %+v", reason)
+				}
+				return
+			}
+			if reason == nil {
+				t.Fatal("expected a termination reason")
+			}
+			if reason.Code != "GOLC_SCRIPT_MEMORY_EXCEEDED" {
+				t.Fatalf("Code = %q, want GOLC_SCRIPT_MEMORY_EXCEEDED", reason.Code)
+			}
+		})
+	}
+}
+
 // --- D-11: in-flight command split ------------------------------------
 
 // TestInFlightCallCompletesAfterTerminationBegins covers: "Once a
