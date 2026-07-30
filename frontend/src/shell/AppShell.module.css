@@ -52,18 +52,18 @@
 /* main/inspector get a breathing gap below the header and above the
    window's own bottom edge; .rail deliberately gets neither -- the nav
    stays flush top-to-bottom (only requested for "the rest of content").
-   .main also gets its own margin-left, mirroring .inspector's
-   margin-right below -- without it, content butts flush against the
-   rail's right border with zero separation (most visible when
-   GuidedFirstShow's own rail sits directly beside the dimmed command
-   rail with no gap between the two side-by-side rails). */
+   .main deliberately has no left/right margin of its own -- every
+   workspace supplies its own edge spacing (e.g. most workspaces' own
+   .canvas { padding: var(--space-md) }), and giving .main a blanket
+   margin here would double up with whichever ones already do (see
+   GuidedFirstShow.module.css's .overlay for the one workspace that
+   didn't and needed its own scoped fix instead). */
 .main {
   grid-area: main;
   min-width: 0;
   min-height: 0;
   margin-top: var(--space-md);
   margin-bottom: var(--space-md);
-  margin-left: var(--space-md);
   overflow: hidden;
 }
 
