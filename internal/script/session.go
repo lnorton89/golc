@@ -930,10 +930,12 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode, bre
 		if outcome.Reason == "" {
 			outcome.Reason = runCtx.Err().Error()
 		}
-	} else if waitErr != nil && outcome.Status == show.ScriptRunStatusSucceeded {
-		outcome.Status = show.ScriptRunStatusFailed
-		if outcome.Reason == "" {
-			outcome.Reason = waitErr.Error()
+	} else if waitErr != nil {
+		if outcome.Status == show.ScriptRunStatusSucceeded {
+			outcome.Status = show.ScriptRunStatusFailed
+			if outcome.Reason == "" {
+				outcome.Reason = waitErr.Error()
+			}
 		}
 		// 08-14-PLAN.md Task 2: the post-exit backstop for D-08's resource
 		// cause, alongside the proactive monitor above -- V8 can request a
@@ -946,6 +948,17 @@ func (h *Host) Run(ctx context.Context, target show.Script, mode LaunchMode, bre
 		// observable to the user. A nil memSampler (job creation/assign
 		// failed) or a query error is treated as a peak of 0, which never
 		// meets classifyMemoryExhaustion's corroboration floor.
+		//
+		// This check runs regardless of what runDispatchIO already set
+		// outcome.Status to (WR-01/08-14 gap closure): a genuine OOM kill
+		// can sever the child's stdout mid-frame, which runDispatchIO's
+		// scan/decode-error paths (session.go's frame-reading loop) can
+		// plausibly read as a protocol violation rather than a clean EOF,
+		// setting outcome.Status to Failed before this branch is ever
+		// reached. Gating the backstop on outcome.Status still being
+		// Succeeded would make it permanently unreachable for that exact
+		// interleaving -- the one a real OOM kill is most likely to
+		// produce.
 		var peak uint64
 		if memSampler != nil {
 			if sampled, sampleErr := memSampler.peakMemoryBytes(); sampleErr == nil {
