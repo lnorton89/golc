@@ -100,9 +100,36 @@ type poolPlanView struct {
 		FixtureStableKey string `json:"fixture_stable_key"`
 	} `json:"add"`
 	Operations []struct {
-		DependentKind string `json:"dependent_kind"`
-		Action        string `json:"action"`
+		DependentKind    string `json:"dependent_kind"`
+		Action           string `json:"action"`
+		ProposedUniverse int    `json:"proposed_universe"`
+		ProposedAddress  int    `json:"proposed_address"`
 	} `json:"operations"`
+}
+
+// seedFreshPoolShowState builds and saves a minimal ShowState with one pool
+// (no members yet) and one deployment with zero instances of it -- i.e. a
+// pool with no adopting deployment, the exact state a brand-new pool starts
+// in. It returns the pool's Name and the deployment's own ID string, for
+// exercising "pool update --attach-deployment".
+func seedFreshPoolShowState(t *testing.T, root, showPath string) (poolName, deploymentID string) {
+	t.Helper()
+
+	p, err := pool.NewPool("Fresh Pool", nil)
+	if err != nil {
+		t.Fatalf("NewPool: %v", err)
+	}
+	d, err := deployment.NewDeployment("Venue A")
+	if err != nil {
+		t.Fatalf("NewDeployment: %v", err)
+	}
+	d.Active = true
+
+	state := show.State{Pools: []pool.Pool{p}, Deployments: []deployment.Deployment{d}}
+	if err := show.Save(root, showPath, state); err != nil {
+		t.Fatalf("show.Save (seed): %v", err)
+	}
+	return p.Name, d.ID.String()
 }
 
 func TestPoolUpdateApplyRoutes(t *testing.T) {
@@ -271,5 +298,163 @@ func TestPropagationDefaultReview(t *testing.T) {
 	}})
 	if invalid.ExitCode == 0 || !strings.Contains(string(invalid.Stderr), "GOLC_POOL_APPLY_USAGE") {
 		t.Fatalf("expected GOLC_POOL_APPLY_USAGE for an invalid --propagate value, got exit=%d stderr=%s", invalid.ExitCode, invalid.Stderr)
+	}
+}
+
+// TestPoolUpdateAttachDeploymentFlag proves "pool update --attach-deployment"
+// closes the "adopt a never-before-used pool" gap at the CLI layer: a pool
+// with no dependent deployment still yields a proposed instance for the
+// named deployment.
+func TestPoolUpdateAttachDeploymentFlag(t *testing.T) {
+	root := repositoryRoot(t)
+	registry, err := command.NewDefaultCommandRegistry()
+	if err != nil {
+		t.Fatalf("NewDefaultCommandRegistry: %v", err)
+	}
+
+	showPath := filepath.Join(t.TempDir(), "show.json")
+	poolName, deploymentID := seedFreshPoolShowState(t, root, showPath)
+	planPath := filepath.Join(t.TempDir(), "plan.json")
+
+	update := registry.Execute(command.Request{Root: root, Args: []string{
+		"pool", "update", poolName,
+		"--add", "acme/par64|sha256:55555555|Standard",
+		"--attach-deployment", deploymentID,
+		"--out", planPath,
+		"--show", showPath,
+	}})
+	if update.ExitCode != 0 {
+		t.Fatalf("pool update --attach-deployment failed: exit=%d stderr=%s", update.ExitCode, update.Stderr)
+	}
+
+	planBytes, err := os.ReadFile(planPath)
+	if err != nil {
+		t.Fatalf("read written plan: %v", err)
+	}
+	var view poolPlanView
+	if err := json.Unmarshal(planBytes, &view); err != nil {
+		t.Fatalf("unmarshal plan: %v", err)
+	}
+	foundAddOp := false
+	for _, op := range view.Operations {
+		if op.DependentKind == "deployment_instance" && op.Action == "add" {
+			foundAddOp = true
+			if op.ProposedUniverse != 1 || op.ProposedAddress != 1 {
+				t.Fatalf("expected the first proposed instance in a fresh deployment to land at (1, 1), got (%d, %d)", op.ProposedUniverse, op.ProposedAddress)
+			}
+		}
+	}
+	if !foundAddOp {
+		t.Fatalf("expected --attach-deployment to force-propose a deployment_instance add operation, got %+v", view.Operations)
+	}
+}
+
+// TestPoolUpdateAttachDeploymentRejectsUnknownID proves an
+// --attach-deployment value that doesn't name a real deployment fails
+// before any operation is computed.
+func TestPoolUpdateAttachDeploymentRejectsUnknownID(t *testing.T) {
+	root := repositoryRoot(t)
+	registry, err := command.NewDefaultCommandRegistry()
+	if err != nil {
+		t.Fatalf("NewDefaultCommandRegistry: %v", err)
+	}
+
+	showPath := filepath.Join(t.TempDir(), "show.json")
+	poolName, _ := seedFreshPoolShowState(t, root, showPath)
+
+	unknownID, err := uuid.NewV7()
+	if err != nil {
+		t.Fatalf("uuid.NewV7: %v", err)
+	}
+	update := registry.Execute(command.Request{Root: root, Args: []string{
+		"pool", "update", poolName,
+		"--add", "acme/par64|sha256:66666666|Standard",
+		"--attach-deployment", unknownID.String(),
+		"--out", filepath.Join(t.TempDir(), "plan.json"),
+		"--show", showPath,
+	}})
+	if update.ExitCode == 0 || !strings.Contains(string(update.Stderr), "GOLC_POOL_PLAN_UNKNOWN_DEPLOYMENT") {
+		t.Fatalf("expected GOLC_POOL_PLAN_UNKNOWN_DEPLOYMENT, got exit=%d stderr=%s", update.ExitCode, update.Stderr)
+	}
+}
+
+// TestPoolUpdateStartAddressFlags proves --start-universe/--start-address
+// anchor the proposed addresses for a multi-add batch, auto-incrementing
+// the second unit past the first.
+func TestPoolUpdateStartAddressFlags(t *testing.T) {
+	root := repositoryRoot(t)
+	registry, err := command.NewDefaultCommandRegistry()
+	if err != nil {
+		t.Fatalf("NewDefaultCommandRegistry: %v", err)
+	}
+
+	showPath := filepath.Join(t.TempDir(), "show.json")
+	poolName := seedPoolShowState(t, root, showPath)
+	planPath := filepath.Join(t.TempDir(), "plan.json")
+
+	update := registry.Execute(command.Request{Root: root, Args: []string{
+		"pool", "update", poolName,
+		"--add", "acme/par64|sha256:77777777|Standard",
+		"--add", "acme/par64|sha256:88888888|Standard",
+		"--start-universe", "3",
+		"--start-address", "50",
+		"--out", planPath,
+		"--show", showPath,
+	}})
+	if update.ExitCode != 0 {
+		t.Fatalf("pool update --start-universe/--start-address failed: exit=%d stderr=%s", update.ExitCode, update.Stderr)
+	}
+
+	planBytes, err := os.ReadFile(planPath)
+	if err != nil {
+		t.Fatalf("read written plan: %v", err)
+	}
+	var view poolPlanView
+	if err := json.Unmarshal(planBytes, &view); err != nil {
+		t.Fatalf("unmarshal plan: %v", err)
+	}
+	var addOps []struct {
+		DependentKind    string `json:"dependent_kind"`
+		Action           string `json:"action"`
+		ProposedUniverse int    `json:"proposed_universe"`
+		ProposedAddress  int    `json:"proposed_address"`
+	}
+	for _, op := range view.Operations {
+		if op.DependentKind == "deployment_instance" && op.Action == "add" {
+			addOps = append(addOps, op)
+		}
+	}
+	if len(addOps) != 2 {
+		t.Fatalf("expected 2 proposed instances, got %d: %+v", len(addOps), addOps)
+	}
+	if addOps[0].ProposedUniverse != 3 || addOps[0].ProposedAddress != 50 {
+		t.Fatalf("expected the first proposed instance to anchor at (3, 50), got (%d, %d)", addOps[0].ProposedUniverse, addOps[0].ProposedAddress)
+	}
+	if addOps[1].ProposedUniverse != 3 || addOps[1].ProposedAddress != 51 {
+		t.Fatalf("expected the second proposed instance to auto-increment to (3, 51), got (%d, %d)", addOps[1].ProposedUniverse, addOps[1].ProposedAddress)
+	}
+}
+
+// TestPoolUpdateStartUniverseParseUsage proves a non-numeric
+// --start-universe value is rejected as a usage error.
+func TestPoolUpdateStartUniverseParseUsage(t *testing.T) {
+	root := repositoryRoot(t)
+	registry, err := command.NewDefaultCommandRegistry()
+	if err != nil {
+		t.Fatalf("NewDefaultCommandRegistry: %v", err)
+	}
+
+	showPath := filepath.Join(t.TempDir(), "show.json")
+	poolName := seedPoolShowState(t, root, showPath)
+
+	update := registry.Execute(command.Request{Root: root, Args: []string{
+		"pool", "update", poolName,
+		"--add", "acme/par64|sha256:99999999|Standard",
+		"--start-universe", "notanumber",
+		"--out", filepath.Join(t.TempDir(), "plan.json"),
+		"--show", showPath,
+	}})
+	if update.ExitCode == 0 || !strings.Contains(string(update.Stderr), "GOLC_POOL_APPLY_USAGE") {
+		t.Fatalf("expected GOLC_POOL_APPLY_USAGE for a non-numeric --start-universe, got exit=%d stderr=%s", update.ExitCode, update.Stderr)
 	}
 }

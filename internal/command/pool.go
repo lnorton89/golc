@@ -13,6 +13,7 @@ package command
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -48,11 +49,15 @@ var _ = MustDeclareRoute(CommandRegistration{
 	Route: "pool update",
 	Summary: "Compute and write/print a deterministic pool impact-review plan without mutating the ShowState document: " +
 		"pool update <pool> [--add <fixture_stable_key>|<fixture_content_hash>|<mode>]... [--remove <pool_member_id>]... " +
+		"[--attach-deployment <deployment_id>]... [--start-universe <n>] [--start-address <n>] " +
 		"[--propagate immediate|preview] [--out <path>] [--json] --show <path>. " +
 		"WARNING: --add's <fixture_stable_key>|<fixture_content_hash> pair is a low-level, unverified reference -- " +
 		"unlike \"pool substitute\", nothing here decodes, pins, or otherwise checks it against a real fixture " +
 		"definition; deriving a trustworthy pair (for example via \"fixture import\"/\"fixture inspect\") is the " +
-		"caller's own responsibility.",
+		"caller's own responsibility. --attach-deployment force-includes a deployment that has never referenced " +
+		"this pool before in the add dependent walk (closes the \"adopt a never-before-used pool\" gap); " +
+		"--start-universe/--start-address optionally anchor the auto-address scan for every newly proposed " +
+		"instance in this request instead of the default next-free slot.",
 	Handler: runPoolUpdate,
 })
 
@@ -155,6 +160,19 @@ func parseCapabilityList(raw string) []fixture.CapabilityType {
 	return types
 }
 
+// parsePositiveInt parses raw as a base-10 integer no smaller than 1,
+// rejecting non-numeric input and zero/negative values alike -- shared by
+// --start-universe/--start-address, where an explicit 0 or negative value
+// is a usage error (only omitting the flag entirely means "use the
+// system-suggested default").
+func parsePositiveInt(raw string) (int, error) {
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < 1 {
+		return 0, fmt.Errorf("value %q must be a positive integer", raw)
+	}
+	return value, nil
+}
+
 // poolByName returns the pool in pools whose Name matches name.
 func poolByName(pools []pool.Pool, name string) (pool.Pool, bool) {
 	for _, p := range pools {
@@ -170,6 +188,9 @@ type poolUpdateArgs struct {
 	poolName          string
 	add               []pool.PoolMemberSpec
 	remove            []uuid.UUID
+	attachDeployments []uuid.UUID
+	startUniverse     int
+	startAddress      int
 	propagateOverride string
 	outPath           string
 	json              bool
@@ -251,6 +272,60 @@ func parsePoolUpdateArgs(usage string, args []string) (poolUpdateArgs, error) {
 				return poolUpdateArgs{}, fmt.Errorf("GOLC_POOL_APPLY_USAGE: --remove value %q is not a valid pool member id; usage: %s", raw, usage)
 			}
 			parsed.remove = append(parsed.remove, id)
+			i++
+		case argument == "--attach-deployment":
+			if i+1 >= len(rest) {
+				return poolUpdateArgs{}, fmt.Errorf("GOLC_POOL_APPLY_USAGE: --attach-deployment requires a value; usage: %s", usage)
+			}
+			id, err := uuid.Parse(rest[i+1])
+			if err != nil {
+				return poolUpdateArgs{}, fmt.Errorf("GOLC_POOL_APPLY_USAGE: --attach-deployment value %q is not a valid deployment id; usage: %s", rest[i+1], usage)
+			}
+			parsed.attachDeployments = append(parsed.attachDeployments, id)
+			i += 2
+		case strings.HasPrefix(argument, "--attach-deployment="):
+			raw := strings.TrimPrefix(argument, "--attach-deployment=")
+			id, err := uuid.Parse(raw)
+			if err != nil {
+				return poolUpdateArgs{}, fmt.Errorf("GOLC_POOL_APPLY_USAGE: --attach-deployment value %q is not a valid deployment id; usage: %s", raw, usage)
+			}
+			parsed.attachDeployments = append(parsed.attachDeployments, id)
+			i++
+		case argument == "--start-universe":
+			if i+1 >= len(rest) {
+				return poolUpdateArgs{}, fmt.Errorf("GOLC_POOL_APPLY_USAGE: --start-universe requires a value; usage: %s", usage)
+			}
+			value, err := parsePositiveInt(rest[i+1])
+			if err != nil {
+				return poolUpdateArgs{}, fmt.Errorf("GOLC_POOL_APPLY_USAGE: --start-universe value %q must be a positive integer; usage: %s", rest[i+1], usage)
+			}
+			parsed.startUniverse = value
+			i += 2
+		case strings.HasPrefix(argument, "--start-universe="):
+			raw := strings.TrimPrefix(argument, "--start-universe=")
+			value, err := parsePositiveInt(raw)
+			if err != nil {
+				return poolUpdateArgs{}, fmt.Errorf("GOLC_POOL_APPLY_USAGE: --start-universe value %q must be a positive integer; usage: %s", raw, usage)
+			}
+			parsed.startUniverse = value
+			i++
+		case argument == "--start-address":
+			if i+1 >= len(rest) {
+				return poolUpdateArgs{}, fmt.Errorf("GOLC_POOL_APPLY_USAGE: --start-address requires a value; usage: %s", usage)
+			}
+			value, err := parsePositiveInt(rest[i+1])
+			if err != nil {
+				return poolUpdateArgs{}, fmt.Errorf("GOLC_POOL_APPLY_USAGE: --start-address value %q must be a positive integer; usage: %s", rest[i+1], usage)
+			}
+			parsed.startAddress = value
+			i += 2
+		case strings.HasPrefix(argument, "--start-address="):
+			raw := strings.TrimPrefix(argument, "--start-address=")
+			value, err := parsePositiveInt(raw)
+			if err != nil {
+				return poolUpdateArgs{}, fmt.Errorf("GOLC_POOL_APPLY_USAGE: --start-address value %q must be a positive integer; usage: %s", raw, usage)
+			}
+			parsed.startAddress = value
 			i++
 		case argument == "--propagate":
 			if i+1 >= len(rest) {
@@ -342,7 +417,9 @@ func writeImpactPlan(root, outPath string, plan pool.ImpactPlan) Result {
 // file (CONTEXT T-02-12).
 func runPoolUpdate(request Request) Result {
 	usage := "pool update <pool> [--add <fixture_stable_key>|<fixture_content_hash>|<mode>]... " +
-		"[--remove <pool_member_id>]... [--propagate immediate|preview] [--out <path>] [--json] --show <path>"
+		"[--remove <pool_member_id>]... [--attach-deployment <deployment_id>]... " +
+		"[--start-universe <n>] [--start-address <n>] " +
+		"[--propagate immediate|preview] [--out <path>] [--json] --show <path>"
 	parsed, err := parsePoolUpdateArgs(usage, request.Args)
 	if err != nil {
 		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
@@ -364,10 +441,13 @@ func runPoolUpdate(request Request) Result {
 	}
 
 	req := pool.ImpactRequest{
-		PoolID:    targetPool.ID,
-		Add:       parsed.add,
-		Remove:    parsed.remove,
-		Propagate: propagate,
+		PoolID:            targetPool.ID,
+		Add:               parsed.add,
+		Remove:            parsed.remove,
+		AttachDeployments: parsed.attachDeployments,
+		StartUniverse:     parsed.startUniverse,
+		StartAddress:      parsed.startAddress,
+		Propagate:         propagate,
 	}
 	plan, err := pool.BuildImpactPlan(state.Pools, state.Deployments, state.Groups, state.Revision, req)
 	if err != nil {

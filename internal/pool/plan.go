@@ -70,7 +70,15 @@ func ValidatePlanIntegrity(plan ImpactPlan) error {
 // so any tampering of those fields is still caught before this function
 // ever runs.
 func ValidatePlanFreshness(plan ImpactPlan, pools []Pool, deployments []deployment.Deployment, groups []Group, revision int) error {
-	req := ImpactRequest{PoolID: plan.PoolID, Add: plan.Add, Remove: plan.Remove, Propagate: plan.Propagate}
+	req := ImpactRequest{
+		PoolID:            plan.PoolID,
+		Add:               plan.Add,
+		Remove:            plan.Remove,
+		AttachDeployments: plan.AttachDeployments,
+		StartUniverse:     plan.StartUniverse,
+		StartAddress:      plan.StartAddress,
+		Propagate:         plan.Propagate,
+	}
 	fresh, err := BuildImpactPlan(pools, deployments, groups, revision, req)
 	if err != nil {
 		return fmt.Errorf("GOLC_POOL_PLAN_STALE: recomputing the current impact plan failed: %v; re-run pool review", err)

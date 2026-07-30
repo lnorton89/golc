@@ -69,6 +69,16 @@
           "screenshot": "/desktop-views/build-patch-pools.png"
         },
         {
+          "id": "build-project-fixtures",
+          "slug": "build-project-fixtures",
+          "navLabel": "Project Fixtures",
+          "title": "Project fixtures",
+          "purpose": "Browse the fixtures already added to the show and add new ones from the fixture library, with automatic or manual universe/address assignment.",
+          "actions": ["Browse fixtures added to the project", "Add fixtures from the library", "Assign a starting universe/address for a batch"],
+          "concepts": ["Patch", "Fixture pool", "Deployment"],
+          "screenshot": "/desktop-views/build-project-fixtures.png"
+        },
+        {
           "id": "build-scenes-looks",
           "slug": "build-scenes-looks",
           "navLabel": "Scenes & Looks",

@@ -16,6 +16,7 @@
 package pool_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -240,5 +241,224 @@ func TestBuildImpactPlanAutoAddress(t *testing.T) {
 			t.Fatalf("expected distinct proposed addresses for two adds in the same request, got a collision at %+v", op)
 		}
 		seen[key] = true
+	}
+}
+
+// TestBuildImpactPlanForceAttachFreshPool proves AttachDeployments closes
+// the "adopt a never-before-used pool" gap: a brand-new pool with zero
+// dependents still yields a proposed instance for a deployment named in
+// AttachDeployments, even though that deployment has never referenced the
+// pool before (deploymentUsesPool would otherwise skip it entirely, as
+// TestBuildImpactPlanEmpty's "add, no dependents" sub-case proves).
+func TestBuildImpactPlanForceAttachFreshPool(t *testing.T) {
+	p, err := pool.NewPool("Fresh Pool", nil)
+	if err != nil {
+		t.Fatalf("NewPool: %v", err)
+	}
+	d, err := deployment.NewDeployment("Venue A")
+	if err != nil {
+		t.Fatalf("NewDeployment: %v", err)
+	}
+
+	req := pool.ImpactRequest{
+		PoolID:            p.ID,
+		Add:               []pool.PoolMemberSpec{{FixtureStableKey: "acme/par64", FixtureContentHash: "sha256:eeeeeeee", Mode: "Standard"}},
+		AttachDeployments: []uuid.UUID{d.ID},
+		Propagate:         "preview",
+	}
+	plan, err := pool.BuildImpactPlan([]pool.Pool{p}, []deployment.Deployment{d}, nil, 0, req)
+	if err != nil {
+		t.Fatalf("BuildImpactPlan: %v", err)
+	}
+
+	var addOps []pool.ImpactOp
+	for _, op := range plan.Operations {
+		if op.DependentKind == "deployment_instance" && op.Action == "add" {
+			addOps = append(addOps, op)
+		}
+	}
+	if len(addOps) != 1 {
+		t.Fatalf("expected exactly one proposed instance for the force-attached deployment, got %d: %+v", len(addOps), addOps)
+	}
+	if addOps[0].DependentID != d.ID {
+		t.Fatalf("expected the proposed instance to target the force-attached deployment %s, got %s", d.ID, addOps[0].DependentID)
+	}
+	if addOps[0].ProposedUniverse != 1 || addOps[0].ProposedAddress != 1 {
+		t.Fatalf("expected the first proposed instance in a fresh deployment to land at (1, 1), got (%d, %d)", addOps[0].ProposedUniverse, addOps[0].ProposedAddress)
+	}
+}
+
+// TestBuildImpactPlanForceAttachRejectsUnknownDeployment proves an
+// AttachDeployments entry that doesn't exist in the given deployments slice
+// fails outright, before any operation is computed.
+func TestBuildImpactPlanForceAttachRejectsUnknownDeployment(t *testing.T) {
+	p, err := pool.NewPool("Fresh Pool", nil)
+	if err != nil {
+		t.Fatalf("NewPool: %v", err)
+	}
+	unknownID, err := uuid.NewV7()
+	if err != nil {
+		t.Fatalf("uuid.NewV7: %v", err)
+	}
+
+	req := pool.ImpactRequest{
+		PoolID:            p.ID,
+		Add:               []pool.PoolMemberSpec{{FixtureStableKey: "acme/par64", FixtureContentHash: "sha256:eeeeeeee", Mode: "Standard"}},
+		AttachDeployments: []uuid.UUID{unknownID},
+		Propagate:         "preview",
+	}
+	_, err = pool.BuildImpactPlan([]pool.Pool{p}, nil, nil, 0, req)
+	if err == nil || !strings.Contains(err.Error(), "GOLC_POOL_PLAN_UNKNOWN_DEPLOYMENT") {
+		t.Fatalf("expected GOLC_POOL_PLAN_UNKNOWN_DEPLOYMENT, got %v", err)
+	}
+}
+
+// TestBuildImpactPlanForceAttachChangesPlanID proves AttachDeployments is
+// part of the hashed plan body: two otherwise-identical requests differing
+// only in AttachDeployments must produce different plan_ids, since they are
+// materially different requests even when a request's resulting Operations
+// happen to be empty either way.
+func TestBuildImpactPlanForceAttachChangesPlanID(t *testing.T) {
+	p, err := pool.NewPool("Fresh Pool", nil)
+	if err != nil {
+		t.Fatalf("NewPool: %v", err)
+	}
+	d, err := deployment.NewDeployment("Venue A")
+	if err != nil {
+		t.Fatalf("NewDeployment: %v", err)
+	}
+	deployments := []deployment.Deployment{d}
+
+	baseReq := pool.ImpactRequest{
+		PoolID:    p.ID,
+		Add:       []pool.PoolMemberSpec{{FixtureStableKey: "acme/par64", FixtureContentHash: "sha256:eeeeeeee", Mode: "Standard"}},
+		Propagate: "preview",
+	}
+	without, err := pool.BuildImpactPlan([]pool.Pool{p}, deployments, nil, 0, baseReq)
+	if err != nil {
+		t.Fatalf("BuildImpactPlan (without attach): %v", err)
+	}
+
+	attachedReq := baseReq
+	attachedReq.AttachDeployments = []uuid.UUID{d.ID}
+	with, err := pool.BuildImpactPlan([]pool.Pool{p}, deployments, nil, 0, attachedReq)
+	if err != nil {
+		t.Fatalf("BuildImpactPlan (with attach): %v", err)
+	}
+
+	if without.PlanID == with.PlanID {
+		t.Fatalf("expected AttachDeployments to change plan_id, got the same %q for both", without.PlanID)
+	}
+}
+
+// TestBuildImpactPlanForceAttachFreshnessRoundTrip proves a force-attach
+// plan round-trips through the same integrity/freshness/apply contract
+// every other plan does: it validates, applies, and a re-derived plan
+// against the post-apply state is correctly rejected as stale (single-use).
+func TestBuildImpactPlanForceAttachFreshnessRoundTrip(t *testing.T) {
+	p, err := pool.NewPool("Fresh Pool", nil)
+	if err != nil {
+		t.Fatalf("NewPool: %v", err)
+	}
+	d, err := deployment.NewDeployment("Venue A")
+	if err != nil {
+		t.Fatalf("NewDeployment: %v", err)
+	}
+	pools := []pool.Pool{p}
+	deployments := []deployment.Deployment{d}
+
+	req := pool.ImpactRequest{
+		PoolID:            p.ID,
+		Add:               []pool.PoolMemberSpec{{FixtureStableKey: "acme/par64", FixtureContentHash: "sha256:eeeeeeee", Mode: "Standard"}},
+		AttachDeployments: []uuid.UUID{d.ID},
+		Propagate:         "preview",
+	}
+	plan, err := pool.BuildImpactPlan(pools, deployments, nil, 0, req)
+	if err != nil {
+		t.Fatalf("BuildImpactPlan: %v", err)
+	}
+	if err := pool.ValidatePlanIntegrity(plan); err != nil {
+		t.Fatalf("ValidatePlanIntegrity: %v", err)
+	}
+	if err := pool.ValidatePlanFreshness(plan, pools, deployments, nil, 0); err != nil {
+		t.Fatalf("ValidatePlanFreshness (pre-apply): %v", err)
+	}
+
+	newPools, newDeployments, _, err := pool.Apply(pools, deployments, nil, plan)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	postApplyRevision := 1 // simulate show.Save's revision bump
+
+	if err := pool.ValidatePlanFreshness(plan, newPools, newDeployments, nil, postApplyRevision); err == nil || !strings.Contains(err.Error(), "GOLC_POOL_PLAN_STALE") {
+		t.Fatalf("expected GOLC_POOL_PLAN_STALE re-validating the same plan against post-apply state, got %v", err)
+	}
+}
+
+// TestBuildImpactPlanStartAddressOverride proves StartUniverse/StartAddress
+// anchor the scan for a batch of adds, with the second unit auto-
+// incrementing past the first exactly like the default (1,1) scan already
+// does.
+func TestBuildImpactPlanStartAddressOverride(t *testing.T) {
+	fx, target, _, _, _ := newFixtureState(t)
+
+	req := pool.ImpactRequest{
+		PoolID: target.ID,
+		Add: []pool.PoolMemberSpec{
+			{FixtureStableKey: "acme/par64", FixtureContentHash: "sha256:cccccccc", Mode: "Standard"},
+			{FixtureStableKey: "acme/par64", FixtureContentHash: "sha256:dddddddd", Mode: "Standard"},
+		},
+		StartUniverse: 3,
+		StartAddress:  50,
+		Propagate:     "preview",
+	}
+	plan, err := pool.BuildImpactPlan(fx.pools, fx.deployments, fx.groups, fx.revision, req)
+	if err != nil {
+		t.Fatalf("BuildImpactPlan: %v", err)
+	}
+
+	var addOps []pool.ImpactOp
+	for _, op := range plan.Operations {
+		if op.DependentKind == "deployment_instance" && op.Action == "add" {
+			addOps = append(addOps, op)
+		}
+	}
+	if len(addOps) != 2 {
+		t.Fatalf("expected 2 proposed instances, got %d: %+v", len(addOps), addOps)
+	}
+	if addOps[0].ProposedUniverse != 3 || addOps[0].ProposedAddress != 50 {
+		t.Fatalf("expected the first proposed instance to anchor at (3, 50), got (%d, %d)", addOps[0].ProposedUniverse, addOps[0].ProposedAddress)
+	}
+	if addOps[1].ProposedUniverse != 3 || addOps[1].ProposedAddress != 51 {
+		t.Fatalf("expected the second proposed instance to auto-increment to (3, 51), got (%d, %d)", addOps[1].ProposedUniverse, addOps[1].ProposedAddress)
+	}
+}
+
+// TestBuildImpactPlanZeroStartAddressMatchesDefault proves an explicit
+// (0, 0) StartUniverse/StartAddress produces a byte-identical plan_id to
+// omitting the fields entirely -- the additive default-preservation
+// contract every existing caller relies on.
+func TestBuildImpactPlanZeroStartAddressMatchesDefault(t *testing.T) {
+	fx, target, _, _, _ := newFixtureState(t)
+
+	withoutFields := pool.ImpactRequest{
+		PoolID:    target.ID,
+		Add:       []pool.PoolMemberSpec{{FixtureStableKey: "acme/par64", FixtureContentHash: "sha256:cccccccc", Mode: "Standard"}},
+		Propagate: "preview",
+	}
+	explicitZero := withoutFields
+	explicitZero.StartUniverse = 0
+	explicitZero.StartAddress = 0
+
+	without, err := pool.BuildImpactPlan(fx.pools, fx.deployments, fx.groups, fx.revision, withoutFields)
+	if err != nil {
+		t.Fatalf("BuildImpactPlan (without fields): %v", err)
+	}
+	withZero, err := pool.BuildImpactPlan(fx.pools, fx.deployments, fx.groups, fx.revision, explicitZero)
+	if err != nil {
+		t.Fatalf("BuildImpactPlan (explicit zero): %v", err)
+	}
+	if without.PlanID != withZero.PlanID {
+		t.Fatalf("expected explicit (0,0) StartUniverse/StartAddress to match omitting the fields, got %q vs %q", without.PlanID, withZero.PlanID)
 	}
 }
