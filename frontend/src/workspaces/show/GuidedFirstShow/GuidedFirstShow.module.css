@@ -19,11 +19,14 @@
   flex-direction: column;
   /* AppShell.module.css's own .main (this overlay's grid-area parent) has
      no left/right margin of its own -- every other workspace supplies its
-     own edge spacing, and giving .main a blanket margin-right would double
-     up with whichever ones already do. This is scoped to GuidedFirstShow
+     own edge spacing, and giving .main a blanket margin would double up
+     with whichever ones already do. This is scoped to GuidedFirstShow
      alone: evidenceAside was rendering flush against the window's right
-     edge with zero breathing room. */
+     edge with zero breathing room, and (icon/polish pass) .guided-flow's
+     own rail was rendering flush against the command rail's right border
+     on its left with the same problem. */
   padding-right: var(--space-md);
+  padding-left: var(--space-md);
 }
 
 .guided-flow {
