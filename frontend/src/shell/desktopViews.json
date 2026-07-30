@@ -142,5 +142,63 @@
         }
       ]
     }
-  ]
+  ],
+  "onboarding": {
+    "label": "Guided Setup",
+    "views": [
+      {
+        "id": "guide-fixtures",
+        "slug": "guide-fixtures",
+        "navLabel": "Fixtures",
+        "title": "Guided Setup: Fixtures",
+        "purpose": "Add the first fixtures for a new show, as stage one of the optional Guided First Show onboarding flow.",
+        "actions": ["Review live fixture-library evidence", "Continue to the Fixture Library", "Exit to normal navigation at any time"],
+        "concepts": ["Guided First Show", "Stage evidence"],
+        "operatingNotes": ["The guide replaces only the workspace canvas; the header, rail, and inspector stay mounted, and the rail visibly dims while guiding."],
+        "screenshot": "/desktop-views/guide-fixtures.png"
+      },
+      {
+        "id": "guide-patch",
+        "slug": "guide-patch",
+        "navLabel": "Patch",
+        "title": "Guided Setup: Patch",
+        "purpose": "Patch newly added fixtures into an active deployment before programming a scene.",
+        "actions": ["Review live patch evidence", "Continue to Patch & Pools", "Exit to normal navigation at any time"],
+        "concepts": ["Guided First Show", "Patch", "Impact preview"],
+        "operatingNotes": ["Patch changes stay preview-only until reviewed and applied in the Patch & Pools workspace itself."],
+        "screenshot": "/desktop-views/guide-patch.png"
+      },
+      {
+        "id": "guide-program",
+        "slug": "guide-program",
+        "navLabel": "Program",
+        "title": "Guided Setup: Program",
+        "purpose": "Program at least one scene before assigning it to an operator surface.",
+        "actions": ["Review live programming evidence", "Continue to Scenes & Looks", "Exit to normal navigation at any time"],
+        "concepts": ["Guided First Show", "Scene readiness"],
+        "screenshot": "/desktop-views/guide-program.png"
+      },
+      {
+        "id": "guide-assign",
+        "slug": "guide-assign",
+        "navLabel": "Assign",
+        "title": "Guided Setup: Assign",
+        "purpose": "Create an operator surface so someone else can play the show back.",
+        "actions": ["Review live operator-surface evidence", "Continue to Operator Surface", "Exit to normal navigation at any time"],
+        "concepts": ["Guided First Show", "Operator surface"],
+        "screenshot": "/desktop-views/guide-assign.png"
+      },
+      {
+        "id": "guide-verify",
+        "slug": "guide-verify",
+        "navLabel": "Verify",
+        "title": "Guided Setup: Verify",
+        "purpose": "Review the blockers, warnings, and evidence gathered from every stage before performing.",
+        "actions": ["Review the readiness rollup", "Resolve any outstanding blocker", "Perform once every blocker clears"],
+        "concepts": ["Guided First Show", "Readiness rollup"],
+        "operatingNotes": ["Perform is the only control anywhere in the guide that a blocker disables; every stage and every other workspace stays fully editable regardless."],
+        "screenshot": "/desktop-views/guide-verify.png"
+      }
+    ]
+  }
 }
