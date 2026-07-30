@@ -44,6 +44,16 @@ func (j *jobObject) assign(pid uint32) error {
 	return nil
 }
 
+// peakMemoryBytes always returns errMemoryUsageUnsupported: Windows is
+// the only qualified and supported v1 platform (STATE.md), so a non-
+// Windows build has no real job accounting to read. This sentinel is
+// what makes startMemoryWatch (memorywatch.go) stop its polling loop
+// immediately here instead of polling forever against a platform that
+// can never answer.
+func (j *jobObject) peakMemoryBytes() (uint64, error) {
+	return 0, errMemoryUsageUnsupported
+}
+
 // Close kills the process assign recorded, if any -- the process-tree
 // kill fallback this platform relies on in place of a real Job Object.
 // Idempotent: a second call is a no-op.

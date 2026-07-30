@@ -185,16 +185,27 @@ const memoryExhaustionCorroborationPercent = 50
 
 // v8AllocationFailureSignatures are the lowercased V8/Deno out-of-memory
 // substrings classifyMemoryExhaustion looks for in an already-redacted
-// stderr tail: the exact string 08-VERIFICATION.md recorded from the
-// real repro (array buffer allocation failed), plus the two other known
-// V8 OOM shapes. This list is only ever a corroborating signal and never
-// the sole basis for a reclassification, because a script controls its
-// own stderr and could forge any of these strings (T-08G-02) -- see the
-// peakBytes corroboration check in classifyMemoryExhaustion below.
+// stderr tail: the exact string 08-13-SUMMARY.md's real repro recorded
+// (array buffer allocation failed), the two other well-known V8 OOM
+// shapes, and (found empirically during this plan's own real-Deno
+// acceptance pass against a genuinely provisioned toolchain, 08-14-
+// PLAN.md Task 2) V8's uncatchable "Fatal JavaScript out of memory"
+// engine crash -- the same Job Object memory ceiling produces either
+// shape nondeterministically depending on which allocation loses the
+// race first: an explicit script-level `new ArrayBuffer`/typed-array
+// call (the catchable RangeError) or V8's own internal GC trying to
+// grow/promote its managed heap (the uncatchable engine-level abort).
+// Both are genuine V8-authored OOM signals, never text a script could
+// plausibly produce on its own via console output. This list is only
+// ever a corroborating signal and never the sole basis for a
+// reclassification, because a script controls its own stderr and could
+// forge any of these strings (T-08G-02) -- see the peakBytes
+// corroboration check in classifyMemoryExhaustion below.
 var v8AllocationFailureSignatures = []string{
 	"array buffer allocation failed",
 	"javascript heap out of memory",
 	"reached heap limit",
+	"fatal javascript out of memory",
 }
 
 // memoryTriggerBytes resolves limits' MB ceiling into the byte threshold
