@@ -426,7 +426,7 @@ Plans:
   3. Before execution, a user can inspect and assign script capabilities, deadlines, rate limits, and resource limits; the runtime has no ambient filesystem, network, environment, subprocess, native-code, or uncached dependency access.
   4. A user can inspect structured logs, diagnostics, source locations, command outcomes, and cancellation state, and can terminate a runaway, crashed, or blocked script without interrupting playback or Art-Net.
 
-**Plans:** 13/14 plans executed (08-14 is a gap-closure plan from 08-VERIFICATION.md)
+**Plans:** 14/14 plans executed
 
 Plans:
 **Wave 1**
@@ -471,7 +471,7 @@ Plans:
 
 **Gap closure** *(from 08-VERIFICATION.md, status: gaps_found)*
 
-- [ ] 08-14-PLAN.md — Proactive Job Object memory monitor so a memory-limit kill renders its named Copywriting Contract sentence instead of a raw V8 RangeError
+- [x] 08-14-PLAN.md — Proactive Job Object memory monitor so a memory-limit kill renders its named Copywriting Contract sentence instead of a raw V8 RangeError
 
 **UI hint:** yes
 **Research:** Deeper phase research required for Deno distribution, offline dependency policy, process and IPC isolation, Windows CPU/memory enforcement, debugger scope, supervision, cancellation, and defensible sandbox claims.
@@ -561,7 +561,7 @@ Plans:
 | 5. Durable Shows and Recovery | 5/5 | Complete    | 2026-07-23 |
 | 6. Wails Authoring and Operator Surface | 12/12 | Complete    | 2026-07-24 |
 | 7. Versioned External Control API | 15/15 | Complete    | 2026-07-25 |
-| 8. Isolated TypeScript Automation | 13/13 | Complete    | 2026-07-27 |
+| 8. Isolated TypeScript Automation | 14/14 | In Progress|  |
 | 9. Front-Door UI Completion | 7/7 | In Progress|  |
 | 10. Provider-Neutral AI and Bounded Autonomy | 0/TBD | Not started | - |
 | 11. Windows Release Qualification | 0/TBD | Not started | - |
