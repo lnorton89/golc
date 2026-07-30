@@ -152,6 +152,37 @@ func TestFixtureInspectRoute(t *testing.T) {
 			t.Fatalf("expected GOLC_FIXTURE_YAML_INVALID on Stderr, got %q", result.Stderr)
 		}
 	})
+
+	// TestFixtureInspectRoute/an OFL-imported .json envelope inspects as
+	// valid, not GOLC_FIXTURE_YAML_INVALID proves the bug a library row
+	// (FixtureLibraryWorkspace.tsx, ListLocal-backed) reported "valid" while
+	// its own Inspect panel reported invalid: "fixture import --out" writes
+	// an ImportEnvelope{Definition, Provenance} JSON document, never a bare
+	// FixtureDefinition -- "fixture inspect" must decode that shape through
+	// DecodeEnvelope (like ListDirectory's own .json branch already does),
+	// not fixture.Decode's YAML-only bare-definition path.
+	t.Run("an OFL-imported .json envelope inspects as valid, not GOLC_FIXTURE_YAML_INVALID", func(t *testing.T) {
+		corpusPath := filepath.Join(oflCorpusDir(t), "chauvet-dj_led-par-64-tri-b.json")
+		importedPath := filepath.Join(root, "imported-for-inspect.json")
+
+		importResult := registry.Execute(command.Request{Root: root, Args: []string{
+			"fixture", "import", "--ofl-file", corpusPath, "--out", importedPath,
+		}})
+		if importResult.ExitCode != 0 {
+			t.Fatalf("expected the import to succeed (ExitCode 0), got %d (stderr: %s)", importResult.ExitCode, importResult.Stderr)
+		}
+
+		result := registry.Execute(command.Request{Root: root, Args: []string{"fixture", "inspect", importedPath}})
+		if result.ExitCode != 0 {
+			t.Fatalf("expected ExitCode 0 inspecting an imported .json envelope, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+		}
+		if !strings.Contains(string(result.Stdout), `"content_hash"`) {
+			t.Fatalf("expected a pinned content_hash in Stdout, got %s", result.Stdout)
+		}
+		if !strings.Contains(string(result.Stdout), `"ofl:`) {
+			t.Fatalf("expected the envelope's own OFL provenance source (not a recomputed path-based one), got %s", result.Stdout)
+		}
+	})
 }
 
 // oflCorpusDir resolves the repository's pinned offline OFL test corpus

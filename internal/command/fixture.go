@@ -130,10 +130,49 @@ func fixtureInspectSource(root, resolvedPath string) string {
 	return "external:" + filepath.Base(resolvedPath)
 }
 
+// decodeFixtureFileForInspect decodes a fixture file for "fixture inspect"
+// (and its FixtureLibraryService.Inspect/PreviewFile callers), branching on
+// file extension exactly as internal/fixture.ListDirectory's own scan does
+// (GOLC_FIXTURE_INSPECT_JSON_ENVELOPE fix): a .json file is the "fixture
+// import --out" envelope shape (ImportEnvelope{Definition, Provenance}),
+// never a bare FixtureDefinition document, so it must decode through
+// DecodeEnvelope and keep the envelope's own already-computed Provenance
+// (its Source/Warnings/ValidationResult reflect the OFL import that
+// produced it) -- fixture.Decode rejects that shape outright
+// (GOLC_FIXTURE_YAML_INVALID: unknown top-level "definition"/"provenance"
+// fields), which is exactly the bug this fixes: a library row ListLocal
+// projects as "valid" (it already takes this same .json branch) inspecting
+// as invalid. A .yaml/.yml file continues to decode as a bare hand-authored
+// FixtureDefinition with no pre-existing Provenance, so one is still built
+// fresh via fixture.NewProvenance.
+func decodeFixtureFileForInspect(root, resolvedPath string, data []byte) (fixture.Identity, fixture.Provenance, error) {
+	if strings.EqualFold(filepath.Ext(resolvedPath), ".json") {
+		envelope, err := fixture.DecodeEnvelope(data)
+		if err != nil {
+			return fixture.Identity{}, fixture.Provenance{}, err
+		}
+		identity, err := fixture.Pin(envelope.Definition)
+		if err != nil {
+			return fixture.Identity{}, fixture.Provenance{}, err
+		}
+		return identity, envelope.Provenance, nil
+	}
+
+	def, err := fixture.Decode(data)
+	if err != nil {
+		return fixture.Identity{}, fixture.Provenance{}, err
+	}
+	identity, err := fixture.Pin(def)
+	if err != nil {
+		return fixture.Identity{}, fixture.Provenance{}, err
+	}
+	return identity, fixture.NewProvenance(def, identity, fixtureInspectSource(root, resolvedPath)), nil
+}
+
 // runFixtureInspect serves the self-registered "fixture inspect" route.
 // It never writes anything (D-02/D-03: read-only, file-level share):
 // success and failure alike only read the given file and print a result.
-// On success it pins the decoded fixture (FIXT-05), builds its Provenance
+// On success it pins the decoded fixture (FIXT-05), resolves its Provenance
 // (FIXT-06), and emits both through the allowlisted fixtureInspectView
 // envelope; on decode/pin/encode failure it returns ExitCode 2 with the
 // underlying GOLC_FIXTURE_* diagnostic on Stderr.
@@ -149,17 +188,10 @@ func runFixtureInspect(request Request) Result {
 		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil, "GOLC_FIXTURE_READ_FAILED: %v\n", err)}
 	}
 
-	def, err := fixture.Decode(data)
+	identity, provenance, err := decodeFixtureFileForInspect(request.Root, resolvedPath, data)
 	if err != nil {
 		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
 	}
-
-	identity, err := fixture.Pin(def)
-	if err != nil {
-		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
-	}
-
-	provenance := fixture.NewProvenance(def, identity, fixtureInspectSource(request.Root, resolvedPath))
 
 	view := fixtureInspectView{
 		SchemaVersion:    identity.SchemaVersion,
