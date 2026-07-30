@@ -2656,6 +2656,34 @@
       "source": ".planning/phases/08-isolated-typescript-automation/08-13-PLAN.md"
     },
     {
+      "local_id": "plan:08-14",
+      "kind": "plan",
+      "parent_local_id": "phase:08",
+      "display": "Plan 08-14",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-14-PLAN.md"
+    },
+    {
+      "local_id": "task:08-14.1",
+      "kind": "task",
+      "parent_local_id": "plan:08-14",
+      "display": "Task 1: Memory-pressure decision functions and the polling monitor (platform-independent)",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-14-PLAN.md"
+    },
+    {
+      "local_id": "task:08-14.2",
+      "kind": "task",
+      "parent_local_id": "plan:08-14",
+      "display": "Task 2: Read-only Job Object peak-memory query and session.go wiring",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-14-PLAN.md"
+    },
+    {
+      "local_id": "task:08-14.3",
+      "kind": "task",
+      "parent_local_id": "plan:08-14",
+      "display": "Task 3: Copywriting Contract branch in the debug panel and full cross-layer regression",
+      "source": ".planning/phases/08-isolated-typescript-automation/08-14-PLAN.md"
+    },
+    {
       "local_id": "phase:09",
       "kind": "phase",
       "parent_local_id": "milestone:v1",
@@ -5891,6 +5919,38 @@
     },
     {
       "repo_id": "plan:08-13",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:08-14",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-14.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-14.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:08-14.3",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,
