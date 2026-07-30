@@ -4,14 +4,14 @@ milestone: v1.0-shipped
 milestone_name: milestone
 status: phase_not_planned
 stopped_at: Phase 9 UI-SPEC approved
-last_updated: "2026-07-30T00:15:00.000Z"
-last_activity: 2026-07-29
-last_activity_desc: "Completed quick task 260729-nfn: Separate the Desktop Views screenshot stage from the selected-view detail and deploy production"
+last_updated: "2026-07-30T16:45:24.346Z"
+last_activity: 2026-07-30
+last_activity_desc: Phase 08 execution started
 progress:
   total_phases: 9
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 106
-  completed_plans: 99
+  completed_plans: 106
 current_phase: 09
 current_phase_name: front-door-ui-completion
 ---
@@ -23,13 +23,13 @@ current_phase_name: front-door-ui-completion
 See: .planning/PROJECT.md (updated 2026-07-27)
 
 **Core value:** An operator can author a modular show once, adapt its fixture pools to different deployments in one or two actions, and hand a simple controller surface to another person for reliable playback.
-**Current focus:** Phase 09 — front-door-ui-completion
+**Current focus:** Phase 08 — isolated-typescript-automation
 
 ## Current Position
 
 Milestone v1.0: COMPLETE (Phases 1-8, 99/99 plans, shipped 2026-07-27)
 Next: Phase 9 (Front-Door UI Completion) — inserted 2026-07-27, not yet planned.
-Last activity: 2026-07-29 — Completed quick task 260729-nfn: Separate the Desktop Views screenshot stage from the selected-view detail and deploy production
+Last activity: 2026-07-30 — Phase 08 execution started
 
 Note: Phase 9 depends on Phase 8 (satisfied). Phase 10 (AI autonomy) depends on Phases 2/6/7/8/9, Phase 11 (Windows) depends on Phases 1-10, and Phase 12 (Telemetry) depends on Phase 11. These phases remain active (not archived) in `.planning/ROADMAP.md` since they were carried forward rather than shipped as part of v1.0.
 
