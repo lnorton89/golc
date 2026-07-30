@@ -567,6 +567,17 @@ func (h *Host) runDispatchIO(run *Run, stdin io.Writer, stdout, stderr io.Reader
 				Level: "stderr", Message: redacted, Source: "stderr",
 			})
 		}
+		if err := scanner.Err(); err != nil {
+			redacted := security.Redact(err.Error())
+			stderrTail.Write([]byte(redacted + "\n"))
+			stderrLogsMu.Lock()
+			outcome.Logs = appendBoundedLog(outcome.Logs, LogLine{Level: "stderr", Message: redacted})
+			stderrLogsMu.Unlock()
+			PublishScriptEvent(ScriptEvent{
+				Kind: ScriptEventLog, RunID: run.RunID, ScriptName: run.ScriptName, At: time.Now(),
+				Level: "stderr", Message: redacted, Source: "stderr",
+			})
+		}
 	}()
 
 	scanner := newFrameReader(stdout)
