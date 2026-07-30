@@ -239,3 +239,73 @@ func TestNormalizeCorpusFixturesAllImport(t *testing.T) {
 		})
 	}
 }
+
+// pixelGroupModeOFL is a minimal, hand-written (not real-corpus) fixture
+// proving resolveModeChannels follows OFL's own "$pixelKey"-substitution
+// convention: a mode may reference a template channel not by its literal
+// templateChannels key, but by one concrete pixel/pixelGroup instance
+// name generated from it (here "Red Master"/"Green Master"/"Blue
+// Master", substituting the pixelGroup "Master" -- OFL's own convention
+// for a group covering every pixel, exactly as real-world fixtures like
+// chauvet-dj's COLORband PiX declare). Before this fix, resolveModeChannels
+// only ever matched a mode's channel-key entries verbatim against
+// availableChannels/templateChannels, so this exact, common real-world
+// convention always resolved to zero channel slots and rejected the
+// whole fixture with GOLC_FIXTURE_CHANNEL_LAYOUT_MISSING. "Amber
+// $pixelKey" is deliberately never referenced by any mode, proving the
+// fix is selective: only a template channel a mode actually exposes as
+// one discrete, whole-fixture channel is folded into Capabilities --
+// one no mode references stays exactly as before, an explicit
+// unmodeled-construct warning.
+const pixelGroupModeOFL = `{
+  "name": "Synthetic Pixel Master Fixture",
+  "matrix": { "pixelKeys": [[["1", "2"]]] },
+  "availableChannels": {
+    "Dimmer": { "capability": { "type": "Intensity" } }
+  },
+  "templateChannels": {
+    "Red $pixelKey": { "capability": { "type": "ColorIntensity", "color": "Red" } },
+    "Green $pixelKey": { "capability": { "type": "ColorIntensity", "color": "Green" } },
+    "Blue $pixelKey": { "capability": { "type": "ColorIntensity", "color": "Blue" } },
+    "Amber $pixelKey": { "capability": { "type": "ColorIntensity", "color": "Amber" } }
+  },
+  "modes": [
+    {
+      "name": "3-channel",
+      "channels": ["Red Master", "Green Master", "Blue Master"]
+    }
+  ]
+}`
+
+func TestNormalizeResolvesPixelGroupModeChannels(t *testing.T) {
+	def, provenance, err := ofl.Normalize([]byte(pixelGroupModeOFL), "test-mfg/pixel-master")
+	if err != nil {
+		t.Fatalf("Normalize failed for a mode using OFL's own pixelGroup \"$pixelKey\"-substitution convention (\"Red Master\" etc.): %v", err)
+	}
+
+	if len(def.Modes) != 1 || len(def.Modes[0].Channels) != 3 {
+		t.Fatalf("expected the \"3-channel\" mode to resolve all 3 pixelGroup-substituted channels, got %+v", def.Modes)
+	}
+	for _, slot := range def.Modes[0].Channels {
+		if slot.Type != fixture.CapabilityColor {
+			t.Fatalf("expected every resolved channel slot to be CapabilityColor, got %+v", def.Modes[0].Channels)
+		}
+	}
+
+	foundColor := false
+	for _, capabilityType := range capabilityTypes(def) {
+		if capabilityType == fixture.CapabilityColor {
+			foundColor = true
+		}
+	}
+	if !foundColor {
+		t.Fatalf("expected the referenced \"Red/Green/Blue $pixelKey\" template channels to fold into a Color capability, got %+v", def.Capabilities)
+	}
+
+	if warningsMention(provenance.Warnings, "Red $pixelKey") || warningsMention(provenance.Warnings, "Green $pixelKey") || warningsMention(provenance.Warnings, "Blue $pixelKey") {
+		t.Fatalf("expected no unmodeled-construct warning for a template channel a mode actually references, got %+v", provenance.Warnings)
+	}
+	if !warningsMention(provenance.Warnings, "Amber $pixelKey") {
+		t.Fatalf("expected the unreferenced \"Amber $pixelKey\" template channel to still surface as an unmodeled-construct warning, got %+v", provenance.Warnings)
+	}
+}
