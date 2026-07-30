@@ -120,6 +120,7 @@ func main() {
 			// app.go itself.
 			app.OnStartup(ctx)
 			safetyService.StartStatusPush(ctx)
+			scriptService.StartScriptEventStream(ctx)
 
 			// MIDI hardware remains optional (PROJECT.md): attaching a
 			// live driver never blocks or fails startup. midi_driver.go's
@@ -154,6 +155,7 @@ func main() {
 			// subsystems (hotkeys, daemon child process) shut down.
 			midiService.DetachDriver()
 			midiService.StopFeedback()
+			scriptService.StopScriptEventStream()
 			safetyService.StopStatusPush()
 			app.OnShutdown(ctx)
 		},
