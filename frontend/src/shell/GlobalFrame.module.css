@@ -4,7 +4,15 @@
   align-items: center;
   gap: var(--space-md);
   padding: 0 var(--space-md);
-  border-bottom: 1px solid var(--line);
+  /* --line alone (1px solid var(--line)) is nearly invisible against this
+     row's own --panel-dim background -- the two tokens sit too close in
+     lightness in the light theme, so the full-width separator under
+     Scene/Layers/Bar read as missing rather than as a hairline. Blending
+     toward --ink (light theme) / --page (dark theme) darkens/lightens it
+     just enough to read as a deliberate edge across the entire bar,
+     without touching the shared --line token every other hairline in the
+     app still relies on. */
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, var(--ink) 45%);
   background: var(--panel-dim);
   overflow: hidden;
 }

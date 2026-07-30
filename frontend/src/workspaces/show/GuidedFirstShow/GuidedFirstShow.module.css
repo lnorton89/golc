@@ -84,6 +84,15 @@
   background: var(--color-primary-soft);
 }
 
+/* Mirrors shell/CommandRail.module.css's own .item:focus-visible fix: this
+   rail's only active/focus language is a left-border accent, never a boxed
+   outline, so the browser's default focus rectangle read as a foreign
+   element sitting on top of the current step. */
+.guide-step:focus-visible {
+  outline: none;
+  border-left-color: var(--color-primary);
+}
+
 .contentArea {
   min-width: 0;
   min-height: 0;

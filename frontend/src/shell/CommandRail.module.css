@@ -4,10 +4,39 @@
   gap: var(--space-md);
   padding: var(--space-md) var(--space-sm);
   overflow-y: auto;
+  /* AppShell.module.css's own .rail (this <nav>'s parent grid item)
+     stretches to fill the full "rail" grid row by default, but this
+     inner <nav> is just a normal block child of that div -- it doesn't
+     inherit that stretch and was only ever as tall as its own nav-item
+     content, leaving the wrapper's own bottom portion showing through
+     with none of this rail's background. This project has no global
+     box-sizing: border-box reset, so height: 100% alone would add this
+     rule's own padding/border on top of the parent's full height and
+     overflow it by exactly that amount -- border-box keeps 100% meaning
+     the full outer box, padding and border included. */
+  box-sizing: border-box;
+  height: 100%;
   min-height: 0;
   border-right: 1px solid var(--line);
-  background: var(--page);
+  /* A tad darker than --page (this rail's own long-standing background)
+     so the sidebar reads as its own surface instead of blending flush
+     into the canvas -- color-mix with black darkens reliably in both
+     themes, unlike reaching for --panel-dim (that token is defined
+     relative to --panel/--page in a way that isn't guaranteed darker
+     than --page in every theme). */
+  background: color-mix(in srgb, var(--page) 92%, black 8%);
   transition: opacity var(--motion-tap);
+}
+
+/* overflow-y: auto above makes this <nav> itself a focusable scroll
+   container in Chromium (independent of any child button's own focus
+   state) -- clicking anywhere inside it, not just Tab-ing to an .item,
+   could leave a default boxed focus ring drawn around the *entire* rail.
+   Every focus/active treatment in this rail is a left-border accent on
+   .item (see .item:focus-visible below), never a full rectangle around
+   the whole nav, so that default ring reads as a foreign stray outline. */
+.rail:focus-visible {
+  outline: none;
 }
 
 .railDimmed {
