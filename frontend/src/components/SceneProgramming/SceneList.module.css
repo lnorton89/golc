@@ -77,27 +77,23 @@
    row itself extends it under the actions too -- but the button's OWN
    background would then stack on top of this identical semi-transparent
    color, reading as a visibly darker patch behind just the label/meta
-   instead of one flat color across the whole row. The `> button[type="
-   button"]` rules below suppress the button's own background so the row
-   is the single source of that color (its accent border-left is a solid
-   color, not semi-transparent, so it never double-stacks); the attribute
-   selector is a deliberate specificity boost so this reliably wins over
-   ListRow.module.css's own button.row(:hover) rules regardless of CSS
-   bundle order, rather than relying on a same-specificity tie-break. */
+   instead of one flat color across the whole row. The row is made the
+   SINGLE, unconditional source of both colors by force-disabling the
+   button's own background outright (!important, deliberately) rather
+   than trying to win a same-specificity tie against ListRow.module.css's
+   own button.row(:hover)/.row.selected rules state-by-state -- its accent
+   border-left is a solid color, not semi-transparent, so it never
+   double-stacks and still renders normally underneath. */
+.sceneRow > button {
+  background: transparent !important;
+}
+
 .sceneRow.selected {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
-.sceneRow.selected > button[type="button"] {
-  background: transparent;
-}
-
 .sceneRow:hover:not(.selected) {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-
-.sceneRow:hover:not(.selected) > button[type="button"] {
-  background: transparent;
 }
 
 .renameRow {
