@@ -127,6 +127,22 @@
       ]
     },
     {
+      "label": "Perform",
+      "views": [
+        {
+          "id": "perform-desk",
+          "slug": "perform-desk",
+          "navLabel": "Desk",
+          "title": "Desk",
+          "purpose": "Visualize and manually override every patched fixture's live DMX channels, one fader per channel, grouped by universe.",
+          "actions": ["Review live per-channel output", "Override a channel with a fader", "Release an override back to programmed output"],
+          "concepts": ["Universe", "Manual override", "Live output"],
+          "operatingNotes": ["A desk override always feeds through Blackout/Stop-All/master scaling, and takes effect independent of whether a scene is active."],
+          "screenshot": "/desktop-views/perform-desk.png"
+        }
+      ]
+    },
+    {
       "label": "Output",
       "views": [
         {

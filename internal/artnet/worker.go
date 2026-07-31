@@ -95,7 +95,12 @@ type artNetSender interface {
 // per-tick lookup cost. Safety is the daemon-resident safetyState the tick
 // goroutine reads lock-free every tick (PLAY-06/08/09); a nil Safety
 // behaves as identity (no override), preserving every existing caller's
-// behavior from before this field existed.
+// behavior from before this field existed. Desk is the daemon-resident
+// manual-override ("Simple Desk") state (desk.go) the tick goroutine reads
+// lock-free every tick, composited onto the scene-derived Frame BEFORE
+// Safety's own transform; a nil Desk behaves as identity (no override),
+// preserving every existing caller's behavior from before this field
+// existed.
 type WorkerConfig struct {
 	Frames      FrameSource
 	Instances   []deployment.Instance
@@ -103,6 +108,7 @@ type WorkerConfig struct {
 	Resolve     ResolveFunc
 	Targets     map[int][]Target
 	Safety      *safetyState
+	Desk        *deskState
 	LocalIP     net.IP
 	SendTimeout time.Duration
 	Health      *Health
@@ -150,6 +156,7 @@ type Worker struct {
 	targetStates        map[int][]*targetState
 
 	safety     *safetyState
+	desk       *deskState
 	membership map[uuid.UUID][]uuid.UUID
 
 	localIP     net.IP
@@ -200,6 +207,7 @@ func NewWorker(cfg WorkerConfig) *Worker {
 		universes:           universes,
 		targetStates:        map[int][]*targetState{},
 		safety:              cfg.Safety,
+		desk:                cfg.Desk,
 		membership:          buildMembership(cfg.Instances, cfg.Groups),
 		localIP:             cfg.LocalIP,
 		sendTimeout:         sendTimeout,
@@ -325,13 +333,28 @@ func (w *Worker) nextSeq(universe int) uint8 {
 // on the very next tick, with no Worker restart (06-PATTERNS.md's "daemon
 // as single owner of runtime-mutable state" -- safety flags are the one
 // exception read outside d.mu, by design).
+//
+// applyDeskOverrides (desk.go) runs first, before applyOverrides: a manual
+// desk fader must always be subject to Blackout/Stop-All/master scaling,
+// never bypass it, so the desk composite feeds INTO the safety transform,
+// not the other way around. A nil frame with no active desk overrides is
+// still the existing "nothing to do" no-op (an idle engine with no scene
+// and no desk activity ticks for nothing); a nil frame WITH desk overrides
+// active is treated as an empty Frame{} so a desk fader can drive live
+// output even with no scene programmed at all, exactly like a real
+// lighting console's manual desk.
 func (w *Worker) tick(frame *playback.Frame) {
+	deskOverrides := w.desk.currentOverrides()
 	if frame == nil {
-		return
+		if len(deskOverrides) == 0 {
+			return
+		}
+		frame = &playback.Frame{}
 	}
 	w.health.RecordFrame(time.Now())
 
-	overridden := applyOverrides(*frame, w.safety, w.membership)
+	withDesk := applyDeskOverrides(*frame, deskOverrides)
+	overridden := applyOverrides(withDesk, w.safety, w.membership)
 
 	for _, u := range w.universes {
 		buffers, err := Encode(overridden, w.instancesByUniverse[u], w.resolve)

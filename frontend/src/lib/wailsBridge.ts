@@ -642,10 +642,23 @@ export interface FixtureLibraryRowView {
   model: string;
   modes: string[];
   modeChannelCounts: Record<string, number>;
+  modeChannels: Record<string, ChannelSlotView[]>;
   fileName: string;
   source: string;
   status: string;
   detail: string;
+}
+
+/** ChannelSlotView mirrors internal/wails.ChannelSlotView's JSON shape
+ * exactly: one DMX channel's semantic capability type, same-type
+ * occurrence index, and 0-based position within its mode's ordered
+ * layout (index) -- the Desk workspace (Perform > Desk) computes a
+ * channel's live DMX address as instance.address + index, since a
+ * fixture's declared channel order IS its real wire order (D-16). */
+export interface ChannelSlotView {
+  index: number;
+  type: string;
+  occurrence: number;
 }
 
 /** FixtureLibraryView mirrors internal/wails.FixtureLibraryView's JSON
@@ -756,6 +769,29 @@ interface FixtureLibraryServiceBinding {
   PreviewFile(path: string): Promise<FixturePreviewView>;
 }
 
+/** DeskUniverseValuesView mirrors internal/wails.DeskUniverseValuesView's
+ * JSON shape exactly: one universe's final per-tick DMX buffer, already
+ * decoded into plain 0-255 integers (already inclusive of any active desk
+ * override -- see svc_desk.go's package doc comment). */
+export interface DeskUniverseValuesView {
+  universe: number;
+  values: number[];
+}
+
+/** DeskServiceBinding mirrors internal/wails/svc_desk.go's bound methods
+ * field-for-field: every mutation forwards to the existing "artnet desk
+ * set"/"artnet desk clear"/"artnet desk clear-all" command routes (a
+ * QLC+-style Simple Desk live channel-write path, independent of any
+ * active scene), and FetchUniverseValues is a read-only projection of
+ * "artnet status"'s own per-universe final DMX buffer. */
+interface DeskServiceBinding {
+  SetAttribute(instanceID: string, capability: string, value: number): Promise<WailsResult>;
+  ClearAttribute(instanceID: string, capability: string): Promise<WailsResult>;
+  ClearInstance(instanceID: string): Promise<WailsResult>;
+  ClearAll(): Promise<WailsResult>;
+  FetchUniverseValues(): Promise<DeskUniverseValuesView[]>;
+}
+
 // Single, centralized `window.go.wails` shape (Wails v2's runtime-injected
 // bridge, one property per struct bound in cmd/golc-desktop/main.go's
 // options.App{Bind: [...]}). Every component imports its binding call
@@ -782,6 +818,7 @@ declare global {
         ShowService?: ShowServiceBinding;
         ScriptService?: ScriptServiceBinding;
         FixtureLibraryService?: FixtureLibraryServiceBinding;
+        DeskService?: DeskServiceBinding;
         App?: AppBinding;
       };
     };
@@ -2138,4 +2175,82 @@ export async function windowIsMaximised(): Promise<boolean> {
  * Silent no-op when the bridge is absent. */
 export function windowClose(): void {
   window.runtime?.Quit?.();
+}
+
+function deskService(): DeskServiceBinding | undefined {
+  return window.go?.wails?.DeskService;
+}
+
+/** setDeskAttribute calls the bound DeskService.SetAttribute (the Desk
+ * workspace's fader-drag write path): value is the normalized [0,1]
+ * capability value. Returns bridgeUnavailableResult() when the bridge is
+ * absent, mirroring every other mutating bridge call in this file --
+ * callers use assertOk to convert a non-zero exitCode into a thrown
+ * error. */
+export async function setDeskAttribute(
+  instanceID: string,
+  capability: string,
+  value: number,
+): Promise<WailsResult> {
+  const svc = deskService();
+  if (!svc) return bridgeUnavailableResult();
+  try {
+    return await svc.SetAttribute(instanceID, capability, value);
+  } catch (err) {
+    return { exitCode: 1, stdout: "", stderr: errorMessage(err) };
+  }
+}
+
+/** clearDeskAttribute calls the bound DeskService.ClearAttribute,
+ * releasing one channel's override back to scene-passthrough (the Desk
+ * workspace's per-fader "revert to programmed" control). */
+export async function clearDeskAttribute(instanceID: string, capability: string): Promise<WailsResult> {
+  const svc = deskService();
+  if (!svc) return bridgeUnavailableResult();
+  try {
+    return await svc.ClearAttribute(instanceID, capability);
+  } catch (err) {
+    return { exitCode: 1, stdout: "", stderr: errorMessage(err) };
+  }
+}
+
+/** clearDeskInstance calls the bound DeskService.ClearInstance, releasing
+ * every override on one instance at once. */
+export async function clearDeskInstance(instanceID: string): Promise<WailsResult> {
+  const svc = deskService();
+  if (!svc) return bridgeUnavailableResult();
+  try {
+    return await svc.ClearInstance(instanceID);
+  } catch (err) {
+    return { exitCode: 1, stdout: "", stderr: errorMessage(err) };
+  }
+}
+
+/** clearAllDeskOverrides calls the bound DeskService.ClearAll, releasing
+ * every manual desk override across every instance at once (the Desk
+ * workspace's own "release all faders" control). */
+export async function clearAllDeskOverrides(): Promise<WailsResult> {
+  const svc = deskService();
+  if (!svc) return bridgeUnavailableResult();
+  try {
+    return await svc.ClearAll();
+  } catch (err) {
+    return { exitCode: 1, stdout: "", stderr: errorMessage(err) };
+  }
+}
+
+/** fetchDeskUniverseValues calls the bound DeskService.FetchUniverseValues,
+ * returning an empty (never undefined) array when the bridge is
+ * unavailable or the call itself rejects -- mirrors listLocalFixtures'
+ * "never throws" contract. The Desk workspace polls this on its own
+ * cadence to visualize live per-channel values (already inclusive of any
+ * active desk override, see svc_desk.go's package doc comment). */
+export async function fetchDeskUniverseValues(): Promise<DeskUniverseValuesView[]> {
+  const svc = deskService();
+  if (!svc) return [];
+  try {
+    return await svc.FetchUniverseValues();
+  } catch {
+    return [];
+  }
 }
