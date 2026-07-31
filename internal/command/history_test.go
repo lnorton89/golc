@@ -567,15 +567,14 @@ func TestHistoryLiveActiveEdit(t *testing.T) {
 	}
 
 	// delete: "Spare" is a preset that is NOT referenced by any scene
-	// layer. Deleting the *actually-referenced* theme/chase/motion above
-	// would legitimately fail via GOLC_SCENE_LAYER_DANGLING_REFERENCE --
-	// that is show.Save's separate, always-on referential-integrity
-	// safeguard (CONTEXT threat T-03-01), not a live-edit workflow gate,
-	// and proving it is not what D-08 claims. This delete instead proves
-	// the distinct D-08 claim under test: a delete verb is never blocked
-	// merely because some scene happens to be active -- there is no
-	// global "an active scene exists" precondition anywhere in the delete
-	// handlers.
+	// layer, so this exercises the plain not-referenced path. Deleting the
+	// *actually-referenced* theme/chase/motion above would instead reset
+	// the referencing scene's layer to its default, un-refed state
+	// (scene.ScrubLayerRef) rather than failing -- deletion is never
+	// blocked by a scene reference, so it is also never blocked merely
+	// because some scene happens to be active. This delete proves the
+	// distinct D-08 claim under test: there is no global "an active scene
+	// exists" precondition anywhere in the delete handlers.
 	deleteResult := registry.Execute(command.Request{Root: root, Args: []string{
 		"preset", "delete", "Spare", "--show", showPath,
 	}})
