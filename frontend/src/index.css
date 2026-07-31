@@ -25,6 +25,15 @@
   --line: #d2ccc0;
   --accent: #1b44d9;
   --accent-dp: #1233a8;
+  /* hover-tint is the app's most-repeated interactive-row hover
+     treatment (CommandRail.module.css, SceneList.module.css,
+     ListRow.module.css, SettingsWorkspace.module.css,
+     GuidedFirstShow.module.css each hand-roll this exact 8% mix) --
+     declared once here as the source of truth for a plain hover state;
+     a selected/selected+hover state still needs its own stronger mix
+     (12-20%), so this token covers "hovering an otherwise-idle row"
+     only, not every accent-tint use. */
+  --hover-tint: color-mix(in srgb, var(--accent) 8%, transparent);
 
   /* Status vocabulary (semantic, not part of the 60/30/10 split) */
   --status-live: #1b44d9;
