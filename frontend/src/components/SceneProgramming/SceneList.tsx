@@ -5,7 +5,7 @@
 // (the sketch's own "what to avoid": permanently displaying every
 // look-creation form).
 import { useState } from "react";
-import { Plus, X, Check, Layers } from "lucide-react";
+import { Plus, X, Check, Layers, Pencil, Trash2 } from "lucide-react";
 
 import type { ProgSceneView } from "../../lib/wailsBridge";
 import Button from "../primitives/Button/Button";
@@ -18,12 +18,23 @@ interface SceneListProps {
   selectedName: string | null;
   onSelect: (name: string) => void;
   onCreate: (name: string, bars: number) => void;
+  onRename: (oldName: string, newName: string) => void;
+  onDelete: (name: string) => void;
 }
 
-export default function SceneList({ scenes, selectedName, onSelect, onCreate }: SceneListProps) {
+export default function SceneList({
+  scenes,
+  selectedName,
+  onSelect,
+  onCreate,
+  onRename,
+  onDelete,
+}: SceneListProps) {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [bars, setBars] = useState("4");
+  const [renamingName, setRenamingName] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   const handleCreate = () => {
     const trimmed = name.trim();
@@ -34,6 +45,27 @@ export default function SceneList({ scenes, selectedName, onSelect, onCreate }: 
     onCreate(trimmed, parsedBars);
     setName("");
     setCreating(false);
+  };
+
+  const handleStartRename = (sceneName: string) => {
+    setRenamingName(sceneName);
+    setRenameValue(sceneName);
+  };
+
+  const handleSaveRename = (sceneName: string) => {
+    const trimmed = renameValue.trim();
+    if (trimmed === "" || trimmed === sceneName) {
+      setRenamingName(null);
+      return;
+    }
+    onRename(sceneName, trimmed);
+    setRenamingName(null);
+  };
+
+  const handleDelete = (sceneName: string) => {
+    if (window.confirm(`Delete scene "${sceneName}"?`)) {
+      onDelete(sceneName);
+    }
   };
 
   return (
@@ -77,17 +109,52 @@ export default function SceneList({ scenes, selectedName, onSelect, onCreate }: 
           </p>
         ) : (
           <ul className={styles.list} aria-label="Scene list">
-            {scenes.map((scene) => (
-              <li key={scene.name}>
-                <ListRow
-                  label={scene.name}
-                  icon={Layers}
-                  meta={scene.active ? "LIVE" : `${scene.barsPerLoop}bar`}
-                  selected={scene.name === selectedName}
-                  onSelect={() => onSelect(scene.name)}
-                />
-              </li>
-            ))}
+            {scenes.map((scene) =>
+              renamingName === scene.name ? (
+                <li key={scene.name} className={styles.renameRow}>
+                  <input
+                    className={styles.input}
+                    type="text"
+                    value={renameValue}
+                    aria-label="Scene name"
+                    autoFocus
+                    onChange={(event) => setRenameValue(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") handleSaveRename(scene.name);
+                      if (event.key === "Escape") setRenamingName(null);
+                    }}
+                  />
+                  <Button variant="secondary" icon={Check} onClick={() => handleSaveRename(scene.name)} aria-label="Save" />
+                  <Button variant="secondary" icon={X} onClick={() => setRenamingName(null)} aria-label="Cancel" />
+                </li>
+              ) : (
+                <li key={scene.name} className={styles.sceneRow}>
+                  <ListRow
+                    label={scene.name}
+                    icon={Layers}
+                    meta={scene.active ? "LIVE" : `${scene.barsPerLoop}bar`}
+                    selected={scene.name === selectedName}
+                    onSelect={() => onSelect(scene.name)}
+                    actions={
+                      <span className={styles.rowActions}>
+                        <Button
+                          variant="secondary"
+                          icon={Pencil}
+                          onClick={() => handleStartRename(scene.name)}
+                          aria-label={`Rename ${scene.name}`}
+                        />
+                        <Button
+                          variant="destructive"
+                          icon={Trash2}
+                          onClick={() => handleDelete(scene.name)}
+                          aria-label={`Delete ${scene.name}`}
+                        />
+                      </span>
+                    }
+                  />
+                </li>
+              ),
+            )}
           </ul>
         )}
       </ScrollRegion>

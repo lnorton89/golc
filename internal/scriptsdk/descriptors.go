@@ -441,6 +441,8 @@ var sdkMethodTable = []sdkEntry{
 
 	// blend (authoring)
 	{"blend create", "blend.create", "Create a named blend preset.", show.APIKeyScopeAuthoring, BlendCreateParams{}, AckResult{}},
+	{"blend rename", "blend.rename", "Rename a blend preset, preserving its identity.", show.APIKeyScopeAuthoring, RenameParams{}, AckResult{}},
+	{"blend delete", "blend.remove", "Delete a blend preset by name.", show.APIKeyScopeAuthoring, NameShowParams{}, AckResult{}},
 
 	// theme (authoring)
 	{"theme create", "theme.create", "Create a named color theme.", show.APIKeyScopeAuthoring, NameShowParams{}, AckResult{}},

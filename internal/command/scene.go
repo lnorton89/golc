@@ -61,6 +61,31 @@ var _ = MustDeclareRoute(CommandRegistration{
 	Handler: runBlendCreate,
 })
 
+var _ = MustDeclareRoute(CommandRegistration{
+	Route:   "blend rename",
+	Summary: "Rename a blend preset, preserving its identity: blend rename <old-name> <new-name> --show <path>.",
+	Handler: runBlendRename,
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route:   "blend delete",
+	Summary: "Delete a blend preset by name: blend delete <name> --show <path>.",
+	Handler: runBlendDelete,
+})
+
+// blendByName returns the blend preset in blends whose Name matches name,
+// plus its index (so the caller can splice a mutated copy back into
+// place), mirroring internal/command/programming.go's themeByName/
+// chaseByName/motionByName.
+func blendByName(blends []scene.BlendPreset, name string) (scene.BlendPreset, int, bool) {
+	for i, b := range blends {
+		if b.Name == name {
+			return b, i, true
+		}
+	}
+	return scene.BlendPreset{}, -1, false
+}
+
 // sceneByName returns the scene in scenes whose Name matches name, plus its
 // index (so the caller can splice a mutated copy back into place).
 func sceneByName(scenes []scene.Scene, name string) (scene.Scene, int, bool) {
@@ -562,4 +587,73 @@ func runBlendCreate(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 	return Result{Stdout: fmt.Appendf(nil, "GOLC_BLEND_PRESET_CREATED: %s (%s)\n", newBlend.Name, newBlend.ID)}
+}
+
+// runBlendRename serves the self-registered "blend rename" route
+// (SCEN-07): load the ShowState at --show, resolve the target blend preset
+// by name, rename it (ID stable, via scene.RenameBlendPreset), and save
+// atomically. A not-found blend preset name fails with
+// GOLC_BLEND_PRESET_NOT_FOUND; a rename target colliding with an existing
+// blend preset name is rejected by show.Save's whole-State validation
+// (GOLC_BLEND_PRESET_DUPLICATE_NAME inside the wrapping
+// GOLC_SHOW_STATE_INVALID diagnostic). Nothing in the current schema
+// references a BlendPreset by ID (unlike theme/preset/chase/motion, which
+// a scene Layer.Ref can point at), so this never risks a dangling
+// reference.
+func runBlendRename(request Request) Result {
+	usage := "blend rename <old-name> <new-name> --show <path>"
+	oldName, newName, showPath, err := parseDomainRenameArgs("GOLC_BLEND_USAGE", usage, request.Args)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	state, err := show.Load(request.Root, showPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	target, index, found := blendByName(state.BlendPresets, oldName)
+	if !found {
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_BLEND_PRESET_NOT_FOUND: no blend preset named %q exists\n", oldName)}
+	}
+	renamed, err := scene.RenameBlendPreset(target, newName)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	state.BlendPresets[index] = renamed
+
+	if err := show.Save(request.Root, showPath, state); err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_BLEND_PRESET_RENAMED: %s -> %s (%s)\n", oldName, renamed.Name, renamed.ID)}
+}
+
+// runBlendDelete serves the self-registered "blend delete" route
+// (SCEN-07): load the ShowState at --show, remove the named blend preset,
+// and save atomically. A not-found blend preset name fails with
+// GOLC_BLEND_PRESET_NOT_FOUND. Unlike theme/preset/chase/motion delete,
+// this never risks a dangling scene-layer reference -- nothing in the
+// current schema references a BlendPreset by ID.
+func runBlendDelete(request Request) Result {
+	usage := "blend delete <name> --show <path>"
+	name, showPath, err := parseDomainNameShowArgs("GOLC_BLEND_USAGE", usage, request.Args)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	state, err := show.Load(request.Root, showPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	_, index, found := blendByName(state.BlendPresets, name)
+	if !found {
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_BLEND_PRESET_NOT_FOUND: no blend preset named %q exists\n", name)}
+	}
+	state.BlendPresets = append(state.BlendPresets[:index], state.BlendPresets[index+1:]...)
+
+	if err := show.Save(request.Root, showPath, state); err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_BLEND_PRESET_DELETED: %s\n", name)}
 }

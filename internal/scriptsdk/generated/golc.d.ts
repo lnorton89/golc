@@ -291,6 +291,10 @@ declare namespace golc {
   namespace blend {
     // Create a named blend preset. (scope: authoring)
     function create(params: BlendCreateParams): Promise<AckResult>;
+    // Delete a blend preset by name. (scope: authoring)
+    function remove(params: NameShowParams): Promise<AckResult>;
+    // Rename a blend preset, preserving its identity. (scope: authoring)
+    function rename(params: RenameParams): Promise<AckResult>;
   }
   namespace chase {
     // Create a named chase. (scope: authoring)

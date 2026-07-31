@@ -62,3 +62,27 @@
   font-family: "Archivo", system-ui, sans-serif;
   font-size: var(--text-sm);
 }
+
+.sceneRow {
+  display: flex;
+  align-items: center;
+}
+
+.renameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 2px 0;
+}
+
+.renameRow .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex: none;
+}

@@ -78,6 +78,20 @@
   color: var(--muted);
 }
 
+.renameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex: none;
+  margin-left: auto;
+}
 
 .divider {
   height: 1px;

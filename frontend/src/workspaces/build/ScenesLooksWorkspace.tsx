@@ -17,12 +17,25 @@ import {
   createMotion,
   createScene,
   createTheme,
+  deleteBlend,
+  deleteChase,
+  deleteMotion,
+  deletePreset,
+  deleteScene,
+  deleteTheme,
   errorMessage,
   listProgramming,
   offlineProgrammingView,
   programmerSet,
   recordPreset,
+  renameBlend,
+  renameMotion,
+  renamePreset,
+  renameScene,
+  renameTheme,
   setSceneLayer,
+  updateChase,
+  type ProgChaseView,
   type ProgLookView,
   type ProgPresetView,
   type ProgrammingView,
@@ -41,7 +54,7 @@ import styles from "./ScenesLooksWorkspace.module.css";
 /** looksForKind returns the reusable-look list a given layer kind's picker
  * should source from: base_look -> presets, color_theme -> themes,
  * chase -> chases, motion -> motion presets. */
-function looksForKind(kind: string, view: ProgrammingView): (ProgLookView | ProgPresetView)[] {
+function looksForKind(kind: string, view: ProgrammingView): (ProgLookView | ProgPresetView | ProgChaseView)[] {
   switch (kind) {
     case "base_look":
       return view.presets;
@@ -193,6 +206,129 @@ export default function ScenesLooksWorkspace() {
     }
   };
 
+  const handleRenameScene = async (oldName: string, newName: string) => {
+    try {
+      const result = await renameScene(oldName, newName);
+      assertOk(result, "RenameScene");
+      if (selectedSceneName === oldName) {
+        setSelectedSceneName(newName);
+      }
+      await refresh();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const handleDeleteScene = async (name: string) => {
+    try {
+      const result = await deleteScene(name);
+      assertOk(result, "DeleteScene");
+      await refresh();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const handleRenameTheme = async (oldName: string, newName: string) => {
+    try {
+      const result = await renameTheme(oldName, newName);
+      assertOk(result, "RenameTheme");
+      await refresh();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const handleDeleteTheme = async (name: string) => {
+    try {
+      const result = await deleteTheme(name);
+      assertOk(result, "DeleteTheme");
+      await refresh();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const handleRenameMotion = async (oldName: string, newName: string) => {
+    try {
+      const result = await renameMotion(oldName, newName);
+      assertOk(result, "RenameMotion");
+      await refresh();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const handleDeleteMotion = async (name: string) => {
+    try {
+      const result = await deleteMotion(name);
+      assertOk(result, "DeleteMotion");
+      await refresh();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const handleRenamePreset = async (oldName: string, newName: string) => {
+    try {
+      const result = await renamePreset(oldName, newName);
+      assertOk(result, "RenamePreset");
+      await refresh();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const handleDeletePreset = async (name: string) => {
+    try {
+      const result = await deletePreset(name);
+      assertOk(result, "DeletePreset");
+      await refresh();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const handleUpdateChase = async (name: string, newName: string, unit: string, stepDuration: number) => {
+    try {
+      const result = await updateChase(name, newName, unit, stepDuration);
+      assertOk(result, "UpdateChase");
+      await refresh();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const handleDeleteChase = async (name: string) => {
+    try {
+      const result = await deleteChase(name);
+      assertOk(result, "DeleteChase");
+      await refresh();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const handleRenameBlend = async (oldName: string, newName: string) => {
+    try {
+      const result = await renameBlend(oldName, newName);
+      assertOk(result, "RenameBlend");
+      await refresh();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const handleDeleteBlend = async (name: string) => {
+    try {
+      const result = await deleteBlend(name);
+      assertOk(result, "DeleteBlend");
+      await refresh();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
   const inspectorPortal = useInspectorSlot(
     <LookBrowser
       view={view}
@@ -202,6 +338,16 @@ export default function ScenesLooksWorkspace() {
       onCreateBlend={(name, duration, curve) => void handleCreateBlend(name, duration, curve)}
       onRecordPreset={(instanceId, attrs, kind, name) => void handleRecordPreset(instanceId, attrs, kind, name)}
       presetLoading={presetLoading}
+      onRenameTheme={(oldName, newName) => void handleRenameTheme(oldName, newName)}
+      onDeleteTheme={(name) => void handleDeleteTheme(name)}
+      onRenameMotion={(oldName, newName) => void handleRenameMotion(oldName, newName)}
+      onDeleteMotion={(name) => void handleDeleteMotion(name)}
+      onRenamePreset={(oldName, newName) => void handleRenamePreset(oldName, newName)}
+      onDeletePreset={(name) => void handleDeletePreset(name)}
+      onUpdateChase={(name, newName, unit, stepDuration) => void handleUpdateChase(name, newName, unit, stepDuration)}
+      onDeleteChase={(name) => void handleDeleteChase(name)}
+      onRenameBlend={(oldName, newName) => void handleRenameBlend(oldName, newName)}
+      onDeleteBlend={(name) => void handleDeleteBlend(name)}
     />,
   );
 
@@ -223,6 +369,8 @@ export default function ScenesLooksWorkspace() {
                 selectedName={selectedSceneName}
                 onSelect={setSelectedSceneName}
                 onCreate={handleCreateScene}
+                onRename={(oldName, newName) => void handleRenameScene(oldName, newName)}
+                onDelete={(name) => void handleDeleteScene(name)}
               />
 
               <div className={styles.mainColumn}>

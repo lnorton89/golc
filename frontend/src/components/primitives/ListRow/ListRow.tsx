@@ -7,6 +7,11 @@
 //
 // `icon` is optional (same lucide-react component-reference convention as
 // Button/PanelHeader/Toolbar) -- every existing call site is unaffected.
+//
+// `actions` is an optional trailing slot (e.g. rename/delete buttons)
+// rendered outside the selectable button/row so its own clicks never
+// trigger onSelect -- purely additive, every existing call site (which
+// never passes it) is unaffected.
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 
@@ -19,6 +24,7 @@ interface ListRowProps {
   selected?: boolean;
   locked?: boolean;
   onSelect?: () => void;
+  actions?: ReactNode;
 }
 
 export default function ListRow({
@@ -28,6 +34,7 @@ export default function ListRow({
   selected = false,
   locked = false,
   onSelect,
+  actions,
 }: ListRowProps) {
   const className = [
     styles.row,
@@ -49,21 +56,25 @@ export default function ListRow({
     return (
       <div className={className} aria-disabled={locked} title={label}>
         {content}
+        {actions}
       </div>
     );
   }
 
   return (
-    <button
-      type="button"
-      className={className}
-      aria-pressed={selected}
-      aria-disabled={locked}
-      disabled={locked}
-      title={label}
-      onClick={onSelect}
-    >
-      {content}
-    </button>
+    <>
+      <button
+        type="button"
+        className={className}
+        aria-pressed={selected}
+        aria-disabled={locked}
+        disabled={locked}
+        title={label}
+        onClick={onSelect}
+      >
+        {content}
+      </button>
+      {actions}
+    </>
   );
 }

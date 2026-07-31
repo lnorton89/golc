@@ -513,3 +513,149 @@ func TestProgrammingServiceRejectsInvalidInputs(t *testing.T) {
 		t.Fatalf("expected the rejected dangling ref to never persist, got ref=%q", layer.Ref)
 	}
 }
+
+// TestProgrammingServiceRenameAndDelete proves the new rename/delete
+// Wails methods for scene/theme/preset/motion/blend, plus UpdateChase,
+// each mutate in place (identity/other fields untouched) and are
+// reflected through ListProgramming, and that deleting a look currently
+// referenced by an enabled scene layer is rejected without a partial
+// mutation.
+func TestProgrammingServiceRenameAndDelete(t *testing.T) {
+	svc, root, showPath := newTestProgrammingService(t)
+	instanceID := seedProgrammingInstance(t, root, showPath)
+
+	if result := svc.CreateScene("Verse", 4); result.ExitCode != 0 {
+		t.Fatalf("CreateScene failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.CreateTheme("Warm"); result.ExitCode != 0 {
+		t.Fatalf("CreateTheme failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.CreateMotion("Sweep"); result.ExitCode != 0 {
+		t.Fatalf("CreateMotion failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.CreateChase("Strobe", "bar", 1); result.ExitCode != 0 {
+		t.Fatalf("CreateChase failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.ProgrammerSet([]string{instanceID.String()}, []string{"intensity=0.8"}); result.ExitCode != 0 {
+		t.Fatalf("ProgrammerSet failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.RecordPreset("Bright", "intensity"); result.ExitCode != 0 {
+		t.Fatalf("RecordPreset failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.CreateBlend("Fade", 2, "linear"); result.ExitCode != 0 {
+		t.Fatalf("CreateBlend failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	// Rename each kind; verify via ListProgramming.
+	if result := svc.RenameScene("Verse", "Verse Renamed"); result.ExitCode != 0 {
+		t.Fatalf("RenameScene failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.RenameTheme("Warm", "Warm Renamed"); result.ExitCode != 0 {
+		t.Fatalf("RenameTheme failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.RenamePreset("Bright", "Bright Renamed"); result.ExitCode != 0 {
+		t.Fatalf("RenamePreset failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.RenameMotion("Sweep", "Sweep Renamed"); result.ExitCode != 0 {
+		t.Fatalf("RenameMotion failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.RenameBlend("Fade", "Fade Renamed"); result.ExitCode != 0 {
+		t.Fatalf("RenameBlend failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.UpdateChase("Strobe", "Strobe Renamed", "beat", 2); result.ExitCode != 0 {
+		t.Fatalf("UpdateChase failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	renamed, err := svc.ListProgramming()
+	if err != nil {
+		t.Fatalf("ListProgramming (after rename): %v", err)
+	}
+	if findProgSceneView(renamed.Scenes, "Verse Renamed") == nil {
+		t.Fatalf("expected renamed scene, got %+v", renamed.Scenes)
+	}
+	if len(renamed.Themes) != 1 || renamed.Themes[0].Name != "Warm Renamed" {
+		t.Fatalf("expected renamed theme, got %+v", renamed.Themes)
+	}
+	if len(renamed.Presets) != 1 || renamed.Presets[0].Name != "Bright Renamed" {
+		t.Fatalf("expected renamed preset, got %+v", renamed.Presets)
+	}
+	if len(renamed.Motions) != 1 || renamed.Motions[0].Name != "Sweep Renamed" {
+		t.Fatalf("expected renamed motion preset, got %+v", renamed.Motions)
+	}
+	if len(renamed.Blends) != 1 || renamed.Blends[0].Name != "Fade Renamed" {
+		t.Fatalf("expected renamed blend preset, got %+v", renamed.Blends)
+	}
+	if len(renamed.Chases) != 1 || renamed.Chases[0].Name != "Strobe Renamed" ||
+		renamed.Chases[0].StepUnit != "beat" || renamed.Chases[0].StepDuration != 2 {
+		t.Fatalf("expected chase updated (name/unit/step-duration), got %+v", renamed.Chases)
+	}
+
+	// Point a scene layer at the (renamed) theme, then verify deleting it
+	// is rejected -- no partial mutation.
+	themeID := renamed.Themes[0].ID
+	if result := svc.SetSceneLayer("Verse Renamed", "color_theme", themeID, true); result.ExitCode != 0 {
+		t.Fatalf("SetSceneLayer failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	blockedDelete := svc.DeleteTheme("Warm Renamed")
+	if blockedDelete.ExitCode == 0 || !strings.Contains(blockedDelete.Stderr, "GOLC_SCENE_LAYER_DANGLING_REFERENCE") {
+		t.Fatalf("expected GOLC_SCENE_LAYER_DANGLING_REFERENCE, got exit=%d stderr=%s", blockedDelete.ExitCode, blockedDelete.Stderr)
+	}
+	afterBlockedDelete, err := svc.ListProgramming()
+	if err != nil {
+		t.Fatalf("ListProgramming (after blocked delete): %v", err)
+	}
+	if len(afterBlockedDelete.Themes) != 1 {
+		t.Fatalf("expected the theme to survive a rejected delete, got %+v", afterBlockedDelete.Themes)
+	}
+
+	// Delete every kind not blocked by a reference; verify via
+	// ListProgramming. Blend has no reference to guard at all.
+	if result := svc.DeleteScene("Verse Renamed"); result.ExitCode != 0 {
+		t.Fatalf("DeleteScene failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.DeletePreset("Bright Renamed"); result.ExitCode != 0 {
+		t.Fatalf("DeletePreset failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.DeleteMotion("Sweep Renamed"); result.ExitCode != 0 {
+		t.Fatalf("DeleteMotion failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.DeleteBlend("Fade Renamed"); result.ExitCode != 0 {
+		t.Fatalf("DeleteBlend failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.DeleteChase("Strobe Renamed"); result.ExitCode != 0 {
+		t.Fatalf("DeleteChase failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	afterDelete, err := svc.ListProgramming()
+	if err != nil {
+		t.Fatalf("ListProgramming (after delete): %v", err)
+	}
+	if len(afterDelete.Scenes) != 0 {
+		t.Fatalf("expected zero scenes after delete, got %+v", afterDelete.Scenes)
+	}
+	if len(afterDelete.Presets) != 0 {
+		t.Fatalf("expected zero presets after delete, got %+v", afterDelete.Presets)
+	}
+	if len(afterDelete.Motions) != 0 {
+		t.Fatalf("expected zero motion presets after delete, got %+v", afterDelete.Motions)
+	}
+	if len(afterDelete.Blends) != 0 {
+		t.Fatalf("expected zero blend presets after delete, got %+v", afterDelete.Blends)
+	}
+	if len(afterDelete.Chases) != 0 {
+		t.Fatalf("expected zero chases after delete, got %+v", afterDelete.Chases)
+	}
+
+	// Scene deleted -- the theme's dangling-reference guard no longer
+	// applies, so it can now be deleted too.
+	if result := svc.DeleteTheme("Warm Renamed"); result.ExitCode != 0 {
+		t.Fatalf("DeleteTheme failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	finalView, err := svc.ListProgramming()
+	if err != nil {
+		t.Fatalf("ListProgramming (final): %v", err)
+	}
+	if len(finalView.Themes) != 0 {
+		t.Fatalf("expected zero themes after delete, got %+v", finalView.Themes)
+	}
+}
