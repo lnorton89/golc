@@ -65,15 +65,8 @@
 }
 
 .sceneRow {
-  min-width: 0;
-  overflow-x: auto;
-}
-
-.rowInner {
   display: flex;
   align-items: center;
-  width: max-content;
-  min-width: 100%;
 }
 
 .renameRow {
@@ -91,6 +84,36 @@
 .rowActions {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: 2px;
   flex: none;
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.iconButton:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--ink);
+}
+
+.iconButtonDestructive:hover {
+  background: var(--status-revoked);
+  color: var(--page);
+}
+
+.iconButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
