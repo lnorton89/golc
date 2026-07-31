@@ -51,7 +51,6 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: max-content;
 }
 
 .emptyState {
@@ -66,8 +65,15 @@
 }
 
 .sceneRow {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.rowInner {
   display: flex;
   align-items: center;
+  width: max-content;
+  min-width: 100%;
 }
 
 .renameRow {

@@ -129,29 +129,31 @@ export default function SceneList({
                 </li>
               ) : (
                 <li key={scene.name} className={styles.sceneRow}>
-                  <ListRow
-                    label={scene.name}
-                    icon={Layers}
-                    meta={scene.active ? "LIVE" : `${scene.barsPerLoop}bar`}
-                    selected={scene.name === selectedName}
-                    onSelect={() => onSelect(scene.name)}
-                    actions={
-                      <span className={styles.rowActions}>
-                        <Button
-                          variant="secondary"
-                          icon={Pencil}
-                          onClick={() => handleStartRename(scene.name)}
-                          aria-label={`Rename ${scene.name}`}
-                        />
-                        <Button
-                          variant="destructive"
-                          icon={Trash2}
-                          onClick={() => handleDelete(scene.name)}
-                          aria-label={`Delete ${scene.name}`}
-                        />
-                      </span>
-                    }
-                  />
+                  <div className={styles.rowInner}>
+                    <ListRow
+                      label={scene.name}
+                      icon={Layers}
+                      meta={scene.active ? "LIVE" : `${scene.barsPerLoop}bar`}
+                      selected={scene.name === selectedName}
+                      onSelect={() => onSelect(scene.name)}
+                      actions={
+                        <span className={styles.rowActions}>
+                          <Button
+                            variant="secondary"
+                            icon={Pencil}
+                            onClick={() => handleStartRename(scene.name)}
+                            aria-label={`Rename ${scene.name}`}
+                          />
+                          <Button
+                            variant="destructive"
+                            icon={Trash2}
+                            onClick={() => handleDelete(scene.name)}
+                            aria-label={`Delete ${scene.name}`}
+                          />
+                        </span>
+                      }
+                    />
+                  </div>
                 </li>
               ),
             )}
