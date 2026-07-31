@@ -67,6 +67,37 @@
 .sceneRow {
   display: flex;
   align-items: center;
+  border-radius: var(--radius-sm);
+}
+
+/* ListRow's own .selected/:hover backgrounds only paint the button they're
+   applied to; actions render as a sibling outside that button (see
+   ListRow.tsx's doc comment), so without this the selection/hover color
+   stopped short of the rename/delete icons. Painting the same color on the
+   row itself extends it under the actions too -- but the button's OWN
+   background would then stack on top of this identical semi-transparent
+   color, reading as a visibly darker patch behind just the label/meta
+   instead of one flat color across the whole row. The `> button[type="
+   button"]` rules below suppress the button's own background so the row
+   is the single source of that color (its accent border-left is a solid
+   color, not semi-transparent, so it never double-stacks); the attribute
+   selector is a deliberate specificity boost so this reliably wins over
+   ListRow.module.css's own button.row(:hover) rules regardless of CSS
+   bundle order, rather than relying on a same-specificity tie-break. */
+.sceneRow.selected {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.sceneRow.selected > button[type="button"] {
+  background: transparent;
+}
+
+.sceneRow:hover:not(.selected) {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.sceneRow:hover:not(.selected) > button[type="button"] {
+  background: transparent;
 }
 
 .renameRow {

@@ -36,7 +36,7 @@ describe("SceneList", () => {
     render(<SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />);
     expect(screen.queryByLabelText("New scene name")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "+ New" }));
+    fireEvent.click(screen.getByRole("button", { name: "New" }));
     expect(screen.getByLabelText("New scene name")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -47,7 +47,7 @@ describe("SceneList", () => {
     const onCreate = vi.fn();
     render(<SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={onCreate} onRename={noop} onDelete={noop} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "+ New" }));
+    fireEvent.click(screen.getByRole("button", { name: "New" }));
     fireEvent.change(screen.getByLabelText("New scene name"), { target: { value: "  Gamma  " } });
     fireEvent.change(screen.getByLabelText("Bars per loop"), { target: { value: "16" } });
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
@@ -60,7 +60,7 @@ describe("SceneList", () => {
     const onCreate = vi.fn();
     render(<SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={onCreate} onRename={noop} onDelete={noop} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "+ New" }));
+    fireEvent.click(screen.getByRole("button", { name: "New" }));
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
     expect(onCreate).not.toHaveBeenCalled();
