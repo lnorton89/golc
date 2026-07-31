@@ -73,7 +73,7 @@ export default function SceneList({
       <div className={styles.header}>
         <span className={styles.label}>Scenes</span>
         <Button variant="secondary" icon={creating ? X : Plus} onClick={() => setCreating((current) => !current)}>
-          {creating ? "Cancel" : "+ New"}
+          {creating ? "Cancel" : "New"}
         </Button>
       </div>
 
@@ -128,7 +128,12 @@ export default function SceneList({
                   <Button variant="secondary" icon={X} onClick={() => setRenamingName(null)} aria-label="Cancel" />
                 </li>
               ) : (
-                <li key={scene.name} className={styles.sceneRow}>
+                <li
+                  key={scene.name}
+                  className={
+                    scene.name === selectedName ? `${styles.sceneRow} ${styles.selected}` : styles.sceneRow
+                  }
+                >
                   <ListRow
                     label={scene.name}
                     icon={Layers}

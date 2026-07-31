@@ -112,7 +112,7 @@ describe("ScenesLooksWorkspace", () => {
     render(<ScenesLooksWorkspace />);
     await waitFor(() => expect(screen.getByLabelText("Alpha layers")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "+ New" }));
+    fireEvent.click(screen.getByRole("button", { name: "New" }));
     fireEvent.change(screen.getByLabelText("New scene name"), { target: { value: "Gamma" } });
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 

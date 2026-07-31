@@ -176,16 +176,16 @@ export default function LookBrowser({
 
       <div className={styles.categoryRow}>
         <Button variant={activeForm === "theme" ? "primary" : "secondary"} icon={Plus} onClick={() => toggle("theme")}>
-          + Theme
+          Theme
         </Button>
         <Button variant={activeForm === "motion" ? "primary" : "secondary"} icon={Plus} onClick={() => toggle("motion")}>
-          + Motion
+          Motion
         </Button>
         <Button variant={activeForm === "chase" ? "primary" : "secondary"} icon={Plus} onClick={() => toggle("chase")}>
-          + Chase
+          Chase
         </Button>
         <Button variant={activeForm === "preset" ? "primary" : "secondary"} icon={Plus} onClick={() => toggle("preset")}>
-          + Preset
+          Preset
         </Button>
       </div>
 
@@ -491,7 +491,7 @@ export default function LookBrowser({
         icon={Palette}
         action={
           <Button variant={activeForm === "blend" ? "primary" : "secondary"} icon={Plus} onClick={() => toggle("blend")}>
-            + Blend
+            Blend
           </Button>
         }
       />

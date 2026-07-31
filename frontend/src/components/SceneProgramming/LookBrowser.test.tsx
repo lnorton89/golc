@@ -67,7 +67,7 @@ describe("LookBrowser", () => {
     const onCreateTheme = vi.fn();
     render(<LookBrowser view={emptyView} {...baseHandlers} onCreateTheme={onCreateTheme} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "+ Theme" }));
+    fireEvent.click(screen.getByRole("button", { name: "Theme" }));
     fireEvent.change(screen.getByLabelText("New color theme name"), { target: { value: " Sunrise " } });
     fireEvent.click(screen.getByRole("button", { name: "Create Theme" }));
 
@@ -78,10 +78,10 @@ describe("LookBrowser", () => {
   it("only shows one create-form at a time, switching when a different category is toggled", () => {
     render(<LookBrowser view={emptyView} {...baseHandlers} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "+ Theme" }));
+    fireEvent.click(screen.getByRole("button", { name: "Theme" }));
     expect(screen.getByLabelText("New color theme name")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "+ Motion" }));
+    fireEvent.click(screen.getByRole("button", { name: "Motion" }));
     expect(screen.queryByLabelText("New color theme name")).not.toBeInTheDocument();
     expect(screen.getByLabelText("New motion preset name")).toBeInTheDocument();
   });
@@ -90,7 +90,7 @@ describe("LookBrowser", () => {
     const onRecordPreset = vi.fn();
     render(<LookBrowser view={filledView} {...baseHandlers} onRecordPreset={onRecordPreset} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "+ Preset" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preset" }));
     fireEvent.click(screen.getByRole("button", { name: "Record Preset" }));
     expect(onRecordPreset).not.toHaveBeenCalled();
   });
@@ -99,7 +99,7 @@ describe("LookBrowser", () => {
     const onRecordPreset = vi.fn();
     render(<LookBrowser view={filledView} {...baseHandlers} onRecordPreset={onRecordPreset} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "+ Preset" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preset" }));
     fireEvent.change(screen.getByLabelText("Fixture instance"), { target: { value: "i1" } });
     fireEvent.change(screen.getByLabelText("Attribute assignments"), { target: { value: "intensity=100, color=red" } });
     fireEvent.change(screen.getByLabelText("Preset name"), { target: { value: "Full Bright" } });
@@ -112,7 +112,7 @@ describe("LookBrowser", () => {
     const onCreateBlend = vi.fn();
     render(<LookBrowser view={emptyView} {...baseHandlers} onCreateBlend={onCreateBlend} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "+ Blend" }));
+    fireEvent.click(screen.getByRole("button", { name: "Blend" }));
     fireEvent.change(screen.getByLabelText("New blend name"), { target: { value: "Cross Fade" } });
     fireEvent.change(screen.getByLabelText("Blend duration (bars)"), { target: { value: "2" } });
     fireEvent.click(screen.getByRole("button", { name: "Create Blend" }));
