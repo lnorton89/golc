@@ -105,6 +105,15 @@ interface ChaseUpdateParams {
   show: string;
 }
 
+interface DeploymentInstanceReassignParams {
+  deploymentName: string;
+  instanceId: string;
+  mode?: string;
+  universe?: number;
+  address?: number;
+  show: string;
+}
+
 interface FixtureFileParams {
   file: string;
 }
@@ -300,6 +309,14 @@ declare namespace golc {
     function activate(params: NameShowParams): Promise<AckResult>;
     // Create a named deployment. (scope: authoring)
     function create(params: NameShowParams): Promise<AckResult>;
+    // Delete a deployment by name; its own instances go with it. (scope: authoring)
+    function remove(params: NameShowParams): Promise<AckResult>;
+    // Rename a deployment, preserving its identity. (scope: authoring)
+    function rename(params: RenameParams): Promise<AckResult>;
+    namespace instance {
+      // In-place reassign one deployment instance's mode/universe/address. (scope: authoring)
+      function reassign(params: DeploymentInstanceReassignParams): Promise<AckResult>;
+    }
   }
   namespace fixture {
     // Import an Open Fixture Library definition through GOLC's canonical pipeline. (scope: authoring)
@@ -348,6 +365,10 @@ declare namespace golc {
     function apply(params: PoolApplyParams): Promise<AckResult>;
     // Create a named logical fixture pool. (scope: authoring)
     function create(params: PoolCreateParams): Promise<AckResult>;
+    // Delete a pool by name, cascading to its own deployment instances and group member refs. (scope: authoring)
+    function remove(params: NameShowParams): Promise<AckResult>;
+    // Rename a pool, preserving its identity. (scope: authoring)
+    function rename(params: RenameParams): Promise<AckResult>;
     // Compute and write/print a deterministic fixture-substitution capability-diff review. (scope: authoring)
     function substitute(params: PoolSubstituteParams): Promise<JSONResult>;
     // Compute and write/print a deterministic pool impact-review plan. (scope: authoring)

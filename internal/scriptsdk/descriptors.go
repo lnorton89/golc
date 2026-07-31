@@ -74,6 +74,19 @@ type RenameParams struct {
 	Show    string `json:"show"`
 }
 
+// DeploymentInstanceReassignParams: "deployment instance reassign
+// <deployment-name> <instance-id> [--mode <mode>] [--universe <n>]
+// [--address <n>] --show <path>". Mode/Universe/Address are all optional
+// -- an omitted field keeps the instance's current value.
+type DeploymentInstanceReassignParams struct {
+	DeploymentName string `json:"deploymentName"`
+	InstanceID     string `json:"instanceId"`
+	Mode           string `json:"mode,omitempty"`
+	Universe       int    `json:"universe,omitempty"`
+	Address        int    `json:"address,omitempty"`
+	Show           string `json:"show"`
+}
+
 // AckResult is the generic textual-acknowledgement result every mutation-
 // only route returns: the command's own GOLC_..._CREATED/GOLC_..._RENAMED/
 // etc. stdout line.
@@ -390,10 +403,17 @@ var sdkMethodTable = []sdkEntry{
 	{"pool update", "pool.update", "Compute and write/print a deterministic pool impact-review plan.", show.APIKeyScopeAuthoring, PoolUpdateParams{}, JSONResult{}},
 	{"pool apply", "pool.apply", "Validate and atomically apply an already-reviewed pool impact plan.", show.APIKeyScopeAuthoring, PoolApplyParams{}, AckResult{}},
 	{"pool substitute", "pool.substitute", "Compute and write/print a deterministic fixture-substitution capability-diff review.", show.APIKeyScopeAuthoring, PoolSubstituteParams{}, JSONResult{}},
+	{"pool rename", "pool.rename", "Rename a pool, preserving its identity.", show.APIKeyScopeAuthoring, RenameParams{}, AckResult{}},
+	// Method is "remove", not "delete": see the "delete is a reserved
+	// TypeScript keyword" note by "scene delete" below.
+	{"pool delete", "pool.remove", "Delete a pool by name, cascading to its own deployment instances and group member refs.", show.APIKeyScopeAuthoring, NameShowParams{}, AckResult{}},
 
 	// deployment (authoring)
 	{"deployment create", "deployment.create", "Create a named deployment.", show.APIKeyScopeAuthoring, NameShowParams{}, AckResult{}},
 	{"deployment activate", "deployment.activate", "Mark exactly one deployment active.", show.APIKeyScopeAuthoring, NameShowParams{}, AckResult{}},
+	{"deployment rename", "deployment.rename", "Rename a deployment, preserving its identity.", show.APIKeyScopeAuthoring, RenameParams{}, AckResult{}},
+	{"deployment delete", "deployment.remove", "Delete a deployment by name; its own instances go with it.", show.APIKeyScopeAuthoring, NameShowParams{}, AckResult{}},
+	{"deployment instance reassign", "deployment.instance.reassign", "In-place reassign one deployment instance's mode/universe/address.", show.APIKeyScopeAuthoring, DeploymentInstanceReassignParams{}, AckResult{}},
 
 	// show (mixed: inspect/diagnose are playback queries, open/save/save-as
 	// are authoring mutations, export is admin -- see package doc comment)

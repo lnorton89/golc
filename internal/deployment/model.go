@@ -65,6 +65,17 @@ func NewDeployment(name string) (Deployment, error) {
 	return Deployment{ID: id, Name: name}, nil
 }
 
+// Rename returns d with Name replaced by newName; ID is never re-minted
+// (identity is rename-stable), mirroring internal/pool/model.go's Rename
+// exactly.
+func Rename(d Deployment, newName string) (Deployment, error) {
+	if strings.TrimSpace(newName) == "" {
+		return Deployment{}, errors.New("GOLC_DEPLOYMENT_NAME_EMPTY: deployment name must not be empty")
+	}
+	d.Name = newName
+	return d, nil
+}
+
 // ValidateUniqueNames rejects any two deployments in deployments sharing
 // the same Name (POOL-02 idempotency probe): a duplicate name is always
 // rejected with a diagnostic, never silently permitted.

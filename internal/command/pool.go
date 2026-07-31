@@ -75,6 +75,19 @@ var _ = MustDeclareRoute(CommandRegistration{
 	Handler: runPoolSubstitute,
 })
 
+var _ = MustDeclareRoute(CommandRegistration{
+	Route:   "pool rename",
+	Summary: "Rename a pool, identity unchanged: pool rename <old-name> <new-name> --show <path>.",
+	Handler: runPoolRename,
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route: "pool delete",
+	Summary: "Delete a pool, cascading to every deployment instance and group member ref that references it: " +
+		"pool delete <name> --show <path>.",
+	Handler: runPoolDelete,
+})
+
 // runPoolCreate serves the self-registered "pool create" route: load the
 // ShowState at --show, append the new pool, and save atomically. A
 // duplicate pool name is rejected by show.Save's whole-State validation
@@ -181,6 +194,150 @@ func poolByName(pools []pool.Pool, name string) (pool.Pool, bool) {
 		}
 	}
 	return pool.Pool{}, false
+}
+
+// parsePoolRenameArgs accepts exactly two positionals (old name, new name)
+// followed by a required "--show <path>" (both --flag value and
+// --flag=value forms), rejecting anything else (GOLC_POOL_USAGE) --
+// mirrors parsePoolCreateArgs' single-positional-then-flags shape, widened
+// to two positionals.
+func parsePoolRenameArgs(usage string, args []string) (oldName, newName, showPath string, err error) {
+	if len(args) < 2 || strings.HasPrefix(args[0], "-") || strings.HasPrefix(args[1], "-") {
+		return "", "", "", fmt.Errorf("GOLC_POOL_USAGE: usage: %s", usage)
+	}
+	oldName, newName = args[0], args[1]
+
+	rest := args[2:]
+	for i := 0; i < len(rest); {
+		argument := rest[i]
+		switch {
+		case argument == "--show":
+			if i+1 >= len(rest) {
+				return "", "", "", fmt.Errorf("GOLC_POOL_USAGE: --show requires a path; usage: %s", usage)
+			}
+			showPath = rest[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--show="):
+			showPath = strings.TrimPrefix(argument, "--show=")
+			i++
+		default:
+			return "", "", "", fmt.Errorf("GOLC_POOL_USAGE: unsupported argument %q; usage: %s", argument, usage)
+		}
+	}
+	if showPath == "" {
+		return "", "", "", fmt.Errorf("GOLC_POOL_USAGE: --show is required; usage: %s", usage)
+	}
+	return oldName, newName, showPath, nil
+}
+
+// runPoolRename serves the self-registered "pool rename" route: load the
+// ShowState, resolve the pool by its current name, rename it (ID never
+// re-minted -- POOL-01), replace it in place, and save. A rename
+// colliding with an existing pool's name is rejected by show.Save's
+// whole-State validation (GOLC_POOL_DUPLICATE_NAME inside the wrapping
+// GOLC_SHOW_STATE_INVALID), exactly like "pool create" already relies on.
+func runPoolRename(request Request) Result {
+	usage := "pool rename <old-name> <new-name> --show <path>"
+	oldName, newName, showPath, err := parsePoolRenameArgs(usage, request.Args)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	state, err := show.Load(request.Root, showPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	targetPool, found := poolByName(state.Pools, oldName)
+	if !found {
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_POOL_NOT_FOUND: no pool named %q exists\n", oldName)}
+	}
+	renamed, err := pool.Rename(targetPool, newName)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	for i, p := range state.Pools {
+		if p.ID == renamed.ID {
+			state.Pools[i] = renamed
+			break
+		}
+	}
+
+	if err := show.Save(request.Root, showPath, state); err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_POOL_RENAMED: %s -> %s (%s)\n", oldName, renamed.Name, renamed.ID)}
+}
+
+// parsePoolNameShowArgs accepts exactly one positional pool name followed
+// by a required "--show <path>" (both forms), rejecting anything else
+// (GOLC_POOL_USAGE) -- mirrors internal/command/deployment.go's
+// parseDeploymentNameShowArgs, pool-scoped.
+func parsePoolNameShowArgs(usage string, args []string) (name, showPath string, err error) {
+	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
+		return "", "", fmt.Errorf("GOLC_POOL_USAGE: usage: %s", usage)
+	}
+	name = args[0]
+
+	rest := args[1:]
+	for i := 0; i < len(rest); {
+		argument := rest[i]
+		switch {
+		case argument == "--show":
+			if i+1 >= len(rest) {
+				return "", "", fmt.Errorf("GOLC_POOL_USAGE: --show requires a path; usage: %s", usage)
+			}
+			showPath = rest[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--show="):
+			showPath = strings.TrimPrefix(argument, "--show=")
+			i++
+		default:
+			return "", "", fmt.Errorf("GOLC_POOL_USAGE: unsupported argument %q; usage: %s", argument, usage)
+		}
+	}
+	if showPath == "" {
+		return "", "", fmt.Errorf("GOLC_POOL_USAGE: --show is required; usage: %s", usage)
+	}
+	return name, showPath, nil
+}
+
+// runPoolDelete serves the self-registered "pool delete" route: load the
+// ShowState, resolve the pool by name, cascade-delete it via
+// pool.DeletePool (removing every deployment instance and group member
+// ref that references it), and save. No explicit dangling-Selection scrub
+// is needed here -- show.Save itself scrubs every Scene's Layer.Selection
+// before validating, so a scene referencing the deleted pool is cleaned up
+// automatically.
+func runPoolDelete(request Request) Result {
+	usage := "pool delete <name> --show <path>"
+	name, showPath, err := parsePoolNameShowArgs(usage, request.Args)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	state, err := show.Load(request.Root, showPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	targetPool, found := poolByName(state.Pools, name)
+	if !found {
+		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_POOL_NOT_FOUND: no pool named %q exists\n", name)}
+	}
+
+	newPools, newDeployments, newGroups, err := pool.DeletePool(state.Pools, state.Deployments, state.Groups, targetPool.ID)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	state.Pools = newPools
+	state.Deployments = newDeployments
+	state.Groups = newGroups
+
+	if err := show.Save(request.Root, showPath, state); err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_POOL_DELETED: %s (%s)\n", name, targetPool.ID)}
 }
 
 // poolUpdateArgs is the parsed shape of one "pool update" invocation.

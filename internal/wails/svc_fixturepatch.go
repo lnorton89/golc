@@ -93,6 +93,22 @@ func (s *FixturePatchService) CreatePool(name string, requires []string) Result 
 	return s.execute(args)
 }
 
+// RenamePool renames a pool via "pool rename" -- an immediate mutation
+// (no impact-plan preview, since a rename only ever changes Pool.Name,
+// which nothing else in persisted state references).
+func (s *FixturePatchService) RenamePool(oldName, newName string) Result {
+	return s.execute([]string{"pool", "rename", oldName, newName, "--show", s.showPath})
+}
+
+// DeletePool cascade-deletes a pool via "pool delete" -- removing it and
+// every deployment instance/group member ref that references it in one
+// atomic Save (POOL-04's review-before-apply doctrine doesn't apply here:
+// deletion is a single deterministic operation, matching CreatePool's own
+// immediacy, not a multi-op fan-out needing separate review).
+func (s *FixturePatchService) DeletePool(name string) Result {
+	return s.execute([]string{"pool", "delete", name, "--show", s.showPath})
+}
+
 // cachePlan decodes a "pool update --json" Result's Stdout into a
 // pool.ImpactPlan and stores it keyed by its own PlanID, so a later
 // ApplyPatch(planId) can hand it back to "pool apply" verbatim.
@@ -244,6 +260,37 @@ func (s *FixturePatchService) CreateDeployment(name string) Result {
 // "deployment activate", deactivating every other deployment.
 func (s *FixturePatchService) ActivateDeployment(name string) Result {
 	return s.execute([]string{"deployment", "activate", name, "--show", s.showPath})
+}
+
+// RenameDeployment renames a deployment via "deployment rename" -- an
+// immediate mutation, mirroring RenamePool's own immediacy.
+func (s *FixturePatchService) RenameDeployment(oldName, newName string) Result {
+	return s.execute([]string{"deployment", "rename", oldName, newName, "--show", s.showPath})
+}
+
+// DeleteDeployment deletes a deployment (and its own instances) via
+// "deployment delete".
+func (s *FixturePatchService) DeleteDeployment(name string) Result {
+	return s.execute([]string{"deployment", "delete", name, "--show", s.showPath})
+}
+
+// ReassignInstance in-place reassigns one deployment instance's mode/
+// universe/address via "deployment instance reassign". An empty mode or
+// a universe/address of 0 means "keep the instance's current value" --
+// the caller never needs to re-supply every field just to change one.
+func (s *FixturePatchService) ReassignInstance(deploymentName, instanceID, mode string, universe, address int) Result {
+	args := []string{"deployment", "instance", "reassign", deploymentName, instanceID}
+	if mode != "" {
+		args = append(args, "--mode", mode)
+	}
+	if universe > 0 {
+		args = append(args, "--universe", strconv.Itoa(universe))
+	}
+	if address > 0 {
+		args = append(args, "--address", strconv.Itoa(address))
+	}
+	args = append(args, "--show", s.showPath)
+	return s.execute(args)
 }
 
 // PatchPoolMemberView is one PoolMember row in a PatchPoolView (id +
