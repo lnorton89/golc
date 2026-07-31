@@ -51,24 +51,12 @@
   flex-wrap: wrap;
   gap: var(--space-sm);
   align-items: center;
+  justify-content: space-between;
 }
 
 .createInput {
   flex: 1;
   min-width: 160px;
-  padding: var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--page);
-  color: var(--ink);
-  font-family: inherit;
-  font-size: 14px;
-  box-sizing: border-box;
-}
-
-.numberInput {
-  flex: none;
-  width: 120px;
   padding: var(--space-sm);
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -85,6 +73,100 @@
   gap: 2px;
   font-size: 12px;
   color: var(--muted);
+}
+
+/* nameField pairs with .fieldLabel (not a replacement -- both classes
+   apply together) on the reassign row's Name field only: every other
+   .fieldLabel user (Mode/Universe/Address here, Quantity/Starting
+   universe/Starting address in the add form) should stay content-sized,
+   but the name text is the one field that should absorb whatever width
+   Mode/Universe/Address/Save/Cancel don't need. */
+.nameField {
+  flex: 1;
+  min-width: 0;
+}
+
+/* stepperWrap/stepperInput/stepperSpinner/stepperSpinnerButton mirror
+   TempoControls.module.css's BPM spinner (the app's one existing
+   up/down-styled numeric control) -- same custom-chevron-buttons-replace-
+   the-native-arrows structure, re-skinned with this file's own
+   --line-bordered/4px-radius input convention instead of TempoControls'
+   accent-bordered transport-chrome look. align-self: flex-start matters
+   here: .fieldLabel is a column-direction flex container, which
+   stretches a child with no align-self override to its own full width
+   by default -- inside .rowEditing (a row-direction flex row) that
+   never showed up, since row-direction only stretches children
+   vertically, but inside .addForm (also column-direction, the "Add from
+   Library" dialog's field list) it stretched .stepperWrap far wider
+   than its 96px input, leaving .stepperSpinner (absolutely positioned
+   against .stepperWrap's own right edge) stranded off to the right of
+   the visible input instead of hugging it. */
+.stepperWrap {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-self: flex-start;
+}
+
+.stepperInput {
+  width: 96px;
+  height: 32px;
+  padding: 0 20px 0 var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+  box-sizing: border-box;
+  -moz-appearance: textfield;
+}
+
+.stepperInput::-webkit-inner-spin-button,
+.stepperInput::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.stepperSpinner {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
+  display: flex;
+  flex-direction: column;
+  width: 18px;
+  border-left: 1px solid var(--line);
+  overflow: hidden;
+  border-radius: 0 4px 4px 0;
+}
+
+.stepperSpinnerButton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.stepperSpinnerButton:hover {
+  /* An opaque mix onto --panel (not --hover-tint, which mixes onto
+     transparent): this button's resting background is the opaque
+     --panel fill above, so a transparent-mixed hover would let whatever
+     sits behind the stepper (the row's own --page/hover background)
+     show through and look washed out instead of a clean panel tint. */
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+  color: var(--ink);
+}
+
+.stepperSpinnerButton:first-child {
+  border-bottom: 1px solid var(--line);
 }
 
 .primaryButton {
@@ -129,6 +211,26 @@
   color: #fff;
 }
 
+/* rowFormButton pairs with .primaryButton/.secondaryButton (declared
+   above -- source order matters here: this rule must come after both so
+   its padding/height win the cascade) on every fixture-row action
+   button (Edit/Remove in the display row, Save/Cancel in the edit row):
+   those two base classes otherwise carry different padding
+   (primaryButton is the app's larger call-to-action size), which made
+   Save visibly larger than Cancel, and Edit/Remove a different size
+   again from Save/Cancel -- switching a row between display and edit
+   mode was visibly resizing its buttons. Pinning every one of them to
+   this same 32px height (matching .stepperInput/.createInput's own
+   field height) keeps button size constant across that transition;
+   vertical alignment within each layout is each container's own job
+   (.row's align-items: center for the grid display row, .rowEditing's
+   align-items: flex-end for the flex edit row -- see below), not this
+   class's. */
+.rowFormButton {
+  height: 32px;
+  padding: 0 var(--space-sm);
+}
+
 .emptyState {
   display: flex;
   flex-direction: column;
@@ -158,29 +260,74 @@
   color: var(--muted);
 }
 
+/* rowScroll is a CSS Grid (not the flex column it used to be) so every
+   row's cells land in shared column tracks: name | id | spacer | mode |
+   universe | address | deployment | edit | remove. Each .row below spans
+   every column (grid-column: 1 / -1) and re-declares those same tracks
+   via grid-template-columns: subgrid, so its own children slot straight
+   into the parent's tracks instead of sizing independently per row --
+   without subgrid, each row would size its "auto" columns off only its
+   own content (an 8-char id, a 1-vs-3-digit address, ...), so the same
+   column could land at a different x position row to row.
+
+   Name is max-content (never truncates a realistic fixture display
+   name) with the id badge in the very next auto column, so the two sit
+   flush against each other. The spacer column (3rd; a plain empty grid
+   item, .rowSpacer below) sits right after id and is the one track that
+   actually absorbs the row's leftover width, so mode/universe/address/
+   deployment pack tight against edit/remove at the row's right edge
+   instead of trailing off with dead space before them. */
 .rowScroll {
   list-style: none;
   margin: 0;
   padding: 0;
   max-height: 320px;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
+  display: grid;
+  grid-template-columns: max-content auto minmax(var(--space-sm), 1fr) repeat(6, auto);
+  align-items: center;
+  row-gap: var(--space-xs);
+}
+
+.rowSpacer {
+  min-width: 0;
 }
 
 .row {
-  display: flex;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
-  gap: var(--space-sm);
+  column-gap: var(--space-sm);
   padding: var(--space-sm);
   border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--page);
+  transition: background var(--motion-tap);
+}
+
+.row:hover {
+  background: var(--hover-tint);
+}
+
+/* rowEditing overrides .row back to a plain flex row (declared after
+   .row so display/align-items win the cascade) for the reassign form's
+   content: labeled Name/Mode/Universe/Address fields plus Save/Cancel
+   don't correspond 1:1 with the display row's 8 shared columns (a
+   "Name" input isn't the same cell as an "ID" badge), so this state
+   opts out of the shared subgrid rather than forcing a mismatched
+   mapping onto it. align-items: flex-end (not .row's own center) is
+   deliberate: Mode/Universe/Address each grew a label line above their
+   input, so bottom-aligning every child -- fields and Save/Cancel alike
+   -- lands the buttons level with the actual input line instead of
+   centered against the taller label+input block. */
+.rowEditing {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
 }
 
 .rowName {
-  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -189,9 +336,65 @@
   color: var(--ink);
 }
 
-.rowMeta {
-  font-size: 14px;
+/* badge/badgeLabel/badgeValue mirror primitives/Chip/Chip.module.css's
+   pill shape (border/--radius-pill/monospace value) for a label+value
+   row-metadata chip -- Chip itself isn't reused directly since its
+   `tone` prop is a fixed live/frame-lock/armed/... status vocabulary
+   this plain "ID"/"Mode"/... tag has no business borrowing. Each
+   .badge* modifier below tints the pill so the five kinds read apart at
+   a glance without leaving the brand's accent-only interactive-color
+   discipline (Chip's own tone vocabulary is reserved for the six named
+   live/frame-lock/armed/revoked/blackout/offline system states, so
+   these reuse --accent at rising intensity for the three patch-address
+   fields, plus two neutral fills for the two identity fields, rather
+   than inventing new hues or borrowing a status color for an unrelated
+   meaning). */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--page);
+  white-space: nowrap;
+}
+
+.badgeId {
+  background: var(--panel-dim);
+}
+
+.badgeMode {
+  background: color-mix(in srgb, var(--accent) 10%, var(--page));
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+}
+
+.badgeUniverse {
+  background: color-mix(in srgb, var(--accent) 18%, var(--page));
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+
+.badgeAddress {
+  background: color-mix(in srgb, var(--accent) 26%, var(--page));
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+}
+
+.badgeDeployment {
+  background: var(--line);
+}
+
+.badgeLabel {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--muted);
+}
+
+.badgeValue {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: var(--text-xs);
+  color: var(--text2);
 }
 
 .technical {
@@ -200,13 +403,85 @@
   color: var(--muted);
 }
 
+/* backdrop/dialog/dialogHeader/dialogTitle/dialogBody mirror
+   Scripts/ScriptRunDialog.module.css's established custom dialog shell
+   exactly (no Radix; backdrop click + Escape both close, focus moves
+   onto the dialog on open -- see ProjectFixtures.tsx's addFormDialogRef
+   effects) -- "Add from Library" used to expand inline in the fixture
+   list, pushing everything below it down the page; this is the same
+   shell every other in-app dialog (Scripts run/debug, the guide's
+   confirm prompts) already uses, not a bespoke one. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--ink) 45%, transparent);
+  animation: backdropFadeIn var(--motion-settle);
+}
+
+.dialog {
+  width: min(560px, 90vw);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  overflow: hidden;
+  animation: dialogPopIn var(--motion-settle);
+}
+
+@keyframes backdropFadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialogPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+}
+
+.dialog:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.dialogHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.dialogTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.dialogBody {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-lg);
+}
+
 .addForm {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  padding: var(--space-sm);
-  border: 1px dashed var(--line);
-  border-radius: 4px;
 }
 
 .formActions {
@@ -215,6 +490,14 @@
 }
 
 .previewPanel {
+  /* grid-column spans every .rowScroll track when this panel's parent
+     .row is still the grid display row (removing a fixture never
+     switches that row into .rowEditing's flex layout); flex-basis is
+     the equivalent full-width-wrap for the rare case a row is
+     simultaneously mid-edit, so this never renders squeezed into a
+     single column/flex segment under either layout. */
+  grid-column: 1 / -1;
+  flex-basis: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
