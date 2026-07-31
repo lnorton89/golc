@@ -140,6 +140,56 @@ func TestOperatorSurfaceAssignSceneIdempotentAndShowReflectsIt(t *testing.T) {
 	}
 }
 
+// TestSceneDeleteScrubsReferencingOperatorSurface proves "scene delete"
+// against a scene an operator surface is assigned to (by SceneRef and by
+// LayerRef) succeeds and unassigns that surface rather than being rejected
+// with GOLC_OPERATORSURFACE_DANGLING_REFERENCE.
+func TestSceneDeleteScrubsReferencingOperatorSurface(t *testing.T) {
+	root := t.TempDir()
+	registry, err := command.NewDefaultCommandRegistry()
+	if err != nil {
+		t.Fatalf("NewDefaultCommandRegistry: %v", err)
+	}
+	showPath := filepath.Join(t.TempDir(), "show.golc")
+	seedOperatorSurfaceShow(t, root, showPath)
+
+	if result := registry.Execute(command.Request{Root: root, Args: []string{
+		"operatorsurface", "assign", "--surface", "Front of House", "--scene", "Opener", "--show", showPath,
+	}}); result.ExitCode != 0 {
+		t.Fatalf("operatorsurface assign --scene failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := registry.Execute(command.Request{Root: root, Args: []string{
+		"operatorsurface", "assign", "--surface", "Front of House", "--layer", "Opener:color_theme", "--show", showPath,
+	}}); result.ExitCode != 0 {
+		t.Fatalf("operatorsurface assign --layer failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	deleteResult := registry.Execute(command.Request{Root: root, Args: []string{
+		"scene", "delete", "Opener", "--show", showPath,
+	}})
+	if deleteResult.ExitCode != 0 {
+		t.Fatalf("scene delete (referenced by operator surface) failed: exit=%d stderr=%s", deleteResult.ExitCode, deleteResult.Stderr)
+	}
+
+	state, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	if len(state.Scenes) != 0 {
+		t.Fatalf("expected the scene to be gone after delete, got %+v", state.Scenes)
+	}
+	if len(state.OperatorSurfaces) != 1 {
+		t.Fatalf("expected the operator surface to survive, got %+v", state.OperatorSurfaces)
+	}
+	surface := state.OperatorSurfaces[0]
+	if len(surface.SceneRefs) != 0 {
+		t.Fatalf("expected SceneRefs scrubbed after the scene delete, got %+v", surface.SceneRefs)
+	}
+	if len(surface.LayerRefs) != 0 {
+		t.Fatalf("expected LayerRefs scrubbed after the scene delete, got %+v", surface.LayerRefs)
+	}
+}
+
 func TestOperatorSurfaceAssignUnknownSceneRejected(t *testing.T) {
 	root := t.TempDir()
 	registry, err := command.NewDefaultCommandRegistry()

@@ -33,6 +33,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lnorton89/golc/internal/fixture"
+	"github.com/lnorton89/golc/internal/operatorsurface"
 	"github.com/lnorton89/golc/internal/programming"
 	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/show"
@@ -1645,13 +1646,17 @@ func runSceneDuplicate(request Request) Result {
 }
 
 // runSceneDelete serves the self-registered "scene delete" route
-// (PROG-07): load the ShowState at --show, remove the named scene, and
-// save atomically. A not-found scene name fails with GOLC_SCENE_NOT_FOUND.
-// Deleting the currently-active scene is not specially rejected here --
-// scene.ValidateSingleActiveScene only bounds the maximum active count at
-// one, never a minimum, so a show with zero active scenes (nothing
-// playing) remains valid. This never checks scene-active status before
-// mutating (CONTEXT D-08).
+// (PROG-07): load the ShowState at --show, remove the named scene, unassign
+// it from every operator surface that references it -- SceneRefs and any
+// LayerRef naming it (operatorsurface.ScrubSceneReferences) -- and save
+// atomically, so deleting a scene an operator surface is wired to never
+// fails with GOLC_OPERATORSURFACE_DANGLING_REFERENCE; it just detaches that
+// surface's assignment instead. A not-found scene name fails with
+// GOLC_SCENE_NOT_FOUND. Deleting the currently-active scene is not
+// specially rejected here -- scene.ValidateSingleActiveScene only bounds
+// the maximum active count at one, never a minimum, so a show with zero
+// active scenes (nothing playing) remains valid. This never checks
+// scene-active status before mutating (CONTEXT D-08).
 func runSceneDelete(request Request) Result {
 	usage := "scene delete <name> --show <path>"
 	name, showPath, err := parseDomainNameShowArgs("GOLC_SCENE_USAGE", usage, request.Args)
@@ -1664,11 +1669,12 @@ func runSceneDelete(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
-	_, index, found := sceneByName(state.Scenes, name)
+	target, index, found := sceneByName(state.Scenes, name)
 	if !found {
 		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_SCENE_NOT_FOUND: no scene named %q exists\n", name)}
 	}
 	state.Scenes = append(state.Scenes[:index], state.Scenes[index+1:]...)
+	state.OperatorSurfaces = operatorsurface.ScrubSceneReferences(state.OperatorSurfaces, target.ID)
 
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
