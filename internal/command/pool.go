@@ -48,13 +48,17 @@ var _ = MustDeclareRoute(CommandRegistration{
 var _ = MustDeclareRoute(CommandRegistration{
 	Route: "pool update",
 	Summary: "Compute and write/print a deterministic pool impact-review plan without mutating the ShowState document: " +
-		"pool update <pool> [--add <fixture_stable_key>|<fixture_content_hash>|<mode>]... [--remove <pool_member_id>]... " +
+		"pool update <pool> [--add <fixture_stable_key>|<fixture_content_hash>|<mode>[|<channel_count>]]... " +
+		"[--remove <pool_member_id>]... " +
 		"[--attach-deployment <deployment_id>]... [--start-universe <n>] [--start-address <n>] " +
 		"[--propagate immediate|preview] [--out <path>] [--json] --show <path>. " +
 		"WARNING: --add's <fixture_stable_key>|<fixture_content_hash> pair is a low-level, unverified reference -- " +
 		"unlike \"pool substitute\", nothing here decodes, pins, or otherwise checks it against a real fixture " +
 		"definition; deriving a trustworthy pair (for example via \"fixture import\"/\"fixture inspect\") is the " +
-		"caller's own responsibility. --attach-deployment force-includes a deployment that has never referenced " +
+		"caller's own responsibility. The optional trailing channel_count field is the mode's real channel width " +
+		"(for example 5 for a 5-channel RGBW+strobe mode); when omitted, every proposed instance falls back to a " +
+		"1-channel width, which can pack multiple wide fixtures too closely together in one batch add. " +
+		"--attach-deployment force-includes a deployment that has never referenced " +
 		"this pool before in the add dependent walk (closes the \"adopt a never-before-used pool\" gap); " +
 		"--start-universe/--start-address optionally anchor the auto-address scan for every newly proposed " +
 		"instance in this request instead of the default next-free slot.",
@@ -354,13 +358,14 @@ type poolUpdateArgs struct {
 	showPath          string
 }
 
-// parsePoolMemberSpec parses one "--add" value in the exact
-// "<fixture_stable_key>|<fixture_content_hash>|<mode>" shape. "|" (not
-// ":") is the field separator because a content hash routinely carries
-// its own algorithm prefix (for example "sha256:...").
+// parsePoolMemberSpec parses one "--add" value in the
+// "<fixture_stable_key>|<fixture_content_hash>|<mode>[|<channel_count>]"
+// shape: the trailing channel_count field is optional. "|" (not ":") is
+// the field separator because a content hash routinely carries its own
+// algorithm prefix (for example "sha256:...").
 //
-// WR-03: this only checks the three fields are present and non-empty --
-// it never decodes, pins, or cross-checks fixture_stable_key/
+// WR-03: this only checks the first three fields are present and
+// non-empty -- it never decodes, pins, or cross-checks fixture_stable_key/
 // fixture_content_hash against a real fixture.FixtureDefinition the way
 // "pool substitute" (which does read and fixture.Decode/fixture.Pin its
 // --from/--to files) does. A caller can therefore pass a stable
@@ -371,13 +376,31 @@ type poolUpdateArgs struct {
 // that pair against an actual fixture definition before it enters a
 // show is the caller's own responsibility until this route is changed
 // to accept a fixture file path directly.
+//
+// channel_count, when supplied, is the real channel width of the named
+// mode (for example 5 for a 5-channel RGBW+strobe mode); it lets
+// pool.BuildImpactPlan space each newly proposed instance by the
+// fixture's actual footprint instead of the 1-channel fallback
+// (pool.defaultInstanceChannelCount) it otherwise uses. A caller that
+// omits it (the common raw-CLI case, since nothing here resolves it from
+// a real fixture definition) gets that 1-channel fallback, same as
+// before this field existed.
 func parsePoolMemberSpec(raw string) (pool.PoolMemberSpec, error) {
-	parts := strings.SplitN(raw, "|", 3)
-	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+	parts := strings.SplitN(raw, "|", 4)
+	if len(parts) < 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
 		return pool.PoolMemberSpec{}, fmt.Errorf(
-			"GOLC_POOL_APPLY_USAGE: --add value %q must be \"<fixture_stable_key>|<fixture_content_hash>|<mode>\"", raw)
+			"GOLC_POOL_APPLY_USAGE: --add value %q must be \"<fixture_stable_key>|<fixture_content_hash>|<mode>[|<channel_count>]\"", raw)
 	}
-	return pool.PoolMemberSpec{FixtureStableKey: parts[0], FixtureContentHash: parts[1], Mode: parts[2]}, nil
+	spec := pool.PoolMemberSpec{FixtureStableKey: parts[0], FixtureContentHash: parts[1], Mode: parts[2]}
+	if len(parts) == 4 && parts[3] != "" {
+		channelCount, err := parsePositiveInt(parts[3])
+		if err != nil {
+			return pool.PoolMemberSpec{}, fmt.Errorf(
+				"GOLC_POOL_APPLY_USAGE: --add value %q channel_count field %v", raw, err)
+		}
+		spec.ChannelCount = channelCount
+	}
+	return spec, nil
 }
 
 // parsePoolUpdateArgs accepts a positional pool name followed by any
@@ -573,7 +596,7 @@ func writeImpactPlan(root, outPath string, plan pool.ImpactPlan) Result {
 // D-15 plan/apply split: no code path here can ever write the ShowState
 // file (CONTEXT T-02-12).
 func runPoolUpdate(request Request) Result {
-	usage := "pool update <pool> [--add <fixture_stable_key>|<fixture_content_hash>|<mode>]... " +
+	usage := "pool update <pool> [--add <fixture_stable_key>|<fixture_content_hash>|<mode>[|<channel_count>]]... " +
 		"[--remove <pool_member_id>]... [--attach-deployment <deployment_id>]... " +
 		"[--start-universe <n>] [--start-address <n>] " +
 		"[--propagate immediate|preview] [--out <path>] [--json] --show <path>"

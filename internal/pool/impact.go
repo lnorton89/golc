@@ -39,35 +39,40 @@ import (
 // ValidatePlanIntegrity checks every plan against.
 const ImpactSchemaVersion = 1
 
-// defaultInstanceChannelCount is the channel width every proposed
-// deployment.NextFreeAddress call uses. internal/fixture's Mode does not
-// yet declare a per-mode channel count (CONTEXT: see
-// deployment.NextFreeAddress's own doc comment -- "Instance does not yet
-// carry its own channel width, a future plan's concern"); until that
-// model gap closes, every proposed instance is conservatively treated as
-// occupying exactly one channel.
+// defaultInstanceChannelCount is the channel width a proposed
+// deployment.NextFreeAddress call falls back to when its PoolMemberSpec
+// does not declare its own real ChannelCount (CONTEXT: a caller that
+// still only knows the three legacy fields -- FixtureStableKey/
+// FixtureContentHash/Mode -- and never resolved a channel width, for
+// example a hand-written CLI --add value). Every GUI-driven caller
+// (internal/wails/svc_fixturepatch.go) now resolves and passes the
+// fixture mode's real channel count via PoolMemberSpec.ChannelCount, so
+// this fallback only governs the legacy/unresolved path.
 //
-// KNOWN GAP (tracked as a follow-up, not yet fixed): NextFreeAddress's
-// own over-conservative-never-under-conservative guarantee only holds
-// when channelCount matches every existing instance's *real* channel
-// width. Because this constant is 1 and almost no real DMX fixture this
-// phase targets (RGB PARs, moving-head spot/wash) is actually 1-channel
-// wide, two wider fixtures can still be packed one address apart here --
-// a genuine address collision once their real channel span is
-// considered. Closing this gap requires threading a per-fixture,
-// capability-derived channel count through PoolMemberSpec/ImpactRequest
-// into NextFreeAddress instead of this hardcoded constant; until that
-// lands, callers must not treat BuildImpactPlan's proposed addresses as
-// collision-safe for multi-channel fixtures.
+// REMAINING GAP: NextFreeAddress's own over-conservative-never-under-
+// conservative guarantee only holds when the channelCount passed to one
+// call matches every existing instance's *real* channel width. Existing
+// deployment.Instance values still carry no channel-width field of their
+// own (see NextFreeAddress's doc comment), so a newly proposed instance
+// is only checked for overlap against existing instances at *its own*
+// channel width, not each existing instance's real width -- two
+// differently-sized fixtures can still be packed too closely together.
+// Closing that requires Instance to carry its own channel width, a
+// separate, larger model change than this constant's fallback role.
 const defaultInstanceChannelCount = 1
 
 // PoolMemberSpec is one fixture reference an ImpactRequest proposes
 // adding to a pool as a new PoolMember (mirrors NewPoolMember's inputs),
 // plus the Mode its dependent deployment Instance proposals carry.
+// ChannelCount is the resolved real channel width of FixtureStableKey's
+// Mode (for example 5 for a 5-channel RGBW+strobe mode); a caller that
+// leaves it at the Go zero value (0, "not resolved") falls back to
+// defaultInstanceChannelCount for that spec's address proposals.
 type PoolMemberSpec struct {
 	FixtureStableKey   string `json:"fixture_stable_key"`
 	FixtureContentHash string `json:"fixture_content_hash"`
 	Mode               string `json:"mode"`
+	ChannelCount       int    `json:"channel_count,omitempty"`
 }
 
 // ImpactRequest is one pool add/remove request BuildImpactPlan reviews
@@ -294,12 +299,15 @@ func BuildImpactPlan(pools []Pool, deployments []deployment.Deployment, groups [
 		proposedByDeployment[d.ID] = append([]deployment.Instance(nil), d.Instances...)
 	}
 	for addIndex, spec := range adds {
-		_ = spec
+		channelCount := spec.ChannelCount
+		if channelCount < 1 {
+			channelCount = defaultInstanceChannelCount
+		}
 		for _, d := range deployments {
 			if !deploymentUsesPool(d, req.PoolID) && !attachSet[d.ID] {
 				continue
 			}
-			universe, address, err := deployment.NextFreeAddressFrom(proposedByDeployment[d.ID], defaultInstanceChannelCount, req.StartUniverse, req.StartAddress)
+			universe, address, err := deployment.NextFreeAddressFrom(proposedByDeployment[d.ID], channelCount, req.StartUniverse, req.StartAddress)
 			if err != nil {
 				return ImpactPlan{}, fmt.Errorf("GOLC_POOL_PLAN_ADDRESS_EXHAUSTED: deployment %q: %v", d.Name, err)
 			}

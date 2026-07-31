@@ -458,3 +458,88 @@ func TestPoolUpdateStartUniverseParseUsage(t *testing.T) {
 		t.Fatalf("expected GOLC_POOL_APPLY_USAGE for a non-numeric --start-universe, got exit=%d stderr=%s", update.ExitCode, update.Stderr)
 	}
 }
+
+// TestPoolUpdateAddChannelCountSpacing proves --add's optional trailing
+// channel_count field spaces each newly proposed instance by that real
+// width instead of the 1-channel fallback: three 5-channel --add specs
+// starting at address 1 land at 1, 6, 11 -- not 1, 2, 3 (the exact
+// multi-add address-collision bug this field closes).
+func TestPoolUpdateAddChannelCountSpacing(t *testing.T) {
+	root := repositoryRoot(t)
+	registry, err := command.NewDefaultCommandRegistry()
+	if err != nil {
+		t.Fatalf("NewDefaultCommandRegistry: %v", err)
+	}
+
+	showPath := filepath.Join(t.TempDir(), "show.json")
+	poolName, deploymentID := seedFreshPoolShowState(t, root, showPath)
+	planPath := filepath.Join(t.TempDir(), "plan.json")
+
+	update := registry.Execute(command.Request{Root: root, Args: []string{
+		"pool", "update", poolName,
+		"--add", "acme/colorband|sha256:aaaaaaaa|5ch|5",
+		"--add", "acme/colorband|sha256:bbbbbbbb|5ch|5",
+		"--add", "acme/colorband|sha256:cccccccc|5ch|5",
+		"--attach-deployment", deploymentID,
+		"--start-universe", "1",
+		"--start-address", "1",
+		"--out", planPath,
+		"--show", showPath,
+	}})
+	if update.ExitCode != 0 {
+		t.Fatalf("pool update --add with channel_count failed: exit=%d stderr=%s", update.ExitCode, update.Stderr)
+	}
+
+	planBytes, err := os.ReadFile(planPath)
+	if err != nil {
+		t.Fatalf("read written plan: %v", err)
+	}
+	var view poolPlanView
+	if err := json.Unmarshal(planBytes, &view); err != nil {
+		t.Fatalf("unmarshal plan: %v", err)
+	}
+	var addOps []struct {
+		DependentKind    string `json:"dependent_kind"`
+		Action           string `json:"action"`
+		ProposedUniverse int    `json:"proposed_universe"`
+		ProposedAddress  int    `json:"proposed_address"`
+	}
+	for _, op := range view.Operations {
+		if op.DependentKind == "deployment_instance" && op.Action == "add" {
+			addOps = append(addOps, op)
+		}
+	}
+	if len(addOps) != 3 {
+		t.Fatalf("expected 3 proposed instances, got %d: %+v", len(addOps), addOps)
+	}
+	wantAddresses := []int{1, 6, 11}
+	for i, op := range addOps {
+		if op.ProposedUniverse != 1 || op.ProposedAddress != wantAddresses[i] {
+			t.Fatalf("expected 5-channel-spaced addresses %v, got op[%d]=(%d, %d)", wantAddresses, i, op.ProposedUniverse, op.ProposedAddress)
+		}
+	}
+}
+
+// TestPoolUpdateAddChannelCountUsage proves a non-numeric trailing
+// channel_count field is rejected as a usage error rather than silently
+// falling back to the 1-channel default.
+func TestPoolUpdateAddChannelCountUsage(t *testing.T) {
+	root := repositoryRoot(t)
+	registry, err := command.NewDefaultCommandRegistry()
+	if err != nil {
+		t.Fatalf("NewDefaultCommandRegistry: %v", err)
+	}
+
+	showPath := filepath.Join(t.TempDir(), "show.json")
+	poolName := seedPoolShowState(t, root, showPath)
+
+	update := registry.Execute(command.Request{Root: root, Args: []string{
+		"pool", "update", poolName,
+		"--add", "acme/par64|sha256:dddddddd|Standard|notanumber",
+		"--out", filepath.Join(t.TempDir(), "plan.json"),
+		"--show", showPath,
+	}})
+	if update.ExitCode == 0 || !strings.Contains(string(update.Stderr), "GOLC_POOL_APPLY_USAGE") {
+		t.Fatalf("expected GOLC_POOL_APPLY_USAGE for a non-numeric channel_count, got exit=%d stderr=%s", update.ExitCode, update.Stderr)
+	}
+}

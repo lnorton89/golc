@@ -15,6 +15,7 @@ package wails
 import (
 	"encoding/json"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -153,7 +154,7 @@ func TestFixturePatchServiceAddMemberPreviewThenApply(t *testing.T) {
 	poolName, deploymentName := seedFixturePatchShowState(t, root, showPath)
 	svc := NewFixturePatchService("", root, showPath)
 
-	preview := svc.AddPoolMemberPreview(poolName, "acme/par64", "sha256:22222222", "Standard")
+	preview := svc.AddPoolMemberPreview(poolName, "acme/par64", "sha256:22222222", "Standard", 0)
 	if preview.ExitCode != 0 {
 		t.Fatalf("AddPoolMemberPreview failed: exit=%d stderr=%s", preview.ExitCode, preview.Stderr)
 	}
@@ -264,7 +265,7 @@ func TestFixturePatchServiceRejectsMalformedMember(t *testing.T) {
 	poolName, _ := seedFixturePatchShowState(t, root, showPath)
 	svc := NewFixturePatchService("", root, showPath)
 
-	result := svc.AddPoolMemberPreview(poolName, "", "", "")
+	result := svc.AddPoolMemberPreview(poolName, "", "", "", 0)
 	if result.ExitCode == 0 || !strings.Contains(result.Stderr, "GOLC_POOL_APPLY_USAGE") {
 		t.Fatalf("expected GOLC_POOL_APPLY_USAGE for a malformed member triple, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
 	}
@@ -291,7 +292,7 @@ func TestFixturePatchServiceRejectsEmbeddedDelimiterInMemberFields(t *testing.T)
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := svc.AddPoolMemberPreview(poolName, tc.stableKey, tc.hash, tc.mode)
+			result := svc.AddPoolMemberPreview(poolName, tc.stableKey, tc.hash, tc.mode, 0)
 			if result.ExitCode == 0 || !strings.Contains(result.Stderr, "GOLC_WAILS_POOL_MEMBER_FIELD_INVALID") {
 				t.Fatalf("expected GOLC_WAILS_POOL_MEMBER_FIELD_INVALID for an embedded delimiter in %s, got exit=%d stderr=%s", tc.name, result.ExitCode, result.Stderr)
 			}
@@ -347,7 +348,7 @@ func TestFixturePatchServiceApplyStalePlanRejected(t *testing.T) {
 	poolName, _ := seedFixturePatchShowState(t, root, showPath)
 	svc := NewFixturePatchService("", root, showPath)
 
-	preview := svc.AddPoolMemberPreview(poolName, "acme/par64", "sha256:33333333", "Standard")
+	preview := svc.AddPoolMemberPreview(poolName, "acme/par64", "sha256:33333333", "Standard", 0)
 	if preview.ExitCode != 0 {
 		t.Fatalf("AddPoolMemberPreview failed: exit=%d stderr=%s", preview.ExitCode, preview.Stderr)
 	}
@@ -407,14 +408,19 @@ func seedFreshFixturePatchShowState(t *testing.T, root, showPath string) (poolNa
 // fresh pool with zero dependents plus attachDeploymentID still yields one
 // proposed instance per unit, all distinct and in-bounds, and the returned
 // plan applies successfully with ListPatch reflecting every new instance
-// afterward.
+// afterward. Passing a real channelCount (5, as a 5-channel RGBW+strobe
+// mode would resolve to) proves each proposed instance is spaced by that
+// width -- addresses 1, 6, 11 -- not packed one address apart the way the
+// pre-channel-count 1-channel fallback would (the exact bug this field
+// closes: three fixtures added from the library at "channel_count 5,
+// starting address 1" landing at addresses 1, 2, 3 instead of 1, 6, 11).
 func TestAddPoolMembersPreview(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(t.TempDir(), "show.golc")
 	poolName, deploymentID := seedFreshFixturePatchShowState(t, root, showPath)
 	svc := NewFixturePatchService("", root, showPath)
 
-	preview := svc.AddPoolMembersPreview(poolName, "acme/par64", "sha256:aaaaaaaa", "Standard", 3, deploymentID, 0, 0)
+	preview := svc.AddPoolMembersPreview(poolName, "acme/par64", "sha256:aaaaaaaa", "Standard", 3, deploymentID, 1, 1, 5)
 	if preview.ExitCode != 0 {
 		t.Fatalf("AddPoolMembersPreview failed: exit=%d stderr=%s", preview.ExitCode, preview.Stderr)
 	}
@@ -432,10 +438,12 @@ func TestAddPoolMembersPreview(t *testing.T) {
 	if len(addOps) != 3 {
 		t.Fatalf("expected 3 proposed instances, got %d: %+v", len(addOps), addOps)
 	}
+	sort.Slice(addOps, func(i, j int) bool { return addOps[i].ProposedAddress < addOps[j].ProposedAddress })
+	wantAddresses := []int{1, 6, 11}
 	seen := map[[2]int]bool{}
-	for _, op := range addOps {
-		if op.ProposedUniverse < 1 || op.ProposedAddress < 1 {
-			t.Fatalf("expected a positive proposed universe/address, got %+v", op)
+	for i, op := range addOps {
+		if op.ProposedUniverse != 1 || op.ProposedAddress != wantAddresses[i] {
+			t.Fatalf("expected 5-channel-spaced addresses %v, got op[%d]=%+v", wantAddresses, i, op)
 		}
 		key := [2]int{op.ProposedUniverse, op.ProposedAddress}
 		if seen[key] {
@@ -601,7 +609,7 @@ func TestReassignInstanceThroughWails(t *testing.T) {
 	}
 
 	// Add a second instance to create a real collision target.
-	preview := svc.AddPoolMembersPreview(poolName, "acme/par64", "sha256:99999999", "Standard", 1, "", 0, 0)
+	preview := svc.AddPoolMembersPreview(poolName, "acme/par64", "sha256:99999999", "Standard", 1, "", 0, 0, 0)
 	if preview.ExitCode != 0 {
 		t.Fatalf("AddPoolMembersPreview failed: exit=%d stderr=%s", preview.ExitCode, preview.Stderr)
 	}

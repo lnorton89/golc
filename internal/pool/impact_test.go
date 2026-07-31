@@ -244,6 +244,58 @@ func TestBuildImpactPlanAutoAddress(t *testing.T) {
 	}
 }
 
+// TestBuildImpactPlanAutoAddressRespectsChannelCount proves each Add spec's
+// real ChannelCount (not the 1-channel defaultInstanceChannelCount
+// fallback) spaces its proposed address: three 5-channel specs starting at
+// (1, 1) against a deployment with zero existing instances land at
+// 1, 6, 11 -- not 1, 2, 3, the exact multi-add address-collision bug
+// ChannelCount closes for a batch of same-width fixtures (a real DMX
+// fixture's channel span, unlike the pre-ChannelCount 1-channel
+// assumption, routinely exceeds one address).
+func TestBuildImpactPlanAutoAddressRespectsChannelCount(t *testing.T) {
+	p, err := pool.NewPool("Wash Pool", nil)
+	if err != nil {
+		t.Fatalf("NewPool: %v", err)
+	}
+	d, err := deployment.NewDeployment("Venue A")
+	if err != nil {
+		t.Fatalf("NewDeployment: %v", err)
+	}
+
+	req := pool.ImpactRequest{
+		PoolID: p.ID,
+		Add: []pool.PoolMemberSpec{
+			{FixtureStableKey: "acme/colorband", FixtureContentHash: "sha256:cccccccc", Mode: "5ch", ChannelCount: 5},
+			{FixtureStableKey: "acme/colorband", FixtureContentHash: "sha256:dddddddd", Mode: "5ch", ChannelCount: 5},
+			{FixtureStableKey: "acme/colorband", FixtureContentHash: "sha256:eeeeeeee", Mode: "5ch", ChannelCount: 5},
+		},
+		AttachDeployments: []uuid.UUID{d.ID},
+		StartUniverse:     1,
+		StartAddress:      1,
+		Propagate:         "preview",
+	}
+	plan, err := pool.BuildImpactPlan([]pool.Pool{p}, []deployment.Deployment{d}, nil, 0, req)
+	if err != nil {
+		t.Fatalf("BuildImpactPlan: %v", err)
+	}
+
+	var addOps []pool.ImpactOp
+	for _, op := range plan.Operations {
+		if op.DependentKind == "deployment_instance" && op.Action == "add" {
+			addOps = append(addOps, op)
+		}
+	}
+	if len(addOps) != 3 {
+		t.Fatalf("expected one proposed instance per Add spec (3), got %d: %+v", len(addOps), addOps)
+	}
+	wantAddresses := []int{1, 6, 11}
+	for i, op := range addOps {
+		if op.ProposedUniverse != 1 || op.ProposedAddress != wantAddresses[i] {
+			t.Fatalf("expected 5-channel-spaced addresses %v, got op[%d]=%+v", wantAddresses, i, op)
+		}
+	}
+}
+
 // TestBuildImpactPlanForceAttachFreshPool proves AttachDeployments closes
 // the "adopt a never-before-used pool" gap: a brand-new pool with zero
 // dependents still yields a proposed instance for a deployment named in
