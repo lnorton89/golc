@@ -518,8 +518,9 @@ func TestProgrammingServiceRejectsInvalidInputs(t *testing.T) {
 // Wails methods for scene/theme/preset/motion/blend, plus UpdateChase,
 // each mutate in place (identity/other fields untouched) and are
 // reflected through ListProgramming, and that deleting a look currently
-// referenced by an enabled scene layer is rejected without a partial
-// mutation.
+// referenced by an enabled scene layer succeeds and resets that layer to
+// its default, un-refed state (scene.ScrubLayerRef) rather than being
+// rejected.
 func TestProgrammingServiceRenameAndDelete(t *testing.T) {
 	svc, root, showPath := newTestProgrammingService(t)
 	instanceID := seedProgrammingInstance(t, root, showPath)
@@ -591,25 +592,33 @@ func TestProgrammingServiceRenameAndDelete(t *testing.T) {
 	}
 
 	// Point a scene layer at the (renamed) theme, then verify deleting it
-	// is rejected -- no partial mutation.
+	// now succeeds and resets that layer to its default, un-refed state
+	// instead of being rejected.
 	themeID := renamed.Themes[0].ID
 	if result := svc.SetSceneLayer("Verse Renamed", "color_theme", themeID, true); result.ExitCode != 0 {
 		t.Fatalf("SetSceneLayer failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
 	}
-	blockedDelete := svc.DeleteTheme("Warm Renamed")
-	if blockedDelete.ExitCode == 0 || !strings.Contains(blockedDelete.Stderr, "GOLC_SCENE_LAYER_DANGLING_REFERENCE") {
-		t.Fatalf("expected GOLC_SCENE_LAYER_DANGLING_REFERENCE, got exit=%d stderr=%s", blockedDelete.ExitCode, blockedDelete.Stderr)
+	if result := svc.DeleteTheme("Warm Renamed"); result.ExitCode != 0 {
+		t.Fatalf("DeleteTheme (referenced) failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
 	}
-	afterBlockedDelete, err := svc.ListProgramming()
+	afterReferencedDelete, err := svc.ListProgramming()
 	if err != nil {
-		t.Fatalf("ListProgramming (after blocked delete): %v", err)
+		t.Fatalf("ListProgramming (after referenced delete): %v", err)
 	}
-	if len(afterBlockedDelete.Themes) != 1 {
-		t.Fatalf("expected the theme to survive a rejected delete, got %+v", afterBlockedDelete.Themes)
+	if len(afterReferencedDelete.Themes) != 0 {
+		t.Fatalf("expected the theme to be gone after delete, got %+v", afterReferencedDelete.Themes)
+	}
+	sceneAfterThemeDelete := findProgSceneView(afterReferencedDelete.Scenes, "Verse Renamed")
+	if sceneAfterThemeDelete == nil {
+		t.Fatalf("expected scene %q to survive the theme delete", "Verse Renamed")
+	}
+	colorThemeLayer := findProgLayerView(sceneAfterThemeDelete.Layers, "color_theme")
+	if colorThemeLayer == nil || colorThemeLayer.Enabled || colorThemeLayer.Ref != "" {
+		t.Fatalf("expected the color-theme layer reset to its default, un-refed state, got %+v", colorThemeLayer)
 	}
 
-	// Delete every kind not blocked by a reference; verify via
-	// ListProgramming. Blend has no reference to guard at all.
+	// Delete every remaining kind; verify via ListProgramming. Blend has no
+	// reference to guard at all.
 	if result := svc.DeleteScene("Verse Renamed"); result.ExitCode != 0 {
 		t.Fatalf("DeleteScene failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
 	}
@@ -626,34 +635,24 @@ func TestProgrammingServiceRenameAndDelete(t *testing.T) {
 		t.Fatalf("DeleteChase failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
 	}
 
-	afterDelete, err := svc.ListProgramming()
-	if err != nil {
-		t.Fatalf("ListProgramming (after delete): %v", err)
-	}
-	if len(afterDelete.Scenes) != 0 {
-		t.Fatalf("expected zero scenes after delete, got %+v", afterDelete.Scenes)
-	}
-	if len(afterDelete.Presets) != 0 {
-		t.Fatalf("expected zero presets after delete, got %+v", afterDelete.Presets)
-	}
-	if len(afterDelete.Motions) != 0 {
-		t.Fatalf("expected zero motion presets after delete, got %+v", afterDelete.Motions)
-	}
-	if len(afterDelete.Blends) != 0 {
-		t.Fatalf("expected zero blend presets after delete, got %+v", afterDelete.Blends)
-	}
-	if len(afterDelete.Chases) != 0 {
-		t.Fatalf("expected zero chases after delete, got %+v", afterDelete.Chases)
-	}
-
-	// Scene deleted -- the theme's dangling-reference guard no longer
-	// applies, so it can now be deleted too.
-	if result := svc.DeleteTheme("Warm Renamed"); result.ExitCode != 0 {
-		t.Fatalf("DeleteTheme failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
 	finalView, err := svc.ListProgramming()
 	if err != nil {
 		t.Fatalf("ListProgramming (final): %v", err)
+	}
+	if len(finalView.Scenes) != 0 {
+		t.Fatalf("expected zero scenes after delete, got %+v", finalView.Scenes)
+	}
+	if len(finalView.Presets) != 0 {
+		t.Fatalf("expected zero presets after delete, got %+v", finalView.Presets)
+	}
+	if len(finalView.Motions) != 0 {
+		t.Fatalf("expected zero motion presets after delete, got %+v", finalView.Motions)
+	}
+	if len(finalView.Blends) != 0 {
+		t.Fatalf("expected zero blend presets after delete, got %+v", finalView.Blends)
+	}
+	if len(finalView.Chases) != 0 {
+		t.Fatalf("expected zero chases after delete, got %+v", finalView.Chases)
 	}
 	if len(finalView.Themes) != 0 {
 		t.Fatalf("expected zero themes after delete, got %+v", finalView.Themes)

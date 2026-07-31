@@ -1,6 +1,8 @@
 // scrub_test.go proves ScrubDanglingSelections cleans every layer across
 // every scene, is a no-op when nothing is dangling, and handles multiple
-// scenes independently.
+// scenes independently. It also proves ScrubLayerRef resets exactly the
+// targeted (Kind, ID) layer to its default, un-refed state and leaves
+// every other layer -- same scene or a different one -- untouched.
 package scene_test
 
 import (
@@ -82,5 +84,84 @@ func TestScrubDanglingSelectionsHandlesMultipleScenesIndependently(t *testing.T)
 	}
 	if len(scrubbed[1].Layers[0].Selection.PoolIDs) != 0 {
 		t.Fatalf("expected the dangling scene's selection to be scrubbed, got %v", scrubbed[1].Layers[0].Selection.PoolIDs)
+	}
+}
+
+func TestScrubLayerRefResetsMatchingLayer(t *testing.T) {
+	themeID := uuid.Must(uuid.NewV7())
+
+	s, err := scene.NewScene("Verse", 4)
+	if err != nil {
+		t.Fatalf("NewScene: %v", err)
+	}
+	s, err = scene.SetLayer(s, scene.Layer{Kind: scene.ColorTheme, Enabled: true, Ref: themeID})
+	if err != nil {
+		t.Fatalf("SetLayer: %v", err)
+	}
+
+	scrubbed := scene.ScrubLayerRef([]scene.Scene{s}, scene.ColorTheme, themeID)
+	layer, ok := scrubbed[0].LayerByKind(scene.ColorTheme)
+	if !ok {
+		t.Fatalf("expected a color-theme layer, got %+v", scrubbed[0].Layers)
+	}
+	if layer.Enabled {
+		t.Fatal("expected the matching layer to be disabled after scrub")
+	}
+	var zero uuid.UUID
+	if layer.Ref != zero {
+		t.Fatalf("expected the matching layer's Ref cleared to zero, got %s", layer.Ref)
+	}
+}
+
+func TestScrubLayerRefNoOpWhenKindOrRefDontMatch(t *testing.T) {
+	themeID := uuid.Must(uuid.NewV7())
+	otherID := uuid.Must(uuid.NewV7())
+
+	s, err := scene.NewScene("Verse", 4)
+	if err != nil {
+		t.Fatalf("NewScene: %v", err)
+	}
+	s, err = scene.SetLayer(s, scene.Layer{Kind: scene.ColorTheme, Enabled: true, Ref: themeID})
+	if err != nil {
+		t.Fatalf("SetLayer: %v", err)
+	}
+
+	// A different Kind carrying the same ID is untouched.
+	byWrongKind := scene.ScrubLayerRef([]scene.Scene{s}, scene.Chase, themeID)
+	if !reflect.DeepEqual(byWrongKind[0].Layers, s.Layers) {
+		t.Fatalf("expected layers untouched for a non-matching Kind, got %+v want %+v", byWrongKind[0].Layers, s.Layers)
+	}
+
+	// The right Kind but a different ID is untouched.
+	byWrongID := scene.ScrubLayerRef([]scene.Scene{s}, scene.ColorTheme, otherID)
+	if !reflect.DeepEqual(byWrongID[0].Layers, s.Layers) {
+		t.Fatalf("expected layers untouched for a non-matching Ref, got %+v want %+v", byWrongID[0].Layers, s.Layers)
+	}
+}
+
+func TestScrubLayerRefHandlesMultipleScenesIndependently(t *testing.T) {
+	themeID := uuid.Must(uuid.NewV7())
+
+	referencing, err := scene.NewScene("Referencing", 4)
+	if err != nil {
+		t.Fatalf("NewScene (referencing): %v", err)
+	}
+	referencing, err = scene.SetLayer(referencing, scene.Layer{Kind: scene.ColorTheme, Enabled: true, Ref: themeID})
+	if err != nil {
+		t.Fatalf("SetLayer: %v", err)
+	}
+
+	untouched, err := scene.NewScene("Untouched", 4)
+	if err != nil {
+		t.Fatalf("NewScene (untouched): %v", err)
+	}
+
+	scrubbed := scene.ScrubLayerRef([]scene.Scene{referencing, untouched}, scene.ColorTheme, themeID)
+	layer, ok := scrubbed[0].LayerByKind(scene.ColorTheme)
+	if !ok || layer.Enabled {
+		t.Fatalf("expected the referencing scene's layer reset, got %+v", layer)
+	}
+	if !reflect.DeepEqual(scrubbed[1].Layers, untouched.Layers) {
+		t.Fatalf("expected the untouched scene's layers to pass through unchanged, got %+v want %+v", scrubbed[1].Layers, untouched.Layers)
 	}
 }

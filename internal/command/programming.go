@@ -992,14 +992,15 @@ func runThemeRename(request Request) Result {
 }
 
 // runThemeDelete serves the self-registered "theme delete" route (PROG-07):
-// load the ShowState at --show, remove the named theme, and save
-// atomically -- letting show.Save's whole-State validation reject a delete
-// that would leave a scene layer's Ref dangling (GOLC_SCENE_LAYER_DANGLING_
-// REFERENCE inside GOLC_SHOW_STATE_INVALID, CONTEXT threat T-03-01). A
-// not-found theme name fails with GOLC_THEME_NOT_FOUND. This never checks
-// scene-active status before mutating (CONTEXT D-08): the referential-
-// integrity re-check is a separate, always-on safety mechanism, not a
-// live-edit workflow gate.
+// load the ShowState at --show, remove the named theme, reset any scene
+// color-theme layer that was pointing at it back to its default, un-refed
+// state (scene.ScrubLayerRef), and save atomically -- deleting a theme a
+// scene actively plays never fails with GOLC_SCENE_LAYER_DANGLING_REFERENCE;
+// it just detaches that scene's layer instead (CONTEXT threat T-03-01's
+// referential-integrity guarantee is preserved by the scrub, not by
+// rejecting the delete). A not-found theme name fails with
+// GOLC_THEME_NOT_FOUND. This never checks scene-active status before
+// mutating (CONTEXT D-08): there is no live-edit workflow gate here.
 func runThemeDelete(request Request) Result {
 	usage := "theme delete <name> --show <path>"
 	name, showPath, err := parseDomainNameShowArgs("GOLC_THEME_USAGE", usage, request.Args)
@@ -1012,11 +1013,12 @@ func runThemeDelete(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
-	_, index, found := themeByName(state.Themes, name)
+	target, index, found := themeByName(state.Themes, name)
 	if !found {
 		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_THEME_NOT_FOUND: no theme named %q exists\n", name)}
 	}
 	state.Themes = append(state.Themes[:index], state.Themes[index+1:]...)
+	state.Scenes = scene.ScrubLayerRef(state.Scenes, scene.ColorTheme, target.ID)
 
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
@@ -1060,11 +1062,13 @@ func runPresetRename(request Request) Result {
 }
 
 // runPresetDelete serves the self-registered "preset delete" route
-// (PROG-07): load the ShowState at --show, remove the named preset, and
-// save atomically -- letting show.Save's whole-State validation reject a
-// delete that would leave a scene base-look layer's Ref dangling
-// (GOLC_SCENE_LAYER_DANGLING_REFERENCE inside GOLC_SHOW_STATE_INVALID,
-// CONTEXT threat T-03-01). A not-found preset name fails with
+// (PROG-07): load the ShowState at --show, remove the named preset, reset
+// any scene base-look layer that was pointing at it back to its default,
+// un-refed state (scene.ScrubLayerRef), and save atomically -- deleting a
+// preset a scene actively plays never fails with GOLC_SCENE_LAYER_DANGLING_
+// REFERENCE; it just detaches that scene's layer instead (CONTEXT threat
+// T-03-01's referential-integrity guarantee is preserved by the scrub, not
+// by rejecting the delete). A not-found preset name fails with
 // GOLC_PRESET_NOT_FOUND.
 func runPresetDelete(request Request) Result {
 	usage := "preset delete <name> --show <path>"
@@ -1078,11 +1082,12 @@ func runPresetDelete(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
-	_, index, found := presetByName(state.Presets, name)
+	target, index, found := presetByName(state.Presets, name)
 	if !found {
 		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_PRESET_NOT_FOUND: no preset named %q exists\n", name)}
 	}
 	state.Presets = append(state.Presets[:index], state.Presets[index+1:]...)
+	state.Scenes = scene.ScrubLayerRef(state.Scenes, scene.BaseLook, target.ID)
 
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
@@ -1408,14 +1413,15 @@ func runChaseDuplicate(request Request) Result {
 }
 
 // runChaseDelete serves the self-registered "chase delete" route
-// (PROG-07): load the ShowState at --show, remove the named chase, and
-// save atomically -- letting show.Save's whole-State validation reject a
-// delete that would leave a scene layer's Ref dangling
-// (GOLC_SCENE_LAYER_DANGLING_REFERENCE inside GOLC_SHOW_STATE_INVALID,
-// CONTEXT threat T-03-01). A not-found chase name fails with
+// (PROG-07): load the ShowState at --show, remove the named chase, reset
+// any scene chase layer that was pointing at it back to its default,
+// un-refed state (scene.ScrubLayerRef), and save atomically -- deleting a
+// chase a scene actively plays never fails with GOLC_SCENE_LAYER_DANGLING_
+// REFERENCE; it just detaches that scene's layer instead (CONTEXT threat
+// T-03-01's referential-integrity guarantee is preserved by the scrub, not
+// by rejecting the delete). A not-found chase name fails with
 // GOLC_CHASE_NOT_FOUND. This never checks scene-active status before
-// mutating (CONTEXT D-08): the referential-integrity re-check is a
-// separate, always-on safety mechanism, not a live-edit workflow gate.
+// mutating (CONTEXT D-08): there is no live-edit workflow gate here.
 func runChaseDelete(request Request) Result {
 	usage := "chase delete <name> --show <path>"
 	name, showPath, err := parseDomainNameShowArgs("GOLC_CHASE_USAGE", usage, request.Args)
@@ -1428,11 +1434,12 @@ func runChaseDelete(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
-	_, index, found := chaseByName(state.Chases, name)
+	target, index, found := chaseByName(state.Chases, name)
 	if !found {
 		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_CHASE_NOT_FOUND: no chase named %q exists\n", name)}
 	}
 	state.Chases = append(state.Chases[:index], state.Chases[index+1:]...)
+	state.Scenes = scene.ScrubLayerRef(state.Scenes, scene.Chase, target.ID)
 
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
@@ -1520,13 +1527,15 @@ func runMotionDuplicate(request Request) Result {
 
 // runMotionDelete serves the self-registered "motion delete" route
 // (PROG-07): load the ShowState at --show, remove the named motion preset,
-// and save atomically -- letting show.Save's whole-State validation reject
-// a delete that would leave a scene motion layer's Ref dangling
-// (GOLC_SCENE_LAYER_DANGLING_REFERENCE inside GOLC_SHOW_STATE_INVALID,
-// CONTEXT threat T-03-01). A not-found motion preset name fails with
-// GOLC_MOTION_PRESET_NOT_FOUND. This never checks scene-active status
-// before mutating (CONTEXT D-08): the referential-integrity re-check is a
-// separate, always-on safety mechanism, not a live-edit workflow gate.
+// reset any scene motion layer that was pointing at it back to its
+// default, un-refed state (scene.ScrubLayerRef), and save atomically --
+// deleting a motion preset a scene actively plays never fails with
+// GOLC_SCENE_LAYER_DANGLING_REFERENCE; it just detaches that scene's layer
+// instead (CONTEXT threat T-03-01's referential-integrity guarantee is
+// preserved by the scrub, not by rejecting the delete). A not-found motion
+// preset name fails with GOLC_MOTION_PRESET_NOT_FOUND. This never checks
+// scene-active status before mutating (CONTEXT D-08): there is no live-edit
+// workflow gate here.
 func runMotionDelete(request Request) Result {
 	usage := "motion delete <name> --show <path>"
 	name, showPath, err := parseDomainNameShowArgs("GOLC_MOTION_USAGE", usage, request.Args)
@@ -1539,11 +1548,12 @@ func runMotionDelete(request Request) Result {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 
-	_, index, found := motionByName(state.MotionPresets, name)
+	target, index, found := motionByName(state.MotionPresets, name)
 	if !found {
 		return Result{ExitCode: 1, Stderr: fmt.Appendf(nil, "GOLC_MOTION_PRESET_NOT_FOUND: no motion preset named %q exists\n", name)}
 	}
 	state.MotionPresets = append(state.MotionPresets[:index], state.MotionPresets[index+1:]...)
+	state.Scenes = scene.ScrubLayerRef(state.Scenes, scene.Motion, target.ID)
 
 	if err := show.Save(request.Root, showPath, state); err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
