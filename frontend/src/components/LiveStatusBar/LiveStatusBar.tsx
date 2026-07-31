@@ -36,6 +36,11 @@ import styles from "./LiveStatusBar.module.css";
 // frameStaleAfter "several ticks, not one" convention).
 const STATUS_GAP_MS = 2000;
 
+// BEATS_PER_BAR mirrors internal/playback/clock.go's fixed 4/4 time
+// signature constant (beatsPerBar) -- beatFraction is a fraction of one
+// bar, so this converts it to a 1-based beat number within that bar.
+const BEATS_PER_BAR = 4;
+
 // STATUS_COLOR_VAR maps the daemon's fixed controllingSource/outputState
 // vocabulary (06-UI-SPEC.md Status Vocabulary: live/frame-lock/armed/
 // revoked/blackout/offline) to this app's brand CSS custom properties
@@ -113,9 +118,7 @@ export default function LiveStatusBar() {
         ? "No layers enabled"
         : "--";
   const barText = status.active
-    ? `${status.barIndex + 1}.${Math.floor(status.beatFraction * 100)
-        .toString()
-        .padStart(2, "0")}`
+    ? `${status.barIndex + 1}:${Math.floor(status.beatFraction * BEATS_PER_BAR) + 1}`
     : "--";
 
   return (
