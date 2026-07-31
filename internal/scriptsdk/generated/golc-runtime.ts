@@ -112,7 +112,12 @@ function __golcCall(method: string, params: unknown): Promise<any> {
   },
   deployment: {
     activate: (params: any): Promise<any> => __golcCall("deployment activate", params),
-    create: (params: any): Promise<any> => __golcCall("deployment create", params)
+    create: (params: any): Promise<any> => __golcCall("deployment create", params),
+    instance: {
+      reassign: (params: any): Promise<any> => __golcCall("deployment instance reassign", params)
+    },
+    remove: (params: any): Promise<any> => __golcCall("deployment delete", params),
+    rename: (params: any): Promise<any> => __golcCall("deployment rename", params)
   },
   fixture: {
     importDefinition: (params: any): Promise<any> => __golcCall("fixture import", params),
@@ -143,6 +148,8 @@ function __golcCall(method: string, params: unknown): Promise<any> {
   pool: {
     apply: (params: any): Promise<any> => __golcCall("pool apply", params),
     create: (params: any): Promise<any> => __golcCall("pool create", params),
+    remove: (params: any): Promise<any> => __golcCall("pool delete", params),
+    rename: (params: any): Promise<any> => __golcCall("pool rename", params),
     substitute: (params: any): Promise<any> => __golcCall("pool substitute", params),
     update: (params: any): Promise<any> => __golcCall("pool update", params)
   },

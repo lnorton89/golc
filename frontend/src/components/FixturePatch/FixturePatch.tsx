@@ -44,7 +44,7 @@
 // than an interactive mid-execution checkpoint.
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Eye, X, Check, Zap, Package, Boxes } from "lucide-react";
+import { Plus, Eye, X, Check, Zap, Package, Boxes, Pencil, Trash2 } from "lucide-react";
 
 import {
   activateDeployment,
@@ -53,17 +53,19 @@ import {
   assertOk,
   createDeployment,
   createPool,
+  deleteDeployment,
+  deletePool,
   errorMessage,
   listLocalFixtures,
   listPatch,
   offlinePatchView,
+  reassignInstance,
+  removePoolMemberPreview,
+  renameDeployment,
+  renamePool,
   type FixtureLibraryRowView,
   type PatchView,
 } from "../../lib/wailsBridge";
-// NOTE: FixturePatchService.RemovePoolMemberPreview has a bridge wrapper
-// (removePoolMemberPreview) in wailsBridge.ts, but this component has no
-// remove-member control yet -- matching the pre-existing binding
-// declaration's own scope (declared, never called).
 import styles from "./FixturePatch.module.css";
 
 // ---------------------------------------------------------------------------
@@ -118,6 +120,12 @@ interface PendingPreview {
   plan: ImpactPlan;
 }
 
+interface PendingRemovePreview {
+  poolName: string;
+  memberId: string;
+  plan: ImpactPlan;
+}
+
 export default function FixturePatch() {
   const [patch, setPatch] = useState<PatchView>(offlinePatchView());
   const [listLoading, setListLoading] = useState(true);
@@ -128,7 +136,6 @@ export default function FixturePatch() {
 
   const [addPoolTarget, setAddPoolTarget] = useState<string | null>(null);
   const [libraryRows, setLibraryRows] = useState<FixtureLibraryRowView[]>([]);
-  const [libraryLoading, setLibraryLoading] = useState(false);
   const [selectedFixture, setSelectedFixture] = useState<FixtureLibraryRowView | null>(null);
   const [addMode, setAddMode] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -136,6 +143,22 @@ export default function FixturePatch() {
   const [applyLoading, setApplyLoading] = useState(false);
 
   const [newDeploymentName, setNewDeploymentName] = useState("");
+
+  const [renamingPoolId, setRenamingPoolId] = useState<string | null>(null);
+  const [renamePoolValue, setRenamePoolValue] = useState("");
+  const [renamingDeploymentId, setRenamingDeploymentId] = useState<string | null>(null);
+  const [renameDeploymentValue, setRenameDeploymentValue] = useState("");
+
+  const [removeTarget, setRemoveTarget] = useState<{ poolName: string; memberId: string } | null>(null);
+  const [removePreviewLoading, setRemovePreviewLoading] = useState(false);
+  const [pendingRemovePreview, setPendingRemovePreview] = useState<PendingRemovePreview | null>(null);
+  const [removeApplyLoading, setRemoveApplyLoading] = useState(false);
+
+  const [reassigningInstanceId, setReassigningInstanceId] = useState<string | null>(null);
+  const [reassignMode, setReassignMode] = useState("");
+  const [reassignUniverse, setReassignUniverse] = useState("");
+  const [reassignAddress, setReassignAddress] = useState("");
+  const [reassignLoading, setReassignLoading] = useState(false);
 
   const refreshPatch = useCallback(async (): Promise<void> => {
     try {
@@ -152,6 +175,10 @@ export default function FixturePatch() {
   useEffect(() => {
     void refreshPatch();
   }, [refreshPatch]);
+
+  useEffect(() => {
+    void listLocalFixtures().then((view) => setLibraryRows(view.rows));
+  }, []);
 
   const handleCreatePool = async () => {
     const trimmed = newPoolName.trim();
@@ -174,10 +201,6 @@ export default function FixturePatch() {
     setSelectedFixture(null);
     setAddMode("");
     setPendingPreview(null);
-    setLibraryLoading(true);
-    void listLocalFixtures()
-      .then((view) => setLibraryRows(view.rows))
-      .finally(() => setLibraryLoading(false));
   };
 
   const handleSelectFixture = (stableKey: string) => {
@@ -256,6 +279,162 @@ export default function FixturePatch() {
     }
   };
 
+  const handleStartRenamePool = (id: string, currentName: string) => {
+    setRenamingPoolId(id);
+    setRenamePoolValue(currentName);
+  };
+
+  const handleSaveRenamePool = async (currentName: string) => {
+    const trimmed = renamePoolValue.trim();
+    if (trimmed === "" || trimmed === currentName) {
+      setRenamingPoolId(null);
+      return;
+    }
+    try {
+      const result = await renamePool(currentName, trimmed);
+      assertOk(result, "RenamePool");
+      setRenamingPoolId(null);
+      await refreshPatch();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const handleDeletePool = async (name: string, memberCount: number, instanceCount: number) => {
+    const confirmed = window.confirm(
+      `Delete pool "${name}"? This removes ${memberCount} member${memberCount === 1 ? "" : "s"} and unpatches ${instanceCount} instance${instanceCount === 1 ? "" : "s"}.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+    try {
+      const result = await deletePool(name);
+      assertOk(result, "DeletePool");
+      await refreshPatch();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const handleStartRenameDeployment = (id: string, currentName: string) => {
+    setRenamingDeploymentId(id);
+    setRenameDeploymentValue(currentName);
+  };
+
+  const handleSaveRenameDeployment = async (currentName: string) => {
+    const trimmed = renameDeploymentValue.trim();
+    if (trimmed === "" || trimmed === currentName) {
+      setRenamingDeploymentId(null);
+      return;
+    }
+    try {
+      const result = await renameDeployment(currentName, trimmed);
+      assertOk(result, "RenameDeployment");
+      setRenamingDeploymentId(null);
+      await refreshPatch();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const handleDeleteDeployment = async (name: string, instanceCount: number) => {
+    const confirmed = window.confirm(
+      `Delete deployment "${name}"? This removes ${instanceCount} instance${instanceCount === 1 ? "" : "s"}.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+    try {
+      const result = await deleteDeployment(name);
+      assertOk(result, "DeleteDeployment");
+      await refreshPatch();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const handleStartRemoveMember = async (poolName: string, memberId: string) => {
+    setRemoveTarget({ poolName, memberId });
+    setPendingRemovePreview(null);
+    setRemovePreviewLoading(true);
+    try {
+      const result = await removePoolMemberPreview(poolName, memberId);
+      assertOk(result, "RemovePoolMemberPreview");
+      const plan = JSON.parse(result.stdout) as ImpactPlan;
+      setPendingRemovePreview({ poolName, memberId, plan });
+      setError(null);
+    } catch (err) {
+      setError(errorMessage(err));
+      setRemoveTarget(null);
+    } finally {
+      setRemovePreviewLoading(false);
+    }
+  };
+
+  const handleApplyRemoveMember = async () => {
+    if (!pendingRemovePreview) {
+      return;
+    }
+    setRemoveApplyLoading(true);
+    try {
+      const result = await applyPatch(pendingRemovePreview.plan.plan_id);
+      assertOk(result, "ApplyPatch");
+      setPendingRemovePreview(null);
+      setRemoveTarget(null);
+      await refreshPatch();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setRemoveApplyLoading(false);
+    }
+  };
+
+  const handleCancelRemoveMember = () => {
+    setRemoveTarget(null);
+    setPendingRemovePreview(null);
+  };
+
+  const handleStartReassign = (instanceId: string, mode: string, universe: number, address: number) => {
+    setReassigningInstanceId(instanceId);
+    setReassignMode(mode);
+    setReassignUniverse(String(universe));
+    setReassignAddress(String(address));
+  };
+
+  const handleSaveReassign = async (deploymentName: string, instanceId: string) => {
+    const universe = Number(reassignUniverse);
+    const address = Number(reassignAddress);
+    if (!reassignMode || !Number.isFinite(universe) || !Number.isFinite(address) || universe < 1 || address < 1) {
+      return;
+    }
+    setReassignLoading(true);
+    try {
+      const result = await reassignInstance(deploymentName, instanceId, reassignMode, universe, address);
+      assertOk(result, "ReassignInstance");
+      setReassigningInstanceId(null);
+      await refreshPatch();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setReassignLoading(false);
+    }
+  };
+
+  const handleCancelReassign = () => {
+    setReassigningInstanceId(null);
+  };
+
+  const modesForMember = (fixtureStableKey: string): string[] => {
+    const row = libraryRows.find((candidate) => candidate.stableKey === fixtureStableKey);
+    return row?.modes ?? [];
+  };
+
+  const instanceCountForPool = (poolId: string): number =>
+    patch.deployments.reduce(
+      (count, d) => count + d.instances.filter((instance) => instance.poolId === poolId).length,
+      0,
+    );
+
   const pools = patch.pools;
   const deployments = patch.deployments;
 
@@ -328,21 +507,74 @@ export default function FixturePatch() {
                   {pools.map((p) => (
                     <li key={p.id} className={styles.row}>
                       <div className={styles.rowHeader}>
-                        <span className={styles.rowName} title={p.name}>
-                          {p.name}
-                        </span>
-                        <span className={styles.rowCounts}>
-                          {p.members.length} member
-                          {p.members.length === 1 ? "" : "s"}
-                        </span>
-                        <button
-                          type="button"
-                          className={styles.secondaryButton}
-                          onClick={() => handleStartAddMember(p.name)}
-                        >
-                          <Plus size={13} aria-hidden="true" />
-                          Add Fixture
-                        </button>
+                        {renamingPoolId === p.id ? (
+                          <>
+                            <input
+                              className={styles.createInput}
+                              type="text"
+                              value={renamePoolValue}
+                              onChange={(event) => setRenamePoolValue(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  void handleSaveRenamePool(p.name);
+                                }
+                                if (event.key === "Escape") {
+                                  setRenamingPoolId(null);
+                                }
+                              }}
+                              aria-label="Pool name"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              className={styles.secondaryButton}
+                              onClick={() => void handleSaveRenamePool(p.name)}
+                            >
+                              <Check size={13} aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.secondaryButton}
+                              onClick={() => setRenamingPoolId(null)}
+                            >
+                              <X size={13} aria-hidden="true" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className={styles.rowName} title={p.name}>
+                              {p.name}
+                            </span>
+                            <span className={styles.rowCounts}>
+                              {p.members.length} member
+                              {p.members.length === 1 ? "" : "s"}
+                            </span>
+                            <button
+                              type="button"
+                              className={styles.secondaryButton}
+                              onClick={() => handleStartRenamePool(p.id, p.name)}
+                              aria-label={`Rename ${p.name}`}
+                            >
+                              <Pencil size={13} aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.secondaryButton}
+                              onClick={() => void handleDeletePool(p.name, p.members.length, instanceCountForPool(p.id))}
+                              aria-label={`Delete ${p.name}`}
+                            >
+                              <Trash2 size={13} aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.secondaryButton}
+                              onClick={() => handleStartAddMember(p.name)}
+                            >
+                              <Plus size={13} aria-hidden="true" />
+                              Add Fixture
+                            </button>
+                          </>
+                        )}
                       </div>
                       {p.members.length > 0 && (
                         <ul className={styles.memberList}>
@@ -351,6 +583,71 @@ export default function FixturePatch() {
                               <span className={styles.technical}>
                                 {m.fixtureStableKey}
                               </span>
+                              <button
+                                type="button"
+                                className={styles.secondaryButton}
+                                onClick={() => void handleStartRemoveMember(p.name, m.id)}
+                              >
+                                <X size={13} aria-hidden="true" />
+                                Remove
+                              </button>
+                              {removeTarget?.poolName === p.name && removeTarget.memberId === m.id && (
+                                <div className={styles.previewPanel}>
+                                  {removePreviewLoading ? (
+                                    <p className={styles.previewRow}>Reviewing…</p>
+                                  ) : (
+                                    pendingRemovePreview && (
+                                      <>
+                                        <p className={styles.previewHeading}>
+                                          Impact Preview (plan{" "}
+                                          <span className={styles.technical}>
+                                            {pendingRemovePreview.plan.plan_id.slice(0, 12)}
+                                          </span>
+                                          )
+                                        </p>
+                                        <ul className={styles.previewList}>
+                                          {(pendingRemovePreview.plan.operations ?? [])
+                                            .filter((op) => op.action === "remove")
+                                            .map((op, index) => (
+                                              <li key={`${op.dependent_id}-${index}`} className={styles.previewRow}>
+                                                {op.dependent_kind === "deployment_instance"
+                                                  ? `${op.dependent_ref}: deployment instance removed`
+                                                  : `${op.dependent_ref}: group member removed`}
+                                              </li>
+                                            ))}
+                                          {(pendingRemovePreview.plan.operations ?? []).filter(
+                                            (op) => op.action === "remove",
+                                          ).length === 0 && (
+                                            <li className={styles.previewRow}>
+                                              Nothing else references this member -- only the pool member itself
+                                              is removed.
+                                            </li>
+                                          )}
+                                        </ul>
+                                        <div className={styles.formActions}>
+                                          <button
+                                            type="button"
+                                            className={styles.primaryButton}
+                                            disabled={removeApplyLoading}
+                                            onClick={() => void handleApplyRemoveMember()}
+                                          >
+                                            <Check size={14} aria-hidden="true" />
+                                            {removeApplyLoading ? "Applying…" : "Apply"}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className={styles.secondaryButton}
+                                            onClick={handleCancelRemoveMember}
+                                          >
+                                            <X size={13} aria-hidden="true" />
+                                            Cancel
+                                          </button>
+                                        </div>
+                                      </>
+                                    )
+                                  )}
+                                </div>
+                              )}
                             </li>
                           ))}
                         </ul>
@@ -363,14 +660,11 @@ export default function FixturePatch() {
                             value={selectedFixture?.stableKey ?? ""}
                             onChange={(event) => handleSelectFixture(event.target.value)}
                             aria-label="Fixture"
-                            disabled={libraryLoading}
                           >
                             <option value="" disabled>
-                              {libraryLoading
-                                ? "Loading fixture library…"
-                                : libraryRows.filter((row) => row.status === "valid").length === 0
-                                  ? "No fixtures in library -- import one first"
-                                  : "Select a fixture…"}
+                              {libraryRows.filter((row) => row.status === "valid").length === 0
+                                ? "No fixtures in library -- import one first"
+                                : "Select a fixture…"}
                             </option>
                             {libraryRows
                               .filter((row) => row.status === "valid")
@@ -563,33 +857,156 @@ export default function FixturePatch() {
                   {deployments.map((d) => (
                     <li key={d.id} className={styles.row}>
                       <div className={styles.rowHeader}>
-                        <span className={styles.rowName} title={d.name}>
-                          {d.name}
-                        </span>
-                        {d.active ? (
-                          <span className={styles.activeChip}>Active</span>
+                        {renamingDeploymentId === d.id ? (
+                          <>
+                            <input
+                              className={styles.createInput}
+                              type="text"
+                              value={renameDeploymentValue}
+                              onChange={(event) => setRenameDeploymentValue(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  void handleSaveRenameDeployment(d.name);
+                                }
+                                if (event.key === "Escape") {
+                                  setRenamingDeploymentId(null);
+                                }
+                              }}
+                              aria-label="Deployment name"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              className={styles.secondaryButton}
+                              onClick={() => void handleSaveRenameDeployment(d.name)}
+                            >
+                              <Check size={13} aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.secondaryButton}
+                              onClick={() => setRenamingDeploymentId(null)}
+                            >
+                              <X size={13} aria-hidden="true" />
+                            </button>
+                          </>
                         ) : (
-                          <button
-                            type="button"
-                            className={styles.secondaryButton}
-                            onClick={() => void handleActivateDeployment(d.name)}
-                          >
-                            <Zap size={13} aria-hidden="true" />
-                            Activate
-                          </button>
+                          <>
+                            <span className={styles.rowName} title={d.name}>
+                              {d.name}
+                            </span>
+                            {d.active ? (
+                              <span className={styles.activeChip}>Active</span>
+                            ) : (
+                              <button
+                                type="button"
+                                className={styles.secondaryButton}
+                                onClick={() => void handleActivateDeployment(d.name)}
+                              >
+                                <Zap size={13} aria-hidden="true" />
+                                Activate
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className={styles.secondaryButton}
+                              onClick={() => handleStartRenameDeployment(d.id, d.name)}
+                              aria-label={`Rename ${d.name}`}
+                            >
+                              <Pencil size={13} aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.secondaryButton}
+                              onClick={() => void handleDeleteDeployment(d.name, d.instances.length)}
+                              aria-label={`Delete ${d.name}`}
+                            >
+                              <Trash2 size={13} aria-hidden="true" />
+                            </button>
+                          </>
                         )}
                       </div>
                       {d.instances.length > 0 && (
                         <ul className={styles.memberList}>
-                          {d.instances.map((instance) => (
-                            <li key={instance.id} className={styles.memberRow}>
-                              <span>{instance.mode}</span>
-                              <span className={styles.technical}>
-                                Universe {instance.universe}, Address{" "}
-                                {instance.address}
-                              </span>
-                            </li>
-                          ))}
+                          {d.instances.map((instance) => {
+                            const member = patch.pools
+                              .find((p) => p.id === instance.poolId)
+                              ?.members.find((m) => m.id === instance.poolMemberId);
+                            return (
+                              <li key={instance.id} className={styles.memberRow}>
+                                {reassigningInstanceId === instance.id ? (
+                                  <>
+                                    <select
+                                      className={styles.createInput}
+                                      value={reassignMode}
+                                      onChange={(event) => setReassignMode(event.target.value)}
+                                      aria-label="Mode"
+                                    >
+                                      <option value={reassignMode}>{reassignMode}</option>
+                                      {modesForMember(member?.fixtureStableKey ?? "")
+                                        .filter((mode) => mode !== reassignMode)
+                                        .map((mode) => (
+                                          <option key={mode} value={mode}>
+                                            {mode}
+                                          </option>
+                                        ))}
+                                    </select>
+                                    <input
+                                      className={styles.createInput}
+                                      type="number"
+                                      min={1}
+                                      value={reassignUniverse}
+                                      onChange={(event) => setReassignUniverse(event.target.value)}
+                                      aria-label="Universe"
+                                    />
+                                    <input
+                                      className={styles.createInput}
+                                      type="number"
+                                      min={1}
+                                      value={reassignAddress}
+                                      onChange={(event) => setReassignAddress(event.target.value)}
+                                      aria-label="Address"
+                                    />
+                                    <button
+                                      type="button"
+                                      className={styles.primaryButton}
+                                      disabled={reassignLoading}
+                                      onClick={() => void handleSaveReassign(d.name, instance.id)}
+                                    >
+                                      <Check size={13} aria-hidden="true" />
+                                      {reassignLoading ? "Saving…" : "Save"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={styles.secondaryButton}
+                                      onClick={handleCancelReassign}
+                                    >
+                                      <X size={13} aria-hidden="true" />
+                                      Cancel
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>{instance.mode}</span>
+                                    <span className={styles.technical}>
+                                      Universe {instance.universe}, Address{" "}
+                                      {instance.address}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      className={styles.secondaryButton}
+                                      onClick={() =>
+                                        handleStartReassign(instance.id, instance.mode, instance.universe, instance.address)
+                                      }
+                                      aria-label="Edit instance"
+                                    >
+                                      <Pencil size={13} aria-hidden="true" />
+                                    </button>
+                                  </>
+                                )}
+                              </li>
+                            );
+                          })}
                         </ul>
                       )}
                     </li>

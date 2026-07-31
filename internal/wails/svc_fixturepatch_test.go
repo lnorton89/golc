@@ -457,3 +457,175 @@ func TestAddPoolMembersPreview(t *testing.T) {
 		t.Fatalf("expected the deployment to gain 3 new instances, got %+v", appliedDeployment)
 	}
 }
+
+// TestRenamePool proves RenamePool renames a pool in place (members/
+// instances untouched) and surfaces the underlying route's own rejection
+// of an unknown pool name.
+func TestRenamePool(t *testing.T) {
+	root := t.TempDir()
+	showPath := filepath.Join(t.TempDir(), "show.golc")
+	poolName, _ := seedFixturePatchShowState(t, root, showPath)
+	svc := NewFixturePatchService("", root, showPath)
+
+	if result := svc.RenamePool(poolName, "Renamed Pool"); result.ExitCode != 0 {
+		t.Fatalf("RenamePool failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	view, err := svc.ListPatch()
+	if err != nil {
+		t.Fatalf("ListPatch: %v", err)
+	}
+	renamed := findPatchPoolView(view.Pools, "Renamed Pool")
+	if renamed == nil || len(renamed.Members) != 1 {
+		t.Fatalf("expected the pool to survive rename with its member intact, got %+v", view.Pools)
+	}
+
+	if result := svc.RenamePool("Nonexistent", "Whatever"); result.ExitCode == 0 || !strings.Contains(result.Stderr, "GOLC_POOL_NOT_FOUND") {
+		t.Fatalf("expected GOLC_POOL_NOT_FOUND, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+}
+
+// TestRenameDeployment proves RenameDeployment renames a deployment in
+// place (instances/active flag untouched).
+func TestRenameDeployment(t *testing.T) {
+	root := t.TempDir()
+	showPath := filepath.Join(t.TempDir(), "show.golc")
+	_, deploymentName := seedFixturePatchShowState(t, root, showPath)
+	svc := NewFixturePatchService("", root, showPath)
+
+	if result := svc.RenameDeployment(deploymentName, "Renamed Deployment"); result.ExitCode != 0 {
+		t.Fatalf("RenameDeployment failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	view, err := svc.ListPatch()
+	if err != nil {
+		t.Fatalf("ListPatch: %v", err)
+	}
+	renamed := findPatchDeploymentView(view.Deployments, "Renamed Deployment")
+	if renamed == nil || len(renamed.Instances) != 1 {
+		t.Fatalf("expected the deployment to survive rename with its instance intact, got %+v", view.Deployments)
+	}
+}
+
+// TestDeletePoolCascadesThroughListPatch proves DeletePool cascade-deletes
+// through the Wails boundary: the pool and its dependent deployment
+// instance both disappear from ListPatch's projection.
+func TestDeletePoolCascadesThroughListPatch(t *testing.T) {
+	root := t.TempDir()
+	showPath := filepath.Join(t.TempDir(), "show.golc")
+	poolName, deploymentName := seedFixturePatchShowState(t, root, showPath)
+	svc := NewFixturePatchService("", root, showPath)
+
+	if result := svc.DeletePool(poolName); result.ExitCode != 0 {
+		t.Fatalf("DeletePool failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	view, err := svc.ListPatch()
+	if err != nil {
+		t.Fatalf("ListPatch: %v", err)
+	}
+	if len(view.Pools) != 0 {
+		t.Fatalf("expected zero pools after DeletePool, got %+v", view.Pools)
+	}
+	deployment := findPatchDeploymentView(view.Deployments, deploymentName)
+	if deployment == nil || len(deployment.Instances) != 0 {
+		t.Fatalf("expected the deployment to survive with zero instances, got %+v", deployment)
+	}
+
+	if result := svc.DeletePool("Nonexistent"); result.ExitCode == 0 || !strings.Contains(result.Stderr, "GOLC_POOL_NOT_FOUND") {
+		t.Fatalf("expected GOLC_POOL_NOT_FOUND, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+}
+
+// TestDeleteDeploymentThroughListPatch proves DeleteDeployment removes a
+// deployment from ListPatch's projection.
+func TestDeleteDeploymentThroughListPatch(t *testing.T) {
+	root := t.TempDir()
+	showPath := filepath.Join(t.TempDir(), "show.golc")
+	svc := NewFixturePatchService("", root, showPath)
+
+	if result := svc.CreateDeployment("Venue A"); result.ExitCode != 0 {
+		t.Fatalf("CreateDeployment failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	if result := svc.DeleteDeployment("Venue A"); result.ExitCode != 0 {
+		t.Fatalf("DeleteDeployment failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	view, err := svc.ListPatch()
+	if err != nil {
+		t.Fatalf("ListPatch: %v", err)
+	}
+	if len(view.Deployments) != 0 {
+		t.Fatalf("expected zero deployments after DeleteDeployment, got %+v", view.Deployments)
+	}
+
+	if result := svc.DeleteDeployment("Nonexistent"); result.ExitCode == 0 || !strings.Contains(result.Stderr, "GOLC_DEPLOYMENT_NOT_FOUND") {
+		t.Fatalf("expected GOLC_DEPLOYMENT_NOT_FOUND, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+}
+
+// TestReassignInstanceThroughWails proves ReassignInstance updates an
+// instance's mode/universe/address in place, and a collision error
+// surfaces via Result.Stderr with ListPatch left unchanged.
+func TestReassignInstanceThroughWails(t *testing.T) {
+	root := t.TempDir()
+	showPath := filepath.Join(t.TempDir(), "show.golc")
+	poolName, deploymentName := seedFixturePatchShowState(t, root, showPath)
+	svc := NewFixturePatchService("", root, showPath)
+
+	before, err := svc.ListPatch()
+	if err != nil {
+		t.Fatalf("ListPatch (before): %v", err)
+	}
+	seededDeployment := findPatchDeploymentView(before.Deployments, deploymentName)
+	if seededDeployment == nil || len(seededDeployment.Instances) != 1 {
+		t.Fatalf("expected exactly one seeded instance, got %+v", seededDeployment)
+	}
+	instanceID := seededDeployment.Instances[0].ID
+
+	if result := svc.ReassignInstance(deploymentName, instanceID, "Extended", 3, 50); result.ExitCode != 0 {
+		t.Fatalf("ReassignInstance failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	after, err := svc.ListPatch()
+	if err != nil {
+		t.Fatalf("ListPatch (after): %v", err)
+	}
+	updatedDeployment := findPatchDeploymentView(after.Deployments, deploymentName)
+	if updatedDeployment == nil || len(updatedDeployment.Instances) != 1 {
+		t.Fatalf("expected exactly one instance to survive, got %+v", updatedDeployment)
+	}
+	updated := updatedDeployment.Instances[0]
+	if updated.Mode != "Extended" || updated.Universe != 3 || updated.Address != 50 {
+		t.Fatalf("expected mode/universe/address to update, got %+v", updated)
+	}
+
+	// Add a second instance to create a real collision target.
+	preview := svc.AddPoolMembersPreview(poolName, "acme/par64", "sha256:99999999", "Standard", 1, "", 0, 0)
+	if preview.ExitCode != 0 {
+		t.Fatalf("AddPoolMembersPreview failed: exit=%d stderr=%s", preview.ExitCode, preview.Stderr)
+	}
+	plan, err := decodeImpactPlan(preview.Stdout)
+	if err != nil {
+		t.Fatalf("decode impact preview: %v", err)
+	}
+	if result := svc.ApplyPatch(plan.PlanID); result.ExitCode != 0 {
+		t.Fatalf("ApplyPatch failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	collide := svc.ReassignInstance(deploymentName, instanceID, "Extended", 1, 1)
+	if collide.ExitCode == 0 || !strings.Contains(collide.Stderr, "GOLC_DEPLOYMENT_ADDRESS_COLLISION") {
+		t.Fatalf("expected GOLC_DEPLOYMENT_ADDRESS_COLLISION, got exit=%d stderr=%s", collide.ExitCode, collide.Stderr)
+	}
+
+	unchanged, err := svc.ListPatch()
+	if err != nil {
+		t.Fatalf("ListPatch (after failed collision): %v", err)
+	}
+	unchangedDeployment := findPatchDeploymentView(unchanged.Deployments, deploymentName)
+	for _, instance := range unchangedDeployment.Instances {
+		if instance.ID == instanceID && (instance.Universe != 3 || instance.Address != 50) {
+			t.Fatalf("expected the instance to be left unchanged after a failed reassign, got %+v", instance)
+		}
+	}
+}

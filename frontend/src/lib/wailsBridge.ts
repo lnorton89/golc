@@ -198,6 +198,17 @@ interface FixturePatchServiceBinding {
   ApplyPatch(planId: string): Promise<WailsResult>;
   CreateDeployment(name: string): Promise<WailsResult>;
   ActivateDeployment(name: string): Promise<WailsResult>;
+  RenamePool(oldName: string, newName: string): Promise<WailsResult>;
+  DeletePool(name: string): Promise<WailsResult>;
+  RenameDeployment(oldName: string, newName: string): Promise<WailsResult>;
+  DeleteDeployment(name: string): Promise<WailsResult>;
+  ReassignInstance(
+    deploymentName: string,
+    instanceId: string,
+    mode: string,
+    universe: number,
+    address: number,
+  ): Promise<WailsResult>;
   ListPatch(): Promise<PatchView>;
 }
 
@@ -1262,6 +1273,58 @@ export async function activateDeployment(name: string): Promise<WailsResult> {
   const svc = fixturePatchService();
   if (!svc) return bridgeUnavailableResult();
   return svc.ActivateDeployment(name);
+}
+
+/** renamePool calls the bound FixturePatchService.RenamePool (an
+ * immediate mutation via "pool rename" -- no impact-plan preview, since a
+ * rename only ever changes Pool.Name). */
+export async function renamePool(oldName: string, newName: string): Promise<WailsResult> {
+  const svc = fixturePatchService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.RenamePool(oldName, newName);
+}
+
+/** deletePool calls the bound FixturePatchService.DeletePool (cascade-
+ * deletes the pool and every deployment instance/group member ref that
+ * references it, via "pool delete"). */
+export async function deletePool(name: string): Promise<WailsResult> {
+  const svc = fixturePatchService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.DeletePool(name);
+}
+
+/** renameDeployment calls the bound FixturePatchService.RenameDeployment
+ * (an immediate mutation via "deployment rename"). */
+export async function renameDeployment(oldName: string, newName: string): Promise<WailsResult> {
+  const svc = fixturePatchService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.RenameDeployment(oldName, newName);
+}
+
+/** deleteDeployment calls the bound FixturePatchService.DeleteDeployment
+ * (its own instances go with it, via "deployment delete"). */
+export async function deleteDeployment(name: string): Promise<WailsResult> {
+  const svc = fixturePatchService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.DeleteDeployment(name);
+}
+
+/** reassignInstance calls the bound FixturePatchService.ReassignInstance
+ * (an in-place mode/universe/address update via "deployment instance
+ * reassign" -- an empty mode or a universe/address of 0 means "keep the
+ * instance's current value"). No preview step: this is one pure,
+ * synchronous, all-or-nothing operation on a single instance, unlike the
+ * multi-op pool-update impact-plan flow. */
+export async function reassignInstance(
+  deploymentName: string,
+  instanceId: string,
+  mode: string,
+  universe: number,
+  address: number,
+): Promise<WailsResult> {
+  const svc = fixturePatchService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.ReassignInstance(deploymentName, instanceId, mode, universe, address);
 }
 
 /** listPatch calls the bound FixturePatchService.ListPatch, returning

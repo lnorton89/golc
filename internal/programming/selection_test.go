@@ -258,3 +258,64 @@ func TestSelectionResolveDoesNotImportShow(t *testing.T) {
 	// fail to build if a future edit introduced the cycle.
 	_ = uuid.New()
 }
+
+// TestScrubDanglingRemovesEachSelectorKindIndependently proves
+// ScrubDangling removes only the dangling entry in each field, keeping
+// every already-valid entry (and its order) intact -- unlike Resolve,
+// which would error on the very first dangling entry it saw.
+func TestScrubDanglingRemovesEachSelectorKindIndependently(t *testing.T) {
+	pools, groups, deployments, poolA, _, _, m1, _, _, _, _, instA1, _, _, _, groupA := newFixture(t)
+
+	danglingPoolID := uuid.New()
+	danglingGroupID := uuid.New()
+	danglingInstanceID := uuid.New()
+	danglingFixtureRef := programming.FixtureRef{PoolID: uuid.New(), PoolMemberID: uuid.New()}
+	validFixtureRef := programming.FixtureRef{PoolID: poolA.ID, PoolMemberID: m1.ID}
+
+	sel := programming.Selection{
+		PoolIDs:     []uuid.UUID{poolA.ID, danglingPoolID},
+		GroupIDs:    []uuid.UUID{groupA.ID, danglingGroupID},
+		InstanceIDs: []uuid.UUID{instA1.ID, danglingInstanceID},
+		FixtureRefs: []programming.FixtureRef{validFixtureRef, danglingFixtureRef},
+	}
+
+	scrubbed := programming.ScrubDangling(sel, pools, groups, deployments)
+
+	if !reflect.DeepEqual(scrubbed.PoolIDs, []uuid.UUID{poolA.ID}) {
+		t.Fatalf("expected only the valid pool ID to survive, got %v", scrubbed.PoolIDs)
+	}
+	if !reflect.DeepEqual(scrubbed.GroupIDs, []uuid.UUID{groupA.ID}) {
+		t.Fatalf("expected only the valid group ID to survive, got %v", scrubbed.GroupIDs)
+	}
+	if !reflect.DeepEqual(scrubbed.InstanceIDs, []uuid.UUID{instA1.ID}) {
+		t.Fatalf("expected only the valid instance ID to survive, got %v", scrubbed.InstanceIDs)
+	}
+	if !reflect.DeepEqual(scrubbed.FixtureRefs, []programming.FixtureRef{validFixtureRef}) {
+		t.Fatalf("expected only the valid fixture ref to survive, got %v", scrubbed.FixtureRefs)
+	}
+
+	// Resolve itself must remain untouched and still strict against the
+	// original (unscrubbed) Selection.
+	if _, err := programming.Resolve(pools, groups, deployments, sel); err == nil || !strings.Contains(err.Error(), "GOLC_SELECTION_DANGLING_REFERENCE") {
+		t.Fatalf("expected Resolve to remain strict against a dangling Selection, got %v", err)
+	}
+}
+
+// TestScrubDanglingLeavesFullyValidSelectionUnchanged proves nothing is
+// dropped when nothing is dangling -- the additive, no-op-when-clean
+// contract.
+func TestScrubDanglingLeavesFullyValidSelectionUnchanged(t *testing.T) {
+	pools, groups, deployments, poolA, _, _, m1, _, _, _, _, instA1, _, _, _, groupA := newFixture(t)
+
+	sel := programming.Selection{
+		PoolIDs:     []uuid.UUID{poolA.ID},
+		GroupIDs:    []uuid.UUID{groupA.ID},
+		InstanceIDs: []uuid.UUID{instA1.ID},
+		FixtureRefs: []programming.FixtureRef{{PoolID: poolA.ID, PoolMemberID: m1.ID}},
+	}
+
+	scrubbed := programming.ScrubDangling(sel, pools, groups, deployments)
+	if !reflect.DeepEqual(scrubbed, sel) {
+		t.Fatalf("expected a fully valid Selection to pass through unchanged, got %+v want %+v", scrubbed, sel)
+	}
+}

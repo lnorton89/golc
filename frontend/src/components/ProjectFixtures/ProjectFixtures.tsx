@@ -24,7 +24,7 @@
 // `declare global` itself and never adds a second pool/deployment mutation
 // path (mirrors FixturePatch.tsx's own header comment).
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Eye, X, Check, PackagePlus } from "lucide-react";
+import { Plus, Eye, X, Check, PackagePlus, Pencil } from "lucide-react";
 
 import {
   activateDeployment,
@@ -37,6 +37,8 @@ import {
   listLocalFixtures,
   listPatch,
   offlinePatchView,
+  reassignInstance,
+  removePoolMemberPreview,
   type FixtureLibraryRowView,
   type PatchPoolMemberView,
   type PatchView,
@@ -74,6 +76,10 @@ interface FixtureRow {
   universe: number;
   address: number;
   deploymentName: string;
+  poolId: string;
+  poolName: string;
+  poolMemberId: string;
+  fixtureStableKey: string;
 }
 
 function fixtureDisplayName(row: FixtureLibraryRowView): string {
@@ -110,6 +116,10 @@ function buildFixtureRows(patch: PatchView, libraryRows: FixtureLibraryRowView[]
         universe: instance.universe,
         address: instance.address,
         deploymentName: deployment.name,
+        poolId: instance.poolId,
+        poolName: pool?.name ?? "",
+        poolMemberId: instance.poolMemberId,
+        fixtureStableKey: member?.fixtureStableKey ?? "",
       });
     }
   }
@@ -135,7 +145,6 @@ export default function ProjectFixtures() {
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [libraryRows, setLibraryRows] = useState<FixtureLibraryRowView[]>([]);
-  const [libraryLoading, setLibraryLoading] = useState(false);
   const [selectedFixture, setSelectedFixture] = useState<FixtureLibraryRowView | null>(null);
   const [mode, setMode] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -144,6 +153,17 @@ export default function ProjectFixtures() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [pendingPreview, setPendingPreview] = useState<ImpactPlan | null>(null);
   const [applyLoading, setApplyLoading] = useState(false);
+
+  const [removeTarget, setRemoveTarget] = useState<{ poolName: string; poolMemberId: string } | null>(null);
+  const [removePreviewLoading, setRemovePreviewLoading] = useState(false);
+  const [pendingRemovePreview, setPendingRemovePreview] = useState<ImpactPlan | null>(null);
+  const [removeApplyLoading, setRemoveApplyLoading] = useState(false);
+
+  const [reassigningInstanceId, setReassigningInstanceId] = useState<string | null>(null);
+  const [reassignMode, setReassignMode] = useState("");
+  const [reassignUniverse, setReassignUniverse] = useState("");
+  const [reassignAddress, setReassignAddress] = useState("");
+  const [reassignLoading, setReassignLoading] = useState(false);
 
   const refreshPatch = useCallback(async (): Promise<PatchView> => {
     const view = await listPatch();
@@ -164,6 +184,10 @@ export default function ProjectFixtures() {
     })();
   }, [refreshPatch]);
 
+  useEffect(() => {
+    void listLocalFixtures().then((view) => setLibraryRows(view.rows));
+  }, []);
+
   const rows = useMemo(() => buildFixtureRows(patch, libraryRows), [patch, libraryRows]);
 
   const handleOpenAddForm = () => {
@@ -174,10 +198,6 @@ export default function ProjectFixtures() {
     setStartUniverse("");
     setStartAddress("");
     setPendingPreview(null);
-    setLibraryLoading(true);
-    void listLocalFixtures()
-      .then((view) => setLibraryRows(view.rows))
-      .finally(() => setLibraryLoading(false));
   };
 
   const handleCancelAddForm = () => {
@@ -272,6 +292,82 @@ export default function ProjectFixtures() {
     }
   };
 
+  const handleStartRemove = async (poolName: string, poolMemberId: string) => {
+    setRemoveTarget({ poolName, poolMemberId });
+    setPendingRemovePreview(null);
+    setRemovePreviewLoading(true);
+    try {
+      const result = await removePoolMemberPreview(poolName, poolMemberId);
+      assertOk(result, "RemovePoolMemberPreview");
+      const plan = JSON.parse(result.stdout) as ImpactPlan;
+      setPendingRemovePreview(plan);
+      setError(null);
+    } catch (err) {
+      setError(errorMessage(err));
+      setRemoveTarget(null);
+    } finally {
+      setRemovePreviewLoading(false);
+    }
+  };
+
+  const handleApplyRemove = async () => {
+    if (!pendingRemovePreview) {
+      return;
+    }
+    setRemoveApplyLoading(true);
+    try {
+      const result = await applyPatch(pendingRemovePreview.plan_id);
+      assertOk(result, "ApplyPatch");
+      setPendingRemovePreview(null);
+      setRemoveTarget(null);
+      await refreshPatch();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setRemoveApplyLoading(false);
+    }
+  };
+
+  const handleCancelRemove = () => {
+    setRemoveTarget(null);
+    setPendingRemovePreview(null);
+  };
+
+  const handleStartReassign = (row: FixtureRow) => {
+    setReassigningInstanceId(row.key);
+    setReassignMode(row.mode);
+    setReassignUniverse(String(row.universe));
+    setReassignAddress(String(row.address));
+  };
+
+  const handleSaveReassign = async (row: FixtureRow) => {
+    const universe = Number(reassignUniverse);
+    const address = Number(reassignAddress);
+    if (!reassignMode || !Number.isFinite(universe) || !Number.isFinite(address) || universe < 1 || address < 1) {
+      return;
+    }
+    setReassignLoading(true);
+    try {
+      const result = await reassignInstance(row.deploymentName, row.key, reassignMode, universe, address);
+      assertOk(result, "ReassignInstance");
+      setReassigningInstanceId(null);
+      await refreshPatch();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setReassignLoading(false);
+    }
+  };
+
+  const handleCancelReassign = () => {
+    setReassigningInstanceId(null);
+  };
+
+  const modesForFixture = (fixtureStableKey: string): string[] => {
+    const row = libraryRows.find((candidate) => candidate.stableKey === fixtureStableKey);
+    return row?.modes ?? [];
+  };
+
   return (
     <section className={styles.panel} aria-label="Project fixtures" aria-busy={listLoading}>
       {listLoading ? (
@@ -307,14 +403,131 @@ export default function ProjectFixtures() {
               <ul className={styles.rowScroll} aria-label="Project fixture list">
                 {rows.map((row) => (
                   <li key={row.key} className={styles.row}>
-                    <span className={styles.rowName} title={row.displayName}>
-                      {row.displayName}
-                    </span>
-                    <span className={styles.rowMeta}>{row.mode}</span>
-                    <span className={styles.technical}>
-                      Universe {row.universe}, Address {row.address}
-                    </span>
-                    <span className={styles.rowMeta}>{row.deploymentName}</span>
+                    {reassigningInstanceId === row.key ? (
+                      <>
+                        <span className={styles.rowName} title={row.displayName}>
+                          {row.displayName}
+                        </span>
+                        <select
+                          className={styles.createInput}
+                          value={reassignMode}
+                          onChange={(event) => setReassignMode(event.target.value)}
+                          aria-label="Mode"
+                        >
+                          <option value={reassignMode}>{reassignMode}</option>
+                          {modesForFixture(row.fixtureStableKey)
+                            .filter((modeOption) => modeOption !== reassignMode)
+                            .map((modeOption) => (
+                              <option key={modeOption} value={modeOption}>
+                                {modeOption}
+                              </option>
+                            ))}
+                        </select>
+                        <input
+                          className={styles.numberInput}
+                          type="number"
+                          min={1}
+                          value={reassignUniverse}
+                          onChange={(event) => setReassignUniverse(event.target.value)}
+                          aria-label="Universe"
+                        />
+                        <input
+                          className={styles.numberInput}
+                          type="number"
+                          min={1}
+                          value={reassignAddress}
+                          onChange={(event) => setReassignAddress(event.target.value)}
+                          aria-label="Address"
+                        />
+                        <button
+                          type="button"
+                          className={styles.primaryButton}
+                          disabled={reassignLoading}
+                          onClick={() => void handleSaveReassign(row)}
+                        >
+                          <Check size={13} aria-hidden="true" />
+                          {reassignLoading ? "Saving…" : "Save"}
+                        </button>
+                        <button type="button" className={styles.secondaryButton} onClick={handleCancelReassign}>
+                          <X size={13} aria-hidden="true" />
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className={styles.rowName} title={row.displayName}>
+                          {row.displayName}
+                        </span>
+                        <span className={styles.rowMeta}>{row.mode}</span>
+                        <span className={styles.technical}>
+                          Universe {row.universe}, Address {row.address}
+                        </span>
+                        <span className={styles.rowMeta}>{row.deploymentName}</span>
+                        <button
+                          type="button"
+                          className={styles.secondaryButton}
+                          onClick={() => handleStartReassign(row)}
+                          aria-label={`Edit ${row.displayName}`}
+                        >
+                          <Pencil size={13} aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.secondaryButton}
+                          onClick={() => void handleStartRemove(row.poolName, row.poolMemberId)}
+                          aria-label={`Remove ${row.displayName}`}
+                        >
+                          <X size={13} aria-hidden="true" />
+                          Remove
+                        </button>
+                      </>
+                    )}
+
+                    {removeTarget?.poolName === row.poolName && removeTarget.poolMemberId === row.poolMemberId && (
+                      <div className={styles.previewPanel}>
+                        {removePreviewLoading ? (
+                          <p className={styles.previewRow}>Reviewing…</p>
+                        ) : (
+                          pendingRemovePreview && (
+                            <>
+                              <p className={styles.previewHeading}>
+                                Impact Preview (plan{" "}
+                                <span className={styles.technical}>
+                                  {pendingRemovePreview.plan_id.slice(0, 12)}
+                                </span>
+                                )
+                              </p>
+                              <ul className={styles.previewList}>
+                                {(pendingRemovePreview.operations ?? [])
+                                  .filter((op) => op.action === "remove")
+                                  .map((op, index) => (
+                                    <li key={`${op.dependent_id}-${index}`} className={styles.previewRow}>
+                                      {op.dependent_kind === "deployment_instance"
+                                        ? `${op.dependent_ref}: deployment instance removed`
+                                        : `${op.dependent_ref}: group member removed`}
+                                    </li>
+                                  ))}
+                              </ul>
+                              <div className={styles.formActions}>
+                                <button
+                                  type="button"
+                                  className={styles.primaryButton}
+                                  disabled={removeApplyLoading}
+                                  onClick={() => void handleApplyRemove()}
+                                >
+                                  <Check size={14} aria-hidden="true" />
+                                  {removeApplyLoading ? "Applying…" : "Apply"}
+                                </button>
+                                <button type="button" className={styles.secondaryButton} onClick={handleCancelRemove}>
+                                  <X size={13} aria-hidden="true" />
+                                  Cancel
+                                </button>
+                              </div>
+                            </>
+                          )
+                        )}
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -327,12 +540,9 @@ export default function ProjectFixtures() {
                   value={selectedFixture?.stableKey ?? ""}
                   onChange={(event) => handleSelectFixture(event.target.value)}
                   aria-label="Fixture"
-                  disabled={libraryLoading}
                 >
                   <option value="" disabled>
-                    {libraryLoading
-                      ? "Loading fixture library…"
-                      : libraryRows.filter((row) => row.status === "valid").length === 0
+                    {libraryRows.filter((row) => row.status === "valid").length === 0
                         ? "No fixtures in library -- import one first"
                         : "Select a fixture…"}
                   </option>

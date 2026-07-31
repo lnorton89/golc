@@ -160,3 +160,62 @@ func Resolve(pools []pool.Pool, groups []pool.Group, deployments []deployment.De
 
 	return ResolvedSet{Instances: instances}, nil
 }
+
+// ScrubDangling returns a copy of sel with every selector that does not
+// resolve against pools/groups/deployments removed -- mirroring Resolve's
+// exact existence checks (poolExists/membersByPool/groupExists/
+// instanceExists), but filtering instead of erroring. Resolve itself
+// stays strict (an unresolved reference must still be diagnosable at
+// resolution time); ScrubDangling exists solely as a Save-time safety net
+// (internal/show/store.go's Save calls it before validate()) so a
+// persisted Selection can never silently carry an already-broken
+// reference forward -- for example after a pool/deployment cascade
+// delete. sel is never mutated; the order of surviving entries within
+// each field is preserved.
+func ScrubDangling(sel Selection, pools []pool.Pool, groups []pool.Group, deployments []deployment.Deployment) Selection {
+	poolExists := make(map[uuid.UUID]bool, len(pools))
+	membersByPool := make(map[uuid.UUID]map[uuid.UUID]bool, len(pools))
+	for _, p := range pools {
+		poolExists[p.ID] = true
+		members := make(map[uuid.UUID]bool, len(p.Members))
+		for _, m := range p.Members {
+			members[m.ID] = true
+		}
+		membersByPool[p.ID] = members
+	}
+
+	groupExists := make(map[uuid.UUID]bool, len(groups))
+	for _, g := range groups {
+		groupExists[g.ID] = true
+	}
+
+	instanceExists := make(map[uuid.UUID]bool)
+	for _, d := range deployments {
+		for _, instance := range d.Instances {
+			instanceExists[instance.ID] = true
+		}
+	}
+
+	var scrubbed Selection
+	for _, id := range sel.PoolIDs {
+		if poolExists[id] {
+			scrubbed.PoolIDs = append(scrubbed.PoolIDs, id)
+		}
+	}
+	for _, id := range sel.GroupIDs {
+		if groupExists[id] {
+			scrubbed.GroupIDs = append(scrubbed.GroupIDs, id)
+		}
+	}
+	for _, id := range sel.InstanceIDs {
+		if instanceExists[id] {
+			scrubbed.InstanceIDs = append(scrubbed.InstanceIDs, id)
+		}
+	}
+	for _, ref := range sel.FixtureRefs {
+		if members, ok := membersByPool[ref.PoolID]; ok && members[ref.PoolMemberID] {
+			scrubbed.FixtureRefs = append(scrubbed.FixtureRefs, ref)
+		}
+	}
+	return scrubbed
+}

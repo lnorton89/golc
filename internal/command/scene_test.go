@@ -210,7 +210,21 @@ func TestSceneLayerSetPreservesSelectionWhenOmitted(t *testing.T) {
 		t.Fatalf("show.Save (seed chases): %v", err)
 	}
 
-	poolID := uuid.Must(uuid.NewV7())
+	// A real pool is required here, not just a freshly-minted UUID: since
+	// internal/show/store.go's Save now scrubs any Layer.Selection
+	// selector referencing a pool that doesn't actually exist (the "adopt
+	// a never-before-used pool" safety net, see programming.ScrubDangling/
+	// scene.ScrubDanglingSelections), a selector pointed at a pool that
+	// was never created would be cleaned up as dangling rather than
+	// preserved -- which would defeat the very thing this test verifies.
+	if result := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash Pool", "--show", showPath}}); result.ExitCode != 0 {
+		t.Fatalf("pool create failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	seededPools, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load (read pool id): %v", err)
+	}
+	poolID := seededPools.Pools[0].ID
 
 	firstSet := registry.Execute(command.Request{Root: root, Args: []string{
 		"scene", "layer", "set", "Chorus",
@@ -256,8 +270,21 @@ func TestSceneLayerSetPreservesSelectionWhenOmitted(t *testing.T) {
 
 	// Explicitly re-supplying --pool with a different value still replaces
 	// the pool selector as before -- the merge only applies when a
-	// selector kind is omitted entirely.
-	otherPoolID := uuid.Must(uuid.NewV7())
+	// selector kind is omitted entirely. Another real pool, for the same
+	// reason as poolID above.
+	if result := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Other Pool", "--show", showPath}}); result.ExitCode != 0 {
+		t.Fatalf("pool create (other) failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	seededOtherPool, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load (read other pool id): %v", err)
+	}
+	var otherPoolID uuid.UUID
+	for _, p := range seededOtherPool.Pools {
+		if p.Name == "Other Pool" {
+			otherPoolID = p.ID
+		}
+	}
 	thirdSet := registry.Execute(command.Request{Root: root, Args: []string{
 		"scene", "layer", "set", "Chorus",
 		"--kind", "chase",

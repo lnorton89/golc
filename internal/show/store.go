@@ -26,6 +26,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/strictjson"
 )
 
@@ -275,6 +276,17 @@ func promoteState(db *sql.DB, schemaVersion, revision int, checksum string, payl
 // mutated in place: callers observe the bumped Revision by calling Load
 // again, exactly like the pre-SQLite Save's contract.
 func Save(root, path string, s State) (err error) {
+	// Scrub every Scene's Layer.Selection against the current pools/
+	// groups/deployments before validating: this can only ever remove an
+	// already-broken reference (a dangling PoolIDs/GroupIDs/InstanceIDs/
+	// FixtureRefs entry, invisible to validate() below since nothing
+	// checks Layer.Selection), never cause validate() to reject a state it
+	// would otherwise accept. Without this, a pool/deployment cascade
+	// delete could silently persist a Scene whose Selection only fails
+	// much later, at playback-resolution time, with
+	// GOLC_SELECTION_DANGLING_REFERENCE.
+	s.Scenes = scene.ScrubDanglingSelections(s.Scenes, s.Pools, s.Groups, s.Deployments)
+
 	if err := validate(s); err != nil {
 		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: %v", err)
 	}

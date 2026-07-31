@@ -351,3 +351,98 @@ func TestShowStoreNoPlaybackImport(t *testing.T) {
 		}
 	}
 }
+
+// TestSaveScrubsDanglingSceneSelectionBeforeValidate proves Save's new
+// scrub step: a Scene's Layer.Selection referencing a pool that no longer
+// exists (as a cascade delete would leave it) is cleaned up automatically
+// rather than causing Save to fail or silently persisting the dangling
+// reference for Resolve to choke on later.
+func TestSaveScrubsDanglingSceneSelectionBeforeValidate(t *testing.T) {
+	root := t.TempDir()
+	path := "show.golc"
+
+	p, err := pool.NewPool("Wash Pool", nil)
+	if err != nil {
+		t.Fatalf("NewPool: %v", err)
+	}
+	member, err := pool.NewPoolMember("fixture:generic-rgb-par", "sha256:deadbeef")
+	if err != nil {
+		t.Fatalf("NewPoolMember: %v", err)
+	}
+	p.Members = append(p.Members, member)
+
+	d, err := deployment.NewDeployment("Venue A")
+	if err != nil {
+		t.Fatalf("NewDeployment: %v", err)
+	}
+	instanceID, err := uuid.NewV7()
+	if err != nil {
+		t.Fatalf("uuid.NewV7: %v", err)
+	}
+	d.Instances = append(d.Instances, deployment.Instance{
+		ID: instanceID, PoolID: p.ID, PoolMemberID: member.ID, Mode: "Standard", Universe: 1, Address: 1,
+	})
+
+	sc, err := scene.NewScene("Opener", 4)
+	if err != nil {
+		t.Fatalf("NewScene: %v", err)
+	}
+	sc.Layers[0].Selection = programming.Selection{PoolIDs: []uuid.UUID{p.ID}}
+
+	state := State{Pools: []pool.Pool{p}, Deployments: []deployment.Deployment{d}, Scenes: []scene.Scene{sc}}
+	if err := Save(root, path, state); err != nil {
+		t.Fatalf("initial Save: %v", err)
+	}
+	loaded, err := Load(root, path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(loaded.Scenes[0].Layers[0].Selection.PoolIDs) != 1 {
+		t.Fatalf("expected the valid selection to round-trip untouched, got %+v", loaded.Scenes[0].Layers[0].Selection)
+	}
+
+	// Cascade-delete the pool (mirroring pool.DeletePool's own cascade) --
+	// the scene's Layer.Selection is left dangling on purpose here, exactly
+	// as a real "pool delete" CLI invocation would leave it before Save's
+	// scrub runs.
+	newPools, newDeployments, newGroups, err := pool.DeletePool(loaded.Pools, loaded.Deployments, loaded.Groups, p.ID)
+	if err != nil {
+		t.Fatalf("pool.DeletePool: %v", err)
+	}
+	loaded.Pools, loaded.Deployments, loaded.Groups = newPools, newDeployments, newGroups
+
+	if err := Save(root, path, loaded); err != nil {
+		t.Fatalf("expected Save to succeed despite the now-dangling scene selection (scrub should clean it, not reject it): %v", err)
+	}
+
+	reloaded, err := Load(root, path)
+	if err != nil {
+		t.Fatalf("Load after cascade delete: %v", err)
+	}
+	if len(reloaded.Scenes[0].Layers[0].Selection.PoolIDs) != 0 {
+		t.Fatalf("expected the scene's dangling PoolIDs entry to be scrubbed, got %+v", reloaded.Scenes[0].Layers[0].Selection.PoolIDs)
+	}
+}
+
+// TestSaveStillRejectsGenuinelyInvalidStateUnrelatedToSelections is a
+// negative control: the new scrub step must never mask a real validate()
+// failure unrelated to Selections (here, a duplicate pool name).
+func TestSaveStillRejectsGenuinelyInvalidStateUnrelatedToSelections(t *testing.T) {
+	root := t.TempDir()
+	path := "show.golc"
+
+	p1, err := pool.NewPool("Duplicate Name", nil)
+	if err != nil {
+		t.Fatalf("NewPool: %v", err)
+	}
+	p2, err := pool.NewPool("Duplicate Name", nil)
+	if err != nil {
+		t.Fatalf("NewPool: %v", err)
+	}
+
+	state := State{Pools: []pool.Pool{p1, p2}}
+	err = Save(root, path, state)
+	if err == nil || !strings.Contains(err.Error(), "GOLC_SHOW_STATE_INVALID") || !strings.Contains(err.Error(), "GOLC_POOL_DUPLICATE_NAME") {
+		t.Fatalf("expected GOLC_SHOW_STATE_INVALID wrapping GOLC_POOL_DUPLICATE_NAME, got %v", err)
+	}
+}
