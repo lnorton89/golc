@@ -220,6 +220,7 @@ export default function FixturePatch() {
         selectedFixture.stableKey,
         selectedFixture.contentHash,
         addMode,
+        selectedFixture.modeChannelCounts[addMode] ?? 0,
       );
       assertOk(result, "AddPoolMemberPreview");
       const plan = JSON.parse(result.stdout) as ImpactPlan;

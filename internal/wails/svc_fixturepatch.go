@@ -128,16 +128,21 @@ func (s *FixturePatchService) cachePlan(previewResult Result) Result {
 
 // AddPoolMemberPreview returns the backend's non-committing impact preview
 // for adding one fixture reference to pool at mode via "pool update --add
-// <stableKey>|<contentHash>|<mode> --propagate preview --json" (POOL-04:
-// review-before-apply). The pool's members remain unchanged until a
-// matching ApplyPatch(planId) call commits the returned plan.
-func (s *FixturePatchService) AddPoolMemberPreview(poolName, stableKey, contentHash, mode string) Result {
+// <stableKey>|<contentHash>|<mode>|<channelCount> --propagate preview
+// --json" (POOL-04: review-before-apply). channelCount is the selected
+// mode's real channel width (FixtureLibraryRowView.modeChannelCounts,
+// svc_fixturelibrary.go); a value below 1 omits the field entirely, which
+// falls back to pool.defaultInstanceChannelCount's 1-channel width
+// (mirrors "pool update"'s own optional-field CLI contract). The pool's
+// members remain unchanged until a matching ApplyPatch(planId) call
+// commits the returned plan.
+func (s *FixturePatchService) AddPoolMemberPreview(poolName, stableKey, contentHash, mode string, channelCount int) Result {
 	for _, field := range []string{stableKey, contentHash, mode} {
 		if strings.Contains(field, "|") {
 			return Result{ExitCode: 2, Stderr: "GOLC_WAILS_POOL_MEMBER_FIELD_INVALID: fixture stable key/content hash/mode must not contain \"|\"\n"}
 		}
 	}
-	spec := fmt.Sprintf("%s|%s|%s", stableKey, contentHash, mode)
+	spec := poolMemberSpecString(stableKey, contentHash, mode, channelCount)
 	result := s.execute([]string{
 		"pool", "update", poolName,
 		"--add", spec,
@@ -148,6 +153,18 @@ func (s *FixturePatchService) AddPoolMemberPreview(poolName, stableKey, contentH
 	return s.cachePlan(result)
 }
 
+// poolMemberSpecString builds one "pool update --add" value, appending the
+// optional trailing channel_count field (internal/command/pool.go's
+// parsePoolMemberSpec) only when channelCount is a real resolved width
+// (>= 1) -- an unresolved/unknown channelCount (0 or below) omits the
+// field, reproducing the pre-channel-count spec shape exactly.
+func poolMemberSpecString(stableKey, contentHash, mode string, channelCount int) string {
+	if channelCount < 1 {
+		return fmt.Sprintf("%s|%s|%s", stableKey, contentHash, mode)
+	}
+	return fmt.Sprintf("%s|%s|%s|%d", stableKey, contentHash, mode, channelCount)
+}
+
 // AddPoolMembersPreview returns the backend's non-committing impact preview
 // for adding `count` units of one fixture reference (stableKey/contentHash/
 // mode) to pool in a single batch (CONTEXT: browse-library-and-add-to-
@@ -156,7 +173,14 @@ func (s *FixturePatchService) AddPoolMemberPreview(poolName, stableKey, contentH
 // instances (closes the "adopt a never-before-used pool" gap -- see
 // internal/pool/impact.go's ImpactRequest.AttachDeployments), and optionally
 // anchoring the universe/address scan at startUniverse/startAddress
-// (either left 0 to keep today's system-suggested next-free slot). The
+// (either left 0 to keep today's system-suggested next-free slot).
+// channelCount is the selected mode's real channel width
+// (FixtureLibraryRowView.modeChannelCounts, svc_fixturelibrary.go): every
+// one of the `count` proposed instances is spaced by this width instead of
+// pool.defaultInstanceChannelCount's 1-channel fallback, so N units of a
+// wide fixture (for example 5-channel) land at addresses 1, 6, 11, ...
+// instead of colliding one address apart. A value below 1 omits the field
+// and reproduces the pre-channel-count 1-channel-apart behavior. The
 // pool's members remain unchanged until a matching ApplyPatch(planId) call
 // commits the returned plan.
 func (s *FixturePatchService) AddPoolMembersPreview(
@@ -164,6 +188,7 @@ func (s *FixturePatchService) AddPoolMembersPreview(
 	count int,
 	attachDeploymentID string,
 	startUniverse, startAddress int,
+	channelCount int,
 ) Result {
 	for _, field := range []string{stableKey, contentHash, mode} {
 		if strings.Contains(field, "|") {
@@ -173,7 +198,7 @@ func (s *FixturePatchService) AddPoolMembersPreview(
 	if count < 1 {
 		return Result{ExitCode: 2, Stderr: "GOLC_WAILS_POOL_MEMBER_COUNT_INVALID: count must be at least 1\n"}
 	}
-	spec := fmt.Sprintf("%s|%s|%s", stableKey, contentHash, mode)
+	spec := poolMemberSpecString(stableKey, contentHash, mode, channelCount)
 	args := []string{"pool", "update", poolName}
 	for i := 0; i < count; i++ {
 		args = append(args, "--add", spec)

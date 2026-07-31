@@ -263,6 +263,7 @@ export default function ProjectFixtures() {
         activeDeployment.id,
         parsePositiveInt(startUniverse),
         parsePositiveInt(startAddress),
+        selectedFixture.modeChannelCounts[mode] ?? 0,
       );
       assertOk(result, "AddPoolMembersPreview");
       const plan = JSON.parse(result.stdout) as ImpactPlan;

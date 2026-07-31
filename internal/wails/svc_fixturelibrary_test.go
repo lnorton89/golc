@@ -113,6 +113,33 @@ func TestFixtureLibraryServiceListLocalProjectsRowsSortedByStableKey(t *testing.
 	}
 }
 
+// TestFixtureLibraryServiceListLocalProjectsModeChannelCounts proves each
+// valid row's ModeChannelCounts maps every Modes entry's Name to its real
+// channel width (len(Mode.Channels)) -- the "Standard" mode in
+// validFixtureYAMLForLibraryTest declares two channels (intensity, color),
+// so ModeChannelCounts["Standard"] must be 2, not the 1-channel fallback
+// internal/pool/impact.go's BuildImpactPlan otherwise defaults to when a
+// caller never resolves a real channel width.
+func TestFixtureLibraryServiceListLocalProjectsModeChannelCounts(t *testing.T) {
+	svc, _, fixturesDir := newTestFixtureLibraryService(t)
+	writeLibraryTestFixture(t, fixturesDir, "slimpar.yaml", validFixtureYAMLForLibraryTest)
+
+	view, err := svc.ListLocal()
+	if err != nil {
+		t.Fatalf("ListLocal: %v", err)
+	}
+	if len(view.Rows) != 1 {
+		t.Fatalf("expected 1 row, got %d: %+v", len(view.Rows), view.Rows)
+	}
+	row := view.Rows[0]
+	if len(row.Modes) != 1 || row.Modes[0] != "Standard" {
+		t.Fatalf("expected exactly one mode named Standard, got %+v", row.Modes)
+	}
+	if got := row.ModeChannelCounts["Standard"]; got != 2 {
+		t.Fatalf("expected ModeChannelCounts[%q] == 2, got %d (full map %+v)", "Standard", got, row.ModeChannelCounts)
+	}
+}
+
 // TestFixtureLibraryServiceListLocalMissingDirectoryIsEmptyNotError
 // proves a service pointed at a directory that has never been created
 // returns a view whose Rows is a non-nil empty slice and a nil error --

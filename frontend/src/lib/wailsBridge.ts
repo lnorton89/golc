@@ -183,6 +183,7 @@ interface FixturePatchServiceBinding {
     stableKey: string,
     contentHash: string,
     mode: string,
+    channelCount: number,
   ): Promise<WailsResult>;
   AddPoolMembersPreview(
     poolName: string,
@@ -193,6 +194,7 @@ interface FixturePatchServiceBinding {
     attachDeploymentId: string,
     startUniverse: number,
     startAddress: number,
+    channelCount: number,
   ): Promise<WailsResult>;
   RemovePoolMemberPreview(poolName: string, memberId: string): Promise<WailsResult>;
   ApplyPatch(planId: string): Promise<WailsResult>;
@@ -639,6 +641,7 @@ export interface FixtureLibraryRowView {
   manufacturer: string;
   model: string;
   modes: string[];
+  modeChannelCounts: Record<string, number>;
   fileName: string;
   source: string;
   status: string;
@@ -1320,19 +1323,24 @@ export async function createPool(
  * FixturePatchService.AddPoolMemberPreview (PLAY-10: the backend's
  * non-committing impact preview for adding one fixture reference to a
  * pool at a mode via "pool update --add ... --propagate preview --json").
- * Never mutates the ShowState document -- the returned Result's stdout
- * carries the impact-preview JSON for the frontend to parse and render
- * before an applyPatch(planId) commit (review-before-apply, POOL-04/
- * D-15). */
+ * channelCount is the selected mode's real channel width (look it up via
+ * FixtureLibraryRowView.modeChannelCounts[mode]; pass 0 when unknown to
+ * fall back to the backend's 1-channel default) -- it spaces this
+ * proposed instance's address by the fixture's actual footprint instead
+ * of assuming 1 channel. Never mutates the ShowState document -- the
+ * returned Result's stdout carries the impact-preview JSON for the
+ * frontend to parse and render before an applyPatch(planId) commit
+ * (review-before-apply, POOL-04/D-15). */
 export async function addPoolMemberPreview(
   poolName: string,
   stableKey: string,
   contentHash: string,
   mode: string,
+  channelCount: number,
 ): Promise<WailsResult> {
   const svc = fixturePatchService();
   if (!svc) return bridgeUnavailableResult();
-  return svc.AddPoolMemberPreview(poolName, stableKey, contentHash, mode);
+  return svc.AddPoolMemberPreview(poolName, stableKey, contentHash, mode, channelCount);
 }
 
 /** addPoolMembersPreview calls the bound
@@ -1343,10 +1351,18 @@ export async function addPoolMemberPreview(
  * deployment can still receive proposed instances -- closes the "adopt a
  * never-before-used pool" gap -- and optionally anchoring the universe/
  * address scan at startUniverse/startAddress, either left 0 for the
- * system-suggested next-free slot). Never mutates the ShowState document --
- * the returned Result's stdout carries the impact-preview JSON for the
- * frontend to parse and render before an applyPatch(planId) commit
- * (review-before-apply, POOL-04/D-15). */
+ * system-suggested next-free slot). channelCount is the selected mode's
+ * real channel width (look it up via
+ * FixtureLibraryRowView.modeChannelCounts[mode]; pass 0 when unknown to
+ * fall back to the backend's 1-channel default): every one of the `count`
+ * proposed instances is spaced by this width instead of a 1-channel
+ * assumption, so N units of a wide fixture land at addresses
+ * startAddress, startAddress + channelCount, ... instead of colliding one
+ * address apart (the multi-add address-collision bug this parameter
+ * closes). Never mutates the ShowState document -- the returned Result's
+ * stdout carries the impact-preview JSON for the frontend to parse and
+ * render before an applyPatch(planId) commit (review-before-apply,
+ * POOL-04/D-15). */
 export async function addPoolMembersPreview(
   poolName: string,
   stableKey: string,
@@ -1356,6 +1372,7 @@ export async function addPoolMembersPreview(
   attachDeploymentId: string,
   startUniverse: number,
   startAddress: number,
+  channelCount: number,
 ): Promise<WailsResult> {
   const svc = fixturePatchService();
   if (!svc) return bridgeUnavailableResult();
@@ -1368,6 +1385,7 @@ export async function addPoolMembersPreview(
     attachDeploymentId,
     startUniverse,
     startAddress,
+    channelCount,
   );
 }
 

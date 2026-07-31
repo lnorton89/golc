@@ -132,23 +132,30 @@ func (s *FixtureLibraryService) execute(args []string) Result {
 // projects Status "invalid" with Detail carrying that failure's message
 // and Manufacturer/Model left empty (StableKey falls back to FileName);
 // a clean entry projects Status "valid" with its pinned StableKey.
-// ContentHash and Modes are populated only for a "valid" row -- an
-// "invalid" row carries its zero value (empty string / nil slice) for
-// both, since a decode/pin failure never produces a pinned identity or a
-// canonical mode list. Modes exists so a fixture picker (FixturePatch.tsx's
-// add-to-pool control, PLAY-10) can offer a mode dropdown scoped to the
-// exact fixture the operator selected, without a second "fixture inspect"
-// round trip.
+// ContentHash, Modes, and ModeChannelCounts are populated only for a
+// "valid" row -- an "invalid" row carries its zero value (empty string /
+// nil slice / empty map) for all three, since a decode/pin failure never
+// produces a pinned identity or a canonical mode list. Modes exists so a
+// fixture picker (FixturePatch.tsx's add-to-pool control, PLAY-10) can
+// offer a mode dropdown scoped to the exact fixture the operator selected,
+// without a second "fixture inspect" round trip. ModeChannelCounts maps
+// each Modes entry's Name to its real channel width (len(Mode.Channels)):
+// FixturePatch.tsx/ProjectFixtures.tsx thread this through
+// AddPoolMemberPreview/AddPoolMembersPreview's channelCount parameter so a
+// batch add spaces each proposed instance by the fixture's actual
+// footprint instead of a 1-channel fallback (the multi-add
+// address-collision bug this field closes).
 type FixtureLibraryRowView struct {
-	StableKey    string   `json:"stableKey"`
-	ContentHash  string   `json:"contentHash"`
-	Manufacturer string   `json:"manufacturer"`
-	Model        string   `json:"model"`
-	Modes        []string `json:"modes"`
-	FileName     string   `json:"fileName"`
-	Source       string   `json:"source"`
-	Status       string   `json:"status"`
-	Detail       string   `json:"detail"`
+	StableKey         string         `json:"stableKey"`
+	ContentHash       string         `json:"contentHash"`
+	Manufacturer      string         `json:"manufacturer"`
+	Model             string         `json:"model"`
+	Modes             []string       `json:"modes"`
+	ModeChannelCounts map[string]int `json:"modeChannelCounts"`
+	FileName          string         `json:"fileName"`
+	Source            string         `json:"source"`
+	Status            string         `json:"status"`
+	Detail            string         `json:"detail"`
 }
 
 // FixtureLibraryView is ListLocal's full return shape. Rows is always a
@@ -195,24 +202,26 @@ func (s *FixtureLibraryService) ListLocal() (FixtureLibraryView, error) {
 	for _, entry := range entries {
 		if entry.Err != nil {
 			rows = append(rows, FixtureLibraryRowView{
-				StableKey: entry.FileName,
-				Modes:     []string{},
-				FileName:  entry.FileName,
-				Source:    "local",
-				Status:    "invalid",
-				Detail:    entry.Err.Error(),
+				StableKey:         entry.FileName,
+				Modes:             []string{},
+				ModeChannelCounts: map[string]int{},
+				FileName:          entry.FileName,
+				Source:            "local",
+				Status:            "invalid",
+				Detail:            entry.Err.Error(),
 			})
 			continue
 		}
 		rows = append(rows, FixtureLibraryRowView{
-			StableKey:    entry.Identity.StableKey,
-			ContentHash:  entry.Identity.ContentHash,
-			Manufacturer: entry.Definition.Manufacturer,
-			Model:        entry.Definition.Model,
-			Modes:        modeNames(entry.Definition.Modes),
-			FileName:     entry.FileName,
-			Source:       rowSource(entry.Provenance),
-			Status:       "valid",
+			StableKey:         entry.Identity.StableKey,
+			ContentHash:       entry.Identity.ContentHash,
+			Manufacturer:      entry.Definition.Manufacturer,
+			Model:             entry.Definition.Model,
+			Modes:             modeNames(entry.Definition.Modes),
+			ModeChannelCounts: modeChannelCounts(entry.Definition.Modes),
+			FileName:          entry.FileName,
+			Source:            rowSource(entry.Provenance),
+			Status:            "valid",
 		})
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].StableKey < rows[j].StableKey })
@@ -230,6 +239,21 @@ func modeNames(modes []fixture.Mode) []string {
 		names = append(names, mode.Name)
 	}
 	return names
+}
+
+// modeChannelCounts projects a fixture definition's Modes into a Name ->
+// real channel width map (always a non-nil, possibly empty map, mirroring
+// this file's established "never JSON null" discipline): a Mode's channel
+// width is len(Mode.Channels), the same real-footprint count
+// internal/pool/impact.go's PoolMemberSpec.ChannelCount ultimately spaces
+// a newly proposed instance's address by, instead of the 1-channel
+// fallback it otherwise defaults to.
+func modeChannelCounts(modes []fixture.Mode) map[string]int {
+	counts := make(map[string]int, len(modes))
+	for _, mode := range modes {
+		counts[mode.Name] = len(mode.Channels)
+	}
+	return counts
 }
 
 // rowSource projects a DirectoryEntry's Provenance into ListLocal's row
