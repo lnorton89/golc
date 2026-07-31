@@ -92,6 +92,10 @@
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
+.sceneRow.selected:hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
 .sceneRow:hover:not(.selected) {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
