@@ -172,6 +172,26 @@ var _ = MustDeclareRoute(CommandRegistration{
 	Handler: runArtnetMasterSet,
 })
 
+var _ = MustDeclareRoute(CommandRegistration{
+	Route: "artnet desk set",
+	Summary: "Set one deployment instance's one capability to a manual override value (QLC+-style Simple Desk), taking effect on the Art-Net worker's very next tick independent of any active scene, and always subject to Blackout/Stop-All/master scaling: " +
+		"artnet desk set --instance <uuid> --attr <capability>=<value> [--pipe <name>].",
+	Handler: runArtnetDeskSet,
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route: "artnet desk clear",
+	Summary: "Release one deployment instance's manual desk override(s) back to scene-passthrough: " +
+		"artnet desk clear --instance <uuid> [--attr <capability>] [--pipe <name>].",
+	Handler: runArtnetDeskClear,
+})
+
+var _ = MustDeclareRoute(CommandRegistration{
+	Route:   "artnet desk clear-all",
+	Summary: "Release every manual desk override across every instance at once: artnet desk clear-all [--pipe <name>].",
+	Handler: runArtnetDeskClearAll,
+})
+
 // artnetWatchInterval is "artnet status --watch"'s own refresh cadence --
 // independent of the daemon's 40Hz worker tick and 1Hz interface poll,
 // slow enough to be readable, fast enough to feel live (D-02/D-11).
@@ -942,6 +962,98 @@ func runArtnetMasterSet(request Request) Result {
 	return forwardToDaemon(pipeNameFromFlags(values), Request{
 		Route: "artnet master set",
 		Args:  []string{"--group", rawGroup, "--level", rawLevel, "--source", "manual"},
+		Root:  request.Root,
+	})
+}
+
+// parseDeskInstance validates and returns the required "--instance <uuid>"
+// flag out of values, rejecting a missing/malformed value as
+// GOLC_ARTNET_USAGE before ever dialing the daemon -- shared by every
+// "artnet desk ..." client route below.
+func parseDeskInstance(usage string, values map[string]string) (string, error) {
+	instance, ok := values["instance"]
+	if !ok || instance == "" {
+		return "", fmt.Errorf("GOLC_ARTNET_USAGE: --instance is required; usage: %s", usage)
+	}
+	if _, err := uuid.Parse(instance); err != nil {
+		return "", fmt.Errorf("GOLC_ARTNET_USAGE: --instance value %q is not a valid UUID; usage: %s", instance, usage)
+	}
+	return instance, nil
+}
+
+// runArtnetDeskSet serves the self-registered "artnet desk set" route (the
+// QLC+-style Simple Desk's live channel-write path): it validates the
+// --instance/--attr shape client-side (GOLC_ARTNET_USAGE on a malformed
+// value, before ever dialing the daemon), then forwards to the daemon route
+// with "--source manual" always appended, mirroring runArtnetSafetyToggle/
+// runArtnetMasterSet's identical convention -- every operator-issued CLI
+// desk action is manual by definition, never blocked by an active Revoke
+// Automation.
+func runArtnetDeskSet(request Request) Result {
+	usage := "artnet desk set --instance <uuid> --attr <capability>=<value> [--pipe <name>]"
+	values, err := parseArtnetArgs(usage, request.Args, nil)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	instance, err := parseDeskInstance(usage, values)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	attr, ok := values["attr"]
+	if !ok || !strings.Contains(attr, "=") {
+		return Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_USAGE: --attr must be capability=value; usage: %s\n", usage)}
+	}
+
+	return forwardToDaemon(pipeNameFromFlags(values), Request{
+		Route: "artnet desk set",
+		Args:  []string{"--instance", instance, "--attr", attr, "--source", "manual"},
+		Root:  request.Root,
+	})
+}
+
+// runArtnetDeskClear serves the self-registered "artnet desk clear" route:
+// releasing one instance's one capability override (--attr given) or every
+// override on that instance at once (--attr omitted).
+func runArtnetDeskClear(request Request) Result {
+	usage := "artnet desk clear --instance <uuid> [--attr <capability>] [--pipe <name>]"
+	values, err := parseArtnetArgs(usage, request.Args, nil)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	instance, err := parseDeskInstance(usage, values)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	args := []string{"--instance", instance, "--source", "manual"}
+	if attr, ok := values["attr"]; ok && attr != "" {
+		args = append(args, "--attr", attr)
+	}
+
+	return forwardToDaemon(pipeNameFromFlags(values), Request{
+		Route: "artnet desk clear",
+		Args:  args,
+		Root:  request.Root,
+	})
+}
+
+// runArtnetDeskClearAll serves the self-registered "artnet desk clear-all"
+// route: releasing every manual desk override across every instance at
+// once.
+func runArtnetDeskClearAll(request Request) Result {
+	usage := "artnet desk clear-all [--pipe <name>]"
+	values, err := parseArtnetArgs(usage, request.Args, nil)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	return forwardToDaemon(pipeNameFromFlags(values), Request{
+		Route: "artnet desk clear-all",
+		Args:  []string{"--source", "manual"},
 		Root:  request.Root,
 	})
 }

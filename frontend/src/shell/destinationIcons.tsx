@@ -13,6 +13,7 @@ import {
   Layers,
   FileCode2,
   SlidersHorizontal,
+  Sliders,
   Music2,
   Network,
   Activity,
@@ -33,6 +34,7 @@ export const DESTINATION_ICONS: Record<DestinationId, LucideIcon> = {
   "build-scripts": FileCode2,
   "operate-operator-surface": SlidersHorizontal,
   "operate-midi-mapping": Music2,
+  "perform-desk": Sliders,
   "output-artnet": Network,
   "output-diagnostics": Activity,
 };

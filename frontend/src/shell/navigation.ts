@@ -18,6 +18,7 @@ export type DestinationId =
   | "build-scripts"
   | "operate-operator-surface"
   | "operate-midi-mapping"
+  | "perform-desk"
   | "output-artnet"
   | "output-diagnostics";
 

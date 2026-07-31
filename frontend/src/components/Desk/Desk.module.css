@@ -1,0 +1,268 @@
+/*
+ * Desk.module.css is the single CSS Module for the Perform > Desk feature
+ * (QLC+-style Simple Desk): the universe/fixture-group layout in Desk.tsx
+ * and the vertical fader primitive in Fader.tsx both read from this one
+ * file. Reads the GOLC brand tokens (frontend/src/index.css custom
+ * properties) rather than repeating hex values, mirroring
+ * ArtnetConfig.module.css's class-naming and token usage so this feature
+ * reads as the same visual system, not a new one.
+ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  color: var(--text);
+  font-family: "Archivo", system-ui, sans-serif;
+}
+
+.skeleton {
+  padding: var(--space-md);
+  border-radius: 4px;
+  background: var(--line);
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.offlinePanel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--status-offline);
+  border-radius: 4px;
+  background: var(--page);
+}
+
+.offlineChip {
+  padding: 2px var(--space-sm);
+  border-radius: 4px;
+  background: var(--status-offline);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.offlineText {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.errorText {
+  margin: 0;
+  padding: var(--space-sm);
+  border-radius: 4px;
+  background: var(--status-revoked);
+  color: #fff;
+  font-size: 14px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.countSummary {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+
+.secondaryButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-lg) var(--space-md);
+}
+
+.emptyHeading {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.emptyBody {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+/* Universe/fixture layout */
+
+.universeList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.universeRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+}
+
+.universeHeading {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.fixtureScroll {
+  display: flex;
+  gap: var(--space-md);
+  overflow-x: auto;
+  padding-bottom: var(--space-xs);
+}
+
+.fixtureGroup {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+  min-width: 120px;
+}
+
+.fixtureHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fixtureName {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.technical {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.noChannels {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.faderRow {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+/* Fader primitive */
+
+.fader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 44px;
+}
+
+.faderValue {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.faderInput,
+.faderInputOverridden {
+  -webkit-appearance: slider-vertical;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 20px;
+  height: 120px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.faderInputOverridden {
+  accent-color: var(--status-live);
+}
+
+.faderLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  max-width: 44px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.faderSublabel {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.faderClearButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.faderClearButton:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.faderClearButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}

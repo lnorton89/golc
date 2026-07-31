@@ -17,6 +17,7 @@ import ScenesLooksWorkspace from "../workspaces/build/ScenesLooksWorkspace";
 import ScriptsWorkspace from "../workspaces/build/ScriptsWorkspace";
 import OperatorSurfaceWorkspace from "../workspaces/operate/OperatorSurfaceWorkspace";
 import MidiMappingWorkspace from "../workspaces/operate/MidiMappingWorkspace";
+import DeskWorkspace from "../workspaces/perform/DeskWorkspace";
 import ArtnetWorkspace from "../workspaces/output/ArtnetWorkspace";
 import DiagnosticsWorkspace from "../workspaces/output/DiagnosticsWorkspace";
 
@@ -48,6 +49,8 @@ export default function WorkspaceRouter({ active }: WorkspaceRouterProps) {
       return <OperatorSurfaceWorkspace />;
     case "operate-midi-mapping":
       return <MidiMappingWorkspace />;
+    case "perform-desk":
+      return <DeskWorkspace />;
     case "output-artnet":
       return <ArtnetWorkspace />;
     case "output-diagnostics":

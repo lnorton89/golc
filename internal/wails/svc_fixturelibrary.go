@@ -146,16 +146,33 @@ func (s *FixtureLibraryService) execute(args []string) Result {
 // footprint instead of a 1-channel fallback (the multi-add
 // address-collision bug this field closes).
 type FixtureLibraryRowView struct {
-	StableKey         string         `json:"stableKey"`
-	ContentHash       string         `json:"contentHash"`
-	Manufacturer      string         `json:"manufacturer"`
-	Model             string         `json:"model"`
-	Modes             []string       `json:"modes"`
-	ModeChannelCounts map[string]int `json:"modeChannelCounts"`
-	FileName          string         `json:"fileName"`
-	Source            string         `json:"source"`
-	Status            string         `json:"status"`
-	Detail            string         `json:"detail"`
+	StableKey         string                       `json:"stableKey"`
+	ContentHash       string                       `json:"contentHash"`
+	Manufacturer      string                       `json:"manufacturer"`
+	Model             string                       `json:"model"`
+	Modes             []string                     `json:"modes"`
+	ModeChannelCounts map[string]int               `json:"modeChannelCounts"`
+	ModeChannels      map[string][]ChannelSlotView `json:"modeChannels"`
+	FileName          string                       `json:"fileName"`
+	Source            string                       `json:"source"`
+	Status            string                       `json:"status"`
+	Detail            string                       `json:"detail"`
+}
+
+// ChannelSlotView mirrors internal/fixture.ChannelSlot's JSON shape in this
+// package's camelCase convention: Type is the semantic CapabilityType this
+// DMX channel drives (e.g. "intensity", "color_red", "pan"), and Occurrence
+// is the 0-based index selecting which of the fixture's possibly-multiple
+// same-Type Capabilities this channel corresponds to (fixture.ChannelSlot's
+// own doc comment). Index is the channel's own 0-based position within the
+// mode's ordered layout -- the Desk workspace (Perform > Desk) uses it to
+// compute this channel's live DMX address as Instance.Address + Index,
+// since fixture.Mode.Channels' declared order IS the real wire order
+// (D-16).
+type ChannelSlotView struct {
+	Index      int    `json:"index"`
+	Type       string `json:"type"`
+	Occurrence int    `json:"occurrence"`
 }
 
 // FixtureLibraryView is ListLocal's full return shape. Rows is always a
@@ -205,6 +222,7 @@ func (s *FixtureLibraryService) ListLocal() (FixtureLibraryView, error) {
 				StableKey:         entry.FileName,
 				Modes:             []string{},
 				ModeChannelCounts: map[string]int{},
+				ModeChannels:      map[string][]ChannelSlotView{},
 				FileName:          entry.FileName,
 				Source:            "local",
 				Status:            "invalid",
@@ -219,6 +237,7 @@ func (s *FixtureLibraryService) ListLocal() (FixtureLibraryView, error) {
 			Model:             entry.Definition.Model,
 			Modes:             modeNames(entry.Definition.Modes),
 			ModeChannelCounts: modeChannelCounts(entry.Definition.Modes),
+			ModeChannels:      modeChannelLayouts(entry.Definition.Modes),
 			FileName:          entry.FileName,
 			Source:            rowSource(entry.Provenance),
 			Status:            "valid",
@@ -254,6 +273,23 @@ func modeChannelCounts(modes []fixture.Mode) map[string]int {
 		counts[mode.Name] = len(mode.Channels)
 	}
 	return counts
+}
+
+// modeChannelLayouts projects a fixture definition's Modes into a Name ->
+// ordered ChannelSlotView list map (always a non-nil, possibly empty map,
+// mirroring modeChannelCounts' identical "never JSON null" discipline): the
+// Desk workspace (Perform > Desk) reads this to label and address every
+// fader channel without a second fixture-inspection round trip.
+func modeChannelLayouts(modes []fixture.Mode) map[string][]ChannelSlotView {
+	layouts := make(map[string][]ChannelSlotView, len(modes))
+	for _, mode := range modes {
+		channels := make([]ChannelSlotView, 0, len(mode.Channels))
+		for i, slot := range mode.Channels {
+			channels = append(channels, ChannelSlotView{Index: i, Type: string(slot.Type), Occurrence: slot.Occurrence})
+		}
+		layouts[mode.Name] = channels
+	}
+	return layouts
 }
 
 // rowSource projects a DirectoryEntry's Provenance into ListLocal's row

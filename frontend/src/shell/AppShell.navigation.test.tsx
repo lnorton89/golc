@@ -26,10 +26,10 @@ describe("AppShell navigation", () => {
       views: ReadonlyArray<{ id: string; slug: string; navLabel: string }>;
     }>;
     expect(desktopViews.schemaVersion).toBe(1);
-    expect(catalogGroups.map((group) => group.label)).toEqual(["Show", "Build", "Operate", "Output"]);
+    expect(catalogGroups.map((group) => group.label)).toEqual(["Show", "Build", "Operate", "Perform", "Output"]);
 
     const catalogViews = catalogGroups.flatMap((group) => group.views);
-    expect(catalogViews).toHaveLength(13);
+    expect(catalogViews).toHaveLength(14);
     expect(new Set(catalogViews.map((view) => view.id)).size).toBe(catalogViews.length);
     expect(new Set(catalogViews.map((view) => view.slug)).size).toBe(catalogViews.length);
     expect(

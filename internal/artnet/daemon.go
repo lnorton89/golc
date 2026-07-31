@@ -44,8 +44,10 @@ import (
 
 	"github.com/lnorton89/golc/internal/artnet/ipc"
 	"github.com/lnorton89/golc/internal/deployment"
+	"github.com/lnorton89/golc/internal/fixture"
 	"github.com/lnorton89/golc/internal/playback"
 	"github.com/lnorton89/golc/internal/pool"
+	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/show"
 	"github.com/lnorton89/golc/internal/strictjson"
 )
@@ -146,6 +148,7 @@ type daemon struct {
 	groups    []pool.Group
 
 	safety safetyState
+	desk   deskState
 
 	mu          sync.Mutex
 	targets     map[int][]Target
@@ -176,6 +179,7 @@ func (d *daemon) startWorkerLocked() {
 		Resolve:     d.resolve,
 		Targets:     d.targets,
 		Safety:      &d.safety,
+		Desk:        &d.desk,
 		LocalIP:     d.localIP,
 		SendTimeout: d.sendTimeout,
 		Health:      d.health,
@@ -246,6 +250,12 @@ func Run(ctx context.Context, cfg Config) error {
 	// very first tick behaves exactly as it did before Task 2 introduced
 	// this field.
 	d.safety.masters.Store(identityMasterLevels())
+	// d.desk starts with no overrides active -- every fader at its
+	// never-touched, scene-passthrough position -- so a freshly started
+	// daemon's very first tick behaves exactly as it did before the desk
+	// override layer existed.
+	emptyDeskOverrides := map[uuid.UUID]scene.AttributeSet{}
+	d.desk.overrides.Store(&emptyDeskOverrides)
 
 	d.mu.Lock()
 	d.startWorkerLocked()
@@ -362,6 +372,12 @@ func (d *daemon) handle(request ipc.Request) ipc.Result {
 		return d.handleSafetyToggle(request.Args, d.safety.setRevokeAutomation, "GOLC_ARTNET_SAFETY_REVOKE_AUTOMATION")
 	case "artnet master set":
 		return d.handleMasterSet(request.Args)
+	case "artnet desk set":
+		return d.handleDeskSet(request.Args)
+	case "artnet desk clear":
+		return d.handleDeskClear(request.Args)
+	case "artnet desk clear-all":
+		return d.handleDeskClearAll()
 	default:
 		return ipc.Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
 			"GOLC_ARTNET_ROUTE_UNKNOWN: the daemon has no operation for route %q\n", request.Route)}
@@ -834,6 +850,101 @@ func (d *daemon) handleMasterSet(args []string) ipc.Result {
 		return ipc.Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
 	return ipc.Result{Stdout: fmt.Appendf(nil, "GOLC_ARTNET_MASTER_SET: group=%s level=%v\n", groupID, level)}
+}
+
+const deskSetUsage = "artnet desk set --instance <uuid> --attr <capability>=<value> [--source manual|automation]"
+
+// parseDeskAttr splits a "--attr capability=value" flag value into its
+// CapabilityType and numeric value, rejecting a malformed shape or a
+// non-numeric value as GOLC_ARTNET_USAGE (a shape failure, before the
+// capability/value themselves are ever validated against
+// deskState.setAttribute's own domain rules).
+func parseDeskAttr(usage, raw string) (fixture.CapabilityType, float64, error) {
+	eq := strings.Index(raw, "=")
+	if eq < 0 {
+		return "", 0, fmt.Errorf("GOLC_ARTNET_USAGE: --attr value %q must be capability=value; usage: %s", raw, usage)
+	}
+	value, err := strconv.ParseFloat(raw[eq+1:], 64)
+	if err != nil {
+		return "", 0, fmt.Errorf("GOLC_ARTNET_USAGE: --attr value %q has a non-numeric value; usage: %s", raw, usage)
+	}
+	return fixture.CapabilityType(raw[:eq]), value, nil
+}
+
+// handleDeskSet answers "artnet desk set" (the QLC+-style Simple Desk's
+// live channel-write path, desk.go): it sets one instance's one capability
+// override, taking effect on the Worker's very next tick with no restart --
+// mirrors handleSafetyToggle/handleMasterSet's own never-touch-d.mu/never-
+// reconfigureLocked discipline, since deskState (like safetyState) is read
+// lock-free by the tick goroutine every tick.
+func (d *daemon) handleDeskSet(args []string) ipc.Result {
+	flags, err := parseFlags(deskSetUsage, args)
+	if err != nil {
+		return ipc.Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	rawInstance, ok := flags["instance"]
+	if !ok {
+		return ipc.Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_USAGE: --instance is required; usage: %s\n", deskSetUsage)}
+	}
+	instanceID, parseErr := uuid.Parse(rawInstance)
+	if parseErr != nil {
+		return ipc.Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_USAGE: --instance value %q is not a valid UUID; usage: %s\n", rawInstance, deskSetUsage)}
+	}
+
+	rawAttr, ok := flags["attr"]
+	if !ok {
+		return ipc.Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_USAGE: --attr is required; usage: %s\n", deskSetUsage)}
+	}
+	capType, value, err := parseDeskAttr(deskSetUsage, rawAttr)
+	if err != nil {
+		return ipc.Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	if err := d.desk.setAttribute(instanceID, capType, value); err != nil {
+		return ipc.Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	return ipc.Result{Stdout: fmt.Appendf(nil, "GOLC_ARTNET_DESK_SET: instance=%s %s=%v\n", instanceID, capType, value)}
+}
+
+const deskClearUsage = "artnet desk clear --instance <uuid> [--attr <capability>] [--source manual|automation]"
+
+// handleDeskClear answers "artnet desk clear": releasing one instance's one
+// capability override (--attr given) back to scene-passthrough, or every
+// override on that instance at once (--attr omitted).
+func (d *daemon) handleDeskClear(args []string) ipc.Result {
+	flags, err := parseFlags(deskClearUsage, args)
+	if err != nil {
+		return ipc.Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	rawInstance, ok := flags["instance"]
+	if !ok {
+		return ipc.Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_USAGE: --instance is required; usage: %s\n", deskClearUsage)}
+	}
+	instanceID, parseErr := uuid.Parse(rawInstance)
+	if parseErr != nil {
+		return ipc.Result{ExitCode: 2, Stderr: fmt.Appendf(nil,
+			"GOLC_ARTNET_USAGE: --instance value %q is not a valid UUID; usage: %s\n", rawInstance, deskClearUsage)}
+	}
+
+	if rawAttr, ok := flags["attr"]; ok {
+		d.desk.clearAttribute(instanceID, fixture.CapabilityType(rawAttr))
+		return ipc.Result{Stdout: fmt.Appendf(nil, "GOLC_ARTNET_DESK_CLEAR: instance=%s attr=%s\n", instanceID, rawAttr)}
+	}
+	d.desk.clearInstance(instanceID)
+	return ipc.Result{Stdout: fmt.Appendf(nil, "GOLC_ARTNET_DESK_CLEAR: instance=%s\n", instanceID)}
+}
+
+// handleDeskClearAll answers "artnet desk clear-all": releasing every desk
+// override across every instance at once.
+func (d *daemon) handleDeskClearAll() ipc.Result {
+	d.desk.clearAll()
+	return ipc.Result{Stdout: []byte("GOLC_ARTNET_DESK_CLEAR_ALL\n")}
 }
 
 // parseFlags parses args as a sequence of "--flag value" or "--flag=value"
