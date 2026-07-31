@@ -353,6 +353,98 @@ func TestSceneRoutesBlendCreate(t *testing.T) {
 	}
 }
 
+func TestBlendRenameRoute(t *testing.T) {
+	root := t.TempDir()
+	registry, err := command.NewDefaultCommandRegistry()
+	if err != nil {
+		t.Fatalf("NewDefaultCommandRegistry: %v", err)
+	}
+	showPath := filepath.Join(t.TempDir(), "show.json")
+
+	if result := registry.Execute(command.Request{Root: root, Args: []string{
+		"blend", "create", "Fade", "--duration-bars", "2", "--show", showPath,
+	}}); result.ExitCode != 0 {
+		t.Fatalf("blend create failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	rename := registry.Execute(command.Request{Root: root, Args: []string{
+		"blend", "rename", "Fade", "Fade Renamed", "--show", showPath,
+	}})
+	if rename.ExitCode != 0 {
+		t.Fatalf("blend rename failed: exit=%d stderr=%s", rename.ExitCode, rename.Stderr)
+	}
+	if !strings.Contains(string(rename.Stdout), "GOLC_BLEND_PRESET_RENAMED") {
+		t.Fatalf("expected GOLC_BLEND_PRESET_RENAMED in stdout, got %s", rename.Stdout)
+	}
+
+	reloaded, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	if len(reloaded.BlendPresets) != 1 || reloaded.BlendPresets[0].Name != "Fade Renamed" {
+		t.Fatalf("expected exactly one blend preset named %q, got %+v", "Fade Renamed", reloaded.BlendPresets)
+	}
+
+	unknown := registry.Execute(command.Request{Root: root, Args: []string{
+		"blend", "rename", "Nonexistent", "New Name", "--show", showPath,
+	}})
+	if unknown.ExitCode == 0 || !strings.Contains(string(unknown.Stderr), "GOLC_BLEND_PRESET_NOT_FOUND") {
+		t.Fatalf("expected GOLC_BLEND_PRESET_NOT_FOUND, got exit=%d stderr=%s", unknown.ExitCode, unknown.Stderr)
+	}
+
+	if result := registry.Execute(command.Request{Root: root, Args: []string{
+		"blend", "create", "Second Blend", "--duration-bars", "1", "--show", showPath,
+	}}); result.ExitCode != 0 {
+		t.Fatalf("blend create (second) failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+	collide := registry.Execute(command.Request{Root: root, Args: []string{
+		"blend", "rename", "Second Blend", "Fade Renamed", "--show", showPath,
+	}})
+	if collide.ExitCode == 0 || !strings.Contains(string(collide.Stderr), "GOLC_BLEND_PRESET_DUPLICATE_NAME") {
+		t.Fatalf("expected GOLC_BLEND_PRESET_DUPLICATE_NAME for a colliding rename, got exit=%d stderr=%s", collide.ExitCode, collide.Stderr)
+	}
+}
+
+func TestBlendDeleteRoute(t *testing.T) {
+	root := t.TempDir()
+	registry, err := command.NewDefaultCommandRegistry()
+	if err != nil {
+		t.Fatalf("NewDefaultCommandRegistry: %v", err)
+	}
+	showPath := filepath.Join(t.TempDir(), "show.json")
+
+	if result := registry.Execute(command.Request{Root: root, Args: []string{
+		"blend", "create", "Fade", "--duration-bars", "2", "--show", showPath,
+	}}); result.ExitCode != 0 {
+		t.Fatalf("blend create failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	}
+
+	deleteResult := registry.Execute(command.Request{Root: root, Args: []string{
+		"blend", "delete", "Fade", "--show", showPath,
+	}})
+	if deleteResult.ExitCode != 0 {
+		t.Fatalf("blend delete failed: exit=%d stderr=%s", deleteResult.ExitCode, deleteResult.Stderr)
+	}
+	if !strings.Contains(string(deleteResult.Stdout), "GOLC_BLEND_PRESET_DELETED") {
+		t.Fatalf("expected GOLC_BLEND_PRESET_DELETED in stdout, got %s", deleteResult.Stdout)
+	}
+
+	reloaded, err := show.Load(root, showPath)
+	if err != nil {
+		t.Fatalf("show.Load: %v", err)
+	}
+	if len(reloaded.BlendPresets) != 0 {
+		t.Fatalf("expected zero blend presets after delete, got %+v", reloaded.BlendPresets)
+	}
+
+	unknown := registry.Execute(command.Request{Root: root, Args: []string{
+		"blend", "delete", "Nonexistent", "--show", showPath,
+	}})
+	if unknown.ExitCode == 0 || !strings.Contains(string(unknown.Stderr), "GOLC_BLEND_PRESET_NOT_FOUND") {
+		t.Fatalf("expected GOLC_BLEND_PRESET_NOT_FOUND, got exit=%d stderr=%s", unknown.ExitCode, unknown.Stderr)
+	}
+}
+
 func TestSceneRoutesShowStateRoundTrip(t *testing.T) {
 	root := t.TempDir()
 	path := "show.json"

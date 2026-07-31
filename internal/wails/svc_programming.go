@@ -159,16 +159,57 @@ func (s *ProgrammingService) SetSceneLayer(sceneName, kind, refID string, enable
 	return s.execute(args...)
 }
 
+// RenameScene renames a scene via "scene rename" -- an immediate
+// mutation, ID stable.
+func (s *ProgrammingService) RenameScene(oldName, newName string) Result {
+	return s.execute("scene", "rename", oldName, newName, "--show", s.showPath)
+}
+
+// DeleteScene deletes a scene via "scene delete". Deleting the currently-
+// active scene is not specially rejected (scene.ValidateSingleActiveScene
+// only bounds the maximum active count at one, never a minimum).
+func (s *ProgrammingService) DeleteScene(name string) Result {
+	return s.execute("scene", "delete", name, "--show", s.showPath)
+}
+
 // CreateTheme creates a new named reusable color theme (PROG-04) via
 // "theme create <name> --show <path>".
 func (s *ProgrammingService) CreateTheme(name string) Result {
 	return s.execute("theme", "create", name, "--show", s.showPath)
 }
 
+// RenameTheme renames a color theme via "theme rename" -- an immediate
+// mutation, ID stable.
+func (s *ProgrammingService) RenameTheme(oldName, newName string) Result {
+	return s.execute("theme", "rename", oldName, newName, "--show", s.showPath)
+}
+
+// DeleteTheme deletes a color theme via "theme delete". A theme currently
+// referenced by an enabled scene layer's Ref is rejected by the route's
+// own whole-State validation (GOLC_SCENE_LAYER_DANGLING_REFERENCE),
+// leaving the show unchanged.
+func (s *ProgrammingService) DeleteTheme(name string) Result {
+	return s.execute("theme", "delete", name, "--show", s.showPath)
+}
+
 // CreateMotion creates a new named reusable motion preset (PROG-06) via
 // "motion create <name> --show <path>".
 func (s *ProgrammingService) CreateMotion(name string) Result {
 	return s.execute("motion", "create", name, "--show", s.showPath)
+}
+
+// RenameMotion renames a motion preset via "motion rename" -- an
+// immediate mutation, ID stable.
+func (s *ProgrammingService) RenameMotion(oldName, newName string) Result {
+	return s.execute("motion", "rename", oldName, newName, "--show", s.showPath)
+}
+
+// DeleteMotion deletes a motion preset via "motion delete". A motion
+// preset currently referenced by an enabled scene layer's Ref is rejected
+// by the route's own whole-State validation
+// (GOLC_SCENE_LAYER_DANGLING_REFERENCE), leaving the show unchanged.
+func (s *ProgrammingService) DeleteMotion(name string) Result {
+	return s.execute("motion", "delete", name, "--show", s.showPath)
 }
 
 // CreateChase creates a new named reusable chase (PROG-05) via
@@ -180,6 +221,36 @@ func (s *ProgrammingService) CreateChase(name, unit string, stepDuration float64
 		"--unit", unit,
 		"--step-duration", strconv.FormatFloat(stepDuration, 'f', -1, 64),
 		"--show", s.showPath)
+}
+
+// UpdateChase updates a chase's name/step-unit/step-duration via
+// "chase update <name> [--name <newName>] [--unit <unit>]
+// [--step-duration <stepDuration>] --show <path>". An empty newName/unit
+// or a non-positive stepDuration omits that flag ("keep the chase's
+// current value"), so the caller only ever sends the fields actually
+// being changed -- mirrors AddPoolMembersPreview's 0/empty-means-unset
+// convention.
+func (s *ProgrammingService) UpdateChase(name, newName, unit string, stepDuration float64) Result {
+	args := []string{"chase", "update", name}
+	if newName != "" {
+		args = append(args, "--name", newName)
+	}
+	if unit != "" {
+		args = append(args, "--unit", unit)
+	}
+	if stepDuration > 0 {
+		args = append(args, "--step-duration", strconv.FormatFloat(stepDuration, 'f', -1, 64))
+	}
+	args = append(args, "--show", s.showPath)
+	return s.execute(args...)
+}
+
+// DeleteChase deletes a chase via "chase delete". A chase currently
+// referenced by an enabled scene layer's Ref is rejected by the route's
+// own whole-State validation (GOLC_SCENE_LAYER_DANGLING_REFERENCE),
+// leaving the show unchanged.
+func (s *ProgrammingService) DeleteChase(name string) Result {
+	return s.execute("chase", "delete", name, "--show", s.showPath)
 }
 
 // ProgrammerSet resolves instanceIDs (deployment instance UUIDs) and sets
@@ -213,6 +284,20 @@ func (s *ProgrammingService) RecordPreset(name, kind string) Result {
 	return s.execute("preset", "record", name, "--kind", kind, "--show", s.showPath)
 }
 
+// RenamePreset renames a preset via "preset rename" -- an immediate
+// mutation, ID stable.
+func (s *ProgrammingService) RenamePreset(oldName, newName string) Result {
+	return s.execute("preset", "rename", oldName, newName, "--show", s.showPath)
+}
+
+// DeletePreset deletes a preset via "preset delete". A preset currently
+// referenced by an enabled base-look scene layer's Ref is rejected by the
+// route's own whole-State validation (GOLC_SCENE_LAYER_DANGLING_
+// REFERENCE), leaving the show unchanged.
+func (s *ProgrammingService) DeletePreset(name string) Result {
+	return s.execute("preset", "delete", name, "--show", s.showPath)
+}
+
 // CreateBlend creates a new named reusable blend preset (SCEN-07) via
 // "blend create <name> --duration-bars <durationBars> [--curve <curve>]
 // --show <path>". An empty curve omits the flag, letting the route default
@@ -224,6 +309,19 @@ func (s *ProgrammingService) CreateBlend(name string, durationBars float64, curv
 	}
 	args = append(args, "--show", s.showPath)
 	return s.execute(args...)
+}
+
+// RenameBlend renames a blend preset via "blend rename" -- an immediate
+// mutation, ID stable.
+func (s *ProgrammingService) RenameBlend(oldName, newName string) Result {
+	return s.execute("blend", "rename", oldName, newName, "--show", s.showPath)
+}
+
+// DeleteBlend deletes a blend preset via "blend delete". Nothing in the
+// current schema references a BlendPreset by ID, so this never risks a
+// dangling reference.
+func (s *ProgrammingService) DeleteBlend(name string) Result {
+	return s.execute("blend", "delete", name, "--show", s.showPath)
 }
 
 // ProgLayerView is the JSON-safe rendering of one scene.Layer for
@@ -243,11 +341,26 @@ type ProgSceneView struct {
 	Layers []ProgLayerView `json:"layers"`
 }
 
-// ProgLookView is one reusable look's JSON-safe row (theme/chase/motion
-// preset/blend preset all share this id+name shape).
+// ProgLookView is one reusable look's JSON-safe row (theme/motion
+// preset/blend preset all share this id+name shape -- Chase gets its own
+// richer ProgChaseView below, since editing a chase's step-unit/step-
+// duration needs those fields prefilled).
 type ProgLookView struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+}
+
+// ProgChaseView is one chase's JSON-safe row: id+name plus StepUnit/
+// StepDuration, so a "chase update" edit form has something to prefill
+// beyond just the name. It deliberately does not carry the chase's Steps
+// themselves -- reordering steps needs the full step list/order projected
+// too, a larger, separately-scoped change (see internal/programming/
+// chase.go's own Steps field).
+type ProgChaseView struct {
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	StepUnit     string  `json:"stepUnit"`
+	StepDuration float64 `json:"stepDuration"`
 }
 
 // ProgPresetView is one recorded preset's JSON-safe row -- a look plus
@@ -279,7 +392,7 @@ type ProgrammingView struct {
 	Scenes    []ProgSceneView    `json:"scenes"`
 	Themes    []ProgLookView     `json:"themes"`
 	Presets   []ProgPresetView   `json:"presets"`
-	Chases    []ProgLookView     `json:"chases"`
+	Chases    []ProgChaseView    `json:"chases"`
 	Motions   []ProgLookView     `json:"motions"`
 	Blends    []ProgLookView     `json:"blends"`
 	Instances []ProgInstanceView `json:"instances"`
@@ -305,7 +418,7 @@ func (s *ProgrammingService) ListProgramming() (ProgrammingView, error) {
 		Scenes:    make([]ProgSceneView, 0, len(state.Scenes)),
 		Themes:    make([]ProgLookView, 0, len(state.Themes)),
 		Presets:   make([]ProgPresetView, 0, len(state.Presets)),
-		Chases:    make([]ProgLookView, 0, len(state.Chases)),
+		Chases:    make([]ProgChaseView, 0, len(state.Chases)),
 		Motions:   make([]ProgLookView, 0, len(state.MotionPresets)),
 		Blends:    make([]ProgLookView, 0, len(state.BlendPresets)),
 		Instances: make([]ProgInstanceView, 0),
@@ -335,7 +448,9 @@ func (s *ProgrammingService) ListProgramming() (ProgrammingView, error) {
 		view.Presets = append(view.Presets, ProgPresetView{ID: p.ID.String(), Name: p.Name, Kind: string(p.Kind)})
 	}
 	for _, c := range state.Chases {
-		view.Chases = append(view.Chases, ProgLookView{ID: c.ID.String(), Name: c.Name})
+		view.Chases = append(view.Chases, ProgChaseView{
+			ID: c.ID.String(), Name: c.Name, StepUnit: string(c.StepUnit), StepDuration: c.StepDuration,
+		})
 	}
 	for _, m := range state.MotionPresets {
 		view.Motions = append(view.Motions, ProgLookView{ID: m.ID.String(), Name: m.Name})

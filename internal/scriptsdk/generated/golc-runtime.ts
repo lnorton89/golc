@@ -101,7 +101,9 @@ function __golcCall(method: string, params: unknown): Promise<any> {
     }
   },
   blend: {
-    create: (params: any): Promise<any> => __golcCall("blend create", params)
+    create: (params: any): Promise<any> => __golcCall("blend create", params),
+    remove: (params: any): Promise<any> => __golcCall("blend delete", params),
+    rename: (params: any): Promise<any> => __golcCall("blend rename", params)
   },
   chase: {
     create: (params: any): Promise<any> => __golcCall("chase create", params),

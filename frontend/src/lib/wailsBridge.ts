@@ -303,11 +303,21 @@ export interface ProgSceneView {
 }
 
 /** ProgLookView mirrors internal/wails.ProgLookView's JSON shape exactly --
- * the shared id+name row shape for themes/chases/motion presets/blend
- * presets. */
+ * the shared id+name row shape for themes/motion presets/blend presets.
+ * Chase gets its own richer ProgChaseView below. */
 export interface ProgLookView {
   id: string;
   name: string;
+}
+
+/** ProgChaseView mirrors internal/wails.ProgChaseView's JSON shape
+ * exactly: id+name plus stepUnit/stepDuration, so a chase-update edit
+ * form has something to prefill beyond just the name. */
+export interface ProgChaseView {
+  id: string;
+  name: string;
+  stepUnit: string;
+  stepDuration: number;
 }
 
 /** ProgPresetView mirrors internal/wails.ProgPresetView's JSON shape
@@ -335,7 +345,7 @@ export interface ProgrammingView {
   scenes: ProgSceneView[];
   themes: ProgLookView[];
   presets: ProgPresetView[];
-  chases: ProgLookView[];
+  chases: ProgChaseView[];
   motions: ProgLookView[];
   blends: ProgLookView[];
   instances: ProgInstanceView[];
@@ -349,6 +359,8 @@ export interface ProgrammingView {
 interface ProgrammingServiceBinding {
   CreateScene(name: string, bars: number): Promise<WailsResult>;
   ActivateScene(name: string): Promise<WailsResult>;
+  RenameScene(oldName: string, newName: string): Promise<WailsResult>;
+  DeleteScene(name: string): Promise<WailsResult>;
   SetSceneLayer(
     sceneName: string,
     kind: string,
@@ -356,11 +368,26 @@ interface ProgrammingServiceBinding {
     enabled: boolean,
   ): Promise<WailsResult>;
   CreateTheme(name: string): Promise<WailsResult>;
+  RenameTheme(oldName: string, newName: string): Promise<WailsResult>;
+  DeleteTheme(name: string): Promise<WailsResult>;
   CreateMotion(name: string): Promise<WailsResult>;
+  RenameMotion(oldName: string, newName: string): Promise<WailsResult>;
+  DeleteMotion(name: string): Promise<WailsResult>;
   CreateChase(name: string, unit: string, stepDuration: number): Promise<WailsResult>;
+  UpdateChase(
+    name: string,
+    newName: string,
+    unit: string,
+    stepDuration: number,
+  ): Promise<WailsResult>;
+  DeleteChase(name: string): Promise<WailsResult>;
   ProgrammerSet(instanceIds: string[], attrs: string[]): Promise<WailsResult>;
   RecordPreset(name: string, kind: string): Promise<WailsResult>;
+  RenamePreset(oldName: string, newName: string): Promise<WailsResult>;
+  DeletePreset(name: string): Promise<WailsResult>;
   CreateBlend(name: string, durationBars: number, curve: string): Promise<WailsResult>;
+  RenameBlend(oldName: string, newName: string): Promise<WailsResult>;
+  DeleteBlend(name: string): Promise<WailsResult>;
   ListProgramming(): Promise<ProgrammingView>;
 }
 
@@ -1073,6 +1100,22 @@ export async function activateScene(name: string): Promise<WailsResult> {
   return svc.ActivateScene(name);
 }
 
+/** renameScene calls the bound ProgrammingService.RenameScene (an
+ * immediate mutation via "scene rename" -- ID stable). */
+export async function renameScene(oldName: string, newName: string): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.RenameScene(oldName, newName);
+}
+
+/** deleteScene calls the bound ProgrammingService.DeleteScene via
+ * "scene delete". */
+export async function deleteScene(name: string): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.DeleteScene(name);
+}
+
 /** setSceneLayer calls the bound ProgrammingService.SetSceneLayer
  * (PLAY-12: enable+point one of a scene's four fixed layers via
  * "scene layer set"). Pass an empty refId to preserve the layer's
@@ -1098,12 +1141,46 @@ export async function createTheme(name: string): Promise<WailsResult> {
   return svc.CreateTheme(name);
 }
 
+/** renameTheme calls the bound ProgrammingService.RenameTheme (an
+ * immediate mutation via "theme rename" -- ID stable). */
+export async function renameTheme(oldName: string, newName: string): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.RenameTheme(oldName, newName);
+}
+
+/** deleteTheme calls the bound ProgrammingService.DeleteTheme via
+ * "theme delete". Rejected (no partial mutation) if an enabled scene
+ * layer's Ref still points at this theme. */
+export async function deleteTheme(name: string): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.DeleteTheme(name);
+}
+
 /** createMotion calls the bound ProgrammingService.CreateMotion (PLAY-12:
  * create a reusable motion preset via "motion create"). */
 export async function createMotion(name: string): Promise<WailsResult> {
   const svc = programmingService();
   if (!svc) return bridgeUnavailableResult();
   return svc.CreateMotion(name);
+}
+
+/** renameMotion calls the bound ProgrammingService.RenameMotion (an
+ * immediate mutation via "motion rename" -- ID stable). */
+export async function renameMotion(oldName: string, newName: string): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.RenameMotion(oldName, newName);
+}
+
+/** deleteMotion calls the bound ProgrammingService.DeleteMotion via
+ * "motion delete". Rejected (no partial mutation) if an enabled scene
+ * layer's Ref still points at this motion preset. */
+export async function deleteMotion(name: string): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.DeleteMotion(name);
 }
 
 /** createChase calls the bound ProgrammingService.CreateChase (PLAY-12:
@@ -1117,6 +1194,30 @@ export async function createChase(
   const svc = programmingService();
   if (!svc) return bridgeUnavailableResult();
   return svc.CreateChase(name, unit, stepDuration);
+}
+
+/** updateChase calls the bound ProgrammingService.UpdateChase via
+ * "chase update". An empty newName/unit or a stepDuration <= 0 means
+ * "keep the chase's current value" -- the caller only needs to pass the
+ * fields actually being changed. */
+export async function updateChase(
+  name: string,
+  newName: string,
+  unit: string,
+  stepDuration: number,
+): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.UpdateChase(name, newName, unit, stepDuration);
+}
+
+/** deleteChase calls the bound ProgrammingService.DeleteChase via
+ * "chase delete". Rejected (no partial mutation) if an enabled scene
+ * layer's Ref still points at this chase. */
+export async function deleteChase(name: string): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.DeleteChase(name);
 }
 
 /** programmerSet calls the bound ProgrammingService.ProgrammerSet
@@ -1144,6 +1245,23 @@ export async function recordPreset(
   return svc.RecordPreset(name, kind);
 }
 
+/** renamePreset calls the bound ProgrammingService.RenamePreset (an
+ * immediate mutation via "preset rename" -- ID stable). */
+export async function renamePreset(oldName: string, newName: string): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.RenamePreset(oldName, newName);
+}
+
+/** deletePreset calls the bound ProgrammingService.DeletePreset via
+ * "preset delete". Rejected (no partial mutation) if an enabled base-look
+ * scene layer's Ref still points at this preset. */
+export async function deletePreset(name: string): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.DeletePreset(name);
+}
+
 /** createBlend calls the bound ProgrammingService.CreateBlend (PLAY-12/
  * SCEN-07: create a reusable blend preset via "blend create"). An empty
  * curve lets the route default to its own linear curve. */
@@ -1155,6 +1273,23 @@ export async function createBlend(
   const svc = programmingService();
   if (!svc) return bridgeUnavailableResult();
   return svc.CreateBlend(name, durationBars, curve);
+}
+
+/** renameBlend calls the bound ProgrammingService.RenameBlend (an
+ * immediate mutation via "blend rename" -- ID stable). */
+export async function renameBlend(oldName: string, newName: string): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.RenameBlend(oldName, newName);
+}
+
+/** deleteBlend calls the bound ProgrammingService.DeleteBlend via
+ * "blend delete". Nothing in the current schema references a blend
+ * preset by ID, so this never risks a dangling reference. */
+export async function deleteBlend(name: string): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.DeleteBlend(name);
 }
 
 function fixturePatchService(): FixturePatchServiceBinding | undefined {
