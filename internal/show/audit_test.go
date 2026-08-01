@@ -17,6 +17,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TestWriteAuditRecordRoundTrip proves a single WriteAuditRecord call
@@ -38,32 +40,25 @@ func TestWriteAuditRecordRoundTrip(t *testing.T) {
 		StatusCode:        200,
 		RedactedDetails:   `{"route":"pool create","args":["Main"]}`,
 	}
-	if err := WriteAuditRecord(root, path, rec); err != nil {
-		t.Fatalf("WriteAuditRecord: %v", err)
-	}
+	require.NoError(t, WriteAuditRecord(root, path, rec), "WriteAuditRecord")
 
 	records, err := QueryAuditLog(root, path)
-	if err != nil {
-		t.Fatalf("QueryAuditLog: %v", err)
-	}
-	if len(records) != 1 {
-		t.Fatalf("expected exactly 1 audit_log row, got %d (%+v)", len(records), records)
-	}
+	require.NoError(t, err, "QueryAuditLog")
+	require.Len(t, records, 1, "expected exactly 1 audit_log row, got %+v", records)
 	got := records[0]
-	if got.OccurredAt != rec.OccurredAt || got.Actor != rec.Actor || got.Source != rec.Source ||
-		got.CorrelationID != rec.CorrelationID || got.Route != rec.Route || got.Outcome != rec.Outcome ||
-		got.StatusCode != rec.StatusCode || got.RedactedDetails != rec.RedactedDetails {
-		t.Fatalf("round-tripped record does not match: got %+v, want %+v", got, rec)
-	}
-	if !got.ExpectedRevision.Valid || got.ExpectedRevision.Int64 != 3 {
-		t.Fatalf("expected expected_revision=3, got %+v", got.ExpectedRevision)
-	}
-	if !got.ResultingRevision.Valid || got.ResultingRevision.Int64 != 4 {
-		t.Fatalf("expected resulting_revision=4, got %+v", got.ResultingRevision)
-	}
-	if got.ID <= 0 {
-		t.Fatalf("expected a positive AUTOINCREMENT id, got %d", got.ID)
-	}
+	require.Equal(t, rec.OccurredAt, got.OccurredAt, "round-tripped record does not match: got %+v, want %+v", got, rec)
+	require.Equal(t, rec.Actor, got.Actor, "round-tripped record does not match: got %+v, want %+v", got, rec)
+	require.Equal(t, rec.Source, got.Source, "round-tripped record does not match: got %+v, want %+v", got, rec)
+	require.Equal(t, rec.CorrelationID, got.CorrelationID, "round-tripped record does not match: got %+v, want %+v", got, rec)
+	require.Equal(t, rec.Route, got.Route, "round-tripped record does not match: got %+v, want %+v", got, rec)
+	require.Equal(t, rec.Outcome, got.Outcome, "round-tripped record does not match: got %+v, want %+v", got, rec)
+	require.Equal(t, rec.StatusCode, got.StatusCode, "round-tripped record does not match: got %+v, want %+v", got, rec)
+	require.Equal(t, rec.RedactedDetails, got.RedactedDetails, "round-tripped record does not match: got %+v, want %+v", got, rec)
+	require.True(t, got.ExpectedRevision.Valid, "expected expected_revision=3, got %+v", got.ExpectedRevision)
+	require.EqualValues(t, 3, got.ExpectedRevision.Int64, "expected expected_revision=3, got %+v", got.ExpectedRevision)
+	require.True(t, got.ResultingRevision.Valid, "expected resulting_revision=4, got %+v", got.ResultingRevision)
+	require.EqualValues(t, 4, got.ResultingRevision.Int64, "expected resulting_revision=4, got %+v", got.ResultingRevision)
+	require.Greater(t, got.ID, int64(0), "expected a positive AUTOINCREMENT id")
 }
 
 // TestWriteAuditRecordSequentialIDsIncrease proves audit_log is append-only:
@@ -76,26 +71,15 @@ func TestWriteAuditRecordSequentialIDsIncrease(t *testing.T) {
 	first := AuditRecord{OccurredAt: "2026-07-25T00:00:01Z", Actor: "key-1", Source: "http", CorrelationID: "corr-1", Route: "pool create", Outcome: "success", StatusCode: 200, RedactedDetails: "{}"}
 	second := AuditRecord{OccurredAt: "2026-07-25T00:00:02Z", Actor: "key-2", Source: "http", CorrelationID: "corr-2", Route: "pool create", Outcome: "failure", StatusCode: 500, RedactedDetails: "{}"}
 
-	if err := WriteAuditRecord(root, path, first); err != nil {
-		t.Fatalf("WriteAuditRecord (first): %v", err)
-	}
-	if err := WriteAuditRecord(root, path, second); err != nil {
-		t.Fatalf("WriteAuditRecord (second): %v", err)
-	}
+	require.NoError(t, WriteAuditRecord(root, path, first), "WriteAuditRecord (first)")
+	require.NoError(t, WriteAuditRecord(root, path, second), "WriteAuditRecord (second)")
 
 	records, err := QueryAuditLog(root, path)
-	if err != nil {
-		t.Fatalf("QueryAuditLog: %v", err)
-	}
-	if len(records) != 2 {
-		t.Fatalf("expected exactly 2 audit_log rows, got %d (%+v)", len(records), records)
-	}
-	if records[0].ID >= records[1].ID {
-		t.Fatalf("expected strictly increasing ids, got %d then %d", records[0].ID, records[1].ID)
-	}
-	if records[0].Actor != "key-1" || records[1].Actor != "key-2" {
-		t.Fatalf("expected occurred_at/id order [key-1, key-2], got [%s, %s]", records[0].Actor, records[1].Actor)
-	}
+	require.NoError(t, err, "QueryAuditLog")
+	require.Len(t, records, 2, "expected exactly 2 audit_log rows, got %+v", records)
+	require.Less(t, records[0].ID, records[1].ID, "expected strictly increasing ids")
+	require.Equal(t, "key-1", records[0].Actor, "expected occurred_at/id order [key-1, key-2]")
+	require.Equal(t, "key-2", records[1].Actor, "expected occurred_at/id order [key-1, key-2]")
 }
 
 // TestWriteAuditRecordNullResultingRevision proves a record with a nil
@@ -118,23 +102,13 @@ func TestWriteAuditRecordNullResultingRevision(t *testing.T) {
 		// (sql.NullInt64{Valid:false}) -- a dry-run's own contract (D-14):
 		// no resulting revision is ever reported.
 	}
-	if err := WriteAuditRecord(root, path, rec); err != nil {
-		t.Fatalf("WriteAuditRecord: %v", err)
-	}
+	require.NoError(t, WriteAuditRecord(root, path, rec), "WriteAuditRecord")
 
 	records, err := QueryAuditLog(root, path)
-	if err != nil {
-		t.Fatalf("QueryAuditLog: %v", err)
-	}
-	if len(records) != 1 {
-		t.Fatalf("expected exactly 1 audit_log row, got %d", len(records))
-	}
-	if records[0].ExpectedRevision.Valid {
-		t.Fatalf("expected NULL expected_revision, got %+v", records[0].ExpectedRevision)
-	}
-	if records[0].ResultingRevision.Valid {
-		t.Fatalf("expected NULL resulting_revision, got %+v", records[0].ResultingRevision)
-	}
+	require.NoError(t, err, "QueryAuditLog")
+	require.Len(t, records, 1, "expected exactly 1 audit_log row")
+	require.False(t, records[0].ExpectedRevision.Valid, "expected NULL expected_revision, got %+v", records[0].ExpectedRevision)
+	require.False(t, records[0].ResultingRevision.Valid, "expected NULL resulting_revision, got %+v", records[0].ResultingRevision)
 }
 
 // TestAuditWriterNeverOpensASecondConnection proves audit.go never opens its
@@ -144,17 +118,11 @@ func TestWriteAuditRecordNullResultingRevision(t *testing.T) {
 // SetMaxOpenConns(1)/busy_timeout/WAL single-writer machinery.
 func TestAuditWriterNeverOpensASecondConnection(t *testing.T) {
 	_, thisFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller could not resolve this test file's own path")
-	}
+	require.True(t, ok, "runtime.Caller could not resolve this test file's own path")
 	auditGoPath := filepath.Join(filepath.Dir(thisFile), "audit.go")
 	source, err := os.ReadFile(auditGoPath)
-	if err != nil {
-		t.Fatalf("reading audit.go: %v", err)
-	}
-	if strings.Contains(string(source), "sql.Open(") {
-		t.Fatalf("audit.go must never call sql.Open directly -- it must reuse openStore's single-writer machinery")
-	}
+	require.NoError(t, err, "reading audit.go")
+	require.False(t, strings.Contains(string(source), "sql.Open("), "audit.go must never call sql.Open directly -- it must reuse openStore's single-writer machinery")
 }
 
 // nullInt64 builds a valid sql.NullInt64 from a plain int64 -- test-only

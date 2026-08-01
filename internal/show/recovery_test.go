@@ -11,7 +11,10 @@
 package show
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/strictjson"
 )
@@ -25,17 +28,12 @@ import (
 func insertRecoveryPoint(t *testing.T, root, path, createdAt string, revision int, state State) {
 	t.Helper()
 	payload, err := strictjson.CanonicalEncode(state)
-	if err != nil {
-		t.Fatalf("CanonicalEncode: %v", err)
-	}
+	require.NoError(t, err, "CanonicalEncode")
 	db, err := openStore(root, path)
-	if err != nil {
-		t.Fatalf("openStore: %v", err)
-	}
+	require.NoError(t, err, "openStore")
 	defer db.Close()
-	if _, err := db.Exec(`INSERT INTO recovery_points (created_at, revision, blob) VALUES (?, ?, ?)`, createdAt, revision, payload); err != nil {
-		t.Fatalf("inserting simulated recovery point: %v", err)
-	}
+	_, err = db.Exec(`INSERT INTO recovery_points (created_at, revision, blob) VALUES (?, ?, ?)`, createdAt, revision, payload)
+	require.NoError(t, err, "inserting simulated recovery point")
 }
 
 // recoveryPointCount returns the number of rows currently in
@@ -45,14 +43,10 @@ func insertRecoveryPoint(t *testing.T, root, path, createdAt string, revision in
 func recoveryPointCount(t *testing.T, root, path string) int {
 	t.Helper()
 	db, err := openStore(root, path)
-	if err != nil {
-		t.Fatalf("openStore: %v", err)
-	}
+	require.NoError(t, err, "openStore")
 	defer db.Close()
 	var count int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM recovery_points`).Scan(&count); err != nil {
-		t.Fatalf("counting recovery_points: %v", err)
-	}
+	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM recovery_points`).Scan(&count), "counting recovery_points")
 	return count
 }
 
@@ -63,57 +57,32 @@ func TestRecoveryPointPruning(t *testing.T) {
 	path := "show.golc"
 	state := buildNonTrivialState(t)
 
-	if err := Save(root, path, state); err != nil {
-		t.Fatalf("initial Save: %v", err)
-	}
+	require.NoError(t, Save(root, path, state), "initial Save")
 	loaded, err := Load(root, path)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
+	require.NoError(t, err, "Load")
 	for i := 0; i < 6; i++ { // 1 initial Save + 6 more = 7 total saves, revisions 1..7
-		if err := Save(root, path, loaded); err != nil {
-			t.Fatalf("Save %d: %v", i, err)
-		}
+		require.NoError(t, Save(root, path, loaded), "Save %d", i)
 		loaded, err = Load(root, path)
-		if err != nil {
-			t.Fatalf("Load %d: %v", i, err)
-		}
+		require.NoError(t, err, "Load %d", i)
 	}
 
-	if count := recoveryPointCount(t, root, path); count != 5 {
-		t.Fatalf("expected exactly 5 recovery points after 7 saves, got %d", count)
-	}
+	require.Equal(t, 5, recoveryPointCount(t, root, path), "expected exactly 5 recovery points after 7 saves")
 
 	db, err := openStore(root, path)
-	if err != nil {
-		t.Fatalf("openStore: %v", err)
-	}
+	require.NoError(t, err, "openStore")
 	defer db.Close()
 	rows, err := db.Query(`SELECT revision FROM recovery_points ORDER BY id ASC`)
-	if err != nil {
-		t.Fatalf("querying recovery_points: %v", err)
-	}
+	require.NoError(t, err, "querying recovery_points")
 	defer rows.Close()
 	var revisions []int
 	for rows.Next() {
 		var revision int
-		if err := rows.Scan(&revision); err != nil {
-			t.Fatalf("scanning revision: %v", err)
-		}
+		require.NoError(t, rows.Scan(&revision), "scanning revision")
 		revisions = append(revisions, revision)
 	}
-	if err := rows.Err(); err != nil {
-		t.Fatalf("iterating recovery_points: %v", err)
-	}
+	require.NoError(t, rows.Err(), "iterating recovery_points")
 	want := []int{3, 4, 5, 6, 7}
-	if len(revisions) != len(want) {
-		t.Fatalf("expected revisions %v (newest 5 of 7), got %v", want, revisions)
-	}
-	for i, revision := range revisions {
-		if revision != want[i] {
-			t.Fatalf("expected revisions %v (oldest pruned first), got %v", want, revisions)
-		}
-	}
+	require.Equal(t, want, revisions, "expected revisions (newest 5 of 7, oldest pruned first)")
 }
 
 // TestRecoveryReachableViaRealInterruptedSave proves CR-01's fix: an
@@ -127,9 +96,7 @@ func TestRecoveryReachableViaRealInterruptedSave(t *testing.T) {
 	path := "show.golc"
 	state := buildNonTrivialState(t)
 
-	if err := Save(root, path, state); err != nil {
-		t.Fatalf("initial Save: %v", err)
-	}
+	require.NoError(t, Save(root, path, state), "initial Save")
 	cleanRevision := onDiskRevision(t, root, path)
 
 	interrupted := buildNonTrivialState(t)
@@ -137,54 +104,31 @@ func TestRecoveryReachableViaRealInterruptedSave(t *testing.T) {
 	interrupted.SchemaVersion = SchemaVersion
 	interrupted.Revision = cleanRevision + 1
 	payload, err := strictjson.CanonicalEncode(interrupted)
-	if err != nil {
-		t.Fatalf("CanonicalEncode: %v", err)
-	}
+	require.NoError(t, err, "CanonicalEncode")
 
 	db, err := openStore(root, path)
-	if err != nil {
-		t.Fatalf("openStore: %v", err)
-	}
+	require.NoError(t, err, "openStore")
 	// Simulate a process kill between Save's two commits: stage the
 	// recovery point through the exact production code path (not raw SQL),
 	// then close without ever calling promoteState.
-	if err := stageRecoveryPoint(db, "2026-07-23T00:00:01Z", cleanRevision+1, payload); err != nil {
-		t.Fatalf("stageRecoveryPoint: %v", err)
-	}
-	if err := db.Close(); err != nil {
-		t.Fatalf("closing db after simulated interruption: %v", err)
-	}
+	require.NoError(t, stageRecoveryPoint(db, "2026-07-23T00:00:01Z", cleanRevision+1, payload), "stageRecoveryPoint")
+	require.NoError(t, db.Close(), "closing db after simulated interruption")
 
-	if revisionAfter := onDiskRevision(t, root, path); revisionAfter != cleanRevision {
-		t.Fatalf("show_meta.revision advanced despite promoteState never running: before=%d after=%d", cleanRevision, revisionAfter)
-	}
+	require.Equal(t, cleanRevision, onDiskRevision(t, root, path), "show_meta.revision advanced despite promoteState never running")
 
 	points, err := DetectRecoveryPoints(root, path)
-	if err != nil {
-		t.Fatalf("DetectRecoveryPoints: %v", err)
-	}
-	if len(points) != 1 {
-		t.Fatalf("expected the interrupted save's recovery point to be offered, got %d points (%+v)", len(points), points)
-	}
-	if points[0].Revision != cleanRevision+1 {
-		t.Fatalf("expected offered revision %d, got %d", cleanRevision+1, points[0].Revision)
-	}
+	require.NoError(t, err, "DetectRecoveryPoints")
+	require.Len(t, points, 1, "expected the interrupted save's recovery point to be offered, got %+v", points)
+	require.Equal(t, cleanRevision+1, points[0].Revision, "expected offered revision")
 
-	if err := AcceptRecoveryPoint(root, path, points[0].ID); err != nil {
-		t.Fatalf("AcceptRecoveryPoint: %v", err)
-	}
+	require.NoError(t, AcceptRecoveryPoint(root, path, points[0].ID), "AcceptRecoveryPoint")
 	final, err := Load(root, path)
-	if err != nil {
-		t.Fatalf("Load after accept: %v", err)
-	}
+	require.NoError(t, err, "Load after accept")
 	// AcceptRecoveryPoint persists through Save, which bumps Revision once
 	// more beyond the recovery blob's own stamped Revision.
-	if final.Revision != cleanRevision+2 {
-		t.Fatalf("expected Revision to advance via Save to %d, got %d", cleanRevision+2, final.Revision)
-	}
-	if len(final.Scenes) == 0 || final.Scenes[0].Name != "Interrupted Edit" {
-		t.Fatalf("expected the recovered working State to equal the interrupted edit's scenes, got %+v", final.Scenes)
-	}
+	require.Equal(t, cleanRevision+2, final.Revision, "expected Revision to advance via Save")
+	require.NotEmpty(t, final.Scenes, "expected the recovered working State to equal the interrupted edit's scenes")
+	require.Equal(t, "Interrupted Edit", final.Scenes[0].Name, "expected the recovered working State to equal the interrupted edit's scenes")
 }
 
 // TestRecoveryOfferedNotApplied proves CONTEXT D-07: DetectRecoveryPoints
@@ -196,9 +140,7 @@ func TestRecoveryOfferedNotApplied(t *testing.T) {
 	path := "show.golc"
 	state := buildNonTrivialState(t)
 
-	if err := Save(root, path, state); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, Save(root, path, state), "Save")
 	cleanRevision := onDiskRevision(t, root, path)
 
 	interrupted1 := state
@@ -214,24 +156,13 @@ func TestRecoveryOfferedNotApplied(t *testing.T) {
 	countBefore := recoveryPointCount(t, root, path)
 
 	points, err := DetectRecoveryPoints(root, path)
-	if err != nil {
-		t.Fatalf("DetectRecoveryPoints: %v", err)
-	}
-	if len(points) != 2 {
-		t.Fatalf("expected 2 offered recovery points, got %d (%+v)", len(points), points)
-	}
-	if points[0].Revision != cleanRevision+2 || points[1].Revision != cleanRevision+1 {
-		t.Fatalf("expected newest-first order [%d,%d], got %+v", cleanRevision+2, cleanRevision+1, points)
-	}
+	require.NoError(t, err, "DetectRecoveryPoints")
+	require.Len(t, points, 2, "expected 2 offered recovery points, got %+v", points)
+	require.Equal(t, cleanRevision+2, points[0].Revision, "expected newest-first order")
+	require.Equal(t, cleanRevision+1, points[1].Revision, "expected newest-first order")
 
-	revisionAfter := onDiskRevision(t, root, path)
-	if revisionAfter != cleanRevision {
-		t.Fatalf("DetectRecoveryPoints mutated the on-disk revision: before=%d after=%d", cleanRevision, revisionAfter)
-	}
-	countAfter := recoveryPointCount(t, root, path)
-	if countAfter != countBefore {
-		t.Fatalf("DetectRecoveryPoints changed the recovery_points row count: before=%d after=%d", countBefore, countAfter)
-	}
+	require.Equal(t, cleanRevision, onDiskRevision(t, root, path), "DetectRecoveryPoints mutated the on-disk revision")
+	require.Equal(t, countBefore, recoveryPointCount(t, root, path), "DetectRecoveryPoints changed the recovery_points row count")
 }
 
 // TestRecoveryDiscardDeletes proves CONTEXT D-07 / 05-RESEARCH.md Security
@@ -242,9 +173,7 @@ func TestRecoveryDiscardDeletes(t *testing.T) {
 	path := "show.golc"
 	state := buildNonTrivialState(t)
 
-	if err := Save(root, path, state); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, Save(root, path, state), "Save")
 	cleanRevision := onDiskRevision(t, root, path)
 
 	interrupted := state
@@ -252,24 +181,16 @@ func TestRecoveryDiscardDeletes(t *testing.T) {
 	interrupted.Revision = cleanRevision + 1
 	insertRecoveryPoint(t, root, path, "2026-07-23T00:00:01Z", cleanRevision+1, interrupted)
 
-	if err := DiscardRecoveryPoints(root, path); err != nil {
-		t.Fatalf("DiscardRecoveryPoints: %v", err)
-	}
+	require.NoError(t, DiscardRecoveryPoints(root, path), "DiscardRecoveryPoints")
 
 	points, err := DetectRecoveryPoints(root, path)
-	if err != nil {
-		t.Fatalf("DetectRecoveryPoints after discard: %v", err)
-	}
-	if len(points) != 0 {
-		t.Fatalf("expected no offered recovery points after discard, got %d", len(points))
-	}
+	require.NoError(t, err, "DetectRecoveryPoints after discard")
+	require.Empty(t, points, "expected no offered recovery points after discard")
 
 	// Only the clean Save's own recovery_points row (written by Save's own
 	// transaction, at cleanRevision) may remain: the discarded row must be
 	// genuinely gone from the table, not merely excluded from the offer.
-	if count := recoveryPointCount(t, root, path); count != 1 {
-		t.Fatalf("expected exactly 1 recovery point (the clean save's own) to remain after discard, got %d", count)
-	}
+	require.Equal(t, 1, recoveryPointCount(t, root, path), "expected exactly 1 recovery point (the clean save's own) to remain after discard")
 }
 
 // TestRecoveryAcceptPersists proves AcceptRecoveryPoint promotes a chosen
@@ -282,9 +203,7 @@ func TestRecoveryAcceptPersists(t *testing.T) {
 	path := "show.golc"
 	state := buildNonTrivialState(t)
 
-	if err := Save(root, path, state); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, Save(root, path, state), "Save")
 	cleanRevision := onDiskRevision(t, root, path)
 
 	recovered := buildNonTrivialState(t)
@@ -294,29 +213,18 @@ func TestRecoveryAcceptPersists(t *testing.T) {
 	insertRecoveryPoint(t, root, path, "2026-07-23T00:00:01Z", cleanRevision+1, recovered)
 
 	points, err := DetectRecoveryPoints(root, path)
-	if err != nil {
-		t.Fatalf("DetectRecoveryPoints: %v", err)
-	}
-	if len(points) != 1 {
-		t.Fatalf("expected exactly 1 offered recovery point, got %d", len(points))
-	}
+	require.NoError(t, err, "DetectRecoveryPoints")
+	require.Len(t, points, 1, "expected exactly 1 offered recovery point")
 
-	if err := AcceptRecoveryPoint(root, path, points[0].ID); err != nil {
-		t.Fatalf("AcceptRecoveryPoint: %v", err)
-	}
+	require.NoError(t, AcceptRecoveryPoint(root, path, points[0].ID), "AcceptRecoveryPoint")
 
 	loaded, err := Load(root, path)
-	if err != nil {
-		t.Fatalf("Load after accept: %v", err)
-	}
+	require.NoError(t, err, "Load after accept")
 	// AcceptRecoveryPoint persists through Save, which bumps Revision once
 	// more beyond the recovery blob's own stamped Revision.
-	if loaded.Revision != cleanRevision+2 {
-		t.Fatalf("expected Revision to advance via Save to %d, got %d", cleanRevision+2, loaded.Revision)
-	}
-	if len(loaded.Scenes) == 0 || loaded.Scenes[0].Name != "Recovered Opener" {
-		t.Fatalf("expected the working State to equal the accepted recovery blob's scenes, got %+v", loaded.Scenes)
-	}
+	require.Equal(t, cleanRevision+2, loaded.Revision, "expected Revision to advance via Save")
+	require.NotEmpty(t, loaded.Scenes, "expected the working State to equal the accepted recovery blob's scenes")
+	require.Equal(t, "Recovered Opener", loaded.Scenes[0].Name, "expected the working State to equal the accepted recovery blob's scenes")
 }
 
 // TestRecoveryAcceptRejectsInvalidBlob proves an invalid recovery blob is
@@ -328,9 +236,7 @@ func TestRecoveryAcceptRejectsInvalidBlob(t *testing.T) {
 	path := "show.golc"
 	state := buildNonTrivialState(t)
 
-	if err := Save(root, path, state); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, Save(root, path, state), "Save")
 	cleanRevision := onDiskRevision(t, root, path)
 
 	invalid := buildNonTrivialState(t)
@@ -340,23 +246,12 @@ func TestRecoveryAcceptRejectsInvalidBlob(t *testing.T) {
 	insertRecoveryPoint(t, root, path, "2026-07-23T00:00:01Z", cleanRevision+1, invalid)
 
 	points, err := DetectRecoveryPoints(root, path)
-	if err != nil {
-		t.Fatalf("DetectRecoveryPoints: %v", err)
-	}
-	if len(points) != 1 {
-		t.Fatalf("expected exactly 1 offered recovery point, got %d", len(points))
-	}
+	require.NoError(t, err, "DetectRecoveryPoints")
+	require.Len(t, points, 1, "expected exactly 1 offered recovery point")
 
 	err = AcceptRecoveryPoint(root, path, points[0].ID)
-	if err == nil {
-		t.Fatalf("expected AcceptRecoveryPoint to reject an invalid recovery blob, got no error")
-	}
-	if got := err.Error(); len(got) == 0 || got[:len("GOLC_SHOW_STATE_INVALID")] != "GOLC_SHOW_STATE_INVALID" {
-		t.Fatalf("expected GOLC_SHOW_STATE_INVALID, got %v", err)
-	}
+	require.Error(t, err, "expected AcceptRecoveryPoint to reject an invalid recovery blob")
+	require.True(t, strings.HasPrefix(err.Error(), "GOLC_SHOW_STATE_INVALID"), "expected GOLC_SHOW_STATE_INVALID, got %v", err)
 
-	revisionAfter := onDiskRevision(t, root, path)
-	if revisionAfter != cleanRevision {
-		t.Fatalf("expected on-disk revision to stay at %d after a rejected accept, got %d", cleanRevision, revisionAfter)
-	}
+	require.Equal(t, cleanRevision, onDiskRevision(t, root, path), "expected on-disk revision to stay unchanged after a rejected accept")
 }

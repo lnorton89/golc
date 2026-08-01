@@ -7,8 +7,9 @@ package show
 
 import (
 	"os"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TestVerifiedBackupRoundTrips proves a backup produced by verifiedBackup
@@ -19,35 +20,22 @@ func TestVerifiedBackupRoundTrips(t *testing.T) {
 	path := "show.golc"
 
 	state := buildNonTrivialState(t)
-	if err := Save(root, path, state); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, Save(root, path, state), "Save")
 	saved, err := Load(root, path)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
+	require.NoError(t, err, "Load")
 
 	backupPath, err := verifiedBackup(root, path)
-	if err != nil {
-		t.Fatalf("verifiedBackup: %v", err)
-	}
-	if backupPath == "" {
-		t.Fatalf("expected a non-empty backupPath")
-	}
+	require.NoError(t, err, "verifiedBackup")
+	require.NotEmpty(t, backupPath, "expected a non-empty backupPath")
 
 	resolvedBackup := resolvePath(root, backupPath)
-	if _, statErr := os.Stat(resolvedBackup); statErr != nil {
-		t.Fatalf("expected backup file to exist at %s: %v", resolvedBackup, statErr)
-	}
+	_, statErr := os.Stat(resolvedBackup)
+	require.NoError(t, statErr, "expected backup file to exist at %s", resolvedBackup)
 
 	backedUp, err := Load(root, backupPath)
-	if err != nil {
-		t.Fatalf("Load(backupPath): %v", err)
-	}
+	require.NoError(t, err, "Load(backupPath)")
 	assertDomainEqual(t, saved, backedUp)
-	if backedUp.Revision != saved.Revision {
-		t.Fatalf("expected backup Revision to match source (%d), got %d", saved.Revision, backedUp.Revision)
-	}
+	require.Equal(t, saved.Revision, backedUp.Revision, "expected backup Revision to match source")
 }
 
 // TestVerifiedBackupRejectsCorruptBackup proves D-09's core guarantee:
@@ -62,32 +50,20 @@ func TestVerifiedBackupRejectsCorruptBackup(t *testing.T) {
 	path := "show.golc"
 
 	state := buildNonTrivialState(t)
-	if err := Save(root, path, state); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, Save(root, path, state), "Save")
 
 	backupPath, err := verifiedBackup(root, path)
-	if err != nil {
-		t.Fatalf("verifiedBackup: %v", err)
-	}
+	require.NoError(t, err, "verifiedBackup")
 
 	db, err := openStore(root, backupPath)
+	require.NoError(t, err, "openStore(backupPath)")
+	_, err = db.Exec(`UPDATE show_state SET blob = ? WHERE id = 1`, []byte("not valid json{{{"))
 	if err != nil {
-		t.Fatalf("openStore(backupPath): %v", err)
-	}
-	if _, err := db.Exec(`UPDATE show_state SET blob = ? WHERE id = 1`, []byte("not valid json{{{")); err != nil {
 		db.Close()
-		t.Fatalf("corrupting backup blob: %v", err)
+		require.NoError(t, err, "corrupting backup blob")
 	}
-	if err := checkpointAndClose(db); err != nil {
-		t.Fatalf("closing corrupted backup store: %v", err)
-	}
+	require.NoError(t, checkpointAndClose(db), "closing corrupted backup store")
 
 	err = verifyBackupReadBack(root, backupPath)
-	if err == nil {
-		t.Fatalf("expected verifyBackupReadBack to reject a corrupted backup, got no error")
-	}
-	if !strings.Contains(err.Error(), "GOLC_SHOW_BACKUP_UNVERIFIABLE") {
-		t.Fatalf("expected GOLC_SHOW_BACKUP_UNVERIFIABLE, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_SHOW_BACKUP_UNVERIFIABLE", "expected verifyBackupReadBack to reject a corrupted backup")
 }

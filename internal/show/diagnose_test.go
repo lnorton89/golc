@@ -14,11 +14,11 @@ package show
 
 import (
 	"os"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/fixture"
 	"github.com/lnorton89/golc/internal/pool"
@@ -34,33 +34,17 @@ func TestDiagnoseHealthyFile(t *testing.T) {
 	path := "show.golc"
 	state := buildNonTrivialState(t)
 
-	if err := Save(root, path, state); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, Save(root, path, state), "Save")
 	loaded, err := Load(root, path)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
+	require.NoError(t, err, "Load")
 
 	report, err := Diagnose(root, path)
-	if err != nil {
-		t.Fatalf("Diagnose: %v", err)
-	}
-	if len(report.FileLevelIssues) != 0 {
-		t.Fatalf("expected no file-level issues for a healthy file, got %v", report.FileLevelIssues)
-	}
-	if !report.StructuralOK {
-		t.Fatalf("expected StructuralOK=true for a healthy file, got StructuralError=%q", report.StructuralError)
-	}
-	if report.StructuralError != "" {
-		t.Fatalf("expected empty StructuralError for a healthy file, got %q", report.StructuralError)
-	}
-	if report.SchemaVersion != loaded.SchemaVersion {
-		t.Fatalf("expected SchemaVersion %d, got %d", loaded.SchemaVersion, report.SchemaVersion)
-	}
-	if report.Revision != loaded.Revision {
-		t.Fatalf("expected Revision %d, got %d", loaded.Revision, report.Revision)
-	}
+	require.NoError(t, err, "Diagnose")
+	require.Empty(t, report.FileLevelIssues, "expected no file-level issues for a healthy file")
+	require.True(t, report.StructuralOK, "expected StructuralOK=true for a healthy file, got StructuralError=%q", report.StructuralError)
+	require.Empty(t, report.StructuralError, "expected empty StructuralError for a healthy file")
+	require.Equal(t, loaded.SchemaVersion, report.SchemaVersion)
+	require.Equal(t, loaded.Revision, report.Revision)
 }
 
 // TestDiagnoseStructurallyInvalid proves a .golc whose blob decodes but
@@ -84,43 +68,30 @@ func TestDiagnoseStructurallyInvalid(t *testing.T) {
 		},
 	}
 	payload, err := strictjson.CanonicalEncode(tampered)
-	if err != nil {
-		t.Fatalf("CanonicalEncode: %v", err)
-	}
+	require.NoError(t, err, "CanonicalEncode")
 
 	db, err := openStore(root, path)
+	require.NoError(t, err, "openStore")
+	_, err = db.Exec(`UPDATE show_meta SET schema_version = ?, revision = 1, checksum = ?, updated_at = '2026-01-01T00:00:00Z' WHERE id = 1`,
+		SchemaVersion, sha256Hex(payload))
 	if err != nil {
-		t.Fatalf("openStore: %v", err)
-	}
-	if _, err := db.Exec(`UPDATE show_meta SET schema_version = ?, revision = 1, checksum = ?, updated_at = '2026-01-01T00:00:00Z' WHERE id = 1`,
-		SchemaVersion, sha256Hex(payload)); err != nil {
 		db.Close()
-		t.Fatalf("seeding tampered show_meta: %v", err)
+		require.NoError(t, err, "seeding tampered show_meta")
 	}
-	if _, err := db.Exec(`UPDATE show_state SET blob = ? WHERE id = 1`, payload); err != nil {
+	_, err = db.Exec(`UPDATE show_state SET blob = ? WHERE id = 1`, payload)
+	if err != nil {
 		db.Close()
-		t.Fatalf("seeding tampered show_state: %v", err)
+		require.NoError(t, err, "seeding tampered show_state")
 	}
-	if err := db.Close(); err != nil {
-		t.Fatalf("closing seeded store: %v", err)
-	}
+	require.NoError(t, db.Close(), "closing seeded store")
 
 	report, err := Diagnose(root, path)
-	if err != nil {
-		t.Fatalf("Diagnose: %v", err)
-	}
-	if report.StructuralOK {
-		t.Fatalf("expected StructuralOK=false for a structurally-invalid document, got a healthy report %+v", report)
-	}
-	if !strings.Contains(report.StructuralError, "GOLC_MOTION_PRESET_CAPABILITY_OUT_OF_SCOPE") {
-		t.Fatalf("expected StructuralError to surface the validate() failure, got %q", report.StructuralError)
-	}
-	if len(report.FileLevelIssues) != 0 {
-		t.Fatalf("expected no file-level issues for a structurally-invalid-but-otherwise-healthy file, got %v", report.FileLevelIssues)
-	}
-	if report.SchemaVersion != SchemaVersion || report.Revision != 1 {
-		t.Fatalf("expected SchemaVersion/Revision read from show_meta regardless of structural failure, got %+v", report)
-	}
+	require.NoError(t, err, "Diagnose")
+	require.False(t, report.StructuralOK, "expected StructuralOK=false for a structurally-invalid document, got a healthy report %+v", report)
+	require.Contains(t, report.StructuralError, "GOLC_MOTION_PRESET_CAPABILITY_OUT_OF_SCOPE", "expected StructuralError to surface the validate() failure")
+	require.Empty(t, report.FileLevelIssues, "expected no file-level issues for a structurally-invalid-but-otherwise-healthy file")
+	require.Equal(t, SchemaVersion, report.SchemaVersion, "expected SchemaVersion/Revision read from show_meta regardless of structural failure, got %+v", report)
+	require.EqualValues(t, 1, report.Revision, "expected SchemaVersion/Revision read from show_meta regardless of structural failure, got %+v", report)
 }
 
 // TestDiagnoseFileCorruption proves the SHOW-06 corrupted-file probe: a
@@ -140,41 +111,30 @@ func TestDiagnoseFileCorruption(t *testing.T) {
 	state := buildNonTrivialState(t)
 	for i := 0; i < 500; i++ {
 		member, err := pool.NewPoolMember("fixture:generic-rgb-par", "sha256:deadbeef")
-		if err != nil {
-			t.Fatalf("NewPoolMember: %v", err)
-		}
+		require.NoError(t, err, "NewPoolMember")
 		state.Pools[0].Members = append(state.Pools[0].Members, member)
 	}
 
-	if err := Save(root, path, state); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, Save(root, path, state), "Save")
 
 	resolved := resolvePath(root, path)
 	info, err := os.Stat(resolved)
-	if err != nil {
-		t.Fatalf("stat: %v", err)
-	}
-	if info.Size() < 8192 {
-		t.Fatalf("expected a multi-page file to safely corrupt past the schema page, got %d bytes", info.Size())
-	}
+	require.NoError(t, err, "stat")
+	require.GreaterOrEqual(t, info.Size(), int64(8192), "expected a multi-page file to safely corrupt past the schema page")
 
 	f, err := os.OpenFile(resolved, os.O_WRONLY, 0o644)
-	if err != nil {
-		t.Fatalf("open for corruption: %v", err)
-	}
+	require.NoError(t, err, "open for corruption")
 	corruptFrom := info.Size() - info.Size()/4
 	garbage := make([]byte, info.Size()-corruptFrom)
 	for i := range garbage {
 		garbage[i] = 0xFF
 	}
-	if _, err := f.WriteAt(garbage, corruptFrom); err != nil {
+	_, err = f.WriteAt(garbage, corruptFrom)
+	if err != nil {
 		f.Close()
-		t.Fatalf("WriteAt: %v", err)
+		require.NoError(t, err, "WriteAt")
 	}
-	if err := f.Close(); err != nil {
-		t.Fatalf("close corrupted file: %v", err)
-	}
+	require.NoError(t, f.Close(), "close corrupted file")
 
 	report, err := Diagnose(root, path)
 	if err != nil {
@@ -182,9 +142,8 @@ func TestDiagnoseFileCorruption(t *testing.T) {
 		// still proves the corruption was never silently reported healthy.
 		return
 	}
-	if len(report.FileLevelIssues) == 0 && report.StructuralOK {
-		t.Fatalf("expected injected corruption to surface as a file-level issue or a structural failure, got a healthy report %+v", report)
-	}
+	require.False(t, len(report.FileLevelIssues) == 0 && report.StructuralOK,
+		"expected injected corruption to surface as a file-level issue or a structural failure, got a healthy report %+v", report)
 }
 
 // TestDiagnoseCompletesUnderOneSecond confirms 05-RESEARCH.md Pitfall 4's
@@ -196,15 +155,10 @@ func TestDiagnoseCompletesUnderOneSecond(t *testing.T) {
 	root := t.TempDir()
 	path := "show.golc"
 	state := buildNonTrivialState(t)
-	if err := Save(root, path, state); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, Save(root, path, state), "Save")
 
 	start := time.Now()
-	if _, err := Diagnose(root, path); err != nil {
-		t.Fatalf("Diagnose: %v", err)
-	}
-	if elapsed := time.Since(start); elapsed > time.Second {
-		t.Fatalf("expected Diagnose to complete in under 1s at this app's scale, took %s", elapsed)
-	}
+	_, err := Diagnose(root, path)
+	require.NoError(t, err, "Diagnose")
+	require.LessOrEqual(t, time.Since(start), time.Second, "expected Diagnose to complete in under 1s at this app's scale")
 }
