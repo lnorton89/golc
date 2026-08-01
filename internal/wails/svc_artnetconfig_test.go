@@ -109,7 +109,7 @@ func startTestArtnetConfigDaemon(t *testing.T) string {
 		select {
 		case <-runDone:
 		case <-time.After(5 * time.Second):
-			t.Fatal("artnet.Run did not return within 5s of ctx cancel")
+			require.Fail(t, "artnet.Run did not return within 5s of ctx cancel")
 		}
 	})
 

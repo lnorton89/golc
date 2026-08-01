@@ -50,7 +50,7 @@ func TestDriverDecodesNoteOn(t *testing.T) {
 		want := Event{Key: ControlKey{Channel: 2, Kind: Note, Number: 60}, Value: float64(100) / 127}
 		require.Equal(t, want, evt)
 	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for Note-on event")
+		require.Fail(t, "timed out waiting for Note-on event")
 	}
 }
 
@@ -76,7 +76,7 @@ func TestDriverDecodesNoteOff(t *testing.T) {
 		want := Event{Key: ControlKey{Channel: 3, Kind: Note, Number: 64}, Value: 0}
 		require.Equal(t, want, evt)
 	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for Note-off event")
+		require.Fail(t, "timed out waiting for Note-off event")
 	}
 }
 
@@ -103,7 +103,7 @@ func TestDriverDecodesControlChange(t *testing.T) {
 		want := Event{Key: ControlKey{Channel: 1, Kind: ControlChange, Number: 74}, Value: float64(64) / 127}
 		require.Equal(t, want, evt)
 	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for ControlChange event")
+		require.Fail(t, "timed out waiting for ControlChange event")
 	}
 }
 
@@ -165,7 +165,7 @@ func TestDriverListensOnEveryWrappedPort(t *testing.T) {
 		want := Event{Key: ControlKey{Channel: 1, Kind: Note, Number: 10}, Value: float64(100) / 127}
 		require.Equal(t, want, evt, "event from first port")
 	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for event from the first port")
+		require.Fail(t, "timed out waiting for event from the first port")
 	}
 
 	require.NoError(t, secondOuts[0].Send(midi.ControlChange(2, 20, 64).Bytes()), "Send on second port")
@@ -174,7 +174,7 @@ func TestDriverListensOnEveryWrappedPort(t *testing.T) {
 		want := Event{Key: ControlKey{Channel: 2, Kind: ControlChange, Number: 20}, Value: float64(64) / 127}
 		require.Equal(t, want, evt, "event from second port")
 	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for event from the second port -- a regression here means Listen went back to only the first port")
+		require.Fail(t, "timed out waiting for event from the second port -- a regression here means Listen went back to only the first port")
 	}
 }
 

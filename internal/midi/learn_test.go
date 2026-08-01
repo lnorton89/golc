@@ -122,6 +122,6 @@ func TestLearnCaptureCandidateDoesNotHangWithoutEitherChannel(t *testing.T) {
 	case err := <-done:
 		require.Error(t, err, "CaptureCandidate() error = nil, want GOLC_MIDI_LEARN_TIMEOUT")
 	case <-time.After(2 * time.Second):
-		t.Fatalf("CaptureCandidate did not return within 2s of timeout firing")
+		require.Fail(t, "CaptureCandidate did not return within 2s of timeout firing")
 	}
 }

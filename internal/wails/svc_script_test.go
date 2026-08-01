@@ -281,7 +281,7 @@ func TestScriptEventStreamForwardsPublishedEventsToEmit(t *testing.T) {
 			// EventPusher's own ~25ms cadence) -- keep waiting for at
 			// least one to land in pushed.
 		case <-deadline:
-			t.Fatal("timed out waiting for the published event to reach emit")
+			require.Fail(t, "timed out waiting for the published event to reach emit")
 		}
 		mu.Lock()
 		found := len(pushed) > 0

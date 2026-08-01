@@ -250,7 +250,7 @@ func findLayer(t *testing.T, state show.State, sceneName, kind string) scene.Lay
 			}
 		}
 	}
-	t.Fatalf("scene %q layer %q not found", sceneName, kind)
+	require.True(t, false, "scene %q layer %q not found", sceneName, kind)
 	return scene.Layer{}
 }
 

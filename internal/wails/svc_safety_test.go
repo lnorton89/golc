@@ -325,6 +325,6 @@ func TestSafetyServiceStartStatusPushEmitsStatusUpdate(t *testing.T) {
 	case snapshot := <-emitted:
 		require.Equal(t, "Push Test Scene", snapshot.SceneName)
 	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for StartStatusPush to emit a status:update event")
+		require.Fail(t, "timed out waiting for StartStatusPush to emit a status:update event")
 	}
 }
