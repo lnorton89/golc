@@ -17,42 +17,34 @@
 // implementation here, so the on-screen surface (PLAY-01) and this
 // documented keyboard surface (PLAY-02) can never drift out of sync.
 //
-// PLAYBACK_SHORTCUTS below is the single documented source of truth this
-// hook's own keydown handler and KeyboardShortcuts.tsx's reference panel
-// both read -- adding, removing, or rebinding a shortcut is a one-place
-// change.
+// Which key fires which action is no longer fixed here -- it's resolved
+// against lib/hotkeys.ts's persisted bindings (Settings > Hotkeys) on
+// every render, so a rebind takes effect immediately without a reload.
+// lib/hotkeys.ts's HOTKEY_ACTIONS is the single documented source of truth
+// this hook's matcher and KeyboardShortcuts.tsx's reference panel both
+// read -- adding or removing an action is a one-place change there.
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { dispatch, LAYER_KINDS, type LayerKind } from "../lib/playbackDispatch";
+import {
+  HOTKEY_ACTIONS,
+  getStoredHotkeys,
+  normalizeHotkeyEvent,
+  onHotkeysChanged,
+  type HotkeyActionId,
+  type HotkeyBindings,
+} from "../lib/hotkeys";
 
-export interface KeyboardShortcut {
-  category: string;
-  keys: string;
-  description: string;
-}
-
-/** LAYER_KEY_TO_KIND maps the fixed Q/W/E/R shortcut row onto
+/** LAYER_ACTION_TO_KIND maps the rebindable layer-toggle actions onto
  * internal/scene's four fixed layer kinds, in the same base-look/color-
  * theme/chase/motion priority order LAYER_KINDS declares. */
-const LAYER_KEY_TO_KIND: Record<string, LayerKind> = {
-  q: LAYER_KINDS[0],
-  w: LAYER_KINDS[1],
-  e: LAYER_KINDS[2],
-  r: LAYER_KINDS[3],
+const LAYER_ACTION_TO_KIND: Partial<Record<HotkeyActionId, LayerKind>> = {
+  toggleBaseLook: LAYER_KINDS[0],
+  toggleColorTheme: LAYER_KINDS[1],
+  toggleChase: LAYER_KINDS[2],
+  toggleMotion: LAYER_KINDS[3],
 };
-
-export const PLAYBACK_SHORTCUTS: KeyboardShortcut[] = [
-  { category: "Scenes", keys: "1 – 9", description: "Switch to the Nth scene in the current show" },
-  { category: "Layers", keys: "Q", description: "Toggle Base Look on the active scene" },
-  { category: "Layers", keys: "W", description: "Toggle Color Theme on the active scene" },
-  { category: "Layers", keys: "E", description: "Toggle Chase on the active scene" },
-  { category: "Layers", keys: "R", description: "Toggle Motion on the active scene" },
-  { category: "Tempo", keys: "Space", description: "Tap tempo (accumulates with prior taps within 2s)" },
-  { category: "Tempo", keys: "↑", description: "Nudge BPM up by 1" },
-  { category: "Tempo", keys: "↓", description: "Nudge BPM down by 1" },
-  { category: "Transport", keys: "Enter", description: "Evaluate/preview the active scene at bar 0" },
-];
 
 export interface UseKeyboardWorkflowOptions {
   /** Ordered scene names -- digit key N switches to sceneNames[N-1]. */
@@ -87,10 +79,29 @@ function isTypingTarget(target: EventTarget | null): boolean {
  * contract). */
 export function useKeyboardWorkflow(options: UseKeyboardWorkflowOptions): void {
   const { sceneNames, activeSceneName, layerEnabled, bpm } = options;
+  const [bindings, setBindings] = useState<HotkeyBindings>(() => getStoredHotkeys());
+
+  useEffect(() => onHotkeysChanged(() => setBindings(getStoredHotkeys())), []);
 
   useEffect(() => {
+    const keyToAction = new Map<string, HotkeyActionId>();
+    for (const action of HOTKEY_ACTIONS) {
+      keyToAction.set(bindings[action.id], action.id);
+    }
+
     function onKeyDown(event: KeyboardEvent) {
       if (isTypingTarget(event.target)) {
+        return;
+      }
+
+      // A Ctrl/Alt/Meta chord is always a menu-navigation shortcut
+      // (useGlobalKeyboardWorkflow.ts's NAVIGATION_SHORTCUTS -- Ctrl+K,
+      // Alt+Up/Down, Ctrl+Alt+Up/Down, Ctrl+,), never a playback one: every
+      // rebindable action here is a bare key, so without this guard a
+      // binding that happens to share a key with a chorded nav shortcut
+      // (ArrowUp/ArrowDown/K default to bpmUp/bpmDown/nothing today, but a
+      // rebind could pick any key) would silently fire both at once.
+      if (event.ctrlKey || event.altKey || event.metaKey) {
         return;
       }
 
@@ -104,33 +115,37 @@ export function useKeyboardWorkflow(options: UseKeyboardWorkflowOptions): void {
         return;
       }
 
-      const kind = LAYER_KEY_TO_KIND[event.key.toLowerCase()];
-      if (kind && activeSceneName) {
-        event.preventDefault();
-        void dispatch.setLayerEnabled(activeSceneName, kind, !layerEnabled[kind]);
+      const actionId = keyToAction.get(normalizeHotkeyEvent(event));
+      if (!actionId) {
         return;
       }
 
-      if (event.code === "Space") {
-        event.preventDefault();
-        void dispatch.recordTap();
+      const layerKind = LAYER_ACTION_TO_KIND[actionId];
+      if (layerKind) {
+        if (activeSceneName) {
+          event.preventDefault();
+          void dispatch.setLayerEnabled(activeSceneName, layerKind, !layerEnabled[layerKind]);
+        }
         return;
       }
 
-      if (event.key === "ArrowUp") {
-        event.preventDefault();
-        void dispatch.setBPM(bpm + 1);
-        return;
-      }
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        void dispatch.setBPM(Math.max(1, bpm - 1));
-        return;
-      }
-
-      if (event.key === "Enter") {
-        event.preventDefault();
-        void dispatch.evaluate(0);
+      switch (actionId) {
+        case "tapTempo":
+          event.preventDefault();
+          void dispatch.recordTap();
+          return;
+        case "bpmUp":
+          event.preventDefault();
+          void dispatch.setBPM(bpm + 1);
+          return;
+        case "bpmDown":
+          event.preventDefault();
+          void dispatch.setBPM(Math.max(1, bpm - 1));
+          return;
+        case "evaluate":
+          event.preventDefault();
+          void dispatch.evaluate(0);
+          return;
       }
     }
 
@@ -140,5 +155,5 @@ export function useKeyboardWorkflow(options: UseKeyboardWorkflowOptions): void {
     // golang.design/x/hotkey path (see file doc comment).
     window.addEventListener("keydown", onKeyDown, { capture: true });
     return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
-  }, [sceneNames, activeSceneName, layerEnabled, bpm]);
+  }, [sceneNames, activeSceneName, layerEnabled, bpm, bindings]);
 }

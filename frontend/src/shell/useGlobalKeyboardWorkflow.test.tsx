@@ -1,16 +1,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 
 import { PlaybackSnapshotProvider, usePlaybackSnapshot } from "./PlaybackSnapshotContext";
 import { useGlobalKeyboardWorkflow } from "./useGlobalKeyboardWorkflow";
+import { DEFAULT_DESTINATION, type DestinationId } from "./navigation";
 import { useGolcStore } from "../store/store";
 
 function Harness() {
-  const { helpOpen } = useGlobalKeyboardWorkflow();
+  const [activeDestination, setActiveDestination] = useState<DestinationId>(DEFAULT_DESTINATION);
+  const { helpOpen, quickSwitcherOpen } = useGlobalKeyboardWorkflow({
+    activeDestination,
+    onNavigate: setActiveDestination,
+  });
   const { state } = usePlaybackSnapshot();
   return (
     <div>
       <span data-testid="help-state">{helpOpen ? "open" : "closed"}</span>
+      <span data-testid="quick-switcher-state">{quickSwitcherOpen ? "open" : "closed"}</span>
+      <span data-testid="active-destination">{activeDestination}</span>
       <span data-testid="scene-count">{state?.scenes.length ?? 0}</span>
       <input aria-label="typing target" />
     </div>
@@ -96,5 +104,60 @@ describe("useGlobalKeyboardWorkflow", () => {
       fireEvent.keyDown(window, { key: "2" });
       expect(switchScene).toHaveBeenCalledWith("Beta");
     });
+  });
+
+  it("toggles the quick switcher on Ctrl+K, even while a text input is focused", () => {
+    render(
+      <PlaybackSnapshotProvider>
+        <Harness />
+      </PlaybackSnapshotProvider>,
+    );
+
+    fireEvent.keyDown(screen.getByLabelText("typing target"), { key: "k", ctrlKey: true });
+    expect(screen.getByTestId("quick-switcher-state")).toHaveTextContent("open");
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    expect(screen.getByTestId("quick-switcher-state")).toHaveTextContent("closed");
+  });
+
+  it("moves within the current nav group on Alt+ArrowDown/Up, wrapping at the ends", () => {
+    render(
+      <PlaybackSnapshotProvider>
+        <Harness />
+      </PlaybackSnapshotProvider>,
+    );
+
+    expect(screen.getByTestId("active-destination")).toHaveTextContent("show-overview");
+
+    fireEvent.keyDown(window, { key: "ArrowDown", altKey: true });
+    expect(screen.getByTestId("active-destination")).toHaveTextContent("show-shows");
+
+    fireEvent.keyDown(window, { key: "ArrowUp", altKey: true });
+    expect(screen.getByTestId("active-destination")).toHaveTextContent("show-overview");
+
+    fireEvent.keyDown(window, { key: "ArrowUp", altKey: true });
+    expect(screen.getByTestId("active-destination")).toHaveTextContent("show-settings");
+  });
+
+  it("jumps to the next nav group's first destination on Ctrl+Alt+ArrowDown", () => {
+    render(
+      <PlaybackSnapshotProvider>
+        <Harness />
+      </PlaybackSnapshotProvider>,
+    );
+
+    fireEvent.keyDown(window, { key: "ArrowDown", altKey: true, ctrlKey: true });
+    expect(screen.getByTestId("active-destination")).toHaveTextContent("build-fixture-library");
+  });
+
+  it("jumps straight to Settings on Ctrl+,", () => {
+    render(
+      <PlaybackSnapshotProvider>
+        <Harness />
+      </PlaybackSnapshotProvider>,
+    );
+
+    fireEvent.keyDown(window, { key: ",", ctrlKey: true });
+    expect(screen.getByTestId("active-destination")).toHaveTextContent("show-settings");
   });
 });

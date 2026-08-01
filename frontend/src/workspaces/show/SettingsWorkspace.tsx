@@ -11,6 +11,7 @@ import {
   Moon,
   Monitor,
   Info,
+  Keyboard,
   ChevronRight,
   ChevronDown,
   ExternalLink,
@@ -24,6 +25,7 @@ import Panel from "../../components/primitives/Panel/Panel";
 import PanelHeader from "../../components/primitives/PanelHeader/PanelHeader";
 import Button from "../../components/primitives/Button/Button";
 import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion";
+import HotkeySettings from "../../components/HotkeySettings/HotkeySettings";
 import styles from "./SettingsWorkspace.module.css";
 
 const THEME_OPTIONS: Array<{ id: ThemePreference; label: string; icon: LucideIcon }> = [
@@ -280,7 +282,7 @@ export default function SettingsWorkspace() {
   return (
     <div className={styles.workspace}>
       <Toolbar title="Settings" icon={SettingsIcon} />
-      <div className={styles.canvas}>
+      <ScrollRegion className={styles.canvas}>
         <div className={styles.layout}>
           <Panel className={styles.appearancePanel}>
             <PanelHeader label="Appearance" icon={Palette} />
@@ -299,6 +301,11 @@ export default function SettingsWorkspace() {
             </div>
           </Panel>
 
+          <Panel className={styles.hotkeysPanel}>
+            <PanelHeader label="Hotkeys" icon={Keyboard} />
+            <HotkeySettings />
+          </Panel>
+
           <Panel className={styles.aboutPanel}>
             <PanelHeader label="About" icon={Info} />
             <div className={styles.about}>
@@ -307,47 +314,45 @@ export default function SettingsWorkspace() {
                 <span className={styles.aboutMeta}>v1.0 · github.com/lnorton89/golc</span>
               </div>
 
-              <ScrollRegion className={styles.creditsScroll}>
-                <div className={styles.creditsColumns}>
-                  <div className={styles.creditsColumn}>
-                    <span className={styles.creditsLabel}>Open Source — Backend</span>
-                    <ul className={styles.creditsList} aria-label="Backend open source credits">
-                      {BACKEND_CREDITS.map((credit) => {
-                        const key = `backend-${credit.name}`;
-                        return (
-                          <CreditRow
-                            key={key}
-                            credit={credit}
-                            expanded={expandedCredits.has(key)}
-                            onToggle={() => toggleCredit(key)}
-                          />
-                        );
-                      })}
-                    </ul>
-                  </div>
-
-                  <div className={styles.creditsColumn}>
-                    <span className={styles.creditsLabel}>Open Source — Frontend</span>
-                    <ul className={styles.creditsList} aria-label="Frontend open source credits">
-                      {FRONTEND_CREDITS.map((credit) => {
-                        const key = `frontend-${credit.name}`;
-                        return (
-                          <CreditRow
-                            key={key}
-                            credit={credit}
-                            expanded={expandedCredits.has(key)}
-                            onToggle={() => toggleCredit(key)}
-                          />
-                        );
-                      })}
-                    </ul>
-                  </div>
+              <div className={styles.creditsColumns}>
+                <div className={styles.creditsColumn}>
+                  <span className={styles.creditsLabel}>Open Source — Backend</span>
+                  <ul className={styles.creditsList} aria-label="Backend open source credits">
+                    {BACKEND_CREDITS.map((credit) => {
+                      const key = `backend-${credit.name}`;
+                      return (
+                        <CreditRow
+                          key={key}
+                          credit={credit}
+                          expanded={expandedCredits.has(key)}
+                          onToggle={() => toggleCredit(key)}
+                        />
+                      );
+                    })}
+                  </ul>
                 </div>
-              </ScrollRegion>
+
+                <div className={styles.creditsColumn}>
+                  <span className={styles.creditsLabel}>Open Source — Frontend</span>
+                  <ul className={styles.creditsList} aria-label="Frontend open source credits">
+                    {FRONTEND_CREDITS.map((credit) => {
+                      const key = `frontend-${credit.name}`;
+                      return (
+                        <CreditRow
+                          key={key}
+                          credit={credit}
+                          expanded={expandedCredits.has(key)}
+                          onToggle={() => toggleCredit(key)}
+                        />
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
             </div>
           </Panel>
         </div>
-      </div>
+      </ScrollRegion>
     </div>
   );
 }

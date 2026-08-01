@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, renderHook } from "@testing-library/react";
 
 import { useKeyboardWorkflow } from "./useKeyboardWorkflow";
 import { dispatch } from "../lib/playbackDispatch";
+import { setHotkeyBinding } from "../lib/hotkeys";
 
 vi.mock("../lib/playbackDispatch", async () => {
   const actual = await vi.importActual<typeof import("../lib/playbackDispatch")>("../lib/playbackDispatch");
@@ -27,9 +28,14 @@ const baseOptions = {
 };
 
 describe("useKeyboardWorkflow", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+    window.localStorage.clear();
   });
 
   it("switches to the Nth scene on a digit key", () => {
@@ -81,6 +87,30 @@ describe("useKeyboardWorkflow", () => {
     renderHook(() => useKeyboardWorkflow(baseOptions));
     fireEvent.keyDown(window, { key: "Enter" });
     expect(dispatch.evaluate).toHaveBeenCalledWith(0);
+  });
+
+  it("matches a rebound key instead of the default, and stops matching the old default", () => {
+    setHotkeyBinding("toggleBaseLook", "z");
+    renderHook(() => useKeyboardWorkflow(baseOptions));
+
+    fireEvent.keyDown(window, { key: "z" });
+    expect(dispatch.setLayerEnabled).toHaveBeenCalledWith("Alpha", "base_look", false);
+
+    fireEvent.keyDown(window, { key: "q" });
+    expect(dispatch.setLayerEnabled).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a bound key when Ctrl, Alt, or Meta is held, so it never collides with a chorded nav shortcut", () => {
+    renderHook(() => useKeyboardWorkflow(baseOptions));
+
+    fireEvent.keyDown(window, { key: "ArrowUp", altKey: true });
+    fireEvent.keyDown(window, { key: "ArrowDown", ctrlKey: true, altKey: true });
+    fireEvent.keyDown(window, { key: "q", ctrlKey: true });
+    fireEvent.keyDown(window, { key: "Enter", metaKey: true });
+
+    expect(dispatch.setBPM).not.toHaveBeenCalled();
+    expect(dispatch.setLayerEnabled).not.toHaveBeenCalled();
+    expect(dispatch.evaluate).not.toHaveBeenCalled();
   });
 
   it("ignores every shortcut while the event target is a text-entry element", () => {
