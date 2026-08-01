@@ -19,6 +19,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOpenStoreWaitsOutContentionOnFirstStatement(t *testing.T) {
@@ -29,16 +32,13 @@ func TestOpenStoreWaitsOutContentionOnFirstStatement(t *testing.T) {
 	// leaves it in WAL mode) so the contended openStore call below is
 	// exercising a real, already-initialized GOLC store, not a fresh-file
 	// creation race.
-	if _, err := Load(root, path); err != nil {
-		t.Fatalf("seeding initial store: %v", err)
-	}
+	_, err := Load(root, path)
+	require.NoError(t, err, "seeding initial store")
 
 	resolved := resolvePath(root, path)
 
 	blockerDB, err := sql.Open("sqlite", resolved)
-	if err != nil {
-		t.Fatalf("opening blocker connection: %v", err)
-	}
+	require.NoError(t, err, "opening blocker connection")
 	defer blockerDB.Close()
 	blockerDB.SetMaxOpenConns(1)
 
@@ -51,12 +51,10 @@ func TestOpenStoreWaitsOutContentionOnFirstStatement(t *testing.T) {
 	// until this lock releases, exactly the class of "first statement on a
 	// fresh connection contends with another process" race busy_timeout
 	// ordering is meant to survive.
-	if _, err := blockerDB.Exec(`PRAGMA locking_mode = EXCLUSIVE`); err != nil {
-		t.Fatalf("setting exclusive locking mode: %v", err)
-	}
-	if _, err := blockerDB.Exec(`CREATE TABLE IF NOT EXISTS lock_holder (id INTEGER)`); err != nil {
-		t.Fatalf("forcing exclusive lock acquisition: %v", err)
-	}
+	_, err = blockerDB.Exec(`PRAGMA locking_mode = EXCLUSIVE`)
+	require.NoError(t, err, "setting exclusive locking mode")
+	_, err = blockerDB.Exec(`CREATE TABLE IF NOT EXISTS lock_holder (id INTEGER)`)
+	require.NoError(t, err, "forcing exclusive lock acquisition")
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -68,9 +66,7 @@ func TestOpenStoreWaitsOutContentionOnFirstStatement(t *testing.T) {
 		// connection's next access, if at all before close) -- closing the
 		// connection outright is what deterministically releases it at a
 		// known time.
-		if err := blockerDB.Close(); err != nil {
-			t.Errorf("releasing exclusive lock via close: %v", err)
-		}
+		assert.NoError(t, blockerDB.Close(), "releasing exclusive lock via close")
 	}()
 
 	start := time.Now()
@@ -78,14 +74,8 @@ func TestOpenStoreWaitsOutContentionOnFirstStatement(t *testing.T) {
 	elapsed := time.Since(start)
 	wg.Wait()
 
-	if loadErr != nil {
-		t.Fatalf("Load contended with an exclusive lock held for %s should have waited it out via busy_timeout, got error instead: %v", holdDuration, loadErr)
-	}
-	if elapsed < holdDuration/2 {
-		t.Fatalf("Load returned after only %s, which is suspiciously fast given a %s exclusive lock was held concurrently -- this test may not be exercising real contention", elapsed, holdDuration)
-	}
-	if elapsed > 5*time.Second {
-		t.Fatalf("Load took %s, longer than the 5s busy_timeout ceiling -- contention was not resolved by the busy handler as expected", elapsed)
-	}
+	require.NoError(t, loadErr, "Load contended with an exclusive lock held for %s should have waited it out via busy_timeout", holdDuration)
+	require.GreaterOrEqual(t, elapsed, holdDuration/2, "Load returned after only %s, which is suspiciously fast given a %s exclusive lock was held concurrently -- this test may not be exercising real contention", elapsed, holdDuration)
+	require.LessOrEqual(t, elapsed, 5*time.Second, "Load took %s, longer than the 5s busy_timeout ceiling -- contention was not resolved by the busy handler as expected", elapsed)
 	fmt.Printf("Load waited %s under contention (lock held %s) and succeeded\n", elapsed, holdDuration)
 }
