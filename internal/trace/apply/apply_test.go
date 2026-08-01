@@ -27,8 +27,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/strictjson"
@@ -53,29 +54,20 @@ var _ = command.MustDeclareScope(command.ScopeRegistration{
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
+	require.NoError(t, err, "getwd")
 	for {
 		if _, statErr := os.Stat(filepath.Join(dir, "golc.project.toml")); statErr == nil {
 			return dir
 		}
 		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("repository root with golc.project.toml not found above test directory")
-		}
+		require.NotEqual(t, dir, parent, "repository root with golc.project.toml not found above test directory")
 		dir = parent
 	}
 }
 
 func requireErrorCode(t *testing.T, err error, code string) {
 	t.Helper()
-	if err == nil {
-		t.Fatalf("expected an error containing %q, got nil", code)
-	}
-	if !strings.Contains(err.Error(), code) {
-		t.Fatalf("error = %v, want it to contain %q", err, code)
-	}
+	require.ErrorContains(t, err, code)
 }
 
 func strPtr(s string) *string { return &s }
@@ -249,12 +241,8 @@ func loadFixture(t *testing.T, name string, out any) {
 	t.Helper()
 	path := filepath.Join(repositoryRoot(t), "tests", "fixtures", "linear", name)
 	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read fixture %s: %v", path, err)
-	}
-	if err := strictjson.DecodeStrict(data, out); err != nil {
-		t.Fatalf("decode fixture %s: %v", path, err)
-	}
+	require.NoError(t, err, "read fixture %s", path)
+	require.NoError(t, strictjson.DecodeStrict(data, out), "decode fixture %s", path)
 }
 
 // remoteStateFromRecord converts a fixture's transport.RemoteRecord into
@@ -296,12 +284,8 @@ func TestScopeLinearApplyCore(t *testing.T) {
 	t.Run("ValidatePlanIntegrity accepts an untampered plan and rejects a tampered schema or hash", func(t *testing.T) {
 		intents, mappings, snapshot, baselines := twoOpFixture()
 		plan, err := reconcile.BuildCompletePreview(intents, mappings, snapshot, baselines)
-		if err != nil {
-			t.Fatalf("BuildCompletePreview: %v", err)
-		}
-		if err := apply.ValidatePlanIntegrity(plan); err != nil {
-			t.Fatalf("ValidatePlanIntegrity (untampered): %v", err)
-		}
+		require.NoError(t, err, "BuildCompletePreview")
+		require.NoError(t, apply.ValidatePlanIntegrity(plan), "ValidatePlanIntegrity (untampered)")
 
 		tamperedID := plan
 		tamperedID.PlanID = "0000000000000000000000000000000000000000000000000000000000000"
@@ -317,12 +301,8 @@ func TestScopeLinearApplyCore(t *testing.T) {
 		loadFixture(t, "remote-stale.json", &fixture)
 
 		plan, err := reconcile.BuildCompletePreview(fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines)
-		if err != nil {
-			t.Fatalf("BuildCompletePreview: %v", err)
-		}
-		if err := apply.ValidatePlanFreshness(plan, fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines); err != nil {
-			t.Fatalf("ValidatePlanFreshness (unchanged): %v", err)
-		}
+		require.NoError(t, err, "BuildCompletePreview")
+		require.NoError(t, apply.ValidatePlanFreshness(plan, fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines), "ValidatePlanFreshness (unchanged)")
 		err = apply.ValidatePlanFreshness(plan, fixture.Intents, fixture.Mappings, fixture.DriftedSnapshot, fixture.Baselines)
 		requireErrorCode(t, err, "GOLC_APPLY_PLAN_STALE")
 	})
@@ -333,40 +313,26 @@ func TestScopeLinearApplyCore(t *testing.T) {
 		requireErrorCode(t, err, "GOLC_APPLY_PR_BLOCKED")
 
 		push := func(string) (string, bool) { return "push", true }
-		if err := apply.GuardAgainstPullRequestMutation(push); err != nil {
-			t.Fatalf("GuardAgainstPullRequestMutation (push): %v", err)
-		}
+		require.NoError(t, apply.GuardAgainstPullRequestMutation(push), "GuardAgainstPullRequestMutation (push)")
 		absent := func(string) (string, bool) { return "", false }
-		if err := apply.GuardAgainstPullRequestMutation(absent); err != nil {
-			t.Fatalf("GuardAgainstPullRequestMutation (absent): %v", err)
-		}
-		if err := apply.GuardAgainstPullRequestMutation(nil); err != nil {
-			t.Fatalf("GuardAgainstPullRequestMutation (nil lookup): %v", err)
-		}
+		require.NoError(t, apply.GuardAgainstPullRequestMutation(absent), "GuardAgainstPullRequestMutation (absent)")
+		require.NoError(t, apply.GuardAgainstPullRequestMutation(nil), "GuardAgainstPullRequestMutation (nil lookup)")
 	})
 
 	t.Run("Apply completes a clean create plan and a later re-preview replays as an exact no-op", func(t *testing.T) {
 		intents, mappings, snapshot, baselines := twoOpFixture()
 		plan, err := reconcile.BuildCompletePreview(intents, mappings, snapshot, baselines)
-		if err != nil {
-			t.Fatalf("BuildCompletePreview: %v", err)
-		}
+		require.NoError(t, err, "BuildCompletePreview")
 		client := newFakeRemoteClient()
 		results := apply.Apply(client, plan, mappings)
-		if len(results) != 2 {
-			t.Fatalf("results = %v, want 2 entries", resultOrder(results))
-		}
+		require.Len(t, results, 2, "results = %v, want 2 entries", resultOrder(results))
 		for _, result := range results {
-			if result.Status != apply.StatusCompleted {
-				t.Fatalf("result %+v, want StatusCompleted", result)
-			}
-			if result.LinearUUID == nil || *result.LinearUUID == "" {
-				t.Fatalf("result %+v has no LinearUUID", result)
-			}
+			require.Equal(t, apply.StatusCompleted, result.Status, "result %+v, want StatusCompleted", result)
+			require.NotNil(t, result.LinearUUID, "result %+v has no LinearUUID", result)
+			require.NotEmpty(t, *result.LinearUUID, "result %+v has no LinearUUID", result)
 		}
-		if client.createCalls["milestone:v1"] != 1 || client.createCalls["phase:01"] != 1 {
-			t.Fatalf("createCalls = %v, want exactly one create per operation", client.createCalls)
-		}
+		require.Equal(t, 1, client.createCalls["milestone:v1"], "createCalls = %v, want exactly one create per operation", client.createCalls)
+		require.Equal(t, 1, client.createCalls["phase:01"], "createCalls = %v, want exactly one create per operation", client.createCalls)
 
 		// Re-preview against the now-linked mapping set and the fake
 		// client's actual current remote state, then re-apply: an exact
@@ -389,100 +355,66 @@ func TestScopeLinearApplyCore(t *testing.T) {
 		}
 		freshSnapshot := transport.Snapshot{Status: transport.SnapshotComplete, Records: records}
 		plan2, err := reconcile.BuildCompletePreview(intents, linkedMappings, freshSnapshot, baselines)
-		if err != nil {
-			t.Fatalf("BuildCompletePreview (re-preview): %v", err)
-		}
+		require.NoError(t, err, "BuildCompletePreview (re-preview)")
 		for _, op := range plan2.Operations {
-			if op.LinearUUID == nil {
-				t.Fatalf("re-preview operation %s is not linked: %+v", op.LocalID, op)
-			}
+			require.NotNil(t, op.LinearUUID, "re-preview operation %s is not linked: %+v", op.LocalID, op)
 		}
 
 		results2 := apply.Apply(client, plan2, linkedMappings)
 		for _, result := range results2 {
-			if result.Status != apply.StatusNoop {
-				t.Fatalf("replay result %+v, want StatusNoop", result)
-			}
+			require.Equal(t, apply.StatusNoop, result.Status, "replay result %+v, want StatusNoop", result)
 		}
-		if client.createCalls["milestone:v1"] != 1 || client.createCalls["phase:01"] != 1 {
-			t.Fatalf("replay performed an extra create: createCalls = %v", client.createCalls)
-		}
-		if client.updateCalls["milestone:v1"] != 0 || client.updateCalls["phase:01"] != 0 {
-			t.Fatalf("replay performed an unnecessary update: updateCalls = %v", client.updateCalls)
-		}
+		require.Equal(t, 1, client.createCalls["milestone:v1"], "replay performed an extra create: createCalls = %v", client.createCalls)
+		require.Equal(t, 1, client.createCalls["phase:01"], "replay performed an extra create: createCalls = %v", client.createCalls)
+		require.Equal(t, 0, client.updateCalls["milestone:v1"], "replay performed an unnecessary update: updateCalls = %v", client.updateCalls)
+		require.Equal(t, 0, client.updateCalls["phase:01"], "replay performed an unnecessary update: updateCalls = %v", client.updateCalls)
 	})
 
 	t.Run("Apply discovers an achieved timeout-after-create object by its exact marker footer before ever creating again", func(t *testing.T) {
 		var fixture timeoutFixture
 		loadFixture(t, "remote-timeout-after-create.json", &fixture)
 		plan, err := reconcile.BuildCompletePreview(fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines)
-		if err != nil {
-			t.Fatalf("BuildCompletePreview: %v", err)
-		}
-		if len(plan.Operations) != 1 {
-			t.Fatalf("Operations = %v, want exactly one create", operationOrder(plan.Operations))
-		}
+		require.NoError(t, err, "BuildCompletePreview")
+		require.Len(t, plan.Operations, 1, "Operations = %v, want exactly one create", operationOrder(plan.Operations))
 
 		client := newFakeRemoteClient()
 		client.seed(remoteStateFromRecord(fixture.AchievedRecord))
 		client.failCreate["task:01-11.1"] = errors.New("Create must never be called: the achieved object already exists")
 
 		results := apply.Apply(client, plan, fixture.Mappings)
-		if len(results) != 1 {
-			t.Fatalf("results = %v, want 1 entry", resultOrder(results))
-		}
+		require.Len(t, results, 1, "results = %v, want 1 entry", resultOrder(results))
 		result := results[0]
-		if result.Status != apply.StatusNoop {
-			t.Fatalf("result = %+v, want StatusNoop (already achieved)", result)
-		}
-		if result.LinearUUID == nil || *result.LinearUUID != fixture.AchievedRecord.LinearUUID {
-			t.Fatalf("result.LinearUUID = %v, want %q", result.LinearUUID, fixture.AchievedRecord.LinearUUID)
-		}
-		if client.createCalls["task:01-11.1"] != 0 {
-			t.Fatalf("createCalls[task:01-11.1] = %d, want 0 (discovery must happen before any create attempt)", client.createCalls["task:01-11.1"])
-		}
-		if len(client.byUUID) != 1 {
-			t.Fatalf("byUUID has %d remote objects, want exactly the one pre-existing achieved object", len(client.byUUID))
-		}
+		require.Equal(t, apply.StatusNoop, result.Status, "result = %+v, want StatusNoop (already achieved)", result)
+		require.NotNil(t, result.LinearUUID)
+		require.Equal(t, fixture.AchievedRecord.LinearUUID, *result.LinearUUID)
+		require.Equal(t, 0, client.createCalls["task:01-11.1"], "discovery must happen before any create attempt")
+		require.Len(t, client.byUUID, 1, "want exactly the one pre-existing achieved object")
 	})
 
 	t.Run("ApplyRemoval is the only path that can archive or unlink, and it enforces the same pull-request guard", func(t *testing.T) {
 		path := filepath.Join(repositoryRoot(t), "tests", "fixtures", "linear", "explicit-archive.json")
 		data, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read fixture %s: %v", path, err)
-		}
+		require.NoError(t, err, "read fixture %s", path)
 		var archiveFixture struct {
 			Description string                `json:"description"`
 			Mapping     catalog.RemoteMapping `json:"mapping"`
 		}
-		if err := strictjson.DecodeStrict(data, &archiveFixture); err != nil {
-			t.Fatalf("decode fixture %s: %v", path, err)
-		}
+		require.NoError(t, strictjson.DecodeStrict(data, &archiveFixture), "decode fixture %s", path)
 
 		preview, err := reconcile.BuildArchivePreview(archiveFixture.Mapping)
-		if err != nil {
-			t.Fatalf("BuildArchivePreview: %v", err)
-		}
+		require.NoError(t, err, "BuildArchivePreview")
 
 		pullRequest := func(string) (string, bool) { return "pull_request", true }
 		fakeTransport := transport.NewFake(transport.Snapshot{Status: transport.SnapshotComplete})
 		_, err = apply.ApplyRemoval(fakeTransport, preview, pullRequest)
 		requireErrorCode(t, err, "GOLC_APPLY_PR_BLOCKED")
-		if len(fakeTransport.Applied()) != 0 {
-			t.Fatalf("ApplyRemoval mutated despite the pull_request guard: %+v", fakeTransport.Applied())
-		}
+		require.Empty(t, fakeTransport.Applied(), "ApplyRemoval mutated despite the pull_request guard")
 
 		mutation, err := apply.ApplyRemoval(fakeTransport, preview, nil)
-		if err != nil {
-			t.Fatalf("ApplyRemoval: %v", err)
-		}
-		if mutation.Kind != transport.MutationArchive || mutation.LocalID != preview.LocalID {
-			t.Fatalf("mutation = %+v, want an archive mutation for %q", mutation, preview.LocalID)
-		}
-		if len(fakeTransport.Applied()) != 1 {
-			t.Fatalf("fakeTransport.Applied() = %+v, want exactly one recorded mutation", fakeTransport.Applied())
-		}
+		require.NoError(t, err, "ApplyRemoval")
+		require.Equal(t, transport.MutationArchive, mutation.Kind, "mutation = %+v, want an archive mutation for %q", mutation, preview.LocalID)
+		require.Equal(t, preview.LocalID, mutation.LocalID)
+		require.Len(t, fakeTransport.Applied(), 1, "want exactly one recorded mutation")
 	})
 }
 
@@ -493,103 +425,65 @@ func TestScopeLinearApplyResume(t *testing.T) {
 		var fixture staleFixture
 		loadFixture(t, "remote-stale.json", &fixture)
 		plan, err := reconcile.BuildCompletePreview(fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines)
-		if err != nil {
-			t.Fatalf("BuildCompletePreview: %v", err)
-		}
+		require.NoError(t, err, "BuildCompletePreview")
 		client := newFakeRemoteClient()
 		_, _, err = apply.RunApply(client, plan, fixture.Intents, fixture.Mappings, fixture.DriftedSnapshot, fixture.Baselines, nil, nil)
 		requireErrorCode(t, err, "GOLC_APPLY_PLAN_STALE")
-		if len(client.byUUID) != 0 || len(client.createCalls) != 0 || len(client.updateCalls) != 0 {
-			t.Fatalf("RunApply touched the RemoteClient before rejecting a stale plan: byUUID=%v createCalls=%v updateCalls=%v", client.byUUID, client.createCalls, client.updateCalls)
-		}
+		require.Empty(t, client.byUUID, "RunApply touched the RemoteClient before rejecting a stale plan")
+		require.Empty(t, client.createCalls, "RunApply touched the RemoteClient before rejecting a stale plan")
+		require.Empty(t, client.updateCalls, "RunApply touched the RemoteClient before rejecting a stale plan")
 	})
 
 	t.Run("RunApply refuses to run at all from a pull_request CI event", func(t *testing.T) {
 		intents, mappings, snapshot, baselines := twoOpFixture()
 		plan, err := reconcile.BuildCompletePreview(intents, mappings, snapshot, baselines)
-		if err != nil {
-			t.Fatalf("BuildCompletePreview: %v", err)
-		}
+		require.NoError(t, err, "BuildCompletePreview")
 		client := newFakeRemoteClient()
 		pullRequest := func(string) (string, bool) { return "pull_request", true }
 		_, _, err = apply.RunApply(client, plan, intents, mappings, snapshot, baselines, nil, pullRequest)
 		requireErrorCode(t, err, "GOLC_APPLY_PR_BLOCKED")
-		if len(client.createCalls) != 0 {
-			t.Fatalf("RunApply attempted a mutation despite the pull_request guard: createCalls=%v", client.createCalls)
-		}
+		require.Empty(t, client.createCalls, "RunApply attempted a mutation despite the pull_request guard")
 	})
 
 	t.Run("RunApply stops all writes on a retryable error, reports every operation state plus retry metadata, and resumes the exact achieved prefix without replay", func(t *testing.T) {
 		var fixture partialApplyFixture
 		loadFixture(t, "remote-partial-apply.json", &fixture)
 		plan, err := reconcile.BuildCompletePreview(fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines)
-		if err != nil {
-			t.Fatalf("BuildCompletePreview: %v", err)
-		}
+		require.NoError(t, err, "BuildCompletePreview")
 		wantOrder := []string{"milestone:v1", "phase:01", "plan:01-11", "task:01-11.2"}
-		if len(plan.Operations) != len(wantOrder) {
-			t.Fatalf("Operations = %v, want %v", operationOrder(plan.Operations), wantOrder)
-		}
-		for index, op := range plan.Operations {
-			if op.LocalID != wantOrder[index] {
-				t.Fatalf("Operations[%d].LocalID = %q, want %q (full order: %v)", index, op.LocalID, wantOrder[index], operationOrder(plan.Operations))
-			}
-		}
+		require.Equal(t, wantOrder, operationOrder(plan.Operations))
 
 		client := newFakeRemoteClient()
 		client.failCreate[fixture.FailLocalID] = &apply.RetryableError{Reason: "rate limited", RetryAfter: "60s"}
 
 		report1, journal1, err := apply.RunApply(client, plan, fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines, nil, nil)
-		if err != nil {
-			t.Fatalf("RunApply (first attempt): %v", err)
-		}
-		if len(report1.Results) != len(wantOrder) {
-			t.Fatalf("Results = %v, want an entry for every operation", resultOrder(report1.Results))
-		}
-		if report1.Results[0].Status != apply.StatusCompleted || report1.Results[1].Status != apply.StatusCompleted {
-			t.Fatalf("Results[0:2] = %v, want both completed before the throttled operation", resultOrder(report1.Results[:2]))
-		}
+		require.NoError(t, err, "RunApply (first attempt)")
+		require.Len(t, report1.Results, len(wantOrder), "Results = %v, want an entry for every operation", resultOrder(report1.Results))
+		require.Equal(t, apply.StatusCompleted, report1.Results[0].Status, "Results[0:2] = %v, want both completed before the throttled operation", resultOrder(report1.Results[:2]))
+		require.Equal(t, apply.StatusCompleted, report1.Results[1].Status, "Results[0:2] = %v, want both completed before the throttled operation", resultOrder(report1.Results[:2]))
 		throttled := report1.Results[2]
-		if throttled.LocalID != fixture.FailLocalID || throttled.Status != apply.StatusPending {
-			t.Fatalf("Results[2] = %+v, want a pending result for %q", throttled, fixture.FailLocalID)
-		}
-		if !strings.Contains(throttled.Reason, "GOLC_APPLY_RETRYABLE") {
-			t.Fatalf("throttled.Reason = %q, want it to contain GOLC_APPLY_RETRYABLE", throttled.Reason)
-		}
-		if throttled.RetryAfter == nil || *throttled.RetryAfter != "60s" {
-			t.Fatalf("throttled.RetryAfter = %v, want %q", throttled.RetryAfter, "60s")
-		}
+		require.Equal(t, fixture.FailLocalID, throttled.LocalID, "Results[2] = %+v, want a pending result for %q", throttled, fixture.FailLocalID)
+		require.Equal(t, apply.StatusPending, throttled.Status, "Results[2] = %+v, want a pending result for %q", throttled, fixture.FailLocalID)
+		require.Contains(t, throttled.Reason, "GOLC_APPLY_RETRYABLE")
+		require.NotNil(t, throttled.RetryAfter)
+		require.Equal(t, "60s", *throttled.RetryAfter)
 		stopped := report1.Results[3]
-		if stopped.Status != apply.StatusPending || !strings.Contains(stopped.Reason, "GOLC_APPLY_STOPPED") {
-			t.Fatalf("Results[3] = %+v, want a stopped pending result", stopped)
-		}
-		if len(journal1.Results) != 2 {
-			t.Fatalf("journal1.Results = %v, want the exact 2-operation achieved prefix", resultOrder(journal1.Results))
-		}
+		require.Equal(t, apply.StatusPending, stopped.Status, "Results[3] = %+v, want a stopped pending result", stopped)
+		require.Contains(t, stopped.Reason, "GOLC_APPLY_STOPPED")
+		require.Len(t, journal1.Results, 2, "journal1.Results = %v, want the exact 2-operation achieved prefix", resultOrder(journal1.Results))
 
 		// Resuming with the exact same plan and the persisted journal must
 		// never re-attempt the already-achieved prefix.
 		report2, journal2, err := apply.RunApply(client, plan, fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines, &journal1, nil)
-		if err != nil {
-			t.Fatalf("RunApply (resume): %v", err)
-		}
-		if len(report2.Results) != len(wantOrder) {
-			t.Fatalf("resumed Results = %v, want an entry for every operation", resultOrder(report2.Results))
-		}
+		require.NoError(t, err, "RunApply (resume)")
+		require.Len(t, report2.Results, len(wantOrder), "resumed Results = %v, want an entry for every operation", resultOrder(report2.Results))
 		for _, result := range report2.Results {
-			if result.Status != apply.StatusCompleted {
-				t.Fatalf("resumed result %+v, want StatusCompleted", result)
-			}
+			require.Equal(t, apply.StatusCompleted, result.Status, "resumed result %+v, want StatusCompleted", result)
 		}
-		if len(journal2.Results) != len(wantOrder) {
-			t.Fatalf("journal2.Results = %v, want the full achieved prefix", resultOrder(journal2.Results))
-		}
-		if client.createCalls["milestone:v1"] != 1 || client.createCalls["phase:01"] != 1 {
-			t.Fatalf("resume replayed an already-achieved operation: createCalls = %v", client.createCalls)
-		}
-		if client.createCalls[fixture.FailLocalID] != 2 {
-			t.Fatalf("createCalls[%s] = %d, want exactly 2 (one failed attempt, one successful retry)", fixture.FailLocalID, client.createCalls[fixture.FailLocalID])
-		}
+		require.Len(t, journal2.Results, len(wantOrder), "journal2.Results = %v, want the full achieved prefix", resultOrder(journal2.Results))
+		require.Equal(t, 1, client.createCalls["milestone:v1"], "resume replayed an already-achieved operation: createCalls = %v", client.createCalls)
+		require.Equal(t, 1, client.createCalls["phase:01"], "resume replayed an already-achieved operation: createCalls = %v", client.createCalls)
+		require.Equal(t, 2, client.createCalls[fixture.FailLocalID], "want exactly 2 (one failed attempt, one successful retry)")
 		successfulObjects := 0
 		for _, state := range client.byUUID {
 			marker, found, err := reconcile.ParseMarker(state.Description)
@@ -597,35 +491,23 @@ func TestScopeLinearApplyResume(t *testing.T) {
 				successfulObjects++
 			}
 		}
-		if successfulObjects != 1 {
-			t.Fatalf("byUUID has %d remote objects for %s, want exactly 1 (no duplicate)", successfulObjects, fixture.FailLocalID)
-		}
+		require.Equal(t, 1, successfulObjects, "want exactly 1 (no duplicate)")
 
 		encoded, err := strictjson.CanonicalEncode(report2)
-		if err != nil {
-			t.Fatalf("CanonicalEncode: %v", err)
-		}
+		require.NoError(t, err, "CanonicalEncode")
 		goldenPath := filepath.Join(repositoryRoot(t), "tests", "golden", "linear-apply-report.json")
 		golden, err := os.ReadFile(goldenPath)
-		if err != nil {
-			t.Fatalf("read golden %s: %v", goldenPath, err)
-		}
-		if string(encoded) != string(golden) {
-			t.Fatalf("resumed report does not match the committed golden:\ngot:\n%s\nwant:\n%s", encoded, golden)
-		}
+		require.NoError(t, err, "read golden %s", goldenPath)
+		require.Equal(t, string(golden), string(encoded), "resumed report does not match the committed golden")
 	})
 
 	t.Run("ResumePrefix rejects a journal bound to a different plan, an out-of-order journal, and drifted already-achieved state", func(t *testing.T) {
 		intents, mappings, snapshot, baselines := twoOpFixture()
 		plan, err := reconcile.BuildCompletePreview(intents, mappings, snapshot, baselines)
-		if err != nil {
-			t.Fatalf("BuildCompletePreview: %v", err)
-		}
+		require.NoError(t, err, "BuildCompletePreview")
 		client := newFakeRemoteClient()
 		report, _, err := apply.RunApply(client, plan, intents, mappings, snapshot, baselines, nil, nil)
-		if err != nil {
-			t.Fatalf("RunApply: %v", err)
-		}
+		require.NoError(t, err, "RunApply")
 
 		wrongPlan := apply.Journal{PlanID: "not-" + plan.PlanID, Results: report.Results}
 		_, _, err = apply.ResumePrefix(plan, &wrongPlan, client)
@@ -644,12 +526,9 @@ func TestScopeLinearApplyResume(t *testing.T) {
 		requireErrorCode(t, err, "GOLC_APPLY_RESUME_DRIFT")
 
 		achieved, remaining, err := apply.ResumePrefix(plan, nil, client)
-		if err != nil {
-			t.Fatalf("ResumePrefix (nil journal): %v", err)
-		}
-		if len(achieved) != 0 || len(remaining) != len(plan.Operations) {
-			t.Fatalf("ResumePrefix (nil journal) = achieved:%v remaining:%v, want no achieved and every operation remaining", achieved, resultOrder(nil))
-		}
+		require.NoError(t, err, "ResumePrefix (nil journal)")
+		require.Empty(t, achieved, "want no achieved")
+		require.Len(t, remaining, len(plan.Operations), "want every operation remaining")
 	})
 
 	t.Run("CommitResultAtomically writes map/journal/report as one validated result and leaves prior state intact on failure", func(t *testing.T) {
@@ -666,22 +545,16 @@ func TestScopeLinearApplyResume(t *testing.T) {
 		journal := apply.Journal{PlanID: "test-plan-id", Results: []apply.OperationResult{{LocalID: "milestone:v1", Status: apply.StatusCompleted, LinearUUID: strPtr("bbbbbbbb-0000-0000-0000-000000000001")}}}
 		report := apply.Report{PlanID: "test-plan-id", Results: journal.Results}
 
-		if err := apply.CommitResultAtomically(mapPath, mapPayload, journalPath, journal, reportPath, report); err != nil {
-			t.Fatalf("CommitResultAtomically: %v", err)
-		}
+		require.NoError(t, apply.CommitResultAtomically(mapPath, mapPayload, journalPath, journal, reportPath, report), "CommitResultAtomically")
 		loaded, err := apply.LoadJournal(journalPath)
-		if err != nil {
-			t.Fatalf("LoadJournal: %v", err)
-		}
-		if loaded == nil || loaded.PlanID != journal.PlanID || len(loaded.Results) != 1 {
-			t.Fatalf("LoadJournal = %+v, want the committed journal", loaded)
-		}
-		if _, err := os.Stat(mapPath); err != nil {
-			t.Fatalf("map file missing after commit: %v", err)
-		}
-		if _, err := os.Stat(reportPath); err != nil {
-			t.Fatalf("report file missing after commit: %v", err)
-		}
+		require.NoError(t, err, "LoadJournal")
+		require.NotNil(t, loaded, "LoadJournal = %+v, want the committed journal", loaded)
+		require.Equal(t, journal.PlanID, loaded.PlanID)
+		require.Len(t, loaded.Results, 1)
+		_, err = os.Stat(mapPath)
+		require.NoError(t, err, "map file missing after commit")
+		_, err = os.Stat(reportPath)
+		require.NoError(t, err, "report file missing after commit")
 
 		// A staging failure for the third (report) destination must leave
 		// no destination file behind at all -- not even the map/journal
@@ -690,24 +563,16 @@ func TestScopeLinearApplyResume(t *testing.T) {
 		freshMapPath := filepath.Join(dir, "second-linear-map.json")
 		freshJournalPath := filepath.Join(dir, "second-linear-apply.journal.json")
 		err = apply.CommitResultAtomically(freshMapPath, mapPayload, freshJournalPath, journal, missingDirReportPath, report)
-		if err == nil {
-			t.Fatal("CommitResultAtomically unexpectedly succeeded with an unwritable report destination")
-		}
-		if _, statErr := os.Stat(freshMapPath); statErr == nil {
-			t.Fatal("CommitResultAtomically left a partially committed map file after a later staging failure")
-		}
-		if _, statErr := os.Stat(freshJournalPath); statErr == nil {
-			t.Fatal("CommitResultAtomically left a partially committed journal file after a later staging failure")
-		}
+		require.Error(t, err, "CommitResultAtomically unexpectedly succeeded with an unwritable report destination")
+		_, statErr := os.Stat(freshMapPath)
+		require.Error(t, statErr, "CommitResultAtomically left a partially committed map file after a later staging failure")
+		_, statErr = os.Stat(freshJournalPath)
+		require.Error(t, statErr, "CommitResultAtomically left a partially committed journal file after a later staging failure")
 	})
 
 	t.Run("LoadJournal reports no error and a nil journal for a missing file", func(t *testing.T) {
 		journal, err := apply.LoadJournal(filepath.Join(t.TempDir(), "does-not-exist.json"))
-		if err != nil {
-			t.Fatalf("LoadJournal (missing): %v", err)
-		}
-		if journal != nil {
-			t.Fatalf("LoadJournal (missing) = %+v, want nil", journal)
-		}
+		require.NoError(t, err, "LoadJournal (missing)")
+		require.Nil(t, journal, "LoadJournal (missing) = %+v, want nil", journal)
 	})
 }

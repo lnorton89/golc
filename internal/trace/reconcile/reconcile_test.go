@@ -14,8 +14,9 @@ package reconcile_test
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/strictjson"
@@ -38,16 +39,14 @@ var _ = command.MustDeclareScope(command.ScopeRegistration{
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
+	require.NoError(t, err, "getwd")
 	for {
 		if _, statErr := os.Stat(filepath.Join(dir, "golc.project.toml")); statErr == nil {
 			return dir
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			t.Fatal("repository root with golc.project.toml not found above test directory")
+			require.Fail(t, "repository root with golc.project.toml not found above test directory")
 		}
 		dir = parent
 	}
@@ -55,12 +54,7 @@ func repositoryRoot(t *testing.T) string {
 
 func requireErrorCode(t *testing.T, err error, code string) {
 	t.Helper()
-	if err == nil {
-		t.Fatalf("expected an error containing %q, got nil", code)
-	}
-	if !strings.Contains(err.Error(), code) {
-		t.Fatalf("error = %v, want it to contain %q", err, code)
-	}
+	require.ErrorContains(t, err, code)
 }
 
 func strPtr(s string) *string { return &s }
@@ -144,28 +138,17 @@ func TestScopeLinearPreviewContract(t *testing.T) {
 		intents, mappings, scope, baselines := previewFixture()
 
 		first, err := reconcile.BuildPlan(intents, mappings, scope, baselines)
-		if err != nil {
-			t.Fatalf("BuildPlan (first): %v", err)
-		}
+		require.NoError(t, err, "BuildPlan (first)")
 		second, err := reconcile.BuildPlan(intents, mappings, scope, baselines)
-		if err != nil {
-			t.Fatalf("BuildPlan (second): %v", err)
-		}
+		require.NoError(t, err, "BuildPlan (second)")
 
 		firstEncoded, err := strictjson.CanonicalEncode(first)
-		if err != nil {
-			t.Fatalf("CanonicalEncode (first): %v", err)
-		}
+		require.NoError(t, err, "CanonicalEncode (first)")
 		secondEncoded, err := strictjson.CanonicalEncode(second)
-		if err != nil {
-			t.Fatalf("CanonicalEncode (second): %v", err)
-		}
-		if string(firstEncoded) != string(secondEncoded) {
-			t.Fatalf("BuildPlan is not byte-stable:\nfirst:\n%s\nsecond:\n%s", firstEncoded, secondEncoded)
-		}
-		if first.PlanID != second.PlanID || first.PlanID == "" {
-			t.Fatalf("PlanID = %q / %q, want equal and non-empty", first.PlanID, second.PlanID)
-		}
+		require.NoError(t, err, "CanonicalEncode (second)")
+		require.Equal(t, string(firstEncoded), string(secondEncoded), "BuildPlan is not byte-stable")
+		require.Equal(t, first.PlanID, second.PlanID, "PlanID mismatch between first and second build")
+		require.NotEmpty(t, first.PlanID, "PlanID must not be empty")
 	})
 
 	t.Run("digests are independent of input order", func(t *testing.T) {
@@ -180,38 +163,22 @@ func TestScopeLinearPreviewContract(t *testing.T) {
 		}
 
 		forward, err := reconcile.BuildPlan(intents, mappings, scope, baselines)
-		if err != nil {
-			t.Fatalf("BuildPlan (forward): %v", err)
-		}
+		require.NoError(t, err, "BuildPlan (forward)")
 		reversed, err := reconcile.BuildPlan(reversedIntents, reversedMappings, scope, baselines)
-		if err != nil {
-			t.Fatalf("BuildPlan (reversed): %v", err)
-		}
-		if forward.IntentDigest != reversed.IntentDigest {
-			t.Fatalf("IntentDigest differs by input order: %q vs %q", forward.IntentDigest, reversed.IntentDigest)
-		}
-		if forward.MappingDigest != reversed.MappingDigest {
-			t.Fatalf("MappingDigest differs by input order: %q vs %q", forward.MappingDigest, reversed.MappingDigest)
-		}
-		if forward.PlanID != reversed.PlanID {
-			t.Fatalf("PlanID differs by input order: %q vs %q", forward.PlanID, reversed.PlanID)
-		}
+		require.NoError(t, err, "BuildPlan (reversed)")
+		require.Equal(t, forward.IntentDigest, reversed.IntentDigest, "IntentDigest differs by input order")
+		require.Equal(t, forward.MappingDigest, reversed.MappingDigest, "MappingDigest differs by input order")
+		require.Equal(t, forward.PlanID, reversed.PlanID, "PlanID differs by input order")
 	})
 
 	t.Run("operations follow the fixed hierarchy order with local-ID tie-break", func(t *testing.T) {
 		intents, mappings, scope, baselines := previewFixture()
 		plan, err := reconcile.BuildPlan(intents, mappings, scope, baselines)
-		if err != nil {
-			t.Fatalf("BuildPlan: %v", err)
-		}
+		require.NoError(t, err, "BuildPlan")
 		want := []string{"milestone:v1", "phase:01", "plan:01-10", "req:CONF-01", "task:01-10.1"}
-		if len(plan.Operations) != len(want) {
-			t.Fatalf("Operations has %d entries, want %d", len(plan.Operations), len(want))
-		}
+		require.Len(t, plan.Operations, len(want))
 		for index, op := range plan.Operations {
-			if op.LocalID != want[index] {
-				t.Fatalf("Operations[%d].LocalID = %q, want %q (full order: %v)", index, op.LocalID, want[index], operationOrder(plan.Operations))
-			}
+			require.Equal(t, want[index], op.LocalID, "Operations[%d].LocalID (full order: %v)", index, operationOrder(plan.Operations))
 		}
 	})
 
@@ -226,43 +193,25 @@ func TestScopeLinearPreviewContract(t *testing.T) {
 		}
 		for _, id := range ids {
 			rendered, err := reconcile.RenderMarker(id)
-			if err != nil {
-				t.Fatalf("RenderMarker(%q): %v", id, err)
-			}
+			require.NoError(t, err, "RenderMarker(%q)", id)
 			description := "Managed by GOLC. Do not edit this footer.\n\n" + rendered
 			marker, found, err := reconcile.ParseMarker(description)
-			if err != nil {
-				t.Fatalf("ParseMarker(%q): %v", id, err)
-			}
-			if !found {
-				t.Fatalf("ParseMarker(%q): footer not found", id)
-			}
-			if marker.LocalID != id {
-				t.Fatalf("marker.LocalID = %q, want %q", marker.LocalID, id)
-			}
-			if marker.Schema != reconcile.MarkerSchema {
-				t.Fatalf("marker.Schema = %d, want %d", marker.Schema, reconcile.MarkerSchema)
-			}
+			require.NoError(t, err, "ParseMarker(%q)", id)
+			require.True(t, found, "ParseMarker(%q): footer not found", id)
+			require.Equal(t, id, marker.LocalID)
+			require.Equal(t, reconcile.MarkerSchema, marker.Schema)
 		}
 	})
 
 	t.Run("ParseMarker reports no footer and rejects ambiguous or malformed footers", func(t *testing.T) {
 		_, found, err := reconcile.ParseMarker("A description with no footer at all.")
-		if err != nil {
-			t.Fatalf("ParseMarker (absent): %v", err)
-		}
-		if found {
-			t.Fatal("ParseMarker (absent) unexpectedly found a footer")
-		}
+		require.NoError(t, err, "ParseMarker (absent)")
+		require.False(t, found, "ParseMarker (absent) unexpectedly found a footer")
 
 		one, err := reconcile.RenderMarker("plan:01-10")
-		if err != nil {
-			t.Fatalf("RenderMarker: %v", err)
-		}
+		require.NoError(t, err, "RenderMarker")
 		two, err := reconcile.RenderMarker("task:01-10.1")
-		if err != nil {
-			t.Fatalf("RenderMarker: %v", err)
-		}
+		require.NoError(t, err, "RenderMarker")
 		_, _, err = reconcile.ParseMarker(one + "\n" + two)
 		requireErrorCode(t, err, "GOLC_RECONCILE_MARKER_AMBIGUOUS")
 
@@ -274,12 +223,8 @@ func TestScopeLinearPreviewContract(t *testing.T) {
 		taskOp := reconcile.Operation{LocalID: "task:01-10.1", Kind: "task", ParentLocalID: "plan:01-10"}
 
 		matching, _, err := reconcile.ParseMarker(mustRender(t, "task:01-10.1"))
-		if err != nil {
-			t.Fatalf("ParseMarker: %v", err)
-		}
-		if err := reconcile.ValidateMarkerIdentity(matching, taskOp); err != nil {
-			t.Fatalf("ValidateMarkerIdentity (matching): %v", err)
-		}
+		require.NoError(t, err, "ParseMarker")
+		require.NoError(t, reconcile.ValidateMarkerIdentity(matching, taskOp), "ValidateMarkerIdentity (matching)")
 
 		wrongParentTaskOp := reconcile.Operation{LocalID: "task:01-10.1", Kind: "task", ParentLocalID: "plan:01-11"}
 		err = reconcile.ValidateMarkerIdentity(matching, wrongParentTaskOp)
@@ -299,12 +244,8 @@ func TestScopeLinearPreviewContract(t *testing.T) {
 
 		planOp := reconcile.Operation{LocalID: "plan:01-10", Kind: "plan", ParentLocalID: "phase:01"}
 		planMarker, _, err := reconcile.ParseMarker(mustRender(t, "plan:01-10"))
-		if err != nil {
-			t.Fatalf("ParseMarker: %v", err)
-		}
-		if err := reconcile.ValidateMarkerIdentity(planMarker, planOp); err != nil {
-			t.Fatalf("ValidateMarkerIdentity (plan, matching): %v", err)
-		}
+		require.NoError(t, err, "ParseMarker")
+		require.NoError(t, reconcile.ValidateMarkerIdentity(planMarker, planOp), "ValidateMarkerIdentity (plan, matching)")
 		wrongParentPlanOp := reconcile.Operation{LocalID: "plan:01-10", Kind: "plan", ParentLocalID: "phase:02"}
 		err = reconcile.ValidateMarkerIdentity(planMarker, wrongParentPlanOp)
 		requireErrorCode(t, err, "GOLC_RECONCILE_MARKER_PARENT")
@@ -313,41 +254,25 @@ func TestScopeLinearPreviewContract(t *testing.T) {
 	t.Run("BuildPlan blocks a three-way disagreement as a conflict and excludes it from operations", func(t *testing.T) {
 		intents, mappings, scope, baselines := conflictFixture()
 		plan, err := reconcile.BuildPlan(intents, mappings, scope, baselines)
-		if err != nil {
-			t.Fatalf("BuildPlan: %v", err)
-		}
-		if len(plan.Conflicts) != 1 {
-			t.Fatalf("Conflicts has %d entries, want 1: %+v", len(plan.Conflicts), plan.Conflicts)
-		}
+		require.NoError(t, err, "BuildPlan")
+		require.Len(t, plan.Conflicts, 1, "Conflicts: %+v", plan.Conflicts)
 		conflict := plan.Conflicts[0]
-		if conflict.LocalID != "req:CONF-01" || conflict.Field != "title" {
-			t.Fatalf("conflict = %+v, want req:CONF-01/title", conflict)
-		}
-		if conflict.BaseValue == nil || *conflict.BaseValue != "Original title" {
-			t.Fatalf("conflict.BaseValue = %v, want %q", conflict.BaseValue, "Original title")
-		}
-		if conflict.RepositoryValue == nil || *conflict.RepositoryValue != "Repository title override" {
-			t.Fatalf("conflict.RepositoryValue = %v, want %q", conflict.RepositoryValue, "Repository title override")
-		}
-		if conflict.LinearValue == nil || *conflict.LinearValue != "Linear title override" {
-			t.Fatalf("conflict.LinearValue = %v, want %q", conflict.LinearValue, "Linear title override")
-		}
-		if conflict.ResolutionCommand == "" {
-			t.Fatal("conflict.ResolutionCommand is empty")
-		}
+		require.Equal(t, "req:CONF-01", conflict.LocalID)
+		require.Equal(t, "title", conflict.Field)
+		require.NotNil(t, conflict.BaseValue)
+		require.Equal(t, "Original title", *conflict.BaseValue)
+		require.NotNil(t, conflict.RepositoryValue)
+		require.Equal(t, "Repository title override", *conflict.RepositoryValue)
+		require.NotNil(t, conflict.LinearValue)
+		require.Equal(t, "Linear title override", *conflict.LinearValue)
+		require.NotEmpty(t, conflict.ResolutionCommand, "conflict.ResolutionCommand is empty")
 		for _, op := range plan.Operations {
-			if op.LocalID == "req:CONF-01" {
-				t.Fatalf("req:CONF-01 has an operation despite being conflicted: %+v", op)
-			}
+			require.NotEqual(t, "req:CONF-01", op.LocalID, "req:CONF-01 has an operation despite being conflicted: %+v", op)
 		}
 		want := []string{"phase:01", "plan:01-10"}
-		if len(plan.Operations) != len(want) {
-			t.Fatalf("Operations has %d entries, want %d: %v", len(plan.Operations), len(want), operationOrder(plan.Operations))
-		}
+		require.Len(t, plan.Operations, len(want), "operations: %v", operationOrder(plan.Operations))
 		for index, op := range plan.Operations {
-			if op.LocalID != want[index] {
-				t.Fatalf("Operations[%d].LocalID = %q, want %q", index, op.LocalID, want[index])
-			}
+			require.Equal(t, want[index], op.LocalID)
 		}
 	})
 
@@ -361,66 +286,42 @@ func TestScopeLinearPreviewContract(t *testing.T) {
 	t.Run("preview fixture output matches the committed golden byte-for-byte", func(t *testing.T) {
 		intents, mappings, scope, baselines := previewFixture()
 		plan, err := reconcile.BuildPlan(intents, mappings, scope, baselines)
-		if err != nil {
-			t.Fatalf("BuildPlan: %v", err)
-		}
+		require.NoError(t, err, "BuildPlan")
 		encoded, err := strictjson.CanonicalEncode(plan)
-		if err != nil {
-			t.Fatalf("CanonicalEncode: %v", err)
-		}
+		require.NoError(t, err, "CanonicalEncode")
 		goldenPath := filepath.Join(repositoryRoot(t), "tests", "golden", "linear-preview.json")
 		golden, err := os.ReadFile(goldenPath)
-		if err != nil {
-			t.Fatalf("read golden %s: %v", goldenPath, err)
-		}
-		if string(encoded) != string(golden) {
-			t.Fatalf("preview output does not match the committed golden:\ngot:\n%s\nwant:\n%s", encoded, golden)
-		}
+		require.NoError(t, err, "read golden %s", goldenPath)
+		require.Equal(t, string(golden), string(encoded), "preview output does not match the committed golden")
 	})
 
 	t.Run("conflict fixture output matches the committed golden byte-for-byte", func(t *testing.T) {
 		intents, mappings, scope, baselines := conflictFixture()
 		plan, err := reconcile.BuildPlan(intents, mappings, scope, baselines)
-		if err != nil {
-			t.Fatalf("BuildPlan: %v", err)
-		}
+		require.NoError(t, err, "BuildPlan")
 		encoded, err := strictjson.CanonicalEncode(plan)
-		if err != nil {
-			t.Fatalf("CanonicalEncode: %v", err)
-		}
+		require.NoError(t, err, "CanonicalEncode")
 		goldenPath := filepath.Join(repositoryRoot(t), "tests", "golden", "linear-conflict-preview.json")
 		golden, err := os.ReadFile(goldenPath)
-		if err != nil {
-			t.Fatalf("read golden %s: %v", goldenPath, err)
-		}
-		if string(encoded) != string(golden) {
-			t.Fatalf("conflict preview output does not match the committed golden:\ngot:\n%s\nwant:\n%s", encoded, golden)
-		}
+		require.NoError(t, err, "read golden %s", goldenPath)
+		require.Equal(t, string(golden), string(encoded), "conflict preview output does not match the committed golden")
 	})
 
 	t.Run("canonical plan output never contains an unrelated credential canary", func(t *testing.T) {
 		t.Setenv("GOLC_TEST_CREDENTIAL_CANARY", "gsd-fake-secret-9f3d7c21-do-not-leak")
 		intents, mappings, scope, baselines := previewFixture()
 		plan, err := reconcile.BuildPlan(intents, mappings, scope, baselines)
-		if err != nil {
-			t.Fatalf("BuildPlan: %v", err)
-		}
+		require.NoError(t, err, "BuildPlan")
 		encoded, err := strictjson.CanonicalEncode(plan)
-		if err != nil {
-			t.Fatalf("CanonicalEncode: %v", err)
-		}
-		if strings.Contains(string(encoded), "gsd-fake-secret-9f3d7c21-do-not-leak") {
-			t.Fatal("canonical plan output leaked an unrelated environment value")
-		}
+		require.NoError(t, err, "CanonicalEncode")
+		require.NotContains(t, string(encoded), "gsd-fake-secret-9f3d7c21-do-not-leak", "canonical plan output leaked an unrelated environment value")
 	})
 }
 
 func mustRender(t *testing.T, id string) string {
 	t.Helper()
 	rendered, err := reconcile.RenderMarker(id)
-	if err != nil {
-		t.Fatalf("RenderMarker(%q): %v", id, err)
-	}
+	require.NoError(t, err, "RenderMarker(%q)", id)
 	return rendered
 }
 
@@ -469,13 +370,9 @@ func loadSnapshotFixture(t *testing.T, name string) snapshotFixture {
 	t.Helper()
 	path := filepath.Join(repositoryRoot(t), "tests", "fixtures", "linear", name)
 	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read fixture %s: %v", path, err)
-	}
+	require.NoError(t, err, "read fixture %s", path)
 	var fixture snapshotFixture
-	if err := strictjson.DecodeStrict(data, &fixture); err != nil {
-		t.Fatalf("decode fixture %s: %v", path, err)
-	}
+	require.NoError(t, strictjson.DecodeStrict(data, &fixture), "decode fixture %s", path)
 	return fixture
 }
 
@@ -483,13 +380,9 @@ func loadArchiveFixture(t *testing.T, name string) archiveFixture {
 	t.Helper()
 	path := filepath.Join(repositoryRoot(t), "tests", "fixtures", "linear", name)
 	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read fixture %s: %v", path, err)
-	}
+	require.NoError(t, err, "read fixture %s", path)
 	var fixture archiveFixture
-	if err := strictjson.DecodeStrict(data, &fixture); err != nil {
-		t.Fatalf("decode fixture %s: %v", path, err)
-	}
+	require.NoError(t, strictjson.DecodeStrict(data, &fixture), "decode fixture %s", path)
 	return fixture
 }
 
@@ -517,9 +410,7 @@ func TestScopeLinearReconcile(t *testing.T) {
 
 	t.Run("ValidateCompleteSnapshot accepts a clean complete snapshot with no duplicate identity footers", func(t *testing.T) {
 		fixture := loadSnapshotFixture(t, "remote-complete.json")
-		if err := reconcile.ValidateCompleteSnapshot(fixture.Snapshot); err != nil {
-			t.Fatalf("ValidateCompleteSnapshot: %v", err)
-		}
+		require.NoError(t, reconcile.ValidateCompleteSnapshot(fixture.Snapshot), "ValidateCompleteSnapshot")
 	})
 
 	t.Run("ValidateCompleteSnapshot and BuildCompletePreview block a complete snapshot with a duplicated identity footer", func(t *testing.T) {
@@ -534,104 +425,68 @@ func TestScopeLinearReconcile(t *testing.T) {
 	t.Run("BuildCompletePreview adopts a marker-matched record and creates an unmatched intent", func(t *testing.T) {
 		fixture := loadSnapshotFixture(t, "remote-complete.json")
 		plan, err := reconcile.BuildCompletePreview(fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines)
-		if err != nil {
-			t.Fatalf("BuildCompletePreview: %v", err)
-		}
-		if len(plan.Conflicts) != 0 {
-			t.Fatalf("Conflicts = %+v, want none", plan.Conflicts)
-		}
+		require.NoError(t, err, "BuildCompletePreview")
+		require.Empty(t, plan.Conflicts, "Conflicts = %+v, want none", plan.Conflicts)
 		want := []string{"plan:01-10", "task:01-10.1"}
-		if len(plan.Operations) != len(want) {
-			t.Fatalf("Operations has %d entries, want %d: %v", len(plan.Operations), len(want), operationOrder(plan.Operations))
-		}
+		require.Len(t, plan.Operations, len(want), "operations: %v", operationOrder(plan.Operations))
 		for index, op := range plan.Operations {
-			if op.LocalID != want[index] {
-				t.Fatalf("Operations[%d].LocalID = %q, want %q", index, op.LocalID, want[index])
-			}
+			require.Equal(t, want[index], op.LocalID)
 		}
 		adopted := plan.Operations[0]
-		if string(adopted.Before) != `{"title":"Plan 01-10"}` {
-			t.Fatalf("adopted plan:01-10 Before = %s, want the marker-matched record's fields", adopted.Before)
-		}
+		require.Equal(t, `{"title":"Plan 01-10"}`, string(adopted.Before), "adopted plan:01-10 Before, want the marker-matched record's fields")
 		created := plan.Operations[1]
-		if string(created.Before) != `{}` {
-			t.Fatalf("created task:01-10.1 Before = %s, want an empty object (no discovered observation)", created.Before)
-		}
+		require.Equal(t, `{}`, string(created.Before), "created task:01-10.1 Before, want an empty object (no discovered observation)")
 	})
 
 	t.Run("BuildCompletePreview blocks a three-way disagreement discovered through an already-linked UUID", func(t *testing.T) {
 		fixture := loadSnapshotFixture(t, "remote-conflict.json")
 		plan, err := reconcile.BuildCompletePreview(fixture.Intents, fixture.Mappings, fixture.Snapshot, fixture.Baselines)
-		if err != nil {
-			t.Fatalf("BuildCompletePreview: %v", err)
-		}
-		if len(plan.Operations) != 0 {
-			t.Fatalf("Operations = %+v, want none (blocked)", plan.Operations)
-		}
-		if len(plan.Conflicts) != 1 {
-			t.Fatalf("Conflicts has %d entries, want 1: %+v", len(plan.Conflicts), plan.Conflicts)
-		}
+		require.NoError(t, err, "BuildCompletePreview")
+		require.Empty(t, plan.Operations, "Operations = %+v, want none (blocked)", plan.Operations)
+		require.Len(t, plan.Conflicts, 1, "Conflicts: %+v", plan.Conflicts)
 		conflict := plan.Conflicts[0]
-		if conflict.LocalID != "req:CONF-01" || conflict.Field != "title" {
-			t.Fatalf("conflict = %+v, want req:CONF-01/title", conflict)
-		}
-		if conflict.BaseValue == nil || *conflict.BaseValue != "Original title" {
-			t.Fatalf("conflict.BaseValue = %v, want %q", conflict.BaseValue, "Original title")
-		}
-		if conflict.RepositoryValue == nil || *conflict.RepositoryValue != "Repository title override" {
-			t.Fatalf("conflict.RepositoryValue = %v, want %q", conflict.RepositoryValue, "Repository title override")
-		}
-		if conflict.LinearValue == nil || *conflict.LinearValue != "Linear title override" {
-			t.Fatalf("conflict.LinearValue = %v, want %q", conflict.LinearValue, "Linear title override")
-		}
+		require.Equal(t, "req:CONF-01", conflict.LocalID)
+		require.Equal(t, "title", conflict.Field)
+		require.NotNil(t, conflict.BaseValue)
+		require.Equal(t, "Original title", *conflict.BaseValue)
+		require.NotNil(t, conflict.RepositoryValue)
+		require.Equal(t, "Repository title override", *conflict.RepositoryValue)
+		require.NotNil(t, conflict.LinearValue)
+		require.Equal(t, "Linear title override", *conflict.LinearValue)
 	})
 
 	t.Run("ThreeWayField blocks only when base, repository, and Linear are pairwise distinct", func(t *testing.T) {
-		if got := reconcile.ThreeWayField("plan:01-10", "title", "A", "A", "B"); got != nil {
-			t.Fatalf("base==repo: ThreeWayField = %+v, want nil", got)
-		}
-		if got := reconcile.ThreeWayField("plan:01-10", "title", "A", "B", "A"); got != nil {
-			t.Fatalf("base==linear: ThreeWayField = %+v, want nil", got)
-		}
-		if got := reconcile.ThreeWayField("plan:01-10", "title", "A", "B", "B"); got != nil {
-			t.Fatalf("repo==linear: ThreeWayField = %+v, want nil", got)
-		}
+		require.Nil(t, reconcile.ThreeWayField("plan:01-10", "title", "A", "A", "B"), "base==repo")
+		require.Nil(t, reconcile.ThreeWayField("plan:01-10", "title", "A", "B", "A"), "base==linear")
+		require.Nil(t, reconcile.ThreeWayField("plan:01-10", "title", "A", "B", "B"), "repo==linear")
 		got := reconcile.ThreeWayField("plan:01-10", "title", "A", "B", "C")
-		if got == nil {
-			t.Fatal("all three distinct: ThreeWayField = nil, want a blocking Conflict")
-		}
-		if got.LocalID != "plan:01-10" || got.Field != "title" {
-			t.Fatalf("conflict = %+v, want plan:01-10/title", got)
-		}
-		if got.BaseValue == nil || *got.BaseValue != "A" || got.RepositoryValue == nil || *got.RepositoryValue != "B" || got.LinearValue == nil || *got.LinearValue != "C" {
-			t.Fatalf("conflict values = base:%v repo:%v linear:%v, want A/B/C", got.BaseValue, got.RepositoryValue, got.LinearValue)
-		}
-		if got.ResolutionCommand == "" {
-			t.Fatal("ResolutionCommand is empty")
-		}
+		require.NotNil(t, got, "all three distinct: ThreeWayField = nil, want a blocking Conflict")
+		require.Equal(t, "plan:01-10", got.LocalID)
+		require.Equal(t, "title", got.Field)
+		require.NotNil(t, got.BaseValue)
+		require.Equal(t, "A", *got.BaseValue)
+		require.NotNil(t, got.RepositoryValue)
+		require.Equal(t, "B", *got.RepositoryValue)
+		require.NotNil(t, got.LinearValue)
+		require.Equal(t, "C", *got.LinearValue)
+		require.NotEmpty(t, got.ResolutionCommand, "ResolutionCommand is empty")
 	})
 
 	t.Run("BuildArchivePreview and BuildUnlinkPreview build an explicit D-15 removal preview, and reject an unmapped entity", func(t *testing.T) {
 		fixture := loadArchiveFixture(t, "explicit-archive.json")
 
 		archived, err := reconcile.BuildArchivePreview(fixture.Mapping)
-		if err != nil {
-			t.Fatalf("BuildArchivePreview: %v", err)
-		}
-		if archived.Action != "archive" || archived.LocalID != fixture.Mapping.RepoID {
-			t.Fatalf("archived = %+v, want action archive for %q", archived, fixture.Mapping.RepoID)
-		}
-		if archived.LinearUUID == nil || fixture.Mapping.LinearUUID == nil || *archived.LinearUUID != *fixture.Mapping.LinearUUID {
-			t.Fatalf("archived.LinearUUID = %v, want %v", archived.LinearUUID, fixture.Mapping.LinearUUID)
-		}
+		require.NoError(t, err, "BuildArchivePreview")
+		require.Equal(t, "archive", archived.Action)
+		require.Equal(t, fixture.Mapping.RepoID, archived.LocalID)
+		require.NotNil(t, archived.LinearUUID)
+		require.NotNil(t, fixture.Mapping.LinearUUID)
+		require.Equal(t, *fixture.Mapping.LinearUUID, *archived.LinearUUID)
 
 		unlinked, err := reconcile.BuildUnlinkPreview(fixture.Mapping)
-		if err != nil {
-			t.Fatalf("BuildUnlinkPreview: %v", err)
-		}
-		if unlinked.Action != "unlink" || unlinked.LocalID != fixture.Mapping.RepoID {
-			t.Fatalf("unlinked = %+v, want action unlink for %q", unlinked, fixture.Mapping.RepoID)
-		}
+		require.NoError(t, err, "BuildUnlinkPreview")
+		require.Equal(t, "unlink", unlinked.Action)
+		require.Equal(t, fixture.Mapping.RepoID, unlinked.LocalID)
 
 		pending := catalog.RemoteMapping{RepoID: "task:01-99.1", LinearType: "issue", Status: "pending"}
 		_, err = reconcile.BuildArchivePreview(pending)
@@ -645,23 +500,15 @@ func TestScopeLinearReconcile(t *testing.T) {
 		fake := transport.NewFake(fixture.Snapshot)
 
 		captured, err := fake.CaptureSnapshot()
-		if err != nil {
-			t.Fatalf("Fake.CaptureSnapshot: %v", err)
-		}
+		require.NoError(t, err, "Fake.CaptureSnapshot")
 		plan, err := reconcile.BuildCompletePreview(fixture.Intents, fixture.Mappings, captured, fixture.Baselines)
-		if err != nil {
-			t.Fatalf("BuildCompletePreview via fake transport: %v", err)
-		}
-		if len(plan.Operations) != 2 || len(plan.Conflicts) != 0 {
-			t.Fatalf("plan via fake transport = %+v, want 2 operations and no conflicts", plan)
-		}
+		require.NoError(t, err, "BuildCompletePreview via fake transport")
+		require.Len(t, plan.Operations, 2, "plan via fake transport = %+v, want 2 operations and no conflicts", plan)
+		require.Empty(t, plan.Conflicts, "plan via fake transport = %+v, want 2 operations and no conflicts", plan)
 
 		applied, err := fake.Apply(transport.Mutation{Kind: transport.MutationArchive, LocalID: "task:01-23.9", LinearUUID: "22222222-2222-2222-2222-222222222222"})
-		if err != nil {
-			t.Fatalf("Fake.Apply: %v", err)
-		}
-		if applied.Kind != transport.MutationArchive || len(fake.Applied()) != 1 {
-			t.Fatalf("Fake.Applied() = %+v, want exactly one recorded archive mutation", fake.Applied())
-		}
+		require.NoError(t, err, "Fake.Apply")
+		require.Equal(t, transport.MutationArchive, applied.Kind)
+		require.Len(t, fake.Applied(), 1, "Fake.Applied() = %+v, want exactly one recorded archive mutation", fake.Applied())
 	})
 }
