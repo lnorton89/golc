@@ -11,10 +11,12 @@
 package playback_test
 
 import (
-	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/playback"
 )
@@ -43,12 +45,8 @@ func TestClockPositionAdvancesAndWraps(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			now := loopStart.Add(tc.elapsed)
 			pos := playback.Position(now, bpm, tc.barsPerLoop, loopStart)
-			if pos.BarIndex != tc.wantBarIndex {
-				t.Errorf("BarIndex = %d, want %d", pos.BarIndex, tc.wantBarIndex)
-			}
-			if diff := pos.BeatFraction - tc.wantBeatFraction; diff < -1e-9 || diff > 1e-9 {
-				t.Errorf("BeatFraction = %v, want %v", pos.BeatFraction, tc.wantBeatFraction)
-			}
+			assert.Equal(t, tc.wantBarIndex, pos.BarIndex)
+			assert.InDelta(t, tc.wantBeatFraction, pos.BeatFraction, 1e-9)
 		})
 	}
 }
@@ -65,12 +63,8 @@ func TestClockPositionNonPositiveBarsPerLoopDoesNotPanic(t *testing.T) {
 	for _, barsPerLoop := range []int{0, -1, -100} {
 		now := loopStart.Add(3 * time.Second) // 1.5 bars elapsed
 		pos := playback.Position(now, bpm, barsPerLoop, loopStart)
-		if pos.BarIndex != 0 {
-			t.Errorf("barsPerLoop=%d: expected the clamped single-bar loop to report BarIndex=0, got %d", barsPerLoop, pos.BarIndex)
-		}
-		if diff := pos.BeatFraction - 0.5; diff < -1e-9 || diff > 1e-9 {
-			t.Errorf("barsPerLoop=%d: expected BeatFraction=0.5, got %v", barsPerLoop, pos.BeatFraction)
-		}
+		assert.Equal(t, 0, pos.BarIndex, "barsPerLoop=%d: expected the clamped single-bar loop to report BarIndex=0", barsPerLoop)
+		assert.InDelta(t, 0.5, pos.BeatFraction, 1e-9, "barsPerLoop=%d", barsPerLoop)
 	}
 }
 
@@ -80,9 +74,7 @@ func TestClockPositionDeterministicSameArgs(t *testing.T) {
 
 	first := playback.Position(now, 128.0, 8, loopStart)
 	second := playback.Position(now, 128.0, 8, loopStart)
-	if first != second {
-		t.Fatalf("Position called twice with identical args returned different results: %+v vs %+v", first, second)
-	}
+	require.Equal(t, first, second, "Position called twice with identical args returned different results")
 }
 
 func TestClockPositionDeterministicAcrossGoroutines(t *testing.T) {
@@ -106,9 +98,7 @@ func TestClockPositionDeterministicAcrossGoroutines(t *testing.T) {
 	wg.Wait()
 
 	for i, got := range results {
-		if got != want {
-			t.Fatalf("goroutine %d: Position = %+v, want byte-identical %+v", i, got, want)
-		}
+		require.Equal(t, want, got, "goroutine %d: Position not byte-identical", i)
 	}
 }
 
@@ -120,12 +110,8 @@ func TestClockPositionFloorSemanticsAtBarBoundary(t *testing.T) {
 	// * secondsPerBar = 6s): must be attributed to bar 3, never bar 2.
 	now := loopStart.Add(6 * time.Second)
 	pos := playback.Position(now, bpm, 8, loopStart)
-	if pos.BarIndex != 3 {
-		t.Fatalf("expected exact-boundary sample to be attributed to the new bar 3, got BarIndex=%d", pos.BarIndex)
-	}
-	if pos.BeatFraction != 0.0 {
-		t.Fatalf("expected exact-boundary sample to have BeatFraction=0.0, got %v", pos.BeatFraction)
-	}
+	require.Equal(t, 3, pos.BarIndex, "expected exact-boundary sample to be attributed to the new bar 3")
+	require.Equal(t, 0.0, pos.BeatFraction, "expected exact-boundary sample to have BeatFraction=0.0")
 }
 
 func TestTapTempoComputesPositiveBPM(t *testing.T) {
@@ -134,12 +120,8 @@ func TestTapTempoComputesPositiveBPM(t *testing.T) {
 	taps := []time.Time{base, base.Add(500 * time.Millisecond), base.Add(1 * time.Second)}
 
 	bpm, err := playback.TapTempo(taps)
-	if err != nil {
-		t.Fatalf("TapTempo: %v", err)
-	}
-	if diff := bpm - 120.0; diff < -1e-6 || diff > 1e-6 {
-		t.Fatalf("TapTempo = %v, want 120", bpm)
-	}
+	require.NoError(t, err, "TapTempo")
+	require.InDelta(t, 120.0, bpm, 1e-6, "TapTempo")
 }
 
 func TestTapTempoRejectsFewerThanTwoTaps(t *testing.T) {
@@ -147,9 +129,7 @@ func TestTapTempoRejectsFewerThanTwoTaps(t *testing.T) {
 
 	for _, taps := range [][]time.Time{nil, {base}} {
 		_, err := playback.TapTempo(taps)
-		if err == nil || !strings.Contains(err.Error(), "GOLC_PLAYBACK_TAP_INVALID") {
-			t.Fatalf("expected GOLC_PLAYBACK_TAP_INVALID for %d taps, got %v", len(taps), err)
-		}
+		require.ErrorContains(t, err, "GOLC_PLAYBACK_TAP_INVALID", "expected error for %d taps", len(taps))
 	}
 }
 
@@ -158,9 +138,7 @@ func TestTapTempoRejectsZeroInterval(t *testing.T) {
 	taps := []time.Time{base, base} // same instant
 
 	_, err := playback.TapTempo(taps)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_PLAYBACK_TAP_INVALID") {
-		t.Fatalf("expected GOLC_PLAYBACK_TAP_INVALID for a zero-interval tap pair, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_PLAYBACK_TAP_INVALID", "expected error for a zero-interval tap pair")
 }
 
 func TestTapTempoRejectsOutOfOrderTaps(t *testing.T) {
@@ -170,9 +148,7 @@ func TestTapTempoRejectsOutOfOrderTaps(t *testing.T) {
 	taps := []time.Time{base, base.Add(-1 * time.Second)}
 
 	_, err := playback.TapTempo(taps)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_PLAYBACK_TAP_INVALID") {
-		t.Fatalf("expected GOLC_PLAYBACK_TAP_INVALID for out-of-order taps, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_PLAYBACK_TAP_INVALID", "expected error for out-of-order taps")
 }
 
 func TestBPMChangeEpochPreservesPosition(t *testing.T) {
@@ -187,12 +163,8 @@ func TestBPMChangeEpochPreservesPosition(t *testing.T) {
 	newEpoch := playback.RecomputeEpoch(true, oldBPM, newBPM, barsPerLoop, loopStart, now)
 	after := playback.Position(now, newBPM, barsPerLoop, newEpoch)
 
-	if after.BarIndex != before.BarIndex {
-		t.Fatalf("preserve=true: BarIndex changed across BPM change: before=%d after=%d", before.BarIndex, after.BarIndex)
-	}
-	if diff := after.BeatFraction - before.BeatFraction; diff < -1e-6 || diff > 1e-6 {
-		t.Fatalf("preserve=true: BeatFraction changed across BPM change: before=%v after=%v", before.BeatFraction, after.BeatFraction)
-	}
+	require.Equal(t, before.BarIndex, after.BarIndex, "preserve=true: BarIndex changed across BPM change")
+	require.InDelta(t, before.BeatFraction, after.BeatFraction, 1e-6, "preserve=true: BeatFraction changed across BPM change")
 }
 
 func TestBPMChangeEpochRestartsAtBarZero(t *testing.T) {
@@ -200,42 +172,28 @@ func TestBPMChangeEpochRestartsAtBarZero(t *testing.T) {
 	now := loopStart.Add(3500 * time.Millisecond)
 
 	newEpoch := playback.RecomputeEpoch(false, 120.0, 90.0, 8, loopStart, now)
-	if !newEpoch.Equal(now) {
-		t.Fatalf("preserve=false: expected the new epoch to equal now (%v), got %v", now, newEpoch)
-	}
+	require.True(t, newEpoch.Equal(now), "preserve=false: expected the new epoch to equal now (%v), got %v", now, newEpoch)
 
 	after := playback.Position(now, 90.0, 8, newEpoch)
-	if after.BarIndex != 0 || after.BeatFraction != 0.0 {
-		t.Fatalf("preserve=false: expected restart at bar 0, got %+v", after)
-	}
+	require.Equal(t, 0, after.BarIndex, "preserve=false: expected restart at bar 0, got %+v", after)
+	require.Equal(t, 0.0, after.BeatFraction, "preserve=false: expected restart at bar 0, got %+v", after)
 }
 
 func TestValidateBPMRejectsNonPositiveAndOutOfRange(t *testing.T) {
 	for _, bpm := range []float64{0, -1, 1000} {
-		if err := playback.ValidateBPM(bpm); err == nil || !strings.Contains(err.Error(), "GOLC_PLAYBACK_BPM_INVALID") {
-			t.Errorf("ValidateBPM(%v): expected GOLC_PLAYBACK_BPM_INVALID, got %v", bpm, err)
-		}
+		err := playback.ValidateBPM(bpm)
+		assert.ErrorContains(t, err, "GOLC_PLAYBACK_BPM_INVALID", "ValidateBPM(%v)", bpm)
 	}
 }
 
 func TestValidateBPMAcceptsCurrentValueIdempotently(t *testing.T) {
-	if err := playback.ValidateBPM(120.0); err != nil {
-		t.Fatalf("ValidateBPM(120.0): %v", err)
-	}
-	if err := playback.ValidateBPM(120.0); err != nil {
-		t.Fatalf("ValidateBPM(120.0) second call (idempotent no-op): %v", err)
-	}
+	require.NoError(t, playback.ValidateBPM(120.0), "ValidateBPM(120.0)")
+	require.NoError(t, playback.ValidateBPM(120.0), "ValidateBPM(120.0) second call (idempotent no-op)")
 }
 
 func TestCrossedBarBoundaryDetectsTransitionNotEquality(t *testing.T) {
-	if playback.CrossedBarBoundary(2, 2) {
-		t.Fatalf("expected no transition when BarIndex is unchanged")
-	}
-	if !playback.CrossedBarBoundary(2, 3) {
-		t.Fatalf("expected a transition when BarIndex changes")
-	}
+	require.False(t, playback.CrossedBarBoundary(2, 2), "expected no transition when BarIndex is unchanged")
+	require.True(t, playback.CrossedBarBoundary(2, 3), "expected a transition when BarIndex changes")
 	// Loop wraparound: last bar of an 8-bar loop back to bar 0.
-	if !playback.CrossedBarBoundary(7, 0) {
-		t.Fatalf("expected a transition across loop wraparound")
-	}
+	require.True(t, playback.CrossedBarBoundary(7, 0), "expected a transition across loop wraparound")
 }
