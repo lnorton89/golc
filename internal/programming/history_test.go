@@ -9,10 +9,10 @@
 package programming_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/programming"
 )
@@ -29,57 +29,38 @@ func TestHistoryRecordUndoRedoRoundTrip(t *testing.T) {
 	}
 	h.Record(op)
 
-	if !h.CanUndo() {
-		t.Fatalf("expected CanUndo() to be true immediately after Record")
-	}
-	if h.CanRedo() {
-		t.Fatalf("expected CanRedo() to be false immediately after Record (nothing undone yet)")
-	}
+	require.True(t, h.CanUndo(), "expected CanUndo() to be true immediately after Record")
+	require.False(t, h.CanRedo(), "expected CanRedo() to be false immediately after Record (nothing undone yet)")
 
 	undone, err := h.Undo()
-	if err != nil {
-		t.Fatalf("Undo: %v", err)
-	}
-	if undone.ObjectID != id || undone.Before != "Sunset" || undone.After != "Ocean" {
-		t.Fatalf("expected the undone op to carry the exact recorded Before/After, got %+v", undone)
-	}
-	if !h.CanRedo() {
-		t.Fatalf("expected CanRedo() to be true after Undo")
-	}
-	if h.CanUndo() {
-		t.Fatalf("expected CanUndo() to be false after undoing the only recorded op")
-	}
+	require.NoError(t, err, "Undo")
+	require.Equal(t, id, undone.ObjectID)
+	require.Equal(t, "Sunset", undone.Before, "expected the undone op to carry the exact recorded Before/After")
+	require.Equal(t, "Ocean", undone.After, "expected the undone op to carry the exact recorded Before/After")
+	require.True(t, h.CanRedo(), "expected CanRedo() to be true after Undo")
+	require.False(t, h.CanUndo(), "expected CanUndo() to be false after undoing the only recorded op")
 
 	redone, err := h.Redo()
-	if err != nil {
-		t.Fatalf("Redo: %v", err)
-	}
-	if redone != undone {
-		t.Fatalf("expected Undo then Redo to return to the identical op, undo=%+v redo=%+v", undone, redone)
-	}
-	if !h.CanUndo() || h.CanRedo() {
-		t.Fatalf("expected History to be back at the fully-applied position after Redo, canUndo=%t canRedo=%t", h.CanUndo(), h.CanRedo())
-	}
+	require.NoError(t, err, "Redo")
+	require.Equal(t, undone, redone, "expected Undo then Redo to return to the identical op")
+	require.True(t, h.CanUndo(), "expected History to be back at the fully-applied position after Redo")
+	require.False(t, h.CanRedo(), "expected History to be back at the fully-applied position after Redo")
 }
 
 func TestHistoryUndoEmptyBoundaryNoCrash(t *testing.T) {
 	h := programming.NewHistory()
 	_, err := h.Undo()
-	if err == nil || !strings.Contains(err.Error(), "GOLC_HISTORY_NOTHING_TO_UNDO") {
-		t.Fatalf("expected GOLC_HISTORY_NOTHING_TO_UNDO on an empty history, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_HISTORY_NOTHING_TO_UNDO", "expected GOLC_HISTORY_NOTHING_TO_UNDO on an empty history")
 }
 
 func TestHistoryRedoNoTailBoundaryNoCrash(t *testing.T) {
 	h := programming.NewHistory()
-	if _, err := h.Redo(); err == nil || !strings.Contains(err.Error(), "GOLC_HISTORY_NOTHING_TO_REDO") {
-		t.Fatalf("expected GOLC_HISTORY_NOTHING_TO_REDO on an empty history, got %v", err)
-	}
+	_, err := h.Redo()
+	require.ErrorContains(t, err, "GOLC_HISTORY_NOTHING_TO_REDO", "expected GOLC_HISTORY_NOTHING_TO_REDO on an empty history")
 
 	h.Record(programming.EditOp{Kind: programming.EditRecord, ObjectType: "theme", ObjectID: uuid.Must(uuid.NewV7())})
-	if _, err := h.Redo(); err == nil || !strings.Contains(err.Error(), "GOLC_HISTORY_NOTHING_TO_REDO") {
-		t.Fatalf("expected GOLC_HISTORY_NOTHING_TO_REDO immediately after Record (nothing undone yet), got %v", err)
-	}
+	_, err = h.Redo()
+	require.ErrorContains(t, err, "GOLC_HISTORY_NOTHING_TO_REDO", "expected GOLC_HISTORY_NOTHING_TO_REDO immediately after Record (nothing undone yet)")
 }
 
 func TestHistoryRecordTruncatesRedoTail(t *testing.T) {
@@ -89,12 +70,9 @@ func TestHistoryRecordTruncatesRedoTail(t *testing.T) {
 	h.Record(first)
 	h.Record(second)
 
-	if _, err := h.Undo(); err != nil {
-		t.Fatalf("Undo: %v", err)
-	}
-	if !h.CanRedo() {
-		t.Fatalf("expected a redo tail (second) to exist after one Undo")
-	}
+	_, err := h.Undo()
+	require.NoError(t, err, "Undo")
+	require.True(t, h.CanRedo(), "expected a redo tail (second) to exist after one Undo")
 
 	// Recording a new edit after an Undo must discard the redone-away
 	// branch ("second") -- standard linear-history semantics (PROG-07),
@@ -103,26 +81,15 @@ func TestHistoryRecordTruncatesRedoTail(t *testing.T) {
 	third := programming.EditOp{Kind: programming.EditRename, ObjectType: "theme", ObjectID: uuid.Must(uuid.NewV7()), After: "third"}
 	h.Record(third)
 
-	if h.CanRedo() {
-		t.Fatalf("expected Record to discard the redo tail, but CanRedo() is still true")
-	}
+	require.False(t, h.CanRedo(), "expected Record to discard the redo tail, but CanRedo() is still true")
 	undone, err := h.Undo()
-	if err != nil {
-		t.Fatalf("Undo after Record: %v", err)
-	}
-	if undone.After != "third" {
-		t.Fatalf("expected the most recently recorded op (third) to be undone, got %+v", undone)
-	}
+	require.NoError(t, err, "Undo after Record")
+	require.Equal(t, "third", undone.After, "expected the most recently recorded op (third) to be undone")
 	redone, err := h.Redo()
-	if err != nil {
-		t.Fatalf("Redo: %v", err)
-	}
-	if redone.After != "third" {
-		t.Fatalf("expected Redo to re-apply third (never the truncated second), got %+v", redone)
-	}
-	if _, err := h.Redo(); err == nil || !strings.Contains(err.Error(), "GOLC_HISTORY_NOTHING_TO_REDO") {
-		t.Fatalf("expected the truncated 'second' op to never resurface via Redo, got %v", err)
-	}
+	require.NoError(t, err, "Redo")
+	require.Equal(t, "third", redone.After, "expected Redo to re-apply third (never the truncated second)")
+	_, err = h.Redo()
+	require.ErrorContains(t, err, "GOLC_HISTORY_NOTHING_TO_REDO", "expected the truncated 'second' op to never resurface via Redo")
 }
 
 func TestHistoryMixedObjectTypeSingleGlobalStack(t *testing.T) {
@@ -142,33 +109,26 @@ func TestHistoryMixedObjectTypeSingleGlobalStack(t *testing.T) {
 	h.Record(sceneOp)
 
 	first, err := h.Undo()
-	if err != nil || first.ObjectType != "scene" {
-		t.Fatalf("expected the first undo to reverse the scene edit, got %+v err=%v", first, err)
-	}
+	require.NoError(t, err, "expected the first undo to reverse the scene edit")
+	require.Equal(t, "scene", first.ObjectType, "expected the first undo to reverse the scene edit")
 	second, err := h.Undo()
-	if err != nil || second.ObjectType != "chase" {
-		t.Fatalf("expected the second undo to reverse the chase edit, got %+v err=%v", second, err)
-	}
+	require.NoError(t, err, "expected the second undo to reverse the chase edit")
+	require.Equal(t, "chase", second.ObjectType, "expected the second undo to reverse the chase edit")
 	third, err := h.Undo()
-	if err != nil || third.ObjectType != "theme" {
-		t.Fatalf("expected the third undo to reverse the theme edit, got %+v err=%v", third, err)
-	}
-	if _, err := h.Undo(); err == nil || !strings.Contains(err.Error(), "GOLC_HISTORY_NOTHING_TO_UNDO") {
-		t.Fatalf("expected the stack to be exhausted after undoing all three mixed-type edits, got %v", err)
-	}
+	require.NoError(t, err, "expected the third undo to reverse the theme edit")
+	require.Equal(t, "theme", third.ObjectType, "expected the third undo to reverse the theme edit")
+	_, err = h.Undo()
+	require.ErrorContains(t, err, "GOLC_HISTORY_NOTHING_TO_UNDO", "expected the stack to be exhausted after undoing all three mixed-type edits")
 
 	// Redo walks forward in the same single order: theme, then chase, then
 	// scene.
 	redoneTheme, err := h.Redo()
-	if err != nil || redoneTheme.ObjectType != "theme" {
-		t.Fatalf("expected the first redo to reapply the theme edit, got %+v err=%v", redoneTheme, err)
-	}
+	require.NoError(t, err, "expected the first redo to reapply the theme edit")
+	require.Equal(t, "theme", redoneTheme.ObjectType, "expected the first redo to reapply the theme edit")
 	redoneChase, err := h.Redo()
-	if err != nil || redoneChase.ObjectType != "chase" {
-		t.Fatalf("expected the second redo to reapply the chase edit, got %+v err=%v", redoneChase, err)
-	}
+	require.NoError(t, err, "expected the second redo to reapply the chase edit")
+	require.Equal(t, "chase", redoneChase.ObjectType, "expected the second redo to reapply the chase edit")
 	redoneScene, err := h.Redo()
-	if err != nil || redoneScene.ObjectType != "scene" {
-		t.Fatalf("expected the third redo to reapply the scene edit, got %+v err=%v", redoneScene, err)
-	}
+	require.NoError(t, err, "expected the third redo to reapply the scene edit")
+	require.Equal(t, "scene", redoneScene.ObjectType, "expected the third redo to reapply the scene edit")
 }

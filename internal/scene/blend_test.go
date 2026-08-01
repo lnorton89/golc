@@ -7,57 +7,42 @@
 package scene_test
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/scene"
 )
 
 func TestBlendPresetMintsIDAndAcceptsInstantDuration(t *testing.T) {
 	instant, err := scene.NewBlendPreset("Snap", 0, scene.BlendCurveLinear)
-	if err != nil {
-		t.Fatalf("expected duration_bars=0 (instant) to be valid, got %v", err)
-	}
-	if instant.ID.String() == "" {
-		t.Fatalf("expected a minted UUIDv7 ID, got zero value")
-	}
-	if instant.Name != "Snap" || instant.DurationBars != 0 || instant.Curve != scene.BlendCurveLinear {
-		t.Fatalf("unexpected blend preset: %+v", instant)
-	}
+	require.NoError(t, err, "expected duration_bars=0 (instant) to be valid")
+	require.NotEmpty(t, instant.ID.String(), "expected a minted UUIDv7 ID, got zero value")
+	require.Equal(t, "Snap", instant.Name)
+	require.Equal(t, float64(0), instant.DurationBars)
+	require.Equal(t, scene.BlendCurveLinear, instant.Curve)
 }
 
 func TestBlendPresetNegativeDurationRejected(t *testing.T) {
 	_, err := scene.NewBlendPreset("Bad", -1, scene.BlendCurveLinear)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_BLEND_PRESET_INVALID") {
-		t.Fatalf("expected GOLC_BLEND_PRESET_INVALID for a negative duration, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_BLEND_PRESET_INVALID", "expected error for a negative duration")
 }
 
 func TestBlendPresetUnsupportedCurveRejected(t *testing.T) {
 	_, err := scene.NewBlendPreset("Bad Curve", 1, "bounce")
-	if err == nil || !strings.Contains(err.Error(), "GOLC_BLEND_PRESET_INVALID") {
-		t.Fatalf("expected GOLC_BLEND_PRESET_INVALID for an unsupported curve, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_BLEND_PRESET_INVALID", "expected error for an unsupported curve")
 }
 
 func TestBlendPresetEmptyNameRejected(t *testing.T) {
 	_, err := scene.NewBlendPreset("  ", 1, scene.BlendCurveLinear)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_BLEND_PRESET_NAME_EMPTY") {
-		t.Fatalf("expected GOLC_BLEND_PRESET_NAME_EMPTY, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_BLEND_PRESET_NAME_EMPTY")
 }
 
 func TestBlendPresetUniqueNamesRejectsDuplicates(t *testing.T) {
 	a, err := scene.NewBlendPreset("Fade", 2, scene.BlendCurveEaseIn)
-	if err != nil {
-		t.Fatalf("NewBlendPreset: %v", err)
-	}
+	require.NoError(t, err, "NewBlendPreset")
 	b, err := scene.NewBlendPreset("Fade", 2, scene.BlendCurveEaseOut)
-	if err != nil {
-		t.Fatalf("NewBlendPreset: %v", err)
-	}
+	require.NoError(t, err, "NewBlendPreset")
 	err = scene.ValidateBlendPresetUniqueNames([]scene.BlendPreset{a, b})
-	if err == nil || !strings.Contains(err.Error(), "GOLC_BLEND_PRESET_DUPLICATE_NAME") {
-		t.Fatalf("expected GOLC_BLEND_PRESET_DUPLICATE_NAME, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_BLEND_PRESET_DUPLICATE_NAME")
 }

@@ -9,127 +9,89 @@
 package pool_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/pool"
 )
 
 func TestPoolIdentityStable(t *testing.T) {
 	p, err := pool.NewPool("Wash Pool", nil)
-	if err != nil {
-		t.Fatalf("NewPool: %v", err)
-	}
+	require.NoError(t, err, "NewPool")
 	originalID := p.ID
 
 	renamed, err := pool.Rename(p, "Wash Pool Renamed")
-	if err != nil {
-		t.Fatalf("Rename: %v", err)
-	}
-	if renamed.ID != originalID {
-		t.Fatalf("expected ID to survive rename, got %s want %s", renamed.ID, originalID)
-	}
-	if renamed.Name != "Wash Pool Renamed" {
-		t.Fatalf("expected renamed pool to carry its new name, got %q", renamed.Name)
-	}
+	require.NoError(t, err, "Rename")
+	require.Equal(t, originalID, renamed.ID, "expected ID to survive rename")
+	require.Equal(t, "Wash Pool Renamed", renamed.Name, "expected renamed pool to carry its new name")
 
 	// Two pools may share a name only if creation of the duplicate is
 	// rejected (GOLC_POOL_DUPLICATE_NAME) -- never a silent duplicate.
 	other, err := pool.NewPool(p.Name, nil)
-	if err != nil {
-		t.Fatalf("NewPool (second, same name): %v", err)
-	}
-	if err := pool.ValidateUniqueNames([]pool.Pool{p, other}); err == nil || !strings.Contains(err.Error(), "GOLC_POOL_DUPLICATE_NAME") {
-		t.Fatalf("expected GOLC_POOL_DUPLICATE_NAME for duplicate pool names, got %v", err)
-	}
+	require.NoError(t, err, "NewPool (second, same name)")
+	err = pool.ValidateUniqueNames([]pool.Pool{p, other})
+	require.ErrorContains(t, err, "GOLC_POOL_DUPLICATE_NAME", "expected GOLC_POOL_DUPLICATE_NAME for duplicate pool names")
 }
 
 func TestGroupUniqueNamesRejected(t *testing.T) {
 	first := pool.Group{Name: "Front Wash"}
 	second := pool.Group{Name: "Front Wash"}
-	if err := pool.ValidateUniqueGroupNames([]pool.Group{first, second}); err == nil || !strings.Contains(err.Error(), "GOLC_GROUP_DUPLICATE_NAME") {
-		t.Fatalf("expected GOLC_GROUP_DUPLICATE_NAME for duplicate group names, got %v", err)
-	}
-	if err := pool.ValidateUniqueGroupNames([]pool.Group{first, {Name: "Back Wash"}}); err != nil {
-		t.Fatalf("expected distinctly named groups to be valid, got %v", err)
-	}
+	err := pool.ValidateUniqueGroupNames([]pool.Group{first, second})
+	require.ErrorContains(t, err, "GOLC_GROUP_DUPLICATE_NAME", "expected GOLC_GROUP_DUPLICATE_NAME for duplicate group names")
+	err = pool.ValidateUniqueGroupNames([]pool.Group{first, {Name: "Back Wash"}})
+	require.NoError(t, err, "expected distinctly named groups to be valid")
 }
 
 func TestGroupReferencesValidated(t *testing.T) {
 	p, err := pool.NewPool("Wash Pool", nil)
-	if err != nil {
-		t.Fatalf("NewPool: %v", err)
-	}
+	require.NoError(t, err, "NewPool")
 	member, err := pool.NewPoolMember("fixture:generic-rgb-par", "sha256:deadbeef")
-	if err != nil {
-		t.Fatalf("NewPoolMember: %v", err)
-	}
+	require.NoError(t, err, "NewPoolMember")
 	p.Members = append(p.Members, member)
 
 	valid := pool.Group{
 		Name:       "Front Wash",
 		MemberRefs: []pool.MemberRef{{PoolID: p.ID, PoolMemberID: member.ID}},
 	}
-	if err := pool.ValidateGroupReferences([]pool.Pool{p}, []pool.Group{valid}); err != nil {
-		t.Fatalf("expected a group referencing a real pool member to be valid, got %v", err)
-	}
+	err = pool.ValidateGroupReferences([]pool.Pool{p}, []pool.Group{valid})
+	require.NoError(t, err, "expected a group referencing a real pool member to be valid")
 
 	danglingPool := pool.Group{
 		Name:       "Dangling Pool Ref",
 		MemberRefs: []pool.MemberRef{{PoolID: uuid.Must(uuid.NewV7()), PoolMemberID: member.ID}},
 	}
-	if err := pool.ValidateGroupReferences([]pool.Pool{p}, []pool.Group{danglingPool}); err == nil || !strings.Contains(err.Error(), "GOLC_GROUP_DANGLING_REFERENCE") {
-		t.Fatalf("expected GOLC_GROUP_DANGLING_REFERENCE for a reference to a nonexistent pool, got %v", err)
-	}
+	err = pool.ValidateGroupReferences([]pool.Pool{p}, []pool.Group{danglingPool})
+	require.ErrorContains(t, err, "GOLC_GROUP_DANGLING_REFERENCE", "expected GOLC_GROUP_DANGLING_REFERENCE for a reference to a nonexistent pool")
 
 	danglingMember := pool.Group{
 		Name:       "Dangling Member Ref",
 		MemberRefs: []pool.MemberRef{{PoolID: p.ID, PoolMemberID: uuid.Must(uuid.NewV7())}},
 	}
-	if err := pool.ValidateGroupReferences([]pool.Pool{p}, []pool.Group{danglingMember}); err == nil || !strings.Contains(err.Error(), "GOLC_GROUP_DANGLING_REFERENCE") {
-		t.Fatalf("expected GOLC_GROUP_DANGLING_REFERENCE for a reference to a nonexistent pool member, got %v", err)
-	}
+	err = pool.ValidateGroupReferences([]pool.Pool{p}, []pool.Group{danglingMember})
+	require.ErrorContains(t, err, "GOLC_GROUP_DANGLING_REFERENCE", "expected GOLC_GROUP_DANGLING_REFERENCE for a reference to a nonexistent pool member")
 }
 
 func TestPoolCountIndependent(t *testing.T) {
 	zero, err := pool.NewPool("Zero Members", nil)
-	if err != nil {
-		t.Fatalf("NewPool: %v", err)
-	}
-	if err := pool.Validate(zero); err != nil {
-		t.Fatalf("expected a zero-member pool to be valid: %v", err)
-	}
+	require.NoError(t, err, "NewPool")
+	require.NoError(t, pool.Validate(zero), "expected a zero-member pool to be valid")
 
 	one, err := pool.NewPool("One Member", nil)
-	if err != nil {
-		t.Fatalf("NewPool: %v", err)
-	}
+	require.NoError(t, err, "NewPool")
 	member, err := pool.NewPoolMember("fixture:generic-rgb-par", "sha256:deadbeef")
-	if err != nil {
-		t.Fatalf("NewPoolMember: %v", err)
-	}
+	require.NoError(t, err, "NewPoolMember")
 	one.Members = append(one.Members, member)
-	if err := pool.Validate(one); err != nil {
-		t.Fatalf("expected a one-member pool to be valid: %v", err)
-	}
+	require.NoError(t, pool.Validate(one), "expected a one-member pool to be valid")
 
 	many, err := pool.NewPool("Fifty Members", nil)
-	if err != nil {
-		t.Fatalf("NewPool: %v", err)
-	}
+	require.NoError(t, err, "NewPool")
 	for i := 0; i < 50; i++ {
 		m, err := pool.NewPoolMember("fixture:generic-rgb-par", "sha256:deadbeef")
-		if err != nil {
-			t.Fatalf("NewPoolMember (%d): %v", i, err)
-		}
+		require.NoError(t, err, "NewPoolMember (%d)", i)
 		many.Members = append(many.Members, m)
 	}
-	if err := pool.Validate(many); err != nil {
-		t.Fatalf("expected a 50-member pool to be valid: %v", err)
-	}
-	if len(many.Members) != 50 {
-		t.Fatalf("expected 50 members, got %d", len(many.Members))
-	}
+	require.NoError(t, pool.Validate(many), "expected a 50-member pool to be valid")
+	require.Len(t, many.Members, 50)
 }

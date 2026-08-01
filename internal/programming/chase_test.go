@@ -7,8 +7,9 @@
 package programming_test
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/fixture"
 	"github.com/lnorton89/golc/internal/programming"
@@ -32,133 +33,82 @@ func buildSteps(n int) []programming.ChaseStep {
 func TestChaseNewChaseMintsIDAndPreservesStepOrder(t *testing.T) {
 	steps := buildSteps(4)
 	chase, err := programming.NewChase("Sweep", steps, programming.StepUnitBar, 1)
-	if err != nil {
-		t.Fatalf("NewChase: %v", err)
-	}
-	if chase.ID.String() == "" {
-		t.Fatalf("expected a minted UUIDv7 ID, got zero value")
-	}
-	if chase.Name != "Sweep" || chase.StepUnit != programming.StepUnitBar || chase.StepDuration != 1 {
-		t.Fatalf("unexpected chase: %+v", chase)
-	}
-	if len(chase.Steps) != len(steps) {
-		t.Fatalf("expected %d steps, got %d", len(steps), len(chase.Steps))
-	}
+	require.NoError(t, err, "NewChase")
+	require.NotEmpty(t, chase.ID.String(), "expected a minted UUIDv7 ID, got zero value")
+	require.Equal(t, "Sweep", chase.Name)
+	require.Equal(t, programming.StepUnitBar, chase.StepUnit)
+	require.EqualValues(t, 1, chase.StepDuration)
+	require.Len(t, chase.Steps, len(steps))
 	for i, step := range chase.Steps {
-		if step.Attributes[0].Value != steps[i].Attributes[0].Value {
-			t.Fatalf("step order not preserved at index %d: expected %v, got %v", i, steps[i].Attributes[0].Value, step.Attributes[0].Value)
-		}
+		require.Equal(t, steps[i].Attributes[0].Value, step.Attributes[0].Value, "step order not preserved at index %d", i)
 	}
 }
 
 func TestChaseNewChaseDeterministicConstruction(t *testing.T) {
 	steps := buildSteps(6)
 	first, err := programming.NewChase("Deterministic", steps, programming.StepUnitBeat, 2)
-	if err != nil {
-		t.Fatalf("NewChase (first): %v", err)
-	}
+	require.NoError(t, err, "NewChase (first)")
 	second, err := programming.NewChase("Deterministic", steps, programming.StepUnitBeat, 2)
-	if err != nil {
-		t.Fatalf("NewChase (second): %v", err)
-	}
-	if len(first.Steps) != len(second.Steps) {
-		t.Fatalf("expected identical step counts across repeated construction, got %d vs %d", len(first.Steps), len(second.Steps))
-	}
+	require.NoError(t, err, "NewChase (second)")
+	require.Len(t, second.Steps, len(first.Steps), "expected identical step counts across repeated construction")
 	for i := range first.Steps {
-		if first.Steps[i].Attributes[0].Value != second.Steps[i].Attributes[0].Value {
-			t.Fatalf("expected byte-identical step ordering at index %d, got %v vs %v",
-				i, first.Steps[i].Attributes[0].Value, second.Steps[i].Attributes[0].Value)
-		}
+		require.Equal(t, second.Steps[i].Attributes[0].Value, first.Steps[i].Attributes[0].Value, "expected byte-identical step ordering at index %d", i)
 	}
 }
 
 func TestChaseNewChaseInvalidStepUnitRejected(t *testing.T) {
 	_, err := programming.NewChase("Bad Unit", buildSteps(2), programming.StepUnit("measure"), 1)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_CHASE_STEP_UNIT_INVALID") {
-		t.Fatalf("expected GOLC_CHASE_STEP_UNIT_INVALID, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_CHASE_STEP_UNIT_INVALID")
 }
 
 func TestChaseNewChaseInvalidStepDurationRejected(t *testing.T) {
 	_, err := programming.NewChase("Zero Duration", buildSteps(2), programming.StepUnitBar, 0)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_CHASE_STEP_DURATION_INVALID") {
-		t.Fatalf("expected GOLC_CHASE_STEP_DURATION_INVALID for a zero step duration, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_CHASE_STEP_DURATION_INVALID", "expected GOLC_CHASE_STEP_DURATION_INVALID for a zero step duration")
 
 	_, err = programming.NewChase("Negative Duration", buildSteps(2), programming.StepUnitBar, -1)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_CHASE_STEP_DURATION_INVALID") {
-		t.Fatalf("expected GOLC_CHASE_STEP_DURATION_INVALID for a negative step duration, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_CHASE_STEP_DURATION_INVALID", "expected GOLC_CHASE_STEP_DURATION_INVALID for a negative step duration")
 }
 
 func TestChaseNewChaseTooManyStepsRejected(t *testing.T) {
 	_, err := programming.NewChase("Too Many", buildSteps(257), programming.StepUnitBar, 1)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_CHASE_TOO_MANY_STEPS") {
-		t.Fatalf("expected GOLC_CHASE_TOO_MANY_STEPS for a chase exceeding the step ceiling, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_CHASE_TOO_MANY_STEPS", "expected GOLC_CHASE_TOO_MANY_STEPS for a chase exceeding the step ceiling")
 }
 
 func TestChaseNewChaseEmptyNameRejected(t *testing.T) {
 	_, err := programming.NewChase("   ", buildSteps(1), programming.StepUnitBar, 1)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_CHASE_NAME_EMPTY") {
-		t.Fatalf("expected GOLC_CHASE_NAME_EMPTY, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_CHASE_NAME_EMPTY")
 }
 
 func TestChaseRenameChasePreservesIDAndSteps(t *testing.T) {
 	chase, err := programming.NewChase("Sweep", buildSteps(3), programming.StepUnitBar, 1)
-	if err != nil {
-		t.Fatalf("NewChase: %v", err)
-	}
+	require.NoError(t, err, "NewChase")
 	originalID := chase.ID
 
 	renamed, err := programming.RenameChase(chase, "Sweep Renamed")
-	if err != nil {
-		t.Fatalf("RenameChase: %v", err)
-	}
-	if renamed.ID != originalID {
-		t.Fatalf("expected ID to be preserved by rename, got original=%s renamed=%s", originalID, renamed.ID)
-	}
-	if renamed.Name != "Sweep Renamed" {
-		t.Fatalf("expected renamed Name %q, got %q", "Sweep Renamed", renamed.Name)
-	}
-	if len(renamed.Steps) != len(chase.Steps) {
-		t.Fatalf("expected Steps to be untouched by rename, got %+v", renamed.Steps)
-	}
+	require.NoError(t, err, "RenameChase")
+	require.Equal(t, originalID, renamed.ID, "expected ID to be preserved by rename")
+	require.Equal(t, "Sweep Renamed", renamed.Name)
+	require.Len(t, renamed.Steps, len(chase.Steps), "expected Steps to be untouched by rename")
 }
 
 func TestChaseRenameChaseEmptyNameRejected(t *testing.T) {
 	chase, err := programming.NewChase("Sweep", buildSteps(1), programming.StepUnitBar, 1)
-	if err != nil {
-		t.Fatalf("NewChase: %v", err)
-	}
+	require.NoError(t, err, "NewChase")
 	_, err = programming.RenameChase(chase, "  ")
-	if err == nil || !strings.Contains(err.Error(), "GOLC_CHASE_NAME_EMPTY") {
-		t.Fatalf("expected GOLC_CHASE_NAME_EMPTY, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_CHASE_NAME_EMPTY")
 }
 
 func TestChaseValidateChaseUniqueNamesRejectsDuplicate(t *testing.T) {
 	a, err := programming.NewChase("Sweep", buildSteps(2), programming.StepUnitBar, 1)
-	if err != nil {
-		t.Fatalf("NewChase(a): %v", err)
-	}
+	require.NoError(t, err, "NewChase(a)")
 	b, err := programming.NewChase("Sweep", buildSteps(3), programming.StepUnitBeat, 2)
-	if err != nil {
-		t.Fatalf("NewChase(b): %v", err)
-	}
+	require.NoError(t, err, "NewChase(b)")
 	err = programming.ValidateChaseUniqueNames([]programming.Chase{a, b})
-	if err == nil || !strings.Contains(err.Error(), "GOLC_CHASE_DUPLICATE_NAME") {
-		t.Fatalf("expected GOLC_CHASE_DUPLICATE_NAME, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_CHASE_DUPLICATE_NAME")
 }
 
 func TestChaseValidateChaseAcceptsValidChase(t *testing.T) {
 	chase, err := programming.NewChase("Sweep", buildSteps(3), programming.StepUnitBar, 1)
-	if err != nil {
-		t.Fatalf("NewChase: %v", err)
-	}
-	if err := programming.ValidateChase(chase); err != nil {
-		t.Fatalf("expected a valid chase to pass validation, got %v", err)
-	}
+	require.NoError(t, err, "NewChase")
+	require.NoError(t, programming.ValidateChase(chase), "expected a valid chase to pass validation")
 }

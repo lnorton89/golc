@@ -1,6 +1,10 @@
 package midi
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 // TestTakeoverRisingCross covers a physical value rising through
 // AppValue: the control must stay unarmed (and controlValue must stay
@@ -9,22 +13,16 @@ import "testing"
 func TestTakeoverRisingCross(t *testing.T) {
 	st := NewTakeoverState(0.5)
 
-	if armed, cv := st.Update(0.2); armed || cv != 0.5 {
-		t.Fatalf("Update(0.2): got armed=%v controlValue=%v, want armed=false controlValue=0.5", armed, cv)
-	}
-	if armed, cv := st.Update(0.4); armed || cv != 0.5 {
-		t.Fatalf("Update(0.4): got armed=%v controlValue=%v, want armed=false controlValue=0.5", armed, cv)
-	}
-	armed, cv := st.Update(0.6)
-	if !armed {
-		t.Fatalf("Update(0.6): got armed=false, want armed=true (0.4 -> 0.6 crosses appValue 0.5)")
-	}
-	if cv != 0.6 {
-		t.Fatalf("Update(0.6): got controlValue=%v, want 0.6 (armed control tracks physical)", cv)
-	}
-	if !st.Armed {
-		t.Fatalf("st.Armed = false after crossing, want true")
-	}
+	armed, cv := st.Update(0.2)
+	require.False(t, armed, "Update(0.2)")
+	require.Equal(t, 0.5, cv, "Update(0.2)")
+	armed, cv = st.Update(0.4)
+	require.False(t, armed, "Update(0.4)")
+	require.Equal(t, 0.5, cv, "Update(0.4)")
+	armed, cv = st.Update(0.6)
+	require.True(t, armed, "Update(0.6): want armed=true (0.4 -> 0.6 crosses appValue 0.5)")
+	require.Equal(t, 0.6, cv, "Update(0.6): armed control tracks physical")
+	require.True(t, st.Armed, "st.Armed after crossing")
 }
 
 // TestTakeoverFallingCross covers a physical value falling through
@@ -32,19 +30,15 @@ func TestTakeoverRisingCross(t *testing.T) {
 func TestTakeoverFallingCross(t *testing.T) {
 	st := NewTakeoverState(0.5)
 
-	if armed, cv := st.Update(0.9); armed || cv != 0.5 {
-		t.Fatalf("Update(0.9): got armed=%v controlValue=%v, want armed=false controlValue=0.5", armed, cv)
-	}
-	if armed, cv := st.Update(0.6); armed || cv != 0.5 {
-		t.Fatalf("Update(0.6): got armed=%v controlValue=%v, want armed=false controlValue=0.5", armed, cv)
-	}
-	armed, cv := st.Update(0.4)
-	if !armed {
-		t.Fatalf("Update(0.4): got armed=false, want armed=true (0.6 -> 0.4 crosses appValue 0.5)")
-	}
-	if cv != 0.4 {
-		t.Fatalf("Update(0.4): got controlValue=%v, want 0.4 (armed control tracks physical)", cv)
-	}
+	armed, cv := st.Update(0.9)
+	require.False(t, armed, "Update(0.9)")
+	require.Equal(t, 0.5, cv, "Update(0.9)")
+	armed, cv = st.Update(0.6)
+	require.False(t, armed, "Update(0.6)")
+	require.Equal(t, 0.5, cv, "Update(0.6)")
+	armed, cv = st.Update(0.4)
+	require.True(t, armed, "Update(0.4): want armed=true (0.6 -> 0.4 crosses appValue 0.5)")
+	require.Equal(t, 0.4, cv, "Update(0.4): armed control tracks physical")
 }
 
 // TestTakeoverNeverCrosses covers a physical value that hovers on one
@@ -57,19 +51,11 @@ func TestTakeoverNeverCrosses(t *testing.T) {
 
 	for _, physical := range []float64{0.1, 0.2, 0.3, 0.2, 0.1} {
 		armed, cv := st.Update(physical)
-		if armed {
-			t.Fatalf("Update(%v): got armed=true, want armed=false (never reaches appValue 0.5)", physical)
-		}
-		if cv != 0.5 {
-			t.Fatalf("Update(%v): got controlValue=%v, want 0.5 (ghost/target stays fixed while unarmed)", physical, cv)
-		}
-		if st.LastPhysical != physical {
-			t.Fatalf("after Update(%v): st.LastPhysical=%v, want %v (D-09: live position still tracked while unarmed)", physical, st.LastPhysical, physical)
-		}
+		require.False(t, armed, "Update(%v): never reaches appValue 0.5", physical)
+		require.Equal(t, 0.5, cv, "Update(%v): ghost/target stays fixed while unarmed", physical)
+		require.Equal(t, physical, st.LastPhysical, "after Update(%v): D-09: live position still tracked while unarmed", physical)
 	}
-	if st.Armed {
-		t.Fatalf("st.Armed = true, want false: physical never reached or crossed appValue")
-	}
+	require.False(t, st.Armed, "st.Armed: physical never reached or crossed appValue")
 }
 
 // TestTakeoverExactLanding covers a physical value that lands exactly on
@@ -78,16 +64,12 @@ func TestTakeoverNeverCrosses(t *testing.T) {
 func TestTakeoverExactLanding(t *testing.T) {
 	st := NewTakeoverState(0.5)
 
-	if armed, cv := st.Update(0.3); armed || cv != 0.5 {
-		t.Fatalf("Update(0.3): got armed=%v controlValue=%v, want armed=false controlValue=0.5", armed, cv)
-	}
-	armed, cv := st.Update(0.5)
-	if !armed {
-		t.Fatalf("Update(0.5): got armed=false, want armed=true (exact landing on appValue counts as a crossing)")
-	}
-	if cv != 0.5 {
-		t.Fatalf("Update(0.5): got controlValue=%v, want 0.5", cv)
-	}
+	armed, cv := st.Update(0.3)
+	require.False(t, armed, "Update(0.3)")
+	require.Equal(t, 0.5, cv, "Update(0.3)")
+	armed, cv = st.Update(0.5)
+	require.True(t, armed, "Update(0.5): want armed=true (exact landing on appValue counts as a crossing)")
+	require.Equal(t, 0.5, cv, "Update(0.5)")
 }
 
 // TestTakeoverFirstMessageNeverArmsSpuriously guards the bootstrap edge
@@ -97,9 +79,8 @@ func TestTakeoverExactLanding(t *testing.T) {
 func TestTakeoverFirstMessageNeverArmsSpuriously(t *testing.T) {
 	for _, first := range []float64{0.0, 0.5, 1.0} {
 		st := NewTakeoverState(0.5)
-		if armed, cv := st.Update(first); armed {
-			t.Fatalf("first Update(%v) on a fresh state: got armed=%v controlValue=%v, want armed=false (no prior physical reading to cross from)", first, armed, cv)
-		}
+		armed, _ := st.Update(first)
+		require.False(t, armed, "first Update(%v) on a fresh state: no prior physical reading to cross from", first)
 	}
 }
 
@@ -111,16 +92,12 @@ func TestTakeoverSetAppValueReseedsGhostWhileUnarmed(t *testing.T) {
 	st := NewTakeoverState(0.5)
 	st.SetAppValue(0.8)
 
-	if st.AppValue != 0.8 {
-		t.Fatalf("after SetAppValue(0.8): st.AppValue=%v, want 0.8", st.AppValue)
-	}
-	if st.Armed {
-		t.Fatalf("SetAppValue must not arm the control")
-	}
+	require.Equal(t, 0.8, st.AppValue, "after SetAppValue(0.8)")
+	require.False(t, st.Armed, "SetAppValue must not arm the control")
 
 	// A physical reading that already sits at the old target (0.5) must
 	// NOT arm the control against the new target (0.8).
-	if armed, cv := st.Update(0.5); armed || cv != 0.8 {
-		t.Fatalf("Update(0.5) after re-seed to 0.8: got armed=%v controlValue=%v, want armed=false controlValue=0.8", armed, cv)
-	}
+	armed, cv := st.Update(0.5)
+	require.False(t, armed, "Update(0.5) after re-seed to 0.8")
+	require.Equal(t, 0.8, cv, "Update(0.5) after re-seed to 0.8")
 }

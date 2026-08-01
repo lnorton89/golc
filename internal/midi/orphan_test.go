@@ -1,8 +1,9 @@
 package midi
 
 import (
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TestOrphanedProcessPIDsFindsOnlyDeadParents proves OrphanedProcessPIDs
@@ -21,9 +22,7 @@ func TestOrphanedProcessPIDsFindsOnlyDeadParents(t *testing.T) {
 
 	got := OrphanedProcessPIDs(procs, alive, "midicat.exe")
 	want := []uint32{200}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("OrphanedProcessPIDs = %v, want %v", got, want)
-	}
+	require.Equal(t, want, got)
 }
 
 // TestOrphanedProcessPIDsCaseInsensitiveName proves the process-name match
@@ -33,9 +32,7 @@ func TestOrphanedProcessPIDsCaseInsensitiveName(t *testing.T) {
 	alive := map[uint32]bool{5: true}
 
 	got := OrphanedProcessPIDs(procs, alive, "midicat.exe")
-	if len(got) != 1 || got[0] != 5 {
-		t.Fatalf("expected a case-insensitive match to find pid 5, got %v", got)
-	}
+	require.Equal(t, []uint32{5}, got, "expected a case-insensitive match to find pid 5")
 }
 
 // TestOrphanedProcessPIDsIgnoresOtherProcessNames proves an orphaned
@@ -46,16 +43,13 @@ func TestOrphanedProcessPIDsIgnoresOtherProcessNames(t *testing.T) {
 	alive := map[uint32]bool{5: true}
 
 	got := OrphanedProcessPIDs(procs, alive, "midicat.exe")
-	if len(got) != 0 {
-		t.Fatalf("expected no matches for a differently-named orphaned process, got %v", got)
-	}
+	require.Empty(t, got, "expected no matches for a differently-named orphaned process")
 }
 
 // TestOrphanedProcessPIDsEmptyInputReturnsNil proves an empty process list
 // (or one with no matches) returns no orphans rather than panicking or
 // returning a non-nil empty slice a caller might mishandle.
 func TestOrphanedProcessPIDsEmptyInputReturnsNil(t *testing.T) {
-	if got := OrphanedProcessPIDs(nil, map[uint32]bool{}, "midicat.exe"); got != nil {
-		t.Fatalf("expected nil for empty input, got %v", got)
-	}
+	got := OrphanedProcessPIDs(nil, map[uint32]bool{}, "midicat.exe")
+	require.Nil(t, got, "expected nil for empty input")
 }

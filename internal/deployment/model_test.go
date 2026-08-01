@@ -11,50 +11,39 @@
 package deployment_test
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/deployment"
 )
 
 func TestDeploymentActivateSingle(t *testing.T) {
 	a, err := deployment.NewDeployment("Venue A")
-	if err != nil {
-		t.Fatalf("NewDeployment: %v", err)
-	}
+	require.NoError(t, err, "NewDeployment")
 	b, err := deployment.NewDeployment("Venue B")
-	if err != nil {
-		t.Fatalf("NewDeployment: %v", err)
-	}
+	require.NoError(t, err, "NewDeployment")
 	deployments := []deployment.Deployment{a, b}
 
 	activated, err := deployment.Activate(deployments, "Venue A")
-	if err != nil {
-		t.Fatalf("Activate: %v", err)
-	}
+	require.NoError(t, err, "Activate")
 	assertExactlyOneActive(t, activated, "Venue A")
 
 	flipped, err := deployment.Activate(activated, "Venue B")
-	if err != nil {
-		t.Fatalf("Activate (flip): %v", err)
-	}
+	require.NoError(t, err, "Activate (flip)")
 	assertExactlyOneActive(t, flipped, "Venue B")
 
-	if err := deployment.ValidateSingleActive(flipped); err != nil {
-		t.Fatalf("expected the single-active invariant to hold: %v", err)
-	}
+	require.NoError(t, deployment.ValidateSingleActive(flipped), "expected the single-active invariant to hold")
 
-	if _, err := deployment.Activate(flipped, "Venue Nonexistent"); err == nil {
-		t.Fatal("expected activating a nonexistent deployment name to fail")
-	}
+	_, err = deployment.Activate(flipped, "Venue Nonexistent")
+	require.Error(t, err, "expected activating a nonexistent deployment name to fail")
 
 	// Directly rig two Active=true deployments to prove the guard rejects it.
 	rigged := []deployment.Deployment{a, b}
 	rigged[0].Active = true
 	rigged[1].Active = true
-	if err := deployment.ValidateSingleActive(rigged); err == nil || !strings.Contains(err.Error(), "GOLC_DEPLOYMENT_MULTIPLE_ACTIVE") {
-		t.Fatalf("expected GOLC_DEPLOYMENT_MULTIPLE_ACTIVE, got %v", err)
-	}
+	err = deployment.ValidateSingleActive(rigged)
+	require.ErrorContains(t, err, "GOLC_DEPLOYMENT_MULTIPLE_ACTIVE")
 }
 
 func assertExactlyOneActive(t *testing.T, deployments []deployment.Deployment, wantActiveName string) {
@@ -67,12 +56,8 @@ func assertExactlyOneActive(t *testing.T, deployments []deployment.Deployment, w
 			activeName = d.Name
 		}
 	}
-	if activeCount != 1 {
-		t.Fatalf("expected exactly one active deployment, got %d among %+v", activeCount, deployments)
-	}
-	if activeName != wantActiveName {
-		t.Fatalf("expected %q active, got %q", wantActiveName, activeName)
-	}
+	require.Equal(t, 1, activeCount, "expected exactly one active deployment, got %d among %+v", activeCount, deployments)
+	require.Equal(t, wantActiveName, activeName)
 }
 
 func TestNextFreeAddressBoundary(t *testing.T) {
@@ -81,92 +66,62 @@ func TestNextFreeAddressBoundary(t *testing.T) {
 	seenSecondUniverse := false
 	for i := 0; i < 150; i++ { // 512/4=128 slots per universe; 150 forces rollover.
 		universe, address, err := deployment.NextFreeAddress(existing, channelCount)
-		if err != nil {
-			t.Fatalf("NextFreeAddress iteration %d: %v", i, err)
-		}
-		if universe < 1 || address < 1 {
-			t.Fatalf("iteration %d: expected a positive universe/address, got universe=%d address=%d", i, universe, address)
-		}
-		if address+channelCount-1 > 512 {
-			t.Fatalf("iteration %d: span crosses the 512-channel universe boundary: universe=%d address=%d channelCount=%d", i, universe, address, channelCount)
-		}
+		require.NoError(t, err, "NextFreeAddress iteration %d", i)
+		require.False(t, universe < 1 || address < 1, "iteration %d: expected a positive universe/address, got universe=%d address=%d", i, universe, address)
+		require.LessOrEqual(t, address+channelCount-1, 512, "iteration %d: span crosses the 512-channel universe boundary: universe=%d address=%d channelCount=%d", i, universe, address, channelCount)
 		if universe > 1 {
 			seenSecondUniverse = true
 		}
 		existing = append(existing, deployment.Instance{Universe: universe, Address: address})
 	}
-	if !seenSecondUniverse {
-		t.Fatal("expected allocation to roll over into a second universe once the first universe filled up")
-	}
+	require.True(t, seenSecondUniverse, "expected allocation to roll over into a second universe once the first universe filled up")
 
 	// A channel count larger than any universe can ever hold is rejected.
-	if _, _, err := deployment.NextFreeAddress(nil, 513); err == nil {
-		t.Fatal("expected an error for a channel count that cannot fit in any universe")
-	}
+	_, _, err := deployment.NextFreeAddress(nil, 513)
+	require.Error(t, err, "expected an error for a channel count that cannot fit in any universe")
 
 	// Duplicate-name deployment creation is rejected.
 	d1, err := deployment.NewDeployment("Venue A")
-	if err != nil {
-		t.Fatalf("NewDeployment: %v", err)
-	}
+	require.NoError(t, err, "NewDeployment")
 	d2, err := deployment.NewDeployment("Venue A")
-	if err != nil {
-		t.Fatalf("NewDeployment (duplicate name): %v", err)
-	}
-	if err := deployment.ValidateUniqueNames([]deployment.Deployment{d1, d2}); err == nil || !strings.Contains(err.Error(), "GOLC_DEPLOYMENT_DUPLICATE_NAME") {
-		t.Fatalf("expected GOLC_DEPLOYMENT_DUPLICATE_NAME, got %v", err)
-	}
+	require.NoError(t, err, "NewDeployment (duplicate name)")
+	err = deployment.ValidateUniqueNames([]deployment.Deployment{d1, d2})
+	require.ErrorContains(t, err, "GOLC_DEPLOYMENT_DUPLICATE_NAME")
 }
 
 func TestNextFreeAddressFromStartOverride(t *testing.T) {
 	universe, address, err := deployment.NextFreeAddressFrom(nil, 1, 5, 100)
-	if err != nil {
-		t.Fatalf("NextFreeAddressFrom: %v", err)
-	}
-	if universe != 5 || address != 100 {
-		t.Fatalf("expected the scan to anchor at (5, 100), got (%d, %d)", universe, address)
-	}
+	require.NoError(t, err, "NextFreeAddressFrom")
+	require.Equal(t, 5, universe, "expected the scan to anchor at (5, 100)")
+	require.Equal(t, 100, address, "expected the scan to anchor at (5, 100)")
 
 	existing := []deployment.Instance{{Universe: 5, Address: 100}}
 	universe, address, err = deployment.NextFreeAddressFrom(existing, 1, 5, 100)
-	if err != nil {
-		t.Fatalf("NextFreeAddressFrom (occupied start): %v", err)
-	}
-	if universe != 5 || address != 101 {
-		t.Fatalf("expected the scan to skip the occupied slot and land at (5, 101), got (%d, %d)", universe, address)
-	}
+	require.NoError(t, err, "NextFreeAddressFrom (occupied start)")
+	require.Equal(t, 5, universe, "expected the scan to skip the occupied slot and land at (5, 101)")
+	require.Equal(t, 101, address, "expected the scan to skip the occupied slot and land at (5, 101)")
 
 	// Forcing exhaustion of universe 5 from address 510 (channelCount=4, so
 	// only address 509 would fit -- 510 doesn't) rolls over to universe 6,
 	// address 1, mirroring NextFreeAddress's own per-universe reset.
 	universe, address, err = deployment.NextFreeAddressFrom(nil, 4, 5, 510)
-	if err != nil {
-		t.Fatalf("NextFreeAddressFrom (rollover): %v", err)
-	}
-	if universe != 6 || address != 1 {
-		t.Fatalf("expected rollover to (6, 1), got (%d, %d)", universe, address)
-	}
+	require.NoError(t, err, "NextFreeAddressFrom (rollover)")
+	require.Equal(t, 6, universe, "expected rollover to (6, 1)")
+	require.Equal(t, 1, address, "expected rollover to (6, 1)")
 
-	if _, _, err := deployment.NextFreeAddressFrom(nil, 1, 65, 1); err == nil || !strings.Contains(err.Error(), "GOLC_DEPLOYMENT_ADDRESS_EXHAUSTED") {
-		t.Fatalf("expected GOLC_DEPLOYMENT_ADDRESS_EXHAUSTED for a start universe beyond the search ceiling, got %v", err)
-	}
+	_, _, err = deployment.NextFreeAddressFrom(nil, 1, 65, 1)
+	require.ErrorContains(t, err, "GOLC_DEPLOYMENT_ADDRESS_EXHAUSTED", "expected error for a start universe beyond the search ceiling")
 }
 
 func TestNextFreeAddressFromZeroMeansDefault(t *testing.T) {
 	var existing []deployment.Instance
 	for i := 0; i < 10; i++ {
 		wantUniverse, wantAddress, err := deployment.NextFreeAddress(existing, 4)
-		if err != nil {
-			t.Fatalf("NextFreeAddress iteration %d: %v", i, err)
-		}
+		require.NoError(t, err, "NextFreeAddress iteration %d", i)
 		gotUniverse, gotAddress, err := deployment.NextFreeAddressFrom(existing, 4, 0, 0)
-		if err != nil {
-			t.Fatalf("NextFreeAddressFrom iteration %d: %v", i, err)
-		}
-		if gotUniverse != wantUniverse || gotAddress != wantAddress {
-			t.Fatalf("iteration %d: NextFreeAddressFrom(existing, 4, 0, 0) = (%d, %d), want NextFreeAddress's (%d, %d)",
-				i, gotUniverse, gotAddress, wantUniverse, wantAddress)
-		}
+		require.NoError(t, err, "NextFreeAddressFrom iteration %d", i)
+		require.Equal(t, wantUniverse, gotUniverse, "iteration %d", i)
+		require.Equal(t, wantAddress, gotAddress, "iteration %d", i)
 		existing = append(existing, deployment.Instance{Universe: gotUniverse, Address: gotAddress})
 	}
 }

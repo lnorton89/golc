@@ -1,9 +1,10 @@
 package midi
 
 import (
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TestLearnProposeMappingAcceptsNonCollidingCandidate covers the base
@@ -15,9 +16,7 @@ func TestLearnProposeMappingAcceptsNonCollidingCandidate(t *testing.T) {
 	}
 	candidate := ControlKey{Channel: 1, Kind: ControlChange, Number: 21}
 
-	if err := ProposeMapping(existing, candidate); err != nil {
-		t.Fatalf("ProposeMapping(non-colliding candidate) = %v, want nil", err)
-	}
+	require.NoError(t, ProposeMapping(existing, candidate), "ProposeMapping(non-colliding candidate)")
 }
 
 // TestLearnProposeMappingAcceptsIntoEmptySet covers proposing against an
@@ -26,9 +25,7 @@ func TestLearnProposeMappingAcceptsIntoEmptySet(t *testing.T) {
 	var existing []ControlKey
 	candidate := ControlKey{Channel: 1, Kind: Note, Number: 60}
 
-	if err := ProposeMapping(existing, candidate); err != nil {
-		t.Fatalf("ProposeMapping(empty set) = %v, want nil", err)
-	}
+	require.NoError(t, ProposeMapping(existing, candidate), "ProposeMapping(empty set)")
 }
 
 // TestLearnProposeMappingRejectsConflictAndLeavesExistingUntouched is the
@@ -44,21 +41,8 @@ func TestLearnProposeMappingRejectsConflictAndLeavesExistingUntouched(t *testing
 	candidate := ControlKey{Channel: 2, Kind: ControlChange, Number: 74}
 
 	err := ProposeMapping(existing, candidate)
-	if err == nil {
-		t.Fatalf("ProposeMapping(colliding candidate) = nil, want GOLC_MIDI_MAPPING_CONFLICT")
-	}
-	if !strings.Contains(err.Error(), "GOLC_MIDI_MAPPING_CONFLICT") {
-		t.Fatalf("ProposeMapping error = %q, want it to contain GOLC_MIDI_MAPPING_CONFLICT", err.Error())
-	}
-
-	if len(existing) != len(before) {
-		t.Fatalf("existing set length changed: got %d, want %d (D-06: existing must be untouched)", len(existing), len(before))
-	}
-	for i := range existing {
-		if existing[i] != before[i] {
-			t.Fatalf("existing[%d] changed: got %+v, want %+v (D-06: existing must be untouched)", i, existing[i], before[i])
-		}
-	}
+	require.ErrorContains(t, err, "GOLC_MIDI_MAPPING_CONFLICT", "ProposeMapping(colliding candidate)")
+	require.Equal(t, before, existing, "D-06: existing must be untouched")
 }
 
 // TestLearnProposeMappingScopedPerSurface proves D-07: the same
@@ -71,14 +55,12 @@ func TestLearnProposeMappingScopedPerSurface(t *testing.T) {
 	}
 	candidate := ControlKey{Channel: 3, Kind: ControlChange, Number: 7}
 
-	if err := ProposeMapping(surfaceA, candidate); err == nil {
-		t.Fatalf("ProposeMapping against surfaceA = nil, want GOLC_MIDI_MAPPING_CONFLICT (candidate already mapped on surfaceA)")
-	}
+	err := ProposeMapping(surfaceA, candidate)
+	require.ErrorContains(t, err, "GOLC_MIDI_MAPPING_CONFLICT", "ProposeMapping against surfaceA (candidate already mapped on surfaceA)")
 
 	var surfaceB []ControlKey
-	if err := ProposeMapping(surfaceB, candidate); err != nil {
-		t.Fatalf("ProposeMapping against surfaceB = %v, want nil (surfaceB's set is empty; D-07 per-surface scoping)", err)
-	}
+	err = ProposeMapping(surfaceB, candidate)
+	require.NoError(t, err, "ProposeMapping against surfaceB (surfaceB's set is empty; D-07 per-surface scoping)")
 }
 
 // TestLearnProposeMappingKindIsPartOfIdentity proves a Note and a
@@ -90,9 +72,7 @@ func TestLearnProposeMappingKindIsPartOfIdentity(t *testing.T) {
 	}
 	candidate := ControlKey{Channel: 1, Kind: ControlChange, Number: 60}
 
-	if err := ProposeMapping(existing, candidate); err != nil {
-		t.Fatalf("ProposeMapping(same channel/number, different kind) = %v, want nil (kind is part of identity)", err)
-	}
+	require.NoError(t, ProposeMapping(existing, candidate), "ProposeMapping(same channel/number, different kind) (kind is part of identity)")
 }
 
 // TestLearnCaptureCandidateReturnsFirstReceived covers the accept path of
@@ -106,12 +86,8 @@ func TestLearnCaptureCandidateReturnsFirstReceived(t *testing.T) {
 	next <- want
 
 	got, err := CaptureCandidate(next, timeout)
-	if err != nil {
-		t.Fatalf("CaptureCandidate() error = %v, want nil", err)
-	}
-	if got != want {
-		t.Fatalf("CaptureCandidate() = %+v, want %+v", got, want)
-	}
+	require.NoError(t, err, "CaptureCandidate()")
+	require.Equal(t, want, got)
 }
 
 // TestLearnCaptureCandidateTimesOut covers the D-05 bound: if the capture
@@ -123,12 +99,7 @@ func TestLearnCaptureCandidateTimesOut(t *testing.T) {
 	close(timeout)
 
 	_, err := CaptureCandidate(next, timeout)
-	if err == nil {
-		t.Fatalf("CaptureCandidate() error = nil, want GOLC_MIDI_LEARN_TIMEOUT")
-	}
-	if !strings.Contains(err.Error(), "GOLC_MIDI_LEARN_TIMEOUT") {
-		t.Fatalf("CaptureCandidate() error = %q, want it to contain GOLC_MIDI_LEARN_TIMEOUT", err.Error())
-	}
+	require.ErrorContains(t, err, "GOLC_MIDI_LEARN_TIMEOUT", "CaptureCandidate() error")
 }
 
 // TestLearnCaptureCandidateDoesNotHangWithoutEitherChannel guards against
@@ -149,9 +120,7 @@ func TestLearnCaptureCandidateDoesNotHangWithoutEitherChannel(t *testing.T) {
 
 	select {
 	case err := <-done:
-		if err == nil {
-			t.Fatalf("CaptureCandidate() error = nil, want GOLC_MIDI_LEARN_TIMEOUT")
-		}
+		require.Error(t, err, "CaptureCandidate() error = nil, want GOLC_MIDI_LEARN_TIMEOUT")
 	case <-time.After(2 * time.Second):
 		t.Fatalf("CaptureCandidate did not return within 2s of timeout firing")
 	}
