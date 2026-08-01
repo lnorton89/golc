@@ -14,9 +14,10 @@ import (
 	"bytes"
 	"errors"
 	"net"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TestFrameHealthOnCadenceVsStalled proves D-09's core classification:
@@ -27,21 +28,13 @@ func TestFrameHealthOnCadenceVsStalled(t *testing.T) {
 	t0 := time.Now()
 
 	onCadence := evaluateFrameHealth(t0, t0.Add(8*time.Millisecond))
-	if !onCadence.OnCadence {
-		t.Fatal("expected on-cadence classification for an 8ms-old frame read")
-	}
-	if err := onCadence.Err(); err != nil {
-		t.Fatalf("expected no error for on-cadence frame health, got %v", err)
-	}
+	require.True(t, onCadence.OnCadence, "expected on-cadence classification for an 8ms-old frame read")
+	require.NoError(t, onCadence.Err(), "expected no error for on-cadence frame health")
 
 	stalled := evaluateFrameHealth(t0, t0.Add(400*time.Millisecond))
-	if stalled.OnCadence {
-		t.Fatal("expected stalled classification for a 400ms-old frame read")
-	}
+	require.False(t, stalled.OnCadence, "expected stalled classification for a 400ms-old frame read")
 	err := stalled.Err()
-	if err == nil || !strings.Contains(err.Error(), "GOLC_ARTNET_FRAME_STALLED") {
-		t.Fatalf("expected GOLC_ARTNET_FRAME_STALLED, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_ARTNET_FRAME_STALLED")
 }
 
 // TestFrameHealthNeverRecordedIsStalled proves the zero-value case (no
@@ -49,9 +42,7 @@ func TestFrameHealthOnCadenceVsStalled(t *testing.T) {
 // on-cadence positive.
 func TestFrameHealthNeverRecordedIsStalled(t *testing.T) {
 	fh := evaluateFrameHealth(time.Time{}, time.Now())
-	if fh.OnCadence {
-		t.Fatal("expected a never-recorded frame to classify as stalled")
-	}
+	require.False(t, fh.OnCadence, "expected a never-recorded frame to classify as stalled")
 }
 
 // TestHealthRecordFrameThenSnapshotReportsFreshness is an integration-
@@ -61,18 +52,13 @@ func TestHealthRecordFrameThenSnapshotReportsFreshness(t *testing.T) {
 	h := NewHealth()
 
 	h.RecordFrame(time.Now())
-	if snap := h.Snapshot(); !snap.Frame.OnCadence {
-		t.Fatal("expected a freshly recorded frame to be on-cadence")
-	}
+	snap := h.Snapshot()
+	require.True(t, snap.Frame.OnCadence, "expected a freshly recorded frame to be on-cadence")
 
 	h.RecordFrame(time.Now().Add(-time.Second))
-	snap := h.Snapshot()
-	if snap.Frame.OnCadence {
-		t.Fatal("expected a frame recorded 1s in the past to be stalled")
-	}
-	if err := snap.Frame.Err(); err == nil {
-		t.Fatal("expected stalled frame health to report a non-nil error")
-	}
+	snap = h.Snapshot()
+	require.False(t, snap.Frame.OnCadence, "expected a frame recorded 1s in the past to be stalled")
+	require.Error(t, snap.Frame.Err(), "expected stalled frame health to report a non-nil error")
 }
 
 // TestHealthTargetSendAccumulatesAndDistinguishesReachability proves
@@ -89,25 +75,17 @@ func TestHealthTargetSendAccumulatesAndDistinguishesReachability(t *testing.T) {
 	key := keyOf(target)
 	snap := h.Snapshot()
 	th, ok := snap.Targets[key]
-	if !ok {
-		t.Fatal("expected a tracked entry for the configured target")
-	}
-	if th.SendErr != 2 || th.SendOK != 0 {
-		t.Fatalf("expected SendErr=2 SendOK=0, got SendErr=%d SendOK=%d", th.SendErr, th.SendOK)
-	}
-	if th.Reachable {
-		t.Fatal("expected a target with only errors to be unreachable")
-	}
+	require.True(t, ok, "expected a tracked entry for the configured target")
+	require.Equalf(t, 2, th.SendErr, "expected SendErr=2 SendOK=0, got SendErr=%d SendOK=%d", th.SendErr, th.SendOK)
+	require.Equalf(t, 0, th.SendOK, "expected SendErr=2 SendOK=0, got SendErr=%d SendOK=%d", th.SendErr, th.SendOK)
+	require.False(t, th.Reachable, "expected a target with only errors to be unreachable")
 
 	h.RecordSend(1, target, nil)
 	snap = h.Snapshot()
 	th = snap.Targets[key]
-	if th.SendOK != 1 || !th.Reachable {
-		t.Fatalf("expected SendOK=1 Reachable=true after a successful send, got SendOK=%d Reachable=%v", th.SendOK, th.Reachable)
-	}
-	if th.SendErr != 2 {
-		t.Fatalf("expected prior SendErr=2 to be preserved, got %d", th.SendErr)
-	}
+	require.Equalf(t, 1, th.SendOK, "expected SendOK=1 Reachable=true after a successful send, got SendOK=%d Reachable=%v", th.SendOK, th.Reachable)
+	require.Truef(t, th.Reachable, "expected SendOK=1 Reachable=true after a successful send, got SendOK=%d Reachable=%v", th.SendOK, th.Reachable)
+	require.Equalf(t, 2, th.SendErr, "expected prior SendErr=2 to be preserved, got %d", th.SendErr)
 }
 
 // TestHealthUnconfiguredTargetNeverTracked proves the Security Domain
@@ -124,12 +102,9 @@ func TestHealthUnconfiguredTargetNeverTracked(t *testing.T) {
 	h.RecordSend(1, unsolicited, nil)
 
 	snap := h.Snapshot()
-	if _, ok := snap.Targets[keyOf(unsolicited)]; ok {
-		t.Fatal("expected an unsolicited/unconfigured target to never gain a tracking entry")
-	}
-	if len(snap.Targets) != 1 {
-		t.Fatalf("expected exactly 1 tracked (configured) target, got %d", len(snap.Targets))
-	}
+	_, ok := snap.Targets[keyOf(unsolicited)]
+	require.False(t, ok, "expected an unsolicited/unconfigured target to never gain a tracking entry")
+	require.Len(t, snap.Targets, 1, "expected exactly 1 tracked (configured) target")
 }
 
 // TestHealthSnapshotConcurrentWithRecordSendNoRace proves the snapshot is
@@ -170,15 +145,9 @@ func TestHealthRecordSendErrorEmitsStructuredLogLine(t *testing.T) {
 	h.RecordSend(5, target, errors.New("write failed"))
 
 	logLine := buf.String()
-	if !strings.Contains(logLine, "GOLC_ARTNET_SEND_FAILED") {
-		t.Fatalf("expected log line to contain GOLC_ARTNET_SEND_FAILED, got %q", logLine)
-	}
-	if !strings.Contains(logLine, "universe=5") {
-		t.Fatalf("expected log line to contain universe=5, got %q", logLine)
-	}
-	if !strings.Contains(logLine, "10.0.0.7") {
-		t.Fatalf("expected log line to contain the target IP, got %q", logLine)
-	}
+	require.Contains(t, logLine, "GOLC_ARTNET_SEND_FAILED")
+	require.Contains(t, logLine, "universe=5")
+	require.Contains(t, logLine, "10.0.0.7")
 }
 
 // TestHealthRecordEncodeErrorEmitsStructuredLogLine proves D-11 for
@@ -194,12 +163,8 @@ func TestHealthRecordEncodeErrorEmitsStructuredLogLine(t *testing.T) {
 	h.RecordEncodeError(7, errors.New("bad layout"))
 
 	logLine := buf.String()
-	if !strings.Contains(logLine, "GOLC_ARTNET_ENCODE_FAILED") {
-		t.Fatalf("expected log line to contain GOLC_ARTNET_ENCODE_FAILED, got %q", logLine)
-	}
-	if !strings.Contains(logLine, "universe=7") {
-		t.Fatalf("expected log line to contain universe=7, got %q", logLine)
-	}
+	require.Contains(t, logLine, "GOLC_ARTNET_ENCODE_FAILED")
+	require.Contains(t, logLine, "universe=7")
 }
 
 // TestHealthRecordUniverseValuesSnapshotReflectsConfiguredUniverse proves
@@ -217,12 +182,8 @@ func TestHealthRecordUniverseValuesSnapshotReflectsConfiguredUniverse(t *testing
 
 	snap := h.Snapshot()
 	got, ok := snap.UniverseValues[1]
-	if !ok {
-		t.Fatal("expected a tracked UniverseValues entry for configured universe 1")
-	}
-	if !bytes.Equal(got, buf) {
-		t.Fatalf("expected recorded universe values to equal %v, got %v", buf, got)
-	}
+	require.True(t, ok, "expected a tracked UniverseValues entry for configured universe 1")
+	require.True(t, bytes.Equal(got, buf), "expected recorded universe values to equal %v, got %v", buf, got)
 }
 
 // TestHealthUnconfiguredUniverseValuesNeverTracked proves the Security
@@ -236,12 +197,9 @@ func TestHealthUnconfiguredUniverseValuesNeverTracked(t *testing.T) {
 	h.RecordUniverseValues(2, make([]byte, channelsPerUniverse))
 
 	snap := h.Snapshot()
-	if _, ok := snap.UniverseValues[2]; ok {
-		t.Fatal("expected an unconfigured universe to never gain a UniverseValues tracking entry")
-	}
-	if len(snap.UniverseValues) != 0 {
-		t.Fatalf("expected exactly 0 tracked universe values (universe 1 never recorded), got %d", len(snap.UniverseValues))
-	}
+	_, ok := snap.UniverseValues[2]
+	require.False(t, ok, "expected an unconfigured universe to never gain a UniverseValues tracking entry")
+	require.Len(t, snap.UniverseValues, 0, "expected exactly 0 tracked universe values (universe 1 never recorded)")
 }
 
 // TestHealthRecordUniverseValuesIsDefensivelyCopied proves
@@ -260,7 +218,5 @@ func TestHealthRecordUniverseValuesIsDefensivelyCopied(t *testing.T) {
 
 	snap := h.Snapshot()
 	got := snap.UniverseValues[1]
-	if got[0] != 5 {
-		t.Fatalf("expected the recorded snapshot to be unaffected by a later mutation of the caller's buffer, got byte %d", got[0])
-	}
+	require.Equalf(t, byte(5), got[0], "expected the recorded snapshot to be unaffected by a later mutation of the caller's buffer, got byte %d", got[0])
 }

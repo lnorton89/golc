@@ -15,6 +15,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 // loopbackInterfaceInfo is a minimal InterfaceInfo naming the IPv4
@@ -75,18 +77,10 @@ func TestDiscoverReturnsGoodNodeAsSuggestion(t *testing.T) {
 	})
 
 	nodes, err := Discover(context.Background(), loopbackInterfaceInfo(), 200*time.Millisecond)
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-	if len(nodes) != 1 {
-		t.Fatalf("expected exactly 1 discovered node, got %d: %+v", len(nodes), nodes)
-	}
-	if !nodes[0].IP.Equal(net.IPv4(10, 0, 0, 5)) {
-		t.Fatalf("expected discovered IP 10.0.0.5, got %v", nodes[0].IP)
-	}
-	if nodes[0].ShortName != "GOLC-Node" {
-		t.Fatalf("expected short name %q, got %q", "GOLC-Node", nodes[0].ShortName)
-	}
+	require.NoError(t, err, "Discover failed")
+	require.Lenf(t, nodes, 1, "expected exactly 1 discovered node, got %d: %+v", len(nodes), nodes)
+	require.Truef(t, nodes[0].IP.Equal(net.IPv4(10, 0, 0, 5)), "expected discovered IP 10.0.0.5, got %v", nodes[0].IP)
+	require.Equalf(t, "GOLC-Node", nodes[0].ShortName, "expected short name %q, got %q", "GOLC-Node", nodes[0].ShortName)
 }
 
 // TestDiscoverSkipsMalformedReply proves (b): a malformed reply datagram
@@ -106,15 +100,9 @@ func TestDiscoverSkipsMalformedReply(t *testing.T) {
 	})
 
 	nodes, err := Discover(context.Background(), loopbackInterfaceInfo(), 200*time.Millisecond)
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-	if len(nodes) != 1 {
-		t.Fatalf("expected the malformed reply to be skipped and only the good node returned, got %d: %+v", len(nodes), nodes)
-	}
-	if !nodes[0].IP.Equal(net.IPv4(10, 0, 0, 6)) {
-		t.Fatalf("expected discovered IP 10.0.0.6, got %v", nodes[0].IP)
-	}
+	require.NoError(t, err, "Discover failed")
+	require.Lenf(t, nodes, 1, "expected the malformed reply to be skipped and only the good node returned, got %d: %+v", len(nodes), nodes)
+	require.Truef(t, nodes[0].IP.Equal(net.IPv4(10, 0, 0, 6)), "expected discovered IP 10.0.0.6, got %v", nodes[0].IP)
 }
 
 // TestDiscoverZeroRepliesReturnsEmptyList proves (c): zero replies within
@@ -126,13 +114,7 @@ func TestDiscoverZeroRepliesReturnsEmptyList(t *testing.T) {
 	})
 
 	nodes, err := Discover(context.Background(), loopbackInterfaceInfo(), 50*time.Millisecond)
-	if err != nil {
-		t.Fatalf("expected no error on zero replies, got: %v", err)
-	}
-	if nodes == nil {
-		t.Fatal("expected a non-nil empty slice, got nil")
-	}
-	if len(nodes) != 0 {
-		t.Fatalf("expected zero discovered nodes, got %d: %+v", len(nodes), nodes)
-	}
+	require.NoError(t, err, "expected no error on zero replies")
+	require.NotNil(t, nodes, "expected a non-nil empty slice, got nil")
+	require.Lenf(t, nodes, 0, "expected zero discovered nodes, got %d: %+v", len(nodes), nodes)
 }

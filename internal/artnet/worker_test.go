@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/deployment"
 	"github.com/lnorton89/golc/internal/fixture"
@@ -75,9 +76,7 @@ func (f *fakeFrameSource) setFrame(frame *playback.Frame) {
 func newLoopbackListener(t *testing.T) *net.UDPConn {
 	t.Helper()
 	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
-	if err != nil {
-		t.Fatalf("ListenUDP: %v", err)
-	}
+	require.NoError(t, err, "ListenUDP")
 	t.Cleanup(func() { conn.Close() })
 	return conn
 }
@@ -85,9 +84,7 @@ func newLoopbackListener(t *testing.T) *net.UDPConn {
 func listenerPort(t *testing.T, conn *net.UDPConn) int {
 	t.Helper()
 	addr, ok := conn.LocalAddr().(*net.UDPAddr)
-	if !ok {
-		t.Fatalf("expected *net.UDPAddr, got %T", conn.LocalAddr())
-	}
+	require.Truef(t, ok, "expected *net.UDPAddr, got %T", conn.LocalAddr())
 	return addr.Port
 }
 
@@ -113,9 +110,7 @@ func (s *slowSender) Close() error { return nil }
 func mustInstanceID(t *testing.T) uuid.UUID {
 	t.Helper()
 	id, err := uuid.NewV7()
-	if err != nil {
-		t.Fatalf("uuid.NewV7: %v", err)
-	}
+	require.NoError(t, err, "uuid.NewV7")
 	return id
 }
 
@@ -152,41 +147,23 @@ func TestWorkerLoopbackReceivesDecodableArtDMX(t *testing.T) {
 	}()
 
 	buf := make([]byte, 600)
-	if err := listener.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
-		t.Fatalf("SetReadDeadline: %v", err)
-	}
+	require.NoError(t, listener.SetReadDeadline(time.Now().Add(2*time.Second)), "SetReadDeadline")
 	n, _, err := listener.ReadFromUDP(buf)
-	if err != nil {
-		t.Fatalf("ReadFromUDP: %v", err)
-	}
+	require.NoError(t, err, "ReadFromUDP")
 	pkt := buf[:n]
 
-	if n < 18 {
-		t.Fatalf("packet too short: %d bytes", n)
-	}
-	if string(pkt[0:8]) != "Art-Net\x00" {
-		t.Fatalf("bad Art-Net ID header: %q", pkt[0:8])
-	}
+	require.GreaterOrEqualf(t, n, 18, "packet too short: %d bytes", n)
+	require.Equalf(t, "Art-Net\x00", string(pkt[0:8]), "bad Art-Net ID header: %q", pkt[0:8])
 	seq := pkt[12]
-	if seq != 1 {
-		t.Fatalf("expected first sequence to be 1, got %d", seq)
-	}
+	require.Equalf(t, byte(1), seq, "expected first sequence to be 1, got %d", seq)
 	gotPortAddress := uint16(pkt[14]) | uint16(pkt[15])<<8
 	wantPortAddress := PortAddress(3)
-	if gotPortAddress != wantPortAddress {
-		t.Fatalf("expected Port-Address %#x, got %#x", wantPortAddress, gotPortAddress)
-	}
+	require.Equalf(t, wantPortAddress, gotPortAddress, "expected Port-Address %#x, got %#x", wantPortAddress, gotPortAddress)
 	length := int(pkt[16])<<8 | int(pkt[17])
-	if length != channelsPerUniverse {
-		t.Fatalf("expected data length %d, got %d", channelsPerUniverse, length)
-	}
+	require.Equalf(t, channelsPerUniverse, length, "expected data length %d, got %d", channelsPerUniverse, length)
 	data := pkt[18:]
-	if len(data) != channelsPerUniverse {
-		t.Fatalf("expected %d data bytes, got %d", channelsPerUniverse, len(data))
-	}
-	if data[0] != 255 {
-		t.Fatalf("expected channel 0 (intensity=1.0) to encode to 255, got %d", data[0])
-	}
+	require.Lenf(t, data, channelsPerUniverse, "expected %d data bytes, got %d", channelsPerUniverse, len(data))
+	require.Equalf(t, byte(255), data[0], "expected channel 0 (intensity=1.0) to encode to 255, got %d", data[0])
 }
 
 // TestWorkerSlowTargetDoesNotStallHealthyTarget proves (b): ARTN-04's
@@ -227,9 +204,7 @@ func TestWorkerSlowTargetDoesNotStallHealthyTarget(t *testing.T) {
 
 	window := 150 * time.Millisecond // ~6 ticks at 40Hz
 	deadline := time.Now().Add(window + time.Second)
-	if err := healthyListener.SetReadDeadline(deadline); err != nil {
-		t.Fatalf("SetReadDeadline: %v", err)
-	}
+	require.NoError(t, healthyListener.SetReadDeadline(deadline), "SetReadDeadline")
 
 	received := 0
 	stop := time.Now().Add(window)
@@ -245,16 +220,12 @@ func TestWorkerSlowTargetDoesNotStallHealthyTarget(t *testing.T) {
 		}
 	}
 
-	if received < 3 {
-		t.Fatalf("expected the healthy target to keep receiving packets on cadence despite a slow target, got only %d packets in %s", received, window)
-	}
+	require.GreaterOrEqualf(t, received, 3, "expected the healthy target to keep receiving packets on cadence despite a slow target, got only %d packets in %s", received, window)
 
 	// The slow target's Write is proven to have actually been invoked
 	// (not skipped), demonstrating the tick loop dispatched to it without
 	// waiting for it.
-	if slow.sends.Load() == 0 {
-		t.Fatal("expected the slow target's Write to have been invoked at least once")
-	}
+	require.NotZero(t, slow.sends.Load(), "expected the slow target's Write to have been invoked at least once")
 }
 
 // TestWorkerDisabledTargetReceivesNothing proves (c, D-12): a disabled
@@ -287,19 +258,13 @@ func TestWorkerDisabledTargetReceivesNothing(t *testing.T) {
 	}()
 
 	buf := make([]byte, 600)
-	if err := enabledListener.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
-		t.Fatalf("SetReadDeadline: %v", err)
-	}
-	if _, _, err := enabledListener.ReadFromUDP(buf); err != nil {
-		t.Fatalf("expected the enabled target to receive a packet, got error: %v", err)
-	}
+	require.NoError(t, enabledListener.SetReadDeadline(time.Now().Add(2*time.Second)), "SetReadDeadline")
+	_, _, err := enabledListener.ReadFromUDP(buf)
+	require.NoError(t, err, "expected the enabled target to receive a packet")
 
-	if err := disabledListener.SetReadDeadline(time.Now().Add(100 * time.Millisecond)); err != nil {
-		t.Fatalf("SetReadDeadline: %v", err)
-	}
-	if n, _, err := disabledListener.ReadFromUDP(buf); err == nil {
-		t.Fatalf("expected the disabled target to receive nothing, got %d bytes", n)
-	}
+	require.NoError(t, disabledListener.SetReadDeadline(time.Now().Add(100*time.Millisecond)), "SetReadDeadline")
+	n, _, err := disabledListener.ReadFromUDP(buf)
+	require.Errorf(t, err, "expected the disabled target to receive nothing, got %d bytes", n)
 }
 
 // TestSafetyOverrideBlackoutTakesEffectDespiteSlowTarget proves
@@ -351,16 +316,10 @@ func TestSafetyOverrideBlackoutTakesEffectDespiteSlowTarget(t *testing.T) {
 	// Confirm the healthy target first receives the programmed (non-zero)
 	// intensity before any override is set.
 	buf := make([]byte, 600)
-	if err := healthyListener.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
-		t.Fatalf("SetReadDeadline: %v", err)
-	}
+	require.NoError(t, healthyListener.SetReadDeadline(time.Now().Add(2*time.Second)), "SetReadDeadline")
 	n, _, err := healthyListener.ReadFromUDP(buf)
-	if err != nil {
-		t.Fatalf("ReadFromUDP (pre-blackout): %v", err)
-	}
-	if buf[18] != 255 {
-		t.Fatalf("expected pre-blackout channel 0 to be 255 (intensity=1.0), got %d", buf[18])
-	}
+	require.NoError(t, err, "ReadFromUDP (pre-blackout)")
+	require.Equalf(t, byte(255), buf[18], "expected pre-blackout channel 0 to be 255 (intensity=1.0), got %d", buf[18])
 
 	// setBlackout mirrors exactly what the daemon's "artnet safety
 	// blackout" handler calls -- a single non-blocking atomic Store, never
@@ -372,9 +331,7 @@ func TestSafetyOverrideBlackoutTakesEffectDespiteSlowTarget(t *testing.T) {
 	deadline := time.Now().Add(500 * time.Millisecond)
 	sawZero := false
 	for time.Now().Before(deadline) {
-		if err := healthyListener.SetReadDeadline(deadline); err != nil {
-			t.Fatalf("SetReadDeadline: %v", err)
-		}
+		require.NoError(t, healthyListener.SetReadDeadline(deadline), "SetReadDeadline")
 		n, _, err = healthyListener.ReadFromUDP(buf)
 		if err != nil {
 			break
@@ -384,13 +341,9 @@ func TestSafetyOverrideBlackoutTakesEffectDespiteSlowTarget(t *testing.T) {
 			break
 		}
 	}
-	if !sawZero {
-		t.Fatal("expected the healthy target to receive zeroed intensity within the bounded window after setBlackout, despite a slow target in flight")
-	}
+	require.True(t, sawZero, "expected the healthy target to receive zeroed intensity within the bounded window after setBlackout, despite a slow target in flight")
 
-	if slow.sends.Load() == 0 {
-		t.Fatal("expected the slow target's Write to have been invoked at least once")
-	}
+	require.NotZero(t, slow.sends.Load(), "expected the slow target's Write to have been invoked at least once")
 }
 
 // TestWorkerGroupMasterComposesWithGrandMaster proves (g, PLAY-06
@@ -419,12 +372,8 @@ func TestWorkerGroupMasterComposesWithGrandMaster(t *testing.T) {
 
 	frames := &fakeFrameSource{frame: frameWithIntensity(instanceID, 1.0)}
 	safety := newSafetyState()
-	if err := safety.setGrandMaster(0.5); err != nil {
-		t.Fatalf("setGrandMaster: %v", err)
-	}
-	if err := safety.setGroupMaster(groupID, 0.5); err != nil {
-		t.Fatalf("setGroupMaster: %v", err)
-	}
+	require.NoError(t, safety.setGrandMaster(0.5), "setGrandMaster")
+	require.NoError(t, safety.setGroupMaster(groupID, 0.5), "setGroupMaster")
 
 	w := NewWorker(WorkerConfig{
 		Frames:    frames,
@@ -443,18 +392,13 @@ func TestWorkerGroupMasterComposesWithGrandMaster(t *testing.T) {
 	}()
 
 	buf := make([]byte, 600)
-	if err := healthyListener.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
-		t.Fatalf("SetReadDeadline: %v", err)
-	}
-	if _, _, err := healthyListener.ReadFromUDP(buf); err != nil {
-		t.Fatalf("ReadFromUDP: %v", err)
-	}
+	require.NoError(t, healthyListener.SetReadDeadline(time.Now().Add(2*time.Second)), "SetReadDeadline")
+	_, _, err := healthyListener.ReadFromUDP(buf)
+	require.NoError(t, err, "ReadFromUDP")
 
 	var composed float64 = 0.25
 	wantChannel := byte(composed * 255) // channelmap's own [0,1]->[0,255] scaling (truncating)
-	if buf[18] != wantChannel {
-		t.Fatalf("expected channel 0 to reflect grand(0.5)*group(0.5)=0.25 of full intensity (%d), got %d", wantChannel, buf[18])
-	}
+	require.Equalf(t, wantChannel, buf[18], "expected channel 0 to reflect grand(0.5)*group(0.5)=0.25 of full intensity (%d), got %d", wantChannel, buf[18])
 }
 
 // TestWorkerSequenceAdvancesPerUniverseNeverZero proves (d): sequence
@@ -475,20 +419,14 @@ func TestWorkerSequenceAdvancesPerUniverseNeverZero(t *testing.T) {
 
 	wantUniverse1 := []uint8{1, 2, 3}
 	for i, want := range wantUniverse1 {
-		if gotUniverse1[i] != want {
-			t.Fatalf("universe 1 sequence[%d] = %d, want %d", i, gotUniverse1[i], want)
-		}
+		require.Equalf(t, want, gotUniverse1[i], "universe 1 sequence[%d] = %d, want %d", i, gotUniverse1[i], want)
 	}
 	wantUniverse2 := []uint8{1, 2}
 	for i, want := range wantUniverse2 {
-		if gotUniverse2[i] != want {
-			t.Fatalf("universe 2 sequence[%d] = %d, want %d", i, gotUniverse2[i], want)
-		}
+		require.Equalf(t, want, gotUniverse2[i], "universe 2 sequence[%d] = %d, want %d", i, gotUniverse2[i], want)
 	}
 	for _, seq := range append(gotUniverse1, gotUniverse2...) {
-		if seq == 0 {
-			t.Fatal("sequence must never emit 0 (Pitfall 2)")
-		}
+		require.NotZero(t, seq, "sequence must never emit 0 (Pitfall 2)")
 	}
 }
 
@@ -513,7 +451,5 @@ func TestWorkerStopEndsGoroutine(t *testing.T) {
 	time.Sleep(5 * workerTickInterval)
 	callsAfterWait := frames.calls.Load()
 
-	if callsAfterWait != callsAtStop {
-		t.Fatalf("expected no further CurrentFrame reads after Stop, got %d more", callsAfterWait-callsAtStop)
-	}
+	require.Equalf(t, callsAtStop, callsAfterWait, "expected no further CurrentFrame reads after Stop, got %d more", callsAfterWait-callsAtStop)
 }
