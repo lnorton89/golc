@@ -25,14 +25,13 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/artnet/ipc"
 	"github.com/lnorton89/golc/internal/scene"
@@ -72,9 +71,7 @@ func platformTestEndpoint(t *testing.T, prefix string) string {
 func minimalPlayableState(t *testing.T) show.State {
 	t.Helper()
 	sc, err := scene.NewScene("Test Scene", 1)
-	if err != nil {
-		t.Fatalf("scene.NewScene: %v", err)
-	}
+	require.NoError(t, err, "scene.NewScene")
 	sc.Active = true
 	return show.State{Scenes: []scene.Scene{sc}, Tempo: show.Tempo{BPM: 120}}
 }
@@ -85,9 +82,7 @@ func minimalPlayableState(t *testing.T) show.State {
 func loopbackInterfaceIndex(t *testing.T) int {
 	t.Helper()
 	ifaces, err := ListCandidateInterfaces()
-	if err != nil {
-		t.Fatalf("ListCandidateInterfaces: %v", err)
-	}
+	require.NoError(t, err, "ListCandidateInterfaces")
 	for _, iface := range ifaces {
 		for _, addr := range iface.Addrs {
 			if ip := addrIP(addr); ip != nil && ip.IsLoopback() && ip.To4() != nil {
@@ -124,7 +119,7 @@ func startTestDaemon(t *testing.T) (pipeName string, runDone chan error, cancel 
 		select {
 		case <-runDone:
 		case <-time.After(5 * time.Second):
-			t.Fatal("Run did not return within 5s of ctx cancel")
+			require.Fail(t, "Run did not return within 5s of ctx cancel")
 		}
 	})
 
@@ -145,7 +140,7 @@ func dialTestDaemon(t *testing.T, pipeName string) net.Conn {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatalf("Dial: %v", dialErr)
+	require.NoError(t, dialErr, "Dial")
 	return nil
 }
 
@@ -159,15 +154,9 @@ func TestDaemonRunServesStatusAndShutsDownCleanly(t *testing.T) {
 	defer conn.Close()
 
 	result := ipc.Forward(conn, ipc.Request{Route: "artnet status"})
-	if result.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0 from status, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
-	if len(result.Stdout) == 0 {
-		t.Fatal("expected a non-empty health snapshot in Stdout")
-	}
-	if !strings.Contains(string(result.Stdout), "OnCadence") {
-		t.Fatalf("expected the health snapshot JSON to mention OnCadence, got: %s", result.Stdout)
-	}
+	require.Equalf(t, 0, result.ExitCode, "expected ExitCode 0 from status, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	require.NotEmpty(t, result.Stdout, "expected a non-empty health snapshot in Stdout")
+	require.Contains(t, string(result.Stdout), "OnCadence", "expected the health snapshot JSON to mention OnCadence")
 }
 
 // TestDaemonUnknownRouteReturnsRouteUnknown proves (b): the daemon's
@@ -180,12 +169,8 @@ func TestDaemonUnknownRouteReturnsRouteUnknown(t *testing.T) {
 	defer conn.Close()
 
 	result := ipc.Forward(conn, ipc.Request{Route: "artnet bogus"})
-	if result.ExitCode != 2 {
-		t.Fatalf("expected ExitCode 2 for an unknown route, got %d", result.ExitCode)
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_ROUTE_UNKNOWN") {
-		t.Fatalf("expected GOLC_ARTNET_ROUTE_UNKNOWN, got: %s", result.Stderr)
-	}
+	require.Equalf(t, 2, result.ExitCode, "expected ExitCode 2 for an unknown route, got %d", result.ExitCode)
+	require.Contains(t, string(result.Stderr), "GOLC_ARTNET_ROUTE_UNKNOWN")
 }
 
 // TestDaemonConfigureThenTargetDisableEnable proves (c): "artnet configure"
@@ -201,30 +186,22 @@ func TestDaemonConfigureThenTargetDisableEnable(t *testing.T) {
 	configureResult := ipc.Forward(configureConn, ipc.Request{Route: "artnet configure", Args: []string{
 		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454",
 	}})
-	if configureResult.ExitCode != 0 {
-		t.Fatalf("expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
-	}
+	require.Equalf(t, 0, configureResult.ExitCode, "expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
 
 	disableConn := dialTestDaemon(t, pipeName)
 	defer disableConn.Close()
 	disableResult := ipc.Forward(disableConn, ipc.Request{Route: "artnet target disable", Args: []string{
 		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454",
 	}})
-	if disableResult.ExitCode != 0 {
-		t.Fatalf("expected target disable to succeed, got ExitCode %d stderr %s", disableResult.ExitCode, disableResult.Stderr)
-	}
+	require.Equalf(t, 0, disableResult.ExitCode, "expected target disable to succeed, got ExitCode %d stderr %s", disableResult.ExitCode, disableResult.Stderr)
 
 	notFoundConn := dialTestDaemon(t, pipeName)
 	defer notFoundConn.Close()
 	notFoundResult := ipc.Forward(notFoundConn, ipc.Request{Route: "artnet target enable", Args: []string{
 		"--universe", "99", "--ip", "10.0.0.9", "--port", "6454",
 	}})
-	if notFoundResult.ExitCode != 1 {
-		t.Fatalf("expected ExitCode 1 for an unknown target, got %d", notFoundResult.ExitCode)
-	}
-	if !strings.Contains(string(notFoundResult.Stderr), "GOLC_ARTNET_TARGET_NOT_FOUND") {
-		t.Fatalf("expected GOLC_ARTNET_TARGET_NOT_FOUND, got: %s", notFoundResult.Stderr)
-	}
+	require.Equalf(t, 1, notFoundResult.ExitCode, "expected ExitCode 1 for an unknown target, got %d", notFoundResult.ExitCode)
+	require.Contains(t, string(notFoundResult.Stderr), "GOLC_ARTNET_TARGET_NOT_FOUND")
 }
 
 // TestDaemonStatusPayloadIncludesConfiguredUniverseValues proves
@@ -242,34 +219,26 @@ func TestDaemonStatusPayloadIncludesConfiguredUniverseValues(t *testing.T) {
 	configureResult := ipc.Forward(configureConn, ipc.Request{Route: "artnet configure", Args: []string{
 		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454",
 	}})
-	if configureResult.ExitCode != 0 {
-		t.Fatalf("expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
-	}
+	require.Equalf(t, 0, configureResult.ExitCode, "expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		statusConn := dialTestDaemon(t, pipeName)
 		result := ipc.Forward(statusConn, ipc.Request{Route: "artnet status"})
 		statusConn.Close()
-		if result.ExitCode != 0 {
-			t.Fatalf("expected status ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-		}
+		require.Equalf(t, 0, result.ExitCode, "expected status ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
 
 		var payload statusPayload
-		if err := strictjson.DecodeStrict(result.Stdout, &payload); err != nil {
-			t.Fatalf("DecodeStrict: %v", err)
-		}
+		require.NoError(t, strictjson.DecodeStrict(result.Stdout, &payload), "DecodeStrict")
 		for _, u := range payload.Universes {
 			if u.Universe == 1 {
-				if len(u.Values) != channelsPerUniverse {
-					t.Fatalf("expected universe 1's values to be %d bytes, got %d", channelsPerUniverse, len(u.Values))
-				}
+				require.Lenf(t, u.Values, channelsPerUniverse, "expected universe 1's values to be %d bytes, got %d", channelsPerUniverse, len(u.Values))
 				return
 			}
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	t.Fatal("expected a populated universe 1 values entry within the deadline")
+	require.Fail(t, "expected a populated universe 1 values entry within the deadline")
 }
 
 // TestDaemonStatusPayloadIncludesPinnedInterfaceStatus proves 04-09-PLAN.md's
@@ -284,23 +253,13 @@ func TestDaemonStatusPayloadIncludesPinnedInterfaceStatus(t *testing.T) {
 	defer conn.Close()
 
 	result := ipc.Forward(conn, ipc.Request{Route: "artnet status"})
-	if result.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0 from status, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
+	require.Equalf(t, 0, result.ExitCode, "expected ExitCode 0 from status, got %d (stderr: %s)", result.ExitCode, result.Stderr)
 
 	var payload statusPayload
-	if err := strictjson.DecodeStrict(result.Stdout, &payload); err != nil {
-		t.Fatalf("DecodeStrict: %v", err)
-	}
-	if payload.Interface.PinnedIndex != loopbackIdx {
-		t.Fatalf("expected Interface.PinnedIndex %d, got %d", loopbackIdx, payload.Interface.PinnedIndex)
-	}
-	if payload.Interface.Status != "ok" {
-		t.Fatalf("expected Interface.Status \"ok\", got %q", payload.Interface.Status)
-	}
-	if payload.Interface.Error != "" {
-		t.Fatalf("expected empty Interface.Error, got %q", payload.Interface.Error)
-	}
+	require.NoError(t, strictjson.DecodeStrict(result.Stdout, &payload), "DecodeStrict")
+	require.Equalf(t, loopbackIdx, payload.Interface.PinnedIndex, "expected Interface.PinnedIndex %d, got %d", loopbackIdx, payload.Interface.PinnedIndex)
+	require.Equalf(t, "ok", payload.Interface.Status, "expected Interface.Status \"ok\", got %q", payload.Interface.Status)
+	require.Emptyf(t, payload.Interface.Error, "expected empty Interface.Error, got %q", payload.Interface.Error)
 }
 
 // TestDaemonStatusPayloadSurfacesLostInterface proves 04-09-PLAN.md's
@@ -329,7 +288,7 @@ func TestDaemonStatusPayloadSurfacesLostInterface(t *testing.T) {
 		select {
 		case <-runDone:
 		case <-time.After(5 * time.Second):
-			t.Fatal("Run did not return within 5s of ctx cancel")
+			require.Fail(t, "Run did not return within 5s of ctx cancel")
 		}
 	})
 
@@ -338,23 +297,17 @@ func TestDaemonStatusPayloadSurfacesLostInterface(t *testing.T) {
 		conn := dialTestDaemon(t, pipeName)
 		result := ipc.Forward(conn, ipc.Request{Route: "artnet status"})
 		conn.Close()
-		if result.ExitCode != 0 {
-			t.Fatalf("expected ExitCode 0 from status, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-		}
+		require.Equalf(t, 0, result.ExitCode, "expected ExitCode 0 from status, got %d (stderr: %s)", result.ExitCode, result.Stderr)
 
 		var payload statusPayload
-		if err := strictjson.DecodeStrict(result.Stdout, &payload); err != nil {
-			t.Fatalf("DecodeStrict: %v", err)
-		}
+		require.NoError(t, strictjson.DecodeStrict(result.Stdout, &payload), "DecodeStrict")
 		if payload.Interface.Status == "lost" {
-			if !strings.Contains(payload.Interface.Error, "GOLC_ARTNET_INTERFACE_LOST") {
-				t.Fatalf("expected Interface.Error to contain GOLC_ARTNET_INTERFACE_LOST, got %q", payload.Interface.Error)
-			}
+			require.Containsf(t, payload.Interface.Error, "GOLC_ARTNET_INTERFACE_LOST", "expected Interface.Error to contain GOLC_ARTNET_INTERFACE_LOST, got %q", payload.Interface.Error)
 			return
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	t.Fatal("expected Interface.Status to become \"lost\" within the deadline")
+	require.Fail(t, "expected Interface.Status to become \"lost\" within the deadline")
 }
 
 // TestDaemonSafetyBlackoutRoundTrip proves 06-02-PLAN.md Task 2's "artnet
@@ -366,26 +319,18 @@ func TestDaemonSafetyBlackoutRoundTrip(t *testing.T) {
 	onConn := dialTestDaemon(t, pipeName)
 	defer onConn.Close()
 	onResult := ipc.Forward(onConn, ipc.Request{Route: "artnet safety blackout", Args: []string{"--on", "true"}})
-	if onResult.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", onResult.ExitCode, onResult.Stderr)
-	}
+	require.Equalf(t, 0, onResult.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", onResult.ExitCode, onResult.Stderr)
 
 	offConn := dialTestDaemon(t, pipeName)
 	defer offConn.Close()
 	offResult := ipc.Forward(offConn, ipc.Request{Route: "artnet safety blackout", Args: []string{"--on", "false"}})
-	if offResult.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", offResult.ExitCode, offResult.Stderr)
-	}
+	require.Equalf(t, 0, offResult.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", offResult.ExitCode, offResult.Stderr)
 
 	malformedConn := dialTestDaemon(t, pipeName)
 	defer malformedConn.Close()
 	malformedResult := ipc.Forward(malformedConn, ipc.Request{Route: "artnet safety blackout", Args: []string{"--on", "not-a-bool"}})
-	if malformedResult.ExitCode != 2 {
-		t.Fatalf("expected ExitCode 2, got %d", malformedResult.ExitCode)
-	}
-	if !strings.Contains(string(malformedResult.Stderr), "GOLC_ARTNET_USAGE") {
-		t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", malformedResult.Stderr)
-	}
+	require.Equalf(t, 2, malformedResult.ExitCode, "expected ExitCode 2, got %d", malformedResult.ExitCode)
+	require.Contains(t, string(malformedResult.Stderr), "GOLC_ARTNET_USAGE")
 }
 
 // TestDaemonSafetyStopAllAndRevokeAutomationRoundTrip proves "artnet
@@ -397,19 +342,13 @@ func TestDaemonSafetyStopAllAndRevokeAutomationRoundTrip(t *testing.T) {
 	stopAllConn := dialTestDaemon(t, pipeName)
 	defer stopAllConn.Close()
 	stopAllResult := ipc.Forward(stopAllConn, ipc.Request{Route: "artnet safety stop-all"})
-	if stopAllResult.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", stopAllResult.ExitCode, stopAllResult.Stderr)
-	}
-	if !strings.Contains(string(stopAllResult.Stdout), "on=true") {
-		t.Fatalf("expected omitted --on to default to on=true, got: %s", stopAllResult.Stdout)
-	}
+	require.Equalf(t, 0, stopAllResult.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", stopAllResult.ExitCode, stopAllResult.Stderr)
+	require.Contains(t, string(stopAllResult.Stdout), "on=true", "expected omitted --on to default to on=true")
 
 	revokeConn := dialTestDaemon(t, pipeName)
 	defer revokeConn.Close()
 	revokeResult := ipc.Forward(revokeConn, ipc.Request{Route: "artnet safety revoke-automation", Args: []string{"--on", "true"}})
-	if revokeResult.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", revokeResult.ExitCode, revokeResult.Stderr)
-	}
+	require.Equalf(t, 0, revokeResult.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", revokeResult.ExitCode, revokeResult.Stderr)
 }
 
 // TestRevokeAutomationBlocksNonManualSource proves PLAY-08's
@@ -423,37 +362,27 @@ func TestRevokeAutomationBlocksNonManualSource(t *testing.T) {
 	revokeConn := dialTestDaemon(t, pipeName)
 	defer revokeConn.Close()
 	revokeResult := ipc.Forward(revokeConn, ipc.Request{Route: "artnet safety revoke-automation", Args: []string{"--on", "true"}})
-	if revokeResult.ExitCode != 0 {
-		t.Fatalf("expected revoke-automation to succeed, got ExitCode %d (stderr: %s)", revokeResult.ExitCode, revokeResult.Stderr)
-	}
+	require.Equalf(t, 0, revokeResult.ExitCode, "expected revoke-automation to succeed, got ExitCode %d (stderr: %s)", revokeResult.ExitCode, revokeResult.Stderr)
 
 	automationConn := dialTestDaemon(t, pipeName)
 	defer automationConn.Close()
 	automationResult := ipc.Forward(automationConn, ipc.Request{Route: "artnet configure", Args: []string{
 		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454", "--source", "automation",
 	}})
-	if automationResult.ExitCode != 1 {
-		t.Fatalf("expected ExitCode 1 for an automation-sourced request while revoked, got %d (stdout: %s)", automationResult.ExitCode, automationResult.Stdout)
-	}
-	if !strings.Contains(string(automationResult.Stderr), "GOLC_ARTNET_SAFETY_REVOKED") {
-		t.Fatalf("expected GOLC_ARTNET_SAFETY_REVOKED, got: %s", automationResult.Stderr)
-	}
+	require.Equalf(t, 1, automationResult.ExitCode, "expected ExitCode 1 for an automation-sourced request while revoked, got %d (stdout: %s)", automationResult.ExitCode, automationResult.Stdout)
+	require.Contains(t, string(automationResult.Stderr), "GOLC_ARTNET_SAFETY_REVOKED")
 
 	manualConn := dialTestDaemon(t, pipeName)
 	defer manualConn.Close()
 	manualResult := ipc.Forward(manualConn, ipc.Request{Route: "artnet configure", Args: []string{
 		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454", "--source", "manual",
 	}})
-	if manualResult.ExitCode != 0 {
-		t.Fatalf("expected a manual-sourced request to succeed while revoked, got ExitCode %d (stderr: %s)", manualResult.ExitCode, manualResult.Stderr)
-	}
+	require.Equalf(t, 0, manualResult.ExitCode, "expected a manual-sourced request to succeed while revoked, got ExitCode %d (stderr: %s)", manualResult.ExitCode, manualResult.Stderr)
 
 	defaultSourceConn := dialTestDaemon(t, pipeName)
 	defer defaultSourceConn.Close()
 	defaultSourceResult := ipc.Forward(defaultSourceConn, ipc.Request{Route: "artnet status"})
-	if defaultSourceResult.ExitCode != 0 {
-		t.Fatalf("expected a Request with no --source (default manual) to succeed while revoked, got ExitCode %d (stderr: %s)", defaultSourceResult.ExitCode, defaultSourceResult.Stderr)
-	}
+	require.Equalf(t, 0, defaultSourceResult.ExitCode, "expected a Request with no --source (default manual) to succeed while revoked, got ExitCode %d (stderr: %s)", defaultSourceResult.ExitCode, defaultSourceResult.Stderr)
 }
 
 // TestDaemonMasterSetGrandAndGroup proves "artnet master set" accepts
@@ -467,9 +396,7 @@ func TestDaemonMasterSetGrandAndGroup(t *testing.T) {
 	grandConn := dialTestDaemon(t, pipeName)
 	defer grandConn.Close()
 	grandResult := ipc.Forward(grandConn, ipc.Request{Route: "artnet master set", Args: []string{"--grand", "0.5"}})
-	if grandResult.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", grandResult.ExitCode, grandResult.Stderr)
-	}
+	require.Equalf(t, 0, grandResult.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", grandResult.ExitCode, grandResult.Stderr)
 
 	groupID := uuid.New()
 	groupConn := dialTestDaemon(t, pipeName)
@@ -477,29 +404,19 @@ func TestDaemonMasterSetGrandAndGroup(t *testing.T) {
 	groupResult := ipc.Forward(groupConn, ipc.Request{Route: "artnet master set", Args: []string{
 		"--group", groupID.String(), "--level", "0.5",
 	}})
-	if groupResult.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", groupResult.ExitCode, groupResult.Stderr)
-	}
+	require.Equalf(t, 0, groupResult.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", groupResult.ExitCode, groupResult.Stderr)
 
 	invalidConn := dialTestDaemon(t, pipeName)
 	defer invalidConn.Close()
 	invalidResult := ipc.Forward(invalidConn, ipc.Request{Route: "artnet master set", Args: []string{"--grand", "1.5"}})
-	if invalidResult.ExitCode != 1 {
-		t.Fatalf("expected ExitCode 1, got %d", invalidResult.ExitCode)
-	}
-	if !strings.Contains(string(invalidResult.Stderr), "GOLC_ARTNET_SAFETY_MASTER_INVALID") {
-		t.Fatalf("expected GOLC_ARTNET_SAFETY_MASTER_INVALID, got: %s", invalidResult.Stderr)
-	}
+	require.Equalf(t, 1, invalidResult.ExitCode, "expected ExitCode 1, got %d", invalidResult.ExitCode)
+	require.Contains(t, string(invalidResult.Stderr), "GOLC_ARTNET_SAFETY_MASTER_INVALID")
 
 	malformedConn := dialTestDaemon(t, pipeName)
 	defer malformedConn.Close()
 	malformedResult := ipc.Forward(malformedConn, ipc.Request{Route: "artnet master set"})
-	if malformedResult.ExitCode != 2 {
-		t.Fatalf("expected ExitCode 2, got %d", malformedResult.ExitCode)
-	}
-	if !strings.Contains(string(malformedResult.Stderr), "GOLC_ARTNET_USAGE") {
-		t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", malformedResult.Stderr)
-	}
+	require.Equalf(t, 2, malformedResult.ExitCode, "expected ExitCode 2, got %d", malformedResult.ExitCode)
+	require.Contains(t, string(malformedResult.Stderr), "GOLC_ARTNET_USAGE")
 }
 
 // TestDaemonMalformedConfigureArgsReturnUsageError proves a malformed
@@ -513,12 +430,8 @@ func TestDaemonMalformedConfigureArgsReturnUsageError(t *testing.T) {
 	defer conn.Close()
 
 	result := ipc.Forward(conn, ipc.Request{Route: "artnet configure", Args: []string{"--universe", "1"}})
-	if result.ExitCode != 2 {
-		t.Fatalf("expected ExitCode 2 for a malformed configure request, got %d", result.ExitCode)
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_USAGE") {
-		t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
-	}
+	require.Equalf(t, 2, result.ExitCode, "expected ExitCode 2 for a malformed configure request, got %d", result.ExitCode)
+	require.Contains(t, string(result.Stderr), "GOLC_ARTNET_USAGE")
 }
 
 // TestDaemonStatusPayloadIncludesPlaybackFields proves 06-05-PLAN.md Task
@@ -535,56 +448,30 @@ func TestDaemonStatusPayloadIncludesPlaybackFields(t *testing.T) {
 	statusConn := dialTestDaemon(t, pipeName)
 	result := ipc.Forward(statusConn, ipc.Request{Route: "artnet status"})
 	statusConn.Close()
-	if result.ExitCode != 0 {
-		t.Fatalf("expected status ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
+	require.Equalf(t, 0, result.ExitCode, "expected status ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
 
 	var payload statusPayload
-	if err := strictjson.DecodeStrict(result.Stdout, &payload); err != nil {
-		t.Fatalf("DecodeStrict: %v", err)
-	}
-	if !payload.Playback.Active {
-		t.Fatal("expected Playback.Active=true against a daemon running a valid active-scene state")
-	}
-	if payload.Playback.SceneName != "Test Scene" {
-		t.Fatalf("Playback.SceneName = %q, want %q", payload.Playback.SceneName, "Test Scene")
-	}
-	if payload.Playback.BPM != 120 {
-		t.Fatalf("Playback.BPM = %v, want 120", payload.Playback.BPM)
-	}
-	if payload.Playback.EnabledLayers == nil {
-		t.Fatal("expected a non-nil (never null) EnabledLayers slice")
-	}
-	if payload.Playback.ControllingSource != "live" {
-		t.Fatalf("Playback.ControllingSource = %q, want %q before any override is active", payload.Playback.ControllingSource, "live")
-	}
-	if payload.Playback.OutputState == "" {
-		t.Fatal("expected a non-empty OutputState")
-	}
+	require.NoError(t, strictjson.DecodeStrict(result.Stdout, &payload), "DecodeStrict")
+	require.True(t, payload.Playback.Active, "expected Playback.Active=true against a daemon running a valid active-scene state")
+	require.Equalf(t, "Test Scene", payload.Playback.SceneName, "Playback.SceneName = %q, want %q", payload.Playback.SceneName, "Test Scene")
+	require.EqualValuesf(t, 120, payload.Playback.BPM, "Playback.BPM = %v, want 120", payload.Playback.BPM)
+	require.NotNil(t, payload.Playback.EnabledLayers, "expected a non-nil (never null) EnabledLayers slice")
+	require.Equalf(t, "live", payload.Playback.ControllingSource, "Playback.ControllingSource = %q, want %q before any override is active", payload.Playback.ControllingSource, "live")
+	require.NotEmpty(t, payload.Playback.OutputState, "expected a non-empty OutputState")
 
 	blackoutConn := dialTestDaemon(t, pipeName)
 	blackoutResult := ipc.Forward(blackoutConn, ipc.Request{Route: "artnet safety blackout", Args: []string{"--on", "true"}})
 	blackoutConn.Close()
-	if blackoutResult.ExitCode != 0 {
-		t.Fatalf("expected blackout toggle to succeed, got ExitCode %d stderr %s", blackoutResult.ExitCode, blackoutResult.Stderr)
-	}
+	require.Equalf(t, 0, blackoutResult.ExitCode, "expected blackout toggle to succeed, got ExitCode %d stderr %s", blackoutResult.ExitCode, blackoutResult.Stderr)
 
 	statusConn2 := dialTestDaemon(t, pipeName)
 	result2 := ipc.Forward(statusConn2, ipc.Request{Route: "artnet status"})
 	statusConn2.Close()
-	if result2.ExitCode != 0 {
-		t.Fatalf("expected status ExitCode 0 after blackout, got %d (stderr: %s)", result2.ExitCode, result2.Stderr)
-	}
+	require.Equalf(t, 0, result2.ExitCode, "expected status ExitCode 0 after blackout, got %d (stderr: %s)", result2.ExitCode, result2.Stderr)
 	var payload2 statusPayload
-	if err := strictjson.DecodeStrict(result2.Stdout, &payload2); err != nil {
-		t.Fatalf("DecodeStrict (after blackout): %v", err)
-	}
-	if payload2.Playback.ControllingSource != "blackout" {
-		t.Fatalf("Playback.ControllingSource after blackout = %q, want %q", payload2.Playback.ControllingSource, "blackout")
-	}
-	if payload2.Playback.OutputState != "blackout" {
-		t.Fatalf("Playback.OutputState after blackout = %q, want %q", payload2.Playback.OutputState, "blackout")
-	}
+	require.NoError(t, strictjson.DecodeStrict(result2.Stdout, &payload2), "DecodeStrict (after blackout)")
+	require.Equalf(t, "blackout", payload2.Playback.ControllingSource, "Playback.ControllingSource after blackout = %q, want %q", payload2.Playback.ControllingSource, "blackout")
+	require.Equalf(t, "blackout", payload2.Playback.OutputState, "Playback.OutputState after blackout = %q, want %q", payload2.Playback.OutputState, "blackout")
 }
 
 // TestNewPlaybackStatusPayloadIdleWhenNoActivePlan proves the pure
@@ -596,21 +483,12 @@ func TestDaemonStatusPayloadIncludesPlaybackFields(t *testing.T) {
 func TestNewPlaybackStatusPayloadIdleWhenNoActivePlan(t *testing.T) {
 	payload := newPlaybackStatusPayload(playbackEngineSnapshot{}, nil, FrameHealth{OnCadence: true})
 
-	if payload.Active {
-		t.Fatal("expected Active=false for a nil plan")
-	}
-	if payload.EnabledLayers == nil || len(payload.EnabledLayers) != 0 {
-		t.Fatalf("expected a non-nil, empty EnabledLayers slice, got %#v", payload.EnabledLayers)
-	}
-	if payload.ControllingSource != "live" {
-		t.Fatalf("ControllingSource = %q, want %q (no override active)", payload.ControllingSource, "live")
-	}
-	if payload.OutputState != "frame-lock" {
-		t.Fatalf("OutputState = %q, want %q (on-cadence frame health, no override)", payload.OutputState, "frame-lock")
-	}
-	if payload.SceneID != "" || payload.SceneName != "" {
-		t.Fatalf("expected empty SceneID/SceneName for the idle payload, got %q/%q", payload.SceneID, payload.SceneName)
-	}
+	require.False(t, payload.Active, "expected Active=false for a nil plan")
+	require.NotNilf(t, payload.EnabledLayers, "expected a non-nil, empty EnabledLayers slice, got %#v", payload.EnabledLayers)
+	require.Lenf(t, payload.EnabledLayers, 0, "expected a non-nil, empty EnabledLayers slice, got %#v", payload.EnabledLayers)
+	require.Equalf(t, "live", payload.ControllingSource, "ControllingSource = %q, want %q (no override active)", payload.ControllingSource, "live")
+	require.Equalf(t, "frame-lock", payload.OutputState, "OutputState = %q, want %q (on-cadence frame health, no override)", payload.OutputState, "frame-lock")
+	require.Truef(t, payload.SceneID == "" && payload.SceneName == "", "expected empty SceneID/SceneName for the idle payload, got %q/%q", payload.SceneID, payload.SceneName)
 }
 
 // fakeSubsystem is a minimal Subsystem whose Start/Shutdown calls append
@@ -671,34 +549,26 @@ func TestSubsystemsStartAfterListenerAndStopInReverseOrder(t *testing.T) {
 	conn := dialTestDaemon(t, pipeName)
 	result := ipc.Forward(conn, ipc.Request{Route: "artnet status"})
 	conn.Close()
-	if result.ExitCode != 0 {
-		t.Fatalf("expected status ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
+	require.Equalf(t, 0, result.ExitCode, "expected status ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
 
 	mu.Lock()
 	started := append([]string(nil), log...)
 	mu.Unlock()
-	if !reflect.DeepEqual(started, []string{"start:one", "start:two"}) {
-		t.Fatalf("expected subsystems to start in order once the listener answers, got %v", started)
-	}
+	require.Equalf(t, []string{"start:one", "start:two"}, started, "expected subsystems to start in order once the listener answers, got %v", started)
 
 	cancel()
 	select {
 	case err := <-runDone:
-		if err != nil {
-			t.Fatalf("Run returned an error on clean shutdown: %v", err)
-		}
+		require.NoError(t, err, "Run returned an error on clean shutdown")
 	case <-time.After(5 * time.Second):
-		t.Fatal("Run did not return within 5s of ctx cancel")
+		require.Fail(t, "Run did not return within 5s of ctx cancel")
 	}
 
 	mu.Lock()
 	final := append([]string(nil), log...)
 	mu.Unlock()
 	want := []string{"start:one", "start:two", "shutdown:two", "shutdown:one"}
-	if !reflect.DeepEqual(final, want) {
-		t.Fatalf("expected subsystems to start in order and stop in reverse order, got %v, want %v", final, want)
-	}
+	require.Equalf(t, want, final, "expected subsystems to start in order and stop in reverse order, got %v, want %v", final, want)
 }
 
 // TestSubsystemStartFailureUnwindsAlreadyStartedSubsystems proves the
@@ -725,19 +595,12 @@ func TestSubsystemStartFailureUnwindsAlreadyStartedSubsystems(t *testing.T) {
 		PipeName:       pipeName,
 		Subsystems:     []Subsystem{one, two},
 	})
-	if err == nil {
-		t.Fatal("expected Run to return an error when a subsystem fails to start")
-	}
-	if !strings.Contains(err.Error(), "GOLC_ARTNET_DAEMON_SUBSYSTEM_START_FAILED") {
-		t.Fatalf("expected GOLC_ARTNET_DAEMON_SUBSYSTEM_START_FAILED, got: %v", err)
-	}
+	require.Error(t, err, "expected Run to return an error when a subsystem fails to start")
+	require.ErrorContains(t, err, "GOLC_ARTNET_DAEMON_SUBSYSTEM_START_FAILED")
 
 	want := []string{"start:one", "start:two", "shutdown:one"}
-	if !reflect.DeepEqual(log, want) {
-		t.Fatalf("expected exactly the already-started subsystem to be shut down, got %v, want %v", log, want)
-	}
+	require.Equalf(t, want, log, "expected exactly the already-started subsystem to be shut down, got %v, want %v", log, want)
 
-	if _, dialErr := ipc.Dial(pipeName); dialErr == nil {
-		t.Fatal("expected the IPC listener to have been closed after the subsystem start failure")
-	}
+	_, dialErr := ipc.Dial(pipeName)
+	require.Error(t, dialErr, "expected the IPC listener to have been closed after the subsystem start failure")
 }

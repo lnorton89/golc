@@ -2,6 +2,9 @@ package artnet
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestInterfaceListCandidateInterfacesFindsLoopback asserts
@@ -10,43 +13,29 @@ import (
 // acceptance criteria).
 func TestInterfaceListCandidateInterfacesFindsLoopback(t *testing.T) {
 	ifaces, err := ListCandidateInterfaces()
-	if err != nil {
-		t.Fatalf("ListCandidateInterfaces returned error: %v", err)
-	}
-	if len(ifaces) == 0 {
-		t.Fatal("expected at least one interface, got none")
-	}
+	require.NoError(t, err, "ListCandidateInterfaces returned error")
+	require.NotEmpty(t, ifaces, "expected at least one interface, got none")
 
 	foundLoopback := false
 	for _, iface := range ifaces {
-		if iface.Index <= 0 {
-			t.Errorf("interface %q has non-positive Index %d", iface.Name, iface.Index)
-		}
+		assert.Greaterf(t, iface.Index, 0, "interface %q has non-positive Index %d", iface.Name, iface.Index)
 		for _, addr := range iface.Addrs {
 			if ip := addrIP(addr); ip != nil && ip.IsLoopback() {
 				foundLoopback = true
 			}
 		}
 	}
-	if !foundLoopback {
-		t.Fatalf("expected at least one interface with a loopback address among %d interfaces", len(ifaces))
-	}
+	require.Truef(t, foundLoopback, "expected at least one interface with a loopback address among %d interfaces", len(ifaces))
 }
 
 // TestInterfaceManagerMarkLostTransitionsStatus asserts markLost
 // transitions status to lost.
 func TestInterfaceManagerMarkLostTransitionsStatus(t *testing.T) {
 	m := NewInterfaceManager(1, "test")
-	if got := m.Status(); got != InterfaceStatusOK {
-		t.Fatalf("expected initial status %v, got %v", InterfaceStatusOK, got)
-	}
+	require.Equalf(t, InterfaceStatusOK, m.Status(), "expected initial status %v, got %v", InterfaceStatusOK, m.Status())
 	m.markLost()
-	if got := m.Status(); got != InterfaceStatusLost {
-		t.Fatalf("expected status %v after markLost, got %v", InterfaceStatusLost, got)
-	}
-	if m.Err() == nil {
-		t.Fatal("expected Err() to return a GOLC_ARTNET_INTERFACE_LOST diagnostic once lost")
-	}
+	require.Equalf(t, InterfaceStatusLost, m.Status(), "expected status %v after markLost, got %v", InterfaceStatusLost, m.Status())
+	require.NotNil(t, m.Err(), "expected Err() to return a GOLC_ARTNET_INTERFACE_LOST diagnostic once lost")
 }
 
 // TestInterfaceManagerBogusIndexLostAfterOnePollIteration asserts an
@@ -57,18 +46,12 @@ func TestInterfaceManagerMarkLostTransitionsStatus(t *testing.T) {
 func TestInterfaceManagerBogusIndexLostAfterOnePollIteration(t *testing.T) {
 	const bogusIndex = 999999
 	m := NewInterfaceManager(bogusIndex, "bogus-adapter")
-	if got := m.Status(); got != InterfaceStatusOK {
-		t.Fatalf("expected initial status %v, got %v", InterfaceStatusOK, got)
-	}
+	require.Equalf(t, InterfaceStatusOK, m.Status(), "expected initial status %v, got %v", InterfaceStatusOK, m.Status())
 
 	m.Check()
 
-	if got := m.Status(); got != InterfaceStatusLost {
-		t.Fatalf("expected status %v after one poll iteration against a bogus index, got %v", InterfaceStatusLost, got)
-	}
-	if got := m.PinnedIndex(); got != bogusIndex {
-		t.Fatalf("expected PinnedIndex to remain the originally pinned bogus index %d (no auto-switch, CONTEXT D-05), got %d", bogusIndex, got)
-	}
+	require.Equalf(t, InterfaceStatusLost, m.Status(), "expected status %v after one poll iteration against a bogus index, got %v", InterfaceStatusLost, m.Status())
+	require.Equalf(t, bogusIndex, m.PinnedIndex(), "expected PinnedIndex to remain the originally pinned bogus index %d (no auto-switch, CONTEXT D-05), got %d", bogusIndex, m.PinnedIndex())
 }
 
 // TestInterfaceManagerLocalIPReturnsPinnedInterfaceIP asserts a LocalIP/
@@ -76,9 +59,7 @@ func TestInterfaceManagerBogusIndexLostAfterOnePollIteration(t *testing.T) {
 // local IP.
 func TestInterfaceManagerLocalIPReturnsPinnedInterfaceIP(t *testing.T) {
 	ifaces, err := ListCandidateInterfaces()
-	if err != nil {
-		t.Fatalf("ListCandidateInterfaces returned error: %v", err)
-	}
+	require.NoError(t, err, "ListCandidateInterfaces returned error")
 
 	var loopbackIndex int
 	for _, iface := range ifaces {
@@ -94,12 +75,8 @@ func TestInterfaceManagerLocalIPReturnsPinnedInterfaceIP(t *testing.T) {
 
 	m := NewInterfaceManager(loopbackIndex, "loopback")
 	ip, err := m.LocalIP()
-	if err != nil {
-		t.Fatalf("LocalIP returned error: %v", err)
-	}
-	if !ip.IsLoopback() {
-		t.Fatalf("expected LocalIP to return a loopback IP, got %v", ip)
-	}
+	require.NoError(t, err, "LocalIP returned error")
+	require.Truef(t, ip.IsLoopback(), "expected LocalIP to return a loopback IP, got %v", ip)
 }
 
 // TestInterfaceManagerLocalIPFailsForBogusIndex asserts LocalIP surfaces
@@ -108,7 +85,6 @@ func TestInterfaceManagerLocalIPReturnsPinnedInterfaceIP(t *testing.T) {
 func TestInterfaceManagerLocalIPFailsForBogusIndex(t *testing.T) {
 	const bogusIndex = 999999
 	m := NewInterfaceManager(bogusIndex, "bogus-adapter")
-	if _, err := m.LocalIP(); err == nil {
-		t.Fatal("expected LocalIP to fail for a bogus pinned index, got nil error")
-	}
+	_, err := m.LocalIP()
+	require.Error(t, err, "expected LocalIP to fail for a bogus pinned index, got nil error")
 }

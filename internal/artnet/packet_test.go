@@ -12,8 +12,9 @@ package artnet
 import (
 	"encoding/binary"
 	"net"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TestEncodeArtDMXGoldenVector asserts the exact 18+N byte layout: id,
@@ -26,9 +27,7 @@ func TestEncodeArtDMXGoldenVector(t *testing.T) {
 	data := []byte{0x01, 0x02, 0x03, 0x04}
 
 	got, err := EncodeArtDMX(1, 0, portAddress, data)
-	if err != nil {
-		t.Fatalf("EncodeArtDMX failed: %v", err)
-	}
+	require.NoError(t, err, "EncodeArtDMX failed")
 
 	want := []byte{
 		'A', 'r', 't', '-', 'N', 'e', 't', 0x00, // ID
@@ -43,13 +42,9 @@ func TestEncodeArtDMXGoldenVector(t *testing.T) {
 		0x01, 0x02, 0x03, 0x04, // data
 	}
 
-	if len(got) != len(want) {
-		t.Fatalf("expected %d bytes, got %d: % x", len(want), len(got), got)
-	}
+	require.Lenf(t, got, len(want), "expected %d bytes, got %d: % x", len(want), len(got), got)
 	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("byte %d: expected 0x%02x, got 0x%02x\nwant: % x\ngot:  % x", i, want[i], got[i], want, got)
-		}
+		require.Equalf(t, want[i], got[i], "byte %d: expected 0x%02x, got 0x%02x\nwant: % x\ngot:  % x", i, want[i], got[i], want, got)
 	}
 }
 
@@ -65,12 +60,8 @@ func TestEncodeArtDMXLengthRejections(t *testing.T) {
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			_, err := EncodeArtDMX(1, 0, PortAddress(1), testCase.data)
-			if err == nil {
-				t.Fatalf("expected %s to be rejected", testCase.name)
-			}
-			if !strings.Contains(err.Error(), "GOLC_ARTNET_DMX_LENGTH_INVALID") {
-				t.Fatalf("expected GOLC_ARTNET_DMX_LENGTH_INVALID, got %v", err)
-			}
+			require.Errorf(t, err, "expected %s to be rejected", testCase.name)
+			require.ErrorContains(t, err, "GOLC_ARTNET_DMX_LENGTH_INVALID")
 		})
 	}
 }
@@ -83,9 +74,8 @@ func TestPortAddressDistinct(t *testing.T) {
 	seen := map[uint16]int{}
 	for universe := 1; universe <= 64; universe++ {
 		pa := PortAddress(universe)
-		if existing, ok := seen[pa]; ok {
-			t.Fatalf("universe %d produced Port-Address 0x%04x, already used by universe %d", universe, pa, existing)
-		}
+		existing, ok := seen[pa]
+		require.Falsef(t, ok, "universe %d produced Port-Address 0x%04x, already used by universe %d", universe, pa, existing)
 		seen[pa] = universe
 	}
 }
@@ -97,9 +87,8 @@ func TestPortAddressDistinct(t *testing.T) {
 // this is exactly why ValidateTarget (target.go) rejects Universe > 255
 // before a Target ever reaches PortAddress.
 func TestPortAddressAliasesAboveMaxRepresentableUniverse(t *testing.T) {
-	if got, want := PortAddress(257), PortAddress(1); got != want {
-		t.Fatalf("expected PortAddress(257) to alias PortAddress(1) (0x%04x), got 0x%04x -- if this changed, artNetMaxUniverse/ValidateTarget's bound may need revisiting", want, got)
-	}
+	got, want := PortAddress(257), PortAddress(1)
+	require.Equalf(t, want, got, "expected PortAddress(257) to alias PortAddress(1) (0x%04x), got 0x%04x -- if this changed, artNetMaxUniverse/ValidateTarget's bound may need revisiting", want, got)
 }
 
 func TestPortAddressPacking(t *testing.T) {
@@ -114,9 +103,7 @@ func TestPortAddressPacking(t *testing.T) {
 	}
 	for _, testCase := range cases {
 		got := PortAddress(testCase.universe)
-		if got != testCase.want {
-			t.Fatalf("PortAddress(%d) = 0x%04x, want 0x%04x", testCase.universe, got, testCase.want)
-		}
+		require.Equalf(t, testCase.want, got, "PortAddress(%d) = 0x%04x, want 0x%04x", testCase.universe, got, testCase.want)
 	}
 }
 
@@ -127,26 +114,18 @@ func TestSequenceNeverZero(t *testing.T) {
 	seq := uint8(0)
 	for i := 0; i < 1024; i++ {
 		seq = nextSeq(seq)
-		if seq == 0 {
-			t.Fatalf("nextSeq produced 0 at iteration %d", i)
-		}
+		require.NotZerof(t, seq, "nextSeq produced 0 at iteration %d", i)
 	}
 }
 
 func TestSequenceWrap(t *testing.T) {
 	seq := nextSeq(0)
-	if seq != 1 {
-		t.Fatalf("expected the first sequence value to be 1, got %d", seq)
-	}
+	require.Equal(t, uint8(1), seq, "expected the first sequence value to be 1")
 	seq = uint8(254)
 	seq = nextSeq(seq)
-	if seq != 255 {
-		t.Fatalf("expected nextSeq(254) == 255, got %d", seq)
-	}
+	require.Equal(t, uint8(255), seq, "expected nextSeq(254) == 255")
 	seq = nextSeq(seq)
-	if seq != 1 {
-		t.Fatalf("expected nextSeq(255) to wrap to 1, got %d", seq)
-	}
+	require.Equal(t, uint8(1), seq, "expected nextSeq(255) to wrap to 1")
 }
 
 // buildGoodArtPollReply constructs a spec-shaped, artPollReplyMinLen-byte
@@ -181,13 +160,9 @@ func TestArtPollEncodeGoldenVector(t *testing.T) {
 		0x00, // TalkToMe
 		0x00, // Priority (DpAll)
 	}
-	if len(got) != len(want) {
-		t.Fatalf("expected %d bytes, got %d: % x", len(want), len(got), got)
-	}
+	require.Lenf(t, got, len(want), "expected %d bytes, got %d: % x", len(want), len(got), got)
 	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("byte %d: expected 0x%02x, got 0x%02x\nwant: % x\ngot:  % x", i, want[i], got[i], want, got)
-		}
+		require.Equalf(t, want[i], got[i], "byte %d: expected 0x%02x, got 0x%02x\nwant: % x\ngot:  % x", i, want[i], got[i], want, got)
 	}
 }
 
@@ -197,26 +172,14 @@ func TestArtPollReplyDecodeGoodVector(t *testing.T) {
 	buf := buildGoodArtPollReply([4]byte{10, 0, 0, 5}, "GOLC-Node", "GOLC Test Node Long Name", 0x00, 0x01, 0x03)
 
 	reply, err := DecodeArtPollReply(buf)
-	if err != nil {
-		t.Fatalf("DecodeArtPollReply failed: %v", err)
-	}
-	if !reply.IP.Equal(net.IPv4(10, 0, 0, 5)) {
-		t.Fatalf("expected IP 10.0.0.5, got %v", reply.IP)
-	}
-	if reply.ShortName != "GOLC-Node" {
-		t.Fatalf("expected short name %q, got %q", "GOLC-Node", reply.ShortName)
-	}
-	if reply.LongName != "GOLC Test Node Long Name" {
-		t.Fatalf("expected long name %q, got %q", "GOLC Test Node Long Name", reply.LongName)
-	}
-	if len(reply.PortAddresses) != 1 {
-		t.Fatalf("expected exactly 1 port address, got %d: %v", len(reply.PortAddresses), reply.PortAddresses)
-	}
+	require.NoError(t, err, "DecodeArtPollReply failed")
+	require.Truef(t, reply.IP.Equal(net.IPv4(10, 0, 0, 5)), "expected IP 10.0.0.5, got %v", reply.IP)
+	require.Equalf(t, "GOLC-Node", reply.ShortName, "expected short name %q, got %q", "GOLC-Node", reply.ShortName)
+	require.Equalf(t, "GOLC Test Node Long Name", reply.LongName, "expected long name %q, got %q", "GOLC Test Node Long Name", reply.LongName)
+	require.Lenf(t, reply.PortAddresses, 1, "expected exactly 1 port address, got %d: %v", len(reply.PortAddresses), reply.PortAddresses)
 	// netSwitch=0x00 -> Net=0; subSwitch=0x01 -> Sub-Net=1; swOut=0x03 ->
 	// Universe=3 -> Port-Address 0x0013.
-	if reply.PortAddresses[0] != 0x0013 {
-		t.Fatalf("expected port address 0x0013, got 0x%04x", reply.PortAddresses[0])
-	}
+	require.Equalf(t, uint16(0x0013), reply.PortAddresses[0], "expected port address 0x0013, got 0x%04x", reply.PortAddresses[0])
 }
 
 // TestDecodeArtPollReplyMalformed proves every malformed-input case
@@ -248,12 +211,8 @@ func TestArtPollReplyDecodeMalformed(t *testing.T) {
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			_, err := DecodeArtPollReply(testCase.buf)
-			if err == nil {
-				t.Fatalf("expected %s to be rejected", testCase.name)
-			}
-			if !strings.Contains(err.Error(), "GOLC_ARTNET_POLLREPLY_INVALID") {
-				t.Fatalf("expected GOLC_ARTNET_POLLREPLY_INVALID, got %v", err)
-			}
+			require.Errorf(t, err, "expected %s to be rejected", testCase.name)
+			require.ErrorContains(t, err, "GOLC_ARTNET_POLLREPLY_INVALID")
 		})
 	}
 }

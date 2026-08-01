@@ -7,11 +7,11 @@
 package artnet
 
 import (
-	"reflect"
 	"sync"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/fixture"
 	"github.com/lnorton89/golc/internal/playback"
@@ -21,9 +21,7 @@ import (
 func mustSafetyTestUUID(t *testing.T) uuid.UUID {
 	t.Helper()
 	id, err := uuid.NewV7()
-	if err != nil {
-		t.Fatalf("uuid.NewV7: %v", err)
-	}
+	require.NoError(t, err, "uuid.NewV7")
 	return id
 }
 
@@ -51,12 +49,8 @@ func TestSafetyApplyOverridesBlackoutZeroesIntensity(t *testing.T) {
 	out := applyOverrides(frame, s, nil)
 
 	got := out.Values[instanceID].Values[fixture.CapabilityIntensity]
-	if got != 0 {
-		t.Fatalf("expected blacked-out intensity to be 0, got %v", got)
-	}
-	if got := out.Values[instanceID].Values[fixture.CapabilityColor]; got != 0.7 {
-		t.Fatalf("expected non-intensity attribute to survive blackout unchanged, got %v", got)
-	}
+	require.Equal(t, 0.0, got, "expected blacked-out intensity to be 0")
+	require.Equal(t, 0.7, out.Values[instanceID].Values[fixture.CapabilityColor], "expected non-intensity attribute to survive blackout unchanged")
 }
 
 // TestSafetyApplyOverridesStopAllZeroesIntensity proves stopAll=true
@@ -70,9 +64,7 @@ func TestSafetyApplyOverridesStopAllZeroesIntensity(t *testing.T) {
 
 	out := applyOverrides(frame, s, nil)
 
-	if got := out.Values[instanceID].Values[fixture.CapabilityIntensity]; got != 0 {
-		t.Fatalf("expected stop-all intensity to be 0, got %v", got)
-	}
+	require.Equal(t, 0.0, out.Values[instanceID].Values[fixture.CapabilityIntensity], "expected stop-all intensity to be 0")
 }
 
 // TestSafetyApplyOverridesBlackoutEmptyFrameIsSafeNoOp proves blackout=true
@@ -86,9 +78,7 @@ func TestSafetyApplyOverridesBlackoutEmptyFrameIsSafeNoOp(t *testing.T) {
 
 	out := applyOverrides(playback.Frame{}, s, nil)
 
-	if len(out.Values) != 0 {
-		t.Fatalf("expected an empty Frame to remain empty under blackout, got %d entries", len(out.Values))
-	}
+	require.Empty(t, out.Values, "expected an empty Frame to remain empty under blackout")
 }
 
 // TestSafetyApplyOverridesMultiplicativeMasterComposition proves PLAY-06's
@@ -101,20 +91,14 @@ func TestSafetyApplyOverridesMultiplicativeMasterComposition(t *testing.T) {
 	membership := map[uuid.UUID][]uuid.UUID{instanceID: {groupID}}
 
 	s := newSafetyState()
-	if err := s.setGrandMaster(0.5); err != nil {
-		t.Fatalf("setGrandMaster: %v", err)
-	}
-	if err := s.setGroupMaster(groupID, 0.5); err != nil {
-		t.Fatalf("setGroupMaster: %v", err)
-	}
+	require.NoError(t, s.setGrandMaster(0.5), "setGrandMaster")
+	require.NoError(t, s.setGroupMaster(groupID, 0.5), "setGroupMaster")
 
 	out := applyOverrides(frame, s, membership)
 
 	got := out.Values[instanceID].Values[fixture.CapabilityIntensity]
 	const want = 0.25
-	if got != want {
-		t.Fatalf("expected multiplicative composition 0.5*0.5=%.2f, got %v", want, got)
-	}
+	require.Equalf(t, want, got, "expected multiplicative composition 0.5*0.5=%.2f, got %v", want, got)
 }
 
 // TestSafetyApplyOverridesIdentityLeavesFrameUnchanged proves that with
@@ -134,9 +118,7 @@ func TestSafetyApplyOverridesIdentityLeavesFrameUnchanged(t *testing.T) {
 
 	out := applyOverrides(frame, s, nil)
 
-	if !reflect.DeepEqual(frame, out) {
-		t.Fatalf("expected identity overrides to leave the Frame unchanged: input=%+v output=%+v", frame, out)
-	}
+	require.Equal(t, frame, out, "expected identity overrides to leave the Frame unchanged")
 }
 
 // TestSafetyApplyOverridesNilSafetyStateIsIdentity proves a nil
@@ -149,9 +131,7 @@ func TestSafetyApplyOverridesNilSafetyStateIsIdentity(t *testing.T) {
 
 	out := applyOverrides(frame, nil, nil)
 
-	if got := out.Values[instanceID].Values[fixture.CapabilityIntensity]; got != 0.6 {
-		t.Fatalf("expected a nil safetyState to behave as identity, got %v", got)
-	}
+	require.Equal(t, 0.6, out.Values[instanceID].Values[fixture.CapabilityIntensity], "expected a nil safetyState to behave as identity")
 }
 
 // TestSafetyMasterLevelValidationRejectsOutOfRange proves setGrandMaster/
@@ -161,19 +141,11 @@ func TestSafetyMasterLevelValidationRejectsOutOfRange(t *testing.T) {
 	s := newSafetyState()
 	groupID := mustSafetyTestUUID(t)
 
-	if err := s.setGrandMaster(1.5); err == nil {
-		t.Fatal("expected an error for grand master level 1.5")
-	}
-	if err := s.setGrandMaster(-0.1); err == nil {
-		t.Fatal("expected an error for grand master level -0.1")
-	}
-	if err := s.setGroupMaster(groupID, 2.0); err == nil {
-		t.Fatal("expected an error for group master level 2.0")
-	}
+	require.Error(t, s.setGrandMaster(1.5), "expected an error for grand master level 1.5")
+	require.Error(t, s.setGrandMaster(-0.1), "expected an error for grand master level -0.1")
+	require.Error(t, s.setGroupMaster(groupID, 2.0), "expected an error for group master level 2.0")
 
-	if got := s.currentMasters().grand; got != 1.0 {
-		t.Fatalf("expected the prior grand master (1.0) to survive a rejected update, got %v", got)
-	}
+	require.Equal(t, 1.0, s.currentMasters().grand, "expected the prior grand master (1.0) to survive a rejected update")
 }
 
 // TestSafetyConcurrentBlackoutConvergesUnderRace proves (PLAY-09):
@@ -214,7 +186,5 @@ func TestSafetyConcurrentBlackoutConvergesUnderRace(t *testing.T) {
 	// is exactly that state.
 	s.setBlackout(true)
 	out := applyOverrides(frame, s, nil)
-	if got := out.Values[instanceID].Values[fixture.CapabilityIntensity]; got != 0 {
-		t.Fatalf("expected blackout to converge to zeroed intensity, got %v", got)
-	}
+	require.Equal(t, 0.0, out.Values[instanceID].Values[fixture.CapabilityIntensity], "expected blackout to converge to zeroed intensity")
 }
