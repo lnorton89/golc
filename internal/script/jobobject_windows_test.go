@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/lnorton89/golc/internal/show"
+	"github.com/stretchr/testify/require"
 )
 
 // testResolvedLimits is a small, valid show.ResolvedLimits every
@@ -42,9 +43,8 @@ func testResolvedLimits() show.ResolvedLimits {
 func spawnLongRunningProcess(t *testing.T) *exec.Cmd {
 	t.Helper()
 	cmd := exec.Command("ping", "-n", "30", "127.0.0.1")
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("failed to spawn a native long-running test process: %v", err)
-	}
+	err := cmd.Start()
+	require.NoError(t, err, "failed to spawn a native long-running test process: %v", err)
 	return cmd
 }
 
@@ -58,16 +58,13 @@ func spawnLongRunningProcess(t *testing.T) *exec.Cmd {
 // or a malformed struct layout would fail the syscall outright.
 func TestJobObjectCreateConfiguresLimitsAndCloses(t *testing.T) {
 	job, err := newJobObject(testResolvedLimits())
-	if err != nil {
-		t.Fatalf("newJobObject: %v", err)
-	}
-	if err := job.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
-	}
+	require.NoError(t, err, "newJobObject: %v", err)
+
+	err = job.Close()
+	require.NoError(t, err, "Close: %v", err)
 	// Close is idempotent -- a second call must not error or panic.
-	if err := job.Close(); err != nil {
-		t.Fatalf("second Close: %v", err)
-	}
+	err = job.Close()
+	require.NoError(t, err, "second Close: %v", err)
 }
 
 // TestJobObjectRejectsInvalidMemoryLimit covers newJobObject delegating
@@ -76,9 +73,8 @@ func TestJobObjectCreateConfiguresLimitsAndCloses(t *testing.T) {
 func TestJobObjectRejectsInvalidMemoryLimit(t *testing.T) {
 	limits := testResolvedLimits()
 	limits.MemoryLimitMB = 0
-	if _, err := newJobObject(limits); err == nil {
-		t.Fatal("expected an error for a non-positive MemoryLimitMB")
-	}
+	_, err := newJobObject(limits)
+	require.Error(t, err, "expected an error for a non-positive MemoryLimitMB")
 }
 
 // TestJobObjectRejectsInvalidCPULimit covers newJobObject delegating to
@@ -86,9 +82,8 @@ func TestJobObjectRejectsInvalidMemoryLimit(t *testing.T) {
 func TestJobObjectRejectsInvalidCPULimit(t *testing.T) {
 	limits := testResolvedLimits()
 	limits.CPUCapPercent = 101
-	if _, err := newJobObject(limits); err == nil {
-		t.Fatal("expected an error for a CPUCapPercent outside 1..100")
-	}
+	_, err := newJobObject(limits)
+	require.Error(t, err, "expected an error for a CPUCapPercent outside 1..100")
 }
 
 // TestJobObjectAssignFailsForDeadProcess covers: "assign(handle, pid)
@@ -98,20 +93,16 @@ func TestJobObjectRejectsInvalidCPULimit(t *testing.T) {
 // process) fails assignment rather than silently succeeding.
 func TestJobObjectAssignFailsForDeadProcess(t *testing.T) {
 	cmd := exec.Command("cmd", "/c", "exit 0")
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("failed to run a short-lived test process: %v", err)
-	}
+	err := cmd.Run()
+	require.NoError(t, err, "failed to run a short-lived test process: %v", err)
 	deadPID := uint32(cmd.Process.Pid)
 
 	job, err := newJobObject(testResolvedLimits())
-	if err != nil {
-		t.Fatalf("newJobObject: %v", err)
-	}
+	require.NoError(t, err, "newJobObject: %v", err)
 	defer job.Close()
 
-	if err := job.assign(deadPID); err == nil {
-		t.Fatal("expected assign to fail for a pid with no live process")
-	}
+	err = job.assign(deadPID)
+	require.Error(t, err, "expected assign to fail for a pid with no live process")
 }
 
 // TestJobObjectCloseKillsAssignedProcess covers: "Closing the job handle
@@ -126,28 +117,28 @@ func TestJobObjectCloseKillsAssignedProcess(t *testing.T) {
 	job, err := newJobObject(testResolvedLimits())
 	if err != nil {
 		_ = cmd.Process.Kill()
-		t.Fatalf("newJobObject: %v", err)
 	}
+	require.NoError(t, err, "newJobObject: %v", err)
 
-	if err := job.assign(uint32(cmd.Process.Pid)); err != nil {
+	err = job.assign(uint32(cmd.Process.Pid))
+	if err != nil {
 		_ = job.Close()
 		_ = cmd.Process.Kill()
-		t.Fatalf("assign: %v", err)
 	}
+	require.NoError(t, err, "assign: %v", err)
 
 	waitDone := make(chan error, 1)
 	go func() { waitDone <- cmd.Wait() }()
 
-	if err := job.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
-	}
+	err = job.Close()
+	require.NoError(t, err, "Close: %v", err)
 
 	select {
 	case <-waitDone:
 		// The assigned process exited -- job close killed it.
 	case <-time.After(10 * time.Second):
 		_ = cmd.Process.Kill()
-		t.Fatal("expected the assigned process to be killed by job close within 10s, but it was still running")
+		require.FailNow(t, "expected the assigned process to be killed by job close within 10s, but it was still running")
 	}
 }
 
@@ -160,9 +151,7 @@ func TestJobObjectCloseKillsAssignedProcess(t *testing.T) {
 func TestJobObjectKillsAdversarialDenoChild(t *testing.T) {
 	root := skipUnlessDenoProvisioned(t)
 	denoPath, err := ResolveDenoExecutable(root)
-	if err != nil {
-		t.Fatalf("ResolveDenoExecutable: %v", err)
-	}
+	require.NoError(t, err, "ResolveDenoExecutable: %v", err)
 
 	scriptDir := t.TempDir()
 	scriptPath := filepath.Join(scriptDir, "adversarial.ts")
@@ -204,25 +193,24 @@ async function run() {
 }
 run();
 `
-	if err := os.WriteFile(scriptPath, []byte(adversarialSource), 0o600); err != nil {
-		t.Fatalf("write adversarial script: %v", err)
-	}
+	err = os.WriteFile(scriptPath, []byte(adversarialSource), 0o600)
+	require.NoError(t, err, "write adversarial script: %v", err)
 
 	cmd := exec.CommandContext(context.Background(), denoPath, "run", "--no-prompt", scriptPath)
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start adversarial Deno child: %v", err)
-	}
+	err = cmd.Start()
+	require.NoError(t, err, "start adversarial Deno child: %v", err)
 
 	job, err := newJobObject(testResolvedLimits())
 	if err != nil {
 		_ = cmd.Process.Kill()
-		t.Fatalf("newJobObject: %v", err)
 	}
-	if err := job.assign(uint32(cmd.Process.Pid)); err != nil {
+	require.NoError(t, err, "newJobObject: %v", err)
+	err = job.assign(uint32(cmd.Process.Pid))
+	if err != nil {
 		_ = job.Close()
 		_ = cmd.Process.Kill()
-		t.Fatalf("assign: %v", err)
 	}
+	require.NoError(t, err, "assign: %v", err)
 
 	waitDone := make(chan error, 1)
 	go func() { waitDone <- cmd.Wait() }()
@@ -231,9 +219,8 @@ run();
 	// enter its infinite loop before closing the job.
 	time.Sleep(500 * time.Millisecond)
 
-	if err := job.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
-	}
+	err = job.Close()
+	require.NoError(t, err, "Close: %v", err)
 
 	select {
 	case <-waitDone:
@@ -241,6 +228,6 @@ run();
 		// listener all attempting to delay or survive shutdown.
 	case <-time.After(10 * time.Second):
 		_ = cmd.Process.Kill()
-		t.Fatal("expected job close to kill the adversarial child within 10s, but it was still running")
+		require.FailNow(t, "expected job close to kill the adversarial child within 10s, but it was still running")
 	}
 }

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/lnorton89/golc/internal/show"
+	"github.com/stretchr/testify/require"
 )
 
 // TestJobObjectPeakMemoryReadsConfiguredLimit covers: "(*jobObject).
@@ -31,41 +32,33 @@ func TestJobObjectPeakMemoryReadsConfiguredLimit(t *testing.T) {
 	limits.MemoryLimitMB = 64
 
 	job, err := newJobObject(limits)
-	if err != nil {
-		t.Fatalf("newJobObject: %v", err)
-	}
+	require.NoError(t, err, "newJobObject: %v", err)
 
 	configuredLimit, err := job.jobMemoryLimitBytes()
-	if err != nil {
-		t.Fatalf("jobMemoryLimitBytes: %v", err)
-	}
-	if want := uint64(64) * 1024 * 1024; configuredLimit != want {
-		t.Fatalf("jobMemoryLimitBytes() = %d, want %d (proves the query reads the same job newJobObject configured)", configuredLimit, want)
-	}
+	require.NoError(t, err, "jobMemoryLimitBytes: %v", err)
+	want := uint64(64) * 1024 * 1024
+	require.Equal(t, want, configuredLimit, "jobMemoryLimitBytes() = %d, want %d (proves the query reads the same job newJobObject configured)", configuredLimit, want)
 
 	cmd := spawnLongRunningProcess(t)
-	if err := job.assign(uint32(cmd.Process.Pid)); err != nil {
+	assignErr := job.assign(uint32(cmd.Process.Pid))
+	if assignErr != nil {
 		_ = job.Close()
 		_ = cmd.Process.Kill()
-		t.Fatalf("assign: %v", err)
 	}
+	require.NoError(t, assignErr, "assign: %v", assignErr)
 
 	peak, err := job.peakMemoryBytes()
-	if err != nil {
-		t.Fatalf("peakMemoryBytes on a fresh job with a live assigned child: %v", err)
-	}
-	if peak == 0 {
-		t.Fatal("expected a non-zero peak memory usage for a live assigned child")
-	}
+	require.NoError(t, err, "peakMemoryBytes on a fresh job with a live assigned child: %v", err)
+	require.NotZero(t, peak, "expected a non-zero peak memory usage for a live assigned child")
 
-	if err := job.Close(); err != nil {
+	closeErr := job.Close()
+	if closeErr != nil {
 		_ = cmd.Process.Kill()
-		t.Fatalf("Close: %v", err)
 	}
+	require.NoError(t, closeErr, "Close: %v", closeErr)
 
-	if _, err := job.peakMemoryBytes(); err == nil {
-		t.Fatal("expected peakMemoryBytes to error after Close, never touching the released handle")
-	}
+	_, err = job.peakMemoryBytes()
+	require.Error(t, err, "expected peakMemoryBytes to error after Close, never touching the released handle")
 }
 
 // memoryPressureScriptSource is a Deno script that pushes retained 2 MiB
@@ -119,9 +112,7 @@ func TestRunMemoryLimitTerminatesWithNamedReason(t *testing.T) {
 	root := skipUnlessDenoProvisioned(t)
 
 	host, err := NewHost(HostConfig{Root: root, ShowPath: filepath.Join(root, "fixture.golc"), Executor: &fakeExecutor{}})
-	if err != nil {
-		t.Fatalf("NewHost: %v", err)
-	}
+	require.NoError(t, err, "NewHost: %v", err)
 
 	target := show.Script{
 		Name:   "MemoryPressure",
@@ -140,20 +131,13 @@ func TestRunMemoryLimitTerminatesWithNamedReason(t *testing.T) {
 	defer cancel()
 
 	outcome, err := host.Run(ctx, target, LaunchModeRun, nil)
-	if err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-	if outcome.Status != show.ScriptRunStatusTerminated {
-		t.Fatalf("Status = %q, want %q (reason: %s)", outcome.Status, show.ScriptRunStatusTerminated, outcome.Reason)
-	}
+	require.NoError(t, err, "Run: %v", err)
+	require.Equal(t, show.ScriptRunStatusTerminated, outcome.Status, "Status = %q, want %q (reason: %s)", outcome.Status, show.ScriptRunStatusTerminated, outcome.Reason)
 
 	firstLine := strings.SplitN(outcome.Reason, "\n", 2)[0]
-	if want := "GOLC_SCRIPT_MEMORY_EXCEEDED: run exceeded its 64 MB memory limit"; firstLine != want {
-		t.Fatalf("Reason first line = %q, want exactly %q (never a substring/prefix match)", firstLine, want)
-	}
-	if strings.Contains(outcome.Reason, "at file:") {
-		t.Fatalf("expected no leaked V8 stack frame in the reason, got %q", outcome.Reason)
-	}
+	wantFirstLine := "GOLC_SCRIPT_MEMORY_EXCEEDED: run exceeded its 64 MB memory limit"
+	require.Equal(t, wantFirstLine, firstLine, "Reason first line = %q, want exactly %q (never a substring/prefix match)", firstLine, wantFirstLine)
+	require.NotContains(t, outcome.Reason, "at file:", "expected no leaked V8 stack frame in the reason, got %q", outcome.Reason)
 }
 
 // TestRunWithinMemoryLimitSucceeds covers: "Real Deno, Windows: a
@@ -165,9 +149,7 @@ func TestRunWithinMemoryLimitSucceeds(t *testing.T) {
 	root := skipUnlessDenoProvisioned(t)
 
 	host, err := NewHost(HostConfig{Root: root, ShowPath: filepath.Join(root, "fixture.golc"), Executor: &fakeExecutor{}})
-	if err != nil {
-		t.Fatalf("NewHost: %v", err)
-	}
+	require.NoError(t, err, "NewHost: %v", err)
 
 	target := show.Script{
 		Name:   "TrivialQuickAction",
@@ -179,12 +161,8 @@ func TestRunWithinMemoryLimitSucceeds(t *testing.T) {
 	}
 
 	outcome, err := host.Run(context.Background(), target, LaunchModeRun, nil)
-	if err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-	if outcome.Status != show.ScriptRunStatusSucceeded {
-		t.Fatalf("Status = %q, want %q (reason: %s) -- a well-behaved script must never be falsely terminated", outcome.Status, show.ScriptRunStatusSucceeded, outcome.Reason)
-	}
+	require.NoError(t, err, "Run: %v", err)
+	require.Equal(t, show.ScriptRunStatusSucceeded, outcome.Status, "Status = %q, want %q (reason: %s) -- a well-behaved script must never be falsely terminated", outcome.Status, show.ScriptRunStatusSucceeded, outcome.Reason)
 }
 
 // TestRunUnrelatedCrashStillReportsFailed covers: "Real Deno, Windows: a
@@ -195,9 +173,7 @@ func TestRunUnrelatedCrashStillReportsFailed(t *testing.T) {
 	root := skipUnlessDenoProvisioned(t)
 
 	host, err := NewHost(HostConfig{Root: root, ShowPath: filepath.Join(root, "fixture.golc"), Executor: &fakeExecutor{}})
-	if err != nil {
-		t.Fatalf("NewHost: %v", err)
-	}
+	require.NoError(t, err, "NewHost: %v", err)
 
 	target := show.Script{
 		Name:   "OrdinaryCrash",
@@ -209,13 +185,7 @@ func TestRunUnrelatedCrashStillReportsFailed(t *testing.T) {
 	}
 
 	outcome, err := host.Run(context.Background(), target, LaunchModeRun, nil)
-	if err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-	if outcome.Status != show.ScriptRunStatusFailed {
-		t.Fatalf("Status = %q, want %q (reason: %s) -- the classifier must not swallow an unrelated crash", outcome.Status, show.ScriptRunStatusFailed, outcome.Reason)
-	}
-	if !strings.Contains(outcome.Reason, "deliberate ordinary failure") {
-		t.Fatalf("expected the crash's own message in the reason, got %q", outcome.Reason)
-	}
+	require.NoError(t, err, "Run: %v", err)
+	require.Equal(t, show.ScriptRunStatusFailed, outcome.Status, "Status = %q, want %q (reason: %s) -- the classifier must not swallow an unrelated crash", outcome.Status, show.ScriptRunStatusFailed, outcome.Reason)
+	require.Contains(t, outcome.Reason, "deliberate ordinary failure", "expected the crash's own message in the reason, got %q", outcome.Reason)
 }

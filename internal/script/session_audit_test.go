@@ -20,6 +20,7 @@ import (
 
 	"github.com/lnorton89/golc/internal/api"
 	"github.com/lnorton89/golc/internal/show"
+	"github.com/stretchr/testify/require"
 )
 
 // TestSDKCallProducesBothScriptOutcomeEventAndAuditRow is 08-08-PLAN.md
@@ -68,33 +69,17 @@ func TestSDKCallProducesBothScriptOutcomeEventAndAuditRow(t *testing.T) {
 			sawOutcome = true
 		}
 	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for the script.outcome event")
+		require.Fail(t, "timed out waiting for the script.outcome event")
 	}
-	if !sawOutcome {
-		t.Fatal("expected a script.outcome event for the dispatched SDK call")
-	}
+	require.True(t, sawOutcome, "expected a script.outcome event for the dispatched SDK call")
 
 	records, err := show.QueryAuditLog(root, showPath)
-	if err != nil {
-		t.Fatalf("QueryAuditLog: %v", err)
-	}
-	if len(records) != 1 {
-		t.Fatalf("expected exactly 1 audit_log row, got %d: %+v", len(records), records)
-	}
+	require.NoError(t, err, "QueryAuditLog: %v", err)
+	require.Len(t, records, 1, "expected exactly 1 audit_log row, got %d: %+v", len(records), records)
 	rec := records[0]
-	if rec.Source != "script" {
-		t.Fatalf("audit row Source = %q, want %q", rec.Source, "script")
-	}
-	if rec.Route != "scene activate" {
-		t.Fatalf("audit row Route = %q, want %q", rec.Route, "scene activate")
-	}
-	if rec.Outcome != "success" {
-		t.Fatalf("audit row Outcome = %q, want %q", rec.Outcome, "success")
-	}
-	if rec.CorrelationID != run.RunID.String() {
-		t.Fatalf("audit row CorrelationID = %q, want the run id %q", rec.CorrelationID, run.RunID.String())
-	}
-	if rec.Actor != "script:Chase" {
-		t.Fatalf("audit row Actor = %q, want %q", rec.Actor, "script:Chase")
-	}
+	require.Equal(t, "script", rec.Source, "audit row Source = %q, want %q", rec.Source, "script")
+	require.Equal(t, "scene activate", rec.Route, "audit row Route = %q, want %q", rec.Route, "scene activate")
+	require.Equal(t, "success", rec.Outcome, "audit row Outcome = %q, want %q", rec.Outcome, "success")
+	require.Equal(t, run.RunID.String(), rec.CorrelationID, "audit row CorrelationID = %q, want the run id %q", rec.CorrelationID, run.RunID.String())
+	require.Equal(t, "script:Chase", rec.Actor, "audit row Actor = %q, want %q", rec.Actor, "script:Chase")
 }

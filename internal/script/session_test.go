@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/security"
 	"github.com/lnorton89/golc/internal/show"
@@ -58,9 +59,7 @@ func (f *fakeExecutor) Execute(route string, args []string, root string) (int, [
 func mustNewRun(t *testing.T) *Run {
 	t.Helper()
 	id, err := uuid.NewV7()
-	if err != nil {
-		t.Fatalf("uuid.NewV7: %v", err)
-	}
+	require.NoError(t, err, "uuid.NewV7: %v", err)
 	return &Run{
 		RunID:   id,
 		Profile: show.CapabilityProfile{Scope: show.APIKeyScopeAdmin, Preset: show.ResourcePresetQuickAction},
@@ -80,21 +79,11 @@ func TestDispatchCmdCallKnownMethod(t *testing.T) {
 		ID: "c1", Method: "scene activate", Params: []byte(`{"name":"Alpha"}`),
 	})
 
-	if len(exec.calls) != 1 {
-		t.Fatalf("expected exactly one Execute call, got %d: %+v", len(exec.calls), exec.calls)
-	}
-	if exec.calls[0].Route != "scene activate" {
-		t.Fatalf("Execute route = %q, want %q", exec.calls[0].Route, "scene activate")
-	}
-	if !result.Ok {
-		t.Fatalf("expected Ok:true, got %+v", result)
-	}
-	if result.ID != "c1" {
-		t.Fatalf("result.ID = %q, want %q", result.ID, "c1")
-	}
-	if !outcome.Ok || outcome.Route != "scene activate" || outcome.Method != "scene activate" {
-		t.Fatalf("unexpected outcome: %+v", outcome)
-	}
+	require.Len(t, exec.calls, 1, "expected exactly one Execute call, got %d: %+v", len(exec.calls), exec.calls)
+	require.Equal(t, "scene activate", exec.calls[0].Route, "Execute route = %q, want %q", exec.calls[0].Route, "scene activate")
+	require.True(t, result.Ok, "expected Ok:true, got %+v", result)
+	require.Equal(t, "c1", result.ID, "result.ID = %q, want %q", result.ID, "c1")
+	require.True(t, outcome.Ok && outcome.Route == "scene activate" && outcome.Method == "scene activate", "unexpected outcome: %+v", outcome)
 }
 
 // TestDispatchCmdCallUnknownMethod covers: "A cmd-call naming a method
@@ -107,18 +96,10 @@ func TestDispatchCmdCallUnknownMethod(t *testing.T) {
 
 	result, outcome := h.dispatchCmdCall(run, CmdCallFrame{ID: "c1", Method: "bogus method"})
 
-	if len(exec.calls) != 0 {
-		t.Fatalf("expected zero Execute calls for an unknown method, got %d", len(exec.calls))
-	}
-	if result.Ok {
-		t.Fatal("expected Ok:false for an unknown method")
-	}
-	if result.Code != "GOLC_SCRIPT_METHOD_UNKNOWN" {
-		t.Fatalf("result.Code = %q, want GOLC_SCRIPT_METHOD_UNKNOWN", result.Code)
-	}
-	if outcome.Code != "GOLC_SCRIPT_METHOD_UNKNOWN" || outcome.Ok {
-		t.Fatalf("unexpected outcome: %+v", outcome)
-	}
+	require.Empty(t, exec.calls, "expected zero Execute calls for an unknown method, got %d", len(exec.calls))
+	require.False(t, result.Ok, "expected Ok:false for an unknown method")
+	require.Equal(t, "GOLC_SCRIPT_METHOD_UNKNOWN", result.Code, "result.Code = %q, want GOLC_SCRIPT_METHOD_UNKNOWN", result.Code)
+	require.True(t, outcome.Code == "GOLC_SCRIPT_METHOD_UNKNOWN" && !outcome.Ok, "unexpected outcome: %+v", outcome)
 }
 
 // TestDispatchCmdCallParamsInvalidNeverReachesExecutor proves a Params
@@ -131,15 +112,9 @@ func TestDispatchCmdCallParamsInvalidNeverReachesExecutor(t *testing.T) {
 
 	result, outcome := h.dispatchCmdCall(run, CmdCallFrame{ID: "c1", Method: "scene activate", Params: []byte(`not json`)})
 
-	if len(exec.calls) != 0 {
-		t.Fatalf("expected zero Execute calls for invalid Params, got %d", len(exec.calls))
-	}
-	if result.Ok || outcome.Ok {
-		t.Fatalf("expected Ok:false for invalid Params, got result=%+v outcome=%+v", result, outcome)
-	}
-	if outcome.Code != "GOLC_SCRIPT_PARAMS_INVALID" {
-		t.Fatalf("outcome.Code = %q, want GOLC_SCRIPT_PARAMS_INVALID", outcome.Code)
-	}
+	require.Empty(t, exec.calls, "expected zero Execute calls for invalid Params, got %d", len(exec.calls))
+	require.False(t, result.Ok || outcome.Ok, "expected Ok:false for invalid Params, got result=%+v outcome=%+v", result, outcome)
+	require.Equal(t, "GOLC_SCRIPT_PARAMS_INVALID", outcome.Code, "outcome.Code = %q, want GOLC_SCRIPT_PARAMS_INVALID", outcome.Code)
 }
 
 // TestRunRejectsSecondActiveRun covers: "Starting a second run while one
@@ -151,12 +126,8 @@ func TestRunRejectsSecondActiveRun(t *testing.T) {
 	h := &Host{cfg: HostConfig{Root: t.TempDir()}, running: true}
 
 	_, err := h.Run(context.Background(), show.Script{Name: "Chase"}, LaunchModeRun, nil)
-	if err == nil {
-		t.Fatal("expected an error for a second run while one is active")
-	}
-	if !strings.Contains(err.Error(), "GOLC_SCRIPT_RUN_ACTIVE") {
-		t.Fatalf("expected GOLC_SCRIPT_RUN_ACTIVE, got %v", err)
-	}
+	require.Error(t, err, "expected an error for a second run while one is active")
+	require.Contains(t, err.Error(), "GOLC_SCRIPT_RUN_ACTIVE", "expected GOLC_SCRIPT_RUN_ACTIVE, got %v", err)
 }
 
 // TestRunDispatchIOEndToEnd drives runDispatchIO against an io.Pipe()
@@ -191,26 +162,14 @@ func TestRunDispatchIOEndToEnd(t *testing.T) {
 
 	outcome := h.runDispatchIO(run, stdinW, stdoutR, stderrR)
 
-	if len(outcome.Logs) == 0 {
-		t.Fatal("expected at least one captured log line")
-	}
+	require.NotEmpty(t, outcome.Logs, "expected at least one captured log line")
 	for _, line := range outcome.Logs {
-		if strings.Contains(line.Message, security.CanaryToken) {
-			t.Fatalf("expected the canary token to be redacted, got %q", line.Message)
-		}
+		require.NotContains(t, line.Message, security.CanaryToken, "expected the canary token to be redacted, got %q", line.Message)
 	}
-	if len(outcome.Outcomes) != 1 || !outcome.Outcomes[0].Ok || outcome.Outcomes[0].Route != "scene activate" {
-		t.Fatalf("expected one successful scene activate call outcome, got %+v", outcome.Outcomes)
-	}
-	if len(exec.calls) != 1 {
-		t.Fatalf("expected exactly one Execute call, got %d", len(exec.calls))
-	}
-	if outcome.Reason != "completed" {
-		t.Fatalf("Reason = %q, want %q", outcome.Reason, "completed")
-	}
-	if outcome.Status != show.ScriptRunStatusSucceeded {
-		t.Fatalf("Status = %q, want %q", outcome.Status, show.ScriptRunStatusSucceeded)
-	}
+	require.True(t, len(outcome.Outcomes) == 1 && outcome.Outcomes[0].Ok && outcome.Outcomes[0].Route == "scene activate", "expected one successful scene activate call outcome, got %+v", outcome.Outcomes)
+	require.Len(t, exec.calls, 1, "expected exactly one Execute call, got %d", len(exec.calls))
+	require.Equal(t, "completed", outcome.Reason, "Reason = %q, want %q", outcome.Reason, "completed")
+	require.Equal(t, show.ScriptRunStatusSucceeded, outcome.Status, "Status = %q, want %q", outcome.Status, show.ScriptRunStatusSucceeded)
 }
 
 // TestAppendBoundedLogDropsOldest covers T-08-20: captured output beyond
@@ -221,14 +180,10 @@ func TestAppendBoundedLogDropsOldest(t *testing.T) {
 	for i := 0; i < maxCapturedLogLines+5; i++ {
 		lines = appendBoundedLog(lines, LogLine{Message: strings.Repeat("x", 1) + itoaForTest(i)})
 	}
-	if len(lines) != maxCapturedLogLines {
-		t.Fatalf("len(lines) = %d, want %d", len(lines), maxCapturedLogLines)
-	}
+	require.Len(t, lines, maxCapturedLogLines, "len(lines) = %d, want %d", len(lines), maxCapturedLogLines)
 	// The oldest 5 entries (index 0..4) must have been dropped; the first
 	// remaining entry must be index 5.
-	if !strings.HasSuffix(lines[0].Message, "5") {
-		t.Fatalf("expected the oldest entries to have been dropped, first remaining = %q", lines[0].Message)
-	}
+	require.True(t, strings.HasSuffix(lines[0].Message, "5"), "expected the oldest entries to have been dropped, first remaining = %q", lines[0].Message)
 }
 
 func itoaForTest(i int) string {
@@ -252,9 +207,7 @@ func itoaForTest(i int) string {
 func projectRootForTest(t *testing.T) string {
 	t.Helper()
 	root, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatalf("resolve project root: %v", err)
-	}
+	require.NoError(t, err, "resolve project root: %v", err)
 	return root
 }
 
@@ -280,19 +233,13 @@ func TestRunRemovesTempDirOnSuccess(t *testing.T) {
 	root := skipUnlessDenoProvisioned(t)
 
 	host, err := NewHost(HostConfig{Root: root, ShowPath: filepath.Join(root, "fixture.golc"), Executor: &fakeExecutor{}})
-	if err != nil {
-		t.Fatalf("NewHost: %v", err)
-	}
+	require.NoError(t, err, "NewHost: %v", err)
 
 	beforeEntries, _ := os.ReadDir(os.TempDir())
 
 	outcome, err := host.Run(context.Background(), show.Script{Name: "Noop", Source: "// no SDK calls"}, LaunchModeRun, nil)
-	if err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-	if outcome.Status != show.ScriptRunStatusSucceeded {
-		t.Fatalf("Status = %q, want %q (reason: %s)", outcome.Status, show.ScriptRunStatusSucceeded, outcome.Reason)
-	}
+	require.NoError(t, err, "Run: %v", err)
+	require.Equal(t, show.ScriptRunStatusSucceeded, outcome.Status, "Status = %q, want %q (reason: %s)", outcome.Status, show.ScriptRunStatusSucceeded, outcome.Reason)
 
 	afterEntries, _ := os.ReadDir(os.TempDir())
 	for _, entry := range afterEntries {
@@ -304,9 +251,7 @@ func TestRunRemovesTempDirOnSuccess(t *testing.T) {
 					break
 				}
 			}
-			if !found {
-				t.Fatalf("expected per-run temp directory %q to be removed after Run returns", entry.Name())
-			}
+			require.True(t, found, "expected per-run temp directory %q to be removed after Run returns", entry.Name())
 		}
 	}
 }
@@ -317,21 +262,13 @@ func TestRunTwoSequentialRunsMintDistinctRunIDs(t *testing.T) {
 	root := skipUnlessDenoProvisioned(t)
 
 	host, err := NewHost(HostConfig{Root: root, ShowPath: filepath.Join(root, "fixture.golc"), Executor: &fakeExecutor{}})
-	if err != nil {
-		t.Fatalf("NewHost: %v", err)
-	}
+	require.NoError(t, err, "NewHost: %v", err)
 
 	first, err := host.Run(context.Background(), show.Script{Name: "Noop", Source: "// no SDK calls"}, LaunchModeRun, nil)
-	if err != nil {
-		t.Fatalf("first Run: %v", err)
-	}
+	require.NoError(t, err, "first Run: %v", err)
 	second, err := host.Run(context.Background(), show.Script{Name: "Noop", Source: "// no SDK calls"}, LaunchModeRun, nil)
-	if err != nil {
-		t.Fatalf("second Run: %v", err)
-	}
-	if first.RunID == second.RunID {
-		t.Fatalf("expected distinct RunIDs across sequential runs, got %s twice", first.RunID)
-	}
+	require.NoError(t, err, "second Run: %v", err)
+	require.NotEqual(t, first.RunID, second.RunID, "expected distinct RunIDs across sequential runs, got %s twice", first.RunID)
 }
 
 // TestRunSpawnsDenoWithNoAllowFlagsAndDispatchesSceneActivate is the
@@ -343,9 +280,7 @@ func TestRunSpawnsDenoWithNoAllowFlagsAndDispatchesSceneActivate(t *testing.T) {
 
 	exec := &fakeExecutor{}
 	host, err := NewHost(HostConfig{Root: root, ShowPath: filepath.Join(root, "fixture.golc"), Executor: exec})
-	if err != nil {
-		t.Fatalf("NewHost: %v", err)
-	}
+	require.NoError(t, err, "NewHost: %v", err)
 
 	source := `await golc.scene.activate({ name: "Alpha", show: "ignored" });`
 	outcome, err := host.Run(context.Background(), show.Script{
@@ -356,13 +291,7 @@ func TestRunSpawnsDenoWithNoAllowFlagsAndDispatchesSceneActivate(t *testing.T) {
 		// value CapabilityProfile{} would now be denied at dispatch time.
 		CapabilityProfile: show.CapabilityProfile{Scope: show.APIKeyScopeAuthoring, Preset: show.ResourcePresetQuickAction},
 	}, LaunchModeRun, nil)
-	if err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-	if outcome.Status != show.ScriptRunStatusSucceeded {
-		t.Fatalf("Status = %q, want %q (reason: %s)", outcome.Status, show.ScriptRunStatusSucceeded, outcome.Reason)
-	}
-	if len(exec.calls) != 1 || exec.calls[0].Route != "scene activate" {
-		t.Fatalf("expected exactly one 'scene activate' Execute call, got %+v", exec.calls)
-	}
+	require.NoError(t, err, "Run: %v", err)
+	require.Equal(t, show.ScriptRunStatusSucceeded, outcome.Status, "Status = %q, want %q (reason: %s)", outcome.Status, show.ScriptRunStatusSucceeded, outcome.Reason)
+	require.True(t, len(exec.calls) == 1 && exec.calls[0].Route == "scene activate", "expected exactly one 'scene activate' Execute call, got %+v", exec.calls)
 }

@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/artnet"
 	"github.com/lnorton89/golc/internal/deployment"
@@ -56,9 +57,7 @@ func (f *fakeArtnetFrameSource) CurrentFrame() *playback.Frame {
 func newArtnetLoopbackListener(t *testing.T) *net.UDPConn {
 	t.Helper()
 	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
-	if err != nil {
-		t.Fatalf("ListenUDP: %v", err)
-	}
+	require.NoError(t, err, "ListenUDP: %v", err)
 	t.Cleanup(func() { conn.Close() })
 	return conn
 }
@@ -66,9 +65,7 @@ func newArtnetLoopbackListener(t *testing.T) *net.UDPConn {
 func artnetListenerPort(t *testing.T, conn *net.UDPConn) int {
 	t.Helper()
 	addr, ok := conn.LocalAddr().(*net.UDPAddr)
-	if !ok {
-		t.Fatalf("expected *net.UDPAddr, got %T", conn.LocalAddr())
-	}
+	require.True(t, ok, "expected *net.UDPAddr, got %T", conn.LocalAddr())
 	return addr.Port
 }
 
@@ -91,9 +88,7 @@ func staticArtnetResolver(mode fixture.Mode) artnet.ResolveFunc {
 func mustArtnetInstanceID(t *testing.T) uuid.UUID {
 	t.Helper()
 	id, err := uuid.NewV7()
-	if err != nil {
-		t.Fatalf("uuid.NewV7: %v", err)
-	}
+	require.NoError(t, err, "uuid.NewV7: %v", err)
 	return id
 }
 
@@ -146,9 +141,7 @@ func TestScriptKillDoesNotBlockArtnet(t *testing.T) {
 		ShowPath: filepath.Join(root, "artnet-noninterference-fixture.golc"),
 		Executor: &fakeExecutor{},
 	})
-	if err != nil {
-		t.Fatalf("NewHost: %v", err)
-	}
+	require.NoError(t, err, "NewHost: %v", err)
 
 	runawaySource := `
 const buffers: Uint8Array[] = [];
@@ -222,14 +215,10 @@ while (true) {
 		haveLastSeq = true
 	}
 
-	if received < 5 {
-		t.Fatalf(
-			"expected the Art-Net worker to keep receiving packets on cadence across the script kill (observed frame gap): got only %d packets in %s",
-			received, window)
-	}
-	if discontinuities > 0 {
-		t.Fatalf(
-			"expected the worker's per-universe sequence to advance continuously across the script kill (observed sequence discontinuity): %d gap(s) across %d packets",
-			discontinuities, received)
-	}
+	require.GreaterOrEqual(t, received, 5,
+		"expected the Art-Net worker to keep receiving packets on cadence across the script kill (observed frame gap): got only %d packets in %s",
+		received, window)
+	require.Zero(t, discontinuities,
+		"expected the worker's per-universe sequence to advance continuously across the script kill (observed sequence discontinuity): %d gap(s) across %d packets",
+		discontinuities, received)
 }

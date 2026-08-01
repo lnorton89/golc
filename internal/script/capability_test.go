@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/show"
 )
@@ -23,9 +24,7 @@ import (
 func mustUUID(t *testing.T) uuid.UUID {
 	t.Helper()
 	id, err := uuid.NewV7()
-	if err != nil {
-		t.Fatalf("uuid.NewV7: %v", err)
-	}
+	require.NoError(t, err, "uuid.NewV7: %v", err)
 	return id
 }
 
@@ -56,23 +55,13 @@ func TestEnforceScopeHierarchy(t *testing.T) {
 			profile := show.CapabilityProfile{Scope: tt.profileScope, Preset: show.ResourcePresetQuickAction}
 			reason := Enforce(profile, mustUUID(t), tt.method, nil)
 			if tt.wantAllowed {
-				if reason != nil {
-					t.Fatalf("expected the call to be allowed, got termination reason %+v", reason)
-				}
+				require.Nil(t, reason, "expected the call to be allowed, got termination reason %+v", reason)
 				return
 			}
-			if reason == nil {
-				t.Fatal("expected a termination reason for an out-of-scope call")
-			}
-			if reason.Code != "GOLC_SCRIPT_SCOPE_DENIED" {
-				t.Fatalf("Code = %q, want GOLC_SCRIPT_SCOPE_DENIED", reason.Code)
-			}
-			if !strings.Contains(reason.Message, tt.method) {
-				t.Fatalf("expected the message to name the method %q, got %q", tt.method, reason.Message)
-			}
-			if !strings.Contains(reason.Message, "authoring") && !strings.Contains(reason.Message, "admin") && !strings.Contains(reason.Message, "playback") {
-				t.Fatalf("expected the message to name the required scope, got %q", reason.Message)
-			}
+			require.NotNil(t, reason, "expected a termination reason for an out-of-scope call")
+			require.Equal(t, "GOLC_SCRIPT_SCOPE_DENIED", reason.Code, "Code = %q, want GOLC_SCRIPT_SCOPE_DENIED", reason.Code)
+			require.Contains(t, reason.Message, tt.method, "expected the message to name the method %q, got %q", tt.method, reason.Message)
+			require.True(t, strings.Contains(reason.Message, "authoring") || strings.Contains(reason.Message, "admin") || strings.Contains(reason.Message, "playback"), "expected the message to name the required scope, got %q", reason.Message)
 		})
 	}
 }
@@ -83,9 +72,7 @@ func TestEnforceScopeHierarchy(t *testing.T) {
 // allowed.
 func TestEnforceUnknownMethodFailsClosed(t *testing.T) {
 	reason := Enforce(show.CapabilityProfile{Scope: show.APIKeyScopeAdmin}, mustUUID(t), "bogus method", nil)
-	if reason == nil {
-		t.Fatal("expected a termination reason for an unregistered method")
-	}
+	require.NotNil(t, reason, "expected a termination reason for an unregistered method")
 }
 
 // --- runLimiter / Enforce: rate ---------------------------------------
@@ -97,13 +84,11 @@ func TestRunLimiterAdmitsExactRateThenDenies(t *testing.T) {
 	limiter := newRunLimiter()
 	runID := mustUUID(t)
 	for i := 0; i < 5; i++ {
-		if !limiter.allow(runID, 5) {
-			t.Fatalf("expected call %d/5 to be admitted", i+1)
-		}
+		admitted := limiter.allow(runID, 5)
+		require.True(t, admitted, "expected call %d/5 to be admitted", i+1)
 	}
-	if limiter.allow(runID, 5) {
-		t.Fatal("expected the 6th call within the same instant to be denied")
-	}
+	denied := limiter.allow(runID, 5)
+	require.False(t, denied, "expected the 6th call within the same instant to be denied")
 }
 
 // TestRunLimiterViaEnforceRateExceeded covers the same behavior through
@@ -114,14 +99,12 @@ func TestRunLimiterViaEnforceRateExceeded(t *testing.T) {
 	limiter := newRunLimiter()
 	runID := mustUUID(t)
 	for i := 0; i < 5; i++ {
-		if reason := Enforce(profile, runID, "show inspect", limiter); reason != nil {
-			t.Fatalf("call %d/5 unexpectedly denied: %+v", i+1, reason)
-		}
+		reason := Enforce(profile, runID, "show inspect", limiter)
+		require.Nil(t, reason, "call %d/5 unexpectedly denied: %+v", i+1, reason)
 	}
 	reason := Enforce(profile, runID, "show inspect", limiter)
-	if reason == nil || reason.Code != "GOLC_SCRIPT_RATE_EXCEEDED" {
-		t.Fatalf("expected GOLC_SCRIPT_RATE_EXCEEDED on the 6th call, got %+v", reason)
-	}
+	require.NotNil(t, reason, "expected GOLC_SCRIPT_RATE_EXCEEDED on the 6th call, got %+v", reason)
+	require.Equal(t, "GOLC_SCRIPT_RATE_EXCEEDED", reason.Code, "expected GOLC_SCRIPT_RATE_EXCEEDED on the 6th call, got %+v", reason)
 }
 
 // TestRunLimiterZeroRatePerSecondUsesPackageDefault covers: "A limiter
@@ -130,20 +113,16 @@ func TestRunLimiterViaEnforceRateExceeded(t *testing.T) {
 func TestRunLimiterZeroRatePerSecondUsesPackageDefault(t *testing.T) {
 	profile := show.CapabilityProfile{Scope: show.APIKeyScopeAdmin, Preset: show.ResourcePresetAdvanced, RatePerSecond: 0}
 	limits := resourceLimitsFor(profile)
-	if limits.RatePerSecond <= 0 {
-		t.Fatalf("expected a positive default rate, got %d", limits.RatePerSecond)
-	}
+	require.Greater(t, limits.RatePerSecond, 0, "expected a positive default rate, got %d", limits.RatePerSecond)
 
 	limiter := newRunLimiter()
 	runID := mustUUID(t)
 	for i := 0; i < limits.RatePerSecond; i++ {
-		if !limiter.allow(runID, limits.RatePerSecond) {
-			t.Fatalf("expected call %d/%d to be admitted", i+1, limits.RatePerSecond)
-		}
+		admitted := limiter.allow(runID, limits.RatePerSecond)
+		require.True(t, admitted, "expected call %d/%d to be admitted", i+1, limits.RatePerSecond)
 	}
-	if limiter.allow(runID, limits.RatePerSecond) {
-		t.Fatal("expected the resolved default rate to be finite, not unlimited")
-	}
+	denied := limiter.allow(runID, limits.RatePerSecond)
+	require.False(t, denied, "expected the resolved default rate to be finite, not unlimited")
 }
 
 // --- deadlineFor / checkDeadline --------------------------------------
@@ -155,25 +134,16 @@ func TestRunLimiterZeroRatePerSecondUsesPackageDefault(t *testing.T) {
 func TestDeadlineBoundary(t *testing.T) {
 	deadline := 30 * time.Second
 
-	if reason := checkDeadline(deadline-time.Millisecond, deadline); reason != nil {
-		t.Fatalf("expected no termination one tick short of the deadline, got %+v", reason)
-	}
+	reason := checkDeadline(deadline-time.Millisecond, deadline)
+	require.Nil(t, reason, "expected no termination one tick short of the deadline, got %+v", reason)
 
 	atDeadline := checkDeadline(deadline, deadline)
-	if atDeadline == nil {
-		t.Fatal("expected termination exactly at the deadline")
-	}
-	if atDeadline.Code != "GOLC_SCRIPT_DEADLINE_EXCEEDED" {
-		t.Fatalf("Code = %q, want GOLC_SCRIPT_DEADLINE_EXCEEDED", atDeadline.Code)
-	}
-	if !strings.Contains(atDeadline.Message, deadline.String()) {
-		t.Fatalf("expected the message to include the elapsed/deadline value, got %q", atDeadline.Message)
-	}
+	require.NotNil(t, atDeadline, "expected termination exactly at the deadline")
+	require.Equal(t, "GOLC_SCRIPT_DEADLINE_EXCEEDED", atDeadline.Code, "Code = %q, want GOLC_SCRIPT_DEADLINE_EXCEEDED", atDeadline.Code)
+	require.Contains(t, atDeadline.Message, deadline.String(), "expected the message to include the elapsed/deadline value, got %q", atDeadline.Message)
 
 	pastDeadline := checkDeadline(deadline+time.Second, deadline)
-	if pastDeadline == nil {
-		t.Fatal("expected termination past the deadline")
-	}
+	require.NotNil(t, pastDeadline, "expected termination past the deadline")
 }
 
 // TestDeadlineForDelegatesToResolveResourceLimits covers: "deadlineFor
@@ -182,38 +152,31 @@ func TestDeadlineBoundary(t *testing.T) {
 // DeadlineSeconds returns the package default duration" case.
 func TestDeadlineForDelegatesToResolveResourceLimits(t *testing.T) {
 	longRunning := show.CapabilityProfile{Preset: show.ResourcePresetLongRunning}
-	if got, want := deadlineFor(longRunning), longRunning.ResolveResourceLimits().Deadline; got != want {
-		t.Fatalf("deadlineFor(long-running) = %s, want %s", got, want)
-	}
+	got, want := deadlineFor(longRunning), longRunning.ResolveResourceLimits().Deadline
+	require.Equal(t, want, got, "deadlineFor(long-running) = %s, want %s", got, want)
 
 	zeroAdvanced := show.CapabilityProfile{Preset: show.ResourcePresetAdvanced, DeadlineSeconds: 0}
-	if deadlineFor(zeroAdvanced) <= 0 {
-		t.Fatalf("expected a positive default deadline for DeadlineSeconds 0, got %s", deadlineFor(zeroAdvanced))
-	}
+	zeroDeadline := deadlineFor(zeroAdvanced)
+	require.Greater(t, zeroDeadline, time.Duration(0), "expected a positive default deadline for DeadlineSeconds 0, got %s", zeroDeadline)
 
 	negativeAdvanced := show.CapabilityProfile{Preset: show.ResourcePresetAdvanced, DeadlineSeconds: -5}
-	if deadlineFor(negativeAdvanced) <= 0 {
-		t.Fatalf("expected a positive default deadline for a negative DeadlineSeconds, got %s", deadlineFor(negativeAdvanced))
-	}
+	negativeDeadline := deadlineFor(negativeAdvanced)
+	require.Greater(t, negativeDeadline, time.Duration(0), "expected a positive default deadline for a negative DeadlineSeconds, got %s", negativeDeadline)
 }
 
 // --- memoryLimitBytes ---------------------------------------------------
 
 func TestMemoryLimitBytesValid(t *testing.T) {
 	got, err := memoryLimitBytes(256)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if want := uint64(256) * 1024 * 1024; got != want {
-		t.Fatalf("memoryLimitBytes(256) = %d, want %d", got, want)
-	}
+	require.NoError(t, err, "unexpected error: %v", err)
+	want := uint64(256) * 1024 * 1024
+	require.Equal(t, want, got, "memoryLimitBytes(256) = %d, want %d", got, want)
 }
 
 func TestMemoryLimitBytesRejectsNonPositive(t *testing.T) {
 	for _, mb := range []int{0, -1, -100} {
-		if _, err := memoryLimitBytes(mb); err == nil {
-			t.Fatalf("expected an error for memory_limit_mb %d", mb)
-		}
+		_, err := memoryLimitBytes(mb)
+		require.Error(t, err, "expected an error for memory_limit_mb %d", mb)
 	}
 }
 
@@ -222,36 +185,30 @@ func TestMemoryLimitBytesRejectsNonPositive(t *testing.T) {
 // exceed math.MaxUint64/2 is rejected before the multiplication runs.
 func TestMemoryLimitBytesRejectsOverflow(t *testing.T) {
 	_, err := memoryLimitBytes(math.MaxInt64)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_SCRIPT_LIMIT_INVALID") {
-		t.Fatalf("expected a GOLC_SCRIPT_LIMIT_INVALID overflow error, got %v", err)
-	}
+	require.Error(t, err, "expected a GOLC_SCRIPT_LIMIT_INVALID overflow error, got %v", err)
+	require.Contains(t, err.Error(), "GOLC_SCRIPT_LIMIT_INVALID", "expected a GOLC_SCRIPT_LIMIT_INVALID overflow error, got %v", err)
 }
 
 // --- cpuRateFor -----------------------------------------------------
 
 func TestCpuRateForValidRange(t *testing.T) {
 	got, err := cpuRateFor(25)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != 2500 {
-		t.Fatalf("cpuRateFor(25) = %d, want 2500", got)
-	}
+	require.NoError(t, err, "unexpected error: %v", err)
+	require.EqualValues(t, 2500, got, "cpuRateFor(25) = %d, want 2500", got)
+
 	full, err := cpuRateFor(100)
-	if err != nil || full != 10000 {
-		t.Fatalf("cpuRateFor(100) = %d, err %v; want 10000, nil", full, err)
-	}
+	require.NoError(t, err, "cpuRateFor(100) = %d, err %v; want 10000, nil", full, err)
+	require.EqualValues(t, 10000, full, "cpuRateFor(100) = %d, err %v; want 10000, nil", full, err)
+
 	min, err := cpuRateFor(1)
-	if err != nil || min != 100 {
-		t.Fatalf("cpuRateFor(1) = %d, err %v; want 100, nil", min, err)
-	}
+	require.NoError(t, err, "cpuRateFor(1) = %d, err %v; want 100, nil", min, err)
+	require.EqualValues(t, 100, min, "cpuRateFor(1) = %d, err %v; want 100, nil", min, err)
 }
 
 func TestCpuRateForRejectsOutOfRange(t *testing.T) {
 	for _, percent := range []int{0, -1, 101, 1000} {
-		if _, err := cpuRateFor(percent); err == nil {
-			t.Fatalf("expected an error for cpu_cap_percent %d", percent)
-		}
+		_, err := cpuRateFor(percent)
+		require.Error(t, err, "expected an error for cpu_cap_percent %d", percent)
 	}
 }
 
@@ -263,17 +220,12 @@ func TestCpuRateForRejectsOutOfRange(t *testing.T) {
 // unresolvable case.
 func TestMemoryTriggerBytesResolvesPercentOfConfiguredLimit(t *testing.T) {
 	trigger, ok := memoryTriggerBytes(64, 95)
-	if !ok {
-		t.Fatal("expected a resolvable trigger for a valid MemoryLimitMB")
-	}
+	require.True(t, ok, "expected a resolvable trigger for a valid MemoryLimitMB")
 	want := (uint64(64) * 1024 * 1024) / 100 * 95
-	if trigger != want {
-		t.Fatalf("memoryTriggerBytes(64, 95) = %d, want %d", trigger, want)
-	}
+	require.Equal(t, want, trigger, "memoryTriggerBytes(64, 95) = %d, want %d", trigger, want)
 
-	if _, ok := memoryTriggerBytes(0, 95); ok {
-		t.Fatal("expected memoryTriggerBytes to report unresolvable for an invalid MemoryLimitMB")
-	}
+	_, ok = memoryTriggerBytes(0, 95)
+	require.False(t, ok, "expected memoryTriggerBytes to report unresolvable for an invalid MemoryLimitMB")
 }
 
 // TestCheckMemoryPressureBoundary covers checkMemoryPressure's
@@ -283,9 +235,7 @@ func TestMemoryTriggerBytesResolvesPercentOfConfiguredLimit(t *testing.T) {
 func TestCheckMemoryPressureBoundary(t *testing.T) {
 	limits64 := show.ResolvedLimits{MemoryLimitMB: 64}
 	trigger, ok := memoryTriggerBytes(64, memoryPressureTriggerPercent)
-	if !ok {
-		t.Fatal("expected a resolvable 64 MB trigger")
-	}
+	require.True(t, ok, "expected a resolvable 64 MB trigger")
 
 	tests := []struct {
 		name      string
@@ -303,17 +253,11 @@ func TestCheckMemoryPressureBoundary(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			reason := checkMemoryPressure(tt.peakBytes, tt.limits)
 			if tt.wantNil {
-				if reason != nil {
-					t.Fatalf("expected nil, got %+v", reason)
-				}
+				require.Nil(t, reason, "expected nil, got %+v", reason)
 				return
 			}
-			if reason == nil {
-				t.Fatal("expected a termination reason")
-			}
-			if reason.Code != "GOLC_SCRIPT_MEMORY_EXCEEDED" {
-				t.Fatalf("Code = %q, want GOLC_SCRIPT_MEMORY_EXCEEDED", reason.Code)
-			}
+			require.NotNil(t, reason, "expected a termination reason")
+			require.Equal(t, "GOLC_SCRIPT_MEMORY_EXCEEDED", reason.Code, "Code = %q, want GOLC_SCRIPT_MEMORY_EXCEEDED", reason.Code)
 		})
 	}
 }
@@ -323,12 +267,9 @@ func TestCheckMemoryPressureBoundary(t *testing.T) {
 // (ScriptDebugPanel.tsx) parses.
 func TestCheckMemoryPressureRendersExactSentence(t *testing.T) {
 	reason := checkMemoryPressure(64*1024*1024, show.ResolvedLimits{MemoryLimitMB: 64})
-	if reason == nil {
-		t.Fatal("expected a termination reason")
-	}
-	if got, want := reason.String(), "GOLC_SCRIPT_MEMORY_EXCEEDED: run exceeded its 64 MB memory limit"; got != want {
-		t.Fatalf("String() = %q, want %q", got, want)
-	}
+	require.NotNil(t, reason, "expected a termination reason")
+	want := "GOLC_SCRIPT_MEMORY_EXCEEDED: run exceeded its 64 MB memory limit"
+	require.Equal(t, want, reason.String(), "String() = %q, want %q", reason.String(), want)
 }
 
 // --- classifyMemoryExhaustion ---------------------------------------------
@@ -361,17 +302,11 @@ func TestClassifyMemoryExhaustionSignatureAndCorroboration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			reason := classifyMemoryExhaustion(tt.reason, tt.peakBytes, tt.limits)
 			if tt.wantNil {
-				if reason != nil {
-					t.Fatalf("expected nil, got %+v", reason)
-				}
+				require.Nil(t, reason, "expected nil, got %+v", reason)
 				return
 			}
-			if reason == nil {
-				t.Fatal("expected a termination reason")
-			}
-			if reason.Code != "GOLC_SCRIPT_MEMORY_EXCEEDED" {
-				t.Fatalf("Code = %q, want GOLC_SCRIPT_MEMORY_EXCEEDED", reason.Code)
-			}
+			require.NotNil(t, reason, "expected a termination reason")
+			require.Equal(t, "GOLC_SCRIPT_MEMORY_EXCEEDED", reason.Code, "Code = %q, want GOLC_SCRIPT_MEMORY_EXCEEDED", reason.Code)
 		})
 	}
 }
@@ -401,26 +336,17 @@ func TestInFlightCallCompletesAfterTerminationBegins(t *testing.T) {
 	}()
 
 	<-started
-	if !run.beginTermination(TerminationReason{Code: "GOLC_SCRIPT_DEADLINE_EXCEEDED", Message: "test", At: time.Now()}) {
-		t.Fatal("expected beginTermination to record the first reason")
-	}
+	began := run.beginTermination(TerminationReason{Code: "GOLC_SCRIPT_DEADLINE_EXCEEDED", Message: "test", At: time.Now()})
+	require.True(t, began, "expected beginTermination to record the first reason")
 	close(release)
 
 	outcome := <-resultCh
-	if !outcome.Ok {
-		t.Fatalf("expected the in-flight call to complete normally despite termination beginning mid-call, got %+v", outcome)
-	}
+	require.True(t, outcome.Ok, "expected the in-flight call to complete normally despite termination beginning mid-call, got %+v", outcome)
 
 	_, secondOutcome := h.dispatchCmdCall(run, CmdCallFrame{ID: "c2", Method: "scene activate", Params: []byte(`{"name":"Alpha"}`)})
-	if secondOutcome.Ok {
-		t.Fatal("expected a cmd-call arriving after termination began to be denied without reaching the Executor")
-	}
-	if secondOutcome.Code != "GOLC_SCRIPT_DEADLINE_EXCEEDED" {
-		t.Fatalf("expected the recorded termination reason's code, got %q", secondOutcome.Code)
-	}
-	if len(exec.calls) != 1 {
-		t.Fatalf("expected exactly one Execute call (the in-flight one), got %d", len(exec.calls))
-	}
+	require.False(t, secondOutcome.Ok, "expected a cmd-call arriving after termination began to be denied without reaching the Executor")
+	require.Equal(t, "GOLC_SCRIPT_DEADLINE_EXCEEDED", secondOutcome.Code, "expected the recorded termination reason's code, got %q", secondOutcome.Code)
+	require.Len(t, exec.calls, 1, "expected exactly one Execute call (the in-flight one), got %d", len(exec.calls))
 }
 
 // TestBeginTerminationFirstWriterWins covers that a second
@@ -430,14 +356,11 @@ func TestBeginTerminationFirstWriterWins(t *testing.T) {
 	first := TerminationReason{Code: "GOLC_SCRIPT_DEADLINE_EXCEEDED", Message: "first", At: time.Now()}
 	second := TerminationReason{Code: "GOLC_SCRIPT_RATE_EXCEEDED", Message: "second", At: time.Now()}
 
-	if !run.beginTermination(first) {
-		t.Fatal("expected the first beginTermination to succeed")
-	}
-	if run.beginTermination(second) {
-		t.Fatal("expected the second beginTermination to report it did not set the reason")
-	}
+	firstSet := run.beginTermination(first)
+	require.True(t, firstSet, "expected the first beginTermination to succeed")
+	secondSet := run.beginTermination(second)
+	require.False(t, secondSet, "expected the second beginTermination to report it did not set the reason")
 	reason, terminating := run.terminationReason()
-	if !terminating || reason.Code != first.Code {
-		t.Fatalf("expected the first reason to be retained, got %+v (terminating=%v)", reason, terminating)
-	}
+	require.True(t, terminating, "expected the first reason to be retained, got %+v (terminating=%v)", reason, terminating)
+	require.Equal(t, first.Code, reason.Code, "expected the first reason to be retained, got %+v (terminating=%v)", reason, terminating)
 }
