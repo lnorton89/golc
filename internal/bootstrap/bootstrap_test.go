@@ -147,33 +147,23 @@ func buildTarGzEntries(t *testing.T, dir, name string, entries []testArchiveEntr
 		if typeflag != tar.TypeReg && typeflag != tar.TypeRegA {
 			header.Size = 0
 		}
-		if err := writer.WriteHeader(header); err != nil {
-			t.Fatalf("write tar header %q: %v", item.Name, err)
-		}
+		writeErr := writer.WriteHeader(header)
+		require.NoError(t, writeErr, "write tar header %q", item.Name)
 		if header.Size > 0 {
-			if _, err := writer.Write([]byte(item.Body)); err != nil {
-				t.Fatalf("write tar entry %q: %v", item.Name, err)
-			}
+			_, writeErr := writer.Write([]byte(item.Body))
+			require.NoError(t, writeErr, "write tar entry %q", item.Name)
 		}
 	}
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close tar writer: %v", err)
-	}
-	if err := gzipWriter.Close(); err != nil {
-		t.Fatalf("close gzip writer: %v", err)
-	}
-	if err := file.Close(); err != nil {
-		t.Fatalf("close tar.gz file: %v", err)
-	}
+	require.NoError(t, writer.Close(), "close tar writer")
+	require.NoError(t, gzipWriter.Close(), "close gzip writer")
+	require.NoError(t, file.Close(), "close tar.gz file")
 	return archivePath, digestFile(t, archivePath)
 }
 
 func digestFile(t *testing.T, path string) string {
 	t.Helper()
 	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
+	require.NoError(t, err, "read %s", path)
 	digest := sha256.Sum256(raw)
 	return hex.EncodeToString(digest[:])
 }
@@ -184,9 +174,7 @@ func TestVerifyArchiveAcceptsMatchingChecksum(t *testing.T) {
 		"bin/golc-project.exe": "payload\n",
 	})
 
-	if err := VerifyArchive(archivePath, digest); err != nil {
-		t.Fatalf("expected matching archive to verify, got: %v", err)
-	}
+	require.NoError(t, VerifyArchive(archivePath, digest), "expected matching archive to verify")
 }
 
 func TestVerifyArchiveRejectsChecksumMismatch(t *testing.T) {
@@ -197,12 +185,8 @@ func TestVerifyArchiveRejectsChecksumMismatch(t *testing.T) {
 	wrong := strings.Repeat("ab", 32)
 
 	err := VerifyArchive(archivePath, wrong)
-	if err == nil {
-		t.Fatal("expected checksum mismatch error, got nil")
-	}
-	if !strings.Contains(err.Error(), "BOOTSTRAP_CHECKSUM_MISMATCH") {
-		t.Fatalf("expected BOOTSTRAP_CHECKSUM_MISMATCH diagnostic, got: %v", err)
-	}
+	require.Error(t, err, "expected checksum mismatch error, got nil")
+	require.Contains(t, err.Error(), "BOOTSTRAP_CHECKSUM_MISMATCH", "expected BOOTSTRAP_CHECKSUM_MISMATCH diagnostic")
 }
 
 func TestVerifyArchiveRejectsMalformedExpectedChecksum(t *testing.T) {
@@ -212,12 +196,8 @@ func TestVerifyArchiveRejectsMalformedExpectedChecksum(t *testing.T) {
 	})
 
 	err := VerifyArchive(archivePath, "NOT-A-DIGEST")
-	if err == nil {
-		t.Fatal("expected malformed checksum error, got nil")
-	}
-	if !strings.Contains(err.Error(), "BOOTSTRAP_CHECKSUM_FORMAT") {
-		t.Fatalf("expected BOOTSTRAP_CHECKSUM_FORMAT diagnostic, got: %v", err)
-	}
+	require.Error(t, err, "expected malformed checksum error, got nil")
+	require.Contains(t, err.Error(), "BOOTSTRAP_CHECKSUM_FORMAT", "expected BOOTSTRAP_CHECKSUM_FORMAT diagnostic")
 }
 
 func TestVerifyArchiveRejectsPathTraversalEntries(t *testing.T) {
@@ -230,20 +210,14 @@ func TestVerifyArchiveRejectsPathTraversalEntries(t *testing.T) {
 		"middle-dot": "bin/../../escape.txt",
 	} {
 		caseDir := filepath.Join(dir, name)
-		if err := os.MkdirAll(caseDir, 0o755); err != nil {
-			t.Fatalf("mkdir: %v", err)
-		}
+		require.NoError(t, os.MkdirAll(caseDir, 0o755), "mkdir")
 		archivePath, digest := buildArchive(t, caseDir, map[string]string{
 			entry: "escape\n",
 		})
 
 		err := VerifyArchive(archivePath, digest)
-		if err == nil {
-			t.Fatalf("%s: expected traversal rejection for entry %q, got nil", name, entry)
-		}
-		if !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_TRAVERSAL") {
-			t.Fatalf("%s: expected BOOTSTRAP_ARCHIVE_TRAVERSAL diagnostic, got: %v", name, err)
-		}
+		require.Error(t, err, "%s: expected traversal rejection for entry %q, got nil", name, entry)
+		require.Contains(t, err.Error(), "BOOTSTRAP_ARCHIVE_TRAVERSAL", "%s: expected BOOTSTRAP_ARCHIVE_TRAVERSAL diagnostic", name)
 	}
 }
 
@@ -255,42 +229,24 @@ func TestInstallStagedPromotesVerifiedArchiveAtomically(t *testing.T) {
 	})
 	installDir := filepath.Join(dir, "install", "golc_project")
 
-	if err := InstallStaged(archivePath, digest, installDir); err != nil {
-		t.Fatalf("expected staged install to succeed, got: %v", err)
-	}
+	require.NoError(t, InstallStaged(archivePath, digest, installDir), "expected staged install to succeed")
 
 	payload, err := os.ReadFile(filepath.Join(installDir, "bin", "golc-project.exe"))
-	if err != nil {
-		t.Fatalf("promoted payload missing: %v", err)
-	}
-	if string(payload) != "tool payload\n" {
-		t.Fatalf("promoted payload bytes changed: %q", payload)
-	}
+	require.NoError(t, err, "promoted payload missing")
+	require.Equal(t, "tool payload\n", string(payload), "promoted payload bytes changed")
 
 	manifestRaw, err := os.ReadFile(filepath.Join(installDir, ManifestName))
-	if err != nil {
-		t.Fatalf("install manifest missing: %v", err)
-	}
+	require.NoError(t, err, "install manifest missing")
 	var manifest InstallManifest
-	if err := json.Unmarshal(manifestRaw, &manifest); err != nil {
-		t.Fatalf("install manifest is not valid JSON: %v", err)
-	}
-	if manifest.ArchiveSHA256 != digest {
-		t.Fatalf("manifest archive hash %q does not match %q", manifest.ArchiveSHA256, digest)
-	}
-	if len(manifest.Files) != 2 {
-		t.Fatalf("manifest should record 2 files, got %d", len(manifest.Files))
-	}
+	require.NoError(t, json.Unmarshal(manifestRaw, &manifest), "install manifest is not valid JSON")
+	require.Equal(t, digest, manifest.ArchiveSHA256, "manifest archive hash does not match")
+	require.Len(t, manifest.Files, 2, "manifest should record 2 files")
 
 	// No staging directory may survive promotion.
 	parentEntries, err := os.ReadDir(filepath.Dir(installDir))
-	if err != nil {
-		t.Fatalf("read install parent: %v", err)
-	}
+	require.NoError(t, err, "read install parent")
 	for _, entry := range parentEntries {
-		if strings.Contains(entry.Name(), "staging") {
-			t.Fatalf("staging directory %q survived promotion", entry.Name())
-		}
+		require.NotContains(t, entry.Name(), "staging", "staging directory %q survived promotion", entry.Name())
 	}
 }
 
@@ -303,12 +259,9 @@ func TestInstallStagedLeavesNoInstallOnChecksumMismatch(t *testing.T) {
 	wrong := strings.Repeat("cd", 32)
 
 	err := InstallStaged(archivePath, wrong, installDir)
-	if err == nil {
-		t.Fatal("expected checksum mismatch to fail the install, got nil")
-	}
-	if _, statErr := os.Stat(installDir); !os.IsNotExist(statErr) {
-		t.Fatalf("checksum mismatch must leave no install, stat err: %v", statErr)
-	}
+	require.Error(t, err, "expected checksum mismatch to fail the install, got nil")
+	_, statErr := os.Stat(installDir)
+	require.True(t, os.IsNotExist(statErr), "checksum mismatch must leave no install, stat err: %v", statErr)
 }
 
 func TestInstalledMatchesMakesSecondInstallSkipArchiveSource(t *testing.T) {
@@ -318,30 +271,18 @@ func TestInstalledMatchesMakesSecondInstallSkipArchiveSource(t *testing.T) {
 	})
 	installDir := filepath.Join(dir, "install", "golc_project")
 
-	if err := InstallStaged(archivePath, digest, installDir); err != nil {
-		t.Fatalf("first install failed: %v", err)
-	}
+	require.NoError(t, InstallStaged(archivePath, digest, installDir), "first install failed")
 
 	matches, err := InstalledMatches(installDir, digest)
-	if err != nil {
-		t.Fatalf("InstalledMatches failed: %v", err)
-	}
-	if !matches {
-		t.Fatal("matching installed manifest must report true")
-	}
+	require.NoError(t, err, "InstalledMatches failed")
+	require.True(t, matches, "matching installed manifest must report true")
 
 	// The archive source is deleted: a matching manifest means the second
 	// bootstrap pass never touches the archive source at all.
-	if err := os.Remove(archivePath); err != nil {
-		t.Fatalf("remove archive source: %v", err)
-	}
+	require.NoError(t, os.Remove(archivePath), "remove archive source")
 	matches, err = InstalledMatches(installDir, digest)
-	if err != nil {
-		t.Fatalf("InstalledMatches after source removal failed: %v", err)
-	}
-	if !matches {
-		t.Fatal("installed state must match without consulting the archive source")
-	}
+	require.NoError(t, err, "InstalledMatches after source removal failed")
+	require.True(t, matches, "installed state must match without consulting the archive source")
 }
 
 func TestInstalledMatchesRejectsTamperedInstall(t *testing.T) {
@@ -351,37 +292,21 @@ func TestInstalledMatchesRejectsTamperedInstall(t *testing.T) {
 	})
 	installDir := filepath.Join(dir, "install", "golc_project")
 
-	if err := InstallStaged(archivePath, digest, installDir); err != nil {
-		t.Fatalf("install failed: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(installDir, "bin", "golc-project.exe"), []byte("tampered\n"), 0o644); err != nil {
-		t.Fatalf("tamper install: %v", err)
-	}
+	require.NoError(t, InstallStaged(archivePath, digest, installDir), "install failed")
+	require.NoError(t, os.WriteFile(filepath.Join(installDir, "bin", "golc-project.exe"), []byte("tampered\n"), 0o644), "tamper install")
 
 	matches, err := InstalledMatches(installDir, digest)
-	if err != nil {
-		t.Fatalf("InstalledMatches failed: %v", err)
-	}
-	if matches {
-		t.Fatal("tampered installed bytes must not match the manifest")
-	}
+	require.NoError(t, err, "InstalledMatches failed")
+	require.False(t, matches, "tampered installed bytes must not match the manifest")
 
 	otherDigest := strings.Repeat("ef", 32)
 	matches, err = InstalledMatches(installDir, otherDigest)
-	if err != nil {
-		t.Fatalf("InstalledMatches with other digest failed: %v", err)
-	}
-	if matches {
-		t.Fatal("a different pinned archive hash must not match the manifest")
-	}
+	require.NoError(t, err, "InstalledMatches with other digest failed")
+	require.False(t, matches, "a different pinned archive hash must not match the manifest")
 
 	matches, err = InstalledMatches(filepath.Join(dir, "never-installed"), digest)
-	if err != nil {
-		t.Fatalf("InstalledMatches on missing install failed: %v", err)
-	}
-	if matches {
-		t.Fatal("a missing install must not match")
-	}
+	require.NoError(t, err, "InstalledMatches on missing install failed")
+	require.False(t, matches, "a missing install must not match")
 }
 
 // probeRuntime and probeConfig mirror the committed runtime concern shape so
@@ -407,29 +332,19 @@ func TestSchemaProbeDecodesTOMLAndEmitsInvopopSchema(t *testing.T) {
 
 	var decoded probeConfig
 	metadata, err := toml.Decode(document, &decoded)
-	if err != nil {
-		t.Fatalf("TOML decode failed: %v", err)
-	}
-	if undecoded := metadata.Undecoded(); len(undecoded) != 0 {
-		t.Fatalf("strict decode left undecoded keys: %v", undecoded)
-	}
-	if decoded.SchemaVersion != 2 || decoded.Runtime.LogLevel != "info" {
-		t.Fatalf("decoded unexpected values: %+v", decoded)
-	}
+	require.NoError(t, err, "TOML decode failed")
+	undecoded := metadata.Undecoded()
+	require.Empty(t, undecoded, "strict decode left undecoded keys: %v", undecoded)
+	require.Equal(t, 2, decoded.SchemaVersion, "decoded unexpected values: %+v", decoded)
+	require.Equal(t, "info", decoded.Runtime.LogLevel, "decoded unexpected values: %+v", decoded)
 
 	schema := jsonschema.Reflect(&probeConfig{})
 	schemaBytes, err := json.Marshal(schema)
-	if err != nil {
-		t.Fatalf("schema marshal failed: %v", err)
-	}
+	require.NoError(t, err, "schema marshal failed")
 	emitted := string(schemaBytes)
-	if !strings.Contains(emitted, "https://json-schema.org/draft/2020-12/schema") {
-		t.Fatalf("schema bytes missing draft 2020-12 marker: %s", emitted)
-	}
+	require.Contains(t, emitted, "https://json-schema.org/draft/2020-12/schema", "schema bytes missing draft 2020-12 marker: %s", emitted)
 	for _, fragment := range []string{"schema_version", "log_level", "additionalProperties"} {
-		if !strings.Contains(emitted, fragment) {
-			t.Fatalf("schema bytes missing %q: %s", fragment, emitted)
-		}
+		require.Contains(t, emitted, fragment, "schema bytes missing %q: %s", fragment, emitted)
 	}
 }
 
@@ -454,12 +369,8 @@ func writeTestToolchainManifest(t *testing.T, root string, patterns map[string]S
 	}
 
 	configDir := filepath.Join(root, "config")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("mkdir config: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(configDir, "toolchain.toml"), []byte(body.String()), 0o644); err != nil {
-		t.Fatalf("write toolchain.toml: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(configDir, 0o755), "mkdir config")
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "toolchain.toml"), []byte(body.String()), 0o644), "write toolchain.toml")
 }
 
 // buildZipWithSymlinkEntry writes a zip archive containing one file entry
@@ -471,40 +382,26 @@ func buildZipWithSymlinkEntry(t *testing.T, dir string) (string, string) {
 
 	archivePath := filepath.Join(dir, "symlink-archive.zip")
 	file, err := os.Create(archivePath)
-	if err != nil {
-		t.Fatalf("create archive: %v", err)
-	}
+	require.NoError(t, err, "create archive")
 	writer := zip.NewWriter(file)
 
 	regular, err := writer.Create("bin/golc-project.exe")
-	if err != nil {
-		t.Fatalf("create regular entry: %v", err)
-	}
-	if _, err := regular.Write([]byte("payload\n")); err != nil {
-		t.Fatalf("write regular entry: %v", err)
-	}
+	require.NoError(t, err, "create regular entry")
+	_, err = regular.Write([]byte("payload\n"))
+	require.NoError(t, err, "write regular entry")
 
 	header := &zip.FileHeader{Name: "bin/evil-link", Method: zip.Deflate}
 	header.SetMode(os.ModeSymlink | 0o777)
 	linkWriter, err := writer.CreateHeader(header)
-	if err != nil {
-		t.Fatalf("create symlink header: %v", err)
-	}
-	if _, err := linkWriter.Write([]byte("../../../etc/passwd")); err != nil {
-		t.Fatalf("write symlink entry: %v", err)
-	}
+	require.NoError(t, err, "create symlink header")
+	_, err = linkWriter.Write([]byte("../../../etc/passwd"))
+	require.NoError(t, err, "write symlink entry")
 
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close zip writer: %v", err)
-	}
-	if err := file.Close(); err != nil {
-		t.Fatalf("close archive file: %v", err)
-	}
+	require.NoError(t, writer.Close(), "close zip writer")
+	require.NoError(t, file.Close(), "close archive file")
 
 	raw, err := os.ReadFile(archivePath)
-	if err != nil {
-		t.Fatalf("read archive back: %v", err)
-	}
+	require.NoError(t, err, "read archive back")
 	digest := sha256.Sum256(raw)
 	return archivePath, hex.EncodeToString(digest[:])
 }
@@ -534,12 +431,9 @@ func (source *fakeSource) Fetch(rawURL string) (io.ReadCloser, error) {
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 	root, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatalf("resolve repository root: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(root, "golc.project.toml")); err != nil {
-		t.Fatalf("repository root %q has no golc.project.toml: %v", root, err)
-	}
+	require.NoError(t, err, "resolve repository root")
+	_, err = os.Stat(filepath.Join(root, "golc.project.toml"))
+	require.NoError(t, err, "repository root %q has no golc.project.toml", root)
 	return root
 }
 
@@ -565,38 +459,22 @@ func TestScopeBootstrapArchive(t *testing.T) {
 					archivePath, digest = buildTarGzEntries(t, dir, "tool.tar.gz", entries)
 				}
 				installDir := filepath.Join(dir, "install")
-				if err := InstallStaged(archivePath, digest, installDir); err != nil {
-					t.Fatalf("InstallStaged(%s): %v", format, err)
-				}
+				require.NoError(t, InstallStaged(archivePath, digest, installDir), "InstallStaged(%s)", format)
 				var manifest InstallManifest
 				raw, err := os.ReadFile(filepath.Join(installDir, ManifestName))
-				if err != nil {
-					t.Fatalf("read manifest: %v", err)
-				}
-				if err := json.Unmarshal(raw, &manifest); err != nil {
-					t.Fatalf("decode manifest: %v", err)
-				}
-				if manifest.SchemaVersion != InstallManifestSchemaVersion {
-					t.Fatalf("schema_version = %d, want %d", manifest.SchemaVersion, InstallManifestSchemaVersion)
-				}
-				if len(manifest.Files) != 2 {
-					t.Fatalf("manifest files = %d, want 2", len(manifest.Files))
-				}
-				if manifest.Files[0].Path != "tool/bin/run" || manifest.Files[0].Mode != "0755" {
-					t.Fatalf("unexpected executable manifest entry: %+v", manifest.Files[0])
-				}
+				require.NoError(t, err, "read manifest")
+				require.NoError(t, json.Unmarshal(raw, &manifest), "decode manifest")
+				require.Equal(t, InstallManifestSchemaVersion, manifest.SchemaVersion, "schema_version mismatch")
+				require.Len(t, manifest.Files, 2, "manifest files")
+				require.Equal(t, "tool/bin/run", manifest.Files[0].Path, "unexpected executable manifest entry: %+v", manifest.Files[0])
+				require.Equal(t, "0755", manifest.Files[0].Mode, "unexpected executable manifest entry: %+v", manifest.Files[0])
 				matches, err := InstalledMatches(installDir, digest)
-				if err != nil || !matches {
-					t.Fatalf("InstalledMatches = %v, %v", matches, err)
-				}
+				require.NoError(t, err, "InstalledMatches")
+				require.True(t, matches, "InstalledMatches")
 				if runtime.GOOS != "windows" {
 					info, err := os.Stat(filepath.Join(installDir, "tool", "bin", "run"))
-					if err != nil {
-						t.Fatalf("stat executable: %v", err)
-					}
-					if got := info.Mode().Perm(); got != 0o755 {
-						t.Fatalf("executable mode = %04o, want 0755", got)
-					}
+					require.NoError(t, err, "stat executable")
+					require.Equal(t, os.FileMode(0o755), info.Mode().Perm(), "executable mode mismatch")
 				}
 			})
 		}
@@ -620,12 +498,10 @@ func TestScopeBootstrapArchive(t *testing.T) {
 						archivePath, digest = buildTarGzEntries(t, dir, "bad.tar.gz", entries)
 					}
 					parent := filepath.Join(dir, "parent")
-					if _, err := ExtractVerified(archivePath, digest, parent); err == nil {
-						t.Fatal("expected unsafe path rejection")
-					}
-					if _, err := os.Stat(parent); !os.IsNotExist(err) {
-						t.Fatalf("inspection failure created extraction parent: %v", err)
-					}
+					_, err := ExtractVerified(archivePath, digest, parent)
+					require.Error(t, err, "expected unsafe path rejection")
+					_, statErr := os.Stat(parent)
+					require.True(t, os.IsNotExist(statErr), "inspection failure created extraction parent: %v", statErr)
 				})
 			}
 		}
@@ -644,12 +520,11 @@ func TestScopeBootstrapArchive(t *testing.T) {
 					archivePath, digest = buildTarGzEntries(t, dir, "duplicate.tar.gz", entries)
 				}
 				parent := filepath.Join(dir, "parent")
-				if _, err := ExtractVerified(archivePath, digest, parent); err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_DUPLICATE") {
-					t.Fatalf("%s expected duplicate rejection, got %v", format, err)
-				}
-				if _, err := os.Stat(parent); !os.IsNotExist(err) {
-					t.Fatalf("%s duplicate created extraction parent: %v", format, err)
-				}
+				_, err := ExtractVerified(archivePath, digest, parent)
+				require.Error(t, err, "%s expected duplicate rejection", format)
+				require.Contains(t, err.Error(), "BOOTSTRAP_ARCHIVE_DUPLICATE", "%s expected duplicate rejection, got %v", format, err)
+				_, statErr := os.Stat(parent)
+				require.True(t, os.IsNotExist(statErr), "%s duplicate created extraction parent: %v", format, statErr)
 			}
 		})
 	})
@@ -682,13 +557,13 @@ func TestScopeBootstrapArchive(t *testing.T) {
 					Name: "unsafe", Typeflag: testCase.kind, Linkname: "../outside",
 				}})
 				parent := filepath.Join(dir, "parent")
-				if _, err := ExtractVerified(archivePath, digest, parent); err == nil ||
-					(!strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_UNSAFE_TYPE") && !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_FORMAT")) {
-					t.Fatalf("expected unsafe type rejection, got %v", err)
-				}
-				if _, err := os.Stat(parent); !os.IsNotExist(err) {
-					t.Fatalf("unsafe tar created extraction parent: %v", err)
-				}
+				_, err := ExtractVerified(archivePath, digest, parent)
+				require.Error(t, err, "expected unsafe type rejection")
+				require.True(t,
+					strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_UNSAFE_TYPE") || strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_FORMAT"),
+					"expected unsafe type rejection, got %v", err)
+				_, statErr := os.Stat(parent)
+				require.True(t, os.IsNotExist(statErr), "unsafe tar created extraction parent: %v", statErr)
 			})
 		}
 	})
@@ -711,55 +586,29 @@ func TestScopeBootstrapArchive(t *testing.T) {
 				},
 			})
 			installDir := filepath.Join(dir, "install")
-			if err := InstallStaged(archivePath, digest, installDir); err != nil {
-				t.Fatalf("InstallStaged with a contained symlink: %v", err)
-			}
+			require.NoError(t, InstallStaged(archivePath, digest, installDir), "InstallStaged with a contained symlink")
 
 			symlinkPath := filepath.Join(installDir, "node-v24.18.0-linux-x64", "bin", "npm")
 			info, err := os.Lstat(symlinkPath)
-			if err != nil {
-				t.Fatalf("lstat extracted symlink: %v", err)
-			}
-			if info.Mode()&os.ModeSymlink == 0 {
-				t.Fatalf("expected %s to be a symlink, got mode %v", symlinkPath, info.Mode())
-			}
+			require.NoError(t, err, "lstat extracted symlink")
+			require.True(t, info.Mode()&os.ModeSymlink != 0, "expected %s to be a symlink, got mode %v", symlinkPath, info.Mode())
 			target, err := os.Readlink(symlinkPath)
-			if err != nil {
-				t.Fatalf("readlink: %v", err)
-			}
-			if filepath.ToSlash(target) != "../lib/node_modules/npm/bin/npm-cli.js" {
-				t.Fatalf("symlink target = %q, want the archive-relative link", target)
-			}
+			require.NoError(t, err, "readlink")
+			require.Equal(t, "../lib/node_modules/npm/bin/npm-cli.js", filepath.ToSlash(target), "symlink target should be the archive-relative link")
 
 			manifestBytes, err := os.ReadFile(filepath.Join(installDir, ManifestName))
-			if err != nil {
-				t.Fatalf("read manifest: %v", err)
-			}
-			if !strings.Contains(string(manifestBytes), "../lib/node_modules/npm/bin/npm-cli.js") {
-				t.Fatalf("manifest does not record the symlink target: %s", manifestBytes)
-			}
+			require.NoError(t, err, "read manifest")
+			require.Contains(t, string(manifestBytes), "../lib/node_modules/npm/bin/npm-cli.js", "manifest does not record the symlink target: %s", manifestBytes)
 
 			matches, err := InstalledMatches(installDir, digest)
-			if err != nil {
-				t.Fatalf("InstalledMatches: %v", err)
-			}
-			if !matches {
-				t.Fatal("expected a second install of the identical archive to match without re-extracting")
-			}
+			require.NoError(t, err, "InstalledMatches")
+			require.True(t, matches, "expected a second install of the identical archive to match without re-extracting")
 
-			if err := os.Remove(symlinkPath); err != nil {
-				t.Fatalf("remove symlink for tamper test: %v", err)
-			}
-			if err := os.WriteFile(symlinkPath, []byte("not a symlink anymore"), 0o644); err != nil {
-				t.Fatalf("replace symlink with a regular file: %v", err)
-			}
+			require.NoError(t, os.Remove(symlinkPath), "remove symlink for tamper test")
+			require.NoError(t, os.WriteFile(symlinkPath, []byte("not a symlink anymore"), 0o644), "replace symlink with a regular file")
 			tampered, err := InstalledMatches(installDir, digest)
-			if err != nil {
-				t.Fatalf("InstalledMatches after tampering: %v", err)
-			}
-			if tampered {
-				t.Fatal("expected a symlink replaced by a regular file to fail InstalledMatches")
-			}
+			require.NoError(t, err, "InstalledMatches after tampering")
+			require.False(t, tampered, "expected a symlink replaced by a regular file to fail InstalledMatches")
 		})
 
 		t.Run("a symlink whose target escapes the archive root is rejected before extraction", func(t *testing.T) {
@@ -768,12 +617,11 @@ func TestScopeBootstrapArchive(t *testing.T) {
 				Name: "bin/npm", Typeflag: tar.TypeSymlink, Linkname: "../../outside",
 			}})
 			parent := filepath.Join(dir, "parent")
-			if _, err := ExtractVerified(archivePath, digest, parent); err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_TRAVERSAL") {
-				t.Fatalf("expected a traversal rejection, got %v", err)
-			}
-			if _, err := os.Stat(parent); !os.IsNotExist(err) {
-				t.Fatalf("unsafe symlink created extraction parent: %v", err)
-			}
+			_, err := ExtractVerified(archivePath, digest, parent)
+			require.Error(t, err, "expected a traversal rejection")
+			require.Contains(t, err.Error(), "BOOTSTRAP_ARCHIVE_TRAVERSAL", "expected a traversal rejection, got %v", err)
+			_, statErr := os.Stat(parent)
+			require.True(t, os.IsNotExist(statErr), "unsafe symlink created extraction parent: %v", statErr)
 		})
 
 		t.Run("an absolute symlink target is rejected before extraction", func(t *testing.T) {
@@ -786,42 +634,35 @@ func TestScopeBootstrapArchive(t *testing.T) {
 				Name: "bin/npm", Typeflag: tar.TypeSymlink, Linkname: absoluteTarget,
 			}})
 			parent := filepath.Join(dir, "parent")
-			if _, err := ExtractVerified(archivePath, digest, parent); err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_TRAVERSAL") {
-				t.Fatalf("expected a traversal rejection, got %v", err)
-			}
-			if _, err := os.Stat(parent); !os.IsNotExist(err) {
-				t.Fatalf("absolute symlink created extraction parent: %v", err)
-			}
+			_, err := ExtractVerified(archivePath, digest, parent)
+			require.Error(t, err, "expected a traversal rejection")
+			require.Contains(t, err.Error(), "BOOTSTRAP_ARCHIVE_TRAVERSAL", "expected a traversal rejection, got %v", err)
+			_, statErr := os.Stat(parent)
+			require.True(t, os.IsNotExist(statErr), "absolute symlink created extraction parent: %v", statErr)
 		})
 	})
 
 	t.Run("archive suffix and content must agree", func(t *testing.T) {
 		dir := t.TempDir()
 		zipPath, digest := buildZipEntries(t, dir, "tool.tar.gz", []testArchiveEntry{{Name: "tool", Body: "zip"}})
-		if _, err := ExtractVerified(zipPath, digest, filepath.Join(dir, "parent")); err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_FORMAT") {
-			t.Fatalf("expected suffix/content mismatch, got %v", err)
-		}
+		_, err := ExtractVerified(zipPath, digest, filepath.Join(dir, "parent"))
+		require.Error(t, err, "expected suffix/content mismatch")
+		require.Contains(t, err.Error(), "BOOTSTRAP_ARCHIVE_FORMAT", "expected suffix/content mismatch, got %v", err)
 		unsupported := filepath.Join(dir, "tool.bin")
-		if err := os.Rename(zipPath, unsupported); err != nil {
-			t.Fatalf("rename fixture: %v", err)
-		}
-		if _, err := ExtractVerified(unsupported, digest, filepath.Join(dir, "other")); err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_FORMAT") {
-			t.Fatalf("expected unsupported suffix rejection, got %v", err)
-		}
+		require.NoError(t, os.Rename(zipPath, unsupported), "rename fixture")
+		_, err = ExtractVerified(unsupported, digest, filepath.Join(dir, "other"))
+		require.Error(t, err, "expected unsupported suffix rejection")
+		require.Contains(t, err.Error(), "BOOTSTRAP_ARCHIVE_FORMAT", "expected unsupported suffix rejection, got %v", err)
 	})
 
 	t.Run("legacy malformed incomplete and tampered manifests never match", func(t *testing.T) {
 		dir := t.TempDir()
 		archivePath, digest := buildZipEntries(t, dir, "tool.zip", []testArchiveEntry{{Name: "bin/tool", Body: "ok", Mode: 0o755}})
 		installDir := filepath.Join(dir, "install")
-		if err := InstallStaged(archivePath, digest, installDir); err != nil {
-			t.Fatalf("install: %v", err)
-		}
+		require.NoError(t, InstallStaged(archivePath, digest, installDir), "install")
 		manifestPath := filepath.Join(installDir, ManifestName)
 		current, err := os.ReadFile(manifestPath)
-		if err != nil {
-			t.Fatalf("read current manifest: %v", err)
-		}
+		require.NoError(t, err, "read current manifest")
 		cases := map[string]string{
 			"powershell legacy": fmt.Sprintf(`{"archive_sha256":%q,"file_count":1}`, digest),
 			"prior Go shape":    fmt.Sprintf(`{"archive_sha256":%q,"files":[{"path":"bin/tool","sha256":%q}]}`, digest, digestFile(t, filepath.Join(installDir, "bin", "tool"))),
@@ -835,73 +676,44 @@ func TestScopeBootstrapArchive(t *testing.T) {
 		}
 		for name, body := range cases {
 			t.Run(name, func(t *testing.T) {
-				if err := os.WriteFile(manifestPath, []byte(body), 0o644); err != nil {
-					t.Fatalf("write manifest: %v", err)
-				}
+				require.NoError(t, os.WriteFile(manifestPath, []byte(body), 0o644), "write manifest")
 				matches, err := InstalledMatches(installDir, digest)
-				if err != nil {
-					t.Fatalf("InstalledMatches: %v", err)
-				}
-				if matches {
-					t.Fatal("invalid manifest matched")
-				}
+				require.NoError(t, err, "InstalledMatches")
+				require.False(t, matches, "invalid manifest matched")
 			})
 		}
-		if err := os.WriteFile(manifestPath, current, 0o644); err != nil {
-			t.Fatalf("restore current manifest: %v", err)
-		}
-		if err := os.Mkdir(filepath.Join(installDir, "unexpected"), 0o755); err != nil {
-			t.Fatalf("create unexpected directory: %v", err)
-		}
-		if matches, err := InstalledMatches(installDir, digest); err != nil || matches {
-			t.Fatalf("unexpected directory must invalidate manifest: matches=%v err=%v", matches, err)
-		}
+		require.NoError(t, os.WriteFile(manifestPath, current, 0o644), "restore current manifest")
+		require.NoError(t, os.Mkdir(filepath.Join(installDir, "unexpected"), 0o755), "create unexpected directory")
+		matches, err := InstalledMatches(installDir, digest)
+		require.NoError(t, err, "unexpected directory must invalidate manifest")
+		require.False(t, matches, "unexpected directory must invalidate manifest")
 	})
 
 	t.Run("failed replacement preserves an existing install and successful cutover replaces only it", func(t *testing.T) {
 		dir := t.TempDir()
 		installDir := filepath.Join(dir, "installs", "tool")
-		if err := os.MkdirAll(installDir, 0o755); err != nil {
-			t.Fatalf("mkdir old install: %v", err)
-		}
+		require.NoError(t, os.MkdirAll(installDir, 0o755), "mkdir old install")
 		canary := filepath.Join(installDir, "old.txt")
-		if err := os.WriteFile(canary, []byte("old"), 0o644); err != nil {
-			t.Fatalf("write old install: %v", err)
-		}
+		require.NoError(t, os.WriteFile(canary, []byte("old"), 0o644), "write old install")
 		sibling := filepath.Join(dir, "installs", "sibling.txt")
-		if err := os.WriteFile(sibling, []byte("keep"), 0o644); err != nil {
-			t.Fatalf("write sibling: %v", err)
-		}
+		require.NoError(t, os.WriteFile(sibling, []byte("keep"), 0o644), "write sibling")
 		archivePath, digest := buildZipEntries(t, dir, "replacement.zip", []testArchiveEntry{{Name: "new.txt", Body: "new"}})
-		if err := InstallStaged(archivePath, strings.Repeat("00", 32), installDir); err == nil {
-			t.Fatal("expected failed replacement")
-		}
-		if body, _ := os.ReadFile(canary); string(body) != "old" {
-			t.Fatalf("failed replacement changed old install: %q", body)
-		}
-		if err := InstallStaged(archivePath, digest, installDir); err != nil {
-			t.Fatalf("successful cutover: %v", err)
-		}
-		if _, err := os.Stat(canary); !os.IsNotExist(err) {
-			t.Fatalf("successful cutover retained old file: %v", err)
-		}
-		if body, _ := os.ReadFile(sibling); string(body) != "keep" {
-			t.Fatalf("cutover changed sibling: %q", body)
-		}
+		require.Error(t, InstallStaged(archivePath, strings.Repeat("00", 32), installDir), "expected failed replacement")
+		body, _ := os.ReadFile(canary)
+		require.Equal(t, "old", string(body), "failed replacement changed old install")
+		require.NoError(t, InstallStaged(archivePath, digest, installDir), "successful cutover")
+		_, statErr := os.Stat(canary)
+		require.True(t, os.IsNotExist(statErr), "successful cutover retained old file: %v", statErr)
+		body, _ = os.ReadFile(sibling)
+		require.Equal(t, "keep", string(body), "cutover changed sibling")
 	})
 
 	t.Run("the committed config/toolchain.toml pins exactly the official go.dev source", func(t *testing.T) {
 		root := repositoryRoot(t)
 		policy, err := LoadOfficialSourcePolicy(root)
-		if err != nil {
-			t.Fatalf("LoadOfficialSourcePolicy(repository root) failed: %v", err)
-		}
-		if err := policy.Allows("https://go.dev/dl/go1.26.5.windows-amd64.zip"); err != nil {
-			t.Fatalf("expected the committed pin to allow the committed Go archive URL, got: %v", err)
-		}
-		if err := policy.Allows("https://evil.example.com/dl/go1.26.5.windows-amd64.zip"); err == nil {
-			t.Fatal("expected the committed policy to reject an unofficial host")
-		}
+		require.NoError(t, err, "LoadOfficialSourcePolicy(repository root) failed")
+		require.NoError(t, policy.Allows("https://go.dev/dl/go1.26.5.windows-amd64.zip"), "expected the committed pin to allow the committed Go archive URL")
+		require.Error(t, policy.Allows("https://evil.example.com/dl/go1.26.5.windows-amd64.zip"), "expected the committed policy to reject an unofficial host")
 	})
 
 	t.Run("OfficialSourcePolicy accepts only the committed official host/path patterns", func(t *testing.T) {
@@ -911,16 +723,10 @@ func TestScopeBootstrapArchive(t *testing.T) {
 		})
 
 		policy, err := LoadOfficialSourcePolicy(root)
-		if err != nil {
-			t.Fatalf("LoadOfficialSourcePolicy failed: %v", err)
-		}
-		if len(policy.Patterns) != 1 {
-			t.Fatalf("expected exactly one committed pattern, got %d", len(policy.Patterns))
-		}
+		require.NoError(t, err, "LoadOfficialSourcePolicy failed")
+		require.Len(t, policy.Patterns, 1, "expected exactly one committed pattern")
 
-		if err := policy.Allows("https://go.dev/dl/go1.26.5.windows-amd64.zip"); err != nil {
-			t.Fatalf("expected committed host/path to be allowed, got: %v", err)
-		}
+		require.NoError(t, policy.Allows("https://go.dev/dl/go1.26.5.windows-amd64.zip"), "expected committed host/path to be allowed")
 
 		for name, rejected := range map[string]string{
 			"different host":       "https://evil.example.com/dl/go1.26.5.windows-amd64.zip",
@@ -929,9 +735,7 @@ func TestScopeBootstrapArchive(t *testing.T) {
 			"insecure scheme":      "http://go.dev/dl/go1.26.5.windows-amd64.zip",
 			"malformed url":        "://not-a-url",
 		} {
-			if err := policy.Allows(rejected); err == nil {
-				t.Fatalf("%s: expected %q to be rejected", name, rejected)
-			}
+			require.Error(t, policy.Allows(rejected), "%s: expected %q to be rejected", name, rejected)
 		}
 	})
 
@@ -951,24 +755,18 @@ func TestScopeBootstrapArchive(t *testing.T) {
 			"mage": {Host: "github.com", PathPrefix: "/magefile/mage/releases/download/"},
 		})
 		policy, err := LoadOfficialSourcePolicy(root)
-		if err != nil {
-			t.Fatalf("LoadOfficialSourcePolicy failed: %v", err)
-		}
+		require.NoError(t, err, "LoadOfficialSourcePolicy failed")
 
 		signedRedirect := "https://release-assets.githubusercontent.com/github-production-release-asset/104261253/" +
 			"02fe83b7-ecdf-4b11-bfbb-6022f5abfb3b?sp=r&sig=example"
-		if err := policy.Allows(signedRedirect); err != nil {
-			t.Fatalf("expected the GitHub release-asset CDN redirect host to be allowed, got: %v", err)
-		}
+		require.NoError(t, policy.Allows(signedRedirect), "expected the GitHub release-asset CDN redirect host to be allowed")
 
 		for name, rejected := range map[string]string{
 			"look-alike CDN subdomain": "https://release-assets.githubusercontent.com.evil.example.com/x",
 			"unrelated CDN host":       "https://objects.githubusercontent.com/x",
 			"insecure scheme":          "http://release-assets.githubusercontent.com/x",
 		} {
-			if err := policy.Allows(rejected); err == nil {
-				t.Fatalf("%s: expected %q to still be rejected", name, rejected)
-			}
+			require.Error(t, policy.Allows(rejected), "%s: expected %q to still be rejected", name, rejected)
 		}
 	})
 
@@ -986,22 +784,16 @@ func TestScopeBootstrapArchive(t *testing.T) {
 			"go": {Host: "go.dev", PathPrefix: "/dl/"},
 		})
 		policy, err := LoadOfficialSourcePolicy(root)
-		if err != nil {
-			t.Fatalf("LoadOfficialSourcePolicy failed: %v", err)
-		}
+		require.NoError(t, err, "LoadOfficialSourcePolicy failed")
 
-		if err := policy.Allows("https://dl.google.com/go/go1.26.5.linux-amd64.tar.gz"); err != nil {
-			t.Fatalf("expected the dl.google.com redirect host/path to be allowed, got: %v", err)
-		}
+		require.NoError(t, policy.Allows("https://dl.google.com/go/go1.26.5.linux-amd64.tar.gz"), "expected the dl.google.com redirect host/path to be allowed")
 
 		for name, rejected := range map[string]string{
 			"different path on the same CDN host": "https://dl.google.com/chrome/install.exe",
-			"look-alike CDN subdomain":             "https://dl.google.com.evil.example.com/go/x",
-			"insecure scheme":                      "http://dl.google.com/go/go1.26.5.linux-amd64.tar.gz",
+			"look-alike CDN subdomain":            "https://dl.google.com.evil.example.com/go/x",
+			"insecure scheme":                     "http://dl.google.com/go/go1.26.5.linux-amd64.tar.gz",
 		} {
-			if err := policy.Allows(rejected); err == nil {
-				t.Fatalf("%s: expected %q to still be rejected", name, rejected)
-			}
+			require.Error(t, policy.Allows(rejected), "%s: expected %q to still be rejected", name, rejected)
 		}
 	})
 
@@ -1011,9 +803,8 @@ func TestScopeBootstrapArchive(t *testing.T) {
 			"go": {},
 		})
 
-		if _, err := LoadOfficialSourcePolicy(root); err == nil {
-			t.Fatal("expected an empty official-source pin to fail")
-		}
+		_, err := LoadOfficialSourcePolicy(root)
+		require.Error(t, err, "expected an empty official-source pin to fail")
 	})
 
 	t.Run("VerifySHA256 rejects wrong or malformed hashes", func(t *testing.T) {
@@ -1022,20 +813,16 @@ func TestScopeBootstrapArchive(t *testing.T) {
 			"bin/golc-project.exe": "payload\n",
 		})
 
-		if err := VerifySHA256(archivePath, digest); err != nil {
-			t.Fatalf("expected matching checksum to verify, got: %v", err)
-		}
+		require.NoError(t, VerifySHA256(archivePath, digest), "expected matching checksum to verify")
 
 		wrong := strings.Repeat("ab", 32)
 		err := VerifySHA256(archivePath, wrong)
-		if err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_CHECKSUM_MISMATCH") {
-			t.Fatalf("expected BOOTSTRAP_CHECKSUM_MISMATCH, got: %v", err)
-		}
+		require.Error(t, err, "expected BOOTSTRAP_CHECKSUM_MISMATCH")
+		require.Contains(t, err.Error(), "BOOTSTRAP_CHECKSUM_MISMATCH", "expected BOOTSTRAP_CHECKSUM_MISMATCH, got: %v", err)
 
 		err = VerifySHA256(archivePath, "NOT-A-DIGEST")
-		if err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_CHECKSUM_FORMAT") {
-			t.Fatalf("expected BOOTSTRAP_CHECKSUM_FORMAT, got: %v", err)
-		}
+		require.Error(t, err, "expected BOOTSTRAP_CHECKSUM_FORMAT")
+		require.Contains(t, err.Error(), "BOOTSTRAP_CHECKSUM_FORMAT", "expected BOOTSTRAP_CHECKSUM_FORMAT, got: %v", err)
 	})
 
 	t.Run("InspectZipEntries rejects traversal and symlink entries before extraction", func(t *testing.T) {
@@ -1043,32 +830,23 @@ func TestScopeBootstrapArchive(t *testing.T) {
 		traversalPath, traversalDigest := buildArchive(t, dir, map[string]string{
 			"bin/../../escape.txt": "escape\n",
 		})
-		if err := InspectZipEntries(traversalPath); err == nil {
-			t.Fatal("expected traversal entry to be rejected")
-		} else if !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_TRAVERSAL") {
-			t.Fatalf("expected BOOTSTRAP_ARCHIVE_TRAVERSAL, got: %v", err)
-		}
+		err := InspectZipEntries(traversalPath)
+		require.Error(t, err, "expected traversal entry to be rejected")
+		require.Contains(t, err.Error(), "BOOTSTRAP_ARCHIVE_TRAVERSAL", "expected BOOTSTRAP_ARCHIVE_TRAVERSAL, got: %v", err)
 		// Checksum still verifies; structure is the failure being tested.
-		if err := VerifySHA256(traversalPath, traversalDigest); err != nil {
-			t.Fatalf("fixture checksum should verify: %v", err)
-		}
+		require.NoError(t, VerifySHA256(traversalPath, traversalDigest), "fixture checksum should verify")
 
 		linkPath, _ := buildZipWithSymlinkEntry(t, dir)
-		err := InspectZipEntries(linkPath)
-		if err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_UNSAFE_LINK") {
-			t.Fatalf("expected BOOTSTRAP_ARCHIVE_UNSAFE_LINK, got: %v", err)
-		}
+		err = InspectZipEntries(linkPath)
+		require.Error(t, err, "expected BOOTSTRAP_ARCHIVE_UNSAFE_LINK")
+		require.Contains(t, err.Error(), "BOOTSTRAP_ARCHIVE_UNSAFE_LINK", "expected BOOTSTRAP_ARCHIVE_UNSAFE_LINK, got: %v", err)
 
 		cleanDir := filepath.Join(dir, "clean")
-		if err := os.MkdirAll(cleanDir, 0o755); err != nil {
-			t.Fatalf("mkdir clean: %v", err)
-		}
+		require.NoError(t, os.MkdirAll(cleanDir, 0o755), "mkdir clean")
 		cleanPath, _ := buildArchive(t, cleanDir, map[string]string{
 			"bin/golc-project.exe": "payload\n",
 		})
-		if err := InspectZipEntries(cleanPath); err != nil {
-			t.Fatalf("expected a clean archive to pass inspection, got: %v", err)
-		}
+		require.NoError(t, InspectZipEntries(cleanPath), "expected a clean archive to pass inspection")
 	})
 
 	t.Run("ExtractVerified writes only staging and leaves no residue on failure", func(t *testing.T) {
@@ -1080,43 +858,29 @@ func TestScopeBootstrapArchive(t *testing.T) {
 		})
 
 		stagingDir, err := ExtractVerified(archivePath, digest, parent)
-		if err != nil {
-			t.Fatalf("expected extraction to succeed, got: %v", err)
-		}
-		if filepath.Dir(stagingDir) != parent {
-			t.Fatalf("expected staging directory under %q, got %q", parent, stagingDir)
-		}
+		require.NoError(t, err, "expected extraction to succeed")
+		require.Equal(t, parent, filepath.Dir(stagingDir), "expected staging directory under %q, got %q", parent, stagingDir)
 		payload, err := os.ReadFile(filepath.Join(stagingDir, "bin", "golc-project.exe"))
-		if err != nil || string(payload) != "payload\n" {
-			t.Fatalf("staged payload missing or wrong: err=%v payload=%q", err, payload)
-		}
+		require.NoError(t, err, "staged payload missing")
+		require.Equal(t, "payload\n", string(payload), "staged payload wrong")
 
 		before, err := os.ReadDir(parent)
-		if err != nil {
-			t.Fatalf("read parent: %v", err)
-		}
+		require.NoError(t, err, "read parent")
 
 		// A checksum mismatch must leave no additional staging residue.
-		if _, err := ExtractVerified(archivePath, strings.Repeat("cd", 32), parent); err == nil {
-			t.Fatal("expected checksum mismatch to fail extraction")
-		}
+		_, err = ExtractVerified(archivePath, strings.Repeat("cd", 32), parent)
+		require.Error(t, err, "expected checksum mismatch to fail extraction")
 		// An archive that passes its own checksum but fails entry
 		// inspection (a symlink entry) must also leave no additional
 		// staging residue.
 		linkPath, linkDigest := buildZipWithSymlinkEntry(t, dir)
-		if _, err := ExtractVerified(linkPath, linkDigest, parent); err == nil {
-			t.Fatal("expected unsafe archive to fail extraction")
-		} else if !strings.Contains(err.Error(), "BOOTSTRAP_ARCHIVE_UNSAFE_LINK") {
-			t.Fatalf("expected BOOTSTRAP_ARCHIVE_UNSAFE_LINK, got: %v", err)
-		}
+		_, err = ExtractVerified(linkPath, linkDigest, parent)
+		require.Error(t, err, "expected unsafe archive to fail extraction")
+		require.Contains(t, err.Error(), "BOOTSTRAP_ARCHIVE_UNSAFE_LINK", "expected BOOTSTRAP_ARCHIVE_UNSAFE_LINK, got: %v", err)
 
 		after, err := os.ReadDir(parent)
-		if err != nil {
-			t.Fatalf("read parent: %v", err)
-		}
-		if len(after) != len(before) {
-			t.Fatalf("expected no new staging residue, had %d entries, now %d", len(before), len(after))
-		}
+		require.NoError(t, err, "read parent")
+		require.Len(t, after, len(before), "expected no new staging residue")
 	})
 
 	t.Run("PromoteAtomically exposes the complete tree or nothing", func(t *testing.T) {
@@ -1128,44 +892,30 @@ func TestScopeBootstrapArchive(t *testing.T) {
 			"bin/golc-project.exe": "payload\n",
 		})
 		firstStaging, err := ExtractVerified(firstArchive, firstDigest, parent)
-		if err != nil {
-			t.Fatalf("extract first archive: %v", err)
-		}
-		if err := PromoteAtomically(firstStaging, installDir); err != nil {
-			t.Fatalf("expected first promotion to succeed, got: %v", err)
-		}
-		if _, err := os.Stat(firstStaging); !os.IsNotExist(err) {
-			t.Fatalf("staging directory must not survive promotion, stat err: %v", err)
-		}
+		require.NoError(t, err, "extract first archive")
+		require.NoError(t, PromoteAtomically(firstStaging, installDir), "expected first promotion to succeed")
+		_, statErr := os.Stat(firstStaging)
+		require.True(t, os.IsNotExist(statErr), "staging directory must not survive promotion, stat err: %v", statErr)
 		payload, err := os.ReadFile(filepath.Join(installDir, "bin", "golc-project.exe"))
-		if err != nil || string(payload) != "payload\n" {
-			t.Fatalf("promoted payload missing or wrong: err=%v payload=%q", err, payload)
-		}
+		require.NoError(t, err, "promoted payload missing")
+		require.Equal(t, "payload\n", string(payload), "promoted payload wrong")
 
 		// A corrected retry with different contents must fully replace the
 		// prior install, not merge with it: the old file disappears and
 		// only the new tree remains.
 		secondDir := filepath.Join(dir, "second")
-		if err := os.MkdirAll(secondDir, 0o755); err != nil {
-			t.Fatalf("mkdir second: %v", err)
-		}
+		require.NoError(t, os.MkdirAll(secondDir, 0o755), "mkdir second")
 		secondArchive, secondDigest := buildArchive(t, secondDir, map[string]string{
 			"share/notes.txt": "notes\n",
 		})
 		secondStaging, err := ExtractVerified(secondArchive, secondDigest, parent)
-		if err != nil {
-			t.Fatalf("extract second archive: %v", err)
-		}
-		if err := PromoteAtomically(secondStaging, installDir); err != nil {
-			t.Fatalf("expected retry promotion to succeed, got: %v", err)
-		}
-		if _, err := os.Stat(filepath.Join(installDir, "bin", "golc-project.exe")); !os.IsNotExist(err) {
-			t.Fatalf("prior install content must not survive promotion, stat err: %v", err)
-		}
+		require.NoError(t, err, "extract second archive")
+		require.NoError(t, PromoteAtomically(secondStaging, installDir), "expected retry promotion to succeed")
+		_, statErr = os.Stat(filepath.Join(installDir, "bin", "golc-project.exe"))
+		require.True(t, os.IsNotExist(statErr), "prior install content must not survive promotion, stat err: %v", statErr)
 		notes, err := os.ReadFile(filepath.Join(installDir, "share", "notes.txt"))
-		if err != nil || string(notes) != "notes\n" {
-			t.Fatalf("expected the retried tree to be complete: err=%v notes=%q", err, notes)
-		}
+		require.NoError(t, err, "expected the retried tree to be complete")
+		require.Equal(t, "notes\n", string(notes), "expected the retried tree to be complete")
 	})
 
 	t.Run("AcquireStaged validates policy before ever calling the source", func(t *testing.T) {
@@ -1174,9 +924,7 @@ func TestScopeBootstrapArchive(t *testing.T) {
 			"go": {Host: "go.dev", PathPrefix: "/dl/"},
 		})
 		policy, err := LoadOfficialSourcePolicy(root)
-		if err != nil {
-			t.Fatalf("LoadOfficialSourcePolicy failed: %v", err)
-		}
+		require.NoError(t, err, "LoadOfficialSourcePolicy failed")
 
 		dir := t.TempDir()
 		cacheDir := filepath.Join(dir, "cache")
@@ -1184,30 +932,21 @@ func TestScopeBootstrapArchive(t *testing.T) {
 			"https://evil.example.com/dl/tool.zip": []byte("bytes\n"),
 		}}
 
-		if _, err := AcquireStaged(policy, source, "https://evil.example.com/dl/tool.zip", cacheDir); err == nil {
-			t.Fatal("expected an unallowlisted source to be rejected")
-		}
-		if source.calls != 0 {
-			t.Fatalf("policy rejection must happen before any fetch, got %d calls", source.calls)
-		}
-		if _, statErr := os.Stat(cacheDir); !os.IsNotExist(statErr) {
-			t.Fatalf("a rejected source must not even create the staging directory, stat err: %v", statErr)
-		}
+		_, err = AcquireStaged(policy, source, "https://evil.example.com/dl/tool.zip", cacheDir)
+		require.Error(t, err, "expected an unallowlisted source to be rejected")
+		require.Equal(t, 0, source.calls, "policy rejection must happen before any fetch")
+		_, statErr := os.Stat(cacheDir)
+		require.True(t, os.IsNotExist(statErr), "a rejected source must not even create the staging directory, stat err: %v", statErr)
 
 		allowedSource := &fakeSource{payload: map[string][]byte{
 			"https://go.dev/dl/tool.zip": []byte("bytes\n"),
 		}}
 		archivePath, err := AcquireStaged(policy, allowedSource, "https://go.dev/dl/tool.zip", cacheDir)
-		if err != nil {
-			t.Fatalf("expected an allowlisted source to be staged, got: %v", err)
-		}
-		if allowedSource.calls != 1 {
-			t.Fatalf("expected exactly one fetch call, got %d", allowedSource.calls)
-		}
+		require.NoError(t, err, "expected an allowlisted source to be staged")
+		require.Equal(t, 1, allowedSource.calls, "expected exactly one fetch call")
 		staged, err := os.ReadFile(archivePath)
-		if err != nil || string(staged) != "bytes\n" {
-			t.Fatalf("staged bytes missing or wrong: err=%v bytes=%q", err, staged)
-		}
+		require.NoError(t, err, "staged bytes missing")
+		require.Equal(t, "bytes\n", string(staged), "staged bytes wrong")
 	})
 
 	t.Run("AcquireAndPromote rejects unofficial sources and corrupt bytes, then a corrected retry promotes atomically", func(t *testing.T) {
@@ -1216,18 +955,14 @@ func TestScopeBootstrapArchive(t *testing.T) {
 			"go": {Host: "go.dev", PathPrefix: "/dl/"},
 		})
 		policy, err := LoadOfficialSourcePolicy(root)
-		if err != nil {
-			t.Fatalf("LoadOfficialSourcePolicy failed: %v", err)
-		}
+		require.NoError(t, err, "LoadOfficialSourcePolicy failed")
 
 		dir := t.TempDir()
 		fixtureArchive, digest := buildArchive(t, dir, map[string]string{
 			"bin/golc-tool.exe": "tool bytes\n",
 		})
 		payloadBytes, err := os.ReadFile(fixtureArchive)
-		if err != nil {
-			t.Fatalf("read fixture archive: %v", err)
-		}
+		require.NoError(t, err, "read fixture archive")
 
 		cacheDir := filepath.Join(dir, "cache")
 		installDir := filepath.Join(dir, "install", "tool")
@@ -1237,51 +972,38 @@ func TestScopeBootstrapArchive(t *testing.T) {
 		untrusted := &fakeSource{payload: map[string][]byte{
 			"https://evil.example.com/dl/tool.zip": payloadBytes,
 		}}
-		if err := AcquireAndPromote(policy, untrusted, "https://evil.example.com/dl/tool.zip", digest, cacheDir, installDir); err == nil {
-			t.Fatal("expected an untrusted source to be rejected")
-		}
-		if untrusted.calls != 0 {
-			t.Fatalf("policy rejection must happen before any fetch, got %d calls", untrusted.calls)
-		}
-		if _, statErr := os.Stat(installDir); !os.IsNotExist(statErr) {
-			t.Fatalf("a rejected source must not promote an install, stat err: %v", statErr)
-		}
+		err = AcquireAndPromote(policy, untrusted, "https://evil.example.com/dl/tool.zip", digest, cacheDir, installDir)
+		require.Error(t, err, "expected an untrusted source to be rejected")
+		require.Equal(t, 0, untrusted.calls, "policy rejection must happen before any fetch")
+		_, statErr := os.Stat(installDir)
+		require.True(t, os.IsNotExist(statErr), "a rejected source must not promote an install, stat err: %v", statErr)
 
 		// 2. An allowlisted host serving tampered bytes must leave no
 		// promoted install.
 		tampered := &fakeSource{payload: map[string][]byte{
 			"https://go.dev/dl/tool.zip": []byte("tampered bytes that do not match the pin\n"),
 		}}
-		if err := AcquireAndPromote(policy, tampered, "https://go.dev/dl/tool.zip", digest, cacheDir, installDir); err == nil {
-			t.Fatal("expected tampered bytes to fail the checksum")
-		}
-		if _, statErr := os.Stat(installDir); !os.IsNotExist(statErr) {
-			t.Fatalf("a checksum mismatch must leave no install, stat err: %v", statErr)
-		}
+		err = AcquireAndPromote(policy, tampered, "https://go.dev/dl/tool.zip", digest, cacheDir, installDir)
+		require.Error(t, err, "expected tampered bytes to fail the checksum")
+		_, statErr = os.Stat(installDir)
+		require.True(t, os.IsNotExist(statErr), "a checksum mismatch must leave no install, stat err: %v", statErr)
 
 		// 3. A corrected retry with the exact pinned bytes over the
 		// allowlisted source promotes a complete verified tree.
 		correct := &fakeSource{payload: map[string][]byte{
 			"https://go.dev/dl/tool.zip": payloadBytes,
 		}}
-		if err := AcquireAndPromote(policy, correct, "https://go.dev/dl/tool.zip", digest, cacheDir, installDir); err != nil {
-			t.Fatalf("expected the corrected retry to succeed, got: %v", err)
-		}
+		require.NoError(t, AcquireAndPromote(policy, correct, "https://go.dev/dl/tool.zip", digest, cacheDir, installDir), "expected the corrected retry to succeed")
 		installed, err := os.ReadFile(filepath.Join(installDir, "bin", "golc-tool.exe"))
-		if err != nil || string(installed) != "tool bytes\n" {
-			t.Fatalf("promoted payload missing or wrong: err=%v payload=%q", err, installed)
-		}
+		require.NoError(t, err, "promoted payload missing")
+		require.Equal(t, "tool bytes\n", string(installed), "promoted payload wrong")
 
 		// The downloaded archive is removed from cacheDir once promotion
 		// completes; only the extraction staging (already renamed away by
 		// PromoteAtomically) and the download itself ever touched disk.
 		remaining, err := os.ReadDir(cacheDir)
-		if err != nil {
-			t.Fatalf("read cache dir: %v", err)
-		}
-		if len(remaining) != 0 {
-			t.Fatalf("expected no residual staged downloads in %q, found %v", cacheDir, remaining)
-		}
+		require.NoError(t, err, "read cache dir")
+		require.Empty(t, remaining, "expected no residual staged downloads in %q, found %v", cacheDir, remaining)
 	})
 }
 
@@ -1294,16 +1016,10 @@ func TestScopeBootstrapCache(t *testing.T) {
 	t.Run("NewProjectCacheLayout returns every directory contained inside root", func(t *testing.T) {
 		root := t.TempDir()
 		layout, err := NewProjectCacheLayout(root)
-		if err != nil {
-			t.Fatalf("expected a valid root to succeed, got: %v", err)
-		}
+		require.NoError(t, err, "expected a valid root to succeed")
 		absoluteRoot, err := filepath.Abs(root)
-		if err != nil {
-			t.Fatalf("resolve absolute root: %v", err)
-		}
-		if layout.Root != absoluteRoot {
-			t.Fatalf("expected Root %q, got %q", absoluteRoot, layout.Root)
-		}
+		require.NoError(t, err, "resolve absolute root")
+		require.Equal(t, absoluteRoot, layout.Root, "expected matching Root")
 		for name, path := range map[string]string{
 			"Downloads":    layout.Downloads,
 			"GoModCache":   layout.GoModCache,
@@ -1312,9 +1028,7 @@ func TestScopeBootstrapCache(t *testing.T) {
 			"NpmCache":     layout.NpmCache,
 			"Manifest":     layout.Manifest,
 		} {
-			if !strings.HasPrefix(path, absoluteRoot+string(os.PathSeparator)) {
-				t.Fatalf("%s path %q is not contained inside root %q", name, path, absoluteRoot)
-			}
+			require.True(t, strings.HasPrefix(path, absoluteRoot+string(os.PathSeparator)), "%s path %q is not contained inside root %q", name, path, absoluteRoot)
 		}
 		// Every directory must be distinct — no two cache concerns may
 		// silently collide on the same path.
@@ -1323,99 +1037,63 @@ func TestScopeBootstrapCache(t *testing.T) {
 			"Downloads": layout.Downloads, "GoModCache": layout.GoModCache,
 			"GoBuildCache": layout.GoBuildCache, "GoBin": layout.GoBin, "NpmCache": layout.NpmCache, "Manifest": layout.Manifest,
 		} {
-			if other, exists := seen[path]; exists {
-				t.Fatalf("%s and %s resolve to the same path %q", name, other, path)
-			}
+			other, exists := seen[path]
+			require.False(t, exists, "%s and %s resolve to the same path %q", name, other, path)
 			seen[path] = name
 		}
 	})
 
 	t.Run("NewProjectCacheLayout rejects an empty root", func(t *testing.T) {
-		if _, err := NewProjectCacheLayout(""); err == nil {
-			t.Fatal("expected an empty root to be rejected")
-		} else if !strings.Contains(err.Error(), "BOOTSTRAP_CACHE_ROOT") {
-			t.Fatalf("expected BOOTSTRAP_CACHE_ROOT diagnostic, got: %v", err)
-		}
+		_, err := NewProjectCacheLayout("")
+		require.Error(t, err, "expected an empty root to be rejected")
+		require.Contains(t, err.Error(), "BOOTSTRAP_CACHE_ROOT", "expected BOOTSTRAP_CACHE_ROOT diagnostic, got: %v", err)
 	})
 
 	t.Run("Validate rejects a layout whose directory escapes root", func(t *testing.T) {
 		root := t.TempDir()
 		layout, err := NewProjectCacheLayout(root)
-		if err != nil {
-			t.Fatalf("construct layout: %v", err)
-		}
+		require.NoError(t, err, "construct layout")
 		layout.GoBin = filepath.Join(filepath.Dir(layout.Root), "escaped-go-bin")
 
 		err = layout.Validate()
-		if err == nil {
-			t.Fatal("expected an escaping cache directory to be rejected")
-		}
-		if !strings.Contains(err.Error(), "BOOTSTRAP_CACHE_ESCAPE") {
-			t.Fatalf("expected BOOTSTRAP_CACHE_ESCAPE diagnostic, got: %v", err)
-		}
+		require.Error(t, err, "expected an escaping cache directory to be rejected")
+		require.Contains(t, err.Error(), "BOOTSTRAP_CACHE_ESCAPE", "expected BOOTSTRAP_CACHE_ESCAPE diagnostic, got: %v", err)
 	})
 
 	t.Run("Warm creates every cache directory and is a safe idempotent no-op", func(t *testing.T) {
 		root := t.TempDir()
 		layout, err := NewProjectCacheLayout(root)
-		if err != nil {
-			t.Fatalf("construct layout: %v", err)
-		}
+		require.NoError(t, err, "construct layout")
 
-		if err := layout.Warm(); err != nil {
-			t.Fatalf("first Warm failed: %v", err)
-		}
+		require.NoError(t, layout.Warm(), "first Warm failed")
 		for _, dir := range []string{layout.Downloads, layout.GoModCache, layout.GoBuildCache, layout.GoBin, layout.NpmCache, layout.Manifest} {
 			info, statErr := os.Stat(dir)
-			if statErr != nil {
-				t.Fatalf("expected %q to exist after Warm, stat err: %v", dir, statErr)
-			}
-			if !info.IsDir() {
-				t.Fatalf("expected %q to be a directory", dir)
-			}
+			require.NoError(t, statErr, "expected %q to exist after Warm", dir)
+			require.True(t, info.IsDir(), "expected %q to be a directory", dir)
 		}
 
 		// A canary file inside a warmed directory must survive a second Warm
 		// call: warming is directory provisioning only, never destructive.
 		canaryPath := filepath.Join(layout.GoModCache, "canary.txt")
-		if err := os.WriteFile(canaryPath, []byte("preserved\n"), 0o644); err != nil {
-			t.Fatalf("write canary: %v", err)
-		}
-		if err := layout.Warm(); err != nil {
-			t.Fatalf("second Warm failed: %v", err)
-		}
+		require.NoError(t, os.WriteFile(canaryPath, []byte("preserved\n"), 0o644), "write canary")
+		require.NoError(t, layout.Warm(), "second Warm failed")
 		canary, err := os.ReadFile(canaryPath)
-		if err != nil || string(canary) != "preserved\n" {
-			t.Fatalf("expected canary to survive idempotent Warm: err=%v content=%q", err, canary)
-		}
+		require.NoError(t, err, "expected canary to survive idempotent Warm")
+		require.Equal(t, "preserved\n", string(canary), "expected canary to survive idempotent Warm")
 	})
 
 	t.Run("Environment derives the exact repository-local Go/Node/Wails variables", func(t *testing.T) {
 		root := t.TempDir()
 		layout, err := NewProjectCacheLayout(root)
-		if err != nil {
-			t.Fatalf("construct layout: %v", err)
-		}
+		require.NoError(t, err, "construct layout")
 
 		env := layout.Environment()
-		if env.GOTOOLCHAIN != "local" {
-			t.Fatalf("expected GOTOOLCHAIN=local, got %q", env.GOTOOLCHAIN)
-		}
-		if env.GOMODCACHE != layout.GoModCache {
-			t.Fatalf("expected GOMODCACHE=%q, got %q", layout.GoModCache, env.GOMODCACHE)
-		}
-		if env.GOCACHE != layout.GoBuildCache {
-			t.Fatalf("expected GOCACHE=%q, got %q", layout.GoBuildCache, env.GOCACHE)
-		}
-		if env.GOBIN != layout.GoBin {
-			t.Fatalf("expected GOBIN=%q, got %q", layout.GoBin, env.GOBIN)
-		}
-		if env.GOFLAGS != "-mod=readonly" {
-			t.Fatalf("expected GOFLAGS=-mod=readonly, got %q", env.GOFLAGS)
-		}
-		if env.NpmConfigCache != layout.NpmCache {
-			t.Fatalf("expected NpmConfigCache=%q, got %q", layout.NpmCache, env.NpmConfigCache)
-		}
+		require.Equal(t, "local", env.GOTOOLCHAIN, "expected GOTOOLCHAIN=local")
+		require.Equal(t, layout.GoModCache, env.GOMODCACHE, "expected matching GOMODCACHE")
+		require.Equal(t, layout.GoBuildCache, env.GOCACHE, "expected matching GOCACHE")
+		require.Equal(t, layout.GoBin, env.GOBIN, "expected matching GOBIN")
+		require.Equal(t, "-mod=readonly", env.GOFLAGS, "expected GOFLAGS=-mod=readonly")
+		require.Equal(t, layout.NpmCache, env.NpmConfigCache, "expected matching NpmConfigCache")
 
 		asMap := env.AsMap()
 		expected := map[string]string{
@@ -1426,35 +1104,21 @@ func TestScopeBootstrapCache(t *testing.T) {
 			"GOFLAGS":          "-mod=readonly",
 			"NPM_CONFIG_CACHE": layout.NpmCache,
 		}
-		if len(asMap) != len(expected) {
-			t.Fatalf("expected exactly %d environment entries, got %d: %v", len(expected), len(asMap), asMap)
-		}
+		require.Len(t, asMap, len(expected), "expected exactly %d environment entries, got %v", len(expected), asMap)
 		for key, value := range expected {
-			if asMap[key] != value {
-				t.Fatalf("AsMap()[%q] = %q, expected %q", key, asMap[key], value)
-			}
+			require.Equal(t, value, asMap[key], "AsMap()[%q] mismatch", key)
 		}
 	})
 
 	t.Run("WailsBinaryPath and the pinned Wails module/version are exact and stable", func(t *testing.T) {
-		if WailsModule != "github.com/wailsapp/wails/v2/cmd/wails" {
-			t.Fatalf("unexpected WailsModule pin: %q", WailsModule)
-		}
-		if WailsVersion != "v2.13.0" {
-			t.Fatalf("unexpected WailsVersion pin: %q", WailsVersion)
-		}
+		require.Equal(t, "github.com/wailsapp/wails/v2/cmd/wails", WailsModule, "unexpected WailsModule pin")
+		require.Equal(t, "v2.13.0", WailsVersion, "unexpected WailsVersion pin")
 
 		root := t.TempDir()
 		layout, err := NewProjectCacheLayout(root)
-		if err != nil {
-			t.Fatalf("construct layout: %v", err)
-		}
-		if got, want := layout.WailsBinaryPath(".exe"), filepath.Join(layout.GoBin, "wails.exe"); got != want {
-			t.Fatalf("expected WailsBinaryPath(.exe) = %q, got %q", want, got)
-		}
-		if got, want := layout.WailsBinaryPath(""), filepath.Join(layout.GoBin, "wails"); got != want {
-			t.Fatalf("expected WailsBinaryPath(\"\") = %q, got %q", want, got)
-		}
+		require.NoError(t, err, "construct layout")
+		require.Equal(t, filepath.Join(layout.GoBin, "wails.exe"), layout.WailsBinaryPath(".exe"), "expected matching WailsBinaryPath(.exe)")
+		require.Equal(t, filepath.Join(layout.GoBin, "wails"), layout.WailsBinaryPath(""), "expected matching WailsBinaryPath(\"\")")
 
 		// config/toolchain.toml's [go_install.wails] pin (installGoInstallTools'
 		// generic go_install provisioning loop) must never drift from these
@@ -1463,48 +1127,29 @@ func TestScopeBootstrapCache(t *testing.T) {
 		// mismatch between the two would silently provision the wrong Wails CLI
 		// at the path mage RunDev (internal/command/rundev.go) expects.
 		document, _, err := readBootstrapManifest(filepath.Join("..", ".."))
-		if err != nil {
-			t.Fatalf("read production manifest: %v", err)
-		}
+		require.NoError(t, err, "read production manifest")
 		wails, ok := document.GoInstall["wails"]
-		if !ok {
-			t.Fatal("production manifest missing go_install.wails")
-		}
-		if wails.Version != WailsVersion {
-			t.Fatalf("go_install.wails version = %q, want WailsVersion %q", wails.Version, WailsVersion)
-		}
-		if wails.Module != WailsModule {
-			t.Fatalf("go_install.wails module = %q, want WailsModule %q", wails.Module, WailsModule)
-		}
+		require.True(t, ok, "production manifest missing go_install.wails")
+		require.Equal(t, WailsVersion, wails.Version, "go_install.wails version mismatch")
+		require.Equal(t, WailsModule, wails.Module, "go_install.wails module mismatch")
 	})
 
 	t.Run("EnsureDirectories creates missing directories and rejects a path that is already a file", func(t *testing.T) {
 		root := t.TempDir()
 		nested := filepath.Join(root, "a", "b", "c")
 
-		if err := EnsureDirectories(nested); err != nil {
-			t.Fatalf("expected nested directory creation to succeed, got: %v", err)
-		}
+		require.NoError(t, EnsureDirectories(nested), "expected nested directory creation to succeed")
 		info, statErr := os.Stat(nested)
-		if statErr != nil || !info.IsDir() {
-			t.Fatalf("expected %q to exist as a directory: stat err=%v", nested, statErr)
-		}
+		require.NoError(t, statErr, "expected %q to exist as a directory", nested)
+		require.True(t, info.IsDir(), "expected %q to exist as a directory", nested)
 
 		// Idempotent: creating the same directory again must not fail.
-		if err := EnsureDirectories(nested); err != nil {
-			t.Fatalf("expected idempotent re-creation to succeed, got: %v", err)
-		}
+		require.NoError(t, EnsureDirectories(nested), "expected idempotent re-creation to succeed")
 
 		blockedPath := filepath.Join(root, "blocked-file")
-		if err := os.WriteFile(blockedPath, []byte("not a directory\n"), 0o644); err != nil {
-			t.Fatalf("write blocking file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(blockedPath, []byte("not a directory\n"), 0o644), "write blocking file")
 		err := EnsureDirectories(blockedPath)
-		if err == nil {
-			t.Fatal("expected creating a directory where a file already exists to fail")
-		}
-		if !strings.Contains(err.Error(), "BOOTSTRAP_CACHE_DIRECTORY") {
-			t.Fatalf("expected BOOTSTRAP_CACHE_DIRECTORY diagnostic, got: %v", err)
-		}
+		require.Error(t, err, "expected creating a directory where a file already exists to fail")
+		require.Contains(t, err.Error(), "BOOTSTRAP_CACHE_DIRECTORY", "expected BOOTSTRAP_CACHE_DIRECTORY diagnostic, got: %v", err)
 	})
 }
