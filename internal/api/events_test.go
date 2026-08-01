@@ -36,6 +36,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/api"
 	"github.com/lnorton89/golc/internal/routecatalog"
 	"github.com/lnorton89/golc/internal/show"
@@ -55,9 +57,7 @@ func newEventsTestServer(t *testing.T) (server *api.Server, root, showPath strin
 	root = t.TempDir()
 	showPath = filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server = api.NewServer(catalog, root, showPath)
 	return server, root, showPath
 }
@@ -89,8 +89,8 @@ func openEventStream(t *testing.T, ts *httptest.Server, token, lastEventID strin
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL+"/v1/events", nil)
 	if err != nil {
 		cancel()
-		t.Fatalf("NewRequestWithContext: %v", err)
 	}
+	require.NoError(t, err, "NewRequestWithContext")
 	req.Header.Set("Authorization", "Bearer "+token)
 	if lastEventID != "" {
 		req.Header.Set("Last-Event-ID", lastEventID)
@@ -98,8 +98,8 @@ func openEventStream(t *testing.T, ts *httptest.Server, token, lastEventID strin
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		cancel()
-		t.Fatalf("opening event stream: %v", err)
 	}
+	require.NoError(t, err, "opening event stream")
 	client := &sseClient{resp: resp, reader: bufio.NewReader(resp.Body), cancel: cancel}
 	t.Cleanup(client.close)
 	return client
@@ -164,7 +164,7 @@ func (c *sseClient) nextWithTimeout(t *testing.T, d time.Duration) (sseFrame, er
 	case r := <-done:
 		return r.frame, r.err
 	case <-time.After(d):
-		t.Fatalf("timed out after %s waiting for the next SSE frame/connection close", d)
+		require.FailNowf(t, "timed out waiting for the next SSE frame/connection close", "after %s", d)
 		return sseFrame{}, nil
 	}
 }
@@ -179,9 +179,8 @@ func decodeDomainPayload(t *testing.T, frame sseFrame) (eventType, route string,
 		Route    string `json:"route"`
 		Revision int64  `json:"revision"`
 	}
-	if err := json.Unmarshal([]byte(frame.Data), &decoded); err != nil {
-		t.Fatalf("decode domain event payload %q: %v", frame.Data, err)
-	}
+	err := json.Unmarshal([]byte(frame.Data), &decoded)
+	require.NoError(t, err, "decode domain event payload %q", frame.Data)
 	return decoded.Type, decoded.Route, decoded.Revision
 }
 
@@ -197,39 +196,27 @@ func TestSSEOrder(t *testing.T) {
 
 	for _, name := range []string{"Alpha", "Bravo", "Charlie"} {
 		rec := doCreatePoolRequest(t, server.Handler(), token, "", name)
-		if rec.Code < 200 || rec.Code >= 300 {
-			t.Fatalf("expected setup create %q to succeed, got %d (body: %s)", name, rec.Code, rec.Body.String())
-		}
+		require.Truef(t, rec.Code >= 200 && rec.Code < 300, "expected setup create %q to succeed, got %d (body: %s)", name, rec.Code, rec.Body.String())
 	}
 
 	ts := httptest.NewServer(server.Handler())
 	t.Cleanup(ts.Close)
 	client := openEventStream(t, ts, token, "")
-	if client.resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200 opening the stream, got %d", client.resp.StatusCode)
-	}
+	require.Equal(t, http.StatusOK, client.resp.StatusCode, "expected 200 opening the stream")
 
 	for _, name := range []string{"Delta", "Echo"} {
 		rec := doCreatePoolRequest(t, server.Handler(), token, "", name)
-		if rec.Code < 200 || rec.Code >= 300 {
-			t.Fatalf("expected create %q to succeed, got %d (body: %s)", name, rec.Code, rec.Body.String())
-		}
+		require.Truef(t, rec.Code >= 200 && rec.Code < 300, "expected create %q to succeed, got %d (body: %s)", name, rec.Code, rec.Body.String())
 	}
 
 	first, err := client.next()
-	if err != nil {
-		t.Fatalf("reading first live frame: %v", err)
-	}
-	if first.Event != "state" || first.ID != "4" {
-		t.Fatalf("expected the first live frame to be event=state id=4, got event=%q id=%q", first.Event, first.ID)
-	}
+	require.NoError(t, err, "reading first live frame")
+	require.Equalf(t, "state", first.Event, "expected the first live frame to be event=state id=4, got event=%q id=%q", first.Event, first.ID)
+	require.Equalf(t, "4", first.ID, "expected the first live frame to be event=state id=4, got event=%q id=%q", first.Event, first.ID)
 	second, err := client.next()
-	if err != nil {
-		t.Fatalf("reading second live frame: %v", err)
-	}
-	if second.Event != "state" || second.ID != "5" {
-		t.Fatalf("expected the second live frame to be event=state id=5, got event=%q id=%q", second.Event, second.ID)
-	}
+	require.NoError(t, err, "reading second live frame")
+	require.Equalf(t, "state", second.Event, "expected the second live frame to be event=state id=5, got event=%q id=%q", second.Event, second.ID)
+	require.Equalf(t, "5", second.ID, "expected the second live frame to be event=state id=5, got event=%q id=%q", second.Event, second.ID)
 }
 
 // --- TestSSEReplay -----------------------------------------------------------
@@ -243,9 +230,7 @@ func TestSSEReplay(t *testing.T) {
 
 	for _, name := range []string{"Alpha", "Bravo", "Charlie"} {
 		rec := doCreatePoolRequest(t, server.Handler(), token, "", name)
-		if rec.Code < 200 || rec.Code >= 300 {
-			t.Fatalf("expected setup create %q to succeed, got %d (body: %s)", name, rec.Code, rec.Body.String())
-		}
+		require.Truef(t, rec.Code >= 200 && rec.Code < 300, "expected setup create %q to succeed, got %d (body: %s)", name, rec.Code, rec.Body.String())
 	}
 
 	ts := httptest.NewServer(server.Handler())
@@ -255,17 +240,11 @@ func TestSSEReplay(t *testing.T) {
 	replayed := make([]string, 0, 2)
 	for i := 0; i < 2; i++ {
 		frame, err := client.next()
-		if err != nil {
-			t.Fatalf("reading replay frame %d: %v", i, err)
-		}
-		if frame.Event != "state" {
-			t.Fatalf("expected replay frame %d to be event=state, got %q", i, frame.Event)
-		}
+		require.NoErrorf(t, err, "reading replay frame %d", i)
+		require.Equalf(t, "state", frame.Event, "expected replay frame %d to be event=state, got %q", i, frame.Event)
 		replayed = append(replayed, frame.ID)
 	}
-	if replayed[0] != "2" || replayed[1] != "3" {
-		t.Fatalf("expected replay ids [2 3] in order with no duplicates, got %v", replayed)
-	}
+	require.Equal(t, []string{"2", "3"}, replayed, "expected replay ids [2 3] in order with no duplicates")
 }
 
 // --- TestSSEGapRecovery -------------------------------------------------------
@@ -283,9 +262,7 @@ func TestSSEGapRecovery(t *testing.T) {
 
 	for _, name := range []string{"Alpha", "Bravo", "Charlie", "Delta", "Echo"} {
 		rec := doCreatePoolRequest(t, server.Handler(), token, "", name)
-		if rec.Code < 200 || rec.Code >= 300 {
-			t.Fatalf("expected setup create %q to succeed, got %d (body: %s)", name, rec.Code, rec.Body.String())
-		}
+		require.Truef(t, rec.Code >= 200 && rec.Code < 300, "expected setup create %q to succeed, got %d (body: %s)", name, rec.Code, rec.Body.String())
 	}
 	// Capacity 2 after 5 successful creates (revisions 1..5) leaves the
 	// buffer holding only [4, 5] -- oldest=4, latest=5.
@@ -295,21 +272,14 @@ func TestSSEGapRecovery(t *testing.T) {
 	client := openEventStream(t, ts, token, "1")
 
 	frame, err := client.next()
-	if err != nil {
-		t.Fatalf("reading resync frame: %v", err)
-	}
-	if frame.Event != "resync" {
-		t.Fatalf("expected a resync event for an out-of-window Last-Event-ID, got event=%q data=%q", frame.Event, frame.Data)
-	}
+	require.NoError(t, err, "reading resync frame")
+	require.Equalf(t, "resync", frame.Event, "expected a resync event for an out-of-window Last-Event-ID, got event=%q data=%q", frame.Event, frame.Data)
 	var decoded struct {
 		Reason string `json:"reason"`
 	}
-	if err := json.Unmarshal([]byte(frame.Data), &decoded); err != nil {
-		t.Fatalf("decode resync payload %q: %v", frame.Data, err)
-	}
-	if decoded.Reason == "" {
-		t.Fatalf("expected the resync event to carry a non-empty reason")
-	}
+	err = json.Unmarshal([]byte(frame.Data), &decoded)
+	require.NoErrorf(t, err, "decode resync payload %q", frame.Data)
+	require.NotEmpty(t, decoded.Reason, "expected the resync event to carry a non-empty reason")
 }
 
 // --- TestSSEAdjacentNoReplayNoResync -----------------------------------------
@@ -324,9 +294,7 @@ func TestSSEAdjacentNoReplayNoResync(t *testing.T) {
 
 	for _, name := range []string{"Alpha", "Bravo", "Charlie"} {
 		rec := doCreatePoolRequest(t, server.Handler(), token, "", name)
-		if rec.Code < 200 || rec.Code >= 300 {
-			t.Fatalf("expected setup create %q to succeed, got %d (body: %s)", name, rec.Code, rec.Body.String())
-		}
+		require.Truef(t, rec.Code >= 200 && rec.Code < 300, "expected setup create %q to succeed, got %d (body: %s)", name, rec.Code, rec.Body.String())
 	}
 
 	ts := httptest.NewServer(server.Handler())
@@ -334,17 +302,12 @@ func TestSSEAdjacentNoReplayNoResync(t *testing.T) {
 	client := openEventStream(t, ts, token, "3") // 3 == latest buffered revision
 
 	rec := doCreatePoolRequest(t, server.Handler(), token, "", "Delta")
-	if rec.Code < 200 || rec.Code >= 300 {
-		t.Fatalf("expected the new create to succeed, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Truef(t, rec.Code >= 200 && rec.Code < 300, "expected the new create to succeed, got %d (body: %s)", rec.Code, rec.Body.String())
 
 	frame, err := client.next()
-	if err != nil {
-		t.Fatalf("reading first frame: %v", err)
-	}
-	if frame.Event != "state" || frame.ID != "4" {
-		t.Fatalf("expected the very first frame to be the new live event=state id=4 (no replay, no resync), got event=%q id=%q data=%q", frame.Event, frame.ID, frame.Data)
-	}
+	require.NoError(t, err, "reading first frame")
+	require.Equalf(t, "state", frame.Event, "expected the very first frame to be the new live event=state id=4 (no replay, no resync), got event=%q id=%q data=%q", frame.Event, frame.ID, frame.Data)
+	require.Equalf(t, "4", frame.ID, "expected the very first frame to be the new live event=state id=4 (no replay, no resync), got event=%q id=%q data=%q", frame.Event, frame.ID, frame.Data)
 }
 
 // --- TestSSEEmptyBufferNoLastEventID ------------------------------------------
@@ -361,17 +324,12 @@ func TestSSEEmptyBufferNoLastEventID(t *testing.T) {
 	client := openEventStream(t, ts, token, "")
 
 	rec := doCreatePoolRequest(t, server.Handler(), token, "", "Alpha")
-	if rec.Code < 200 || rec.Code >= 300 {
-		t.Fatalf("expected the create to succeed, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Truef(t, rec.Code >= 200 && rec.Code < 300, "expected the create to succeed, got %d (body: %s)", rec.Code, rec.Body.String())
 
 	frame, err := client.next()
-	if err != nil {
-		t.Fatalf("reading first frame: %v", err)
-	}
-	if frame.Event != "state" || frame.ID != "1" {
-		t.Fatalf("expected the first frame to be the new live event=state id=1 (no spurious resync against an empty buffer), got event=%q id=%q", frame.Event, frame.ID)
-	}
+	require.NoError(t, err, "reading first frame")
+	require.Equalf(t, "state", frame.Event, "expected the first frame to be the new live event=state id=1 (no spurious resync against an empty buffer), got event=%q id=%q", frame.Event, frame.ID)
+	require.Equalf(t, "1", frame.ID, "expected the first frame to be the new live event=state id=1 (no spurious resync against an empty buffer), got event=%q id=%q", frame.Event, frame.ID)
 }
 
 // --- TestSSEBroadcast ---------------------------------------------------------
@@ -389,46 +347,32 @@ func TestSSEBroadcast(t *testing.T) {
 	clientB := openEventStream(t, ts, token, "")
 
 	first := doCreatePoolRequest(t, server.Handler(), token, "", "Alpha")
-	if first.Code < 200 || first.Code >= 300 {
-		t.Fatalf("expected the first create to succeed, got %d (body: %s)", first.Code, first.Body.String())
-	}
+	require.Truef(t, first.Code >= 200 && first.Code < 300, "expected the first create to succeed, got %d (body: %s)", first.Code, first.Body.String())
 	for name, c := range map[string]*sseClient{"A": clientA, "B": clientB} {
 		frame, err := c.next()
-		if err != nil {
-			t.Fatalf("client %s: reading first frame: %v", name, err)
-		}
-		if frame.Event != "state" || frame.ID != "1" {
-			t.Fatalf("client %s: expected event=state id=1, got event=%q id=%q", name, frame.Event, frame.ID)
-		}
+		require.NoErrorf(t, err, "client %s: reading first frame", name)
+		require.Equalf(t, "state", frame.Event, "client %s: expected event=state id=1, got event=%q id=%q", name, frame.Event, frame.ID)
+		require.Equalf(t, "1", frame.ID, "client %s: expected event=state id=1, got event=%q id=%q", name, frame.Event, frame.ID)
 	}
 
 	// A dry-run and a failing (duplicate-name) mutation must both produce
 	// no state event on either subscriber.
 	dryRun := doDryRunCreatePoolRequest(t, server.Handler(), token, "Bravo")
-	if dryRun.Code != http.StatusOK {
-		t.Fatalf("expected the dry-run to return 200, got %d (body: %s)", dryRun.Code, dryRun.Body.String())
-	}
+	require.Equalf(t, http.StatusOK, dryRun.Code, "expected the dry-run to return 200, got %d (body: %s)", dryRun.Code, dryRun.Body.String())
 	dup := doCreatePoolRequest(t, server.Handler(), token, "", "Alpha")
-	if dup.Code < 400 {
-		t.Fatalf("expected the duplicate-name create to fail, got %d (body: %s)", dup.Code, dup.Body.String())
-	}
+	require.GreaterOrEqualf(t, dup.Code, 400, "expected the duplicate-name create to fail, got %d (body: %s)", dup.Code, dup.Body.String())
 
 	second := doCreatePoolRequest(t, server.Handler(), token, "", "Bravo")
-	if second.Code < 200 || second.Code >= 300 {
-		t.Fatalf("expected the second create to succeed, got %d (body: %s)", second.Code, second.Body.String())
-	}
+	require.Truef(t, second.Code >= 200 && second.Code < 300, "expected the second create to succeed, got %d (body: %s)", second.Code, second.Body.String())
 	for name, c := range map[string]*sseClient{"A": clientA, "B": clientB} {
 		frame, err := c.next()
-		if err != nil {
-			t.Fatalf("client %s: reading second frame: %v", name, err)
-		}
-		if frame.Event != "state" || frame.ID != "2" {
-			t.Fatalf("client %s: expected the second frame to be event=state id=2 (dry-run/failure produced nothing in between), got event=%q id=%q", name, frame.Event, frame.ID)
-		}
+		require.NoErrorf(t, err, "client %s: reading second frame", name)
+		require.Equalf(t, "state", frame.Event, "client %s: expected the second frame to be event=state id=2 (dry-run/failure produced nothing in between), got event=%q id=%q", name, frame.Event, frame.ID)
+		require.Equalf(t, "2", frame.ID, "client %s: expected the second frame to be event=state id=2 (dry-run/failure produced nothing in between), got event=%q id=%q", name, frame.Event, frame.ID)
 		eventType, route, revision := decodeDomainPayload(t, frame)
-		if eventType != "pool" || route != "pool create" || revision != 2 {
-			t.Fatalf("client %s: expected type=pool route=\"pool create\" revision=2, got type=%q route=%q revision=%d", name, eventType, route, revision)
-		}
+		require.Equalf(t, "pool", eventType, "client %s: expected type=pool route=\"pool create\" revision=2, got type=%q route=%q revision=%d", name, eventType, route, revision)
+		require.Equalf(t, "pool create", route, "client %s: expected type=pool route=\"pool create\" revision=2, got type=%q route=%q revision=%d", name, eventType, route, revision)
+		require.Equalf(t, int64(2), revision, "client %s: expected type=pool route=\"pool create\" revision=2, got type=%q route=%q revision=%d", name, eventType, route, revision)
 	}
 }
 
@@ -441,31 +385,22 @@ func TestSSEAuth(t *testing.T) {
 	playbackToken, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopePlayback})
 
 	generated, err := show.GenerateAPIKey()
-	if err != nil {
-		t.Fatalf("GenerateAPIKey: %v", err)
-	}
-	if _, err := show.InsertAPIKey(root, showPath, generated, []show.APIKeyScope{show.APIKeyScopeAdmin}, time.Now().UTC().Add(-time.Hour)); err != nil {
-		t.Fatalf("InsertAPIKey (expired): %v", err)
-	}
+	require.NoError(t, err, "GenerateAPIKey")
+	_, err = show.InsertAPIKey(root, showPath, generated, []show.APIKeyScope{show.APIKeyScopeAdmin}, time.Now().UTC().Add(-time.Hour))
+	require.NoError(t, err, "InsertAPIKey (expired)")
 	expiredToken := generated.RawToken
 
 	ts := httptest.NewServer(server.Handler())
 	t.Cleanup(ts.Close)
 
 	ok := openEventStream(t, ts, playbackToken, "")
-	if ok.resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected a valid playback-scoped key to open the stream (D-12), got %d", ok.resp.StatusCode)
-	}
+	require.Equalf(t, http.StatusOK, ok.resp.StatusCode, "expected a valid playback-scoped key to open the stream (D-12), got %d", ok.resp.StatusCode)
 
 	badToken := openEventStream(t, ts, "not-a-real-token", "")
-	if badToken.resp.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("expected an unknown token to be rejected 401, got %d", badToken.resp.StatusCode)
-	}
+	require.Equalf(t, http.StatusUnauthorized, badToken.resp.StatusCode, "expected an unknown token to be rejected 401, got %d", badToken.resp.StatusCode)
 
 	expired := openEventStream(t, ts, expiredToken, "")
-	if expired.resp.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("expected an expired key to be rejected 401, got %d", expired.resp.StatusCode)
-	}
+	require.Equalf(t, http.StatusUnauthorized, expired.resp.StatusCode, "expected an expired key to be rejected 401, got %d", expired.resp.StatusCode)
 }
 
 // --- TestSSECrossScope -----------------------------------------------------
@@ -481,23 +416,16 @@ func TestSSECrossScope(t *testing.T) {
 	ts := httptest.NewServer(server.Handler())
 	t.Cleanup(ts.Close)
 	client := openEventStream(t, ts, playbackToken, "")
-	if client.resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected the playback-scoped key to open the stream, got %d", client.resp.StatusCode)
-	}
+	require.Equalf(t, http.StatusOK, client.resp.StatusCode, "expected the playback-scoped key to open the stream, got %d", client.resp.StatusCode)
 
 	rec := doCreatePoolRequest(t, server.Handler(), authoringToken, "", "Alpha")
-	if rec.Code < 200 || rec.Code >= 300 {
-		t.Fatalf("expected the authoring-scoped create to succeed, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Truef(t, rec.Code >= 200 && rec.Code < 300, "expected the authoring-scoped create to succeed, got %d (body: %s)", rec.Code, rec.Body.String())
 
 	frame, err := client.next()
-	if err != nil {
-		t.Fatalf("reading frame on the playback-scoped stream: %v", err)
-	}
+	require.NoError(t, err, "reading frame on the playback-scoped stream")
 	eventType, route, _ := decodeDomainPayload(t, frame)
-	if eventType != "pool" || route != "pool create" {
-		t.Fatalf("expected the playback-scoped stream to still observe the authoring-domain event (D-11), got type=%q route=%q", eventType, route)
-	}
+	require.Equalf(t, "pool", eventType, "expected the playback-scoped stream to still observe the authoring-domain event (D-11), got type=%q route=%q", eventType, route)
+	require.Equalf(t, "pool create", route, "expected the playback-scoped stream to still observe the authoring-domain event (D-11), got type=%q route=%q", eventType, route)
 }
 
 // --- TestSSERevocationTick ---------------------------------------------------
@@ -515,17 +443,13 @@ func TestSSERevocationTick(t *testing.T) {
 	ts := httptest.NewServer(server.Handler())
 	t.Cleanup(ts.Close)
 	client := openEventStream(t, ts, token, "")
-	if client.resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected the stream to open, got %d", client.resp.StatusCode)
-	}
+	require.Equalf(t, http.StatusOK, client.resp.StatusCode, "expected the stream to open, got %d", client.resp.StatusCode)
 
-	if err := show.RevokeAPIKey(root, showPath, keyID); err != nil {
-		t.Fatalf("RevokeAPIKey: %v", err)
-	}
+	err := show.RevokeAPIKey(root, showPath, keyID)
+	require.NoError(t, err, "RevokeAPIKey")
 
-	if _, err := client.nextWithTimeout(t, 2*time.Second); err == nil {
-		t.Fatalf("expected the connection to close (a read error) within one revocation-tick interval after revocation, got a frame instead")
-	}
+	_, err = client.nextWithTimeout(t, 2*time.Second)
+	require.Error(t, err, "expected the connection to close (a read error) within one revocation-tick interval after revocation, got a frame instead")
 }
 
 // --- TestSSEBatchMultiSubRequestReconnectDeliversRemainingEvents -------------
@@ -546,73 +470,45 @@ func TestSSEBatchMultiSubRequestReconnectDeliversRemainingEvents(t *testing.T) {
 	ts := httptest.NewServer(server.Handler())
 	t.Cleanup(ts.Close)
 	client := openEventStream(t, ts, token, "")
-	if client.resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200 opening the stream, got %d", client.resp.StatusCode)
-	}
+	require.Equalf(t, http.StatusOK, client.resp.StatusCode, "expected 200 opening the stream, got %d", client.resp.StatusCode)
 
 	rec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{
 		poolCreateBatchSubRequest("Alpha"),
 		poolCreateBatchSubRequest("Bravo"),
 		poolCreateBatchSubRequest("Charlie"),
 	})
-	if rec.Code < 200 || rec.Code >= 300 {
-		t.Fatalf("expected the batch to succeed, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Truef(t, rec.Code >= 200 && rec.Code < 300, "expected the batch to succeed, got %d (body: %s)", rec.Code, rec.Body.String())
 
 	first, err := client.next()
-	if err != nil {
-		t.Fatalf("reading first live frame: %v", err)
-	}
-	if first.Event != "state" {
-		t.Fatalf("expected the first live frame to be event=state, got %q", first.Event)
-	}
+	require.NoError(t, err, "reading first live frame")
+	require.Equalf(t, "state", first.Event, "expected the first live frame to be event=state, got %q", first.Event)
 	_, firstRoute, firstRevision := decodeDomainPayload(t, first)
-	if firstRoute != "pool create" {
-		t.Fatalf("expected the first frame's route to be \"pool create\", got %q", firstRoute)
-	}
+	require.Equalf(t, "pool create", firstRoute, "expected the first frame's route to be \"pool create\", got %q", firstRoute)
 	client.close()
 
 	reconnected := openEventStream(t, ts, token, first.ID)
-	if reconnected.resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200 reconnecting, got %d", reconnected.resp.StatusCode)
-	}
+	require.Equalf(t, http.StatusOK, reconnected.resp.StatusCode, "expected 200 reconnecting, got %d", reconnected.resp.StatusCode)
 
 	var ids []int
 	var revisions []int64
 	for i := 0; i < 2; i++ {
 		frame, err := reconnected.nextWithTimeout(t, 2*time.Second)
-		if err != nil {
-			t.Fatalf("reading remaining frame %d after reconnect: %v", i, err)
-		}
-		if frame.Event != "state" {
-			t.Fatalf("expected remaining frame %d to be event=state, got %q", i, frame.Event)
-		}
+		require.NoErrorf(t, err, "reading remaining frame %d after reconnect", i)
+		require.Equalf(t, "state", frame.Event, "expected remaining frame %d to be event=state, got %q", i, frame.Event)
 		_, route, revision := decodeDomainPayload(t, frame)
-		if route != "pool create" {
-			t.Fatalf("expected remaining frame %d's route to be \"pool create\", got %q", i, route)
-		}
+		require.Equalf(t, "pool create", route, "expected remaining frame %d's route to be \"pool create\", got %q", i, route)
 		id, err := strconv.Atoi(frame.ID)
-		if err != nil {
-			t.Fatalf("remaining frame %d's id %q did not parse as an integer: %v", i, frame.ID, err)
-		}
+		require.NoErrorf(t, err, "remaining frame %d's id %q did not parse as an integer", i, frame.ID)
 		ids = append(ids, id)
 		revisions = append(revisions, revision)
 	}
 
 	firstID, err := strconv.Atoi(first.ID)
-	if err != nil {
-		t.Fatalf("first frame's id %q did not parse as an integer: %v", first.ID, err)
-	}
-	if ids[0] == firstID || ids[1] == firstID || ids[0] == ids[1] {
-		t.Fatalf("expected three distinct ids (first=%d, remaining=%v), got a duplicate", firstID, ids)
-	}
-	if ids[0] >= ids[1] {
-		t.Fatalf("expected the remaining ids in strictly ascending order, got %v", ids)
-	}
+	require.NoErrorf(t, err, "first frame's id %q did not parse as an integer", first.ID)
+	require.Falsef(t, ids[0] == firstID || ids[1] == firstID || ids[0] == ids[1], "expected three distinct ids (first=%d, remaining=%v), got a duplicate", firstID, ids)
+	require.Lessf(t, ids[0], ids[1], "expected the remaining ids in strictly ascending order, got %v", ids)
 	for i, revision := range revisions {
-		if revision != firstRevision {
-			t.Fatalf("expected remaining frame %d's revision (%d) to equal the first frame's revision (%d) -- the batch commits exactly one revision", i, revision, firstRevision)
-		}
+		require.Equalf(t, firstRevision, revision, "expected remaining frame %d's revision (%d) to equal the first frame's revision (%d) -- the batch commits exactly one revision", i, revision, firstRevision)
 	}
 }
 
@@ -631,36 +527,25 @@ func TestSSEEventIDsStrictlyMonotonicAcrossBatchAndSingleMutation(t *testing.T) 
 	ts := httptest.NewServer(server.Handler())
 	t.Cleanup(ts.Close)
 	client := openEventStream(t, ts, token, "")
-	if client.resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200 opening the stream, got %d", client.resp.StatusCode)
-	}
+	require.Equalf(t, http.StatusOK, client.resp.StatusCode, "expected 200 opening the stream, got %d", client.resp.StatusCode)
 
 	rec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{
 		poolCreateBatchSubRequest("Alpha"),
 		poolCreateBatchSubRequest("Bravo"),
 	})
-	if rec.Code < 200 || rec.Code >= 300 {
-		t.Fatalf("expected the batch to succeed, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Truef(t, rec.Code >= 200 && rec.Code < 300, "expected the batch to succeed, got %d (body: %s)", rec.Code, rec.Body.String())
 	single := doCreatePoolRequest(t, server.Handler(), token, "", "Charlie")
-	if single.Code < 200 || single.Code >= 300 {
-		t.Fatalf("expected the single create to succeed, got %d (body: %s)", single.Code, single.Body.String())
-	}
+	require.Truef(t, single.Code >= 200 && single.Code < 300, "expected the single create to succeed, got %d (body: %s)", single.Code, single.Body.String())
 
 	wantIDs := []string{"1", "2", "3"}
 	wantRevisions := []int64{1, 1, 2}
 	for i, wantID := range wantIDs {
 		frame, err := client.next()
-		if err != nil {
-			t.Fatalf("reading frame %d: %v", i, err)
-		}
-		if frame.Event != "state" || frame.ID != wantID {
-			t.Fatalf("expected frame %d to be event=state id=%s, got event=%q id=%q", i, wantID, frame.Event, frame.ID)
-		}
+		require.NoErrorf(t, err, "reading frame %d", i)
+		require.Equalf(t, "state", frame.Event, "expected frame %d to be event=state id=%s, got event=%q id=%q", i, wantID, frame.Event, frame.ID)
+		require.Equalf(t, wantID, frame.ID, "expected frame %d to be event=state id=%s, got event=%q id=%q", i, wantID, frame.Event, frame.ID)
 		_, _, revision := decodeDomainPayload(t, frame)
-		if revision != wantRevisions[i] {
-			t.Fatalf("expected frame %d's revision to be %d, got %d", i, wantRevisions[i], revision)
-		}
+		require.Equalf(t, wantRevisions[i], revision, "expected frame %d's revision to be %d, got %d", i, wantRevisions[i], revision)
 	}
 }
 
@@ -676,30 +561,21 @@ func TestSSEFutureLastEventIDResyncs(t *testing.T) {
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
 	rec := doCreatePoolRequest(t, server.Handler(), token, "", "Alpha")
-	if rec.Code < 200 || rec.Code >= 300 {
-		t.Fatalf("expected the create to succeed, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Truef(t, rec.Code >= 200 && rec.Code < 300, "expected the create to succeed, got %d (body: %s)", rec.Code, rec.Body.String())
 
 	ts := httptest.NewServer(server.Handler())
 	t.Cleanup(ts.Close)
 	client := openEventStream(t, ts, token, "9999")
 
 	frame, err := client.nextWithTimeout(t, 2*time.Second)
-	if err != nil {
-		t.Fatalf("reading resync frame: %v", err)
-	}
-	if frame.Event != "resync" {
-		t.Fatalf("expected a resync event for a Last-Event-ID greater than any issued id, got event=%q data=%q", frame.Event, frame.Data)
-	}
+	require.NoError(t, err, "reading resync frame")
+	require.Equalf(t, "resync", frame.Event, "expected a resync event for a Last-Event-ID greater than any issued id, got event=%q data=%q", frame.Event, frame.Data)
 	var decoded struct {
 		Reason string `json:"reason"`
 	}
-	if err := json.Unmarshal([]byte(frame.Data), &decoded); err != nil {
-		t.Fatalf("decode resync payload %q: %v", frame.Data, err)
-	}
-	if decoded.Reason == "" {
-		t.Fatalf("expected the resync event to carry a non-empty reason")
-	}
+	err = json.Unmarshal([]byte(frame.Data), &decoded)
+	require.NoErrorf(t, err, "decode resync payload %q", frame.Data)
+	require.NotEmpty(t, decoded.Reason, "expected the resync event to carry a non-empty reason")
 }
 
 // --- TestSSEScriptLifecycleEvent ---------------------------------------------
@@ -718,32 +594,23 @@ func TestSSEScriptLifecycleEvent(t *testing.T) {
 	ts := httptest.NewServer(server.Handler())
 	t.Cleanup(ts.Close)
 	client := openEventStream(t, ts, token, "")
-	if client.resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200 opening the stream, got %d", client.resp.StatusCode)
-	}
+	require.Equalf(t, http.StatusOK, client.resp.StatusCode, "expected 200 opening the stream, got %d", client.resp.StatusCode)
 
 	api.PublishScriptLifecycleEvent("run-123", "Chase", "terminated", "GOLC_SCRIPT_STOPPED_BY_USER: stop requested")
 
 	frame, err := client.nextWithTimeout(t, 2*time.Second)
-	if err != nil {
-		t.Fatalf("reading script lifecycle frame: %v", err)
-	}
-	if frame.Event != "script" {
-		t.Fatalf("expected event=script, got event=%q data=%q", frame.Event, frame.Data)
-	}
+	require.NoError(t, err, "reading script lifecycle frame")
+	require.Equalf(t, "script", frame.Event, "expected event=script, got event=%q data=%q", frame.Event, frame.Data)
 	var scriptDecoded struct {
 		RunID      string `json:"runId"`
 		ScriptName string `json:"scriptName"`
 		Status     string `json:"status"`
 		Reason     string `json:"reason"`
 	}
-	if err := json.Unmarshal([]byte(frame.Data), &scriptDecoded); err != nil {
-		t.Fatalf("decode script payload %q: %v", frame.Data, err)
-	}
-	if scriptDecoded.RunID != "run-123" || scriptDecoded.ScriptName != "Chase" || scriptDecoded.Status != "terminated" {
-		t.Fatalf("unexpected script payload: %+v", scriptDecoded)
-	}
-	if scriptDecoded.Reason != "GOLC_SCRIPT_STOPPED_BY_USER: stop requested" {
-		t.Fatalf("Reason = %q, want the stop reason", scriptDecoded.Reason)
-	}
+	err = json.Unmarshal([]byte(frame.Data), &scriptDecoded)
+	require.NoErrorf(t, err, "decode script payload %q", frame.Data)
+	require.Equalf(t, "run-123", scriptDecoded.RunID, "unexpected script payload: %+v", scriptDecoded)
+	require.Equalf(t, "Chase", scriptDecoded.ScriptName, "unexpected script payload: %+v", scriptDecoded)
+	require.Equalf(t, "terminated", scriptDecoded.Status, "unexpected script payload: %+v", scriptDecoded)
+	require.Equal(t, "GOLC_SCRIPT_STOPPED_BY_USER: stop requested", scriptDecoded.Reason, "Reason")
 }

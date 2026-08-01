@@ -23,10 +23,10 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"reflect"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/api"
 	"github.com/lnorton89/golc/internal/routecatalog"
@@ -96,12 +96,10 @@ func newParityRepository(t *testing.T) string {
 func writeFile(t *testing.T, root, relative, content string) {
 	t.Helper()
 	target := filepath.Join(root, filepath.FromSlash(relative))
-	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		t.Fatalf("MkdirAll(%q): %v", relative, err)
-	}
-	if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile(%q): %v", relative, err)
-	}
+	err := os.MkdirAll(filepath.Dir(target), 0o755)
+	require.NoError(t, err, "MkdirAll(%q)", relative)
+	err = os.WriteFile(target, []byte(content), 0o644)
+	require.NoError(t, err, "WriteFile(%q)", relative)
 }
 
 // decodeJSON unmarshals body into a generic value for structural
@@ -110,9 +108,8 @@ func writeFile(t *testing.T, root, relative, content string) {
 func decodeJSON(t *testing.T, label string, body []byte) any {
 	t.Helper()
 	var value any
-	if err := json.Unmarshal(body, &value); err != nil {
-		t.Fatalf("%s: json.Unmarshal(%q): %v", label, body, err)
-	}
+	err := json.Unmarshal(body, &value)
+	require.NoError(t, err, "%s: json.Unmarshal(%q)", label, body)
 	return value
 }
 
@@ -123,29 +120,21 @@ func decodeJSON(t *testing.T, label string, body []byte) any {
 func TestParity(t *testing.T) {
 	root := newParityRepository(t)
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 
 	showPath := filepath.Join(root, "show.golc")
 	server := api.NewServer(catalog, root, showPath)
 	token := seedAPIKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopePlayback}, time.Hour)
 
 	rec := doGet(t, server.Handler(), "/v1/config/runtime", token)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("GET /v1/config/runtime: expected 200, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Equal(t, http.StatusOK, rec.Code, "GET /v1/config/runtime (body: %s)", rec.Body.String())
 
 	exitCode, direct, stderr := catalog.Execute("config inspect", []string{"runtime"}, root)
-	if exitCode != 0 {
-		t.Fatalf("direct Execute(\"config inspect\") failed: exitCode=%d stderr=%s", exitCode, stderr)
-	}
+	require.Equal(t, 0, exitCode, "direct Execute(\"config inspect\") failed: stderr=%s", stderr)
 
 	got := decodeJSON(t, "HTTP response", rec.Body.Bytes())
 	want := decodeJSON(t, "direct Execute", direct)
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("HTTP and direct Execute outcomes differ:\nHTTP:   %s\ndirect: %s", rec.Body.String(), direct)
-	}
+	require.Equal(t, want, got, "HTTP and direct Execute outcomes differ")
 }
 
 // TestEmptyCollection proves a read endpoint over an empty domain
@@ -155,9 +144,7 @@ func TestParity(t *testing.T) {
 func TestEmptyCollection(t *testing.T) {
 	root := t.TempDir()
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 
 	// A show path that has never been saved loads as a valid, empty
 	// State (internal/show.Load's own "never-yet-saved" branch) -- no
@@ -168,26 +155,16 @@ func TestEmptyCollection(t *testing.T) {
 	token := seedAPIKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopePlayback}, time.Hour)
 
 	rec := doGet(t, server.Handler(), "/v1/show", token)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("GET /v1/show: expected 200, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Equal(t, http.StatusOK, rec.Code, "GET /v1/show (body: %s)", rec.Body.String())
 
 	decoded := decodeJSON(t, "GET /v1/show", rec.Body.Bytes())
 	obj, ok := decoded.(map[string]any)
-	if !ok {
-		t.Fatalf("expected a JSON object, got %T: %v", decoded, decoded)
-	}
+	require.True(t, ok, "expected a JSON object, got %T: %v", decoded, decoded)
 	pools, present := obj["pools"]
-	if !present {
-		t.Fatalf("expected a \"pools\" field, got: %s", rec.Body.String())
-	}
+	require.True(t, present, "expected a \"pools\" field, got: %s", rec.Body.String())
 	poolsArray, ok := pools.([]any)
-	if !ok {
-		t.Fatalf("expected \"pools\" to decode as a JSON array, got %T (%v) -- body: %s", pools, pools, rec.Body.String())
-	}
-	if len(poolsArray) != 0 {
-		t.Fatalf("expected an empty \"pools\" array, got %d entries", len(poolsArray))
-	}
+	require.True(t, ok, "expected \"pools\" to decode as a JSON array, got %T (%v) -- body: %s", pools, pools, rec.Body.String())
+	require.Len(t, poolsArray, 0, "expected an empty \"pools\" array")
 }
 
 // TestShowPathInjection proves translate.go never forwards a
@@ -204,17 +181,11 @@ func TestShowPathInjection(t *testing.T) {
 	token := seedAPIKey(t, root, fixedShowPath, []show.APIKeyScope{show.APIKeyScopePlayback}, time.Hour)
 
 	rec := doGet(t, server.Handler(), "/v1/show?show=/etc/passwd&showPath=../../etc/shadow", token)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("GET /v1/show: expected 200, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Equal(t, http.StatusOK, rec.Code, "GET /v1/show (body: %s)", rec.Body.String())
 
 	wantArgs := []string{"--show", fixedShowPath}
-	if !reflect.DeepEqual(stub.lastArgs, wantArgs) {
-		t.Fatalf("expected the fixed show path %v regardless of query params, got %v", wantArgs, stub.lastArgs)
-	}
-	if stub.lastRoute != "show inspect" {
-		t.Fatalf("expected route \"show inspect\", got %q", stub.lastRoute)
-	}
+	require.Equal(t, wantArgs, stub.lastArgs, "expected the fixed show path regardless of query params")
+	require.Equal(t, "show inspect", stub.lastRoute)
 }
 
 // --- TestTranslateResult (exit-code mapping) ------------------------------
@@ -268,11 +239,9 @@ func TestTranslateResult(t *testing.T) {
 			server := api.NewServer(stub, root, showPath)
 
 			rec := doGet(t, server.Handler(), "/v1/config/runtime", token)
-			if rec.Code < tc.wantStatusMin || rec.Code > tc.wantStatusMax {
-				t.Fatalf("expected status in [%d,%d], got %d (body: %s)", tc.wantStatusMin, tc.wantStatusMax, rec.Code, rec.Body.String())
-			}
-			if tc.wantBodySubstr != "" && !strings.Contains(rec.Body.String(), tc.wantBodySubstr) {
-				t.Fatalf("expected response body to contain %q, got: %s", tc.wantBodySubstr, rec.Body.String())
+			require.True(t, rec.Code >= tc.wantStatusMin && rec.Code <= tc.wantStatusMax, "expected status in [%d,%d], got %d (body: %s)", tc.wantStatusMin, tc.wantStatusMax, rec.Code, rec.Body.String())
+			if tc.wantBodySubstr != "" {
+				require.Contains(t, rec.Body.String(), tc.wantBodySubstr)
 			}
 		})
 	}

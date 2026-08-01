@@ -28,6 +28,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/api"
 	"github.com/lnorton89/golc/internal/routecatalog"
 	"github.com/lnorton89/golc/internal/show"
@@ -43,9 +45,7 @@ func newAuditedBatchServer(t *testing.T) (server *api.Server, root, showPath str
 	root = t.TempDir()
 	showPath = filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	return api.NewServer(catalog, root, showPath), root, showPath
 }
 
@@ -54,12 +54,8 @@ func newAuditedBatchServer(t *testing.T) (server *api.Server, root, showPath str
 func requireAuditRowCount(t *testing.T, root, showPath string, want int) []show.AuditRecord {
 	t.Helper()
 	records, err := show.QueryAuditLog(root, showPath)
-	if err != nil {
-		t.Fatalf("QueryAuditLog: %v", err)
-	}
-	if len(records) != want {
-		t.Fatalf("expected exactly %d audit_log row(s), got %d: %+v", want, len(records), records)
-	}
+	require.NoError(t, err, "QueryAuditLog")
+	require.Len(t, records, want, "expected exactly %d audit_log row(s): %+v", want, records)
 	return records
 }
 
@@ -102,9 +98,8 @@ type batchDecodedResponse struct {
 func decodeBatchBody(t *testing.T, rec *httptest.ResponseRecorder) batchDecodedResponse {
 	t.Helper()
 	var decoded batchDecodedResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &decoded); err != nil {
-		t.Fatalf("decode batch response %q: %v", rec.Body.String(), err)
-	}
+	err := json.Unmarshal(rec.Body.Bytes(), &decoded)
+	require.NoError(t, err, "decode batch response %q", rec.Body.String())
 	return decoded
 }
 
@@ -114,12 +109,8 @@ func decodeBatchBody(t *testing.T, rec *httptest.ResponseRecorder) batchDecodedR
 func assertNoTempCopyLeftBehind(t *testing.T, showPath string) {
 	t.Helper()
 	matches, err := filepath.Glob(showPath + ".backup-*")
-	if err != nil {
-		t.Fatalf("glob for leftover temp copies: %v", err)
-	}
-	if len(matches) != 0 {
-		t.Fatalf("expected no leftover temp copy files, found: %v", matches)
-	}
+	require.NoError(t, err, "glob for leftover temp copies")
+	require.Empty(t, matches, "expected no leftover temp copy files")
 }
 
 // --- TestBatchAtomic ---------------------------------------------------
@@ -131,19 +122,13 @@ func TestBatchAtomic(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
 	before, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision before: %v", err)
-	}
-	if before != 0 {
-		t.Fatalf("expected a never-yet-saved show to report revision 0, got %d", before)
-	}
+	require.NoError(t, err, "CurrentRevision before")
+	require.Equal(t, int64(0), before, "expected a never-yet-saved show to report revision 0")
 
 	requests := []map[string]any{
 		poolCreateBatchSubRequest("Alpha"),
@@ -151,38 +136,23 @@ func TestBatchAtomic(t *testing.T) {
 		poolCreateBatchSubRequest("Gamma"),
 	}
 	rec := doBatchRequest(t, server.Handler(), token, "", requests)
-	if rec.Code < 200 || rec.Code >= 300 {
-		t.Fatalf("expected a 2xx for a fully-valid batch, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.True(t, rec.Code >= 200 && rec.Code < 300, "expected a 2xx for a fully-valid batch, got %d (body: %s)", rec.Code, rec.Body.String())
 
 	decoded := decodeBatchBody(t, rec)
-	if decoded.Revision == nil || *decoded.Revision != 1 {
-		t.Fatalf("expected the response revision to be 1 (one bump for the whole batch), got %v", decoded.Revision)
-	}
-	if len(decoded.Results) != 3 {
-		t.Fatalf("expected 3 results, got %d: %+v", len(decoded.Results), decoded.Results)
-	}
+	require.NotNil(t, decoded.Revision, "expected the response revision to be 1 (one bump for the whole batch)")
+	require.Equal(t, int64(1), *decoded.Revision, "expected the response revision to be 1 (one bump for the whole batch)")
+	require.Len(t, decoded.Results, 3)
 
 	after, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision after: %v", err)
-	}
-	if after != 1 {
-		t.Fatalf("expected the real revision to be 1 after one atomic batch commit, got %d", after)
-	}
+	require.NoError(t, err, "CurrentRevision after")
+	require.Equal(t, int64(1), after, "expected the real revision to be 1 after one atomic batch commit")
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
-	if len(state.Pools) != 3 {
-		t.Fatalf("expected exactly 3 pools, got %d", len(state.Pools))
-	}
+	require.NoError(t, err, "show.Load")
+	require.Len(t, state.Pools, 3)
 	want := []string{"Alpha", "Beta", "Gamma"}
 	for i, name := range want {
-		if state.Pools[i].Name != name {
-			t.Fatalf("expected pool %d to be %q (client order preserved), got %q", i, name, state.Pools[i].Name)
-		}
+		require.Equal(t, name, state.Pools[i].Name, "expected pool %d (client order preserved)", i)
 	}
 
 	assertNoTempCopyLeftBehind(t, showPath)
@@ -197,9 +167,7 @@ func TestBatchOrder(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
@@ -210,21 +178,13 @@ func TestBatchOrder(t *testing.T) {
 	}
 
 	rec := doBatchRequest(t, server.Handler(), token, "", requests)
-	if rec.Code < 200 || rec.Code >= 300 {
-		t.Fatalf("expected a 2xx, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.True(t, rec.Code >= 200 && rec.Code < 300, "expected a 2xx, got %d (body: %s)", rec.Code, rec.Body.String())
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
-	if len(state.Pools) != len(order) {
-		t.Fatalf("expected %d pools, got %d", len(order), len(state.Pools))
-	}
+	require.NoError(t, err, "show.Load")
+	require.Len(t, state.Pools, len(order))
 	for i, name := range order {
-		if state.Pools[i].Name != name {
-			t.Fatalf("expected pool %d to be %q (client order preserved), got %q", i, name, state.Pools[i].Name)
-		}
+		require.Equal(t, name, state.Pools[i].Name, "expected pool %d (client order preserved)", i)
 	}
 }
 
@@ -239,9 +199,7 @@ func TestBatchRollback(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
@@ -249,17 +207,11 @@ func TestBatchRollback(t *testing.T) {
 	// sub-request (a duplicate name) genuinely fails show.Save's
 	// whole-State validation.
 	seedRec := doCreatePoolRequest(t, server.Handler(), token, "", "Beta")
-	if seedRec.Code < 200 || seedRec.Code >= 300 {
-		t.Fatalf("seeding \"Beta\": expected a 2xx, got %d (body: %s)", seedRec.Code, seedRec.Body.String())
-	}
+	require.True(t, seedRec.Code >= 200 && seedRec.Code < 300, "seeding \"Beta\": expected a 2xx, got %d (body: %s)", seedRec.Code, seedRec.Body.String())
 
 	before, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision before: %v", err)
-	}
-	if before != 1 {
-		t.Fatalf("expected revision 1 after seeding, got %d", before)
-	}
+	require.NoError(t, err, "CurrentRevision before")
+	require.Equal(t, int64(1), before, "expected revision 1 after seeding")
 
 	requests := []map[string]any{
 		poolCreateBatchSubRequest("Alpha"),
@@ -267,26 +219,16 @@ func TestBatchRollback(t *testing.T) {
 		poolCreateBatchSubRequest("Gamma"),
 	}
 	rec := doBatchRequest(t, server.Handler(), token, "", requests)
-	if rec.Code < 400 {
-		t.Fatalf("expected a batch with a failing 2nd sub-request to fail, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.True(t, rec.Code >= 400, "expected a batch with a failing 2nd sub-request to fail, got %d (body: %s)", rec.Code, rec.Body.String())
 
 	after, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision after: %v", err)
-	}
-	if after != before {
-		t.Fatalf("expected the real revision to remain unchanged after a rolled-back batch, got %d (was %d)", after, before)
-	}
+	require.NoError(t, err, "CurrentRevision after")
+	require.Equal(t, before, after, "expected the real revision to remain unchanged after a rolled-back batch")
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
-	if len(state.Pools) != 1 || state.Pools[0].Name != "Beta" {
-		t.Fatalf("expected only the pre-existing \"Beta\" pool to exist (sub-request 1's \"Alpha\" must not have persisted), got %d pools: %+v",
-			len(state.Pools), state.Pools)
-	}
+	require.NoError(t, err, "show.Load")
+	require.Len(t, state.Pools, 1, "expected only the pre-existing \"Beta\" pool to exist (sub-request 1's \"Alpha\" must not have persisted): %+v", state.Pools)
+	require.Equal(t, "Beta", state.Pools[0].Name, "expected only the pre-existing \"Beta\" pool to exist (sub-request 1's \"Alpha\" must not have persisted)")
 
 	assertNoTempCopyLeftBehind(t, showPath)
 }
@@ -299,32 +241,20 @@ func TestBatchIfMatch(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
 	rec := doBatchRequest(t, server.Handler(), token, "5", []map[string]any{poolCreateBatchSubRequest("Alpha")})
-	if rec.Code != http.StatusPreconditionFailed {
-		t.Fatalf("expected 412 for a stale batch-level If-Match, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Equal(t, http.StatusPreconditionFailed, rec.Code, "expected 412 for a stale batch-level If-Match (body: %s)", rec.Body.String())
 
 	revision, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision: %v", err)
-	}
-	if revision != 0 {
-		t.Fatalf("expected the real revision to remain 0 after a stale-If-Match batch, got %d", revision)
-	}
+	require.NoError(t, err, "CurrentRevision")
+	require.Equal(t, int64(0), revision, "expected the real revision to remain 0 after a stale-If-Match batch")
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
-	if len(state.Pools) != 0 {
-		t.Fatalf("expected no pools to exist, got %d", len(state.Pools))
-	}
+	require.NoError(t, err, "show.Load")
+	require.Len(t, state.Pools, 0)
 }
 
 // TestBatchIfMatchExternalRace proves a batch racing a concurrent
@@ -337,9 +267,7 @@ func TestBatchIfMatchExternalRace(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
@@ -350,36 +278,23 @@ func TestBatchIfMatchExternalRace(t *testing.T) {
 		// commit: re-save the real show unchanged, which still bumps its
 		// revision by one.
 		state, loadErr := show.Load(root, showPath)
-		if loadErr != nil {
-			t.Fatalf("simulated external Load: %v", loadErr)
-		}
-		if saveErr := show.Save(root, showPath, state); saveErr != nil {
-			t.Fatalf("simulated external Save: %v", saveErr)
-		}
+		require.NoError(t, loadErr, "simulated external Load")
+		saveErr := show.Save(root, showPath, state)
+		require.NoError(t, saveErr, "simulated external Save")
 	}
 	t.Cleanup(func() { api.BatchPreCommitHookForTesting = nil })
 
 	rec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{poolCreateBatchSubRequest("Alpha")})
-	if rec.Code != http.StatusPreconditionFailed {
-		t.Fatalf("expected 412 for a batch racing a concurrent external write, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Equal(t, http.StatusPreconditionFailed, rec.Code, "expected 412 for a batch racing a concurrent external write (body: %s)", rec.Body.String())
 
 	revision, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision: %v", err)
-	}
-	if revision != 1 {
-		t.Fatalf("expected only the simulated external write to have advanced the revision (to 1), got %d", revision)
-	}
+	require.NoError(t, err, "CurrentRevision")
+	require.Equal(t, int64(1), revision, "expected only the simulated external write to have advanced the revision (to 1)")
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load")
 	for _, p := range state.Pools {
-		if p.Name == "Alpha" {
-			t.Fatalf("expected the batch's \"Alpha\" pool to have been rolled back after the 412, but it exists")
-		}
+		require.NotEqual(t, "Alpha", p.Name, "expected the batch's \"Alpha\" pool to have been rolled back after the 412, but it exists")
 	}
 
 	assertNoTempCopyLeftBehind(t, showPath)
@@ -396,24 +311,16 @@ func TestBatchRequiresScope(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopePlayback})
 
 	rec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{poolCreateBatchSubRequest("ShouldNotExist")})
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 for a batch sub-request whose route requires a scope the key lacks, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Equal(t, http.StatusForbidden, rec.Code, "expected 403 for a batch sub-request whose route requires a scope the key lacks (body: %s)", rec.Body.String())
 
 	revision, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision: %v", err)
-	}
-	if revision != 0 {
-		t.Fatalf("expected the real revision to remain 0 after a scope-rejected batch, got %d", revision)
-	}
+	require.NoError(t, err, "CurrentRevision")
+	require.Equal(t, int64(0), revision, "expected the real revision to remain 0 after a scope-rejected batch")
 }
 
 // --- TestBatchEmpty ------------------------------------------------------
@@ -424,19 +331,13 @@ func TestBatchEmpty(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
 	rec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{})
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for an empty batch, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), "GOLC_API_BATCH_EMPTY") {
-		t.Fatalf("expected the error to name GOLC_API_BATCH_EMPTY, got: %s", rec.Body.String())
-	}
+	require.Equal(t, http.StatusBadRequest, rec.Code, "expected 400 for an empty batch (body: %s)", rec.Body.String())
+	require.Contains(t, rec.Body.String(), "GOLC_API_BATCH_EMPTY", "expected the error to name GOLC_API_BATCH_EMPTY")
 }
 
 // --- TestBatchSingle -------------------------------------------------------
@@ -446,46 +347,35 @@ func TestBatchEmpty(t *testing.T) {
 // against two otherwise-identical fresh shows (API-04 single edge).
 func TestBatchSingle(t *testing.T) {
 	catalogSingle, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	rootSingle := t.TempDir()
 	showPathSingle := filepath.Join(rootSingle, "show.golc")
 	serverSingle := api.NewServer(catalogSingle, rootSingle, showPathSingle)
 	tokenSingle, _ := seedKey(t, rootSingle, showPathSingle, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
 	singleRec := doCreatePoolRequest(t, serverSingle.Handler(), tokenSingle, "", "Solo")
-	if singleRec.Code < 200 || singleRec.Code >= 300 {
-		t.Fatalf("single mutation: expected a 2xx, got %d (body: %s)", singleRec.Code, singleRec.Body.String())
-	}
+	require.True(t, singleRec.Code >= 200 && singleRec.Code < 300, "single mutation: expected a 2xx, got %d (body: %s)", singleRec.Code, singleRec.Body.String())
 	singleResult, singleRevision := decodeMutationBody(t, singleRec)
 
 	catalogBatch, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	rootBatch := t.TempDir()
 	showPathBatch := filepath.Join(rootBatch, "show.golc")
 	serverBatch := api.NewServer(catalogBatch, rootBatch, showPathBatch)
 	tokenBatch, _ := seedKey(t, rootBatch, showPathBatch, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
 	batchRec := doBatchRequest(t, serverBatch.Handler(), tokenBatch, "", []map[string]any{poolCreateBatchSubRequest("Solo")})
-	if batchRec.Code < 200 || batchRec.Code >= 300 {
-		t.Fatalf("one-element batch: expected a 2xx, got %d (body: %s)", batchRec.Code, batchRec.Body.String())
-	}
+	require.True(t, batchRec.Code >= 200 && batchRec.Code < 300, "one-element batch: expected a 2xx, got %d (body: %s)", batchRec.Code, batchRec.Body.String())
 	decoded := decodeBatchBody(t, batchRec)
 
-	if decoded.Revision == nil || singleRevision == nil || *decoded.Revision != *singleRevision {
-		t.Fatalf("expected a one-element batch's resulting revision (%v) to equal the equivalent single mutation's (%v)", decoded.Revision, singleRevision)
-	}
-	if len(decoded.Results) != 1 {
-		t.Fatalf("expected exactly 1 result, got %d", len(decoded.Results))
-	}
+	require.NotNil(t, decoded.Revision, "expected a one-element batch's resulting revision to equal the equivalent single mutation's (%v)", singleRevision)
+	require.NotNil(t, singleRevision, "expected a one-element batch's resulting revision (%v) to equal the equivalent single mutation's", decoded.Revision)
+	require.Equal(t, *singleRevision, *decoded.Revision, "expected a one-element batch's resulting revision to equal the equivalent single mutation's")
+	require.Len(t, decoded.Results, 1)
 	const wantPrefix = "GOLC_POOL_CREATED: Solo ("
-	if !strings.HasPrefix(decoded.Results[0].Result, wantPrefix) || !strings.HasPrefix(singleResult, wantPrefix) {
-		t.Fatalf("expected both outcomes to start with %q (same effect, different pool ids), got batch=%q single=%q",
-			wantPrefix, decoded.Results[0].Result, singleResult)
-	}
+	require.True(t, strings.HasPrefix(decoded.Results[0].Result, wantPrefix) && strings.HasPrefix(singleResult, wantPrefix),
+		"expected both outcomes to start with %q (same effect, different pool ids), got batch=%q single=%q",
+		wantPrefix, decoded.Results[0].Result, singleResult)
 }
 
 // --- TestBatchFailureReport ------------------------------------------------
@@ -498,9 +388,7 @@ func TestBatchFailureReport(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
@@ -510,36 +398,20 @@ func TestBatchFailureReport(t *testing.T) {
 		poolCreateBatchSubRequest("Gamma"),
 	}
 	rec := doBatchRequest(t, server.Handler(), token, "", requests)
-	if rec.Code < 400 {
-		t.Fatalf("expected a batch with a failing 2nd sub-request to fail, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.True(t, rec.Code >= 400, "expected a batch with a failing 2nd sub-request to fail, got %d (body: %s)", rec.Code, rec.Body.String())
 
 	body := rec.Body.String()
-	if !strings.Contains(body, "sub-request 1") {
-		t.Fatalf("expected the failure response to name the failing sub-request's index (1), got: %s", body)
-	}
-	if !strings.Contains(body, "rolled back") {
-		t.Fatalf("expected the failure response to state the whole batch was rolled back, got: %s", body)
-	}
-	if !strings.Contains(body, "1 earlier sub-request") {
-		t.Fatalf("expected the failure response to report exactly 1 earlier successful-so-far sub-request as not durably applied, got: %s", body)
-	}
+	require.Contains(t, body, "sub-request 1", "expected the failure response to name the failing sub-request's index (1)")
+	require.Contains(t, body, "rolled back", "expected the failure response to state the whole batch was rolled back")
+	require.Contains(t, body, "1 earlier sub-request", "expected the failure response to report exactly 1 earlier successful-so-far sub-request as not durably applied")
 
 	revision, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision: %v", err)
-	}
-	if revision != 0 {
-		t.Fatalf("expected the real revision to remain 0 (nothing durably applied, including sub-request 0's successful-so-far effect), got %d", revision)
-	}
+	require.NoError(t, err, "CurrentRevision")
+	require.Equal(t, int64(0), revision, "expected the real revision to remain 0 (nothing durably applied, including sub-request 0's successful-so-far effect)")
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
-	if len(state.Pools) != 0 {
-		t.Fatalf("expected no pools to exist (sub-request 0's \"Alpha\" was rolled back along with the whole batch), got %d", len(state.Pools))
-	}
+	require.NoError(t, err, "show.Load")
+	require.Len(t, state.Pools, 0, "expected no pools to exist (sub-request 0's \"Alpha\" was rolled back along with the whole batch)")
 }
 
 // --- TestBatchNoTempCopyLeftBehind -----------------------------------------
@@ -551,22 +423,16 @@ func TestBatchNoTempCopyLeftBehind(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
 	successRec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{poolCreateBatchSubRequest("Alpha")})
-	if successRec.Code < 200 || successRec.Code >= 300 {
-		t.Fatalf("expected a 2xx, got %d (body: %s)", successRec.Code, successRec.Body.String())
-	}
+	require.True(t, successRec.Code >= 200 && successRec.Code < 300, "expected a 2xx, got %d (body: %s)", successRec.Code, successRec.Body.String())
 	assertNoTempCopyLeftBehind(t, showPath)
 
 	failRec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{poolCreateBatchSubRequest("Alpha")})
-	if failRec.Code < 400 {
-		t.Fatalf("expected a duplicate-name batch to fail, got %d (body: %s)", failRec.Code, failRec.Body.String())
-	}
+	require.True(t, failRec.Code >= 400, "expected a duplicate-name batch to fail, got %d (body: %s)", failRec.Code, failRec.Body.String())
 	assertNoTempCopyLeftBehind(t, showPath)
 }
 
@@ -585,41 +451,21 @@ func TestBatchScopeRejectionIsAudited(t *testing.T) {
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopePlayback})
 
 	rec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{poolCreateBatchSubRequest("ShouldNotExist")})
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 for a batch sub-request whose route requires a scope the key lacks, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Equal(t, http.StatusForbidden, rec.Code, "expected 403 for a batch sub-request whose route requires a scope the key lacks (body: %s)", rec.Body.String())
 
 	revision, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision: %v", err)
-	}
-	if revision != 0 {
-		t.Fatalf("expected the real revision to remain 0 after a scope-rejected batch, got %d", revision)
-	}
+	require.NoError(t, err, "CurrentRevision")
+	require.Equal(t, int64(0), revision, "expected the real revision to remain 0 after a scope-rejected batch")
 
 	records := requireAuditRowCount(t, root, showPath, 1)
 	rec0 := records[0]
-	if rec0.Outcome != "failure" {
-		t.Fatalf("expected outcome %q, got %q", "failure", rec0.Outcome)
-	}
-	if rec0.StatusCode != http.StatusForbidden {
-		t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec0.StatusCode)
-	}
-	if rec0.Source != "http" {
-		t.Fatalf("expected source %q, got %q", "http", rec0.Source)
-	}
-	if rec0.Actor == "" {
-		t.Fatalf("expected a non-empty actor")
-	}
-	if rec0.CorrelationID == "" {
-		t.Fatalf("expected a non-empty correlation id")
-	}
-	if rec0.ResultingRevision.Valid {
-		t.Fatalf("expected a null resulting_revision for a rejected sub-request, got %v", rec0.ResultingRevision)
-	}
-	if rec0.Route != "pool create" {
-		t.Fatalf("expected route %q, got %q", "pool create", rec0.Route)
-	}
+	require.Equal(t, "failure", rec0.Outcome)
+	require.Equal(t, http.StatusForbidden, rec0.StatusCode)
+	require.Equal(t, "http", rec0.Source)
+	require.NotEmpty(t, rec0.Actor, "expected a non-empty actor")
+	require.NotEmpty(t, rec0.CorrelationID, "expected a non-empty correlation id")
+	require.False(t, rec0.ResultingRevision.Valid, "expected a null resulting_revision for a rejected sub-request, got %v", rec0.ResultingRevision)
+	require.Equal(t, "pool create", rec0.Route)
 }
 
 // --- TestBatchAndSingleMutationScopeRejectionsAuditIdentically --------
@@ -634,26 +480,16 @@ func TestBatchAndSingleMutationScopeRejectionsAuditIdentically(t *testing.T) {
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopePlayback})
 
 	singleRec := doCreatePoolRequest(t, server.Handler(), token, "", "ShouldNotExistSingle")
-	if singleRec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 for the single-mutation scope rejection, got %d (body: %s)", singleRec.Code, singleRec.Body.String())
-	}
+	require.Equal(t, http.StatusForbidden, singleRec.Code, "expected 403 for the single-mutation scope rejection (body: %s)", singleRec.Body.String())
 
 	batchRec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{poolCreateBatchSubRequest("ShouldNotExistBatch")})
-	if batchRec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 for the batch scope rejection, got %d (body: %s)", batchRec.Code, batchRec.Body.String())
-	}
+	require.Equal(t, http.StatusForbidden, batchRec.Code, "expected 403 for the batch scope rejection (body: %s)", batchRec.Body.String())
 
 	records := requireAuditRowCount(t, root, showPath, 2)
 	for i, rec := range records {
-		if rec.Outcome != "failure" {
-			t.Fatalf("row %d: expected outcome %q, got %q", i, "failure", rec.Outcome)
-		}
-		if rec.StatusCode != http.StatusForbidden {
-			t.Fatalf("row %d: expected status %d, got %d", i, http.StatusForbidden, rec.StatusCode)
-		}
-		if rec.Route != "pool create" {
-			t.Fatalf("row %d: expected route %q, got %q", i, "pool create", rec.Route)
-		}
+		require.Equal(t, "failure", rec.Outcome, "row %d", i)
+		require.Equal(t, http.StatusForbidden, rec.StatusCode, "row %d", i)
+		require.Equal(t, "pool create", rec.Route, "row %d", i)
 	}
 }
 
@@ -672,24 +508,14 @@ func TestBatchTranslationFailureIsAudited(t *testing.T) {
 		"resource": "/v1/widgets",
 	}
 	rec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{unsupported})
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for an unsupported batch sub-request, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), "GOLC_API_BATCH_SUBREQUEST_UNSUPPORTED") {
-		t.Fatalf("expected the error to name GOLC_API_BATCH_SUBREQUEST_UNSUPPORTED, got: %s", rec.Body.String())
-	}
+	require.Equal(t, http.StatusBadRequest, rec.Code, "expected 400 for an unsupported batch sub-request (body: %s)", rec.Body.String())
+	require.Contains(t, rec.Body.String(), "GOLC_API_BATCH_SUBREQUEST_UNSUPPORTED", "expected the error to name GOLC_API_BATCH_SUBREQUEST_UNSUPPORTED")
 
 	records := requireAuditRowCount(t, root, showPath, 1)
 	rec0 := records[0]
-	if rec0.Outcome != "failure" {
-		t.Fatalf("expected outcome %q, got %q", "failure", rec0.Outcome)
-	}
-	if rec0.StatusCode != http.StatusBadRequest {
-		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rec0.StatusCode)
-	}
-	if !strings.Contains(rec0.RedactedDetails, "/v1/widgets") {
-		t.Fatalf("expected redacted_details to record the claimed target (/v1/widgets), got: %s", rec0.RedactedDetails)
-	}
+	require.Equal(t, "failure", rec0.Outcome)
+	require.Equal(t, http.StatusBadRequest, rec0.StatusCode)
+	require.Contains(t, rec0.RedactedDetails, "/v1/widgets", "expected redacted_details to record the claimed target (/v1/widgets)")
 }
 
 // --- TestBatchSubRequestAuditRowsFollowClientOrder ---------------------
@@ -709,35 +535,25 @@ func TestBatchSubRequestAuditRowsFollowClientOrder(t *testing.T) {
 	}
 
 	rec := doBatchRequest(t, server.Handler(), token, "", requests)
-	if rec.Code < 200 || rec.Code >= 300 {
-		t.Fatalf("expected a 2xx for a fully-valid batch, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.True(t, rec.Code >= 200 && rec.Code < 300, "expected a 2xx for a fully-valid batch, got %d (body: %s)", rec.Code, rec.Body.String())
 
 	records := requireAuditRowCount(t, root, showPath, len(order))
 	var sharedRevision int64
 	for i, name := range order {
 		got := records[i]
-		if got.Outcome != "success" {
-			t.Fatalf("row %d: expected outcome %q, got %q", i, "success", got.Outcome)
-		}
-		if !got.ResultingRevision.Valid {
-			t.Fatalf("row %d: expected a non-null resulting_revision", i)
-		}
+		require.Equal(t, "success", got.Outcome, "row %d", i)
+		require.True(t, got.ResultingRevision.Valid, "row %d: expected a non-null resulting_revision", i)
 		if i == 0 {
 			sharedRevision = got.ResultingRevision.Int64
-		} else if got.ResultingRevision.Int64 != sharedRevision {
-			t.Fatalf("row %d: expected the shared resulting_revision %d, got %d", i, sharedRevision, got.ResultingRevision.Int64)
+		} else {
+			require.Equal(t, sharedRevision, got.ResultingRevision.Int64, "row %d: expected the shared resulting_revision", i)
 		}
-		if !strings.Contains(got.RedactedDetails, name) {
-			t.Fatalf("row %d: expected redacted_details to contain %q (this sub-request's own name), got: %s", i, name, got.RedactedDetails)
-		}
+		require.Contains(t, got.RedactedDetails, name, "row %d: expected redacted_details to contain %q (this sub-request's own name)", i, name)
 		for _, other := range order {
 			if other == name {
 				continue
 			}
-			if strings.Contains(got.RedactedDetails, other) {
-				t.Fatalf("row %d: expected redacted_details NOT to contain %q (a different sub-request's name), got: %s", i, other, got.RedactedDetails)
-			}
+			require.NotContains(t, got.RedactedDetails, other, "row %d: expected redacted_details NOT to contain %q (a different sub-request's name)", i, other)
 		}
 	}
 }
@@ -754,9 +570,7 @@ func TestCreatePoolRejectsCommaInRequires(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
@@ -769,20 +583,12 @@ func TestCreatePoolRejectsCommaInRequires(t *testing.T) {
 	rec := httptest.NewRecorder()
 	server.Handler().ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for a \"requires\" element containing a comma, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), "GOLC_API_LIST_VALUE_INVALID") {
-		t.Fatalf("expected the error to name GOLC_API_LIST_VALUE_INVALID, got: %s", rec.Body.String())
-	}
+	require.Equal(t, http.StatusBadRequest, rec.Code, "expected 400 for a \"requires\" element containing a comma (body: %s)", rec.Body.String())
+	require.Contains(t, rec.Body.String(), "GOLC_API_LIST_VALUE_INVALID", "expected the error to name GOLC_API_LIST_VALUE_INVALID")
 
 	revision, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision: %v", err)
-	}
-	if revision != 0 {
-		t.Fatalf("expected the show's revision to remain unchanged (0), got %d", revision)
-	}
+	require.NoError(t, err, "CurrentRevision")
+	require.Equal(t, int64(0), revision, "expected the show's revision to remain unchanged (0)")
 }
 
 // TestCreatePoolAllowsCommaFreeRequires proves a "requires" list with
@@ -793,9 +599,7 @@ func TestCreatePoolAllowsCommaFreeRequires(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
@@ -808,9 +612,7 @@ func TestCreatePoolAllowsCommaFreeRequires(t *testing.T) {
 	rec := httptest.NewRecorder()
 	server.Handler().ServeHTTP(rec, req)
 
-	if rec.Code < 200 || rec.Code >= 300 {
-		t.Fatalf("expected a 2xx for comma-free \"requires\" elements, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.True(t, rec.Code >= 200 && rec.Code < 300, "expected a 2xx for comma-free \"requires\" elements, got %d (body: %s)", rec.Code, rec.Body.String())
 }
 
 // --- TestBatchSubRequestRejectsCommaInRequires --------------------------
@@ -839,20 +641,12 @@ func TestBatchSubRequestRejectsCommaInRequires(t *testing.T) {
 		poolCreateBatchSubRequestWithRequires("ShouldNotExist", []string{"pan,tilt"}),
 	}
 	rec := doBatchRequest(t, server.Handler(), token, "", requests)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for a batch sub-request's \"requires\" element containing a comma, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), "GOLC_API_LIST_VALUE_INVALID") {
-		t.Fatalf("expected the error to name GOLC_API_LIST_VALUE_INVALID, got: %s", rec.Body.String())
-	}
+	require.Equal(t, http.StatusBadRequest, rec.Code, "expected 400 for a batch sub-request's \"requires\" element containing a comma (body: %s)", rec.Body.String())
+	require.Contains(t, rec.Body.String(), "GOLC_API_LIST_VALUE_INVALID", "expected the error to name GOLC_API_LIST_VALUE_INVALID")
 
 	revision, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision: %v", err)
-	}
-	if revision != 0 {
-		t.Fatalf("expected the show's revision to remain unchanged (0), got %d", revision)
-	}
+	require.NoError(t, err, "CurrentRevision")
+	require.Equal(t, int64(0), revision, "expected the show's revision to remain unchanged (0)")
 
 	assertNoTempCopyLeftBehind(t, showPath)
 	requireAuditRowCount(t, root, showPath, 1)
@@ -868,12 +662,8 @@ func TestBatchEmptyWritesNoAuditRow(t *testing.T) {
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
 	rec := doBatchRequest(t, server.Handler(), token, "", []map[string]any{})
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for an empty batch, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), "GOLC_API_BATCH_EMPTY") {
-		t.Fatalf("expected the error to name GOLC_API_BATCH_EMPTY, got: %s", rec.Body.String())
-	}
+	require.Equal(t, http.StatusBadRequest, rec.Code, "expected 400 for an empty batch (body: %s)", rec.Body.String())
+	require.Contains(t, rec.Body.String(), "GOLC_API_BATCH_EMPTY", "expected the error to name GOLC_API_BATCH_EMPTY")
 
 	requireAuditRowCount(t, root, showPath, 0)
 }
@@ -898,68 +688,39 @@ func TestBatchStaleIfMatchIsAudited(t *testing.T) {
 	}
 
 	rec := doBatchRequest(t, server.Handler(), token, "5", requests)
-	if rec.Code != http.StatusPreconditionFailed {
-		t.Fatalf("expected 412 for a stale batch-level If-Match, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Equal(t, http.StatusPreconditionFailed, rec.Code, "expected 412 for a stale batch-level If-Match (body: %s)", rec.Body.String())
 
 	// Keep TestBatchIfMatch's own atomicity assertions alongside the new
 	// audit ones.
 	revision, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision: %v", err)
-	}
-	if revision != 0 {
-		t.Fatalf("expected the real revision to remain 0 after a stale-If-Match batch, got %d", revision)
-	}
+	require.NoError(t, err, "CurrentRevision")
+	require.Equal(t, int64(0), revision, "expected the real revision to remain 0 after a stale-If-Match batch")
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
-	if len(state.Pools) != 0 {
-		t.Fatalf("expected no pools to exist, got %d", len(state.Pools))
-	}
+	require.NoError(t, err, "show.Load")
+	require.Len(t, state.Pools, 0)
 
 	records := requireAuditRowCount(t, root, showPath, len(names))
 	for i, name := range names {
 		got := records[i]
-		if got.Outcome != "failure" {
-			t.Fatalf("row %d: expected outcome %q, got %q", i, "failure", got.Outcome)
-		}
-		if got.StatusCode != http.StatusPreconditionFailed {
-			t.Fatalf("row %d: expected status %d, got %d", i, http.StatusPreconditionFailed, got.StatusCode)
-		}
-		if got.Source != "http" {
-			t.Fatalf("row %d: expected source %q, got %q", i, "http", got.Source)
-		}
-		if got.Actor == "" {
-			t.Fatalf("row %d: expected a non-empty actor", i)
-		}
-		if got.CorrelationID == "" {
-			t.Fatalf("row %d: expected a non-empty correlation id", i)
-		}
-		if got.Route != "pool create" {
-			t.Fatalf("row %d: expected route %q, got %q", i, "pool create", got.Route)
-		}
-		if got.ResultingRevision.Valid {
-			t.Fatalf("row %d: expected a null resulting_revision, got %v", i, got.ResultingRevision)
-		}
-		if !got.ExpectedRevision.Valid || got.ExpectedRevision.Int64 != 5 {
-			t.Fatalf("row %d: expected a valid expected_revision of 5, got %v", i, got.ExpectedRevision)
-		}
+		require.Equal(t, "failure", got.Outcome, "row %d", i)
+		require.Equal(t, http.StatusPreconditionFailed, got.StatusCode, "row %d", i)
+		require.Equal(t, "http", got.Source, "row %d", i)
+		require.NotEmpty(t, got.Actor, "row %d: expected a non-empty actor", i)
+		require.NotEmpty(t, got.CorrelationID, "row %d: expected a non-empty correlation id", i)
+		require.Equal(t, "pool create", got.Route, "row %d", i)
+		require.False(t, got.ResultingRevision.Valid, "row %d: expected a null resulting_revision, got %v", i, got.ResultingRevision)
+		require.True(t, got.ExpectedRevision.Valid, "row %d: expected a valid expected_revision of 5", i)
+		require.Equal(t, int64(5), got.ExpectedRevision.Int64, "row %d: expected a valid expected_revision of 5", i)
 		// The fan-out must be per-sub-request and correctly ordered: row i's
 		// details must contain that sub-request's own name and none of the
 		// others', so a collapsed single row, a duplicated row, or a
 		// reordering all fail.
-		if !strings.Contains(got.RedactedDetails, name) {
-			t.Fatalf("row %d: expected redacted_details to contain %q (this sub-request's own name), got: %s", i, name, got.RedactedDetails)
-		}
+		require.Contains(t, got.RedactedDetails, name, "row %d: expected redacted_details to contain %q (this sub-request's own name)", i, name)
 		for _, other := range names {
 			if other == name {
 				continue
 			}
-			if strings.Contains(got.RedactedDetails, other) {
-				t.Fatalf("row %d: expected redacted_details NOT to contain %q (a different sub-request's name), got: %s", i, other, got.RedactedDetails)
-			}
+			require.NotContains(t, got.RedactedDetails, other, "row %d: expected redacted_details NOT to contain %q (a different sub-request's name)", i, other)
 		}
 	}
 }
@@ -977,29 +738,18 @@ func TestBatchAndSingleMutationStaleIfMatchAuditIdentically(t *testing.T) {
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
 	singleRec := doCreatePoolRequest(t, server.Handler(), token, "9", "ShouldNotExistSingle")
-	if singleRec.Code != http.StatusPreconditionFailed {
-		t.Fatalf("expected 412 for the single-mutation stale If-Match, got %d (body: %s)", singleRec.Code, singleRec.Body.String())
-	}
+	require.Equal(t, http.StatusPreconditionFailed, singleRec.Code, "expected 412 for the single-mutation stale If-Match (body: %s)", singleRec.Body.String())
 
 	batchRec := doBatchRequest(t, server.Handler(), token, "9", []map[string]any{poolCreateBatchSubRequest("ShouldNotExistBatch")})
-	if batchRec.Code != http.StatusPreconditionFailed {
-		t.Fatalf("expected 412 for the batch stale If-Match, got %d (body: %s)", batchRec.Code, batchRec.Body.String())
-	}
+	require.Equal(t, http.StatusPreconditionFailed, batchRec.Code, "expected 412 for the batch stale If-Match (body: %s)", batchRec.Body.String())
 
 	records := requireAuditRowCount(t, root, showPath, 2)
 	for i, rec := range records {
-		if rec.Outcome != "failure" {
-			t.Fatalf("row %d: expected outcome %q, got %q", i, "failure", rec.Outcome)
-		}
-		if rec.StatusCode != http.StatusPreconditionFailed {
-			t.Fatalf("row %d: expected status %d, got %d", i, http.StatusPreconditionFailed, rec.StatusCode)
-		}
-		if rec.Route != "pool create" {
-			t.Fatalf("row %d: expected route %q, got %q", i, "pool create", rec.Route)
-		}
-		if !rec.ExpectedRevision.Valid || rec.ExpectedRevision.Int64 != 9 {
-			t.Fatalf("row %d: expected a valid expected_revision of 9, got %v", i, rec.ExpectedRevision)
-		}
+		require.Equal(t, "failure", rec.Outcome, "row %d", i)
+		require.Equal(t, http.StatusPreconditionFailed, rec.StatusCode, "row %d", i)
+		require.Equal(t, "pool create", rec.Route, "row %d", i)
+		require.True(t, rec.ExpectedRevision.Valid, "row %d: expected a valid expected_revision of 9", i)
+		require.Equal(t, int64(9), rec.ExpectedRevision.Int64, "row %d: expected a valid expected_revision of 9", i)
 	}
 }
 
@@ -1016,24 +766,14 @@ func TestBatchMalformedIfMatchIsAudited(t *testing.T) {
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
 	rec := doBatchRequest(t, server.Handler(), token, "banana", []map[string]any{poolCreateBatchSubRequest("ShouldNotExist")})
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for an unparseable batch-level If-Match, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), "GOLC_API_IF_MATCH_INVALID") {
-		t.Fatalf("expected the error to name GOLC_API_IF_MATCH_INVALID, got: %s", rec.Body.String())
-	}
+	require.Equal(t, http.StatusBadRequest, rec.Code, "expected 400 for an unparseable batch-level If-Match (body: %s)", rec.Body.String())
+	require.Contains(t, rec.Body.String(), "GOLC_API_IF_MATCH_INVALID", "expected the error to name GOLC_API_IF_MATCH_INVALID")
 
 	records := requireAuditRowCount(t, root, showPath, 1)
 	rec0 := records[0]
-	if rec0.Outcome != "failure" {
-		t.Fatalf("expected outcome %q, got %q", "failure", rec0.Outcome)
-	}
-	if rec0.StatusCode != http.StatusBadRequest {
-		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rec0.StatusCode)
-	}
-	if rec0.ExpectedRevision.Valid {
-		t.Fatalf("expected a null expected_revision (nothing was ever successfully parsed), got %v", rec0.ExpectedRevision)
-	}
+	require.Equal(t, "failure", rec0.Outcome)
+	require.Equal(t, http.StatusBadRequest, rec0.StatusCode)
+	require.False(t, rec0.ExpectedRevision.Valid, "expected a null expected_revision (nothing was ever successfully parsed), got %v", rec0.ExpectedRevision)
 }
 
 // --- TestBatchExternalWriteRaceIsAudited ----------------------------------
@@ -1049,12 +789,9 @@ func TestBatchExternalWriteRaceIsAudited(t *testing.T) {
 
 	api.BatchPreCommitHookForTesting = func() {
 		state, loadErr := show.Load(root, showPath)
-		if loadErr != nil {
-			t.Fatalf("simulated external Load: %v", loadErr)
-		}
-		if saveErr := show.Save(root, showPath, state); saveErr != nil {
-			t.Fatalf("simulated external Save: %v", saveErr)
-		}
+		require.NoError(t, loadErr, "simulated external Load")
+		saveErr := show.Save(root, showPath, state)
+		require.NoError(t, saveErr, "simulated external Save")
 	}
 	t.Cleanup(func() { api.BatchPreCommitHookForTesting = nil })
 
@@ -1065,49 +802,29 @@ func TestBatchExternalWriteRaceIsAudited(t *testing.T) {
 	}
 
 	rec := doBatchRequest(t, server.Handler(), token, "", requests)
-	if rec.Code != http.StatusPreconditionFailed {
-		t.Fatalf("expected 412 for a batch racing a concurrent external write, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Equal(t, http.StatusPreconditionFailed, rec.Code, "expected 412 for a batch racing a concurrent external write (body: %s)", rec.Body.String())
 
 	revision, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision: %v", err)
-	}
-	if revision != 1 {
-		t.Fatalf("expected only the simulated external write to have advanced the revision (to 1), got %d", revision)
-	}
+	require.NoError(t, err, "CurrentRevision")
+	require.Equal(t, int64(1), revision, "expected only the simulated external write to have advanced the revision (to 1)")
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load")
 	for _, p := range state.Pools {
-		if p.Name == "Alpha" || p.Name == "Bravo" {
-			t.Fatalf("expected the batch's sub-requests to have been rolled back after the 412, but %q exists", p.Name)
-		}
+		require.False(t, p.Name == "Alpha" || p.Name == "Bravo", "expected the batch's sub-requests to have been rolled back after the 412, but %q exists", p.Name)
 	}
 
 	records := requireAuditRowCount(t, root, showPath, len(names))
 	for i, name := range names {
 		got := records[i]
-		if got.Outcome != "failure" {
-			t.Fatalf("row %d: expected outcome %q, got %q", i, "failure", got.Outcome)
-		}
-		if got.StatusCode != http.StatusPreconditionFailed {
-			t.Fatalf("row %d: expected status %d, got %d", i, http.StatusPreconditionFailed, got.StatusCode)
-		}
-		if got.ExpectedRevision.Valid {
-			t.Fatalf("row %d: expected a null expected_revision (no If-Match was sent), got %v", i, got.ExpectedRevision)
-		}
-		if !strings.Contains(got.RedactedDetails, name) {
-			t.Fatalf("row %d: expected redacted_details to contain %q (this sub-request's own name), got: %s", i, name, got.RedactedDetails)
-		}
+		require.Equal(t, "failure", got.Outcome, "row %d", i)
+		require.Equal(t, http.StatusPreconditionFailed, got.StatusCode, "row %d", i)
+		require.False(t, got.ExpectedRevision.Valid, "row %d: expected a null expected_revision (no If-Match was sent), got %v", i, got.ExpectedRevision)
+		require.Contains(t, got.RedactedDetails, name, "row %d: expected redacted_details to contain %q (this sub-request's own name)", i, name)
 		for _, other := range names {
 			if other == name {
 				continue
 			}
-			if strings.Contains(got.RedactedDetails, other) {
-				t.Fatalf("row %d: expected redacted_details NOT to contain %q (a different sub-request's name), got: %s", i, other, got.RedactedDetails)
-			}
+			require.NotContains(t, got.RedactedDetails, other, "row %d: expected redacted_details NOT to contain %q (a different sub-request's name)", i, other)
 		}
 	}
 }
@@ -1127,65 +844,41 @@ func TestBatchSubRequestExecutionFailureIsAudited(t *testing.T) {
 	// writes one success row, and its post-seed revision is what the
 	// rolled-back batch below must leave untouched.
 	seedRec := doCreatePoolRequest(t, server.Handler(), token, "", "Beta")
-	if seedRec.Code < 200 || seedRec.Code >= 300 {
-		t.Fatalf("seeding \"Beta\": expected a 2xx, got %d (body: %s)", seedRec.Code, seedRec.Body.String())
-	}
+	require.True(t, seedRec.Code >= 200 && seedRec.Code < 300, "seeding \"Beta\": expected a 2xx, got %d (body: %s)", seedRec.Code, seedRec.Body.String())
 	postSeedRevision, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision after seed: %v", err)
-	}
+	require.NoError(t, err, "CurrentRevision after seed")
 
 	requests := []map[string]any{
 		poolCreateBatchSubRequest("Alpha"),
 		poolCreateBatchSubRequest("Beta"), // duplicate name -> fails against the throwaway copy at index 1
 	}
 	rec := doBatchRequest(t, server.Handler(), token, "", requests)
-	if rec.Code < 400 {
-		t.Fatalf("expected a batch with a failing 2nd sub-request to fail, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.True(t, rec.Code >= 400, "expected a batch with a failing 2nd sub-request to fail, got %d (body: %s)", rec.Code, rec.Body.String())
 
 	revision, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision: %v", err)
-	}
-	if revision != postSeedRevision {
-		t.Fatalf("expected the real revision to remain unchanged from the post-seed value (%d), got %d", postSeedRevision, revision)
-	}
+	require.NoError(t, err, "CurrentRevision")
+	require.Equal(t, postSeedRevision, revision, "expected the real revision to remain unchanged from the post-seed value")
 
 	records := requireAuditRowCount(t, root, showPath, 2)
 	seedRow := records[0]
-	if seedRow.Outcome != "success" {
-		t.Fatalf("row 0 (the seed): expected outcome %q, got %q", "success", seedRow.Outcome)
-	}
+	require.Equal(t, "success", seedRow.Outcome, "row 0 (the seed)")
 
 	failRow := records[1]
-	if failRow.Outcome != "failure" {
-		t.Fatalf("row 1: expected outcome %q, got %q", "failure", failRow.Outcome)
-	}
-	if failRow.Route != "pool create" {
-		t.Fatalf("row 1: expected route %q, got %q", "pool create", failRow.Route)
-	}
-	if failRow.ResultingRevision.Valid {
-		t.Fatalf("row 1: expected a null resulting_revision, got %v", failRow.ResultingRevision)
-	}
-	if !strings.Contains(failRow.RedactedDetails, "Beta") {
-		t.Fatalf("row 1: expected redacted_details to contain %q, got: %s", "Beta", failRow.RedactedDetails)
-	}
+	require.Equal(t, "failure", failRow.Outcome, "row 1")
+	require.Equal(t, "pool create", failRow.Route, "row 1")
+	require.False(t, failRow.ResultingRevision.Valid, "row 1: expected a null resulting_revision, got %v", failRow.ResultingRevision)
+	require.Contains(t, failRow.RedactedDetails, "Beta", "row 1")
 	// The absence of an "Alpha" failure row is the pinned semantic: a
 	// sub-request-attributable failure writes exactly one row, for the
 	// culpable index -- sub-request 0 succeeded against the throwaway copy
 	// and was then rolled back along with the whole batch, so it gets no
 	// row of its own.
-	if strings.Contains(failRow.RedactedDetails, "Alpha") {
-		t.Fatalf("row 1: expected redacted_details NOT to contain %q (a non-culpable sub-request's name), got: %s", "Alpha", failRow.RedactedDetails)
-	}
+	require.NotContains(t, failRow.RedactedDetails, "Alpha", "row 1: expected redacted_details NOT to contain a non-culpable sub-request's name")
 	// Deliberate: the audit row's status must be whatever the client
 	// actually received, which is what makes the row usable for
 	// reconciling a client-reported failure against the server's own
 	// record -- assert against rec.Code, never a hardcoded status.
-	if failRow.StatusCode != rec.Code {
-		t.Fatalf("row 1: expected status to equal the response's own status %d, got %d", rec.Code, failRow.StatusCode)
-	}
+	require.Equal(t, rec.Code, failRow.StatusCode, "row 1: expected status to equal the response's own status")
 }
 
 // --- TestBatchLockedSectionFailureReturnsAreAllAudited --------------------
@@ -1208,9 +901,7 @@ func TestBatchSubRequestExecutionFailureIsAudited(t *testing.T) {
 // enumerated eight returns by hand; this region has nine).
 func TestBatchLockedSectionFailureReturnsAreAllAudited(t *testing.T) {
 	source, err := os.ReadFile("batch.go")
-	if err != nil {
-		t.Fatalf("os.ReadFile(batch.go): %v", err)
-	}
+	require.NoError(t, err, "os.ReadFile(batch.go)")
 	lines := strings.Split(string(source), "\n")
 
 	startLine, endLine := -1, -1
@@ -1231,9 +922,8 @@ func TestBatchLockedSectionFailureReturnsAreAllAudited(t *testing.T) {
 			break
 		}
 	}
-	if startLine < 0 || endLine < 0 || endLine <= startLine {
-		t.Fatalf("expected batch.go to contain a `mutationMutex.Lock()` line followed later by a `resultingRevision := baseRevision + 1` line -- runBatch was restructured and this test's region markers need updating (found startLine=%d, endLine=%d)", startLine, endLine)
-	}
+	require.False(t, startLine < 0 || endLine < 0 || endLine <= startLine,
+		"expected batch.go to contain a `mutationMutex.Lock()` line followed later by a `resultingRevision := baseRevision + 1` line -- runBatch was restructured and this test's region markers need updating (found startLine=%d, endLine=%d)", startLine, endLine)
 
 	fired := false
 	returnCount, fireCount := 0, 0
@@ -1248,19 +938,13 @@ func TestBatchLockedSectionFailureReturnsAreAllAudited(t *testing.T) {
 			fireCount++
 		}
 		if strings.HasPrefix(trimmed, "return nil, ") {
-			if !fired {
-				t.Fatalf("batch.go line %d is an unaudited failure return inside runBatch's locked section: %q -- every failure return inside runBatch's locked section must emit its audit rows before returning (API-06, WR-05)", i+1, trimmed)
-			}
+			require.True(t, fired, "batch.go line %d is an unaudited failure return inside runBatch's locked section: %q -- every failure return inside runBatch's locked section must emit its audit rows before returning (API-06, WR-05)", i+1, trimmed)
 			fired = false
 			returnCount++
 		}
 	}
 
 	const wantCount = 9
-	if returnCount != wantCount {
-		t.Fatalf("expected exactly %d failure returns in runBatch's locked section, found %d -- if a failure return was legitimately added or removed there, update this expectation and confirm the new branch fires the observer", wantCount, returnCount)
-	}
-	if fireCount != wantCount {
-		t.Fatalf("expected exactly %d audit-fire statements in runBatch's locked section, found %d -- if a failure return was legitimately added or removed there, update this expectation and confirm the new branch fires the observer", wantCount, fireCount)
-	}
+	require.Equal(t, wantCount, returnCount, "expected exactly %d failure returns in runBatch's locked section -- if a failure return was legitimately added or removed there, update this expectation and confirm the new branch fires the observer", wantCount)
+	require.Equal(t, wantCount, fireCount, "expected exactly %d audit-fire statements in runBatch's locked section -- if a failure return was legitimately added or removed there, update this expectation and confirm the new branch fires the observer", wantCount)
 }

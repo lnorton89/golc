@@ -9,7 +9,11 @@
 // mutate_test.go/events_test.go.
 package api
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 // TestPublishMutationEventNotifiesRegisteredObserversInOrder proves
 // PublishMutationEvent has identical semantics to the unexported
@@ -25,12 +29,8 @@ func TestPublishMutationEventNotifiesRegisteredObserversInOrder(t *testing.T) {
 
 	PublishMutationEvent(MutationEvent{Route: "scene activate", Source: "script"})
 
-	if len(order) != 2 {
-		t.Fatalf("expected exactly 2 observer notifications, got %d: %v", len(order), order)
-	}
-	if order[0] != "first:scene activate" || order[1] != "second:scene activate" {
-		t.Fatalf("expected registration-order notification, got %v", order)
-	}
+	require.Len(t, order, 2, "observer notifications")
+	require.Equal(t, []string{"first:scene activate", "second:scene activate"}, order, "expected registration-order notification")
 }
 
 // TestPublishMutationEventNeverPanicsWithNoObservers proves an unregistered
@@ -59,13 +59,7 @@ func TestPublishMutationEventCarriesNonHTTPSource(t *testing.T) {
 		Route: "scene activate", Actor: "script:Chase", Source: "script", CorrelationID: "run-1",
 	})
 
-	if seen.Source != "script" {
-		t.Fatalf("Source = %q, want %q", seen.Source, "script")
-	}
-	if seen.Actor != "script:Chase" {
-		t.Fatalf("Actor = %q, want %q", seen.Actor, "script:Chase")
-	}
-	if seen.CorrelationID != "run-1" {
-		t.Fatalf("CorrelationID = %q, want %q", seen.CorrelationID, "run-1")
-	}
+	require.Equal(t, "script", seen.Source)
+	require.Equal(t, "script:Chase", seen.Actor)
+	require.Equal(t, "run-1", seen.CorrelationID)
 }
