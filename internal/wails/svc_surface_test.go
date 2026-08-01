@@ -9,8 +9,9 @@ package wails
 
 import (
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/command"
 )
@@ -25,93 +26,61 @@ func TestSurfaceServiceCreateListAssignShowUnassignRemoveRoundTrip(t *testing.T)
 	showPath := filepath.Join(t.TempDir(), "show.golc")
 	svc := NewSurfaceService("", root, showPath)
 
-	if result := svc.CreateSurface("Front of House"); result.ExitCode != 0 {
-		t.Fatalf("CreateSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateSurface("Front of House")
+	require.Equal(t, 0, result.ExitCode, "CreateSurface failed: stderr=%s", result.Stderr)
 
 	summaries, err := svc.ListSurfaces()
-	if err != nil {
-		t.Fatalf("ListSurfaces: %v", err)
-	}
-	if len(summaries) != 1 || summaries[0].Name != "Front of House" {
-		t.Fatalf("expected exactly one surface named Front of House, got %+v", summaries)
-	}
-	if summaries[0].AssignedCount != 0 || summaries[0].MidiMappingCount != 0 {
-		t.Fatalf("expected a freshly created surface to have zero assignments, got %+v", summaries[0])
-	}
+	require.NoError(t, err, "ListSurfaces")
+	require.Len(t, summaries, 1, "expected exactly one surface named Front of House, got %+v", summaries)
+	require.Equal(t, "Front of House", summaries[0].Name)
+	require.Equal(t, 0, summaries[0].AssignedCount, "expected a freshly created surface to have zero assignments, got %+v", summaries[0])
+	require.Equal(t, 0, summaries[0].MidiMappingCount, "expected a freshly created surface to have zero assignments, got %+v", summaries[0])
 
 	detail, err := svc.ShowSurface("Front of House")
-	if err != nil {
-		t.Fatalf("ShowSurface: %v", err)
-	}
+	require.NoError(t, err, "ShowSurface")
 	// A fresh show has no scenes/groups yet -- only the fixed grand master
 	// and the three safety controls are assignable.
-	if len(detail.Controls) != 4 {
-		t.Fatalf("expected 4 assignable controls (grand master + 3 safety) on an empty show, got %d: %+v", len(detail.Controls), detail.Controls)
-	}
+	require.Len(t, detail.Controls, 4, "expected 4 assignable controls (grand master + 3 safety) on an empty show, got %+v", detail.Controls)
 	for _, c := range detail.Controls {
-		if c.Assigned {
-			t.Fatalf("expected every control to start unassigned, got %+v", c)
-		}
+		require.False(t, c.Assigned, "expected every control to start unassigned, got %+v", c)
 	}
 
 	blackout := ControlRefInput{Kind: "safety", Safety: "blackout"}
-	if result := svc.AssignItem("Front of House", blackout); result.ExitCode != 0 {
-		t.Fatalf("AssignItem failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.AssignItem("Front of House", blackout)
+	require.Equal(t, 0, result.ExitCode, "AssignItem failed: stderr=%s", result.Stderr)
 	// A repeated assign is idempotent (PLAY-03 idempotency edge).
-	if result := svc.AssignItem("Front of House", blackout); result.ExitCode != 0 {
-		t.Fatalf("AssignItem (idempotent repeat) failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.AssignItem("Front of House", blackout)
+	require.Equal(t, 0, result.ExitCode, "AssignItem (idempotent repeat) failed: stderr=%s", result.Stderr)
 
 	detail, err = svc.ShowSurface("Front of House")
-	if err != nil {
-		t.Fatalf("ShowSurface after assign: %v", err)
-	}
+	require.NoError(t, err, "ShowSurface after assign")
 	assignedCount := 0
 	for _, c := range detail.Controls {
 		if c.Assigned {
 			assignedCount++
-			if c.Kind != "safety" || c.Safety != "blackout" {
-				t.Fatalf("expected only the blackout safety control to be assigned, got %+v", c)
-			}
+			require.Equal(t, "safety", c.Kind, "expected only the blackout safety control to be assigned, got %+v", c)
+			require.Equal(t, "blackout", c.Safety, "expected only the blackout safety control to be assigned, got %+v", c)
 		}
 	}
-	if assignedCount != 1 {
-		t.Fatalf("expected exactly one assigned control after an idempotent re-assign, got %d", assignedCount)
-	}
+	require.Equal(t, 1, assignedCount, "expected exactly one assigned control after an idempotent re-assign")
 
 	summaries, err = svc.ListSurfaces()
-	if err != nil {
-		t.Fatalf("ListSurfaces after assign: %v", err)
-	}
-	if summaries[0].SafetyCount != 1 {
-		t.Fatalf("expected SafetyCount=1 after assigning blackout, got %+v", summaries[0])
-	}
+	require.NoError(t, err, "ListSurfaces after assign")
+	require.Equal(t, 1, summaries[0].SafetyCount, "expected SafetyCount=1 after assigning blackout, got %+v", summaries[0])
 
-	if result := svc.UnassignItem("Front of House", blackout); result.ExitCode != 0 {
-		t.Fatalf("UnassignItem failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.UnassignItem("Front of House", blackout)
+	require.Equal(t, 0, result.ExitCode, "UnassignItem failed: stderr=%s", result.Stderr)
 	detail, err = svc.ShowSurface("Front of House")
-	if err != nil {
-		t.Fatalf("ShowSurface after unassign: %v", err)
-	}
+	require.NoError(t, err, "ShowSurface after unassign")
 	for _, c := range detail.Controls {
-		if c.Assigned {
-			t.Fatalf("expected no assigned controls after unassign, got %+v", c)
-		}
+		require.False(t, c.Assigned, "expected no assigned controls after unassign, got %+v", c)
 	}
 
-	if result := svc.RemoveSurface("Front of House"); result.ExitCode != 0 {
-		t.Fatalf("RemoveSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.RemoveSurface("Front of House")
+	require.Equal(t, 0, result.ExitCode, "RemoveSurface failed: stderr=%s", result.Stderr)
 	summaries, err = svc.ListSurfaces()
-	if err != nil {
-		t.Fatalf("ListSurfaces after remove: %v", err)
-	}
-	if len(summaries) != 0 {
-		t.Fatalf("expected zero surfaces after remove, got %+v", summaries)
-	}
+	require.NoError(t, err, "ListSurfaces after remove")
+	require.Empty(t, summaries, "expected zero surfaces after remove")
 }
 
 // TestSurfaceServiceAuthorizeControlRejectsUnassignedControl proves the
@@ -125,23 +94,18 @@ func TestSurfaceServiceAuthorizeControlRejectsUnassignedControl(t *testing.T) {
 	showPath := filepath.Join(t.TempDir(), "show.golc")
 	svc := NewSurfaceService("", root, showPath)
 
-	if result := svc.CreateSurface("Front of House"); result.ExitCode != 0 {
-		t.Fatalf("CreateSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateSurface("Front of House")
+	require.Equal(t, 0, result.ExitCode, "CreateSurface failed: stderr=%s", result.Stderr)
 
 	unassigned := ControlRefInput{Kind: "safety", Safety: "blackout"}
-	result := svc.AuthorizeControl("Front of House", unassigned)
-	if result.ExitCode == 0 || !strings.Contains(result.Stderr, "GOLC_OPERATORSURFACE_LOCKED") {
-		t.Fatalf("expected GOLC_OPERATORSURFACE_LOCKED for an unassigned control, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-
-	if assignResult := svc.AssignItem("Front of House", unassigned); assignResult.ExitCode != 0 {
-		t.Fatalf("AssignItem failed: exit=%d stderr=%s", assignResult.ExitCode, assignResult.Stderr)
-	}
 	result = svc.AuthorizeControl("Front of House", unassigned)
-	if result.ExitCode != 0 {
-		t.Fatalf("expected Authorize to accept an assigned control, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected GOLC_OPERATORSURFACE_LOCKED for an unassigned control")
+	require.Contains(t, result.Stderr, "GOLC_OPERATORSURFACE_LOCKED")
+
+	assignResult := svc.AssignItem("Front of House", unassigned)
+	require.Equal(t, 0, assignResult.ExitCode, "AssignItem failed: stderr=%s", assignResult.Stderr)
+	result = svc.AuthorizeControl("Front of House", unassigned)
+	require.Equal(t, 0, result.ExitCode, "expected Authorize to accept an assigned control, got stderr=%s", result.Stderr)
 }
 
 // TestSurfaceServiceAssignSceneAndLayer proves scenes/layers created
@@ -153,31 +117,23 @@ func TestSurfaceServiceAssignSceneAndLayer(t *testing.T) {
 	showPath := filepath.Join(t.TempDir(), "show.golc")
 
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
-	if result := registry.Execute(command.Request{Root: root, Args: []string{
+	require.NoError(t, err, "NewDefaultCommandRegistry")
+	cmdResult := registry.Execute(command.Request{Root: root, Args: []string{
 		"scene", "create", "Opener", "--bars", "4", "--show", showPath,
-	}}); result.ExitCode != 0 {
-		t.Fatalf("scene create failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	}})
+	require.Equal(t, 0, cmdResult.ExitCode, "scene create failed: stderr=%s", cmdResult.Stderr)
 
 	svc := NewSurfaceService("", root, showPath)
-	if result := svc.CreateSurface("Front of House"); result.ExitCode != 0 {
-		t.Fatalf("CreateSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateSurface("Front of House")
+	require.Equal(t, 0, result.ExitCode, "CreateSurface failed: stderr=%s", result.Stderr)
 
-	if result := svc.AssignItem("Front of House", ControlRefInput{Kind: "scene", Scene: "Opener"}); result.ExitCode != 0 {
-		t.Fatalf("AssignItem scene failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := svc.AssignItem("Front of House", ControlRefInput{Kind: "layer", Scene: "Opener", LayerKind: "color_theme"}); result.ExitCode != 0 {
-		t.Fatalf("AssignItem layer failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.AssignItem("Front of House", ControlRefInput{Kind: "scene", Scene: "Opener"})
+	require.Equal(t, 0, result.ExitCode, "AssignItem scene failed: stderr=%s", result.Stderr)
+	result = svc.AssignItem("Front of House", ControlRefInput{Kind: "layer", Scene: "Opener", LayerKind: "color_theme"})
+	require.Equal(t, 0, result.ExitCode, "AssignItem layer failed: stderr=%s", result.Stderr)
 
 	detail, err := svc.ShowSurface("Front of House")
-	if err != nil {
-		t.Fatalf("ShowSurface: %v", err)
-	}
+	require.NoError(t, err, "ShowSurface")
 	sceneAssigned, layerAssigned := false, false
 	for _, c := range detail.Controls {
 		if c.Kind == "scene" && c.Scene == "Opener" && c.Assigned {
@@ -187,7 +143,6 @@ func TestSurfaceServiceAssignSceneAndLayer(t *testing.T) {
 			layerAssigned = true
 		}
 	}
-	if !sceneAssigned || !layerAssigned {
-		t.Fatalf("expected both the scene and its color_theme layer to be assigned, got %+v", detail.Controls)
-	}
+	require.True(t, sceneAssigned, "expected both the scene and its color_theme layer to be assigned, got %+v", detail.Controls)
+	require.True(t, layerAssigned, "expected both the scene and its color_theme layer to be assigned, got %+v", detail.Controls)
 }

@@ -16,9 +16,10 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/artnet/ipc"
 )
@@ -40,9 +41,7 @@ func TestSafetyServiceBlackoutForwardsManualSource(t *testing.T) {
 
 	svc.Blackout(true)
 
-	if capturedPipe != "test-pipe" {
-		t.Fatalf("dialed pipe = %q, want %q", capturedPipe, "test-pipe")
-	}
+	require.Equal(t, "test-pipe", capturedPipe, "dialed pipe")
 	assertSafetyForward(t, captured, "artnet safety blackout", []string{"--on", "true", "--source", "manual"})
 }
 
@@ -86,27 +85,21 @@ func TestSafetyServiceBlackoutRejectsWhenActiveSurfaceDoesNotAssignControl(t *te
 	root := t.TempDir()
 	showPath := filepath.Join(t.TempDir(), "show.golc")
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if result := surfaceSvc.CreateSurface("Operator A"); result.ExitCode != 0 {
-		t.Fatalf("CreateSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := surfaceSvc.CreateSurface("Operator A")
+	require.Equal(t, 0, result.ExitCode, "CreateSurface failed: stderr=%s", result.Stderr)
 
 	svc := NewSafetyService("test-pipe", root, showPath)
 	svc.dial = func(pipeName string, request ipc.Request) ipc.Result {
-		t.Fatal("dial must never be reached when authorization rejects the call")
+		require.Fail(t, "dial must never be reached when authorization rejects the call")
 		return ipc.Result{}
 	}
 
-	if result := svc.SetActiveSurface("Operator A"); result.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.SetActiveSurface("Operator A")
+	require.Equal(t, 0, result.ExitCode, "SetActiveSurface failed: stderr=%s", result.Stderr)
 
 	got := svc.Blackout(true)
-	if got.ExitCode == 0 {
-		t.Fatal("expected Blackout to be rejected when the active surface has no Blackout SafetyRef assigned")
-	}
-	if !strings.Contains(got.Stderr, "GOLC_OPERATORSURFACE_LOCKED") {
-		t.Fatalf("expected GOLC_OPERATORSURFACE_LOCKED in stderr, got %q", got.Stderr)
-	}
+	require.NotEqual(t, 0, got.ExitCode, "expected Blackout to be rejected when the active surface has no Blackout SafetyRef assigned")
+	require.Contains(t, got.Stderr, "GOLC_OPERATORSURFACE_LOCKED")
 }
 
 // TestSafetyServiceBlackoutDispatchesWhenActiveSurfaceAssignsControl
@@ -116,12 +109,10 @@ func TestSafetyServiceBlackoutDispatchesWhenActiveSurfaceAssignsControl(t *testi
 	root := t.TempDir()
 	showPath := filepath.Join(t.TempDir(), "show.golc")
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if result := surfaceSvc.CreateSurface("Operator A"); result.ExitCode != 0 {
-		t.Fatalf("CreateSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := surfaceSvc.AssignItem("Operator A", ControlRefInput{Kind: "safety", Safety: "blackout"}); result.ExitCode != 0 {
-		t.Fatalf("AssignItem failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := surfaceSvc.CreateSurface("Operator A")
+	require.Equal(t, 0, result.ExitCode, "CreateSurface failed: stderr=%s", result.Stderr)
+	result = surfaceSvc.AssignItem("Operator A", ControlRefInput{Kind: "safety", Safety: "blackout"})
+	require.Equal(t, 0, result.ExitCode, "AssignItem failed: stderr=%s", result.Stderr)
 
 	svc := NewSafetyService("test-pipe", root, showPath)
 	var captured ipc.Request
@@ -130,14 +121,11 @@ func TestSafetyServiceBlackoutDispatchesWhenActiveSurfaceAssignsControl(t *testi
 		return ipc.Result{}
 	}
 
-	if result := svc.SetActiveSurface("Operator A"); result.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.SetActiveSurface("Operator A")
+	require.Equal(t, 0, result.ExitCode, "SetActiveSurface failed: stderr=%s", result.Stderr)
 
 	got := svc.Blackout(true)
-	if got.ExitCode != 0 {
-		t.Fatalf("expected Blackout to dispatch once assigned, got exit=%d stderr=%s", got.ExitCode, got.Stderr)
-	}
+	require.Equal(t, 0, got.ExitCode, "expected Blackout to dispatch once assigned, got stderr=%s", got.Stderr)
 	assertSafetyForward(t, captured, "artnet safety blackout", []string{"--on", "true", "--source", "manual"})
 }
 
@@ -149,41 +137,27 @@ func TestSafetyServiceSetActiveSurfaceEmptyClearsRestriction(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(t.TempDir(), "show.golc")
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if result := surfaceSvc.CreateSurface("Operator A"); result.ExitCode != 0 {
-		t.Fatalf("CreateSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := surfaceSvc.CreateSurface("Operator A")
+	require.Equal(t, 0, result.ExitCode, "CreateSurface failed: stderr=%s", result.Stderr)
 
 	svc := NewSafetyService("test-pipe", root, showPath)
 	svc.dial = func(pipeName string, request ipc.Request) ipc.Result {
 		return ipc.Result{}
 	}
 
-	if result := svc.SetActiveSurface("Operator A"); result.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := svc.SetActiveSurface(""); result.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface(\"\") failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.SetActiveSurface("Operator A")
+	require.Equal(t, 0, result.ExitCode, "SetActiveSurface failed: stderr=%s", result.Stderr)
+	result = svc.SetActiveSurface("")
+	require.Equal(t, 0, result.ExitCode, "SetActiveSurface(\"\") failed: stderr=%s", result.Stderr)
 
 	got := svc.Blackout(true)
-	if got.ExitCode != 0 {
-		t.Fatalf("expected Blackout to dispatch after the active surface was cleared, got exit=%d stderr=%s", got.ExitCode, got.Stderr)
-	}
+	require.Equal(t, 0, got.ExitCode, "expected Blackout to dispatch after the active surface was cleared, got stderr=%s", got.Stderr)
 }
 
 func assertSafetyForward(t *testing.T, got ipc.Request, wantRoute string, wantArgs []string) {
 	t.Helper()
-	if got.Route != wantRoute {
-		t.Fatalf("forwarded route = %q, want %q", got.Route, wantRoute)
-	}
-	if len(got.Args) != len(wantArgs) {
-		t.Fatalf("forwarded args = %v, want %v", got.Args, wantArgs)
-	}
-	for i := range wantArgs {
-		if got.Args[i] != wantArgs[i] {
-			t.Fatalf("forwarded args = %v, want %v", got.Args, wantArgs)
-		}
-	}
+	require.Equal(t, wantRoute, got.Route, "forwarded route")
+	require.Equal(t, wantArgs, got.Args, "forwarded args")
 }
 
 // TestSafetyServiceToggleSurfacesResultShape proves toggle's ipc.Result ->
@@ -197,12 +171,8 @@ func TestSafetyServiceToggleSurfacesResultShape(t *testing.T) {
 	}
 
 	got := svc.Blackout(true)
-	if got.ExitCode != 1 {
-		t.Fatalf("ExitCode = %d, want 1", got.ExitCode)
-	}
-	if got.Stderr != "GOLC_ARTNET_SAFETY_REVOKED: rejected" {
-		t.Fatalf("Stderr = %q, want the daemon's exact diagnostic", got.Stderr)
-	}
+	require.Equal(t, 1, got.ExitCode)
+	require.Equal(t, "GOLC_ARTNET_SAFETY_REVOKED: rejected", got.Stderr, "expected the daemon's exact diagnostic")
 }
 
 // daemonStatusJSON builds a minimal "artnet status" JSON response body
@@ -214,9 +184,7 @@ func TestSafetyServiceToggleSurfacesResultShape(t *testing.T) {
 func daemonStatusJSON(t *testing.T, playback map[string]interface{}) []byte {
 	t.Helper()
 	encoded, err := json.Marshal(map[string]interface{}{"playback": playback})
-	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
-	}
+	require.NoError(t, err, "json.Marshal")
 	return encoded
 }
 
@@ -227,9 +195,7 @@ func daemonStatusJSON(t *testing.T, playback map[string]interface{}) []byte {
 func TestStatusPayloadReflectsActiveScene(t *testing.T) {
 	svc := NewSafetyService("test-pipe", "", "")
 	svc.dial = func(pipeName string, request ipc.Request) ipc.Result {
-		if request.Route != "artnet status" {
-			t.Fatalf("FetchStatus dialed route %q, want %q", request.Route, "artnet status")
-		}
+		require.Equal(t, "artnet status", request.Route, "FetchStatus dialed route")
 		return ipc.Result{Stdout: daemonStatusJSON(t, map[string]interface{}{
 			"active":            true,
 			"sceneId":           "11111111-1111-1111-1111-111111111111",
@@ -245,27 +211,14 @@ func TestStatusPayloadReflectsActiveScene(t *testing.T) {
 
 	got := svc.FetchStatus()
 
-	if !got.Reachable {
-		t.Fatal("expected Reachable=true for a successful daemon response")
-	}
-	if !got.Active {
-		t.Fatal("expected Active=true when the daemon reports an active scene")
-	}
-	if got.SceneName != "Opening Look" {
-		t.Fatalf("SceneName = %q, want %q", got.SceneName, "Opening Look")
-	}
-	if got.BPM != 120 {
-		t.Fatalf("BPM = %v, want 120", got.BPM)
-	}
-	if got.BarIndex != 2 {
-		t.Fatalf("BarIndex = %d, want 2", got.BarIndex)
-	}
-	if len(got.EnabledLayers) != 2 || got.EnabledLayers[0] != "base_look" || got.EnabledLayers[1] != "chase" {
-		t.Fatalf("EnabledLayers = %v, want [base_look chase]", got.EnabledLayers)
-	}
-	if got.ControllingSource != "live" || got.OutputState != "frame-lock" {
-		t.Fatalf("ControllingSource/OutputState = %q/%q, want live/frame-lock", got.ControllingSource, got.OutputState)
-	}
+	require.True(t, got.Reachable, "expected Reachable=true for a successful daemon response")
+	require.True(t, got.Active, "expected Active=true when the daemon reports an active scene")
+	require.Equal(t, "Opening Look", got.SceneName)
+	require.EqualValues(t, 120, got.BPM)
+	require.Equal(t, 2, got.BarIndex)
+	require.Equal(t, []string{"base_look", "chase"}, got.EnabledLayers)
+	require.Equal(t, "live", got.ControllingSource)
+	require.Equal(t, "frame-lock", got.OutputState)
 }
 
 // TestStatusPayloadExplicitIdleWhenNoActiveScene proves the PLAY-07 idle
@@ -290,21 +243,13 @@ func TestStatusPayloadExplicitIdleWhenNoActiveScene(t *testing.T) {
 
 	got := svc.FetchStatus()
 
-	if !got.Reachable {
-		t.Fatal("expected Reachable=true -- the daemon answered, it simply has no active plan")
-	}
-	if got.Active {
-		t.Fatal("expected Active=false when the daemon reports no active plan")
-	}
-	if got.EnabledLayers == nil {
-		t.Fatal("expected a non-nil EnabledLayers slice for the idle projection")
-	}
-	if got.ControllingSource == "" || got.OutputState == "" {
-		t.Fatalf("expected explicit non-empty ControllingSource/OutputState, got %q/%q", got.ControllingSource, got.OutputState)
-	}
-	if got.SceneID != "" || got.SceneName != "" {
-		t.Fatalf("expected empty SceneID/SceneName for the idle projection, got %q/%q", got.SceneID, got.SceneName)
-	}
+	require.True(t, got.Reachable, "expected Reachable=true -- the daemon answered, it simply has no active plan")
+	require.False(t, got.Active, "expected Active=false when the daemon reports no active plan")
+	require.NotNil(t, got.EnabledLayers, "expected a non-nil EnabledLayers slice for the idle projection")
+	require.NotEmpty(t, got.ControllingSource, "expected explicit non-empty ControllingSource/OutputState")
+	require.NotEmpty(t, got.OutputState, "expected explicit non-empty ControllingSource/OutputState")
+	require.Empty(t, got.SceneID, "expected empty SceneID/SceneName for the idle projection")
+	require.Empty(t, got.SceneName, "expected empty SceneID/SceneName for the idle projection")
 }
 
 // TestStatusPayloadOfflineWhenDaemonUnreachable proves FetchStatus never
@@ -321,15 +266,10 @@ func TestStatusPayloadOfflineWhenDaemonUnreachable(t *testing.T) {
 
 	got := svc.FetchStatus()
 
-	if got.Reachable {
-		t.Fatal("expected Reachable=false when the daemon cannot be reached")
-	}
-	if got.ControllingSource != "offline" || got.OutputState != "offline" {
-		t.Fatalf("ControllingSource/OutputState = %q/%q, want offline/offline", got.ControllingSource, got.OutputState)
-	}
-	if got.EnabledLayers == nil {
-		t.Fatal("expected a non-nil EnabledLayers slice for the offline projection")
-	}
+	require.False(t, got.Reachable, "expected Reachable=false when the daemon cannot be reached")
+	require.Equal(t, "offline", got.ControllingSource)
+	require.Equal(t, "offline", got.OutputState)
+	require.NotNil(t, got.EnabledLayers, "expected a non-nil EnabledLayers slice for the offline projection")
 }
 
 // TestStatusPayloadOfflineWhenDecodeFails proves the same explicit
@@ -343,12 +283,9 @@ func TestStatusPayloadOfflineWhenDecodeFails(t *testing.T) {
 
 	got := svc.FetchStatus()
 
-	if got.Reachable {
-		t.Fatal("expected Reachable=false for an undecodable daemon response")
-	}
-	if got.ControllingSource != "offline" || got.OutputState != "offline" {
-		t.Fatalf("ControllingSource/OutputState = %q/%q, want offline/offline", got.ControllingSource, got.OutputState)
-	}
+	require.False(t, got.Reachable, "expected Reachable=false for an undecodable daemon response")
+	require.Equal(t, "offline", got.ControllingSource)
+	require.Equal(t, "offline", got.OutputState)
 }
 
 // TestSafetyServiceStartStatusPushEmitsStatusUpdate proves
@@ -386,9 +323,7 @@ func TestSafetyServiceStartStatusPushEmitsStatusUpdate(t *testing.T) {
 
 	select {
 	case snapshot := <-emitted:
-		if snapshot.SceneName != "Push Test Scene" {
-			t.Fatalf("emitted SceneName = %q, want %q", snapshot.SceneName, "Push Test Scene")
-		}
+		require.Equal(t, "Push Test Scene", snapshot.SceneName)
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for StartStatusPush to emit a status:update event")
 	}
