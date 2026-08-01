@@ -5,10 +5,10 @@
 package playback_test
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/fixture"
 	"github.com/lnorton89/golc/internal/playback"
@@ -23,14 +23,8 @@ func TestFrameCanonicalEncodeIsByteIdentical(t *testing.T) {
 	}}
 
 	first, err := strictjson.CanonicalEncode(frame)
-	if err != nil {
-		t.Fatalf("CanonicalEncode (first): %v", err)
-	}
+	require.NoError(t, err, "CanonicalEncode (first)")
 	second, err := strictjson.CanonicalEncode(frame)
-	if err != nil {
-		t.Fatalf("CanonicalEncode (second): %v", err)
-	}
-	if !bytes.Equal(first, second) {
-		t.Fatalf("expected byte-identical encodes of the same Frame:\nfirst:  %s\nsecond: %s", first, second)
-	}
+	require.NoError(t, err, "CanonicalEncode (second)")
+	require.Equal(t, first, second, "expected byte-identical encodes of the same Frame")
 }

@@ -27,12 +27,12 @@ package playback
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/deployment"
 	"github.com/lnorton89/golc/internal/fixture"
@@ -70,35 +70,23 @@ func newEngineTestState(t *testing.T) (state show.State, instanceID uuid.UUID, s
 	sel := programming.Selection{PoolIDs: []uuid.UUID{rig.ID}}
 
 	presetA, err := programming.NewPreset("A", programming.PresetIntensity)
-	if err != nil {
-		t.Fatalf("NewPreset(A): %v", err)
-	}
+	require.NoError(t, err, "NewPreset(A)")
 	presetA.Attributes = []programming.PresetAttribute{{InstanceID: instance.ID, Capability: fixture.CapabilityIntensity, Value: 0.2}}
 
 	presetB, err := programming.NewPreset("B", programming.PresetIntensity)
-	if err != nil {
-		t.Fatalf("NewPreset(B): %v", err)
-	}
+	require.NoError(t, err, "NewPreset(B)")
 	presetB.Attributes = []programming.PresetAttribute{{InstanceID: instance.ID, Capability: fixture.CapabilityIntensity, Value: 0.9}}
 
 	sceneA, err := scene.NewScene("SceneA", 2)
-	if err != nil {
-		t.Fatalf("NewScene(A): %v", err)
-	}
+	require.NoError(t, err, "NewScene(A)")
 	sceneA.Active = true
 	sceneA, err = scene.SetLayer(sceneA, scene.Layer{Kind: scene.BaseLook, Enabled: true, Selection: sel, Ref: presetA.ID})
-	if err != nil {
-		t.Fatalf("SetLayer(A): %v", err)
-	}
+	require.NoError(t, err, "SetLayer(A)")
 
 	sceneB, err := scene.NewScene("SceneB", 2)
-	if err != nil {
-		t.Fatalf("NewScene(B): %v", err)
-	}
+	require.NoError(t, err, "NewScene(B)")
 	sceneB, err = scene.SetLayer(sceneB, scene.Layer{Kind: scene.BaseLook, Enabled: true, Selection: sel, Ref: presetB.ID})
-	if err != nil {
-		t.Fatalf("SetLayer(B): %v", err)
-	}
+	require.NoError(t, err, "SetLayer(B)")
 
 	state = show.State{
 		Pools:       []pool.Pool{rig},
@@ -114,43 +102,31 @@ func TestImmediateSwitch(t *testing.T) {
 	state, instanceID, sceneBName := newEngineTestState(t)
 
 	e, err := NewEngine(state)
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
+	require.NoError(t, err, "NewEngine")
 	pinLoopStart(e)
 	e.tick(fixedEngineLoopStart) // establish a clean bar-0 baseline
 
-	if got := e.CurrentFrame().Values[instanceID].Values[fixture.CapabilityIntensity]; got != 0.2 {
-		t.Fatalf("expected initial intensity=0.2 (sceneA), got %v", got)
-	}
+	require.InDelta(t, 0.2, e.CurrentFrame().Values[instanceID].Values[fixture.CapabilityIntensity], 1e-9, "expected initial intensity=0.2 (sceneA)")
 
 	// D-08: SwitchScene against the live-active scene requires no
 	// preceding lock/pause/detach call -- Engine exposes no such API.
-	if err := e.SwitchScene(sceneBName); err != nil {
-		t.Fatalf("SwitchScene: %v", err)
-	}
+	require.NoError(t, e.SwitchScene(sceneBName), "SwitchScene")
 
 	// Still mid-bar-0 (secondsPerBar=2s): the staged switch must NOT be
 	// adopted yet.
 	e.tick(fixedEngineLoopStart.Add(500 * time.Millisecond))
-	if got := e.CurrentFrame().Values[instanceID].Values[fixture.CapabilityIntensity]; got != 0.2 {
-		t.Fatalf("expected the staged switch to NOT be adopted mid-bar, still want 0.2, got %v", got)
-	}
+	require.InDelta(t, 0.2, e.CurrentFrame().Values[instanceID].Values[fixture.CapabilityIntensity], 1e-9, "expected the staged switch to NOT be adopted mid-bar")
 
 	// Crossing into bar 1 (elapsed >= 2s): the switch is now adopted.
 	e.tick(fixedEngineLoopStart.Add(2 * time.Second))
-	if got := e.CurrentFrame().Values[instanceID].Values[fixture.CapabilityIntensity]; got != 0.9 {
-		t.Fatalf("expected the staged switch to be adopted at the bar boundary, want 0.9, got %v", got)
-	}
+	require.InDelta(t, 0.9, e.CurrentFrame().Values[instanceID].Values[fixture.CapabilityIntensity], 1e-9, "expected the staged switch to be adopted at the bar boundary")
 }
 
 func TestEngineStageEditRejectsInvalidLeavesPlansUntouched(t *testing.T) {
 	state, instanceID, _ := newEngineTestState(t)
 
 	e, err := NewEngine(state)
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
+	require.NoError(t, err, "NewEngine")
 	pinLoopStart(e)
 
 	beforeActive := e.activePlan.Load()
@@ -158,32 +134,23 @@ func TestEngineStageEditRejectsInvalidLeavesPlansUntouched(t *testing.T) {
 
 	invalid := state
 	invalid.Tempo = show.Tempo{BPM: -1}
-	if err := e.StageEdit(invalid); err == nil || !strings.Contains(err.Error(), "GOLC_PLAYBACK_PLAN_INVALID") {
-		t.Fatalf("expected GOLC_PLAYBACK_PLAN_INVALID for an invalid staged edit, got %v", err)
-	}
+	err = e.StageEdit(invalid)
+	require.ErrorContains(t, err, "GOLC_PLAYBACK_PLAN_INVALID", "expected error for an invalid staged edit")
 
-	if e.activePlan.Load() != beforeActive {
-		t.Fatalf("expected activePlan untouched by a rejected StageEdit")
-	}
-	if e.pendingPlan.Load() != beforePending {
-		t.Fatalf("expected pendingPlan untouched by a rejected StageEdit")
-	}
+	require.Same(t, beforeActive, e.activePlan.Load(), "expected activePlan untouched by a rejected StageEdit")
+	require.Same(t, beforePending, e.pendingPlan.Load(), "expected pendingPlan untouched by a rejected StageEdit")
 
 	// The engine keeps running the last valid plan -- the running layer is
 	// never blanked or disabled by a rejected edit.
 	e.tick(fixedEngineLoopStart)
-	if got := e.CurrentFrame().Values[instanceID].Values[fixture.CapabilityIntensity]; got != 0.2 {
-		t.Fatalf("expected the last valid plan (intensity=0.2) to keep running, got %v", got)
-	}
+	require.InDelta(t, 0.2, e.CurrentFrame().Values[instanceID].Values[fixture.CapabilityIntensity], 1e-9, "expected the last valid plan (intensity=0.2) to keep running")
 }
 
 func TestEngineStageEditLiveActiveObjectNoLockRequired(t *testing.T) {
 	state, instanceID, _ := newEngineTestState(t)
 
 	e, err := NewEngine(state)
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
+	require.NoError(t, err, "NewEngine")
 
 	// presetA (state.Presets[0]) is live in the currently active scene's
 	// base-look layer. Edit it directly -- no pause/detach/lock call
@@ -196,53 +163,39 @@ func TestEngineStageEditLiveActiveObjectNoLockRequired(t *testing.T) {
 	}
 	edited.Presets = editedPresets
 
-	if err := e.StageEdit(edited); err != nil {
-		t.Fatalf("StageEdit against a live-active object: %v", err)
-	}
+	require.NoError(t, e.StageEdit(edited), "StageEdit against a live-active object")
 }
 
 func TestEngineDelayedTickMatchesSequentialTicks(t *testing.T) {
 	state, instanceID, sceneBName := newEngineTestState(t)
 
 	seq, err := NewEngine(state)
-	if err != nil {
-		t.Fatalf("NewEngine (seq): %v", err)
-	}
+	require.NoError(t, err, "NewEngine (seq)")
 	pinLoopStart(seq)
-	if err := seq.SwitchScene(sceneBName); err != nil {
-		t.Fatalf("SwitchScene (seq): %v", err)
-	}
+	require.NoError(t, seq.SwitchScene(sceneBName), "SwitchScene (seq)")
 	for _, offset := range []time.Duration{0, time.Second, 2 * time.Second, 3 * time.Second, 4 * time.Second, 5 * time.Second} {
 		seq.tick(fixedEngineLoopStart.Add(offset))
 	}
 	seqIntensity := seq.CurrentFrame().Values[instanceID].Values[fixture.CapabilityIntensity]
 
 	delayed, err := NewEngine(state)
-	if err != nil {
-		t.Fatalf("NewEngine (delayed): %v", err)
-	}
+	require.NoError(t, err, "NewEngine (delayed)")
 	pinLoopStart(delayed)
-	if err := delayed.SwitchScene(sceneBName); err != nil {
-		t.Fatalf("SwitchScene (delayed): %v", err)
-	}
+	require.NoError(t, delayed.SwitchScene(sceneBName), "SwitchScene (delayed)")
 	// A single coalesced tick jumps straight to the same final "now",
 	// skipping every intermediate bar boundary a stalled/late tick would
 	// have missed.
 	delayed.tick(fixedEngineLoopStart.Add(5 * time.Second))
 	delayedIntensity := delayed.CurrentFrame().Values[instanceID].Values[fixture.CapabilityIntensity]
 
-	if delayedIntensity != seqIntensity {
-		t.Fatalf("delayed single tick = %v, want the same result as sequential ticking = %v", delayedIntensity, seqIntensity)
-	}
+	require.InDelta(t, seqIntensity, delayedIntensity, 1e-9, "delayed single tick should match sequential ticking")
 }
 
 func TestEngineStartStopCleanShutdown(t *testing.T) {
 	state, _, _ := newEngineTestState(t)
 
 	e, err := NewEngine(state)
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
+	require.NoError(t, err, "NewEngine")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -251,18 +204,14 @@ func TestEngineStartStopCleanShutdown(t *testing.T) {
 	time.Sleep(3 * tickInterval)
 	e.Stop()
 
-	if e.CurrentFrame() == nil {
-		t.Fatalf("expected a non-nil CurrentFrame after Start/Stop")
-	}
+	require.NotNil(t, e.CurrentFrame(), "expected a non-nil CurrentFrame after Start/Stop")
 }
 
 func TestEngineCurrentFrameNonBlockingUnderConcurrentTick(t *testing.T) {
 	state, _, _ := newEngineTestState(t)
 
 	e, err := NewEngine(state)
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
+	require.NoError(t, err, "NewEngine")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -305,48 +254,34 @@ func TestEngineBPMChangePreservesPosition(t *testing.T) {
 	newBPM := 90.0
 
 	e, err := NewEngine(state)
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
+	require.NoError(t, err, "NewEngine")
 	pinLoopStart(e)
 	e.tick(fixedEngineLoopStart) // establish bar-0 baseline
 
 	edited := state
 	edited.Tempo = show.Tempo{BPM: newBPM}
-	if err := e.StageEdit(edited); err != nil {
-		t.Fatalf("StageEdit (BPM change): %v", err)
-	}
+	require.NoError(t, e.StageEdit(edited), "StageEdit (BPM change)")
 
 	// Still bar 0 under the OLD plan's BPM (elapsed=0.5s < secondsPerBar=2s):
 	// the staged BPM change must not be adopted yet.
 	e.tick(fixedEngineLoopStart.Add(500 * time.Millisecond))
-	if e.activePlan.Load().BPM != 120 {
-		t.Fatalf("expected the staged BPM change to NOT be adopted mid-bar, activePlan.BPM=%v", e.activePlan.Load().BPM)
-	}
+	require.EqualValues(t, 120, e.activePlan.Load().BPM, "expected the staged BPM change to NOT be adopted mid-bar")
 
 	// before is the position the OLD (120bpm) plan would report at the
 	// exact instant the crossing tick below fires (2.5s elapsed since
 	// loopStart -- bar 1, 0.25 through the bar).
 	crossingNow := fixedEngineLoopStart.Add(2500 * time.Millisecond)
 	before := Position(crossingNow, 120.0, 2, fixedEngineLoopStart)
-	if before.BarIndex != 1 {
-		t.Fatalf("test setup: expected bar 1 just before the crossing tick, got BarIndex=%d", before.BarIndex)
-	}
+	require.Equal(t, 1, before.BarIndex, "test setup: expected bar 1 just before the crossing tick")
 
 	// This tick crosses the bar-1 boundary under the still-active 120bpm
 	// plan, so the staged 90bpm plan is adopted here.
 	e.tick(crossingNow)
-	if got := e.activePlan.Load().BPM; got != newBPM {
-		t.Fatalf("expected the staged BPM change to be adopted at the bar boundary, activePlan.BPM=%v", got)
-	}
+	require.Equal(t, newBPM, e.activePlan.Load().BPM, "expected the staged BPM change to be adopted at the bar boundary")
 
 	after := Position(crossingNow, newBPM, 2, e.loopStart)
-	if after.BarIndex != before.BarIndex {
-		t.Fatalf("preserve=true: BarIndex jumped across the BPM change: before=%d after=%d", before.BarIndex, after.BarIndex)
-	}
-	if diff := after.BeatFraction - before.BeatFraction; diff < -1e-6 || diff > 1e-6 {
-		t.Fatalf("preserve=true: BeatFraction jumped across the BPM change: before=%v after=%v", before.BeatFraction, after.BeatFraction)
-	}
+	require.Equal(t, before.BarIndex, after.BarIndex, "preserve=true: BarIndex jumped across the BPM change")
+	require.InDelta(t, before.BeatFraction, after.BeatFraction, 1e-6, "preserve=true: BeatFraction jumped across the BPM change")
 }
 
 // TestEngineBPMChangeRestartsAtBarZero proves the mirror-image restart
@@ -360,45 +295,30 @@ func TestEngineBPMChangeRestartsAtBarZero(t *testing.T) {
 	newBPM := 90.0
 
 	e, err := NewEngine(state)
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
+	require.NoError(t, err, "NewEngine")
 	pinLoopStart(e)
 	e.tick(fixedEngineLoopStart)
 
 	edited := state
 	edited.Tempo = show.Tempo{BPM: newBPM}
-	if err := e.StageEdit(edited); err != nil {
-		t.Fatalf("StageEdit (BPM change): %v", err)
-	}
+	require.NoError(t, e.StageEdit(edited), "StageEdit (BPM change)")
 
 	e.tick(fixedEngineLoopStart.Add(500 * time.Millisecond))
 
 	crossingNow := fixedEngineLoopStart.Add(2500 * time.Millisecond)
 	e.tick(crossingNow)
-	if got := e.activePlan.Load().BPM; got != newBPM {
-		t.Fatalf("expected the staged BPM change to be adopted at the bar boundary, activePlan.BPM=%v", got)
-	}
+	require.Equal(t, newBPM, e.activePlan.Load().BPM, "expected the staged BPM change to be adopted at the bar boundary")
 
 	after := Position(crossingNow, newBPM, 2, e.loopStart)
-	if after.BarIndex != 0 || after.BeatFraction != 0.0 {
-		t.Fatalf("preserve=false: expected a restart at bar 0, got %+v", after)
-	}
+	require.Equal(t, 0, after.BarIndex, "preserve=false: expected a restart at bar 0, got %+v", after)
+	require.Equal(t, 0.0, after.BeatFraction, "preserve=false: expected a restart at bar 0, got %+v", after)
 }
 
 func TestCrossedBarBoundarySentinelAndWraparound(t *testing.T) {
-	if !crossedBarBoundary(-1, 0, 4) {
-		t.Fatalf("expected the -1 sentinel to always report crossed")
-	}
-	if !crossedBarBoundary(4, 0, 4) {
-		t.Fatalf("expected an out-of-range lastBar (stale from a differently-sized loop) to always report crossed")
-	}
-	if crossedBarBoundary(2, 2, 4) {
-		t.Fatalf("expected no transition when BarIndex is unchanged")
-	}
-	if !crossedBarBoundary(2, 3, 4) {
-		t.Fatalf("expected a transition when BarIndex changes")
-	}
+	require.True(t, crossedBarBoundary(-1, 0, 4), "expected the -1 sentinel to always report crossed")
+	require.True(t, crossedBarBoundary(4, 0, 4), "expected an out-of-range lastBar (stale from a differently-sized loop) to always report crossed")
+	require.False(t, crossedBarBoundary(2, 2, 4), "expected no transition when BarIndex is unchanged")
+	require.True(t, crossedBarBoundary(2, 3, 4), "expected a transition when BarIndex changes")
 }
 
 // TestEngineCurrentPlanPositionAndSceneName proves 06-05-PLAN.md's PLAY-07
@@ -411,44 +331,31 @@ func TestEngineCurrentPlanPositionAndSceneName(t *testing.T) {
 	state, _, sceneBName := newEngineTestState(t)
 
 	e, err := NewEngine(state)
-	if err != nil {
-		t.Fatalf("NewEngine: %v", err)
-	}
+	require.NoError(t, err, "NewEngine")
 	pinLoopStart(e)
 	e.tick(fixedEngineLoopStart)
 
 	plan := e.CurrentPlan()
-	if plan == nil {
-		t.Fatal("expected a non-nil CurrentPlan for a running Engine")
-	}
-	if plan.SceneID != state.Scenes[0].ID {
-		t.Fatalf("CurrentPlan().SceneID = %v, want %v (sceneA)", plan.SceneID, state.Scenes[0].ID)
-	}
+	require.NotNil(t, plan, "expected a non-nil CurrentPlan for a running Engine")
+	require.Equal(t, state.Scenes[0].ID, plan.SceneID, "CurrentPlan().SceneID (sceneA)")
 
 	name, ok := e.ActiveSceneName()
-	if !ok || name != state.Scenes[0].Name {
-		t.Fatalf("ActiveSceneName() = (%q, %v), want (%q, true)", name, ok, state.Scenes[0].Name)
-	}
+	require.True(t, ok)
+	require.Equal(t, state.Scenes[0].Name, name)
 
 	pos := e.CurrentPosition()
-	if pos.BarIndex != 0 {
-		t.Fatalf("CurrentPosition().BarIndex = %d, want 0 immediately after the baseline tick", pos.BarIndex)
-	}
+	require.Equal(t, 0, pos.BarIndex, "CurrentPosition().BarIndex immediately after the baseline tick")
 
 	// Cross into bar 1 and switch to sceneB -- both CurrentPosition and
 	// ActiveSceneName must reflect the newly adopted state, never a stale
 	// snapshot from before the crossing tick.
-	if err := e.SwitchScene(sceneBName); err != nil {
-		t.Fatalf("SwitchScene: %v", err)
-	}
+	require.NoError(t, e.SwitchScene(sceneBName), "SwitchScene")
 	e.tick(fixedEngineLoopStart.Add(2 * time.Second))
 
-	if got := e.CurrentPosition().BarIndex; got != 1 {
-		t.Fatalf("CurrentPosition().BarIndex after crossing = %d, want 1", got)
-	}
-	if name, ok := e.ActiveSceneName(); !ok || name != sceneBName {
-		t.Fatalf("ActiveSceneName() after switch = (%q, %v), want (%q, true)", name, ok, sceneBName)
-	}
+	require.Equal(t, 1, e.CurrentPosition().BarIndex, "CurrentPosition().BarIndex after crossing")
+	name, ok = e.ActiveSceneName()
+	require.True(t, ok)
+	require.Equal(t, sceneBName, name)
 }
 
 // TestEngineDefensiveZeroValueAccessorsReportIdle proves the PLAY-07 idle
@@ -461,13 +368,9 @@ func TestEngineCurrentPlanPositionAndSceneName(t *testing.T) {
 func TestEngineDefensiveZeroValueAccessorsReportIdle(t *testing.T) {
 	var e Engine
 
-	if plan := e.CurrentPlan(); plan != nil {
-		t.Fatalf("expected CurrentPlan() == nil for a zero-value Engine, got %+v", plan)
-	}
-	if name, ok := e.ActiveSceneName(); ok || name != "" {
-		t.Fatalf("expected ActiveSceneName() == (\"\", false) for a zero-value Engine, got (%q, %v)", name, ok)
-	}
-	if pos := e.CurrentPosition(); pos != (MusicalPosition{}) {
-		t.Fatalf("expected CurrentPosition() == zero value for a zero-value Engine, got %+v", pos)
-	}
+	require.Nil(t, e.CurrentPlan(), "expected CurrentPlan() == nil for a zero-value Engine")
+	name, ok := e.ActiveSceneName()
+	require.False(t, ok, "expected ActiveSceneName() == (\"\", false) for a zero-value Engine")
+	require.Empty(t, name, "expected ActiveSceneName() == (\"\", false) for a zero-value Engine")
+	require.Equal(t, MusicalPosition{}, e.CurrentPosition(), "expected CurrentPosition() == zero value for a zero-value Engine")
 }

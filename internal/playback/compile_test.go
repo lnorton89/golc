@@ -9,11 +9,10 @@
 package playback_test
 
 import (
-	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/deployment"
 	"github.com/lnorton89/golc/internal/fixture"
@@ -52,56 +51,38 @@ func newTestFixture(t *testing.T) testFixture {
 	sel := programming.Selection{PoolIDs: []uuid.UUID{rig.ID}}
 
 	preset, err := programming.NewPreset("Rest", programming.PresetIntensity)
-	if err != nil {
-		t.Fatalf("NewPreset: %v", err)
-	}
+	require.NoError(t, err, "NewPreset")
 	preset.Attributes = []programming.PresetAttribute{
 		{InstanceID: instance.ID, Capability: fixture.CapabilityIntensity, Value: 0.5},
 	}
 
 	theme, err := programming.NewTheme("Warm")
-	if err != nil {
-		t.Fatalf("NewTheme: %v", err)
-	}
+	require.NoError(t, err, "NewTheme")
 	theme.Colors = []programming.ColorAssignment{{InstanceID: instance.ID, Value: 0.8}}
 
 	chase, err := programming.NewChase("Sweep", []programming.ChaseStep{
 		{Attributes: []programming.PresetAttribute{{InstanceID: instance.ID, Capability: fixture.CapabilityIntensity, Value: 0.1}}},
 		{Attributes: []programming.PresetAttribute{{InstanceID: instance.ID, Capability: fixture.CapabilityIntensity, Value: 0.9}}},
 	}, programming.StepUnitBar, 1)
-	if err != nil {
-		t.Fatalf("NewChase: %v", err)
-	}
+	require.NoError(t, err, "NewChase")
 
 	motion, err := programming.NewMotionPreset("Sway", []programming.MotionKeyframe{
 		{Phase: 0.0, Values: []programming.MotionKeyframeValue{{Capability: fixture.CapabilityPan, Value: 0.0}}},
 		{Phase: 0.5, Values: []programming.MotionKeyframeValue{{Capability: fixture.CapabilityPan, Value: 1.0}}},
 	})
-	if err != nil {
-		t.Fatalf("NewMotionPreset: %v", err)
-	}
+	require.NoError(t, err, "NewMotionPreset")
 
 	verse, err := scene.NewScene("Verse", 4)
-	if err != nil {
-		t.Fatalf("NewScene: %v", err)
-	}
+	require.NoError(t, err, "NewScene")
 	verse.Active = true
 	verse, err = scene.SetLayer(verse, scene.Layer{Kind: scene.BaseLook, Enabled: true, Selection: sel, Ref: preset.ID})
-	if err != nil {
-		t.Fatalf("SetLayer(BaseLook): %v", err)
-	}
+	require.NoError(t, err, "SetLayer(BaseLook)")
 	verse, err = scene.SetLayer(verse, scene.Layer{Kind: scene.ColorTheme, Enabled: true, Selection: sel, Ref: theme.ID})
-	if err != nil {
-		t.Fatalf("SetLayer(ColorTheme): %v", err)
-	}
+	require.NoError(t, err, "SetLayer(ColorTheme)")
 	verse, err = scene.SetLayer(verse, scene.Layer{Kind: scene.Chase, Enabled: true, Selection: sel, Ref: chase.ID})
-	if err != nil {
-		t.Fatalf("SetLayer(Chase): %v", err)
-	}
+	require.NoError(t, err, "SetLayer(Chase)")
 	verse, err = scene.SetLayer(verse, scene.Layer{Kind: scene.Motion, Enabled: true, Selection: sel, Ref: motion.ID})
-	if err != nil {
-		t.Fatalf("SetLayer(Motion): %v", err)
-	}
+	require.NoError(t, err, "SetLayer(Motion)")
 
 	state := show.State{
 		Pools:         []pool.Pool{rig},
@@ -129,44 +110,29 @@ func TestCompileResolvesAllFourLayers(t *testing.T) {
 	fx := newTestFixture(t)
 
 	plan, err := playback.Compile(fx.state)
-	if err != nil {
-		t.Fatalf("Compile: %v", err)
-	}
-	if plan.SceneID != fx.activeScene.ID {
-		t.Fatalf("expected SceneID=%s, got %s", fx.activeScene.ID, plan.SceneID)
-	}
-	if plan.BPM != 120 || plan.BarsPerLoop != 4 {
-		t.Fatalf("expected BPM=120 BarsPerLoop=4, got BPM=%v BarsPerLoop=%d", plan.BPM, plan.BarsPerLoop)
-	}
-	if len(plan.Layers) != 4 {
-		t.Fatalf("expected 4 compiled layers, got %d", len(plan.Layers))
-	}
+	require.NoError(t, err, "Compile")
+	require.Equal(t, fx.activeScene.ID, plan.SceneID)
+	require.EqualValues(t, 120, plan.BPM, "expected BPM=120 BarsPerLoop=4")
+	require.Equal(t, 4, plan.BarsPerLoop, "expected BPM=120 BarsPerLoop=4")
+	require.Len(t, plan.Layers, 4, "expected 4 compiled layers")
 
 	baseLook := plan.Layers[scene.BaseLook]
-	if baseLook.Preset == nil || baseLook.Preset.ID != fx.preset.ID {
-		t.Fatalf("expected base-look layer to resolve preset %s, got %+v", fx.preset.ID, baseLook.Preset)
-	}
-	if !baseLook.Instances[fx.instanceID] {
-		t.Fatalf("expected base-look layer's resolved Instances to include %s", fx.instanceID)
-	}
+	require.NotNil(t, baseLook.Preset, "expected base-look layer to resolve preset %s, got %+v", fx.preset.ID, baseLook.Preset)
+	require.Equal(t, fx.preset.ID, baseLook.Preset.ID, "expected base-look layer to resolve preset %s", fx.preset.ID)
+	require.True(t, baseLook.Instances[fx.instanceID], "expected base-look layer's resolved Instances to include %s", fx.instanceID)
 
 	colorTheme := plan.Layers[scene.ColorTheme]
-	if colorTheme.Theme == nil || colorTheme.Theme.ID != fx.theme.ID {
-		t.Fatalf("expected color-theme layer to resolve theme %s, got %+v", fx.theme.ID, colorTheme.Theme)
-	}
+	require.NotNil(t, colorTheme.Theme, "expected color-theme layer to resolve theme %s, got %+v", fx.theme.ID, colorTheme.Theme)
+	require.Equal(t, fx.theme.ID, colorTheme.Theme.ID, "expected color-theme layer to resolve theme %s", fx.theme.ID)
 
 	chaseLayer := plan.Layers[scene.Chase]
-	if chaseLayer.Chase == nil || chaseLayer.Chase.ID != fx.chase.ID {
-		t.Fatalf("expected chase layer to resolve chase %s, got %+v", fx.chase.ID, chaseLayer.Chase)
-	}
-	if len(chaseLayer.ChaseSteps) != 2 {
-		t.Fatalf("expected 2 compiled chase steps, got %d", len(chaseLayer.ChaseSteps))
-	}
+	require.NotNil(t, chaseLayer.Chase, "expected chase layer to resolve chase %s, got %+v", fx.chase.ID, chaseLayer.Chase)
+	require.Equal(t, fx.chase.ID, chaseLayer.Chase.ID, "expected chase layer to resolve chase %s", fx.chase.ID)
+	require.Len(t, chaseLayer.ChaseSteps, 2, "expected 2 compiled chase steps")
 
 	motionLayer := plan.Layers[scene.Motion]
-	if motionLayer.MotionPreset == nil || motionLayer.MotionPreset.ID != fx.motion.ID {
-		t.Fatalf("expected motion layer to resolve motion preset %s, got %+v", fx.motion.ID, motionLayer.MotionPreset)
-	}
+	require.NotNil(t, motionLayer.MotionPreset, "expected motion layer to resolve motion preset %s, got %+v", fx.motion.ID, motionLayer.MotionPreset)
+	require.Equal(t, fx.motion.ID, motionLayer.MotionPreset.ID, "expected motion layer to resolve motion preset %s", fx.motion.ID)
 }
 
 func TestCompileNoActiveScene(t *testing.T) {
@@ -178,9 +144,7 @@ func TestCompileNoActiveScene(t *testing.T) {
 	state.Scenes = scenes
 
 	_, err := playback.Compile(state)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_PLAYBACK_NO_ACTIVE_SCENE") {
-		t.Fatalf("expected GOLC_PLAYBACK_NO_ACTIVE_SCENE, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_PLAYBACK_NO_ACTIVE_SCENE")
 }
 
 func TestCompileInvalidBPM(t *testing.T) {
@@ -189,9 +153,7 @@ func TestCompileInvalidBPM(t *testing.T) {
 	state.Tempo = show.Tempo{BPM: 0}
 
 	_, err := playback.Compile(state)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_PLAYBACK_PLAN_INVALID") {
-		t.Fatalf("expected GOLC_PLAYBACK_PLAN_INVALID for an invalid BPM, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_PLAYBACK_PLAN_INVALID", "expected error for an invalid BPM")
 }
 
 func TestCompileAllOrNothingDanglingLayerReference(t *testing.T) {
@@ -204,16 +166,12 @@ func TestCompileAllOrNothingDanglingLayerReference(t *testing.T) {
 	scenes := make([]scene.Scene, len(state.Scenes))
 	copy(scenes, state.Scenes)
 	corrupted, err := scene.SetLayer(scenes[0], scene.Layer{Kind: scene.Chase, Enabled: true, Ref: uuid.New()})
-	if err != nil {
-		t.Fatalf("SetLayer: %v", err)
-	}
+	require.NoError(t, err, "SetLayer")
 	scenes[0] = corrupted
 	state.Scenes = scenes
 
 	_, err = playback.Compile(state)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_PLAYBACK_PLAN_INVALID") {
-		t.Fatalf("expected GOLC_PLAYBACK_PLAN_INVALID for a dangling chase reference, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_PLAYBACK_PLAN_INVALID", "expected error for a dangling chase reference")
 }
 
 func TestCompileAllOrNothingDanglingSelectionReference(t *testing.T) {
@@ -228,27 +186,20 @@ func TestCompileAllOrNothingDanglingSelectionReference(t *testing.T) {
 		Selection: programming.Selection{PoolIDs: []uuid.UUID{uuid.New()}},
 		Ref:       fx.theme.ID,
 	})
-	if err != nil {
-		t.Fatalf("SetLayer: %v", err)
-	}
+	require.NoError(t, err, "SetLayer")
 	scenes[0] = corrupted
 	state.Scenes = scenes
 
 	_, err = playback.Compile(state)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_PLAYBACK_PLAN_INVALID") {
-		t.Fatalf("expected GOLC_PLAYBACK_PLAN_INVALID for a dangling selection reference, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_PLAYBACK_PLAN_INVALID", "expected error for a dangling selection reference")
 }
 
 func TestCompileNeverMutatesState(t *testing.T) {
 	fx := newTestFixture(t)
 	before := fx.state
 
-	if _, err := playback.Compile(fx.state); err != nil {
-		t.Fatalf("Compile: %v", err)
-	}
+	_, err := playback.Compile(fx.state)
+	require.NoError(t, err, "Compile")
 
-	if !reflect.DeepEqual(before, fx.state) {
-		t.Fatalf("Compile mutated its input State:\nbefore: %+v\nafter:  %+v", before, fx.state)
-	}
+	require.Equal(t, before, fx.state, "Compile mutated its input State")
 }
