@@ -3,16 +3,19 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -57,9 +60,7 @@ func TestMCPProtocolReadOnlyInventoryAndCalls(t *testing.T) {
 	defer cancel()
 
 	listed, err := session.ListTools(ctx, nil)
-	if err != nil {
-		t.Fatalf("ListTools: %v", err)
-	}
+	require.NoError(t, err, "ListTools")
 	wantNames := []string{
 		"golc_config_explain",
 		"golc_config_inspect",
@@ -80,28 +81,18 @@ func TestMCPProtocolReadOnlyInventoryAndCalls(t *testing.T) {
 	for _, tool := range listed.Tools {
 		gotNames = append(gotNames, tool.Name)
 		toolsByName[tool.Name] = tool
-		if tool.Annotations == nil {
-			t.Fatalf("%s has no annotations", tool.Name)
-		}
-		if !tool.Annotations.ReadOnlyHint || !tool.Annotations.IdempotentHint {
-			t.Fatalf("%s annotations = %+v, want read-only and idempotent", tool.Name, tool.Annotations)
-		}
-		if tool.Annotations.OpenWorldHint == nil || *tool.Annotations.OpenWorldHint {
-			t.Fatalf("%s annotations = %+v, want closed world", tool.Name, tool.Annotations)
-		}
+		require.NotNil(t, tool.Annotations, "%s has no annotations", tool.Name)
+		require.True(t, tool.Annotations.ReadOnlyHint, "%s annotations = %+v, want read-only and idempotent", tool.Name, tool.Annotations)
+		require.True(t, tool.Annotations.IdempotentHint, "%s annotations = %+v, want read-only and idempotent", tool.Name, tool.Annotations)
+		require.NotNil(t, tool.Annotations.OpenWorldHint, "%s annotations = %+v, want closed world", tool.Name, tool.Annotations)
+		require.False(t, *tool.Annotations.OpenWorldHint, "%s annotations = %+v, want closed world", tool.Name, tool.Annotations)
 		for _, stale := range []string{`Every "golc.ps1`, `identical to "golc.ps1`} {
-			if strings.Contains(tool.Description, stale) {
-				t.Errorf("%s description presents golc.ps1 as permanent API identity: %q", tool.Name, tool.Description)
-			}
+			assert.NotContains(t, tool.Description, stale, "%s description presents golc.ps1 as permanent API identity: %q", tool.Name, tool.Description)
 		}
 	}
 	sort.Strings(gotNames)
-	if !reflect.DeepEqual(gotNames, wantNames) {
-		t.Fatalf("tool names = %v, want %v", gotNames, wantNames)
-	}
-	if description := toolsByName["golc_list_mage_targets"].Description; !strings.Contains(description, "sole contributor entrypoint") {
-		t.Fatalf("Mage tool description does not explain Mage's entrypoint authority: %q", description)
-	}
+	require.Equal(t, wantNames, gotNames, "tool names")
+	require.Contains(t, toolsByName["golc_list_mage_targets"].Description, "sole contributor entrypoint", "Mage tool description does not explain Mage's entrypoint authority")
 
 	status := callProtocolTool(t, ctx, session, "golc_project_status")
 	assertJSONValue(t, status, "last_activity", "2026-07-24")
@@ -163,26 +154,18 @@ func TestMCPProtocolReadOnlyInventoryAndCalls(t *testing.T) {
 			wantTargets[i].EnvironmentOptions = []mageProtocolEnvironmentOption{}
 		}
 	}
-	if !reflect.DeepEqual(mage.Targets, wantTargets) {
-		got, _ := json.MarshalIndent(mage.Targets, "", "  ")
-		want, _ := json.MarshalIndent(wantTargets, "", "  ")
-		t.Fatalf("Mage targets mismatch\ngot: %s\nwant: %s", got, want)
-	}
+	require.Equal(t, wantTargets, mage.Targets, "Mage targets mismatch")
 }
 
 func TestMCPProductionSourcesCannotExecute(t *testing.T) {
 	entries, err := os.ReadDir(".")
-	if err != nil {
-		t.Fatalf("read package directory: %v", err)
-	}
+	require.NoError(t, err, "read package directory")
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
 			continue
 		}
 		file, err := parser.ParseFile(token.NewFileSet(), entry.Name(), nil, 0)
-		if err != nil {
-			t.Fatalf("parse %s: %v", entry.Name(), err)
-		}
+		require.NoError(t, err, "parse %s", entry.Name())
 		imports := map[string]string{}
 		for _, spec := range file.Imports {
 			path := strings.Trim(spec.Path.Value, `"`)
@@ -193,9 +176,9 @@ func TestMCPProductionSourcesCannotExecute(t *testing.T) {
 			imports[name] = path
 			switch {
 			case path == "os/exec", path == "syscall", strings.Contains(path, "/magefiles"):
-				t.Errorf("%s imports forbidden execution package %q", entry.Name(), path)
+				assert.Fail(t, fmt.Sprintf("%s imports forbidden execution package %q", entry.Name(), path))
 			case path == "github.com/lnorton89/golc/internal/bootstrap":
-				t.Errorf("%s imports bootstrap execution authority", entry.Name())
+				assert.Fail(t, fmt.Sprintf("%s imports bootstrap execution authority", entry.Name()))
 			}
 		}
 		ast.Inspect(file, func(node ast.Node) bool {
@@ -211,19 +194,19 @@ func TestMCPProductionSourcesCannotExecute(t *testing.T) {
 					importPath = imports[qualifier.Name]
 				}
 				if function.Sel.Name == "Execute" {
-					t.Errorf("%s calls command execution method .Execute", entry.Name())
+					assert.Fail(t, fmt.Sprintf("%s calls command execution method .Execute", entry.Name()))
 				}
 				if importPath == "github.com/lnorton89/golc/internal/delivery" &&
 					(function.Sel.Name == "Run" || function.Sel.Name == "RunOffline") {
-					t.Errorf("%s calls delivery.%s", entry.Name(), function.Sel.Name)
+					assert.Fail(t, fmt.Sprintf("%s calls delivery.%s", entry.Name(), function.Sel.Name))
 				}
 				if importPath == "os" && function.Sel.Name == "StartProcess" {
-					t.Errorf("%s calls os.StartProcess", entry.Name())
+					assert.Fail(t, fmt.Sprintf("%s calls os.StartProcess", entry.Name()))
 				}
 			case *ast.Ident:
 				switch function.Name {
 				case "Bootstrap", "Build", "Check", "CheckOffline", "Generate", "GenerateCheck", "Package", "PackageFoundation", "Pr", "Test", "TestQuick":
-					t.Errorf("%s calls execution path %s", entry.Name(), function.Name)
+					assert.Fail(t, fmt.Sprintf("%s calls execution path %s", entry.Name(), function.Name))
 				}
 			}
 			return true
@@ -238,13 +221,9 @@ func TestMCPProductionSourcesCannotExecute(t *testing.T) {
 // "currently retained compatibility" one.
 func TestMCPDescriptionsHaveNoGolcPs1References(t *testing.T) {
 	mainSource, err := os.ReadFile("main.go")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	readme, err := os.ReadFile("README.md")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	combined := string(mainSource) + "\n" + string(readme)
 	for _, stale := range []string{
 		"golc.ps1",
@@ -252,18 +231,14 @@ func TestMCPDescriptionsHaveNoGolcPs1References(t *testing.T) {
 		"configured entrypoint",
 		"compatibility entrypoint",
 	} {
-		if strings.Contains(combined, stale) {
-			t.Errorf("golc-mcp documentation still references %q; golc.ps1 no longer exists", stale)
-		}
+		assert.NotContains(t, combined, stale, "golc-mcp documentation still references %q; golc.ps1 no longer exists", stale)
 	}
 	for _, required := range []string{
 		"sole contributor entrypoint",
 		".mcp.json",
 		"go build -o tools/golc-mcp/golc-mcp.exe ./tools/golc-mcp",
 	} {
-		if !strings.Contains(combined, required) {
-			t.Errorf("golc-mcp documentation missing %q", required)
-		}
+		assert.Contains(t, combined, required, "golc-mcp documentation missing %q", required)
 	}
 }
 
@@ -276,15 +251,13 @@ func connectProtocolClient(t *testing.T) *mcp.ClientSession {
 	registerTools(server)
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 	serverSession, err := server.Connect(ctx, serverTransport, nil)
-	if err != nil {
-		t.Fatalf("connect server: %v", err)
-	}
+	require.NoError(t, err, "connect server")
 	client := mcp.NewClient(&mcp.Implementation{Name: "golc-mcp-test", Version: "test"}, nil)
 	clientSession, err := client.Connect(ctx, clientTransport, nil)
 	if err != nil {
 		_ = serverSession.Close()
-		t.Fatalf("connect client: %v", err)
 	}
+	require.NoError(t, err, "connect client")
 	t.Cleanup(func() {
 		_ = clientSession.Close()
 		_ = serverSession.Close()
@@ -295,32 +268,20 @@ func connectProtocolClient(t *testing.T) *mcp.ClientSession {
 func callProtocolTool(t *testing.T, ctx context.Context, session *mcp.ClientSession, name string) map[string]any {
 	t.Helper()
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: map[string]any{}})
-	if err != nil {
-		t.Fatalf("CallTool(%s): %v", name, err)
-	}
-	if result.IsError {
-		t.Fatalf("CallTool(%s) returned tool error: %+v", name, result.Content)
-	}
+	require.NoError(t, err, "CallTool(%s)", name)
+	require.False(t, result.IsError, "CallTool(%s) returned tool error: %+v", name, result.Content)
 	data, err := json.Marshal(result.StructuredContent)
-	if err != nil {
-		t.Fatalf("marshal %s structured content: %v", name, err)
-	}
+	require.NoError(t, err, "marshal %s structured content", name)
 	var decoded map[string]any
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		t.Fatalf("decode %s structured content: %v", name, err)
-	}
+	require.NoError(t, json.Unmarshal(data, &decoded), "decode %s structured content", name)
 	return decoded
 }
 
 func decodeStructured(t *testing.T, source any, destination any) {
 	t.Helper()
 	data, err := json.Marshal(source)
-	if err != nil {
-		t.Fatalf("marshal structured value: %v", err)
-	}
-	if err := json.Unmarshal(data, destination); err != nil {
-		t.Fatalf("decode structured value: %v", err)
-	}
+	require.NoError(t, err, "marshal structured value")
+	require.NoError(t, json.Unmarshal(data, destination), "decode structured value")
 }
 
 func writeProtocolFixture(t *testing.T, root string) {
@@ -350,10 +311,6 @@ mutation_steps = "none"
 func writeProtocolFile(t *testing.T, root, relative, content string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(relative))
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", relative, err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		t.Fatalf("write %s: %v", relative, err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755), "mkdir %s", relative)
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o600), "write %s", relative)
 }
