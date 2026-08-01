@@ -116,22 +116,57 @@
   color: var(--text);
 }
 
+/* Icon key (legend for the icon-labeled fader capabilities -- Intensity/
+   Strobe -- so a glyph is never shown unexplained). */
+
+.keyRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.keyEntry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 /* Universe/fixture layout */
 
 .universeList {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-sm);
 }
 
 .universeRow {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
+  gap: var(--space-xs);
+  padding: var(--space-sm);
   border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--panel);
+  /* Vertically resizable (UniverseRow's own ResizeHandle, dragged on this
+     row's bottom edge) -- --universe-height is per-instance so Universe 1
+     and Universe 2 each remember their own dragged height independently.
+     min-height, not height: dragging the handle can only ever grow this
+     row past its own fader content's natural height (extra room shows as
+     blank space below the fixture cards), never shrink it below that --
+     there is deliberately no vertical scrollbar anywhere in this row, so
+     content can never end up clipped by a height the drag forced smaller
+     than what it actually needs. position:relative anchors the handle's
+     own absolute overlay. */
+  min-height: var(--universe-height, 200px);
+  position: relative;
+}
+
+.universeHeadingRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
 }
 
 .universeHeading {
@@ -141,39 +176,95 @@
   color: var(--ink);
 }
 
+.universeMeta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .fixtureScroll {
   display: flex;
-  gap: var(--space-md);
+  gap: var(--space-xs);
   overflow-x: auto;
+  overflow-y: auto;
   padding-bottom: var(--space-xs);
+  min-height: 0;
+  /* Takes whatever vertical room .universeRow's own resized height leaves
+     after the heading row above -- this is what makes dragging the row
+     taller/shorter actually change the fixture cards' visible area rather
+     than the row simply clipping its own fixed-height content. */
+  flex: 1;
 }
 
 .fixtureGroup {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-sm);
+  gap: var(--space-xs);
+  padding: 6px var(--space-xs);
   border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--page);
-  min-width: 120px;
 }
 
 .fixtureHeader {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .fixtureName {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--ink);
-  max-width: 220px;
+  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.badgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+/* MetaBadge pill (mirrors ProjectFixtures.tsx's own badge/badgeMode/
+   badgeAddress/badgeLabel/badgeValue convention -- see MetaBadge's doc
+   comment in Desk.tsx for why this is duplicated rather than imported). */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  white-space: nowrap;
+}
+
+.badgeMode {
+  background: color-mix(in srgb, var(--accent) 10%, var(--page));
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+}
+
+.badgeAddress {
+  background: color-mix(in srgb, var(--accent) 26%, var(--page));
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+}
+
+.badgeLabel {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.badgeValue {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: var(--text-xs);
+  color: var(--text2);
 }
 
 .technical {
@@ -191,7 +282,7 @@
 
 .faderRow {
   display: flex;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
 }
 
 /* Fader primitive */
@@ -200,44 +291,129 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  width: 44px;
+  gap: 3px;
+  width: 34px;
 }
 
+/* Every row below the slider (value/label-slot/sublabel) gets a fixed
+   height regardless of whether its content is a number, a word, an icon,
+   or a color swatch -- so every fader in a faderRow lines up row-for-row,
+   never drifting a few pixels off its neighbors because one column's
+   content happened to be visually taller or shorter than another's. */
+
 .faderValue {
+  height: 14px;
+  line-height: 14px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
   font-weight: 600;
   color: var(--ink);
 }
 
+/* A fully custom-styled vertical fader: writing-mode rotates a normal
+   range input rather than relying on -webkit-appearance: slider-vertical
+   (whose native thumb geometry rules don't compose reliably with a custom
+   ::-webkit-slider-thumb override). The thumb's own width is set to
+   EXACTLY match the input's own width (both faderThumbWidth's value below,
+   kept in sync by comment rather than a CSS variable since custom
+   properties inside a pseudo-element selector still need the literal value
+   repeated) -- when a wide custom thumb doesn't exactly fill its input's
+   own box, the browser has no reliable cross-axis centering reference and
+   silently offsets it, which a margin-based nudge would only patch for one
+   specific browser/size combination. With the thumb filling the input's
+   full width by construction, there is nothing left to center: the thin
+   track LINE is instead drawn via a background gradient on the input
+   itself, which is centered within the input's own box by definition. */
 .faderInput,
 .faderInputOverridden {
-  -webkit-appearance: slider-vertical;
+  appearance: none;
+  -webkit-appearance: none;
   writing-mode: vertical-lr;
   direction: rtl;
-  width: 20px;
+  -moz-orient: vertical;
+  width: 24px;
   height: 120px;
-  accent-color: var(--accent);
+  background: linear-gradient(
+    to right,
+    transparent calc(50% - 2px),
+    var(--line) calc(50% - 2px),
+    var(--line) calc(50% + 2px),
+    transparent calc(50% + 2px)
+  );
   cursor: pointer;
 }
 
-.faderInputOverridden {
-  accent-color: var(--status-live);
+.faderInput::-webkit-slider-runnable-track,
+.faderInputOverridden::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 100%;
+  background: transparent;
 }
 
-.faderLabel {
+.faderInput::-moz-range-track,
+.faderInputOverridden::-moz-range-track {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+.faderInput::-webkit-slider-thumb,
+.faderInputOverridden::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 24px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--accent);
+  border: 1px solid color-mix(in srgb, black 30%, var(--accent));
+}
+
+.faderInput::-moz-range-thumb {
+  width: 24px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--accent);
+  border: 1px solid color-mix(in srgb, black 30%, var(--accent));
+}
+
+.faderInputOverridden::-webkit-slider-thumb {
+  background: var(--status-live);
+  border-color: color-mix(in srgb, black 30%, var(--status-live));
+}
+
+.faderInputOverridden::-moz-range-thumb {
+  background: var(--status-live);
+  border-color: color-mix(in srgb, black 30%, var(--status-live));
+}
+
+.faderLabelSlot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+  color: var(--text);
+}
+
+.faderLabelText {
   font-size: 11px;
   font-weight: 600;
   color: var(--text);
   text-align: center;
-  max-width: 44px;
+  max-width: 34px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.faderLabelSwatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+}
+
 .faderSublabel {
+  height: 12px;
+  line-height: 12px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   color: var(--muted);

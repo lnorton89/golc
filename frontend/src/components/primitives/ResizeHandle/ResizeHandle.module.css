@@ -1,0 +1,76 @@
+/* Positioned absolutely by the panel that owns it (on a position:relative
+   wrapper) rather than taking a dedicated grid track/row -- a real track
+   would need every host layout (AppShell's grid-template-areas, each
+   workspace's own grid, Desk's per-universe flex column) reworked just to
+   carry a handle, where an overlay strip drops into any of them unchanged. */
+.handle {
+  position: absolute;
+  touch-action: none;
+  z-index: 5;
+}
+
+.axisHorizontal {
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  cursor: col-resize;
+}
+
+.axisVertical {
+  left: 0;
+  right: 0;
+  height: 7px;
+  cursor: row-resize;
+}
+
+.handleRight {
+  right: -3px;
+}
+
+.handleLeft {
+  left: -3px;
+}
+
+.handleBottom {
+  bottom: -3px;
+}
+
+.handleTop {
+  top: -3px;
+}
+
+.handle::after {
+  content: "";
+  position: absolute;
+  background: transparent;
+  transition: background-color var(--motion-tap), width var(--motion-tap), height var(--motion-tap);
+}
+
+.axisHorizontal::after {
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 1px;
+}
+
+.axisVertical::after {
+  left: 0;
+  right: 0;
+  top: 3px;
+  height: 1px;
+}
+
+.handle:hover::after,
+.handleActive::after {
+  background: var(--text2);
+}
+
+.axisHorizontal:hover::after,
+.axisHorizontal.handleActive::after {
+  width: 2px;
+}
+
+.axisVertical:hover::after,
+.axisVertical.handleActive::after {
+  height: 2px;
+}
