@@ -43,6 +43,7 @@ import {
   errorMessage,
   fetchArtnetStatus,
   listArtnetInterfaces,
+  listPatch,
   selectInterface,
   type ArtnetInterfaceView,
   type ArtnetStatusView,
@@ -50,27 +51,52 @@ import {
 } from "../../lib/wailsBridge";
 import styles from "./ArtnetConfig.module.css";
 
+interface TargetDraft {
+  ip: string;
+  port: string;
+  enabled: boolean;
+}
+
+const emptyDraft: TargetDraft = { ip: "", port: "", enabled: true };
+
 export default function ArtnetConfig() {
   const [interfaces, setInterfaces] = useState<ArtnetInterfaceView[]>([]);
   const [status, setStatus] = useState<ArtnetStatusView | null>(null);
+  const [patchedUniverses, setPatchedUniverses] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectingIndex, setSelectingIndex] = useState<number | null>(null);
 
-  const [universe, setUniverse] = useState("1");
-  const [ip, setIp] = useState("");
-  const [port, setPort] = useState("");
-  const [enabled, setEnabled] = useState(true);
+  // One independent add-target draft per patched universe (keyed by
+  // universe number) so every row in the Universe Targets list can be
+  // filled in and submitted on its own, rather than funneling every
+  // universe through one shared form.
+  const [drafts, setDrafts] = useState<Record<number, TargetDraft>>({});
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
-      const [interfaceList, statusView] = await Promise.all([
+      const [interfaceList, statusView, patchView] = await Promise.all([
         listArtnetInterfaces(),
         fetchArtnetStatus(),
+        listPatch(),
       ]);
       setInterfaces(interfaceList);
       setStatus(statusView);
+      // Only the active deployment's instances are actually driving live
+      // output, so the target-universe picker offers only those universes
+      // rather than every universe any (possibly inactive) deployment has
+      // ever used.
+      const universes = [
+        ...new Set(
+          patchView.deployments
+            .filter((deployment) => deployment.active)
+            .flatMap((deployment) =>
+              deployment.instances.map((instance) => instance.universe),
+            ),
+        ),
+      ].sort((a, b) => a - b);
+      setPatchedUniverses(universes);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -81,6 +107,19 @@ export default function ArtnetConfig() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Seeds a blank draft for every newly-patched universe and drops drafts
+  // for universes that no longer have fixtures patched, without clobbering
+  // in-progress edits on rows that are still patched.
+  useEffect(() => {
+    setDrafts((prev) => {
+      const next: Record<number, TargetDraft> = {};
+      for (const u of patchedUniverses) {
+        next[u] = prev[u] ?? emptyDraft;
+      }
+      return next;
+    });
+  }, [patchedUniverses]);
 
   // handleSelectInterface pins Art-Net output to a different network
   // interface (ARTN-01): the pinned interface is fixed for the daemon's
@@ -107,29 +146,35 @@ export default function ArtnetConfig() {
     }
   };
 
-  const handleAddTarget = async () => {
-    const universeNum = Number(universe);
-    const portNum = port.trim() === "" ? 0 : Number(port);
-    const trimmedIp = ip.trim();
+  const updateDraft = (universeNum: number, patch: Partial<TargetDraft>) => {
+    setDrafts((prev) => ({
+      ...prev,
+      [universeNum]: { ...(prev[universeNum] ?? emptyDraft), ...patch },
+    }));
+  };
+
+  const handleAddTarget = async (universeNum: number) => {
+    const draft = drafts[universeNum] ?? emptyDraft;
+    const portNum = draft.port.trim() === "" ? 0 : Number(draft.port);
+    const trimmedIp = draft.ip.trim();
     if (trimmedIp === "") {
       setError("An IP address is required to configure a target.");
       return;
     }
     // Client-side shape guard only (Task 3 backstop: "out-of-range input
-    // rejected on screen"): rejects an obviously invalid universe/port
-    // before a round trip. The backend route's own artnet.ValidateTarget
-    // remains the sole authority for the real validation rule (T-04-07) --
-    // this never replaces or duplicates that check, it only avoids a
-    // pointless call for input that could not possibly be numeric.
-    if (!Number.isInteger(universeNum) || universeNum < 1) {
+    // rejected on screen"): rejects an obviously invalid port before a
+    // round trip. The backend route's own artnet.ValidateTarget remains
+    // the sole authority for the real validation rule (T-04-07) -- this
+    // never replaces or duplicates that check, it only avoids a pointless
+    // call for input that could not possibly be numeric. universeNum
+    // itself always comes from the patched-universe row it belongs to, so
+    // it needs no separate validation here.
+    if (
+      draft.port.trim() !== "" &&
+      (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)
+    ) {
       setError(
-        `GOLC_ARTNET_USAGE: universe ${universe} is not a valid positive integer.`,
-      );
-      return;
-    }
-    if (port.trim() !== "" && (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)) {
-      setError(
-        `GOLC_ARTNET_USAGE: port ${port} is not a valid integer in the 1-65535 range.`,
+        `GOLC_ARTNET_USAGE: port ${draft.port} is not a valid integer in the 1-65535 range.`,
       );
       return;
     }
@@ -139,13 +184,12 @@ export default function ArtnetConfig() {
         universeNum,
         trimmedIp,
         portNum,
-        enabled,
+        draft.enabled,
       );
       if (result.exitCode !== 0) {
         throw new Error(result.stderr || "Configure failed");
       }
-      setIp("");
-      setPort("");
+      updateDraft(universeNum, { ip: "", port: "" });
       setError(null);
       await refresh();
     } catch (err) {
@@ -175,6 +219,13 @@ export default function ArtnetConfig() {
 
   const targets = status?.targets ?? [];
   const daemonUnreachable = status !== null && !status.reachable;
+
+  const targetsByUniverse = new Map<number, ArtnetTargetView[]>();
+  for (const target of targets) {
+    const list = targetsByUniverse.get(target.universe) ?? [];
+    list.push(target);
+    targetsByUniverse.set(target.universe, list);
+  }
 
   return (
     <section
@@ -260,82 +311,36 @@ export default function ArtnetConfig() {
             )}
           </div>
 
-          {/* Configured targets */}
+          {/* Universe targets: one row per universe that currently has
+              fixtures patched into the active deployment (refresh()) --
+              blank when none do -- each independently editable so every
+              universe can be configured without stepping through a shared
+              form one at a time. */}
           <div className={styles.subsection}>
             <h3 className={styles.subsectionHeading}>Universe Targets</h3>
-            <div className={styles.createRow}>
-              <input
-                className={styles.createInputNarrow}
-                type="number"
-                min={1}
-                value={universe}
-                placeholder="Universe"
-                onChange={(event) => setUniverse(event.target.value)}
-                aria-label="Universe"
-              />
-              <input
-                className={styles.createInput}
-                type="text"
-                value={ip}
-                placeholder="Target IP address"
-                onChange={(event) => setIp(event.target.value)}
-                aria-label="Target IP address"
-              />
-              <input
-                className={styles.createInputNarrow}
-                type="number"
-                min={1}
-                max={65535}
-                value={port}
-                placeholder="Port (optional)"
-                onChange={(event) => setPort(event.target.value)}
-                aria-label="Target port (optional)"
-              />
-              <label className={styles.checkboxLabel}>
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  onChange={(event) => setEnabled(event.target.checked)}
-                />
-                Enabled
-              </label>
-              <button
-                type="button"
-                className={styles.primaryButton}
-                disabled={actionLoading}
-                onClick={() => void handleAddTarget()}
-              >
-                <Plus size={14} aria-hidden="true" />
-                {actionLoading ? "Configuring…" : "Add Target"}
-              </button>
-            </div>
 
-            {targets.length === 0 ? (
-              <div className={styles.emptyState}>
-                <p className={styles.emptyHeading}>
-                  <Network size={18} aria-hidden="true" />
-                  No Art-Net targets configured
-                </p>
-                <p className={styles.emptyBody}>
-                  Configure a universe and unicast IP target above to start
-                  sending Art-Net output.
-                </p>
-              </div>
-            ) : (
-              <>
-                <p className={styles.countSummary}>
-                  {targets.length} target{targets.length === 1 ? "" : "s"}
-                </p>
-                <ul className={styles.rowScroll} aria-label="Target list">
-                  {targets.map((target) => (
-                    <li
-                      key={`${target.universe}-${target.ip}-${target.port}`}
-                      className={styles.row}
-                    >
-                      <div className={styles.rowHeader}>
-                        <span className={styles.rowName}>
-                          Universe {target.universe}
-                        </span>
+            {patchedUniverses.length > 0 && (
+              <p className={styles.countSummary}>
+                {patchedUniverses.length} universe
+                {patchedUniverses.length === 1 ? "" : "s"} patched
+              </p>
+            )}
+
+            <ul className={styles.rowScroll} aria-label="Universe target list">
+              {patchedUniverses.map((u) => {
+                const existing = targetsByUniverse.get(u) ?? [];
+                const draft = drafts[u] ?? emptyDraft;
+                return (
+                  <li key={u} className={styles.row}>
+                    <div className={styles.rowHeader}>
+                      <span className={styles.rowName}>Universe {u}</span>
+                    </div>
+
+                    {existing.map((target) => (
+                      <div
+                        key={`${target.ip}-${target.port}`}
+                        className={styles.rowHeader}
+                      >
                         <span className={styles.technical}>
                           {target.ip}:{target.port || 6454}
                         </span>
@@ -361,17 +366,63 @@ export default function ArtnetConfig() {
                           )}
                           {target.enabled ? "Disable" : "Enable"}
                         </button>
+                        <span className={styles.technical}>
+                          send_ok={target.sendOk} send_err={target.sendErr}{" "}
+                          reachable={String(target.reachable)}
+                          {target.lastError
+                            ? ` last_error=${target.lastError}`
+                            : ""}
+                        </span>
                       </div>
-                      <span className={styles.technical}>
-                        send_ok={target.sendOk} send_err={target.sendErr}{" "}
-                        reachable={String(target.reachable)}
-                        {target.lastError ? ` last_error=${target.lastError}` : ""}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
+                    ))}
+
+                    <div className={styles.createRow}>
+                      <input
+                        className={styles.createInput}
+                        type="text"
+                        value={draft.ip}
+                        placeholder="Target IP address"
+                        onChange={(event) =>
+                          updateDraft(u, { ip: event.target.value })
+                        }
+                        aria-label={`Universe ${u} target IP address`}
+                      />
+                      <input
+                        className={styles.createInputNarrow}
+                        type="number"
+                        min={1}
+                        max={65535}
+                        value={draft.port}
+                        placeholder="Port (optional)"
+                        onChange={(event) =>
+                          updateDraft(u, { port: event.target.value })
+                        }
+                        aria-label={`Universe ${u} target port (optional)`}
+                      />
+                      <label className={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={draft.enabled}
+                          onChange={(event) =>
+                            updateDraft(u, { enabled: event.target.checked })
+                          }
+                        />
+                        Enabled
+                      </label>
+                      <button
+                        type="button"
+                        className={styles.primaryButton}
+                        disabled={actionLoading}
+                        onClick={() => void handleAddTarget(u)}
+                      >
+                        <Plus size={14} aria-hidden="true" />
+                        {actionLoading ? "Configuring…" : "Add Target"}
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </>
       )}
