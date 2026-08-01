@@ -9,6 +9,8 @@ import (
 	"context"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TestEventPusherFlushDeliversEveryStagedMappingsMidiFeedback proves that
@@ -41,19 +43,15 @@ func TestEventPusherFlushDeliversEveryStagedMappingsMidiFeedback(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	if len(pushed) != 2 {
-		t.Fatalf("expected both staged mappings' feedback to survive one flush, got %d: %+v", len(pushed), pushed)
-	}
+	require.Len(t, pushed, 2, "expected both staged mappings' feedback to survive one flush: %+v", pushed)
 	byMapping := map[string]MidiFeedback{}
 	for _, fb := range pushed {
 		byMapping[fb.MappingID] = fb
 	}
-	if fb, ok := byMapping["mapping-a"]; !ok || fb.Physical != 0.25 {
-		t.Fatalf("expected mapping-a's feedback to survive the flush, got %+v", byMapping)
-	}
-	if fb, ok := byMapping["mapping-b"]; !ok || fb.Physical != 1.0 {
-		t.Fatalf("expected mapping-b's feedback to survive the flush, got %+v", byMapping)
-	}
+	fbA, ok := byMapping["mapping-a"]
+	require.True(t, ok && fbA.Physical == 0.25, "expected mapping-a's feedback to survive the flush, got %+v", byMapping)
+	fbB, ok := byMapping["mapping-b"]
+	require.True(t, ok && fbB.Physical == 1.0, "expected mapping-b's feedback to survive the flush, got %+v", byMapping)
 }
 
 // TestEventPusherFlushOverwritesSameMappingWithLatest proves the intended
@@ -83,12 +81,8 @@ func TestEventPusherFlushOverwritesSameMappingWithLatest(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	if len(pushed) != 1 {
-		t.Fatalf("expected exactly one coalesced push for a single mapping updated twice, got %d: %+v", len(pushed), pushed)
-	}
-	if pushed[0].Physical != 0.9 {
-		t.Fatalf("expected the latest value (0.9) to survive coalescing, got %+v", pushed[0])
-	}
+	require.Len(t, pushed, 1, "expected exactly one coalesced push for a single mapping updated twice: %+v", pushed)
+	require.Equal(t, 0.9, pushed[0].Physical, "expected the latest value (0.9) to survive coalescing, got %+v", pushed[0])
 }
 
 // TestEventPusherFlushKeepsStatusUpdateSingleValueBehavior proves
@@ -118,9 +112,7 @@ func TestEventPusherFlushKeepsStatusUpdateSingleValueBehavior(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	if len(pushed) != 1 || pushed[0].BPM != 128 {
-		t.Fatalf("expected exactly one coalesced status:update push carrying the latest BPM, got %+v", pushed)
-	}
+	require.True(t, len(pushed) == 1 && pushed[0].BPM == 128, "expected exactly one coalesced status:update push carrying the latest BPM, got %+v", pushed)
 }
 
 // TestQueueScriptEventStagesFiveDistinctEventsAndEmitsAllInSeqOrder covers
@@ -151,14 +143,10 @@ func TestQueueScriptEventStagesFiveDistinctEventsAndEmitsAllInSeqOrder(t *testin
 
 	mu.Lock()
 	defer mu.Unlock()
-	if len(pushed) != 5 {
-		t.Fatalf("expected exactly 5 emit calls for 5 staged distinct events, got %d: %+v", len(pushed), pushed)
-	}
+	require.Len(t, pushed, 5, "expected exactly 5 emit calls for 5 staged distinct events: %+v", pushed)
 	for i, view := range pushed {
 		wantSeq := int64(i + 1)
-		if view.Seq != wantSeq {
-			t.Fatalf("pushed[%d].Seq = %d, want %d (Seq order)", i, view.Seq, wantSeq)
-		}
+		require.Equal(t, wantSeq, view.Seq, "pushed[%d].Seq (Seq order)", i)
 	}
 }
 
@@ -192,25 +180,16 @@ func TestQueueScriptEventOverflowEmitsGapEventBeforeSurvivingEvents(t *testing.T
 
 	mu.Lock()
 	defer mu.Unlock()
-	if len(pushed) != maxStagedScriptEvents+1 {
-		t.Fatalf("expected %d entries (1 gap event + %d surviving), got %d",
-			maxStagedScriptEvents+1, maxStagedScriptEvents, len(pushed))
-	}
-	if pushed[0].Kind != "script.gap" || pushed[0].GapCount != overflowBy {
-		t.Fatalf("expected the first pushed entry to be a gap event carrying GapCount=%d, got %+v", overflowBy, pushed[0])
-	}
+	require.Len(t, pushed, maxStagedScriptEvents+1, "expected %d entries (1 gap event + %d surviving)", maxStagedScriptEvents+1, maxStagedScriptEvents)
+	require.True(t, pushed[0].Kind == "script.gap" && pushed[0].GapCount == overflowBy, "expected the first pushed entry to be a gap event carrying GapCount=%d, got %+v", overflowBy, pushed[0])
 	for i := 1; i < len(pushed); i++ {
-		if pushed[i].Kind == "script.gap" {
-			t.Fatalf("expected exactly one gap event, found a second at index %d: %+v", i, pushed[i])
-		}
+		require.NotEqual(t, "script.gap", pushed[i].Kind, "expected exactly one gap event, found a second at index %d: %+v", i, pushed[i])
 	}
 	// The surviving events are the newest overflowBy+1..maxStagedScriptEvents+overflowBy
 	// (the oldest overflowBy were dropped) -- a real Seq discontinuity a
 	// consumer can detect.
 	firstSurvivingSeq := pushed[1].Seq
-	if firstSurvivingSeq != int64(overflowBy+1) {
-		t.Fatalf("expected the first surviving event's Seq to be %d (oldest %d dropped), got %d", overflowBy+1, overflowBy, firstSurvivingSeq)
-	}
+	require.Equal(t, int64(overflowBy+1), firstSurvivingSeq, "expected the first surviving event's Seq (oldest %d dropped)", overflowBy)
 }
 
 // TestQueueScriptEventNoOverflowEmitsNoGapEvent proves a tick that never
@@ -236,10 +215,6 @@ func TestQueueScriptEventNoOverflowEmitsNoGapEvent(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	if len(pushed) != 1 {
-		t.Fatalf("expected exactly 1 pushed event, got %d: %+v", len(pushed), pushed)
-	}
-	if pushed[0].Kind == "script.gap" {
-		t.Fatal("expected no gap event when the staging bound was never exceeded")
-	}
+	require.Len(t, pushed, 1, "expected exactly 1 pushed event: %+v", pushed)
+	require.NotEqual(t, "script.gap", pushed[0].Kind, "expected no gap event when the staging bound was never exceeded")
 }

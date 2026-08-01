@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.design/x/hotkey"
 
 	"github.com/lnorton89/golc/internal/artnet/ipc"
@@ -84,9 +86,7 @@ func TestAppStartupAttemptsDaemonSpawnWhenPipeUnreachable(t *testing.T) {
 	var spawnCalls int32
 	app.spawn = func(ctx context.Context, cfg Config) (*exec.Cmd, *daemonStderrBuffer, error) {
 		atomic.AddInt32(&spawnCalls, 1)
-		if cfg.PipeName != pipeName {
-			t.Errorf("spawn called with PipeName %q, want %q", cfg.PipeName, pipeName)
-		}
+		assert.Equal(t, pipeName, cfg.PipeName, "spawn called with unexpected PipeName")
 		// Simulate a spawn that starts (no error) but never actually
 		// brings a daemon up on pipeName -- OnStartup's retry loop must
 		// observe the pipe stays unreachable and give up rather than
@@ -97,12 +97,8 @@ func TestAppStartupAttemptsDaemonSpawnWhenPipeUnreachable(t *testing.T) {
 	app.OnStartup(context.Background())
 	defer app.OnShutdown(context.Background())
 
-	if got := atomic.LoadInt32(&spawnCalls); got != 1 {
-		t.Fatalf("expected exactly one daemon spawn attempt, got %d", got)
-	}
-	if !app.DaemonUnreachable() {
-		t.Fatal("expected DaemonUnreachable() to be true after a spawn stub that never brings up a real daemon")
-	}
+	require.Equal(t, int32(1), atomic.LoadInt32(&spawnCalls), "expected exactly one daemon spawn attempt")
+	require.True(t, app.DaemonUnreachable(), "expected DaemonUnreachable() to be true after a spawn stub that never brings up a real daemon")
 }
 
 // TestAppStartupSkipsSpawnWhenDaemonAlreadyReachable proves the inverse:
@@ -128,12 +124,8 @@ func TestAppStartupSkipsSpawnWhenDaemonAlreadyReachable(t *testing.T) {
 	app.OnStartup(context.Background())
 	defer app.OnShutdown(context.Background())
 
-	if got := atomic.LoadInt32(&spawnCalls); got != 0 {
-		t.Fatalf("expected zero daemon spawn attempts when already reachable, got %d", got)
-	}
-	if app.DaemonUnreachable() {
-		t.Fatal("expected DaemonUnreachable() to stay false when Dial already succeeds")
-	}
+	require.Equal(t, int32(0), atomic.LoadInt32(&spawnCalls), "expected zero daemon spawn attempts when already reachable")
+	require.False(t, app.DaemonUnreachable(), "expected DaemonUnreachable() to stay false when Dial already succeeds")
 }
 
 // TestResolveDaemonExecutableDefaultIncludesPlatformKey proves the unset-
@@ -148,16 +140,10 @@ func TestAppStartupSkipsSpawnWhenDaemonAlreadyReachable(t *testing.T) {
 func TestResolveDaemonExecutableDefaultIncludesPlatformKey(t *testing.T) {
 	root := t.TempDir()
 	got, err := resolveDaemonExecutable(Config{ProjectRoot: root})
-	if err != nil {
-		t.Fatalf("resolveDaemonExecutable: %v", err)
-	}
+	require.NoError(t, err, "resolveDaemonExecutable")
 	want := bootstrap.PlatformExecutablePath(filepath.Join(root, filepath.FromSlash(defaultCliBinaryInstallRoot)), "golc-project")
-	if got != want {
-		t.Fatalf("resolveDaemonExecutable(ProjectRoot=%q) = %q, want %q", root, got, want)
-	}
-	if !strings.Contains(got, bootstrap.PlatformKey()) {
-		t.Fatalf("resolveDaemonExecutable(ProjectRoot=%q) = %q, missing platform key %q", root, got, bootstrap.PlatformKey())
-	}
+	require.Equal(t, want, got)
+	require.Contains(t, got, bootstrap.PlatformKey())
 }
 
 // TestResolveDaemonExecutableOverrideWins proves an explicit
@@ -166,12 +152,8 @@ func TestResolveDaemonExecutableDefaultIncludesPlatformKey(t *testing.T) {
 func TestResolveDaemonExecutableOverrideWins(t *testing.T) {
 	override := filepath.Join("some", "explicit", "path", "golc-project.exe")
 	got, err := resolveDaemonExecutable(Config{DaemonExecutable: override})
-	if err != nil {
-		t.Fatalf("resolveDaemonExecutable: %v", err)
-	}
-	if got != override {
-		t.Fatalf("resolveDaemonExecutable() = %q, want override %q", got, override)
-	}
+	require.NoError(t, err, "resolveDaemonExecutable")
+	require.Equal(t, override, got)
 }
 
 // fakeRegisterer is a test double for the registerer interface
@@ -231,24 +213,15 @@ func TestHotkeyRegisterSurfaced(t *testing.T) {
 	failures := manager.RegisterAll()
 	defer manager.UnregisterAll()
 
-	if got := atomic.LoadInt32(&registerCalls); got != 3 {
-		t.Fatalf("expected RegisterAll to attempt all three bindings, got %d calls", got)
-	}
-	if len(failures) != 1 {
-		t.Fatalf("expected exactly one surfaced failure, got %d: %+v", len(failures), failures)
-	}
-	if failures[0].Control != "blackout" {
-		t.Fatalf("expected the surfaced failure to name control %q, got %q", "blackout", failures[0].Control)
-	}
-	if failures[0].Error == "" {
-		t.Fatal("expected the surfaced failure to carry a non-empty error message")
-	}
+	require.Equal(t, int32(3), atomic.LoadInt32(&registerCalls), "expected RegisterAll to attempt all three bindings")
+	require.Len(t, failures, 1, "expected exactly one surfaced failure: %+v", failures)
+	require.Equal(t, "blackout", failures[0].Control, "expected the surfaced failure to name control %q", "blackout")
+	require.NotEmpty(t, failures[0].Error, "expected the surfaced failure to carry a non-empty error message")
 
 	// Failures() must report the same outcome App.OnStartup would log and
 	// expose to the frontend -- never a silent pass.
-	if got := manager.Failures(); len(got) != 1 {
-		t.Fatalf("Failures() = %+v, want exactly one failure", got)
-	}
+	gotFailures := manager.Failures()
+	require.Len(t, gotFailures, 1, "Failures() = %+v, want exactly one failure", gotFailures)
 }
 
 // TestHotkeyRegisterPanicSurfacedNotCrashed proves a Register() call that
@@ -276,18 +249,10 @@ func TestHotkeyRegisterPanicSurfacedNotCrashed(t *testing.T) {
 	failures := manager.RegisterAll()
 	defer manager.UnregisterAll()
 
-	if got := atomic.LoadInt32(&registerCalls); got != 3 {
-		t.Fatalf("expected RegisterAll to attempt all three bindings, got %d calls", got)
-	}
-	if len(failures) != 1 {
-		t.Fatalf("expected exactly one surfaced failure, got %d: %+v", len(failures), failures)
-	}
-	if failures[0].Control != "blackout" {
-		t.Fatalf("expected the surfaced failure to name control %q, got %q", "blackout", failures[0].Control)
-	}
-	if failures[0].Error == "" {
-		t.Fatal("expected the surfaced failure to carry a non-empty error message")
-	}
+	require.Equal(t, int32(3), atomic.LoadInt32(&registerCalls), "expected RegisterAll to attempt all three bindings")
+	require.Len(t, failures, 1, "expected exactly one surfaced failure: %+v", failures)
+	require.Equal(t, "blackout", failures[0].Control, "expected the surfaced failure to name control %q", "blackout")
+	require.NotEmpty(t, failures[0].Error, "expected the surfaced failure to carry a non-empty error message")
 }
 
 // hotkeyStatusJSON builds a minimal "artnet status" JSON response body
@@ -300,9 +265,7 @@ func hotkeyStatusJSON(t *testing.T, controllingSource, outputState string) []byt
 		"controllingSource": controllingSource,
 		"outputState":       outputState,
 	}})
-	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
-	}
+	require.NoError(t, err, "json.Marshal")
 	return encoded
 }
 
@@ -326,9 +289,7 @@ func TestHotkeyKeydownForwardsDirectlyToDaemon(t *testing.T) {
 
 	forwardedCh := make(chan ipc.Request, 1)
 	manager.dial = func(name string, request ipc.Request) ipc.Result {
-		if name != pipeName {
-			t.Errorf("dial called with pipe %q, want %q", name, pipeName)
-		}
+		assert.Equal(t, pipeName, name, "dial called with unexpected pipe")
 		if request.Route == "artnet status" {
 			return ipc.Result{Stdout: hotkeyStatusJSON(t, "live", "frame-lock")}
 		}
@@ -338,26 +299,15 @@ func TestHotkeyKeydownForwardsDirectlyToDaemon(t *testing.T) {
 
 	failures := manager.RegisterAll()
 	defer manager.UnregisterAll()
-	if len(failures) != 0 {
-		t.Fatalf("expected all three bindings to register successfully with a fake registerer, got failures: %+v", failures)
-	}
+	require.Empty(t, failures, "expected all three bindings to register successfully with a fake registerer")
 
 	fakes[blackoutKey].keydown <- hotkey.Event{}
 
 	select {
 	case request := <-forwardedCh:
-		if request.Route != string(routeBlackout) {
-			t.Fatalf("forwarded route = %q, want %q", request.Route, routeBlackout)
-		}
+		require.Equal(t, string(routeBlackout), request.Route, "forwarded route")
 		want := []string{"--on", "true", "--source", "manual"}
-		if len(request.Args) != len(want) {
-			t.Fatalf("forwarded args = %v, want %v", request.Args, want)
-		}
-		for i := range want {
-			if request.Args[i] != want[i] {
-				t.Fatalf("forwarded args = %v, want %v", request.Args, want)
-			}
-		}
+		require.Equal(t, want, request.Args, "forwarded args")
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for the hotkey Keydown callback to dial+forward the daemon route")
 	}
@@ -391,23 +341,14 @@ func TestHotkeyKeydownReleasesWhenAlreadyActive(t *testing.T) {
 
 	failures := manager.RegisterAll()
 	defer manager.UnregisterAll()
-	if len(failures) != 0 {
-		t.Fatalf("expected all three bindings to register successfully with a fake registerer, got failures: %+v", failures)
-	}
+	require.Empty(t, failures, "expected all three bindings to register successfully with a fake registerer")
 
 	fakes[blackoutKey].keydown <- hotkey.Event{}
 
 	select {
 	case request := <-forwardedCh:
 		want := []string{"--on", "false", "--source", "manual"}
-		if len(request.Args) != len(want) {
-			t.Fatalf("forwarded args = %v, want %v", request.Args, want)
-		}
-		for i := range want {
-			if request.Args[i] != want[i] {
-				t.Fatalf("forwarded args = %v, want %v", request.Args, want)
-			}
-		}
+		require.Equal(t, want, request.Args, "forwarded args")
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for the hotkey Keydown callback to dial+forward the daemon route")
 	}
@@ -466,18 +407,10 @@ func TestRelaunchWithShowRejectsEmptyPath(t *testing.T) {
 			app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
 
 			result := app.RelaunchWithShow(path)
-			if result.ExitCode == 0 {
-				t.Fatalf("expected a non-zero exit code for path %q", path)
-			}
-			if !strings.Contains(result.Stderr, "GOLC_WAILS_RELAUNCH_PATH_EMPTY") {
-				t.Fatalf("expected GOLC_WAILS_RELAUNCH_PATH_EMPTY, got %q", result.Stderr)
-			}
-			if got := atomic.LoadInt32(&spawnCalls); got != 0 {
-				t.Fatalf("expected zero spawn calls, got %d", got)
-			}
-			if got := atomic.LoadInt32(&quitCalls); got != 0 {
-				t.Fatalf("expected zero quit calls, got %d", got)
-			}
+			require.NotEqual(t, 0, result.ExitCode, "expected a non-zero exit code for path %q", path)
+			require.Contains(t, result.Stderr, "GOLC_WAILS_RELAUNCH_PATH_EMPTY")
+			require.Equal(t, int32(0), atomic.LoadInt32(&spawnCalls), "expected zero spawn calls")
+			require.Equal(t, int32(0), atomic.LoadInt32(&quitCalls), "expected zero quit calls")
 		})
 	}
 }
@@ -502,15 +435,9 @@ func TestRelaunchWithShowAcceptsNonExistentAndCurrentPathsWithNoSpecialCase(t *t
 		app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
 
 		result := app.RelaunchWithShow(nonExistent)
-		if result.ExitCode != 0 {
-			t.Fatalf("expected a not-yet-existing path to be accepted, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-		}
-		if got := atomic.LoadInt32(&spawnCalls); got != 1 {
-			t.Fatalf("expected exactly one spawn call, got %d", got)
-		}
-		if got := atomic.LoadInt32(&quitCalls); got != 1 {
-			t.Fatalf("expected exactly one quit call, got %d", got)
-		}
+		require.Equal(t, 0, result.ExitCode, "expected a not-yet-existing path to be accepted, got stderr=%s", result.Stderr)
+		require.Equal(t, int32(1), atomic.LoadInt32(&spawnCalls), "expected exactly one spawn call")
+		require.Equal(t, int32(1), atomic.LoadInt32(&quitCalls), "expected exactly one quit call")
 	})
 
 	t.Run("path equal to the currently-open show", func(t *testing.T) {
@@ -526,18 +453,10 @@ func TestRelaunchWithShowAcceptsNonExistentAndCurrentPathsWithNoSpecialCase(t *t
 		app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
 
 		result := app.RelaunchWithShow(app.cfg.ShowPath)
-		if result.ExitCode != 0 {
-			t.Fatalf("expected the current show path to be accepted with no special case, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-		}
-		if got := atomic.LoadInt32(&spawnCalls); got != 1 {
-			t.Fatalf("expected exactly one spawn call (the identical relaunch path), got %d", got)
-		}
-		if got := atomic.LoadInt32(&quitCalls); got != 1 {
-			t.Fatalf("expected exactly one quit call, got %d", got)
-		}
-		if got := lastEnvValue(gotEnv, DesktopShowPathEnvName); got != app.cfg.ShowPath {
-			t.Fatalf("relaunchSpawn env's last %s = %q, want the current show path %q", DesktopShowPathEnvName, got, app.cfg.ShowPath)
-		}
+		require.Equal(t, 0, result.ExitCode, "expected the current show path to be accepted with no special case, got stderr=%s", result.Stderr)
+		require.Equal(t, int32(1), atomic.LoadInt32(&spawnCalls), "expected exactly one spawn call (the identical relaunch path)")
+		require.Equal(t, int32(1), atomic.LoadInt32(&quitCalls), "expected exactly one quit call")
+		require.Equal(t, app.cfg.ShowPath, lastEnvValue(gotEnv, DesktopShowPathEnvName), "relaunchSpawn env's last %s", DesktopShowPathEnvName)
 	})
 }
 
@@ -550,9 +469,7 @@ func TestRelaunchWithShowPassesShowPathThroughEnvironmentVerbatim(t *testing.T) 
 	app := newTestRelaunchApp(t)
 
 	wantExe, err := os.Executable()
-	if err != nil {
-		t.Fatalf("os.Executable: %v", err)
-	}
+	require.NoError(t, err, "os.Executable")
 
 	newPath := filepath.Join(t.TempDir(), "spécial dir", "shöw with spaces.golc")
 
@@ -566,15 +483,9 @@ func TestRelaunchWithShowPassesShowPathThroughEnvironmentVerbatim(t *testing.T) 
 	app.quit = func(ctx context.Context) {}
 
 	result := app.RelaunchWithShow(newPath)
-	if result.ExitCode != 0 {
-		t.Fatalf("expected success, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if gotExe != wantExe {
-		t.Fatalf("relaunchSpawn exePath = %q, want the running executable %q", gotExe, wantExe)
-	}
-	if got := lastEnvValue(gotEnv, DesktopShowPathEnvName); got != newPath {
-		t.Fatalf("relaunchSpawn env's last %s = %q, want %q", DesktopShowPathEnvName, got, newPath)
-	}
+	require.Equal(t, 0, result.ExitCode, "expected success, got stderr=%s", result.Stderr)
+	require.Equal(t, wantExe, gotExe, "relaunchSpawn exePath should be the running executable")
+	require.Equal(t, newPath, lastEnvValue(gotEnv, DesktopShowPathEnvName))
 }
 
 // TestRelaunchWithShowQuitsOnlyAfterSuccessfulSpawn proves quit is called
@@ -589,12 +500,8 @@ func TestRelaunchWithShowQuitsOnlyAfterSuccessfulSpawn(t *testing.T) {
 		app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
 
 		result := app.RelaunchWithShow(filepath.Join(t.TempDir(), "new.golc"))
-		if result.ExitCode != 0 {
-			t.Fatalf("expected success, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-		}
-		if got := atomic.LoadInt32(&quitCalls); got != 1 {
-			t.Fatalf("expected exactly one quit call, got %d", got)
-		}
+		require.Equal(t, 0, result.ExitCode, "expected success, got stderr=%s", result.Stderr)
+		require.Equal(t, int32(1), atomic.LoadInt32(&quitCalls), "expected exactly one quit call")
 	})
 
 	t.Run("spawn fails", func(t *testing.T) {
@@ -617,15 +524,9 @@ func TestRelaunchWithShowQuitsOnlyAfterSuccessfulSpawn(t *testing.T) {
 		app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
 
 		result := app.RelaunchWithShow(filepath.Join(t.TempDir(), "new.golc"))
-		if result.ExitCode == 0 {
-			t.Fatalf("expected a non-zero exit code when spawn fails")
-		}
-		if !strings.Contains(result.Stderr, "GOLC_WAILS_RELAUNCH_SPAWN_FAILED") {
-			t.Fatalf("expected GOLC_WAILS_RELAUNCH_SPAWN_FAILED, got %q", result.Stderr)
-		}
-		if got := atomic.LoadInt32(&quitCalls); got != 0 {
-			t.Fatalf("expected zero quit calls when spawn fails, got %d", got)
-		}
+		require.NotEqual(t, 0, result.ExitCode, "expected a non-zero exit code when spawn fails")
+		require.Contains(t, result.Stderr, "GOLC_WAILS_RELAUNCH_SPAWN_FAILED")
+		require.Equal(t, int32(0), atomic.LoadInt32(&quitCalls), "expected zero quit calls when spawn fails")
 	})
 }
 
@@ -660,31 +561,19 @@ func TestRelaunchWithShowIsNotReentrant(t *testing.T) {
 	}
 
 	second := app.RelaunchWithShow(filepath.Join(t.TempDir(), "another.golc"))
-	if second.ExitCode == 0 {
-		t.Fatal("expected the concurrent call to fail with a non-zero exit code")
-	}
-	if !strings.Contains(second.Stderr, "GOLC_WAILS_RELAUNCH_IN_PROGRESS") {
-		t.Fatalf("expected GOLC_WAILS_RELAUNCH_IN_PROGRESS, got %q", second.Stderr)
-	}
-	if got := atomic.LoadInt32(&spawnCalls); got != 1 {
-		t.Fatalf("expected exactly one spawn call while the first was in flight, got %d", got)
-	}
+	require.NotEqual(t, 0, second.ExitCode, "expected the concurrent call to fail with a non-zero exit code")
+	require.Contains(t, second.Stderr, "GOLC_WAILS_RELAUNCH_IN_PROGRESS")
+	require.Equal(t, int32(1), atomic.LoadInt32(&spawnCalls), "expected exactly one spawn call while the first was in flight")
 
 	close(release)
 	select {
 	case first := <-resultCh:
-		if first.ExitCode != 0 {
-			t.Fatalf("expected the first relaunch to succeed, got exit=%d stderr=%s", first.ExitCode, first.Stderr)
-		}
+		require.Equal(t, 0, first.ExitCode, "expected the first relaunch to succeed, got stderr=%s", first.Stderr)
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for the first relaunch to finish")
 	}
-	if got := atomic.LoadInt32(&spawnCalls); got != 1 {
-		t.Fatalf("expected exactly one spawn call in total, got %d", got)
-	}
-	if got := atomic.LoadInt32(&quitCalls); got != 1 {
-		t.Fatalf("expected exactly one quit call from the first (successful) relaunch, got %d", got)
-	}
+	require.Equal(t, int32(1), atomic.LoadInt32(&spawnCalls), "expected exactly one spawn call in total")
+	require.Equal(t, int32(1), atomic.LoadInt32(&quitCalls), "expected exactly one quit call from the first (successful) relaunch")
 }
 
 // TestRelaunchWithShowAbortsWhenSaveFails proves a save failure (here: the
@@ -694,9 +583,8 @@ func TestRelaunchWithShowIsNotReentrant(t *testing.T) {
 func TestRelaunchWithShowAbortsWhenSaveFails(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "corrupt.golc")
-	if err := os.WriteFile(showPath, []byte("this is not a sqlite database"), 0o644); err != nil {
-		t.Fatalf("seeding a corrupt show file: %v", err)
-	}
+	err := os.WriteFile(showPath, []byte("this is not a sqlite database"), 0o644)
+	require.NoError(t, err, "seeding a corrupt show file")
 
 	app := NewApp(Config{ProjectRoot: root, ShowPath: showPath})
 	app.ctx = context.Background()
@@ -709,26 +597,16 @@ func TestRelaunchWithShowAbortsWhenSaveFails(t *testing.T) {
 	app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
 
 	result := app.RelaunchWithShow(filepath.Join(root, "new-show.golc"))
-	if result.ExitCode == 0 {
-		t.Fatal("expected a non-zero exit code when the working show cannot be saved")
-	}
-	if !strings.Contains(result.Stderr, "GOLC_WAILS_RELAUNCH_SAVE_FAILED") {
-		t.Fatalf("expected GOLC_WAILS_RELAUNCH_SAVE_FAILED, got %q", result.Stderr)
-	}
-	if got := atomic.LoadInt32(&spawnCalls); got != 0 {
-		t.Fatalf("expected zero spawn calls when save fails, got %d", got)
-	}
-	if got := atomic.LoadInt32(&quitCalls); got != 0 {
-		t.Fatalf("expected zero quit calls when save fails, got %d", got)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected a non-zero exit code when the working show cannot be saved")
+	require.Contains(t, result.Stderr, "GOLC_WAILS_RELAUNCH_SAVE_FAILED")
+	require.Equal(t, int32(0), atomic.LoadInt32(&spawnCalls), "expected zero spawn calls when save fails")
+	require.Equal(t, int32(0), atomic.LoadInt32(&quitCalls), "expected zero quit calls when save fails")
 
 	// The relaunching guard must have been cleared on this failure path --
 	// a subsequent call must be able to proceed rather than incorrectly
 	// reporting GOLC_WAILS_RELAUNCH_IN_PROGRESS forever.
 	second := app.RelaunchWithShow(filepath.Join(root, "another-new-show.golc"))
-	if strings.Contains(second.Stderr, "GOLC_WAILS_RELAUNCH_IN_PROGRESS") {
-		t.Fatalf("expected the relaunching guard to be cleared after a save failure, got %q", second.Stderr)
-	}
+	require.NotContains(t, second.Stderr, "GOLC_WAILS_RELAUNCH_IN_PROGRESS", "expected the relaunching guard to be cleared after a save failure")
 }
 
 // --- SelectInterface (restarting the daemon on a new network interface,
@@ -782,30 +660,18 @@ func TestSelectInterfaceRestartsDaemonWithoutRelaunchingTheApp(t *testing.T) {
 	app.quit = func(ctx context.Context) { atomic.AddInt32(&quitCalls, 1) }
 
 	result := app.SelectInterface(42, "new-nic")
-	if result.ExitCode != 0 {
-		t.Fatalf("expected success, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if got := atomic.LoadInt32(&spawnCalls); got != 1 {
-		t.Fatalf("expected exactly one daemon spawn attempt, got %d", got)
-	}
-	if got := atomic.LoadInt32(&relaunchSpawnCalls); got != 0 {
-		t.Fatalf("expected zero relaunchSpawn calls -- this process itself must not relaunch, got %d", got)
-	}
-	if got := atomic.LoadInt32(&quitCalls); got != 0 {
-		t.Fatalf("expected zero quit calls -- this process itself must not exit, got %d", got)
-	}
-	if gotCfg.InterfaceIndex != 42 || gotCfg.InterfaceName != "new-nic" {
-		t.Fatalf("spawn cfg = index=%d name=%q, want index=42 name=%q", gotCfg.InterfaceIndex, gotCfg.InterfaceName, "new-nic")
-	}
+	require.Equal(t, 0, result.ExitCode, "expected success, got stderr=%s", result.Stderr)
+	require.Equal(t, int32(1), atomic.LoadInt32(&spawnCalls), "expected exactly one daemon spawn attempt")
+	require.Equal(t, int32(0), atomic.LoadInt32(&relaunchSpawnCalls), "expected zero relaunchSpawn calls -- this process itself must not relaunch")
+	require.Equal(t, int32(0), atomic.LoadInt32(&quitCalls), "expected zero quit calls -- this process itself must not exit")
+	require.Equal(t, 42, gotCfg.InterfaceIndex, "spawn cfg InterfaceIndex")
+	require.Equal(t, "new-nic", gotCfg.InterfaceName, "spawn cfg InterfaceName")
 	app.mu.Lock()
 	gotIndex, gotName := app.cfg.InterfaceIndex, app.cfg.InterfaceName
 	app.mu.Unlock()
-	if gotIndex != 42 || gotName != "new-nic" {
-		t.Fatalf("app.cfg after switch = index=%d name=%q, want index=42 name=%q", gotIndex, gotName, "new-nic")
-	}
-	if app.DaemonUnreachable() {
-		t.Fatal("expected DaemonUnreachable() to be false after a successful switch")
-	}
+	require.Equal(t, 42, gotIndex, "app.cfg InterfaceIndex after switch")
+	require.Equal(t, "new-nic", gotName, "app.cfg InterfaceName after switch")
+	require.False(t, app.DaemonUnreachable(), "expected DaemonUnreachable() to be false after a successful switch")
 }
 
 // TestSelectInterfaceRevertsOnUnreachableDaemon proves that when the daemon
@@ -829,27 +695,18 @@ func TestSelectInterfaceRevertsOnUnreachableDaemon(t *testing.T) {
 	}
 
 	result := app.SelectInterface(99, "bad-nic")
-	if result.ExitCode == 0 {
-		t.Fatal("expected a non-zero exit code when the daemon never becomes reachable")
-	}
-	if !strings.Contains(result.Stderr, "GOLC_WAILS_INTERFACE_SWITCH_FAILED") {
-		t.Fatalf("expected GOLC_WAILS_INTERFACE_SWITCH_FAILED, got %q", result.Stderr)
-	}
-	if got := atomic.LoadInt32(&spawnCalls); got != 2 {
-		t.Fatalf("expected exactly two spawn attempts (new interface, then rollback), got %d", got)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected a non-zero exit code when the daemon never becomes reachable")
+	require.Contains(t, result.Stderr, "GOLC_WAILS_INTERFACE_SWITCH_FAILED")
+	require.Equal(t, int32(2), atomic.LoadInt32(&spawnCalls), "expected exactly two spawn attempts (new interface, then rollback)")
 	mu.Lock()
 	got := append([]int(nil), spawnedIndexes...)
 	mu.Unlock()
-	if len(got) != 2 || got[0] != 99 || got[1] != 1 {
-		t.Fatalf("spawned interface indexes = %v, want [99 1] (attempted, then reverted to the original)", got)
-	}
+	require.Equal(t, []int{99, 1}, got, "spawned interface indexes (attempted, then reverted to the original)")
 	app.mu.Lock()
 	gotIndex, gotName := app.cfg.InterfaceIndex, app.cfg.InterfaceName
 	app.mu.Unlock()
-	if gotIndex != 1 || gotName != "original-nic" {
-		t.Fatalf("app.cfg after failed switch = index=%d name=%q, want the reverted index=1 name=%q", gotIndex, gotName, "original-nic")
-	}
+	require.Equal(t, 1, gotIndex, "app.cfg InterfaceIndex after failed switch should be reverted")
+	require.Equal(t, "original-nic", gotName, "app.cfg InterfaceName after failed switch should be reverted")
 }
 
 // TestSelectInterfaceIsNotReentrant proves a second concurrent
@@ -883,12 +740,8 @@ func TestSelectInterfaceIsNotReentrant(t *testing.T) {
 	}
 
 	second := app.SelectInterface(6, "nic-b")
-	if second.ExitCode == 0 {
-		t.Fatal("expected the concurrent call to fail with a non-zero exit code")
-	}
-	if !strings.Contains(second.Stderr, "GOLC_WAILS_RELAUNCH_IN_PROGRESS") {
-		t.Fatalf("expected GOLC_WAILS_RELAUNCH_IN_PROGRESS, got %q", second.Stderr)
-	}
+	require.NotEqual(t, 0, second.ExitCode, "expected the concurrent call to fail with a non-zero exit code")
+	require.Contains(t, second.Stderr, "GOLC_WAILS_RELAUNCH_IN_PROGRESS")
 
 	close(release)
 	select {
@@ -905,12 +758,11 @@ func TestSelectInterfaceIsNotReentrant(t *testing.T) {
 func TestPickShowPathWithoutRuntimeContextFails(t *testing.T) {
 	app := NewApp(Config{})
 
-	if _, err := app.PickShowPath(); err == nil || !strings.Contains(err.Error(), "GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE") {
-		t.Fatalf("PickShowPath() error = %v, want GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE", err)
-	}
-	if _, err := app.PickNewShowPath(); err == nil || !strings.Contains(err.Error(), "GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE") {
-		t.Fatalf("PickNewShowPath() error = %v, want GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE", err)
-	}
+	_, err := app.PickShowPath()
+	require.ErrorContains(t, err, "GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE")
+
+	_, err = app.PickNewShowPath()
+	require.ErrorContains(t, err, "GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE")
 }
 
 // --- 09-07-PLAN.md Task 1: PickFixtureFile (hand-authored YAML add) ---
@@ -923,9 +775,8 @@ func TestPickShowPathWithoutRuntimeContextFails(t *testing.T) {
 func TestPickFixtureFileWithoutRuntimeContextFails(t *testing.T) {
 	app := NewApp(Config{})
 
-	if _, err := app.PickFixtureFile(); err == nil || !strings.Contains(err.Error(), "GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE") {
-		t.Fatalf("PickFixtureFile() error = %v, want GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE", err)
-	}
+	_, err := app.PickFixtureFile()
+	require.ErrorContains(t, err, "GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE")
 }
 
 // --- OpenExternalURL (Settings' About panel open-source credit links) ---
@@ -936,9 +787,8 @@ func TestPickFixtureFileWithoutRuntimeContextFails(t *testing.T) {
 func TestOpenExternalURLRejectsNonHTTPScheme(t *testing.T) {
 	app := NewApp(Config{})
 
-	if err := app.OpenExternalURL("file:///etc/passwd"); err == nil || !strings.Contains(err.Error(), "GOLC_WAILS_OPEN_URL_REJECTED") {
-		t.Fatalf("OpenExternalURL(file://...) error = %v, want GOLC_WAILS_OPEN_URL_REJECTED", err)
-	}
+	err := app.OpenExternalURL("file:///etc/passwd")
+	require.ErrorContains(t, err, "GOLC_WAILS_OPEN_URL_REJECTED")
 }
 
 // TestOpenExternalURLWithoutRuntimeContextFails proves calling
@@ -949,7 +799,6 @@ func TestOpenExternalURLRejectsNonHTTPScheme(t *testing.T) {
 func TestOpenExternalURLWithoutRuntimeContextFails(t *testing.T) {
 	app := NewApp(Config{})
 
-	if err := app.OpenExternalURL("https://pkg.go.dev/github.com/wailsapp/wails/v2"); err == nil || !strings.Contains(err.Error(), "GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE") {
-		t.Fatalf("OpenExternalURL() error = %v, want GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE", err)
-	}
+	err := app.OpenExternalURL("https://pkg.go.dev/github.com/wailsapp/wails/v2")
+	require.ErrorContains(t, err, "GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE")
 }

@@ -36,10 +36,13 @@ package wails
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/artnet"
 	artnetipc "github.com/lnorton89/golc/internal/artnet/ipc"
@@ -64,9 +67,7 @@ func testArtnetConfigPipeName(t *testing.T) string {
 func testArtnetConfigLoopbackInterfaceIndex(t *testing.T) int {
 	t.Helper()
 	ifaces, err := artnet.ListCandidateInterfaces()
-	if err != nil {
-		t.Fatalf("ListCandidateInterfaces: %v", err)
-	}
+	require.NoError(t, err, "ListCandidateInterfaces")
 	for _, iface := range ifaces {
 		for _, addr := range iface.Addrs {
 			if ipNet, ok := addr.(*net.IPNet); ok && ipNet.IP.IsLoopback() && ipNet.IP.To4() != nil {
@@ -89,9 +90,7 @@ func startTestArtnetConfigDaemon(t *testing.T) string {
 	interfaceIndex := testArtnetConfigLoopbackInterfaceIndex(t)
 
 	sc, err := scene.NewScene("Test Scene", 1)
-	if err != nil {
-		t.Fatalf("scene.NewScene: %v", err)
-	}
+	require.NoError(t, err, "scene.NewScene")
 	sc.Active = true
 	state := show.State{Scenes: []scene.Scene{sc}, Tempo: show.Tempo{BPM: 120}}
 
@@ -123,7 +122,7 @@ func startTestArtnetConfigDaemon(t *testing.T) string {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatalf("daemon did not come up on pipe %s", pipeName)
+	require.Fail(t, fmt.Sprintf("daemon did not come up on pipe %s", pipeName))
 	return ""
 }
 
@@ -138,15 +137,9 @@ func TestArtnetConfigServiceRejectsMalformedTargetBeforeForward(t *testing.T) {
 
 	got := svc.Configure(0, "10.0.0.1", 0, true)
 
-	if got.ExitCode == 0 {
-		t.Fatal("expected Configure to reject an out-of-range universe")
-	}
-	if strings.Contains(got.Stderr, "GOLC_ARTNET_DAEMON_UNREACHABLE") {
-		t.Fatalf("expected validation to reject before any daemon forward, got a daemon-unreachable result: %s", got.Stderr)
-	}
-	if !strings.Contains(got.Stderr, "GOLC_ARTNET_TARGET_INVALID") && !strings.Contains(got.Stderr, "GOLC_ARTNET_USAGE") {
-		t.Fatalf("expected GOLC_ARTNET_TARGET_INVALID or GOLC_ARTNET_USAGE, got: %s", got.Stderr)
-	}
+	require.NotEqual(t, 0, got.ExitCode, "expected Configure to reject an out-of-range universe")
+	require.NotContains(t, got.Stderr, "GOLC_ARTNET_DAEMON_UNREACHABLE", "expected validation to reject before any daemon forward, got a daemon-unreachable result")
+	require.True(t, strings.Contains(got.Stderr, "GOLC_ARTNET_TARGET_INVALID") || strings.Contains(got.Stderr, "GOLC_ARTNET_USAGE"), "expected GOLC_ARTNET_TARGET_INVALID or GOLC_ARTNET_USAGE, got: %s", got.Stderr)
 }
 
 // TestArtnetConfigServiceOfflineWhenDaemonUnreachable proves Configure,
@@ -157,32 +150,18 @@ func TestArtnetConfigServiceOfflineWhenDaemonUnreachable(t *testing.T) {
 	svc := NewArtnetConfigService(pipeName, t.TempDir())
 
 	configureResult := svc.Configure(1, "10.0.0.1", 0, true)
-	if configureResult.ExitCode == 0 {
-		t.Fatal("expected Configure against an unreachable daemon to fail")
-	}
-	if !strings.Contains(configureResult.Stderr, "GOLC_ARTNET_DAEMON_UNREACHABLE") {
-		t.Fatalf("expected GOLC_ARTNET_DAEMON_UNREACHABLE, got: %s", configureResult.Stderr)
-	}
+	require.NotEqual(t, 0, configureResult.ExitCode, "expected Configure against an unreachable daemon to fail")
+	require.Contains(t, configureResult.Stderr, "GOLC_ARTNET_DAEMON_UNREACHABLE")
 
 	status := svc.FetchArtnetStatus()
-	if status.Reachable {
-		t.Fatal("expected FetchArtnetStatus to report Reachable=false when the daemon cannot be reached")
-	}
-	if status.Targets == nil {
-		t.Fatal("expected a non-nil (possibly empty) Targets slice in the offline projection")
-	}
+	require.False(t, status.Reachable, "expected FetchArtnetStatus to report Reachable=false when the daemon cannot be reached")
+	require.NotNil(t, status.Targets, "expected a non-nil (possibly empty) Targets slice in the offline projection")
 
 	interfaces, err := svc.ListInterfaces()
-	if err != nil {
-		t.Fatalf("expected ListInterfaces to succeed offline (OS-level enumeration never dials the daemon): %v", err)
-	}
-	if interfaces == nil {
-		t.Fatal("expected a non-nil (possibly empty) interfaces slice")
-	}
+	require.NoError(t, err, "expected ListInterfaces to succeed offline (OS-level enumeration never dials the daemon)")
+	require.NotNil(t, interfaces, "expected a non-nil (possibly empty) interfaces slice")
 	for _, iface := range interfaces {
-		if iface.Pinned {
-			t.Fatalf("expected no interface to be marked pinned when the daemon is unreachable, got %+v", iface)
-		}
+		require.False(t, iface.Pinned, "expected no interface to be marked pinned when the daemon is unreachable, got %+v", iface)
 	}
 }
 
@@ -195,26 +174,18 @@ func TestArtnetConfigServiceConfigureThenStatusRoundTrip(t *testing.T) {
 	svc := NewArtnetConfigService(pipeName, t.TempDir())
 
 	configureResult := svc.Configure(1, "127.0.0.1", 6454, true)
-	if configureResult.ExitCode != 0 {
-		t.Fatalf("Configure failed: exit=%d stderr=%s", configureResult.ExitCode, configureResult.Stderr)
-	}
+	require.Equal(t, 0, configureResult.ExitCode, "Configure failed: stderr=%s", configureResult.Stderr)
 
 	status := svc.FetchArtnetStatus()
-	if !status.Reachable {
-		t.Fatal("expected FetchArtnetStatus to report Reachable=true against a running daemon")
-	}
+	require.True(t, status.Reachable, "expected FetchArtnetStatus to report Reachable=true against a running daemon")
 	assertTargetEnabled(t, status, 1, "127.0.0.1", true)
 
 	disableResult := svc.DisableTarget(1, "127.0.0.1", 6454)
-	if disableResult.ExitCode != 0 {
-		t.Fatalf("DisableTarget failed: exit=%d stderr=%s", disableResult.ExitCode, disableResult.Stderr)
-	}
+	require.Equal(t, 0, disableResult.ExitCode, "DisableTarget failed: stderr=%s", disableResult.Stderr)
 	assertTargetEnabled(t, svc.FetchArtnetStatus(), 1, "127.0.0.1", false)
 
 	enableResult := svc.EnableTarget(1, "127.0.0.1", 6454)
-	if enableResult.ExitCode != 0 {
-		t.Fatalf("EnableTarget failed: exit=%d stderr=%s", enableResult.ExitCode, enableResult.Stderr)
-	}
+	require.Equal(t, 0, enableResult.ExitCode, "EnableTarget failed: stderr=%s", enableResult.Stderr)
 	assertTargetEnabled(t, svc.FetchArtnetStatus(), 1, "127.0.0.1", true)
 }
 
@@ -222,13 +193,11 @@ func assertTargetEnabled(t *testing.T, status ArtnetStatusView, universe int, ip
 	t.Helper()
 	for _, target := range status.Targets {
 		if target.Universe == universe && target.IP == ip {
-			if target.Enabled != wantEnabled {
-				t.Fatalf("target %d/%s Enabled = %v, want %v", universe, ip, target.Enabled, wantEnabled)
-			}
+			require.Equal(t, wantEnabled, target.Enabled, "target %d/%s Enabled", universe, ip)
 			return
 		}
 	}
-	t.Fatalf("expected status to contain target %d/%s, got: %+v", universe, ip, status.Targets)
+	require.Fail(t, fmt.Sprintf("expected status to contain target %d/%s, got: %+v", universe, ip, status.Targets))
 }
 
 // TestArtnetConfigServiceStatusOfflineProjection (Task 3) proves
@@ -239,12 +208,8 @@ func TestArtnetConfigServiceStatusOfflineProjection(t *testing.T) {
 
 	status := svc.FetchArtnetStatus()
 
-	if status.Reachable {
-		t.Fatal("expected the offline projection to report Reachable=false")
-	}
-	if status.Targets == nil {
-		t.Fatal("expected a non-nil (possibly empty) Targets slice in the offline projection")
-	}
+	require.False(t, status.Reachable, "expected the offline projection to report Reachable=false")
+	require.NotNil(t, status.Targets, "expected a non-nil (possibly empty) Targets slice in the offline projection")
 }
 
 // TestArtnetConfigServiceRejectsOutOfRangePort (Task 3) proves an
@@ -256,13 +221,7 @@ func TestArtnetConfigServiceRejectsOutOfRangePort(t *testing.T) {
 
 	got := svc.Configure(1, "10.0.0.1", 70000, true)
 
-	if got.ExitCode == 0 {
-		t.Fatal("expected Configure to reject an out-of-range port")
-	}
-	if strings.Contains(got.Stderr, "GOLC_ARTNET_DAEMON_UNREACHABLE") {
-		t.Fatalf("expected the port to be rejected before any daemon forward, got: %s", got.Stderr)
-	}
-	if !strings.Contains(got.Stderr, "GOLC_ARTNET_TARGET_INVALID") {
-		t.Fatalf("expected GOLC_ARTNET_TARGET_INVALID for an out-of-range port, got: %s", got.Stderr)
-	}
+	require.NotEqual(t, 0, got.ExitCode, "expected Configure to reject an out-of-range port")
+	require.NotContains(t, got.Stderr, "GOLC_ARTNET_DAEMON_UNREACHABLE", "expected the port to be rejected before any daemon forward")
+	require.Contains(t, got.Stderr, "GOLC_ARTNET_TARGET_INVALID", "expected GOLC_ARTNET_TARGET_INVALID for an out-of-range port")
 }
