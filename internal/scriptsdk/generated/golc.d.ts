@@ -41,6 +41,22 @@ interface ArtnetConfigureParams {
   pipe?: string;
 }
 
+interface ArtnetDeskClearAllParams {
+  pipe?: string;
+}
+
+interface ArtnetDeskClearParams {
+  instance: string;
+  attr?: string;
+  pipe?: string;
+}
+
+interface ArtnetDeskSetParams {
+  instance: string;
+  attr: string;
+  pipe?: string;
+}
+
 interface ArtnetDiscoverParams {
   interface: number;
   window?: string;
@@ -265,6 +281,14 @@ declare namespace golc {
     function discover(params: ArtnetDiscoverParams): Promise<JSONResult>;
     // Inspect per-universe/target Art-Net health as a snapshot or watch view. (scope: playback)
     function status(params: ArtnetStatusParams): Promise<JSONResult>;
+    namespace desk {
+      // Release one manual desk override (or every override on an instance). (scope: admin)
+      function clear(params: ArtnetDeskClearParams): Promise<AckResult>;
+      // Release every manual desk override across every instance at once. (scope: admin)
+      function clearAll(params: ArtnetDeskClearAllParams): Promise<AckResult>;
+      // Live-write one manual desk override onto an instance's capability. (scope: admin)
+      function set(params: ArtnetDeskSetParams): Promise<AckResult>;
+    }
     namespace interfaces {
       // List candidate Windows network interfaces for Art-Net output. (scope: playback)
       function list(params: ArtnetInterfaceListParams): Promise<JSONResult>;
