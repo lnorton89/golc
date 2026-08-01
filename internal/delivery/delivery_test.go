@@ -26,12 +26,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/bootstrap"
 	"github.com/lnorton89/golc/internal/command"
@@ -49,23 +50,17 @@ var _ = command.MustDeclareScope(command.ScopeRegistration{
 func writeFixtureCommandsToml(t *testing.T, root string) {
 	t.Helper()
 	configDir := filepath.Join(root, "config")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("mkdir config: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(configDir, 0o755), "mkdir config")
 	body := "schema_version = 1\n\n[commands]\n" +
 		"cli_binary = \".tools/installs/golc_project\"\n" +
 		"go_version = \"1.26.5\"\n"
-	if err := os.WriteFile(filepath.Join(configDir, "commands.toml"), []byte(body), 0o644); err != nil {
-		t.Fatalf("write config/commands.toml: %v", err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "commands.toml"), []byte(body), 0o644), "write config/commands.toml")
 }
 
 func writeFixturePRCommandsToml(t *testing.T, root, steps, network, mutation string) {
 	t.Helper()
 	configDir := filepath.Join(root, "config")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("mkdir config: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(configDir, 0o755), "mkdir config")
 	body := "schema_version = 2\n\n[commands]\n" +
 		"cli_binary = \".tools/installs/golc_project\"\n" +
 		"go_version = \"1.26.5\"\n\n" +
@@ -73,9 +68,7 @@ func writeFixturePRCommandsToml(t *testing.T, root, steps, network, mutation str
 		"steps = \"" + steps + "\"\n" +
 		"network_steps = \"" + network + "\"\n" +
 		"mutation_steps = \"" + mutation + "\"\n"
-	if err := os.WriteFile(filepath.Join(configDir, "commands.toml"), []byte(body), 0o644); err != nil {
-		t.Fatalf("write config/commands.toml: %v", err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "commands.toml"), []byte(body), 0o644), "write config/commands.toml")
 }
 
 func TestScopeDelivery(t *testing.T) {
@@ -104,54 +97,39 @@ func TestScopeDelivery(t *testing.T) {
 		}
 
 		got := delivery.MageTargets()
-		if len(got) != len(want) {
-			t.Fatalf("MageTargets() = %+v, want %d targets", got, len(want))
-		}
+		require.Len(t, got, len(want), "MageTargets() = %+v", got)
 		for i := range want {
-			if got[i].Name != want[i].Name ||
-				got[i].Kind != want[i].Kind ||
-				got[i].Route != want[i].Route ||
-				got[i].Authority != want[i].Authority ||
-				strings.Join(got[i].Args, "\x00") != strings.Join(want[i].Args, "\x00") ||
-				!reflect.DeepEqual(got[i].EnvironmentOptions, want[i].EnvironmentOptions) {
-				t.Fatalf("MageTargets()[%d] = %+v, want %+v", i, got[i], want[i])
-			}
+			require.Equal(t, want[i].Name, got[i].Name, "MageTargets()[%d].Name", i)
+			require.Equal(t, want[i].Kind, got[i].Kind, "MageTargets()[%d].Kind", i)
+			require.Equal(t, want[i].Route, got[i].Route, "MageTargets()[%d].Route", i)
+			require.Equal(t, want[i].Authority, got[i].Authority, "MageTargets()[%d].Authority", i)
+			require.Equal(t, strings.Join(want[i].Args, "\x00"), strings.Join(got[i].Args, "\x00"), "MageTargets()[%d].Args", i)
+			require.Equal(t, want[i].EnvironmentOptions, got[i].EnvironmentOptions, "MageTargets()[%d].EnvironmentOptions", i)
 		}
 
 		got[0].Name = "mutated"
 		got[0].EnvironmentOptions[0].Effect = "mutated"
 		got[2].Args[0] = "--mutated"
 		fresh := delivery.MageTargets()
-		if fresh[0].Name != "bootstrap" ||
-			fresh[0].EnvironmentOptions[0].Effect != "bootstrap.Options.IncludeLinearSync" ||
-			strings.Join(fresh[2].Args, " ") != "--concern project" {
-			t.Fatalf("MageTargets returned shared mutable state: %+v", fresh)
-		}
+		require.Equal(t, "bootstrap", fresh[0].Name, "MageTargets returned shared mutable state: %+v", fresh)
+		require.Equal(t, "bootstrap.Options.IncludeLinearSync", fresh[0].EnvironmentOptions[0].Effect, "MageTargets returned shared mutable state: %+v", fresh)
+		require.Equal(t, "--concern project", strings.Join(fresh[2].Args, " "), "MageTargets returned shared mutable state: %+v", fresh)
 
 		check, ok := delivery.LookupMageTarget("check")
-		if !ok {
-			t.Fatal("LookupMageTarget(check) not found")
-		}
+		require.True(t, ok, "LookupMageTarget(check) not found")
 		check.Args[0] = "--mutated"
 		again, ok := delivery.LookupMageTarget("check")
-		if !ok || strings.Join(again.Args, " ") != "--concern project" {
-			t.Fatalf("LookupMageTarget returned shared mutable state: %+v, %v", again, ok)
-		}
+		require.True(t, ok, "LookupMageTarget returned shared mutable state: %+v, %v", again, ok)
+		require.Equal(t, "--concern project", strings.Join(again.Args, " "), "LookupMageTarget returned shared mutable state: %+v, %v", again, ok)
 		bootstrapTarget, ok := delivery.LookupMageTarget("bootstrap")
-		if !ok {
-			t.Fatal("LookupMageTarget(bootstrap) not found")
-		}
+		require.True(t, ok, "LookupMageTarget(bootstrap) not found")
 		bootstrapTarget.EnvironmentOptions[0].Name = "mutated"
 		bootstrapAgain, _ := delivery.LookupMageTarget("bootstrap")
-		if bootstrapAgain.EnvironmentOptions[0].Name != delivery.BootstrapEnvironmentName {
-			t.Fatalf("LookupMageTarget returned shared environment option state: %+v", bootstrapAgain)
-		}
-		if _, ok := delivery.LookupMageTarget("Check"); ok {
-			t.Fatal("lookup must use the exact Mage CLI target name")
-		}
-		if _, ok := delivery.LookupMageTarget("unknown"); ok {
-			t.Fatal("unknown target unexpectedly resolved")
-		}
+		require.Equal(t, delivery.BootstrapEnvironmentName, bootstrapAgain.EnvironmentOptions[0].Name, "LookupMageTarget returned shared environment option state: %+v", bootstrapAgain)
+		_, ok = delivery.LookupMageTarget("Check")
+		require.False(t, ok, "lookup must use the exact Mage CLI target name")
+		_, ok = delivery.LookupMageTarget("unknown")
+		require.False(t, ok, "unknown target unexpectedly resolved")
 	})
 
 	t.Run("LoadPRGraph follows strict configured order and policy", func(t *testing.T) {
@@ -160,9 +138,7 @@ func TestScopeDelivery(t *testing.T) {
 			"bootstrap,generate --check,check --offline,build,test,package --foundation",
 			"bootstrap", "none")
 		graph, err := delivery.LoadPRGraph(root)
-		if err != nil {
-			t.Fatalf("LoadPRGraph: %v", err)
-		}
+		require.NoError(t, err, "LoadPRGraph")
 		want := []struct {
 			route string
 			args  string
@@ -175,17 +151,13 @@ func TestScopeDelivery(t *testing.T) {
 			{"test", "", delivery.NetworkDenied},
 			{"package", "--foundation", delivery.NetworkDenied},
 		}
-		if len(graph.Steps) != len(want) {
-			t.Fatalf("steps = %+v, want %d", graph.Steps, len(want))
-		}
+		require.Len(t, graph.Steps, len(want), "steps = %+v", graph.Steps)
 		for i, expected := range want {
 			step := graph.Steps[i]
-			if step.Route != expected.route || strings.Join(step.Args, " ") != expected.args || step.Network != expected.net {
-				t.Fatalf("step %d = %+v, want route=%q args=%q network=%v", i, step, expected.route, expected.args, expected.net)
-			}
-			if step.Name == "" {
-				t.Fatalf("step %d has blank stable name", i)
-			}
+			require.Equal(t, expected.route, step.Route, "step %d = %+v, want route=%q args=%q network=%v", i, step, expected.route, expected.args, expected.net)
+			require.Equal(t, expected.args, strings.Join(step.Args, " "), "step %d = %+v, want route=%q args=%q network=%v", i, step, expected.route, expected.args, expected.net)
+			require.Equal(t, expected.net, step.Network, "step %d = %+v, want route=%q args=%q network=%v", i, step, expected.route, expected.args, expected.net)
+			require.NotEmpty(t, step.Name, "step %d has blank stable name", i)
 		}
 	})
 
@@ -193,20 +165,14 @@ func TestScopeDelivery(t *testing.T) {
 		root := t.TempDir()
 		writeFixturePRCommandsToml(t, root, "test,bootstrap,build", "bootstrap", "none")
 		graph, err := delivery.LoadPRGraph(root)
-		if err != nil {
-			t.Fatalf("LoadPRGraph: %v", err)
-		}
+		require.NoError(t, err, "LoadPRGraph")
 		var got []string
 		_, err = delivery.Run(graph, func(route string, args []string) (int, []byte, []byte) {
 			got = append(got, route)
 			return 0, nil, nil
 		})
-		if err != nil {
-			t.Fatalf("Run: %v", err)
-		}
-		if joined := strings.Join(got, ","); joined != "test,bootstrap,build" {
-			t.Fatalf("observed order = %q", joined)
-		}
+		require.NoError(t, err, "Run")
+		require.Equal(t, "test,bootstrap,build", strings.Join(got, ","), "observed order")
 	})
 
 	t.Run("LoadPRGraph rejects malformed duplicate and orphan policy", func(t *testing.T) {
@@ -222,9 +188,8 @@ func TestScopeDelivery(t *testing.T) {
 			t.Run(testCase.name, func(t *testing.T) {
 				root := t.TempDir()
 				writeFixturePRCommandsToml(t, root, testCase.steps, testCase.network, testCase.mutation)
-				if _, err := delivery.LoadPRGraph(root); err == nil {
-					t.Fatal("invalid PR graph unexpectedly loaded")
-				}
+				_, err := delivery.LoadPRGraph(root)
+				require.Error(t, err, "invalid PR graph unexpectedly loaded")
 			})
 		}
 	})
@@ -234,90 +199,57 @@ func TestScopeDelivery(t *testing.T) {
 		writeFixtureCommandsToml(t, root)
 
 		graph, err := delivery.LoadGraph(root)
-		if err != nil {
-			t.Fatalf("LoadGraph: %v", err)
-		}
+		require.NoError(t, err, "LoadGraph")
 		wantCLI := filepath.ToSlash(bootstrap.PlatformExecutablePath(".tools/installs/golc_project", "golc-project"))
-		if graph.Inventory.CLIBinary != wantCLI {
-			t.Fatalf("CLIBinary = %q", graph.Inventory.CLIBinary)
-		}
-		if graph.Inventory.GoVersion != "1.26.5" {
-			t.Fatalf("GoVersion = %q", graph.Inventory.GoVersion)
-		}
+		require.Equal(t, wantCLI, graph.Inventory.CLIBinary, "CLIBinary")
+		require.Equal(t, "1.26.5", graph.Inventory.GoVersion, "GoVersion")
 		wantNames := []string{"generate", "check", "build", "test"}
-		if len(graph.Steps) != len(wantNames) {
-			t.Fatalf("len(Steps) = %d, want %d", len(graph.Steps), len(wantNames))
-		}
+		require.Len(t, graph.Steps, len(wantNames), "len(Steps)")
 		for i, name := range wantNames {
-			if graph.Steps[i].Name != name {
-				t.Fatalf("Steps[%d].Name = %q, want %q", i, graph.Steps[i].Name, name)
-			}
-			if graph.Steps[i].Network != delivery.NetworkDenied {
-				t.Fatalf("Steps[%d].Network = %v, want NetworkDenied", i, graph.Steps[i].Network)
-			}
+			require.Equal(t, name, graph.Steps[i].Name, "Steps[%d].Name", i)
+			require.Equal(t, delivery.NetworkDenied, graph.Steps[i].Network, "Steps[%d].Network", i)
 		}
 		// check invokes "--concern project", never "--offline" — a
 		// check-driven graph run must never recurse into itself.
 		checkStep := graph.Steps[1]
-		if strings.Join(checkStep.Args, " ") != "--concern project" {
-			t.Fatalf("check step Args = %v, want [--concern project]", checkStep.Args)
-		}
+		require.Equal(t, "--concern project", strings.Join(checkStep.Args, " "), "check step Args")
 	})
 
 	t.Run("LoadGraph fails closed on a missing config/commands.toml", func(t *testing.T) {
 		root := t.TempDir()
-		if _, err := delivery.LoadGraph(root); err == nil {
-			t.Fatal("expected LoadGraph to fail for a missing config/commands.toml")
-		}
+		_, err := delivery.LoadGraph(root)
+		require.Error(t, err, "expected LoadGraph to fail for a missing config/commands.toml")
 	})
 
 	t.Run("LoadGraph fails closed on an incomplete commands inventory", func(t *testing.T) {
 		root := t.TempDir()
 		configDir := filepath.Join(root, "config")
-		if err := os.MkdirAll(configDir, 0o755); err != nil {
-			t.Fatalf("mkdir config: %v", err)
-		}
+		require.NoError(t, os.MkdirAll(configDir, 0o755), "mkdir config")
 		body := "schema_version = 1\n\n[commands]\n"
-		if err := os.WriteFile(filepath.Join(configDir, "commands.toml"), []byte(body), 0o644); err != nil {
-			t.Fatalf("write config/commands.toml: %v", err)
-		}
+		require.NoError(t, os.WriteFile(filepath.Join(configDir, "commands.toml"), []byte(body), 0o644), "write config/commands.toml")
 		_, err := delivery.LoadGraph(root)
-		if err == nil {
-			t.Fatal("expected LoadGraph to fail for an incomplete commands inventory")
-		}
-		if !strings.Contains(err.Error(), "GOLC_DELIVERY_INVENTORY_INCOMPLETE") {
-			t.Fatalf("error = %v, want GOLC_DELIVERY_INVENTORY_INCOMPLETE", err)
-		}
+		require.Error(t, err, "expected LoadGraph to fail for an incomplete commands inventory")
+		require.Contains(t, err.Error(), "GOLC_DELIVERY_INVENTORY_INCOMPLETE")
 	})
 
 	t.Run("ValidateParity accepts the production graph and rejects duplicates", func(t *testing.T) {
 		root := t.TempDir()
 		writeFixtureCommandsToml(t, root)
 		graph, err := delivery.LoadGraph(root)
-		if err != nil {
-			t.Fatalf("LoadGraph: %v", err)
-		}
-		if err := delivery.ValidateParity(graph); err != nil {
-			t.Fatalf("ValidateParity on the production graph: %v", err)
-		}
+		require.NoError(t, err, "LoadGraph")
+		require.NoError(t, delivery.ValidateParity(graph), "ValidateParity on the production graph")
 
 		duplicateNames := graph
 		duplicateNames.Steps = append(append([]delivery.Step{}, graph.Steps...), graph.Steps[0])
-		if err := delivery.ValidateParity(duplicateNames); err == nil {
-			t.Fatal("expected ValidateParity to reject a duplicate step name")
-		}
+		require.Error(t, delivery.ValidateParity(duplicateNames), "expected ValidateParity to reject a duplicate step name")
 
 		empty := graph
 		empty.Steps = nil
-		if err := delivery.ValidateParity(empty); err == nil {
-			t.Fatal("expected ValidateParity to reject a graph with zero steps")
-		}
+		require.Error(t, delivery.ValidateParity(empty), "expected ValidateParity to reject a graph with zero steps")
 
 		blankRoute := graph
 		blankRoute.Steps = []delivery.Step{{Name: "x", Route: ""}}
-		if err := delivery.ValidateParity(blankRoute); err == nil {
-			t.Fatal("expected ValidateParity to reject a step with a blank route")
-		}
+		require.Error(t, delivery.ValidateParity(blankRoute), "expected ValidateParity to reject a step with a blank route")
 	})
 
 	t.Run("Run executes every step in order and stops at the first failure", func(t *testing.T) {
@@ -343,18 +275,10 @@ func TestScopeDelivery(t *testing.T) {
 		}
 
 		results, err := delivery.Run(graph, executor)
-		if err == nil {
-			t.Fatal("expected Run to fail when step two exits non-zero")
-		}
-		if got := strings.Join(invoked, ","); got != "one,two" {
-			t.Fatalf("invoked routes = %q, want \"one,two\" (three must never run)", got)
-		}
-		if len(results) != 2 {
-			t.Fatalf("len(results) = %d, want 2", len(results))
-		}
-		if results[1].ExitCode != 1 {
-			t.Fatalf("results[1].ExitCode = %d, want 1", results[1].ExitCode)
-		}
+		require.Error(t, err, "expected Run to fail when step two exits non-zero")
+		require.Equal(t, "one,two", strings.Join(invoked, ","), "invoked routes (three must never run)")
+		require.Len(t, results, 2)
+		require.Equal(t, 1, results[1].ExitCode, "results[1].ExitCode")
 	})
 
 	t.Run("RunOffline refuses to execute a graph containing a network-allowed step", func(t *testing.T) {
@@ -370,12 +294,9 @@ func TestScopeDelivery(t *testing.T) {
 			executed = true
 			return 0, nil, nil
 		}
-		if _, err := delivery.RunOffline(graph, executor); err == nil {
-			t.Fatal("expected RunOffline to refuse a graph containing a NetworkAllowed step")
-		}
-		if executed {
-			t.Fatal("RunOffline must never invoke the executor when it refuses the graph")
-		}
+		_, err := delivery.RunOffline(graph, executor)
+		require.Error(t, err, "expected RunOffline to refuse a graph containing a NetworkAllowed step")
+		require.False(t, executed, "RunOffline must never invoke the executor when it refuses the graph")
 	})
 
 	t.Run("RunOffline installs the offline environment and deny transport, then restores prior state", func(t *testing.T) {
@@ -407,61 +328,34 @@ func TestScopeDelivery(t *testing.T) {
 			return 0, nil, nil
 		}
 
-		if _, err := delivery.RunOffline(graph, executor); err != nil {
-			t.Fatalf("RunOffline: %v", err)
-		}
-		if observedGOPROXY != "off" {
-			t.Fatalf("observed GOPROXY during offline run = %q, want off", observedGOPROXY)
-		}
-		if !observedTransportIsDeny {
-			t.Fatal("expected http.DefaultTransport to be DenyTransport during the offline run")
-		}
-		if os.Getenv("GOPROXY") != "https://proxy.example.invalid" {
-			t.Fatalf("GOPROXY was not restored after RunOffline: %q", os.Getenv("GOPROXY"))
-		}
-		if http.DefaultTransport != previousTransport {
-			t.Fatal("http.DefaultTransport was not restored after RunOffline")
-		}
+		_, err := delivery.RunOffline(graph, executor)
+		require.NoError(t, err, "RunOffline")
+		require.Equal(t, "off", observedGOPROXY, "observed GOPROXY during offline run")
+		require.True(t, observedTransportIsDeny, "expected http.DefaultTransport to be DenyTransport during the offline run")
+		require.Equal(t, "https://proxy.example.invalid", os.Getenv("GOPROXY"), "GOPROXY was not restored after RunOffline")
+		require.Equal(t, previousTransport, http.DefaultTransport, "http.DefaultTransport was not restored after RunOffline")
 	})
 
 	t.Run("DenyTransport fails every request with a named diagnostic before any dial", func(t *testing.T) {
 		request, err := http.NewRequest(http.MethodGet, "https://example.invalid/resource", nil)
-		if err != nil {
-			t.Fatalf("NewRequest: %v", err)
-		}
+		require.NoError(t, err, "NewRequest")
 		_, err = (delivery.DenyTransport{}).RoundTrip(request)
-		if err == nil {
-			t.Fatal("expected DenyTransport.RoundTrip to fail")
-		}
-		if !strings.Contains(err.Error(), "GOLC_DELIVERY_NETWORK_DENIED") {
-			t.Fatalf("error = %v, want GOLC_DELIVERY_NETWORK_DENIED", err)
-		}
+		require.Error(t, err, "expected DenyTransport.RoundTrip to fail")
+		require.Contains(t, err.Error(), "GOLC_DELIVERY_NETWORK_DENIED")
 	})
 
 	t.Run("NetworkPolicy renders stable diagnostics", func(t *testing.T) {
-		if delivery.NetworkDenied.String() != "denied" {
-			t.Fatalf("NetworkDenied.String() = %q, want denied", delivery.NetworkDenied.String())
-		}
-		if delivery.NetworkAllowed.String() != "allowed" {
-			t.Fatalf("NetworkAllowed.String() = %q, want allowed", delivery.NetworkAllowed.String())
-		}
+		require.Equal(t, "denied", delivery.NetworkDenied.String(), "NetworkDenied.String()")
+		require.Equal(t, "allowed", delivery.NetworkAllowed.String(), "NetworkAllowed.String()")
 	})
 
 	t.Run("package --foundation route is self-registered and reachable", func(t *testing.T) {
 		registry, err := command.NewDefaultCommandRegistry()
-		if err != nil {
-			t.Fatalf("NewDefaultCommandRegistry: %v", err)
-		}
+		require.NoError(t, err, "NewDefaultCommandRegistry")
 		registration, rest, ok := registry.Lookup([]string{"package", "--foundation"})
-		if !ok {
-			t.Fatal("expected the default registry to resolve \"package --foundation\"")
-		}
-		if registration.Route != "package" {
-			t.Fatalf("Route = %q, want \"package\"", registration.Route)
-		}
-		if strings.Join(rest, " ") != "--foundation" {
-			t.Fatalf("remaining args = %v, want [--foundation]", rest)
-		}
+		require.True(t, ok, "expected the default registry to resolve \"package --foundation\"")
+		require.Equal(t, "package", registration.Route, "Route")
+		require.Equal(t, "--foundation", strings.Join(rest, " "), "remaining args")
 	})
 
 	t.Run("FoundationInventory returns a sorted, duplicate-free allowlist derived from the graph inventory", func(t *testing.T) {
@@ -469,14 +363,10 @@ func TestScopeDelivery(t *testing.T) {
 		writeFoundationFixture(t, root)
 
 		graph, err := delivery.LoadGraph(root)
-		if err != nil {
-			t.Fatalf("LoadGraph: %v", err)
-		}
+		require.NoError(t, err, "LoadGraph")
 
 		entries, err := delivery.FoundationInventory(root, graph.Inventory)
-		if err != nil {
-			t.Fatalf("FoundationInventory: %v", err)
-		}
+		require.NoError(t, err, "FoundationInventory")
 
 		wantPaths := []string{
 			filepath.ToSlash(bootstrap.PlatformExecutablePath(".tools/installs/golc_project", "golc-project")),
@@ -492,70 +382,48 @@ func TestScopeDelivery(t *testing.T) {
 		for i, entry := range entries {
 			gotPaths[i] = entry.ArchivePath
 		}
-		if strings.Join(gotPaths, ",") != strings.Join(wantPaths, ",") {
-			t.Fatalf("FoundationInventory paths = %v, want %v", gotPaths, wantPaths)
-		}
-		if !sort.StringsAreSorted(gotPaths) {
-			t.Fatalf("expected FoundationInventory to return sorted archive paths, got %v", gotPaths)
-		}
+		require.Equal(t, strings.Join(wantPaths, ","), strings.Join(gotPaths, ","), "FoundationInventory paths")
+		require.True(t, sort.StringsAreSorted(gotPaths), "expected FoundationInventory to return sorted archive paths, got %v", gotPaths)
 
 		incomplete := delivery.CommandInventory{}
-		if _, err := delivery.FoundationInventory(root, incomplete); err == nil {
-			t.Fatal("expected FoundationInventory to reject an incomplete graph inventory")
-		}
+		_, err = delivery.FoundationInventory(root, incomplete)
+		require.Error(t, err, "expected FoundationInventory to reject an incomplete graph inventory")
 	})
 
 	t.Run("CanonicalManifest sorts, hashes, and rejects a duplicate archive path", func(t *testing.T) {
 		root := t.TempDir()
-		if err := os.WriteFile(filepath.Join(root, "b.txt"), []byte("second\n"), 0o644); err != nil {
-			t.Fatalf("write b.txt: %v", err)
-		}
-		if err := os.WriteFile(filepath.Join(root, "a.txt"), []byte("first\n"), 0o644); err != nil {
-			t.Fatalf("write a.txt: %v", err)
-		}
+		require.NoError(t, os.WriteFile(filepath.Join(root, "b.txt"), []byte("second\n"), 0o644), "write b.txt")
+		require.NoError(t, os.WriteFile(filepath.Join(root, "a.txt"), []byte("first\n"), 0o644), "write a.txt")
 
 		manifest, payloads, err := delivery.CanonicalManifest(root, []delivery.FoundationEntry{
 			{ArchivePath: "b.txt", SourcePath: "b.txt"},
 			{ArchivePath: "a.txt", SourcePath: "a.txt"},
 		})
-		if err != nil {
-			t.Fatalf("CanonicalManifest: %v", err)
-		}
-		if len(manifest.Files) != 2 || len(payloads) != 2 {
-			t.Fatalf("expected 2 files/payloads, got %d/%d", len(manifest.Files), len(payloads))
-		}
-		if manifest.Files[0].Path != "a.txt" || manifest.Files[1].Path != "b.txt" {
-			t.Fatalf("expected manifest sorted by archive path, got %v", manifest.Files)
-		}
+		require.NoError(t, err, "CanonicalManifest")
+		require.Len(t, manifest.Files, 2, "expected 2 files/payloads, got %d/%d", len(manifest.Files), len(payloads))
+		require.Len(t, payloads, 2, "expected 2 files/payloads, got %d/%d", len(manifest.Files), len(payloads))
+		require.Equal(t, "a.txt", manifest.Files[0].Path, "expected manifest sorted by archive path, got %v", manifest.Files)
+		require.Equal(t, "b.txt", manifest.Files[1].Path, "expected manifest sorted by archive path, got %v", manifest.Files)
 		wantSHA256 := "b640e840b19d378660b32fb51ae18d67dccb4a8596a29e7bd72c1b2ae5928f41"
-		if manifest.Files[0].SHA256 != wantSHA256 {
-			t.Fatalf("a.txt sha256 = %s, want %s", manifest.Files[0].SHA256, wantSHA256)
-		}
-		if manifest.Files[0].Size != int64(len("first\n")) {
-			t.Fatalf("a.txt size = %d, want %d", manifest.Files[0].Size, len("first\n"))
-		}
-		if string(payloads[0]) != "first\n" {
-			t.Fatalf("payloads[0] = %q, want %q", payloads[0], "first\n")
-		}
+		require.Equal(t, wantSHA256, manifest.Files[0].SHA256, "a.txt sha256")
+		require.Equal(t, int64(len("first\n")), manifest.Files[0].Size, "a.txt size")
+		require.Equal(t, "first\n", string(payloads[0]), "payloads[0]")
 
-		if _, _, err := delivery.CanonicalManifest(root, []delivery.FoundationEntry{
+		_, _, err = delivery.CanonicalManifest(root, []delivery.FoundationEntry{
 			{ArchivePath: "a.txt", SourcePath: "a.txt"},
 			{ArchivePath: "a.txt", SourcePath: "b.txt"},
-		}); err == nil {
-			t.Fatal("expected CanonicalManifest to reject a duplicate archive path")
-		}
+		})
+		require.Error(t, err, "expected CanonicalManifest to reject a duplicate archive path")
 
-		if _, _, err := delivery.CanonicalManifest(root, []delivery.FoundationEntry{
+		_, _, err = delivery.CanonicalManifest(root, []delivery.FoundationEntry{
 			{ArchivePath: "", SourcePath: "a.txt"},
-		}); err == nil {
-			t.Fatal("expected CanonicalManifest to reject a blank archive path")
-		}
+		})
+		require.Error(t, err, "expected CanonicalManifest to reject a blank archive path")
 
-		if _, _, err := delivery.CanonicalManifest(root, []delivery.FoundationEntry{
+		_, _, err = delivery.CanonicalManifest(root, []delivery.FoundationEntry{
 			{ArchivePath: "missing.txt", SourcePath: "missing.txt"},
-		}); err == nil {
-			t.Fatal("expected CanonicalManifest to fail closed on a missing source file")
-		}
+		})
+		require.Error(t, err, "expected CanonicalManifest to fail closed on a missing source file")
 	})
 
 	t.Run("EncodeManifest is deterministic byte-stable JSON matching the committed golden fixture", func(t *testing.T) {
@@ -581,40 +449,23 @@ func TestScopeDelivery(t *testing.T) {
 		writeFoundationFixtureForGoldenManifest(t, root)
 
 		graph, err := delivery.LoadGraph(root)
-		if err != nil {
-			t.Fatalf("LoadGraph: %v", err)
-		}
+		require.NoError(t, err, "LoadGraph")
 		entries, err := delivery.FoundationInventory(root, graph.Inventory)
-		if err != nil {
-			t.Fatalf("FoundationInventory: %v", err)
-		}
+		require.NoError(t, err, "FoundationInventory")
 		manifest, _, err := delivery.CanonicalManifest(root, entries)
-		if err != nil {
-			t.Fatalf("CanonicalManifest: %v", err)
-		}
+		require.NoError(t, err, "CanonicalManifest")
 		encoded, err := delivery.EncodeManifest(manifest)
-		if err != nil {
-			t.Fatalf("EncodeManifest: %v", err)
-		}
+		require.NoError(t, err, "EncodeManifest")
 
 		again, err := delivery.EncodeManifest(manifest)
-		if err != nil {
-			t.Fatalf("EncodeManifest (repeat): %v", err)
-		}
-		if !bytes.Equal(encoded, again) {
-			t.Fatal("expected EncodeManifest to be byte-identical across repeated calls with unchanged input")
-		}
-		if encoded[len(encoded)-1] != '\n' || bytes.Contains(encoded, []byte("\r\n")) {
-			t.Fatalf("expected LF-only output ending with exactly one trailing newline, got %q", encoded)
-		}
+		require.NoError(t, err, "EncodeManifest (repeat)")
+		require.True(t, bytes.Equal(encoded, again), "expected EncodeManifest to be byte-identical across repeated calls with unchanged input")
+		require.Equal(t, byte('\n'), encoded[len(encoded)-1], "expected LF-only output ending with exactly one trailing newline, got %q", encoded)
+		require.False(t, bytes.Contains(encoded, []byte("\r\n")), "expected LF-only output ending with exactly one trailing newline, got %q", encoded)
 
 		golden, err := os.ReadFile(goldenFoundationManifestPath(t))
-		if err != nil {
-			t.Fatalf("read golden foundation manifest: %v", err)
-		}
-		if !bytes.Equal(encoded, golden) {
-			t.Fatalf("EncodeManifest output does not match tests/golden/foundation-manifest.json:\ngot:  %s\nwant: %s", encoded, golden)
-		}
+		require.NoError(t, err, "read golden foundation manifest")
+		require.Equal(t, golden, encoded, "EncodeManifest output does not match tests/golden/foundation-manifest.json:\ngot:  %s\nwant: %s", encoded, golden)
 	})
 
 	t.Run("BuildFoundationBundle produces byte-identical ZIP, manifest, and checksums across repeated runs", func(t *testing.T) {
@@ -622,61 +473,35 @@ func TestScopeDelivery(t *testing.T) {
 		writeFoundationFixture(t, root)
 
 		first, err := delivery.BuildFoundationBundle(root)
-		if err != nil {
-			t.Fatalf("BuildFoundationBundle (first): %v", err)
-		}
+		require.NoError(t, err, "BuildFoundationBundle (first)")
 		second, err := delivery.BuildFoundationBundle(root)
-		if err != nil {
-			t.Fatalf("BuildFoundationBundle (second): %v", err)
-		}
+		require.NoError(t, err, "BuildFoundationBundle (second)")
 
-		if !bytes.Equal(first.ZIPBytes, second.ZIPBytes) {
-			t.Fatal("expected byte-identical ZIP bytes across repeated builds of unchanged inputs")
-		}
-		if !bytes.Equal(first.ManifestBytes, second.ManifestBytes) {
-			t.Fatal("expected byte-identical manifest bytes across repeated builds of unchanged inputs")
-		}
-		if first.ZIPChecksum != second.ZIPChecksum || first.ManifestChecksum != second.ManifestChecksum {
-			t.Fatal("expected byte-identical checksums across repeated builds of unchanged inputs")
-		}
-		if len(first.ZIPChecksum) != 64 || len(first.ManifestChecksum) != 64 {
-			t.Fatalf("expected 64-hex-character SHA-256 checksums, got zip=%q manifest=%q", first.ZIPChecksum, first.ManifestChecksum)
-		}
+		require.True(t, bytes.Equal(first.ZIPBytes, second.ZIPBytes), "expected byte-identical ZIP bytes across repeated builds of unchanged inputs")
+		require.True(t, bytes.Equal(first.ManifestBytes, second.ManifestBytes), "expected byte-identical manifest bytes across repeated builds of unchanged inputs")
+		require.Equal(t, first.ZIPChecksum, second.ZIPChecksum, "expected byte-identical checksums across repeated builds of unchanged inputs")
+		require.Equal(t, first.ManifestChecksum, second.ManifestChecksum, "expected byte-identical checksums across repeated builds of unchanged inputs")
+		require.Len(t, first.ZIPChecksum, 64, "expected 64-hex-character SHA-256 checksums, got zip=%q manifest=%q", first.ZIPChecksum, first.ManifestChecksum)
+		require.Len(t, first.ManifestChecksum, 64, "expected 64-hex-character SHA-256 checksums, got zip=%q manifest=%q", first.ZIPChecksum, first.ManifestChecksum)
 
 		reader, err := zip.NewReader(bytes.NewReader(first.ZIPBytes), int64(len(first.ZIPBytes)))
-		if err != nil {
-			t.Fatalf("zip.NewReader: %v", err)
-		}
-		if len(reader.File) != len(first.Manifest.Files)+1 {
-			t.Fatalf("zip entry count = %d, want %d (manifest files + the embedded manifest)", len(reader.File), len(first.Manifest.Files)+1)
-		}
+		require.NoError(t, err, "zip.NewReader")
+		require.Len(t, reader.File, len(first.Manifest.Files)+1, "zip entry count (manifest files + the embedded manifest)")
 		seenNames := map[string]bool{}
 		for _, zipEntry := range reader.File {
 			seenNames[zipEntry.Name] = true
-			if strings.Contains(zipEntry.Name, "\\") {
-				t.Fatalf("zip entry %q must use forward slashes only", zipEntry.Name)
-			}
-			if zipEntry.Mode().Perm() != 0o644 {
-				t.Fatalf("zip entry %q mode = %v, want 0644", zipEntry.Name, zipEntry.Mode().Perm())
-			}
+			require.False(t, strings.Contains(zipEntry.Name, "\\"), "zip entry %q must use forward slashes only", zipEntry.Name)
+			require.Equal(t, os.FileMode(0o644), zipEntry.Mode().Perm(), "zip entry %q mode = %v, want 0644", zipEntry.Name, zipEntry.Mode().Perm())
 			wantEpoch := time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)
-			if !zipEntry.Modified.Equal(wantEpoch) {
-				t.Fatalf("zip entry %q Modified = %v, want the fixed epoch %v (no machine timestamp)", zipEntry.Name, zipEntry.Modified, wantEpoch)
-			}
+			require.True(t, zipEntry.Modified.Equal(wantEpoch), "zip entry %q Modified = %v, want the fixed epoch %v (no machine timestamp)", zipEntry.Name, zipEntry.Modified, wantEpoch)
 		}
 		for _, file := range first.Manifest.Files {
-			if !seenNames[file.Path] {
-				t.Fatalf("expected manifest entry %q to be present as a zip entry", file.Path)
-			}
+			require.True(t, seenNames[file.Path], "expected manifest entry %q to be present as a zip entry", file.Path)
 		}
-		if !seenNames["foundation-manifest.json"] {
-			t.Fatal("expected the zip to embed foundation-manifest.json")
-		}
+		require.True(t, seenNames["foundation-manifest.json"], "expected the zip to embed foundation-manifest.json")
 
 		manifestZipFile, err := reader.Open("foundation-manifest.json")
-		if err != nil {
-			t.Fatalf("open embedded manifest: %v", err)
-		}
+		require.NoError(t, err, "open embedded manifest")
 		defer manifestZipFile.Close()
 		var decodedManifest struct {
 			SchemaVersion int `json:"schema_version"`
@@ -686,15 +511,9 @@ func TestScopeDelivery(t *testing.T) {
 				Size   int64  `json:"size"`
 			} `json:"files"`
 		}
-		if err := json.NewDecoder(manifestZipFile).Decode(&decodedManifest); err != nil {
-			t.Fatalf("decode embedded manifest: %v", err)
-		}
-		if decodedManifest.SchemaVersion != 1 {
-			t.Fatalf("embedded manifest schema_version = %d, want 1", decodedManifest.SchemaVersion)
-		}
-		if len(decodedManifest.Files) != len(first.Manifest.Files) {
-			t.Fatalf("embedded manifest has %d files, want %d", len(decodedManifest.Files), len(first.Manifest.Files))
-		}
+		require.NoError(t, json.NewDecoder(manifestZipFile).Decode(&decodedManifest), "decode embedded manifest")
+		require.Equal(t, 1, decodedManifest.SchemaVersion, "embedded manifest schema_version")
+		require.Len(t, decodedManifest.Files, len(first.Manifest.Files), "embedded manifest files")
 	})
 
 	t.Run("WriteFoundationBundle writes the ZIP, manifest, and sha256 sidecar to the fixed output paths", func(t *testing.T) {
@@ -702,51 +521,31 @@ func TestScopeDelivery(t *testing.T) {
 		writeFoundationFixture(t, root)
 
 		bundle, err := delivery.BuildFoundationBundle(root)
-		if err != nil {
-			t.Fatalf("BuildFoundationBundle: %v", err)
-		}
+		require.NoError(t, err, "BuildFoundationBundle")
 		paths := delivery.DefaultFoundationOutputPaths(root)
 		wantBase := "golc-foundation-" + bootstrap.PlatformKey()
-		if filepath.Base(paths.ZIPPath) != wantBase+".zip" ||
-			filepath.Base(paths.ManifestPath) != wantBase+".manifest.json" ||
-			filepath.Base(paths.ChecksumPath) != wantBase+".zip.sha256" {
-			t.Fatalf("platform foundation paths = %+v", paths)
-		}
-		if err := delivery.WriteFoundationBundle(bundle, paths); err != nil {
-			t.Fatalf("WriteFoundationBundle: %v", err)
-		}
+		require.Equal(t, wantBase+".zip", filepath.Base(paths.ZIPPath), "platform foundation paths = %+v", paths)
+		require.Equal(t, wantBase+".manifest.json", filepath.Base(paths.ManifestPath), "platform foundation paths = %+v", paths)
+		require.Equal(t, wantBase+".zip.sha256", filepath.Base(paths.ChecksumPath), "platform foundation paths = %+v", paths)
+		require.NoError(t, delivery.WriteFoundationBundle(bundle, paths), "WriteFoundationBundle")
 
 		zipBytes, err := os.ReadFile(paths.ZIPPath)
-		if err != nil {
-			t.Fatalf("read written zip: %v", err)
-		}
-		if !bytes.Equal(zipBytes, bundle.ZIPBytes) {
-			t.Fatal("expected the written zip file to match bundle.ZIPBytes exactly")
-		}
+		require.NoError(t, err, "read written zip")
+		require.True(t, bytes.Equal(zipBytes, bundle.ZIPBytes), "expected the written zip file to match bundle.ZIPBytes exactly")
 
 		checksumBytes, err := os.ReadFile(paths.ChecksumPath)
-		if err != nil {
-			t.Fatalf("read written checksum sidecar: %v", err)
-		}
+		require.NoError(t, err, "read written checksum sidecar")
 		wantChecksumLine := bundle.ZIPChecksum + "  golc-foundation-" + bootstrap.PlatformKey() + ".zip\n"
-		if string(checksumBytes) != wantChecksumLine {
-			t.Fatalf("checksum sidecar = %q, want %q", checksumBytes, wantChecksumLine)
-		}
+		require.Equal(t, wantChecksumLine, string(checksumBytes), "checksum sidecar")
 
 		// A second write must replace the prior output at the exact same
 		// path rather than accumulating a second differently-named
 		// artifact (this test's own repeat-and-compare verification below
 		// depends on this fixed identity).
-		if err := delivery.WriteFoundationBundle(bundle, paths); err != nil {
-			t.Fatalf("WriteFoundationBundle (second write): %v", err)
-		}
+		require.NoError(t, delivery.WriteFoundationBundle(bundle, paths), "WriteFoundationBundle (second write)")
 		zipBytesAgain, err := os.ReadFile(paths.ZIPPath)
-		if err != nil {
-			t.Fatalf("read written zip (second write): %v", err)
-		}
-		if !bytes.Equal(zipBytesAgain, bundle.ZIPBytes) {
-			t.Fatal("expected the second write to leave byte-identical output at the same fixed path")
-		}
+		require.NoError(t, err, "read written zip (second write)")
+		require.True(t, bytes.Equal(zipBytesAgain, bundle.ZIPBytes), "expected the second write to leave byte-identical output at the same fixed path")
 	})
 }
 
@@ -795,12 +594,8 @@ func writeFoundationFixtureWithBinaryPath(t *testing.T, root, binaryPath string)
 	}
 	for relative, content := range files {
 		fullPath := filepath.Join(root, filepath.FromSlash(relative))
-		if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
-			t.Fatalf("mkdir for %s: %v", relative, err)
-		}
-		if err := os.WriteFile(fullPath, []byte(content), 0o644); err != nil {
-			t.Fatalf("write %s: %v", relative, err)
-		}
+		require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0o755), "mkdir for %s", relative)
+		require.NoError(t, os.WriteFile(fullPath, []byte(content), 0o644), "write %s", relative)
 	}
 }
 
@@ -811,9 +606,7 @@ func writeFoundationFixtureWithBinaryPath(t *testing.T, root, binaryPath string)
 func goldenFoundationManifestPath(t *testing.T) string {
 	t.Helper()
 	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("os.Getwd: %v", err)
-	}
+	require.NoError(t, err, "os.Getwd")
 	// internal/delivery -> internal -> repository root
 	repoRoot := filepath.Dir(filepath.Dir(wd))
 	return filepath.Join(repoRoot, "tests", "golden", "foundation-manifest.json")
