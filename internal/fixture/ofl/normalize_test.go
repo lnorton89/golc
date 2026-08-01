@@ -17,9 +17,10 @@ package ofl_test
 import (
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/fixture"
 	"github.com/lnorton89/golc/internal/fixture/ofl"
@@ -59,9 +60,7 @@ func readCorpusFile(t *testing.T, name string) []byte {
 	t.Helper()
 	path := filepath.Join("..", "..", "..", "tests", "fixtures", "ofl", name)
 	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("reading OFL corpus file %s: %v", name, err)
-	}
+	require.NoError(t, err, "reading OFL corpus file %s", name)
 	return data
 }
 
@@ -90,46 +89,27 @@ func TestNormalizeCanonicalPipeline(t *testing.T) {
 	raw := readCorpusFile(t, "chauvet-dj_led-par-64-tri-b.json")
 
 	def, provenance, err := ofl.Normalize(raw, "chauvet-dj/led-par-64-tri-b")
-	if err != nil {
-		t.Fatalf("Normalize failed: %v", err)
-	}
-	if def.SchemaVersion != 1 {
-		t.Fatalf("expected schema_version 1, got %d", def.SchemaVersion)
-	}
-	if def.Manufacturer != "chauvet-dj" {
-		t.Fatalf("expected manufacturer %q, got %q", "chauvet-dj", def.Manufacturer)
-	}
-	if provenance.ValidationResult != "valid" {
-		t.Fatalf("expected ValidationResult %q, got %q", "valid", provenance.ValidationResult)
-	}
-	if len(provenance.ContentHash) != 64 {
-		t.Fatalf("expected a 64-character hex content hash, got %q", provenance.ContentHash)
-	}
-	if provenance.Source != "ofl:chauvet-dj/led-par-64-tri-b" {
-		t.Fatalf("expected Source %q, got %q", "ofl:chauvet-dj/led-par-64-tri-b", provenance.Source)
-	}
+	require.NoError(t, err, "Normalize failed")
+	require.EqualValues(t, 1, def.SchemaVersion, "expected schema_version 1, got %d", def.SchemaVersion)
+	require.Equal(t, "chauvet-dj", def.Manufacturer, "expected manufacturer %q, got %q", "chauvet-dj", def.Manufacturer)
+	require.Equal(t, "valid", provenance.ValidationResult, "expected ValidationResult %q, got %q", "valid", provenance.ValidationResult)
+	require.Len(t, provenance.ContentHash, 64, "expected a 64-character hex content hash, got %q", provenance.ContentHash)
+	require.Equal(t, "ofl:chauvet-dj/led-par-64-tri-b", provenance.Source, "expected Source %q, got %q", "ofl:chauvet-dj/led-par-64-tri-b", provenance.Source)
 
 	wantTypes := []fixture.CapabilityType{
 		fixture.CapabilityIntensity, fixture.CapabilityColor, fixture.CapabilityShutter, fixture.CapabilityStrobe,
 	}
-	if gotTypes := capabilityTypes(def); !reflect.DeepEqual(gotTypes, wantTypes) {
-		t.Fatalf("expected capability types %v in declared-enum order, got %v", wantTypes, gotTypes)
-	}
+	require.Equal(t, wantTypes, capabilityTypes(def), "expected capability types in declared-enum order")
 
 	// The identical pipeline must accept an equivalent hand-authored
 	// fixture declaring the same capability types (FIXT-03: OFL import
 	// lands in the same canonical model and runs the same validate+pin
 	// pipeline as hand-authored YAML, not a parallel one).
 	handAuthored, err := fixture.Decode([]byte(equivalentHandAuthoredYAML))
-	if err != nil {
-		t.Fatalf("hand-authored equivalent fixture failed to decode/validate: %v", err)
-	}
-	if gotTypes := capabilityTypes(handAuthored); !reflect.DeepEqual(gotTypes, wantTypes) {
-		t.Fatalf("hand-authored equivalent fixture capability types diverged from the OFL-normalized types: got %v", gotTypes)
-	}
-	if _, err := fixture.Pin(handAuthored); err != nil {
-		t.Fatalf("hand-authored equivalent fixture failed to pin: %v", err)
-	}
+	require.NoError(t, err, "hand-authored equivalent fixture failed to decode/validate")
+	require.Equal(t, wantTypes, capabilityTypes(handAuthored), "hand-authored equivalent fixture capability types diverged from the OFL-normalized types")
+	_, err = fixture.Pin(handAuthored)
+	require.NoError(t, err, "hand-authored equivalent fixture failed to pin")
 }
 
 // TestNormalizeModeChannels proves D-16: an OFL mode declaring channel
@@ -141,15 +121,9 @@ func TestNormalizeModeChannels(t *testing.T) {
 	raw := readCorpusFile(t, "chauvet-dj_led-par-64-tri-b.json")
 
 	def, _, err := ofl.Normalize(raw, "chauvet-dj/led-par-64-tri-b")
-	if err != nil {
-		t.Fatalf("Normalize failed: %v", err)
-	}
-	if len(def.Modes) == 0 {
-		t.Fatal("expected at least one normalized mode")
-	}
-	if len(def.Modes[0].Channels) == 0 {
-		t.Fatalf("expected mode %q to normalize into a non-empty Channels layout (D-16), got %+v", def.Modes[0].Name, def.Modes[0])
-	}
+	require.NoError(t, err, "Normalize failed")
+	require.NotEmpty(t, def.Modes, "expected at least one normalized mode")
+	require.NotEmpty(t, def.Modes[0].Channels, "expected mode %q to normalize into a non-empty Channels layout (D-16), got %+v", def.Modes[0].Name, def.Modes[0])
 }
 
 // TestNormalizeLossyWarning proves FIXT-06/D-06: an OFL fixture outside
@@ -160,18 +134,10 @@ func TestNormalizeLossyWarning(t *testing.T) {
 	raw := readCorpusFile(t, "chauvet-dj_washfx.json")
 
 	def, provenance, err := ofl.Normalize(raw, "chauvet-dj/washfx")
-	if err != nil {
-		t.Fatalf("Normalize failed for an out-of-v1-target-set (pixel/matrix) OFL fixture: %v", err)
-	}
-	if len(def.Capabilities) == 0 {
-		t.Fatal("expected the fixture to still import with at least one mapped capability")
-	}
-	if len(provenance.Warnings) == 0 {
-		t.Fatal("expected at least one LossyImportWarning for the unmodeled pixel/matrix construct")
-	}
-	if !warningsMention(provenance.Warnings, "pixel/matrix") {
-		t.Fatalf("expected a warning naming the unmodeled pixel/matrix construct, got %+v", provenance.Warnings)
-	}
+	require.NoError(t, err, "Normalize failed for an out-of-v1-target-set (pixel/matrix) OFL fixture")
+	require.NotEmpty(t, def.Capabilities, "expected the fixture to still import with at least one mapped capability")
+	require.NotEmpty(t, provenance.Warnings, "expected at least one LossyImportWarning for the unmodeled pixel/matrix construct")
+	require.True(t, warningsMention(provenance.Warnings, "pixel/matrix"), "expected a warning naming the unmodeled pixel/matrix construct, got %+v", provenance.Warnings)
 }
 
 // TestNormalizeNoSilentDrop proves FIXT-06/D-06's strongest guarantee:
@@ -186,15 +152,10 @@ func TestNormalizeNoSilentDrop(t *testing.T) {
 	raw := readCorpusFile(t, "chauvet-dj_washfx.json")
 
 	_, provenance, err := ofl.Normalize(raw, "chauvet-dj/washfx")
-	if err != nil {
-		t.Fatalf("Normalize failed: %v", err)
-	}
+	require.NoError(t, err, "Normalize failed")
 
 	const wantWarnings = 25
-	if len(provenance.Warnings) != wantWarnings {
-		t.Fatalf("expected exactly %d warnings (every unmapped OFL construct accounted for), got %d: %+v",
-			wantWarnings, len(provenance.Warnings), provenance.Warnings)
-	}
+	require.Len(t, provenance.Warnings, wantWarnings, "expected exactly %d warnings (every unmapped OFL construct accounted for)", wantWarnings)
 
 	mustMention := []string{
 		"Auto Program",
@@ -205,9 +166,7 @@ func TestNormalizeNoSilentDrop(t *testing.T) {
 		"Blue $pixelKey",
 	}
 	for _, name := range mustMention {
-		if !warningsMention(provenance.Warnings, name) {
-			t.Fatalf("expected at least one warning naming unmapped construct %q, got %+v", name, provenance.Warnings)
-		}
+		require.True(t, warningsMention(provenance.Warnings, name), "expected at least one warning naming unmapped construct %q, got %+v", name, provenance.Warnings)
 	}
 }
 
@@ -227,15 +186,9 @@ func TestNormalizeCorpusFixturesAllImport(t *testing.T) {
 		t.Run(file, func(t *testing.T) {
 			raw := readCorpusFile(t, file)
 			def, provenance, err := ofl.Normalize(raw, source)
-			if err != nil {
-				t.Fatalf("Normalize(%s) failed: %v", file, err)
-			}
-			if len(def.Capabilities) == 0 {
-				t.Fatalf("Normalize(%s) produced zero capabilities", file)
-			}
-			if provenance.Warnings == nil {
-				t.Fatalf("Normalize(%s) produced a nil Warnings slice; must always be non-nil", file)
-			}
+			require.NoError(t, err, "Normalize(%s) failed", file)
+			require.NotEmpty(t, def.Capabilities, "Normalize(%s) produced zero capabilities", file)
+			require.NotNil(t, provenance.Warnings, "Normalize(%s) produced a nil Warnings slice; must always be non-nil", file)
 		})
 	}
 }
@@ -279,17 +232,12 @@ const pixelGroupModeOFL = `{
 
 func TestNormalizeResolvesPixelGroupModeChannels(t *testing.T) {
 	def, provenance, err := ofl.Normalize([]byte(pixelGroupModeOFL), "test-mfg/pixel-master")
-	if err != nil {
-		t.Fatalf("Normalize failed for a mode using OFL's own pixelGroup \"$pixelKey\"-substitution convention (\"Red Master\" etc.): %v", err)
-	}
+	require.NoError(t, err, "Normalize failed for a mode using OFL's own pixelGroup \"$pixelKey\"-substitution convention (\"Red Master\" etc.)")
 
-	if len(def.Modes) != 1 || len(def.Modes[0].Channels) != 3 {
-		t.Fatalf("expected the \"3-channel\" mode to resolve all 3 pixelGroup-substituted channels, got %+v", def.Modes)
-	}
+	require.Len(t, def.Modes, 1, "expected the \"3-channel\" mode to resolve all 3 pixelGroup-substituted channels, got %+v", def.Modes)
+	require.Len(t, def.Modes[0].Channels, 3, "expected the \"3-channel\" mode to resolve all 3 pixelGroup-substituted channels, got %+v", def.Modes)
 	for _, slot := range def.Modes[0].Channels {
-		if slot.Type != fixture.CapabilityColor {
-			t.Fatalf("expected every resolved channel slot to be CapabilityColor, got %+v", def.Modes[0].Channels)
-		}
+		require.Equal(t, fixture.CapabilityColor, slot.Type, "expected every resolved channel slot to be CapabilityColor, got %+v", def.Modes[0].Channels)
 	}
 
 	foundColor := false
@@ -298,14 +246,9 @@ func TestNormalizeResolvesPixelGroupModeChannels(t *testing.T) {
 			foundColor = true
 		}
 	}
-	if !foundColor {
-		t.Fatalf("expected the referenced \"Red/Green/Blue $pixelKey\" template channels to fold into a Color capability, got %+v", def.Capabilities)
-	}
+	require.True(t, foundColor, "expected the referenced \"Red/Green/Blue $pixelKey\" template channels to fold into a Color capability, got %+v", def.Capabilities)
 
-	if warningsMention(provenance.Warnings, "Red $pixelKey") || warningsMention(provenance.Warnings, "Green $pixelKey") || warningsMention(provenance.Warnings, "Blue $pixelKey") {
-		t.Fatalf("expected no unmodeled-construct warning for a template channel a mode actually references, got %+v", provenance.Warnings)
-	}
-	if !warningsMention(provenance.Warnings, "Amber $pixelKey") {
-		t.Fatalf("expected the unreferenced \"Amber $pixelKey\" template channel to still surface as an unmodeled-construct warning, got %+v", provenance.Warnings)
-	}
+	require.False(t, warningsMention(provenance.Warnings, "Red $pixelKey") || warningsMention(provenance.Warnings, "Green $pixelKey") || warningsMention(provenance.Warnings, "Blue $pixelKey"),
+		"expected no unmodeled-construct warning for a template channel a mode actually references, got %+v", provenance.Warnings)
+	require.True(t, warningsMention(provenance.Warnings, "Amber $pixelKey"), "expected the unreferenced \"Amber $pixelKey\" template channel to still surface as an unmodeled-construct warning, got %+v", provenance.Warnings)
 }

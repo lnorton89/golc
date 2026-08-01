@@ -13,8 +13,9 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/fixture/ofl"
 )
@@ -47,21 +48,14 @@ func TestFetchFixtureIndexParsesTree(t *testing.T) {
 	defer server.Close()
 
 	entries, err := ofl.FetchFixtureIndex(context.Background(), ofl.FixtureIndexRef{Mirror: server.URL, AllowMirror: true})
-	if err != nil {
-		t.Fatalf("FetchFixtureIndex: %v", err)
-	}
-	if len(entries) != 3 {
-		t.Fatalf("expected 3 fixture entries, got %d: %+v", len(entries), entries)
-	}
-	if entries[0].ManufacturerKey != "acme" || entries[0].FixtureKey != "spotlight-1000" {
-		t.Fatalf("expected the first entry sorted to acme/spotlight-1000, got %+v", entries[0])
-	}
-	if entries[1].ManufacturerKey != "chauvet-dj" || entries[1].FixtureKey != "colorband-pix" {
-		t.Fatalf("expected the second entry to be chauvet-dj/colorband-pix, got %+v", entries[1])
-	}
-	if entries[2].ManufacturerKey != "chauvet-dj" || entries[2].FixtureKey != "led-par-64-tri-b" {
-		t.Fatalf("expected the third entry to be chauvet-dj/led-par-64-tri-b, got %+v", entries[2])
-	}
+	require.NoError(t, err, "FetchFixtureIndex")
+	require.Len(t, entries, 3, "expected 3 fixture entries, got %+v", entries)
+	require.Equal(t, "acme", entries[0].ManufacturerKey, "expected the first entry sorted to acme/spotlight-1000, got %+v", entries[0])
+	require.Equal(t, "spotlight-1000", entries[0].FixtureKey, "expected the first entry sorted to acme/spotlight-1000, got %+v", entries[0])
+	require.Equal(t, "chauvet-dj", entries[1].ManufacturerKey, "expected the second entry to be chauvet-dj/colorband-pix, got %+v", entries[1])
+	require.Equal(t, "colorband-pix", entries[1].FixtureKey, "expected the second entry to be chauvet-dj/colorband-pix, got %+v", entries[1])
+	require.Equal(t, "chauvet-dj", entries[2].ManufacturerKey, "expected the third entry to be chauvet-dj/led-par-64-tri-b, got %+v", entries[2])
+	require.Equal(t, "led-par-64-tri-b", entries[2].FixtureKey, "expected the third entry to be chauvet-dj/led-par-64-tri-b, got %+v", entries[2])
 }
 
 // TestFetchFixtureIndexRejectsForeignHostWithoutOptIn proves a non-default
@@ -71,12 +65,7 @@ func TestFetchFixtureIndexParsesTree(t *testing.T) {
 func TestFetchFixtureIndexRejectsForeignHostWithoutOptIn(t *testing.T) {
 	ref := ofl.FixtureIndexRef{Mirror: "https://example.com", AllowMirror: false}
 	_, err := ofl.FetchFixtureIndex(context.Background(), ref)
-	if err == nil {
-		t.Fatal("expected FetchFixtureIndex to reject a non-default host without --allow-mirror")
-	}
-	if !strings.Contains(err.Error(), "GOLC_FIXTURE_OFL_MIRROR_HOST") {
-		t.Fatalf("expected GOLC_FIXTURE_OFL_MIRROR_HOST, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_FIXTURE_OFL_MIRROR_HOST", "expected FetchFixtureIndex to reject a non-default host without --allow-mirror")
 }
 
 // TestFetchFixtureIndexBoundsResponseSize proves the shared response-size
@@ -89,12 +78,7 @@ func TestFetchFixtureIndexBoundsResponseSize(t *testing.T) {
 	defer server.Close()
 
 	_, err := ofl.FetchFixtureIndex(context.Background(), ofl.FixtureIndexRef{Mirror: server.URL, AllowMirror: true})
-	if err == nil {
-		t.Fatal("expected FetchFixtureIndex to reject an oversized response")
-	}
-	if !strings.Contains(err.Error(), "GOLC_FIXTURE_OFL_TOO_LARGE") {
-		t.Fatalf("expected GOLC_FIXTURE_OFL_TOO_LARGE, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_FIXTURE_OFL_TOO_LARGE", "expected FetchFixtureIndex to reject an oversized response")
 }
 
 // TestFetchFixtureIndexFailureCarriesDiagnostic proves a fetch failure
@@ -106,12 +90,7 @@ func TestFetchFixtureIndexFailureCarriesDiagnostic(t *testing.T) {
 	defer server.Close()
 
 	_, err := ofl.FetchFixtureIndex(context.Background(), ofl.FixtureIndexRef{Mirror: server.URL, AllowMirror: true})
-	if err == nil {
-		t.Fatal("expected FetchFixtureIndex to fail against a 500 response")
-	}
-	if !strings.Contains(err.Error(), "GOLC_FIXTURE_OFL_INDEX_FETCH_FAILED") {
-		t.Fatalf("expected GOLC_FIXTURE_OFL_INDEX_FETCH_FAILED, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_FIXTURE_OFL_INDEX_FETCH_FAILED", "expected FetchFixtureIndex to fail against a 500 response")
 }
 
 // TestFilterFixtureIndexMatchesFixtureKeyOnlyCaseInsensitively proves
@@ -129,28 +108,17 @@ func TestFilterFixtureIndexMatchesFixtureKeyOnlyCaseInsensitively(t *testing.T) 
 	}
 
 	byKey := ofl.FilterFixtureIndex(all, "COLORBAND")
-	if len(byKey) != 1 || byKey[0].FixtureKey != "colorband-pix" {
-		t.Fatalf("expected a case-insensitive fixture-key match for %q, got %+v", "COLORBAND", byKey)
-	}
+	require.Len(t, byKey, 1, "expected a case-insensitive fixture-key match for %q, got %+v", "COLORBAND", byKey)
+	require.Equal(t, "colorband-pix", byKey[0].FixtureKey, "expected a case-insensitive fixture-key match for %q, got %+v", "COLORBAND", byKey)
 
 	byManufacturer := ofl.FilterFixtureIndex(all, "chauvet")
-	if len(byManufacturer) != 0 {
-		t.Fatalf("expected a manufacturer-only query to match zero fixture keys, got %+v", byManufacturer)
-	}
+	require.Empty(t, byManufacturer, "expected a manufacturer-only query to match zero fixture keys, got %+v", byManufacturer)
 
 	empty := ofl.FilterFixtureIndex(all, "")
-	if empty == nil {
-		t.Fatal("expected FilterFixtureIndex to return a non-nil slice for an empty query")
-	}
-	if len(empty) != 0 {
-		t.Fatalf("expected an empty query to return zero results, got %d: %+v", len(empty), empty)
-	}
+	require.NotNil(t, empty, "expected FilterFixtureIndex to return a non-nil slice for an empty query")
+	require.Empty(t, empty, "expected an empty query to return zero results, got %+v", empty)
 
 	noMatch := ofl.FilterFixtureIndex(all, "nonexistent")
-	if noMatch == nil {
-		t.Fatal("expected FilterFixtureIndex to return a non-nil slice for a query with no matches")
-	}
-	if len(noMatch) != 0 {
-		t.Fatalf("expected zero matches for a nonexistent query, got %d: %+v", len(noMatch), noMatch)
-	}
+	require.NotNil(t, noMatch, "expected FilterFixtureIndex to return a non-nil slice for a query with no matches")
+	require.Empty(t, noMatch, "expected zero matches for a nonexistent query, got %+v", noMatch)
 }

@@ -16,6 +16,8 @@ package fixture_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/fixture"
 )
 
@@ -96,85 +98,46 @@ capabilities:
 
 func TestIdentityHashStable(t *testing.T) {
 	def, err := fixture.Decode([]byte(identityRGBParYAML))
-	if err != nil {
-		t.Fatalf("Decode(identityRGBParYAML) failed: %v", err)
-	}
+	require.NoError(t, err, "Decode(identityRGBParYAML) failed")
 	first, err := fixture.Pin(def)
-	if err != nil {
-		t.Fatalf("Pin(def) failed: %v", err)
-	}
-	if first.ContentHash == "" {
-		t.Fatal("expected a non-empty ContentHash")
-	}
+	require.NoError(t, err, "Pin(def) failed")
+	require.NotEmpty(t, first.ContentHash, "expected a non-empty ContentHash")
 
 	// Re-read and re-pin the same bytes: identical hash.
 	redecoded, err := fixture.Decode([]byte(identityRGBParYAML))
-	if err != nil {
-		t.Fatalf("re-Decode(identityRGBParYAML) failed: %v", err)
-	}
+	require.NoError(t, err, "re-Decode(identityRGBParYAML) failed")
 	second, err := fixture.Pin(redecoded)
-	if err != nil {
-		t.Fatalf("re-Pin(def) failed: %v", err)
-	}
-	if first.ContentHash != second.ContentHash {
-		t.Fatalf("expected re-read/re-pin to reproduce the identical hash: %q != %q", first.ContentHash, second.ContentHash)
-	}
+	require.NoError(t, err, "re-Pin(def) failed")
+	require.Equal(t, second.ContentHash, first.ContentHash, "expected re-read/re-pin to reproduce the identical hash")
 
 	// A one-byte content change: different hash.
 	changed, err := fixture.Decode([]byte(identityRGBParYAMLOneByteChanged))
-	if err != nil {
-		t.Fatalf("Decode(identityRGBParYAMLOneByteChanged) failed: %v", err)
-	}
+	require.NoError(t, err, "Decode(identityRGBParYAMLOneByteChanged) failed")
 	changedIdentity, err := fixture.Pin(changed)
-	if err != nil {
-		t.Fatalf("Pin(changed) failed: %v", err)
-	}
-	if changedIdentity.ContentHash == first.ContentHash {
-		t.Fatalf("expected a one-byte content change to change ContentHash, both were %q", first.ContentHash)
-	}
+	require.NoError(t, err, "Pin(changed) failed")
+	require.NotEqual(t, first.ContentHash, changedIdentity.ContentHash, "expected a one-byte content change to change ContentHash")
 }
 
 func TestIdentityHashKeyOrderStable(t *testing.T) {
 	original, err := fixture.Decode([]byte(identityRGBParYAML))
-	if err != nil {
-		t.Fatalf("Decode(identityRGBParYAML) failed: %v", err)
-	}
+	require.NoError(t, err, "Decode(identityRGBParYAML) failed")
 	reordered, err := fixture.Decode([]byte(identityRGBParYAMLReorderedKeys))
-	if err != nil {
-		t.Fatalf("Decode(identityRGBParYAMLReorderedKeys) failed: %v", err)
-	}
+	require.NoError(t, err, "Decode(identityRGBParYAMLReorderedKeys) failed")
 
 	originalIdentity, err := fixture.Pin(original)
-	if err != nil {
-		t.Fatalf("Pin(original) failed: %v", err)
-	}
+	require.NoError(t, err, "Pin(original) failed")
 	reorderedIdentity, err := fixture.Pin(reordered)
-	if err != nil {
-		t.Fatalf("Pin(reordered) failed: %v", err)
-	}
+	require.NoError(t, err, "Pin(reordered) failed")
 
-	if originalIdentity.ContentHash != reorderedIdentity.ContentHash {
-		t.Fatalf("expected key-order-equal fixtures to pin to the identical hash: %q != %q",
-			originalIdentity.ContentHash, reorderedIdentity.ContentHash)
-	}
+	require.Equal(t, reorderedIdentity.ContentHash, originalIdentity.ContentHash, "expected key-order-equal fixtures to pin to the identical hash")
 }
 
 func TestIdentityComplete(t *testing.T) {
 	def, err := fixture.Decode([]byte(identityMinimalYAML))
-	if err != nil {
-		t.Fatalf("Decode(identityMinimalYAML) failed: %v", err)
-	}
+	require.NoError(t, err, "Decode(identityMinimalYAML) failed")
 	identity, err := fixture.Pin(def)
-	if err != nil {
-		t.Fatalf("Pin(minimal def) failed: %v", err)
-	}
-	if identity.ContentHash == "" {
-		t.Fatal("expected a non-empty ContentHash for a minimal fixture with no optional metadata")
-	}
-	if identity.SchemaVersion == 0 {
-		t.Fatal("expected a non-zero SchemaVersion for a minimal fixture")
-	}
-	if identity.Revision == "" {
-		t.Fatal("expected a non-empty Revision for a minimal fixture")
-	}
+	require.NoError(t, err, "Pin(minimal def) failed")
+	require.NotEmpty(t, identity.ContentHash, "expected a non-empty ContentHash for a minimal fixture with no optional metadata")
+	require.NotZero(t, identity.SchemaVersion, "expected a non-zero SchemaVersion for a minimal fixture")
+	require.NotEmpty(t, identity.Revision, "expected a non-empty Revision for a minimal fixture")
 }

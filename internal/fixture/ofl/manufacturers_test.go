@@ -12,8 +12,9 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/fixture/ofl"
 )
@@ -35,18 +36,11 @@ func TestFetchManufacturersParsesIndex(t *testing.T) {
 	defer server.Close()
 
 	manufacturers, err := ofl.FetchManufacturers(context.Background(), ofl.ManufacturerIndexRef{Mirror: server.URL, AllowMirror: true})
-	if err != nil {
-		t.Fatalf("FetchManufacturers: %v", err)
-	}
-	if len(manufacturers) != 2 {
-		t.Fatalf("expected 2 real manufacturer entries (excluding $schema), got %d: %+v", len(manufacturers), manufacturers)
-	}
-	if manufacturers[0].Name != "Acme Lighting" || manufacturers[1].Name != "Chauvet DJ" {
-		t.Fatalf("expected manufacturers sorted ascending by name, got %q then %q", manufacturers[0].Name, manufacturers[1].Name)
-	}
-	if manufacturers[0].Key != "acme" {
-		t.Fatalf("expected first manufacturer key %q, got %q", "acme", manufacturers[0].Key)
-	}
+	require.NoError(t, err, "FetchManufacturers")
+	require.Len(t, manufacturers, 2, "expected 2 real manufacturer entries (excluding $schema), got %+v", manufacturers)
+	require.Equal(t, "Acme Lighting", manufacturers[0].Name, "expected manufacturers sorted ascending by name, got %q then %q", manufacturers[0].Name, manufacturers[1].Name)
+	require.Equal(t, "Chauvet DJ", manufacturers[1].Name, "expected manufacturers sorted ascending by name, got %q then %q", manufacturers[0].Name, manufacturers[1].Name)
+	require.Equal(t, "acme", manufacturers[0].Key, "expected first manufacturer key %q, got %q", "acme", manufacturers[0].Key)
 }
 
 // TestFetchManufacturersRejectsForeignHostWithoutOptIn proves a non-default
@@ -57,12 +51,7 @@ func TestFetchManufacturersParsesIndex(t *testing.T) {
 func TestFetchManufacturersRejectsForeignHostWithoutOptIn(t *testing.T) {
 	ref := ofl.ManufacturerIndexRef{Mirror: "https://example.com", AllowMirror: false}
 	_, err := ofl.FetchManufacturers(context.Background(), ref)
-	if err == nil {
-		t.Fatal("expected FetchManufacturers to reject a non-default host without --allow-mirror")
-	}
-	if !strings.Contains(err.Error(), "GOLC_FIXTURE_OFL_MIRROR_HOST") {
-		t.Fatalf("expected GOLC_FIXTURE_OFL_MIRROR_HOST, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_FIXTURE_OFL_MIRROR_HOST", "expected FetchManufacturers to reject a non-default host without --allow-mirror")
 }
 
 // TestFetchManufacturersBoundsResponseSize proves the response-size cap
@@ -76,12 +65,7 @@ func TestFetchManufacturersBoundsResponseSize(t *testing.T) {
 	defer server.Close()
 
 	_, err := ofl.FetchManufacturers(context.Background(), ofl.ManufacturerIndexRef{Mirror: server.URL, AllowMirror: true})
-	if err == nil {
-		t.Fatal("expected FetchManufacturers to reject an oversized response")
-	}
-	if !strings.Contains(err.Error(), "GOLC_FIXTURE_OFL_TOO_LARGE") {
-		t.Fatalf("expected GOLC_FIXTURE_OFL_TOO_LARGE, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_FIXTURE_OFL_TOO_LARGE", "expected FetchManufacturers to reject an oversized response")
 }
 
 // TestFetchManufacturersFailureCarriesDiagnostic proves a fetch failure
@@ -93,12 +77,7 @@ func TestFetchManufacturersFailureCarriesDiagnostic(t *testing.T) {
 	defer server.Close()
 
 	_, err := ofl.FetchManufacturers(context.Background(), ofl.ManufacturerIndexRef{Mirror: server.URL, AllowMirror: true})
-	if err == nil {
-		t.Fatal("expected FetchManufacturers to fail against a 500 response")
-	}
-	if !strings.Contains(err.Error(), "GOLC_FIXTURE_OFL_MANUFACTURERS_FETCH_FAILED") {
-		t.Fatalf("expected GOLC_FIXTURE_OFL_MANUFACTURERS_FETCH_FAILED, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_FIXTURE_OFL_MANUFACTURERS_FETCH_FAILED", "expected FetchManufacturers to fail against a 500 response")
 }
 
 // TestFilterManufacturersMatchesNameAndKeyCaseInsensitively proves
@@ -113,36 +92,22 @@ func TestFilterManufacturersMatchesNameAndKeyCaseInsensitively(t *testing.T) {
 	}
 
 	byName := ofl.FilterManufacturers(all, "chauvet")
-	if len(byName) != 1 || byName[0].Key != "chauvet-dj" {
-		t.Fatalf("expected a case-insensitive name match for %q, got %+v", "chauvet", byName)
-	}
+	require.Len(t, byName, 1, "expected a case-insensitive name match for %q, got %+v", "chauvet", byName)
+	require.Equal(t, "chauvet-dj", byName[0].Key, "expected a case-insensitive name match for %q, got %+v", "chauvet", byName)
 
 	byKey := ofl.FilterManufacturers(all, "ADJ")
-	if len(byKey) != 1 || byKey[0].Key != "adj" {
-		t.Fatalf("expected a case-insensitive key match for %q, got %+v", "ADJ", byKey)
-	}
+	require.Len(t, byKey, 1, "expected a case-insensitive key match for %q, got %+v", "ADJ", byKey)
+	require.Equal(t, "adj", byKey[0].Key, "expected a case-insensitive key match for %q, got %+v", "ADJ", byKey)
 
 	empty := ofl.FilterManufacturers(all, "")
-	if empty == nil {
-		t.Fatal("expected FilterManufacturers to return a non-nil slice for an empty query")
-	}
-	if len(empty) != 0 {
-		t.Fatalf("expected an empty query to return zero results, got %d: %+v", len(empty), empty)
-	}
+	require.NotNil(t, empty, "expected FilterManufacturers to return a non-nil slice for an empty query")
+	require.Empty(t, empty, "expected an empty query to return zero results, got %+v", empty)
 
 	whitespaceOnly := ofl.FilterManufacturers(all, "   ")
-	if whitespaceOnly == nil {
-		t.Fatal("expected FilterManufacturers to return a non-nil slice for a whitespace-only query")
-	}
-	if len(whitespaceOnly) != 0 {
-		t.Fatalf("expected a whitespace-only query to return zero results, got %d: %+v", len(whitespaceOnly), whitespaceOnly)
-	}
+	require.NotNil(t, whitespaceOnly, "expected FilterManufacturers to return a non-nil slice for a whitespace-only query")
+	require.Empty(t, whitespaceOnly, "expected a whitespace-only query to return zero results, got %+v", whitespaceOnly)
 
 	noMatch := ofl.FilterManufacturers(all, "nonexistent")
-	if noMatch == nil {
-		t.Fatal("expected FilterManufacturers to return a non-nil slice for a query with no matches")
-	}
-	if len(noMatch) != 0 {
-		t.Fatalf("expected zero matches for a nonexistent query, got %d: %+v", len(noMatch), noMatch)
-	}
+	require.NotNil(t, noMatch, "expected FilterManufacturers to return a non-nil slice for a query with no matches")
+	require.Empty(t, noMatch, "expected zero matches for a nonexistent query, got %+v", noMatch)
 }

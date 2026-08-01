@@ -12,6 +12,8 @@ package fixture_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/fixture"
 )
 
@@ -34,32 +36,18 @@ capabilities:
 
 func TestProvenance(t *testing.T) {
 	def, err := fixture.Decode([]byte(provenanceRGBParYAML))
-	if err != nil {
-		t.Fatalf("Decode(provenanceRGBParYAML) failed: %v", err)
-	}
+	require.NoError(t, err, "Decode(provenanceRGBParYAML) failed")
 	identity, err := fixture.Pin(def)
-	if err != nil {
-		t.Fatalf("Pin(def) failed: %v", err)
-	}
+	require.NoError(t, err, "Pin(def) failed")
 
 	const source = "internal/fixture/testdata/rgb-par.yaml"
 	provenance := fixture.NewProvenance(def, identity, source)
 
-	if provenance.Source != source {
-		t.Fatalf("expected Source %q, got %q", source, provenance.Source)
-	}
-	if provenance.SchemaVersion != identity.SchemaVersion {
-		t.Fatalf("expected SchemaVersion %d, got %d", identity.SchemaVersion, provenance.SchemaVersion)
-	}
-	if provenance.ContentHash != identity.ContentHash {
-		t.Fatalf("expected ContentHash %q, got %q", identity.ContentHash, provenance.ContentHash)
-	}
-	if provenance.ValidationResult != "valid" {
-		t.Fatalf(`expected ValidationResult "valid", got %q`, provenance.ValidationResult)
-	}
-	if len(provenance.Warnings) != 0 {
-		t.Fatalf("expected an initially empty Warnings list, got %+v", provenance.Warnings)
-	}
+	require.Equal(t, source, provenance.Source, "expected Source %q, got %q", source, provenance.Source)
+	require.Equal(t, identity.SchemaVersion, provenance.SchemaVersion, "expected SchemaVersion %d, got %d", identity.SchemaVersion, provenance.SchemaVersion)
+	require.Equal(t, identity.ContentHash, provenance.ContentHash, "expected ContentHash %q, got %q", identity.ContentHash, provenance.ContentHash)
+	require.Equal(t, "valid", provenance.ValidationResult, `expected ValidationResult "valid", got %q`, provenance.ValidationResult)
+	require.Empty(t, provenance.Warnings, "expected an initially empty Warnings list, got %+v", provenance.Warnings)
 
 	// A Provenance carrying a LossyImportWarning surfaces it distinctly,
 	// independent of whether the source was hand-authored or imported.
@@ -71,14 +59,10 @@ func TestProvenance(t *testing.T) {
 			Detail:         "OFL capability had no direct GOLC equivalent; approximated to color",
 		},
 	}
-	if len(withWarning.Warnings) != 1 {
-		t.Fatalf("expected exactly one warning, got %d", len(withWarning.Warnings))
-	}
+	require.Len(t, withWarning.Warnings, 1, "expected exactly one warning, got %d", len(withWarning.Warnings))
 	warning := withWarning.Warnings[0]
-	if warning.Severity != "warning" || warning.CapabilityType != string(fixture.CapabilityColor) || warning.Detail == "" {
-		t.Fatalf("expected a distinct, fully-populated warning, got %+v", warning)
-	}
-	if len(provenance.Warnings) != 0 {
-		t.Fatal("expected the original provenance's Warnings to remain untouched (copy, not alias)")
-	}
+	require.Equal(t, "warning", warning.Severity, "expected a distinct, fully-populated warning, got %+v", warning)
+	require.Equal(t, string(fixture.CapabilityColor), warning.CapabilityType, "expected a distinct, fully-populated warning, got %+v", warning)
+	require.NotEmpty(t, warning.Detail, "expected a distinct, fully-populated warning, got %+v", warning)
+	require.Empty(t, provenance.Warnings, "expected the original provenance's Warnings to remain untouched (copy, not alias)")
 }
