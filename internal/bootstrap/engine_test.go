@@ -12,6 +12,9 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type engineFakeSource struct {
@@ -124,9 +127,7 @@ func cloneEngineTestMap(source map[string]string) map[string]string {
 func platformToolArchive(t *testing.T, root, tool, version string) (path string, digest string, archiveRoot string) {
 	t.Helper()
 	layout, err := platformArchiveLayout(tool, version, runtime.GOOS, runtime.GOARCH)
-	if err != nil {
-		t.Fatalf("platformArchiveLayout: %v", err)
-	}
+	require.NoError(t, err, "platformArchiveLayout")
 	archiveRoot = layout.Root
 	switch layout.Format {
 	case ".zip":
@@ -140,7 +141,7 @@ func platformToolArchive(t *testing.T, root, tool, version string) (path string,
 		})
 		return returnPath, returnDigest, archiveRoot
 	default:
-		t.Fatalf("unsupported test archive format %q", layout.Format)
+		require.Fail(t, fmt.Sprintf("unsupported test archive format %q", layout.Format))
 		return "", "", ""
 	}
 }
@@ -161,12 +162,8 @@ func writeEngineRepository(t *testing.T) (root string, source *engineFakeSource,
 	if resolved, err := filepath.EvalSymlinks(root); err == nil {
 		root = resolved
 	}
-	if err := os.MkdirAll(filepath.Join(root, "config"), 0o755); err != nil {
-		t.Fatalf("mkdir config: %v", err)
-	}
-	if err := os.MkdirAll(filepath.Join(root, "cmd", "golc-project"), 0o755); err != nil {
-		t.Fatalf("mkdir command: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "config"), 0o755), "mkdir config")
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "cmd", "golc-project"), 0o755), "mkdir command")
 	goArchive, goDigest, _ := platformToolArchive(t, root, "go", "1.26.5")
 	mageArchive, mageDigest, _ := platformToolArchive(t, root, "mage", "1.17.2")
 	fixtureArchive, fixtureDigest := buildZipEntries(t, root, "fixture.zip", []testArchiveEntry{
@@ -179,9 +176,7 @@ func writeEngineRepository(t *testing.T) (root string, source *engineFakeSource,
 	// at all), so every test using this helper needs a working Node pin
 	// and archive, whether or not it cares about Linear-sync specifically.
 	nodeLayout, err := platformArchiveLayout("node", "24.18.0", runtime.GOOS, runtime.GOARCH)
-	if err != nil {
-		t.Fatalf("node layout: %v", err)
-	}
+	require.NoError(t, err, "node layout")
 	nodeEntries := []testArchiveEntry{
 		{Name: filepath.ToSlash(filepath.Join("verified-node-payload", nodeLayout.Executable)), Body: "node\n", Mode: 0o755},
 		{Name: filepath.ToSlash(filepath.Join("verified-node-payload", nodeLayout.NPMCLI)), Body: "npm\n", Mode: 0o644},
@@ -254,26 +249,16 @@ archive_sha256 = %q
 version = "v1.0.7"
 module = "gitlab.com/gomidi/tools/midicat"
 `, fixtureURL, fixtureDigest, PlatformKey(), goURL, goDigest, PlatformKey(), mageURL, mageDigest, PlatformKey(), nodeURL, nodeDigest, PlatformKey(), denoURL, denoDigest)
-	if err := os.WriteFile(filepath.Join(root, "config", "toolchain.toml"), []byte(manifest), 0o644); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.invalid/test\n\ngo 1.26.5\n"), 0o644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "go.sum"), []byte("sum\n"), 0o644); err != nil {
-		t.Fatalf("write go.sum: %v", err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(root, "config", "toolchain.toml"), []byte(manifest), 0o644), "write manifest")
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.invalid/test\n\ngo 1.26.5\n"), 0o644), "write go.mod")
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.sum"), []byte("sum\n"), 0o644), "write go.sum")
 	frontendDir := filepath.Join(root, "frontend")
-	if err := os.MkdirAll(frontendDir, 0o755); err != nil {
-		t.Fatalf("mkdir frontend: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(frontendDir, 0o755), "mkdir frontend")
 	for name, body := range map[string]string{
 		"package.json":      `{"name":"fixture-frontend","scripts":{"build":"true"}}` + "\n",
 		"package-lock.json": `{"lockfileVersion":3,"packages":{}}` + "\n",
 	} {
-		if err := os.WriteFile(filepath.Join(frontendDir, name), []byte(body), 0o644); err != nil {
-			t.Fatalf("write frontend/%s: %v", name, err)
-		}
+		require.NoError(t, os.WriteFile(filepath.Join(frontendDir, name), []byte(body), 0o644), "write frontend/%s", name)
 	}
 	goBytes, _ := os.ReadFile(goArchive)
 	mageBytes, _ := os.ReadFile(mageArchive)
@@ -315,12 +300,8 @@ func TestScopeBootstrapEngine(t *testing.T) {
 				},
 			}
 			pin, err := selectPlatformPinFor(testCase.tool, parent, testCase.goos, testCase.goarch)
-			if err != nil {
-				t.Fatalf("%s/%s-%s: %v", testCase.tool, testCase.goos, testCase.goarch, err)
-			}
-			if pin.ArchiveURL != testCase.url || pin.ArchiveSHA256 != testCase.sha {
-				t.Fatalf("%s/%s-%s selected %+v", testCase.tool, testCase.goos, testCase.goarch, pin)
-			}
+			require.NoError(t, err, "%s/%s-%s", testCase.tool, testCase.goos, testCase.goarch)
+			require.True(t, pin.ArchiveURL == testCase.url && pin.ArchiveSHA256 == testCase.sha, "%s/%s-%s selected %+v", testCase.tool, testCase.goos, testCase.goarch, pin)
 		}
 	})
 
@@ -331,18 +312,15 @@ func TestScopeBootstrapEngine(t *testing.T) {
 				"linux-arm64": {ArchiveURL: "https://go.dev/dl/go1.26.5.linux-amd64.tar.gz", ArchiveSHA256: strings.Repeat("a", 64)},
 			},
 		}
-		if _, err := selectPlatformPinFor("go", parent, "darwin", "arm64"); err == nil {
-			t.Fatal("missing explicit platform unexpectedly selected")
-		}
-		if _, err := selectPlatformPinFor("go", parent, "linux", "arm64"); err == nil || !strings.Contains(err.Error(), "GOLC_BOOTSTRAP_PLATFORM_MISMATCH") {
-			t.Fatalf("expected platform mismatch, got %v", err)
-		}
+		_, err := selectPlatformPinFor("go", parent, "darwin", "arm64")
+		require.Error(t, err, "missing explicit platform unexpectedly selected")
+		_, err = selectPlatformPinFor("go", parent, "linux", "arm64")
+		require.ErrorContains(t, err, "GOLC_BOOTSTRAP_PLATFORM_MISMATCH", "expected platform mismatch")
 	})
 
 	t.Run("PlatformKey and pure platform layouts are exact", func(t *testing.T) {
-		if got, want := PlatformKey(), runtime.GOOS+"-"+runtime.GOARCH; got != want {
-			t.Fatalf("PlatformKey() = %q, want %q", got, want)
-		}
+		got, want := PlatformKey(), runtime.GOOS+"-"+runtime.GOARCH
+		require.Equal(t, want, got, "PlatformKey()")
 		cases := []struct {
 			tool, version, goos, goarch string
 			file, root, executable      string
@@ -366,51 +344,35 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		}
 		for _, testCase := range cases {
 			layout, err := platformArchiveLayout(testCase.tool, testCase.version, testCase.goos, testCase.goarch)
-			if err != nil {
-				t.Fatalf("%s/%s: %v", testCase.goos, testCase.tool, err)
-			}
-			if layout.FileName != testCase.file || layout.Root != testCase.root || layout.Executable != testCase.executable {
-				t.Fatalf("%s/%s: got %+v", testCase.goos, testCase.tool, layout)
-			}
+			require.NoError(t, err, "%s/%s", testCase.goos, testCase.tool)
+			require.True(t, layout.FileName == testCase.file && layout.Root == testCase.root && layout.Executable == testCase.executable, "%s/%s: got %+v", testCase.goos, testCase.tool, layout)
 		}
-		if got, want := ExecutableName("golc-project"), "golc-project"+map[bool]string{true: ".exe"}[runtime.GOOS == "windows"]; got != want {
-			t.Fatalf("ExecutableName(golc-project) = %q, want %q", got, want)
-		}
+		gotExecutable, wantExecutable := ExecutableName("golc-project"), "golc-project"+map[bool]string{true: ".exe"}[runtime.GOOS == "windows"]
+		require.Equal(t, wantExecutable, gotExecutable, "ExecutableName(golc-project)")
 		for _, unsafe := range []string{"", ".", "..", "bin/golc-project", `bin\golc-project`} {
-			if got := ExecutableName(unsafe); got != "" {
-				t.Fatalf("ExecutableName(%q) = %q, want rejection", unsafe, got)
-			}
+			got := ExecutableName(unsafe)
+			require.Empty(t, got, "ExecutableName(%q) want rejection", unsafe)
 		}
 		installRoot := filepath.Join("repo", ".tools", "installs", "golc_project")
-		if got, want := PlatformExecutablePath(installRoot, "golc-project"), filepath.Join(installRoot, PlatformKey(), "bin", ExecutableName("golc-project")); got != want {
-			t.Fatalf("PlatformExecutablePath() = %q, want %q", got, want)
-		}
-		if got := PlatformExecutablePath(installRoot, "../golc-project"); got != "" {
-			t.Fatalf("PlatformExecutablePath accepted unsafe base: %q", got)
-		}
+		gotPath, wantPath := PlatformExecutablePath(installRoot, "golc-project"), filepath.Join(installRoot, PlatformKey(), "bin", ExecutableName("golc-project"))
+		require.Equal(t, wantPath, gotPath, "PlatformExecutablePath()")
+		unsafePath := PlatformExecutablePath(installRoot, "../golc-project")
+		require.Empty(t, unsafePath, "PlatformExecutablePath accepted unsafe base")
 	})
 
 	t.Run("Node installation is discovered by verified filesystem shape", func(t *testing.T) {
 		writeNodePayload := func(t *testing.T, installDir, rootName string) NodeInstallation {
 			t.Helper()
 			layout, err := platformArchiveLayout("node", "24.18.0", runtime.GOOS, runtime.GOARCH)
-			if err != nil {
-				t.Fatalf("node layout: %v", err)
-			}
+			require.NoError(t, err, "node layout")
 			root := filepath.Join(installDir, rootName)
 			executable := filepath.Join(root, layout.Executable)
 			npmCLI := filepath.Join(root, layout.NPMCLI)
 			for _, path := range []string{executable, npmCLI} {
-				if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-					t.Fatalf("mkdir %s: %v", path, err)
-				}
-				if err := os.WriteFile(path, []byte("fixture\n"), 0o755); err != nil {
-					t.Fatalf("write %s: %v", path, err)
-				}
+				require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755), "mkdir %s", path)
+				require.NoError(t, os.WriteFile(path, []byte("fixture\n"), 0o755), "write %s", path)
 			}
-			if err := os.WriteFile(filepath.Join(installDir, ManifestName), []byte("{}\n"), 0o644); err != nil {
-				t.Fatalf("write install manifest: %v", err)
-			}
+			require.NoError(t, os.WriteFile(filepath.Join(installDir, ManifestName), []byte("{}\n"), 0o644), "write install manifest")
 			return NodeInstallation{Root: root, Executable: executable, NPMCLI: npmCLI}
 		}
 
@@ -418,12 +380,8 @@ func TestScopeBootstrapEngine(t *testing.T) {
 			installDir := t.TempDir()
 			want := writeNodePayload(t, installDir, "verified-payload-with-arbitrary-name")
 			got, err := ResolveNodeInstallation(installDir)
-			if err != nil {
-				t.Fatalf("ResolveNodeInstallation: %v", err)
-			}
-			if got != want {
-				t.Fatalf("ResolveNodeInstallation = %+v, want %+v", got, want)
-			}
+			require.NoError(t, err, "ResolveNodeInstallation")
+			require.Equal(t, want, got, "ResolveNodeInstallation")
 		})
 
 		tests := []struct {
@@ -431,33 +389,23 @@ func TestScopeBootstrapEngine(t *testing.T) {
 			setup func(*testing.T, string)
 		}{
 			{"zero directories", func(t *testing.T, installDir string) {
-				if err := os.WriteFile(filepath.Join(installDir, ManifestName), []byte("{}\n"), 0o644); err != nil {
-					t.Fatal(err)
-				}
+				require.NoError(t, os.WriteFile(filepath.Join(installDir, ManifestName), []byte("{}\n"), 0o644))
 			}},
 			{"multiple directories", func(t *testing.T, installDir string) {
 				writeNodePayload(t, installDir, "one")
-				if err := os.MkdirAll(filepath.Join(installDir, "two"), 0o755); err != nil {
-					t.Fatal(err)
-				}
+				require.NoError(t, os.MkdirAll(filepath.Join(installDir, "two"), 0o755))
 			}},
 			{"unexpected top-level file", func(t *testing.T, installDir string) {
 				writeNodePayload(t, installDir, "payload")
-				if err := os.WriteFile(filepath.Join(installDir, "unexpected.txt"), []byte("no\n"), 0o644); err != nil {
-					t.Fatal(err)
-				}
+				require.NoError(t, os.WriteFile(filepath.Join(installDir, "unexpected.txt"), []byte("no\n"), 0o644))
 			}},
 			{"missing node executable", func(t *testing.T, installDir string) {
 				want := writeNodePayload(t, installDir, "payload")
-				if err := os.Remove(want.Executable); err != nil {
-					t.Fatal(err)
-				}
+				require.NoError(t, os.Remove(want.Executable))
 			}},
 			{"missing npm cli", func(t *testing.T, installDir string) {
 				want := writeNodePayload(t, installDir, "payload")
-				if err := os.Remove(want.NPMCLI); err != nil {
-					t.Fatal(err)
-				}
+				require.NoError(t, os.Remove(want.NPMCLI))
 			}},
 		}
 		for _, testCase := range tests {
@@ -465,60 +413,42 @@ func TestScopeBootstrapEngine(t *testing.T) {
 				installDir := t.TempDir()
 				testCase.setup(t, installDir)
 				_, err := ResolveNodeInstallation(installDir)
-				if err == nil || !strings.Contains(err.Error(), "GOLC_NODE_TOOLCHAIN_MISSING") {
-					t.Fatalf("expected stable Node diagnostic, got %v", err)
-				}
+				require.ErrorContains(t, err, "GOLC_NODE_TOOLCHAIN_MISSING", "expected stable Node diagnostic")
 			})
 		}
 
 		t.Run("rejects top-level symlink", func(t *testing.T) {
 			installDir := t.TempDir()
 			target := filepath.Join(t.TempDir(), "payload")
-			if err := os.MkdirAll(target, 0o755); err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, os.MkdirAll(target, 0o755))
 			if err := os.Symlink(target, filepath.Join(installDir, "payload-link")); err != nil {
 				t.Skipf("symlink creation unavailable: %v", err)
 			}
-			if err := os.WriteFile(filepath.Join(installDir, ManifestName), []byte("{}\n"), 0o644); err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, os.WriteFile(filepath.Join(installDir, ManifestName), []byte("{}\n"), 0o644))
 			_, err := ResolveNodeInstallation(installDir)
-			if err == nil || !strings.Contains(err.Error(), "GOLC_NODE_TOOLCHAIN_MISSING") {
-				t.Fatalf("expected stable Node diagnostic, got %v", err)
-			}
+			require.ErrorContains(t, err, "GOLC_NODE_TOOLCHAIN_MISSING", "expected stable Node diagnostic")
 		})
 	})
 
 	t.Run("production manifest configures exact platform authorities", func(t *testing.T) {
 		root := filepath.Join("..", "..")
 		document, _, err := readBootstrapManifest(root)
-		if err != nil {
-			t.Fatalf("read production manifest: %v", err)
-		}
+		require.NoError(t, err, "read production manifest")
 		wantPlatforms := []string{"windows-amd64", "linux-amd64", "linux-arm64", "darwin-amd64", "darwin-arm64"}
 		for _, tool := range []string{"go", "node", "deno"} {
 			parent, ok := document.Toolchain[tool]
-			if !ok {
-				t.Fatalf("production manifest missing toolchain.%s", tool)
-			}
-			if len(parent.Platforms) != len(wantPlatforms) {
-				t.Fatalf("toolchain.%s platforms = %v, want %v", tool, parent.Platforms, wantPlatforms)
-			}
+			require.True(t, ok, "production manifest missing toolchain.%s", tool)
+			require.Len(t, parent.Platforms, len(wantPlatforms), "toolchain.%s platforms = %v, want %v", tool, parent.Platforms, wantPlatforms)
 			for _, platform := range wantPlatforms {
-				if _, ok := parent.Platforms[platform]; !ok {
-					t.Errorf("toolchain.%s missing %s", tool, platform)
-				}
+				_, ok := parent.Platforms[platform]
+				assert.True(t, ok, "toolchain.%s missing %s", tool, platform)
 			}
 		}
 		mage := document.Toolchain["mage"]
-		if len(mage.Platforms) != len(wantPlatforms) {
-			t.Fatalf("toolchain.mage platforms = %v, want %v", mage.Platforms, wantPlatforms)
-		}
+		require.Len(t, mage.Platforms, len(wantPlatforms), "toolchain.mage platforms = %v, want %v", mage.Platforms, wantPlatforms)
 		for _, platform := range wantPlatforms {
-			if _, ok := mage.Platforms[platform]; !ok {
-				t.Errorf("toolchain.mage missing %s", platform)
-			}
+			_, ok := mage.Platforms[platform]
+			assert.True(t, ok, "toolchain.mage missing %s", platform)
 		}
 	})
 
@@ -530,12 +460,8 @@ func TestScopeBootstrapEngine(t *testing.T) {
 			"github.com/invopop/jsonschema v0.14.0",
 		}, "\n") + "\n"}
 		dependencies := bootstrapDependencies{Source: source, Runner: runner}
-		if err := runBootstrap(context.Background(), root, Options{}, dependencies); err != nil {
-			t.Fatalf("runBootstrap: %v", err)
-		}
-		if len(source.calls) != 5 {
-			t.Fatalf("source calls = %v, want generic tool plus Mage plus Go plus Deno plus Node", source.calls)
-		}
+		require.NoError(t, runBootstrap(context.Background(), root, Options{}, dependencies), "runBootstrap")
+		require.Len(t, source.calls, 5, "source calls = %v, want generic tool plus Mage plus Go plus Deno plus Node", source.calls)
 		wantArgs := [][]string{
 			{"mod", "download", "all"},
 			{"mod", "verify"},
@@ -547,91 +473,57 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		// build (unconditional now: cmd/golc-desktop's //go:embed
 		// all:frontend/dist needs frontend/dist to exist on every
 		// bootstrap, not only Linear-sync-enabled ones).
-		if len(runner.calls) != 8 {
-			t.Fatalf("process calls = %d, want 8: %+v", len(runner.calls), runner.calls)
-		}
+		require.Len(t, runner.calls, 8, "process calls, want 8: %+v", runner.calls)
 		for index, args := range wantArgs {
-			if got := strings.Join(runner.calls[index].args, "\x00"); got != strings.Join(args, "\x00") {
-				t.Fatalf("call %d args = %v, want %v", index, runner.calls[index].args, args)
-			}
+			got := strings.Join(runner.calls[index].args, "\x00")
+			require.Equal(t, strings.Join(args, "\x00"), got, "call %d args = %v, want %v", index, runner.calls[index].args, args)
 		}
 		build := runner.calls[4]
-		if len(build.args) != 5 || strings.Join(build.args[:3], " ") != "build -trimpath -o" || build.args[4] != "./cmd/golc-project" {
-			t.Fatalf("unexpected build args: %v", build.args)
-		}
+		require.True(t, len(build.args) == 5 && strings.Join(build.args[:3], " ") == "build -trimpath -o" && build.args[4] == "./cmd/golc-project", "unexpected build args: %v", build.args)
 		goInstall := runner.calls[5]
-		if len(goInstall.args) != 2 || goInstall.args[0] != "install" || goInstall.args[1] != "gitlab.com/gomidi/tools/midicat@v1.0.7" || goInstall.dir != root {
-			t.Fatalf("unexpected go_install call: %+v", goInstall)
-		}
+		require.True(t, len(goInstall.args) == 2 && goInstall.args[0] == "install" && goInstall.args[1] == "gitlab.com/gomidi/tools/midicat@v1.0.7" && goInstall.dir == root, "unexpected go_install call: %+v", goInstall)
 		midicatExecutable := filepath.Join(root, ".tools", "cache", "go-bin", ExecutableName("midicat"))
-		if info, err := os.Stat(midicatExecutable); err != nil || !info.Mode().IsRegular() {
-			t.Fatalf("expected midicat to be installed at %s: %v", midicatExecutable, err)
-		}
+		info, err := os.Stat(midicatExecutable)
+		require.NoError(t, err, "expected midicat to be installed at %s", midicatExecutable)
+		require.True(t, info.Mode().IsRegular(), "expected midicat to be a regular file at %s", midicatExecutable)
 		frontendDir := filepath.Join(root, "frontend")
 		npmCI := runner.calls[6]
-		if len(npmCI.args) != 4 || strings.Join(npmCI.args[1:], " ") != "ci --no-audit --no-fund" || npmCI.dir != frontendDir {
-			t.Fatalf("unexpected frontend npm ci call: %+v", npmCI)
-		}
+		require.True(t, len(npmCI.args) == 4 && strings.Join(npmCI.args[1:], " ") == "ci --no-audit --no-fund" && npmCI.dir == frontendDir, "unexpected frontend npm ci call: %+v", npmCI)
 		npmBuild := runner.calls[7]
-		if len(npmBuild.args) != 3 || strings.Join(npmBuild.args[1:], " ") != "run build" || npmBuild.dir != frontendDir {
-			t.Fatalf("unexpected frontend npm run build call: %+v", npmBuild)
-		}
+		require.True(t, len(npmBuild.args) == 3 && strings.Join(npmBuild.args[1:], " ") == "run build" && npmBuild.dir == frontendDir, "unexpected frontend npm run build call: %+v", npmBuild)
 		for index, call := range runner.calls {
 			wantDir := root
 			if index >= 6 {
 				wantDir = frontendDir
 			}
-			if call.dir != wantDir {
-				t.Fatalf("call %d working directory = %q, want %q", index, call.dir, wantDir)
-			}
+			require.Equal(t, wantDir, call.dir, "call %d working directory", index)
 			for _, key := range []string{"GOTOOLCHAIN", "GOMODCACHE", "GOCACHE", "GOBIN", "GOFLAGS"} {
-				if call.env[key] == "" {
-					t.Fatalf("call missing environment %s: %v", key, call.env)
-				}
+				require.NotEmpty(t, call.env[key], "call missing environment %s: %v", key, call.env)
 			}
-			if call.env["GOLC_PROJECT_ROOT"] != root {
-				t.Fatalf("call project root = %q, want %q", call.env["GOLC_PROJECT_ROOT"], root)
-			}
-			if !filepath.IsAbs(call.executable) {
-				t.Fatalf("executable is not absolute: %q", call.executable)
-			}
+			require.Equal(t, root, call.env["GOLC_PROJECT_ROOT"], "call project root")
+			require.True(t, filepath.IsAbs(call.executable), "executable is not absolute: %q", call.executable)
 		}
-		if _, err := os.Stat(filepath.Join(root, "cmd", "golc-desktop", "frontend", "dist", "index.html")); err != nil {
-			t.Fatalf("expected cmd/golc-desktop/frontend/dist/index.html to be produced: %v", err)
-		}
+		_, err = os.Stat(filepath.Join(root, "cmd", "golc-desktop", "frontend", "dist", "index.html"))
+		require.NoError(t, err, "expected cmd/golc-desktop/frontend/dist/index.html to be produced")
 		moduleRecord, err := os.ReadFile(filepath.Join(root, ".tools", "manifest", "go-modules.txt"))
-		if err != nil || string(moduleRecord) != runner.moduleGraph {
-			t.Fatalf("module record: err=%v bytes=%q", err, moduleRecord)
-		}
-		if _, err := os.Stat(PlatformExecutablePath(filepath.Join(root, ".tools", "installs", "golc_project"), "golc-project")); err != nil {
-			t.Fatalf("built project command missing: %v", err)
-		}
+		require.NoError(t, err, "module record")
+		require.Equal(t, runner.moduleGraph, string(moduleRecord), "module record")
+		_, err = os.Stat(PlatformExecutablePath(filepath.Join(root, ".tools", "installs", "golc_project"), "golc-project"))
+		require.NoError(t, err, "built project command missing")
 		mageExecutable, err := ResolveMageExecutable(root)
-		if err != nil {
-			t.Fatalf("ResolveMageExecutable: %v", err)
-		}
-		if want := filepath.Join(root, ".tools", "toolchains", "mage", "1.17.2", PlatformKey(), ExecutableName("mage")); mageExecutable != want {
-			t.Fatalf("ResolveMageExecutable = %q, want %q", mageExecutable, want)
-		}
+		require.NoError(t, err, "ResolveMageExecutable")
+		require.Equal(t, filepath.Join(root, ".tools", "toolchains", "mage", "1.17.2", PlatformKey(), ExecutableName("mage")), mageExecutable, "ResolveMageExecutable")
 		denoExecutable, err := ResolveDenoExecutable(root)
-		if err != nil {
-			t.Fatalf("ResolveDenoExecutable: %v", err)
-		}
-		if want := filepath.Join(root, ".tools", "toolchains", "deno", "2.9.4", PlatformKey(), ExecutableName("deno")); denoExecutable != want {
-			t.Fatalf("ResolveDenoExecutable = %q, want %q", denoExecutable, want)
-		}
-		if info, err := os.Stat(denoExecutable); err != nil || !info.Mode().IsRegular() {
-			t.Fatalf("expected regular deno executable at %s: %v", denoExecutable, err)
-		}
+		require.NoError(t, err, "ResolveDenoExecutable")
+		require.Equal(t, filepath.Join(root, ".tools", "toolchains", "deno", "2.9.4", PlatformKey(), ExecutableName("deno")), denoExecutable, "ResolveDenoExecutable")
+		info, err = os.Stat(denoExecutable)
+		require.NoError(t, err, "expected regular deno executable at %s", denoExecutable)
+		require.True(t, info.Mode().IsRegular(), "expected regular deno executable at %s", denoExecutable)
 
 		source.calls = nil
 		runner.calls = nil
-		if err := runBootstrap(context.Background(), root, Options{}, dependencies); err != nil {
-			t.Fatalf("second runBootstrap: %v", err)
-		}
-		if len(source.calls) != 0 {
-			t.Fatalf("matching manifests consulted source: %v", source.calls)
-		}
+		require.NoError(t, runBootstrap(context.Background(), root, Options{}, dependencies), "second runBootstrap")
+		require.Empty(t, source.calls, "matching manifests consulted source")
 	})
 
 	t.Run("Mage discovery trusts only the current verified install", func(t *testing.T) {
@@ -643,60 +535,42 @@ func TestScopeBootstrapEngine(t *testing.T) {
 				"github.com/BurntSushi/toml v1.6.0",
 				"github.com/invopop/jsonschema v0.14.0",
 			}, "\n") + "\n"}
-			if err := runBootstrap(context.Background(), root, Options{},
-				bootstrapDependencies{Source: source, Runner: runner}); err != nil {
-				t.Fatalf("runBootstrap: %v", err)
-			}
+			require.NoError(t, runBootstrap(context.Background(), root, Options{},
+				bootstrapDependencies{Source: source, Runner: runner}), "runBootstrap")
 			executable, err := ResolveMageExecutable(root)
-			if err != nil {
-				t.Fatalf("ResolveMageExecutable: %v", err)
-			}
+			require.NoError(t, err, "ResolveMageExecutable")
 			return root, executable
 		}
 
 		t.Run("missing executable", func(t *testing.T) {
 			root, executable := runFixture(t)
-			if err := os.Remove(executable); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := ResolveMageExecutable(root); err == nil {
-				t.Fatal("missing Mage executable unexpectedly resolved")
-			}
+			require.NoError(t, os.Remove(executable))
+			_, err := ResolveMageExecutable(root)
+			require.Error(t, err, "missing Mage executable unexpectedly resolved")
 		})
 		t.Run("tampered executable", func(t *testing.T) {
 			root, executable := runFixture(t)
-			if err := os.WriteFile(executable, []byte("tampered\n"), 0o755); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := ResolveMageExecutable(root); err == nil {
-				t.Fatal("tampered Mage executable unexpectedly resolved")
-			}
+			require.NoError(t, os.WriteFile(executable, []byte("tampered\n"), 0o755))
+			_, err := ResolveMageExecutable(root)
+			require.Error(t, err, "tampered Mage executable unexpectedly resolved")
 		})
 		t.Run("mismatched manifest", func(t *testing.T) {
 			root, _ := runFixture(t)
 			manifestPath := filepath.Join(root, ".tools", "toolchains", "mage", "1.17.2", PlatformKey(), ManifestName)
-			if err := os.WriteFile(manifestPath, []byte("{}\n"), 0o644); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := ResolveMageExecutable(root); err == nil {
-				t.Fatal("manifest-mismatched Mage executable unexpectedly resolved")
-			}
+			require.NoError(t, os.WriteFile(manifestPath, []byte("{}\n"), 0o644))
+			_, err := ResolveMageExecutable(root)
+			require.Error(t, err, "manifest-mismatched Mage executable unexpectedly resolved")
 		})
 		t.Run("symlink executable", func(t *testing.T) {
 			root, executable := runFixture(t)
 			target := filepath.Join(t.TempDir(), ExecutableName("mage"))
-			if err := os.WriteFile(target, []byte("mage executable\n"), 0o755); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.Remove(executable); err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, os.WriteFile(target, []byte("mage executable\n"), 0o755))
+			require.NoError(t, os.Remove(executable))
 			if err := os.Symlink(target, executable); err != nil {
 				t.Skipf("symlink creation unavailable: %v", err)
 			}
-			if _, err := ResolveMageExecutable(root); err == nil {
-				t.Fatal("symlinked Mage executable unexpectedly resolved")
-			}
+			_, err := ResolveMageExecutable(root)
+			require.Error(t, err, "symlinked Mage executable unexpectedly resolved")
 		})
 	})
 
@@ -708,13 +582,9 @@ func TestScopeBootstrapEngine(t *testing.T) {
 			mutateLock:  true,
 		}
 		err := runBootstrap(context.Background(), root, Options{}, bootstrapDependencies{Source: source, Runner: runner})
-		if err == nil || !strings.Contains(err.Error(), "GOLC_BOOTSTRAP_LOCK_MUTATION") {
-			t.Fatalf("expected lock mutation diagnostic, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_BOOTSTRAP_LOCK_MUTATION", "expected lock mutation diagnostic")
 		after, _ := os.ReadFile(filepath.Join(root, "go.mod"))
-		if !bytes.Equal(before, after) {
-			t.Fatalf("go.mod changed on return: before=%q after=%q", before, after)
-		}
+		require.Equal(t, before, after, "go.mod changed on return")
 	})
 
 	t.Run("mismatched configured platform fails before source or install work", func(t *testing.T) {
@@ -723,19 +593,12 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		raw, _ := os.ReadFile(manifestPath)
 		wrongURL := strings.Replace(goURL, filepath.Base(goURL), "go1.26.5.not-this-platform.zip", 1)
 		raw = bytes.Replace(raw, []byte(goURL), []byte(wrongURL), 1)
-		if err := os.WriteFile(manifestPath, raw, 0o644); err != nil {
-			t.Fatalf("rewrite manifest: %v", err)
-		}
+		require.NoError(t, os.WriteFile(manifestPath, raw, 0o644), "rewrite manifest")
 		err := runBootstrap(context.Background(), root, Options{}, bootstrapDependencies{Source: source, Runner: &engineFakeRunner{}})
-		if err == nil || !strings.Contains(err.Error(), "GOLC_BOOTSTRAP_PLATFORM_MISMATCH") {
-			t.Fatalf("expected platform mismatch, got %v", err)
-		}
-		if len(source.calls) != 0 {
-			t.Fatalf("platform mismatch consulted source: %v", source.calls)
-		}
-		if _, err := os.Stat(filepath.Join(root, ".tools")); !os.IsNotExist(err) {
-			t.Fatalf("platform mismatch created .tools: %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_BOOTSTRAP_PLATFORM_MISMATCH", "expected platform mismatch")
+		require.Empty(t, source.calls, "platform mismatch consulted source")
+		_, statErr := os.Stat(filepath.Join(root, ".tools"))
+		require.True(t, os.IsNotExist(statErr), "platform mismatch created .tools: %v", statErr)
 	})
 
 	t.Run("missing current Go platform fails before source or install work", func(t *testing.T) {
@@ -744,20 +607,13 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		raw, _ := os.ReadFile(manifestPath)
 		current := fmt.Sprintf("[toolchain.go.platforms.%q]", PlatformKey())
 		raw = bytes.Replace(raw, []byte(current), []byte(`[toolchain.go.platforms."unconfigured-platform"]`), 1)
-		if err := os.WriteFile(manifestPath, raw, 0o644); err != nil {
-			t.Fatalf("rewrite manifest: %v", err)
-		}
+		require.NoError(t, os.WriteFile(manifestPath, raw, 0o644), "rewrite manifest")
 		err := runBootstrap(context.Background(), root, Options{}, bootstrapDependencies{Source: source, Runner: &engineFakeRunner{}})
 		required := fmt.Sprintf(`[toolchain.go.platforms.%q]`, PlatformKey())
-		if err == nil || !strings.Contains(err.Error(), required) {
-			t.Fatalf("expected missing platform diagnostic naming %s, got %v", required, err)
-		}
-		if len(source.calls) != 0 {
-			t.Fatalf("missing platform consulted source: %v", source.calls)
-		}
-		if _, err := os.Stat(filepath.Join(root, ".tools")); !os.IsNotExist(err) {
-			t.Fatalf("missing platform created .tools: %v", err)
-		}
+		require.ErrorContains(t, err, required, "expected missing platform diagnostic")
+		require.Empty(t, source.calls, "missing platform consulted source")
+		_, statErr := os.Stat(filepath.Join(root, ".tools"))
+		require.True(t, os.IsNotExist(statErr), "missing platform created .tools: %v", statErr)
 	})
 
 	t.Run("missing current Mage platform fails before source or install work", func(t *testing.T) {
@@ -766,21 +622,14 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		raw, _ := os.ReadFile(manifestPath)
 		current := fmt.Sprintf("[toolchain.mage.platforms.%q]", PlatformKey())
 		raw = bytes.Replace(raw, []byte(current), []byte(`[toolchain.mage.platforms."unconfigured-platform"]`), 1)
-		if err := os.WriteFile(manifestPath, raw, 0o644); err != nil {
-			t.Fatalf("rewrite manifest: %v", err)
-		}
+		require.NoError(t, os.WriteFile(manifestPath, raw, 0o644), "rewrite manifest")
 		err := runBootstrap(context.Background(), root, Options{},
 			bootstrapDependencies{Source: source, Runner: &engineFakeRunner{}})
 		required := fmt.Sprintf(`[toolchain.mage.platforms.%q]`, PlatformKey())
-		if err == nil || !strings.Contains(err.Error(), required) {
-			t.Fatalf("expected missing Mage platform diagnostic naming %s, got %v", required, err)
-		}
-		if len(source.calls) != 0 {
-			t.Fatalf("missing Mage platform consulted source: %v", source.calls)
-		}
-		if _, err := os.Stat(filepath.Join(root, ".tools")); !os.IsNotExist(err) {
-			t.Fatalf("missing Mage platform created .tools: %v", err)
-		}
+		require.ErrorContains(t, err, required, "expected missing Mage platform diagnostic")
+		require.Empty(t, source.calls, "missing Mage platform consulted source")
+		_, statErr := os.Stat(filepath.Join(root, ".tools"))
+		require.True(t, os.IsNotExist(statErr), "missing Mage platform created .tools: %v", statErr)
 	})
 
 	t.Run("missing [toolchain.deno] entirely fails naming deno before source or install work", func(t *testing.T) {
@@ -794,24 +643,15 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		// re-establishing [toolchain.deno] with a different failure mode).
 		start := bytes.Index(raw, []byte("[toolchain.deno]"))
 		end := bytes.Index(raw, []byte("[go_install."))
-		if start < 0 || end < 0 || end <= start {
-			t.Fatal("test setup did not locate the entire [toolchain.deno] block")
-		}
+		require.True(t, start >= 0 && end >= 0 && end > start, "test setup did not locate the entire [toolchain.deno] block")
 		stripped := append(append([]byte(nil), raw[:start]...), raw[end:]...)
-		if err := os.WriteFile(manifestPath, stripped, 0o644); err != nil {
-			t.Fatalf("rewrite manifest: %v", err)
-		}
+		require.NoError(t, os.WriteFile(manifestPath, stripped, 0o644), "rewrite manifest")
 		err := runBootstrap(context.Background(), root, Options{},
 			bootstrapDependencies{Source: source, Runner: &engineFakeRunner{}})
-		if err == nil || !strings.Contains(err.Error(), "GOLC_DENO_TOOLCHAIN_MISSING") {
-			t.Fatalf("expected GOLC_DENO_TOOLCHAIN_MISSING naming deno, got %v", err)
-		}
-		if len(source.calls) != 0 {
-			t.Fatalf("missing deno parent consulted source: %v", source.calls)
-		}
-		if _, err := os.Stat(filepath.Join(root, ".tools")); !os.IsNotExist(err) {
-			t.Fatalf("missing deno parent created .tools: %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_DENO_TOOLCHAIN_MISSING", "expected GOLC_DENO_TOOLCHAIN_MISSING naming deno")
+		require.Empty(t, source.calls, "missing deno parent consulted source")
+		_, statErr := os.Stat(filepath.Join(root, ".tools"))
+		require.True(t, os.IsNotExist(statErr), "missing deno parent created .tools: %v", statErr)
 	})
 
 	t.Run("missing current Deno platform fails before source or install work", func(t *testing.T) {
@@ -820,21 +660,14 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		raw, _ := os.ReadFile(manifestPath)
 		current := fmt.Sprintf("[toolchain.deno.platforms.%q]", PlatformKey())
 		raw = bytes.Replace(raw, []byte(current), []byte(`[toolchain.deno.platforms."unconfigured-platform"]`), 1)
-		if err := os.WriteFile(manifestPath, raw, 0o644); err != nil {
-			t.Fatalf("rewrite manifest: %v", err)
-		}
+		require.NoError(t, os.WriteFile(manifestPath, raw, 0o644), "rewrite manifest")
 		err := runBootstrap(context.Background(), root, Options{},
 			bootstrapDependencies{Source: source, Runner: &engineFakeRunner{}})
 		required := fmt.Sprintf(`[toolchain.deno.platforms.%q]`, PlatformKey())
-		if err == nil || !strings.Contains(err.Error(), required) {
-			t.Fatalf("expected missing Deno platform diagnostic naming %s, got %v", required, err)
-		}
-		if len(source.calls) != 0 {
-			t.Fatalf("missing Deno platform consulted source: %v", source.calls)
-		}
-		if _, err := os.Stat(filepath.Join(root, ".tools")); !os.IsNotExist(err) {
-			t.Fatalf("missing Deno platform created .tools: %v", err)
-		}
+		require.ErrorContains(t, err, required, "expected missing Deno platform diagnostic")
+		require.Empty(t, source.calls, "missing Deno platform consulted source")
+		_, statErr := os.Stat(filepath.Join(root, ".tools"))
+		require.True(t, os.IsNotExist(statErr), "missing Deno platform created .tools: %v", statErr)
 	})
 
 	t.Run("bootstrap rejects a Deno archive whose bytes do not match the pinned SHA-256", func(t *testing.T) {
@@ -847,20 +680,13 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		// compared -- not from a missing/malformed URL.
 		denoShaMarker := regexp.MustCompile(`(\[toolchain\.deno\.platforms\."` + regexp.QuoteMeta(PlatformKey()) + `"\]\narchive_url = "[^"]+"\narchive_sha256 = ")[0-9a-f]{64}(")`)
 		corrupted := denoShaMarker.ReplaceAll(raw, []byte("${1}"+strings.Repeat("a", 64)+"${2}"))
-		if bytes.Equal(corrupted, raw) {
-			t.Fatal("test setup did not corrupt the deno archive_sha256")
-		}
-		if err := os.WriteFile(manifestPath, corrupted, 0o644); err != nil {
-			t.Fatalf("rewrite manifest: %v", err)
-		}
+		require.NotEqual(t, raw, corrupted, "test setup did not corrupt the deno archive_sha256")
+		require.NoError(t, os.WriteFile(manifestPath, corrupted, 0o644), "rewrite manifest")
 		err := runBootstrap(context.Background(), root, Options{},
 			bootstrapDependencies{Source: source, Runner: &engineFakeRunner{}})
-		if err == nil || !strings.Contains(err.Error(), "BOOTSTRAP_CHECKSUM_MISMATCH") {
-			t.Fatalf("expected checksum mismatch for tampered deno pin, got %v", err)
-		}
-		if _, err := ResolveDenoExecutable(root); err == nil {
-			t.Fatal("checksum-mismatched Deno install unexpectedly resolved")
-		}
+		require.ErrorContains(t, err, "BOOTSTRAP_CHECKSUM_MISMATCH", "expected checksum mismatch for tampered deno pin")
+		_, err = ResolveDenoExecutable(root)
+		require.Error(t, err, "checksum-mismatched Deno install unexpectedly resolved")
 	})
 
 	t.Run("obsolete generic archive locator is rejected before effects", func(t *testing.T) {
@@ -868,19 +694,12 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		manifestPath := filepath.Join(root, "config", "toolchain.toml")
 		raw, _ := os.ReadFile(manifestPath)
 		raw = bytes.Replace(raw, []byte("archive_url"), []byte("archive_uri"), 1)
-		if err := os.WriteFile(manifestPath, raw, 0o644); err != nil {
-			t.Fatalf("rewrite manifest: %v", err)
-		}
+		require.NoError(t, os.WriteFile(manifestPath, raw, 0o644), "rewrite manifest")
 		err := runBootstrap(context.Background(), root, Options{}, bootstrapDependencies{Source: source, Runner: &engineFakeRunner{}})
-		if err == nil || !strings.Contains(err.Error(), "archive_uri") {
-			t.Fatalf("expected unsupported archive_uri diagnostic, got %v", err)
-		}
-		if len(source.calls) != 0 {
-			t.Fatalf("obsolete locator consulted source: %v", source.calls)
-		}
-		if _, err := os.Stat(filepath.Join(root, ".tools")); !os.IsNotExist(err) {
-			t.Fatalf("obsolete locator created .tools: %v", err)
-		}
+		require.ErrorContains(t, err, "archive_uri", "expected unsupported archive_uri diagnostic")
+		require.Empty(t, source.calls, "obsolete locator consulted source")
+		_, statErr := os.Stat(filepath.Join(root, ".tools"))
+		require.True(t, os.IsNotExist(statErr), "obsolete locator created .tools: %v", statErr)
 	})
 
 	t.Run("runProcess includes captured output in its error, not just the bare exec error", func(t *testing.T) {
@@ -898,12 +717,8 @@ func TestScopeBootstrapEngine(t *testing.T) {
 			},
 		}
 		_, err := engine.runProcess(context.Background(), "go", "GOLC_BOOTSTRAP_PROBE_FAILED", "test", "./...")
-		if err == nil {
-			t.Fatal("expected an error")
-		}
-		if !strings.Contains(err.Error(), "some_test.go:12: assertion failed") {
-			t.Fatalf("expected the captured process output in the error, got: %v", err)
-		}
+		require.Error(t, err, "expected an error")
+		require.Contains(t, err.Error(), "some_test.go:12: assertion failed", "expected the captured process output in the error")
 
 		emptyOutputEngine := &bootstrapEngine{
 			root:   t.TempDir(),
@@ -911,12 +726,8 @@ func TestScopeBootstrapEngine(t *testing.T) {
 			runner: outputCapturingFakeRunner{output: nil, err: errors.New("exit status 1")},
 		}
 		_, err = emptyOutputEngine.runProcess(context.Background(), "go", "GOLC_BOOTSTRAP_PROBE_FAILED", "test", "./...")
-		if err == nil {
-			t.Fatal("expected an error")
-		}
-		if strings.Contains(err.Error(), "\n") {
-			t.Fatalf("expected no trailing detail when there is no captured output, got: %v", err)
-		}
+		require.Error(t, err, "expected an error")
+		require.NotContains(t, err.Error(), "\n", "expected no trailing detail when there is no captured output")
 	})
 }
 

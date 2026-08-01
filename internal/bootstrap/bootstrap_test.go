@@ -18,6 +18,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/invopop/jsonschema"
+
+	"github.com/stretchr/testify/require"
 )
 
 // The bootstrap-archive quick-test scope is declared through the exact
@@ -37,9 +39,7 @@ func buildArchive(t *testing.T, dir string, entries map[string]string) (string, 
 
 	archivePath := filepath.Join(dir, "tool-archive.zip")
 	file, err := os.Create(archivePath)
-	if err != nil {
-		t.Fatalf("create archive: %v", err)
-	}
+	require.NoError(t, err, "create archive")
 	writer := zip.NewWriter(file)
 	names := make([]string, 0, len(entries))
 	for name := range entries {
@@ -55,24 +55,15 @@ func buildArchive(t *testing.T, dir string, entries map[string]string) (string, 
 	}
 	for _, name := range names {
 		entry, err := writer.Create(name)
-		if err != nil {
-			t.Fatalf("create entry %q: %v", name, err)
-		}
-		if _, err := entry.Write([]byte(entries[name])); err != nil {
-			t.Fatalf("write entry %q: %v", name, err)
-		}
+		require.NoError(t, err, "create entry %q", name)
+		_, err = entry.Write([]byte(entries[name]))
+		require.NoError(t, err, "write entry %q", name)
 	}
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close zip writer: %v", err)
-	}
-	if err := file.Close(); err != nil {
-		t.Fatalf("close archive file: %v", err)
-	}
+	require.NoError(t, writer.Close(), "close zip writer")
+	require.NoError(t, file.Close(), "close archive file")
 
 	raw, err := os.ReadFile(archivePath)
-	if err != nil {
-		t.Fatalf("read archive back: %v", err)
-	}
+	require.NoError(t, err, "read archive back")
 	digest := sha256.Sum256(raw)
 	return archivePath, hex.EncodeToString(digest[:])
 }
@@ -90,9 +81,7 @@ func buildZipEntries(t *testing.T, dir, name string, entries []testArchiveEntry)
 	t.Helper()
 	archivePath := filepath.Join(dir, name)
 	file, err := os.Create(archivePath)
-	if err != nil {
-		t.Fatalf("create zip: %v", err)
-	}
+	require.NoError(t, err, "create zip")
 	writer := zip.NewWriter(file)
 	for _, item := range entries {
 		header := &zip.FileHeader{Name: item.Name, Method: zip.Store}
@@ -105,19 +94,12 @@ func buildZipEntries(t *testing.T, dir, name string, entries []testArchiveEntry)
 		}
 		header.SetMode(mode)
 		entry, err := writer.CreateHeader(header)
-		if err != nil {
-			t.Fatalf("create zip entry %q: %v", item.Name, err)
-		}
-		if _, err := entry.Write([]byte(item.Body)); err != nil {
-			t.Fatalf("write zip entry %q: %v", item.Name, err)
-		}
+		require.NoError(t, err, "create zip entry %q", item.Name)
+		_, err = entry.Write([]byte(item.Body))
+		require.NoError(t, err, "write zip entry %q", item.Name)
 	}
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close zip writer: %v", err)
-	}
-	if err := file.Close(); err != nil {
-		t.Fatalf("close zip file: %v", err)
-	}
+	require.NoError(t, writer.Close(), "close zip writer")
+	require.NoError(t, file.Close(), "close zip file")
 	return archivePath, digestFile(t, archivePath)
 }
 
@@ -125,9 +107,7 @@ func buildTarGzEntries(t *testing.T, dir, name string, entries []testArchiveEntr
 	t.Helper()
 	archivePath := filepath.Join(dir, name)
 	file, err := os.Create(archivePath)
-	if err != nil {
-		t.Fatalf("create tar.gz: %v", err)
-	}
+	require.NoError(t, err, "create tar.gz")
 	gzipWriter := gzip.NewWriter(file)
 	writer := tar.NewWriter(gzipWriter)
 	for _, item := range entries {

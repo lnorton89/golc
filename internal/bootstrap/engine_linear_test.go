@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type linearFakeRunner struct {
@@ -81,17 +83,13 @@ func (runner *linearFakeRunner) Run(ctx context.Context, request processRequest)
 func addLinearSyncFixture(t *testing.T, root string) {
 	t.Helper()
 	linearDir := filepath.Join(root, "tools", "linear-sync")
-	if err := os.MkdirAll(linearDir, 0o755); err != nil {
-		t.Fatalf("mkdir linear-sync: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(linearDir, 0o755), "mkdir linear-sync")
 	for name, body := range map[string]string{
 		"package.json":      `{"name":"fixture","devDependencies":{"typescript":"7.0.2"}}` + "\n",
 		"package-lock.json": `{"lockfileVersion":3,"packages":{}}` + "\n",
 		"tsconfig.json":     `{"compilerOptions":{"outDir":"dist"}}` + "\n",
 	} {
-		if err := os.WriteFile(filepath.Join(linearDir, name), []byte(body), 0o644); err != nil {
-			t.Fatalf("write %s: %v", name, err)
-		}
+		require.NoError(t, os.WriteFile(filepath.Join(linearDir, name), []byte(body), 0o644), "write %s", name)
 	}
 }
 
@@ -110,23 +108,14 @@ func TestScopeBootstrapLinearSync(t *testing.T) {
 	t.Run("include false never inspects or provisions Linear tooling", func(t *testing.T) {
 		root, source, _ := writeEngineRepository(t)
 		linearDir := filepath.Join(root, "tools", "linear-sync")
-		if err := os.MkdirAll(linearDir, 0o755); err != nil {
-			t.Fatalf("mkdir canary: %v", err)
-		}
+		require.NoError(t, os.MkdirAll(linearDir, 0o755), "mkdir canary")
 		canary := filepath.Join(linearDir, "package.json")
-		if err := os.WriteFile(canary, []byte("not json and intentionally ignored"), 0o644); err != nil {
-			t.Fatalf("write canary: %v", err)
-		}
+		require.NoError(t, os.WriteFile(canary, []byte("not json and intentionally ignored"), 0o644), "write canary")
 		runner := newLinearRunner(root)
-		if err := runBootstrap(context.Background(), root, Options{}, bootstrapDependencies{Source: source, Runner: runner}); err != nil {
-			t.Fatalf("include-off bootstrap: %v", err)
-		}
-		if runner.npmCalls != 0 || runner.tscCalls != 0 {
-			t.Fatalf("include-off invoked Linear processes: npm=%d tsc=%d", runner.npmCalls, runner.tscCalls)
-		}
-		if body, _ := os.ReadFile(canary); string(body) != "not json and intentionally ignored" {
-			t.Fatalf("include-off changed package input: %q", body)
-		}
+		require.NoError(t, runBootstrap(context.Background(), root, Options{}, bootstrapDependencies{Source: source, Runner: runner}), "include-off bootstrap")
+		require.True(t, runner.npmCalls == 0 && runner.tscCalls == 0, "include-off invoked Linear processes: npm=%d tsc=%d", runner.npmCalls, runner.tscCalls)
+		body, _ := os.ReadFile(canary)
+		require.Equal(t, "not json and intentionally ignored", string(body), "include-off changed package input")
 	})
 
 	t.Run("missing requested Node platform fails before source or install work", func(t *testing.T) {
@@ -136,23 +125,16 @@ func TestScopeBootstrapLinearSync(t *testing.T) {
 		raw, _ := os.ReadFile(manifestPath)
 		current := fmt.Sprintf("[toolchain.node.platforms.%q]", PlatformKey())
 		raw = bytes.Replace(raw, []byte(current), []byte(`[toolchain.node.platforms."unconfigured-platform"]`), 1)
-		if err := os.WriteFile(manifestPath, raw, 0o644); err != nil {
-			t.Fatalf("rewrite manifest: %v", err)
-		}
+		require.NoError(t, os.WriteFile(manifestPath, raw, 0o644), "rewrite manifest")
 		err := runBootstrap(context.Background(), root, Options{IncludeLinearSync: true}, bootstrapDependencies{
 			Source: source,
 			Runner: newLinearRunner(root),
 		})
 		required := fmt.Sprintf(`[toolchain.node.platforms.%q]`, PlatformKey())
-		if err == nil || !strings.Contains(err.Error(), required) {
-			t.Fatalf("expected missing platform diagnostic naming %s, got %v", required, err)
-		}
-		if len(source.calls) != 0 {
-			t.Fatalf("missing Node platform consulted source: %v", source.calls)
-		}
-		if _, err := os.Stat(filepath.Join(root, ".tools")); !os.IsNotExist(err) {
-			t.Fatalf("missing Node platform created .tools: %v", err)
-		}
+		require.ErrorContains(t, err, required, "expected missing platform diagnostic")
+		require.Empty(t, source.calls, "missing Node platform consulted source")
+		_, statErr := os.Stat(filepath.Join(root, ".tools"))
+		require.True(t, os.IsNotExist(statErr), "missing Node platform created .tools: %v", statErr)
 	})
 
 	t.Run("first include runs exact-lock npm and tsc then repeat is a zero-call no-op", func(t *testing.T) {
@@ -160,44 +142,24 @@ func TestScopeBootstrapLinearSync(t *testing.T) {
 		addLinearSyncFixture(t, root)
 		runner := newLinearRunner(root)
 		dependencies := bootstrapDependencies{Source: source, Runner: runner}
-		if err := runBootstrap(context.Background(), root, Options{IncludeLinearSync: true}, dependencies); err != nil {
-			t.Fatalf("first include bootstrap: %v", err)
-		}
-		if runner.npmCalls != 1 || runner.tscCalls != 1 {
-			t.Fatalf("linear calls: npm=%d tsc=%d", runner.npmCalls, runner.tscCalls)
-		}
+		require.NoError(t, runBootstrap(context.Background(), root, Options{IncludeLinearSync: true}, dependencies), "first include bootstrap")
+		require.True(t, runner.npmCalls == 1 && runner.tscCalls == 1, "linear calls: npm=%d tsc=%d", runner.npmCalls, runner.tscCalls)
 		npm := runner.linearCalls[0]
-		if got, want := strings.Join(npm.args[1:], " "), "ci --ignore-scripts --no-audit --no-fund"; got != want {
-			t.Fatalf("npm args = %q, want %q", got, want)
-		}
-		if npm.env["NPM_CONFIG_CACHE"] != filepath.Join(root, ".tools", "cache", "npm") {
-			t.Fatalf("npm cache = %q", npm.env["NPM_CONFIG_CACHE"])
-		}
+		require.Equal(t, "ci --ignore-scripts --no-audit --no-fund", strings.Join(npm.args[1:], " "), "npm args")
+		require.Equal(t, filepath.Join(root, ".tools", "cache", "npm"), npm.env["NPM_CONFIG_CACHE"], "npm cache")
 		tsc := runner.linearCalls[1]
-		if len(tsc.args) != 3 || tsc.args[1] != "-p" || tsc.args[2] != filepath.Join(root, "tools", "linear-sync", "tsconfig.json") {
-			t.Fatalf("tsc args = %v", tsc.args)
-		}
+		require.True(t, len(tsc.args) == 3 && tsc.args[1] == "-p" && tsc.args[2] == filepath.Join(root, "tools", "linear-sync", "tsconfig.json"), "tsc args = %v", tsc.args)
 		var manifest npmCIManifest
 		manifestRaw, err := os.ReadFile(filepath.Join(root, "tools", "linear-sync", "node_modules", npmCIManifestName))
-		if err != nil {
-			t.Fatalf("read npm manifest: %v", err)
-		}
-		if err := json.Unmarshal(manifestRaw, &manifest); err != nil {
-			t.Fatalf("decode npm manifest: %v", err)
-		}
-		if manifest.SchemaVersion != npmCIManifestSchemaVersion || len(manifest.Outputs) != len(linearSyncExpectedOutputs) {
-			t.Fatalf("unexpected npm manifest: %+v", manifest)
-		}
+		require.NoError(t, err, "read npm manifest")
+		require.NoError(t, json.Unmarshal(manifestRaw, &manifest), "decode npm manifest")
+		require.True(t, manifest.SchemaVersion == npmCIManifestSchemaVersion && len(manifest.Outputs) == len(linearSyncExpectedOutputs), "unexpected npm manifest: %+v", manifest)
 
 		source.calls = nil
 		runner.npmCalls, runner.tscCalls = 0, 0
 		runner.linearCalls = nil
-		if err := runBootstrap(context.Background(), root, Options{IncludeLinearSync: true}, dependencies); err != nil {
-			t.Fatalf("repeat include bootstrap: %v", err)
-		}
-		if len(source.calls) != 0 || runner.npmCalls != 0 || runner.tscCalls != 0 {
-			t.Fatalf("matching repeat was not zero-call: source=%v npm=%d tsc=%d", source.calls, runner.npmCalls, runner.tscCalls)
-		}
+		require.NoError(t, runBootstrap(context.Background(), root, Options{IncludeLinearSync: true}, dependencies), "repeat include bootstrap")
+		require.True(t, len(source.calls) == 0 && runner.npmCalls == 0 && runner.tscCalls == 0, "matching repeat was not zero-call: source=%v npm=%d tsc=%d", source.calls, runner.npmCalls, runner.tscCalls)
 	})
 
 	t.Run("missing compiled output fails and writes no success manifest", func(t *testing.T) {
@@ -206,13 +168,10 @@ func TestScopeBootstrapLinearSync(t *testing.T) {
 		runner := newLinearRunner(root)
 		runner.missingOutput = "dist/src/adapter.js"
 		err := runBootstrap(context.Background(), root, Options{IncludeLinearSync: true}, bootstrapDependencies{Source: source, Runner: runner})
-		if err == nil || !strings.Contains(err.Error(), "GOLC_BOOTSTRAP_LINEAR_SYNC_BUILD_FAILED") {
-			t.Fatalf("expected missing output failure, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_BOOTSTRAP_LINEAR_SYNC_BUILD_FAILED", "expected missing output failure")
 		manifestPath := filepath.Join(root, "tools", "linear-sync", "node_modules", npmCIManifestName)
-		if _, err := os.Stat(manifestPath); !os.IsNotExist(err) {
-			t.Fatalf("failed build wrote success manifest: %v", err)
-		}
+		_, statErr := os.Stat(manifestPath)
+		require.True(t, os.IsNotExist(statErr), "failed build wrote success manifest: %v", statErr)
 	})
 
 	t.Run("package lock mutation is restored and writes no success manifest", func(t *testing.T) {
@@ -223,36 +182,23 @@ func TestScopeBootstrapLinearSync(t *testing.T) {
 		runner := newLinearRunner(root)
 		runner.mutateLock = true
 		err := runBootstrap(context.Background(), root, Options{IncludeLinearSync: true}, bootstrapDependencies{Source: source, Runner: runner})
-		if err == nil || !strings.Contains(err.Error(), "GOLC_BOOTSTRAP_NODE_LOCK_MUTATION") {
-			t.Fatalf("expected node lock mutation, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_BOOTSTRAP_NODE_LOCK_MUTATION", "expected node lock mutation")
 		after, _ := os.ReadFile(lockPath)
-		if !bytes.Equal(before, after) {
-			t.Fatalf("package-lock changed on return: before=%q after=%q", before, after)
-		}
+		require.Equal(t, before, after, "package-lock changed on return")
 		manifestPath := filepath.Join(root, "tools", "linear-sync", "node_modules", npmCIManifestName)
-		if _, err := os.Stat(manifestPath); !os.IsNotExist(err) {
-			t.Fatalf("mutation wrote success manifest: %v", err)
-		}
+		_, statErr := os.Stat(manifestPath)
+		require.True(t, os.IsNotExist(statErr), "mutation wrote success manifest: %v", statErr)
 	})
 
 	t.Run("legacy two-hash manifest forces exact-lock revalidation", func(t *testing.T) {
 		root, source, _ := writeEngineRepository(t)
 		addLinearSyncFixture(t, root)
 		nodeModules := filepath.Join(root, "tools", "linear-sync", "node_modules")
-		if err := os.MkdirAll(nodeModules, 0o755); err != nil {
-			t.Fatalf("mkdir node_modules: %v", err)
-		}
+		require.NoError(t, os.MkdirAll(nodeModules, 0o755), "mkdir node_modules")
 		legacy := `{"package_json_sha256":"legacy","package_lock_sha256":"legacy"}` + "\n"
-		if err := os.WriteFile(filepath.Join(nodeModules, npmCIManifestName), []byte(legacy), 0o644); err != nil {
-			t.Fatalf("write legacy manifest: %v", err)
-		}
+		require.NoError(t, os.WriteFile(filepath.Join(nodeModules, npmCIManifestName), []byte(legacy), 0o644), "write legacy manifest")
 		runner := newLinearRunner(root)
-		if err := runBootstrap(context.Background(), root, Options{IncludeLinearSync: true}, bootstrapDependencies{Source: source, Runner: runner}); err != nil {
-			t.Fatalf("legacy revalidation: %v", err)
-		}
-		if runner.npmCalls != 1 || runner.tscCalls != 1 {
-			t.Fatalf("legacy manifest skipped revalidation: npm=%d tsc=%d", runner.npmCalls, runner.tscCalls)
-		}
+		require.NoError(t, runBootstrap(context.Background(), root, Options{IncludeLinearSync: true}, bootstrapDependencies{Source: source, Runner: runner}), "legacy revalidation")
+		require.True(t, runner.npmCalls == 1 && runner.tscCalls == 1, "legacy manifest skipped revalidation: npm=%d tsc=%d", runner.npmCalls, runner.tscCalls)
 	})
 }
