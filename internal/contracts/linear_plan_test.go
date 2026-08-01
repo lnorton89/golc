@@ -23,6 +23,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/contracts"
 	"github.com/lnorton89/golc/internal/strictjson"
@@ -63,32 +65,24 @@ func testLinearPlanReportRegisteredOnce(t *testing.T) {
 		counts[descriptor.Name]++
 	}
 	for _, name := range knownLinearPlanReportDescriptors {
-		if counts[name] != 1 {
-			t.Fatalf("expected %q registered exactly once, got count %d (full registry counts: %v)", name, counts[name], counts)
-		}
+		require.Equal(t, 1, counts[name], "expected %q registered exactly once (full registry counts: %v)", name, counts)
 	}
 }
 
 func testLinearPlanReportGenerateAndDrift(t *testing.T) {
 	tempDir := t.TempDir()
-	if err := contracts.GenerateInto(tempDir); err != nil {
-		t.Fatalf("GenerateInto failed: %v", err)
-	}
+	require.NoError(t, contracts.GenerateInto(tempDir), "GenerateInto failed")
 	for _, path := range knownLinearPlanReportDescriptors {
 		outputPath := filepath.Join(tempDir, "schemas", path+".schema.json")
-		if _, err := os.Stat(outputPath); err != nil {
-			t.Fatalf("expected %s to be generated: %v", outputPath, err)
-		}
+		_, err := os.Stat(outputPath)
+		require.NoError(t, err, "expected %s to be generated", outputPath)
 	}
 
 	changed, err := contracts.CheckDrift(tempDir)
-	if err != nil {
-		t.Fatalf("CheckDrift failed: %v", err)
-	}
+	require.NoError(t, err, "CheckDrift failed")
 	for _, path := range changed {
-		if path == "schemas/linear-plan.schema.json" || path == "schemas/linear-report.schema.json" {
-			t.Fatalf("expected no drift for %s immediately after GenerateInto, got change list %v", path, changed)
-		}
+		require.NotContains(t, []string{"schemas/linear-plan.schema.json", "schemas/linear-report.schema.json"}, path,
+			"expected no drift for %s immediately after GenerateInto, got change list %v", path, changed)
 	}
 }
 
@@ -99,9 +93,7 @@ func testLinearPlanReportGenerateAndDrift(t *testing.T) {
 func newLinearApplyRegistry(t *testing.T) *command.CommandRegistry {
 	t.Helper()
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry failed: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry failed")
 	return registry
 }
 
@@ -121,12 +113,8 @@ func buildValidPlan(t *testing.T) reconcile.Plan {
 		{RepoID: "phase:01", LinearType: "project_milestone", Status: "pending"},
 	}
 	plan, err := reconcile.BuildPlan(intents, mappings, reconcile.RemoteScope{}, nil)
-	if err != nil {
-		t.Fatalf("BuildPlan failed: %v", err)
-	}
-	if len(plan.Operations) != 2 {
-		t.Fatalf("expected 2 operations, got %d", len(plan.Operations))
-	}
+	require.NoError(t, err, "BuildPlan failed")
+	require.Len(t, plan.Operations, 2)
 	return plan
 }
 
@@ -157,22 +145,16 @@ func recomputePlanID(t *testing.T, plan reconcile.Plan) string {
 		Conflicts:         plan.Conflicts,
 	}
 	encoded, err := strictjson.CanonicalEncode(body)
-	if err != nil {
-		t.Fatalf("CanonicalEncode failed: %v", err)
-	}
+	require.NoError(t, err, "CanonicalEncode failed")
 	return reconcile.PlanID(encoded)
 }
 
 func writePlanFile(t *testing.T, plan reconcile.Plan) string {
 	t.Helper()
 	payload, err := strictjson.CanonicalEncode(plan)
-	if err != nil {
-		t.Fatalf("CanonicalEncode failed: %v", err)
-	}
+	require.NoError(t, err, "CanonicalEncode failed")
 	path := filepath.Join(t.TempDir(), "plan.json")
-	if err := os.WriteFile(path, payload, 0o644); err != nil {
-		t.Fatalf("WriteFile failed: %v", err)
-	}
+	require.NoError(t, os.WriteFile(path, payload, 0o644), "WriteFile failed")
 	return path
 }
 
@@ -193,19 +175,13 @@ func testLinearApplyRequiresMatchingPlanID(t *testing.T) {
 	// Missing --plan-id entirely: a usage error, not a plan-content error.
 	registry := newLinearApplyRegistry(t)
 	usageResult := registry.Execute(command.Request{Args: []string{"linear", "apply", planFile}, Root: root})
-	if usageResult.ExitCode != 2 {
-		t.Fatalf("expected exit 2 for missing --plan-id, got %d (stderr: %s)", usageResult.ExitCode, usageResult.Stderr)
-	}
+	require.Equal(t, 2, usageResult.ExitCode, "expected exit 2 for missing --plan-id (stderr: %s)", usageResult.Stderr)
 
 	// A well-formed, correctly hashed plan, but --plan-id names a
 	// different value than the plan's own recorded plan_id.
 	mismatchResult := executeLinearApply(t, root, planFile, strings.Repeat("0", 64))
-	if mismatchResult.ExitCode == 0 {
-		t.Fatal("expected a non-matching --plan-id to fail")
-	}
-	if !strings.Contains(string(mismatchResult.Stderr), "GOLC_LINEAR_APPLY_PLAN_ID_MISMATCH") {
-		t.Fatalf("expected GOLC_LINEAR_APPLY_PLAN_ID_MISMATCH, got %s", mismatchResult.Stderr)
-	}
+	require.NotEqual(t, 0, mismatchResult.ExitCode, "expected a non-matching --plan-id to fail")
+	require.Contains(t, string(mismatchResult.Stderr), "GOLC_LINEAR_APPLY_PLAN_ID_MISMATCH")
 }
 
 func testLinearApplyRejectsDuplicateMembers(t *testing.T) {
@@ -223,17 +199,11 @@ func testLinearApplyRejectsDuplicateMembers(t *testing.T) {
 }
 `)
 	planFile := filepath.Join(t.TempDir(), "plan.json")
-	if err := os.WriteFile(planFile, duplicateJSON, 0o644); err != nil {
-		t.Fatalf("WriteFile failed: %v", err)
-	}
+	require.NoError(t, os.WriteFile(planFile, duplicateJSON, 0o644), "WriteFile failed")
 
 	result := executeLinearApply(t, root, planFile, digest)
-	if result.ExitCode == 0 {
-		t.Fatal("expected a duplicate top-level JSON member to be rejected")
-	}
-	if !strings.Contains(string(result.Stderr), "STRICTJSON_DUPLICATE_NAME") {
-		t.Fatalf("expected STRICTJSON_DUPLICATE_NAME, got %s", result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected a duplicate top-level JSON member to be rejected")
+	require.Contains(t, string(result.Stderr), "STRICTJSON_DUPLICATE_NAME")
 }
 
 func testLinearApplyRejectsUnknownFields(t *testing.T) {
@@ -251,17 +221,11 @@ func testLinearApplyRejectsUnknownFields(t *testing.T) {
 }
 `)
 	planFile := filepath.Join(t.TempDir(), "plan.json")
-	if err := os.WriteFile(planFile, unknownFieldJSON, 0o644); err != nil {
-		t.Fatalf("WriteFile failed: %v", err)
-	}
+	require.NoError(t, os.WriteFile(planFile, unknownFieldJSON, 0o644), "WriteFile failed")
 
 	result := executeLinearApply(t, root, planFile, digest)
-	if result.ExitCode == 0 {
-		t.Fatal("expected an unknown JSON field to be rejected")
-	}
-	if !strings.Contains(string(result.Stderr), "STRICTJSON_DECODE") {
-		t.Fatalf("expected STRICTJSON_DECODE (unknown field), got %s", result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected an unknown JSON field to be rejected")
+	require.Contains(t, string(result.Stderr), "STRICTJSON_DECODE")
 }
 
 func testLinearApplyRejectsBadDigest(t *testing.T) {
@@ -271,12 +235,8 @@ func testLinearApplyRejectsBadDigest(t *testing.T) {
 	planFile := writePlanFile(t, plan)
 
 	result := executeLinearApply(t, root, planFile, plan.PlanID)
-	if result.ExitCode == 0 {
-		t.Fatal("expected a tampered plan_id to be rejected")
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_APPLY_PLAN_HASH") {
-		t.Fatalf("expected GOLC_APPLY_PLAN_HASH, got %s", result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected a tampered plan_id to be rejected")
+	require.Contains(t, string(result.Stderr), "GOLC_APPLY_PLAN_HASH")
 }
 
 func testLinearApplyRejectsUnsortedOperations(t *testing.T) {
@@ -291,12 +251,8 @@ func testLinearApplyRejectsUnsortedOperations(t *testing.T) {
 	planFile := writePlanFile(t, plan)
 
 	result := executeLinearApply(t, root, planFile, plan.PlanID)
-	if result.ExitCode == 0 {
-		t.Fatal("expected an out-of-canonical-order operation list to be rejected")
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_LINEAR_APPLY_PLAN_UNSORTED") {
-		t.Fatalf("expected GOLC_LINEAR_APPLY_PLAN_UNSORTED, got %s", result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected an out-of-canonical-order operation list to be rejected")
+	require.Contains(t, string(result.Stderr), "GOLC_LINEAR_APPLY_PLAN_UNSORTED")
 }
 
 func testLinearApplyRejectsInvalidConflict(t *testing.T) {
@@ -309,12 +265,8 @@ func testLinearApplyRejectsInvalidConflict(t *testing.T) {
 	planFile := writePlanFile(t, plan)
 
 	result := executeLinearApply(t, root, planFile, plan.PlanID)
-	if result.ExitCode == 0 {
-		t.Fatal("expected a structurally malformed conflict to be rejected")
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_LINEAR_APPLY_PLAN_CONFLICT_INVALID") {
-		t.Fatalf("expected GOLC_LINEAR_APPLY_PLAN_CONFLICT_INVALID, got %s", result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected a structurally malformed conflict to be rejected")
+	require.Contains(t, string(result.Stderr), "GOLC_LINEAR_APPLY_PLAN_CONFLICT_INVALID")
 }
 
 func testLinearApplyRejectsIllegalTransition(t *testing.T) {
@@ -332,12 +284,8 @@ func testLinearApplyRejectsIllegalTransition(t *testing.T) {
 	planFile := writePlanFile(t, plan)
 
 	result := executeLinearApply(t, root, planFile, plan.PlanID)
-	if result.ExitCode == 0 {
-		t.Fatal("expected a local id that is both planned and conflicted to be rejected")
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_LINEAR_APPLY_PLAN_ILLEGAL_TRANSITION") {
-		t.Fatalf("expected GOLC_LINEAR_APPLY_PLAN_ILLEGAL_TRANSITION, got %s", result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected a local id that is both planned and conflicted to be rejected")
+	require.Contains(t, string(result.Stderr), "GOLC_LINEAR_APPLY_PLAN_ILLEGAL_TRANSITION")
 }
 
 func testLinearApplyFailsWithoutFactory(t *testing.T) {
@@ -366,10 +314,6 @@ func testLinearApplyFailsWithoutFactory(t *testing.T) {
 	// no LINEAR_API_KEY, no compiled adapter), proving the route never
 	// reaches any credential, subprocess, or mutation access first.
 	result := executeLinearApply(t, root, planFile, plan.PlanID)
-	if result.ExitCode == 0 {
-		t.Fatal("expected apply to fail without a wired RemoteClientFactory")
-	}
-	if !strings.Contains(string(result.Stderr), "LINEAR_TRANSPORT_UNAVAILABLE") {
-		t.Fatalf("expected LINEAR_TRANSPORT_UNAVAILABLE, got %s", result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected apply to fail without a wired RemoteClientFactory")
+	require.Contains(t, string(result.Stderr), "LINEAR_TRANSPORT_UNAVAILABLE")
 }

@@ -8,8 +8,9 @@
 package programming_test
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/fixture"
 	"github.com/lnorton89/golc/internal/programming"
@@ -33,18 +34,10 @@ func TestMotionPresetNewMotionPresetMintsIDAndAcceptsScopedKeyframes(t *testing.
 		},
 	}
 	preset, err := programming.NewMotionPreset("Sweep Arc", keyframes)
-	if err != nil {
-		t.Fatalf("NewMotionPreset: %v", err)
-	}
-	if preset.ID.String() == "" {
-		t.Fatalf("expected a minted UUIDv7 ID, got zero value")
-	}
-	if preset.Name != "Sweep Arc" {
-		t.Fatalf("unexpected preset name: %+v", preset)
-	}
-	if len(preset.Keyframes) != 2 {
-		t.Fatalf("expected 2 keyframes, got %d", len(preset.Keyframes))
-	}
+	require.NoError(t, err, "NewMotionPreset")
+	require.NotEmpty(t, preset.ID.String(), "expected a minted UUIDv7 ID, got zero value")
+	require.Equal(t, "Sweep Arc", preset.Name)
+	require.Len(t, preset.Keyframes, 2)
 }
 
 func TestMotionPresetNewMotionPresetRejectsColorCapability(t *testing.T) {
@@ -52,9 +45,7 @@ func TestMotionPresetNewMotionPresetRejectsColorCapability(t *testing.T) {
 		{Values: []programming.MotionKeyframeValue{{Capability: fixture.CapabilityColor, Value: 0.5}}},
 	}
 	_, err := programming.NewMotionPreset("Bad Color", keyframes)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_MOTION_PRESET_CAPABILITY_OUT_OF_SCOPE") {
-		t.Fatalf("expected GOLC_MOTION_PRESET_CAPABILITY_OUT_OF_SCOPE for color, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_MOTION_PRESET_CAPABILITY_OUT_OF_SCOPE", "expected rejection for color")
 }
 
 func TestMotionPresetNewMotionPresetRejectsGoboCapability(t *testing.T) {
@@ -62,9 +53,7 @@ func TestMotionPresetNewMotionPresetRejectsGoboCapability(t *testing.T) {
 		{Values: []programming.MotionKeyframeValue{{Capability: fixture.CapabilityGobo, Value: 0.5}}},
 	}
 	_, err := programming.NewMotionPreset("Bad Gobo", keyframes)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_MOTION_PRESET_CAPABILITY_OUT_OF_SCOPE") {
-		t.Fatalf("expected GOLC_MOTION_PRESET_CAPABILITY_OUT_OF_SCOPE for gobo, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_MOTION_PRESET_CAPABILITY_OUT_OF_SCOPE", "expected rejection for gobo")
 }
 
 func TestMotionPresetNewMotionPresetRejectsOutOfRangeValue(t *testing.T) {
@@ -72,73 +61,47 @@ func TestMotionPresetNewMotionPresetRejectsOutOfRangeValue(t *testing.T) {
 		{Values: []programming.MotionKeyframeValue{{Capability: fixture.CapabilityPan, Value: 1.5}}},
 	}
 	_, err := programming.NewMotionPreset("Out Of Range", keyframes)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_MOTION_PRESET_VALUE_OUT_OF_RANGE") {
-		t.Fatalf("expected GOLC_MOTION_PRESET_VALUE_OUT_OF_RANGE, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_MOTION_PRESET_VALUE_OUT_OF_RANGE")
 }
 
 func TestMotionPresetNewMotionPresetEmptyNameRejected(t *testing.T) {
 	_, err := programming.NewMotionPreset("  ", nil)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_MOTION_PRESET_NAME_EMPTY") {
-		t.Fatalf("expected GOLC_MOTION_PRESET_NAME_EMPTY, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_MOTION_PRESET_NAME_EMPTY")
 }
 
 func TestMotionPresetRenameMotionPresetPreservesID(t *testing.T) {
 	preset, err := programming.NewMotionPreset("Sweep Arc", nil)
-	if err != nil {
-		t.Fatalf("NewMotionPreset: %v", err)
-	}
+	require.NoError(t, err, "NewMotionPreset")
 	originalID := preset.ID
 
 	renamed, err := programming.RenameMotionPreset(preset, "Sweep Arc Renamed")
-	if err != nil {
-		t.Fatalf("RenameMotionPreset: %v", err)
-	}
-	if renamed.ID != originalID {
-		t.Fatalf("expected ID to be preserved by rename, got original=%s renamed=%s", originalID, renamed.ID)
-	}
-	if renamed.Name != "Sweep Arc Renamed" {
-		t.Fatalf("expected renamed Name %q, got %q", "Sweep Arc Renamed", renamed.Name)
-	}
+	require.NoError(t, err, "RenameMotionPreset")
+	require.Equal(t, originalID, renamed.ID, "expected ID to be preserved by rename")
+	require.Equal(t, "Sweep Arc Renamed", renamed.Name)
 }
 
 func TestMotionPresetRenameMotionPresetEmptyNameRejected(t *testing.T) {
 	preset, err := programming.NewMotionPreset("Sweep Arc", nil)
-	if err != nil {
-		t.Fatalf("NewMotionPreset: %v", err)
-	}
+	require.NoError(t, err, "NewMotionPreset")
 	_, err = programming.RenameMotionPreset(preset, "   ")
-	if err == nil || !strings.Contains(err.Error(), "GOLC_MOTION_PRESET_NAME_EMPTY") {
-		t.Fatalf("expected GOLC_MOTION_PRESET_NAME_EMPTY, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_MOTION_PRESET_NAME_EMPTY")
 }
 
 func TestMotionPresetValidateMotionPresetUniqueNamesRejectsDuplicate(t *testing.T) {
 	a, err := programming.NewMotionPreset("Sweep Arc", nil)
-	if err != nil {
-		t.Fatalf("NewMotionPreset(a): %v", err)
-	}
+	require.NoError(t, err, "NewMotionPreset(a)")
 	b, err := programming.NewMotionPreset("Sweep Arc", nil)
-	if err != nil {
-		t.Fatalf("NewMotionPreset(b): %v", err)
-	}
+	require.NoError(t, err, "NewMotionPreset(b)")
 	err = programming.ValidateMotionPresetUniqueNames([]programming.MotionPreset{a, b})
-	if err == nil || !strings.Contains(err.Error(), "GOLC_MOTION_PRESET_DUPLICATE_NAME") {
-		t.Fatalf("expected GOLC_MOTION_PRESET_DUPLICATE_NAME, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_MOTION_PRESET_DUPLICATE_NAME")
 }
 
 func TestMotionPresetValidateMotionPresetAcceptsValidPreset(t *testing.T) {
 	preset, err := programming.NewMotionPreset("Sweep Arc", []programming.MotionKeyframe{
 		{Phase: 1, Values: []programming.MotionKeyframeValue{{Capability: fixture.CapabilityTilt, Value: 0.9}}},
 	})
-	if err != nil {
-		t.Fatalf("NewMotionPreset: %v", err)
-	}
-	if err := programming.ValidateMotionPreset(preset); err != nil {
-		t.Fatalf("expected a valid motion preset to pass validation, got %v", err)
-	}
+	require.NoError(t, err, "NewMotionPreset")
+	require.NoError(t, programming.ValidateMotionPreset(preset), "expected a valid motion preset to pass validation")
 }
 
 func TestMotionPresetScopedCapabilitiesExcludesColorAndGobo(t *testing.T) {
@@ -147,10 +110,7 @@ func TestMotionPresetScopedCapabilitiesExcludesColorAndGobo(t *testing.T) {
 	for _, c := range scoped {
 		seen[c] = true
 	}
-	if seen[fixture.CapabilityColor] || seen[fixture.CapabilityGobo] {
-		t.Fatalf("expected MotionScopedCapabilities to exclude color/gobo, got %+v", scoped)
-	}
-	if !seen[fixture.CapabilityPan] || !seen[fixture.CapabilityTilt] || !seen[fixture.CapabilityZoom] || !seen[fixture.CapabilityFocus] {
-		t.Fatalf("expected MotionScopedCapabilities to include pan/tilt/zoom/focus, got %+v", scoped)
-	}
+	require.False(t, seen[fixture.CapabilityColor] || seen[fixture.CapabilityGobo], "expected MotionScopedCapabilities to exclude color/gobo, got %+v", scoped)
+	require.True(t, seen[fixture.CapabilityPan] && seen[fixture.CapabilityTilt] && seen[fixture.CapabilityZoom] && seen[fixture.CapabilityFocus],
+		"expected MotionScopedCapabilities to include pan/tilt/zoom/focus, got %+v", scoped)
 }

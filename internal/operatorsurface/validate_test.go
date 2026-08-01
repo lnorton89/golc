@@ -7,10 +7,10 @@
 package operatorsurface_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/operatorsurface"
 	"github.com/lnorton89/golc/internal/pool"
@@ -19,10 +19,8 @@ import (
 
 func TestSurfaceValidateUniqueNamesRejected(t *testing.T) {
 	surfaces := []operatorsurface.Surface{{Name: "Front of House"}, {Name: "Front of House"}}
-	if err := operatorsurface.Validate(surfaces, nil, nil); err == nil ||
-		!strings.Contains(err.Error(), "GOLC_OPERATORSURFACE_DUPLICATE_NAME") {
-		t.Fatalf("expected GOLC_OPERATORSURFACE_DUPLICATE_NAME for duplicate surface names, got %v", err)
-	}
+	err := operatorsurface.Validate(surfaces, nil, nil)
+	require.ErrorContains(t, err, "GOLC_OPERATORSURFACE_DUPLICATE_NAME", "expected GOLC_OPERATORSURFACE_DUPLICATE_NAME for duplicate surface names")
 }
 
 func TestSurfaceValidateDanglingSceneReferenceRejected(t *testing.T) {
@@ -30,17 +28,13 @@ func TestSurfaceValidateDanglingSceneReferenceRejected(t *testing.T) {
 		Name:      "Front of House",
 		SceneRefs: []uuid.UUID{mustNewUUID(t)},
 	}}
-	if err := operatorsurface.Validate(surfaces, nil, nil); err == nil ||
-		!strings.Contains(err.Error(), "GOLC_OPERATORSURFACE_DANGLING_REFERENCE") {
-		t.Fatalf("expected GOLC_OPERATORSURFACE_DANGLING_REFERENCE for a dangling scene ref, got %v", err)
-	}
+	err := operatorsurface.Validate(surfaces, nil, nil)
+	require.ErrorContains(t, err, "GOLC_OPERATORSURFACE_DANGLING_REFERENCE", "expected GOLC_OPERATORSURFACE_DANGLING_REFERENCE for a dangling scene ref")
 }
 
 func TestSurfaceValidateDanglingLayerReferenceRejected(t *testing.T) {
 	sc, err := scene.NewScene("Opener", 4)
-	if err != nil {
-		t.Fatalf("NewScene: %v", err)
-	}
+	require.NoError(t, err, "NewScene")
 
 	// A layer ref against a real scene but the wrong kind (using a bogus
 	// LayerKind value that no real scene ever carries) must fail.
@@ -50,10 +44,8 @@ func TestSurfaceValidateDanglingLayerReferenceRejected(t *testing.T) {
 			{SceneID: sc.ID, Kind: scene.LayerKind("not_a_real_kind")},
 		},
 	}}
-	if err := operatorsurface.Validate(surfaces, []scene.Scene{sc}, nil); err == nil ||
-		!strings.Contains(err.Error(), "GOLC_OPERATORSURFACE_DANGLING_REFERENCE") {
-		t.Fatalf("expected GOLC_OPERATORSURFACE_DANGLING_REFERENCE for an unknown layer kind, got %v", err)
-	}
+	err = operatorsurface.Validate(surfaces, []scene.Scene{sc}, nil)
+	require.ErrorContains(t, err, "GOLC_OPERATORSURFACE_DANGLING_REFERENCE", "expected GOLC_OPERATORSURFACE_DANGLING_REFERENCE for an unknown layer kind")
 
 	// A layer ref against a scene ID that does not exist at all must fail.
 	danglingSceneSurfaces := []operatorsurface.Surface{{
@@ -62,10 +54,8 @@ func TestSurfaceValidateDanglingLayerReferenceRejected(t *testing.T) {
 			{SceneID: mustNewUUID(t), Kind: scene.ColorTheme},
 		},
 	}}
-	if err := operatorsurface.Validate(danglingSceneSurfaces, []scene.Scene{sc}, nil); err == nil ||
-		!strings.Contains(err.Error(), "GOLC_OPERATORSURFACE_DANGLING_REFERENCE") {
-		t.Fatalf("expected GOLC_OPERATORSURFACE_DANGLING_REFERENCE for a layer ref against a nonexistent scene, got %v", err)
-	}
+	err = operatorsurface.Validate(danglingSceneSurfaces, []scene.Scene{sc}, nil)
+	require.ErrorContains(t, err, "GOLC_OPERATORSURFACE_DANGLING_REFERENCE", "expected GOLC_OPERATORSURFACE_DANGLING_REFERENCE for a layer ref against a nonexistent scene")
 
 	// A layer ref that resolves against a real scene and a real layer kind
 	// passes.
@@ -75,9 +65,8 @@ func TestSurfaceValidateDanglingLayerReferenceRejected(t *testing.T) {
 			{SceneID: sc.ID, Kind: scene.ColorTheme},
 		},
 	}}
-	if err := operatorsurface.Validate(validSurfaces, []scene.Scene{sc}, nil); err != nil {
-		t.Fatalf("expected a layer ref resolving against a real scene/kind to be valid, got %v", err)
-	}
+	err = operatorsurface.Validate(validSurfaces, []scene.Scene{sc}, nil)
+	require.NoError(t, err, "expected a layer ref resolving against a real scene/kind to be valid")
 }
 
 func TestSurfaceValidateDanglingGroupMasterReferenceRejected(t *testing.T) {
@@ -91,9 +80,8 @@ func TestSurfaceValidateDanglingGroupMasterReferenceRejected(t *testing.T) {
 			{Kind: operatorsurface.GroupMaster, GroupID: groupID},
 		},
 	}}
-	if err := operatorsurface.Validate(validSurfaces, nil, []pool.Group{group}); err != nil {
-		t.Fatalf("expected a group master ref resolving against a real group to be valid, got %v", err)
-	}
+	err := operatorsurface.Validate(validSurfaces, nil, []pool.Group{group})
+	require.NoError(t, err, "expected a group master ref resolving against a real group to be valid")
 
 	// A GroupMaster ref against a group that does not exist fails.
 	danglingSurfaces := []operatorsurface.Surface{{
@@ -102,19 +90,16 @@ func TestSurfaceValidateDanglingGroupMasterReferenceRejected(t *testing.T) {
 			{Kind: operatorsurface.GroupMaster, GroupID: mustNewUUID(t)},
 		},
 	}}
-	if err := operatorsurface.Validate(danglingSurfaces, nil, []pool.Group{group}); err == nil ||
-		!strings.Contains(err.Error(), "GOLC_OPERATORSURFACE_DANGLING_REFERENCE") {
-		t.Fatalf("expected GOLC_OPERATORSURFACE_DANGLING_REFERENCE for a dangling group master ref, got %v", err)
-	}
+	err = operatorsurface.Validate(danglingSurfaces, nil, []pool.Group{group})
+	require.ErrorContains(t, err, "GOLC_OPERATORSURFACE_DANGLING_REFERENCE", "expected GOLC_OPERATORSURFACE_DANGLING_REFERENCE for a dangling group master ref")
 
 	// A GrandMaster ref never dangles -- it needs no group at all.
 	grandMasterSurfaces := []operatorsurface.Surface{{
 		Name:       "Grand Master Only",
 		MasterRefs: []operatorsurface.MasterRef{{Kind: operatorsurface.GrandMaster}},
 	}}
-	if err := operatorsurface.Validate(grandMasterSurfaces, nil, nil); err != nil {
-		t.Fatalf("expected a grand master ref to never dangle, got %v", err)
-	}
+	err = operatorsurface.Validate(grandMasterSurfaces, nil, nil)
+	require.NoError(t, err, "expected a grand master ref to never dangle")
 }
 
 func TestSurfaceValidateSafetyRefNeverDangles(t *testing.T) {
@@ -122,7 +107,6 @@ func TestSurfaceValidateSafetyRefNeverDangles(t *testing.T) {
 		Name:       "Front of House",
 		SafetyRefs: []operatorsurface.SafetyControl{operatorsurface.Blackout, operatorsurface.RevokeAutomation},
 	}}
-	if err := operatorsurface.Validate(surfaces, nil, nil); err != nil {
-		t.Fatalf("expected safety refs to never dangle, got %v", err)
-	}
+	err := operatorsurface.Validate(surfaces, nil, nil)
+	require.NoError(t, err, "expected safety refs to never dangle")
 }

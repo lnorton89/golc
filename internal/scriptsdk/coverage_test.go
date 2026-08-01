@@ -18,6 +18,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/scriptsdk"
 	"github.com/lnorton89/golc/internal/show"
 )
@@ -38,23 +40,13 @@ func testEveryDescriptorWellFormed(t *testing.T) {
 	}
 
 	descriptors := scriptsdk.RegisteredSDKMethods()
-	if len(descriptors) == 0 {
-		t.Fatal("expected at least one registered SDK method")
-	}
+	require.NotEmpty(t, descriptors, "expected at least one registered SDK method")
 
 	for _, descriptor := range descriptors {
-		if strings.TrimSpace(descriptor.Method) == "" {
-			t.Fatalf("route %q: expected a non-empty Method", descriptor.Route)
-		}
-		if !validScopes[descriptor.Scope] {
-			t.Fatalf("route %q: expected Scope to be one of playback/authoring/admin, got %q", descriptor.Route, descriptor.Scope)
-		}
-		if descriptor.Params == nil {
-			t.Fatalf("route %q: expected a non-nil Params value", descriptor.Route)
-		}
-		if descriptor.Result == nil {
-			t.Fatalf("route %q: expected a non-nil Result value", descriptor.Route)
-		}
+		require.NotEmpty(t, strings.TrimSpace(descriptor.Method), "route %q: expected a non-empty Method", descriptor.Route)
+		require.True(t, validScopes[descriptor.Scope], "route %q: expected Scope to be one of playback/authoring/admin, got %q", descriptor.Route, descriptor.Scope)
+		require.NotNil(t, descriptor.Params, "route %q: expected a non-nil Params value", descriptor.Route)
+		require.NotNil(t, descriptor.Result, "route %q: expected a non-nil Result value", descriptor.Route)
 	}
 }
 
@@ -64,43 +56,29 @@ func testNoRouteExposedAndExcluded(t *testing.T) {
 		exposed[descriptor.Route] = true
 	}
 	for route := range scriptsdk.RegisteredExclusions() {
-		if exposed[route] {
-			t.Fatalf("route %q is both exposed and excluded", route)
-		}
+		require.False(t, exposed[route], "route %q is both exposed and excluded", route)
 	}
 }
 
 func testEveryExclusionReasonNonEmpty(t *testing.T) {
 	exclusions := scriptsdk.RegisteredExclusions()
-	if len(exclusions) == 0 {
-		t.Fatal("expected at least one excluded route")
-	}
+	require.NotEmpty(t, exclusions, "expected at least one excluded route")
 	for route, reason := range exclusions {
-		if strings.TrimSpace(reason) == "" {
-			t.Fatalf("route %q has a blank exclusion reason", route)
-		}
+		require.NotEmpty(t, strings.TrimSpace(reason), "route %q has a blank exclusion reason", route)
 	}
 }
 
 func testPlaybackEvaluateExcluded(t *testing.T) {
 	exclusions := scriptsdk.RegisteredExclusions()
 	reason, excluded := exclusions["playback evaluate"]
-	if !excluded {
-		t.Fatal(`expected "playback evaluate" to be excluded`)
-	}
-	if !strings.Contains(reason, "frame evaluation") {
-		t.Fatalf(`expected "playback evaluate"'s exclusion reason to mention frame evaluation, got %q`, reason)
-	}
+	require.True(t, excluded, `expected "playback evaluate" to be excluded`)
+	require.Contains(t, reason, "frame evaluation", `expected "playback evaluate"'s exclusion reason to mention frame evaluation, got %q`, reason)
 }
 
 func testCommittedFilesMatchGenerated(t *testing.T) {
 	changed, err := scriptsdk.CheckDrift(coverageRepositoryRoot(t))
-	if err != nil {
-		t.Fatalf("CheckDrift failed: %v", err)
-	}
-	if len(changed) != 0 {
-		t.Fatalf("expected the committed generated files to match GenerateAll's output, drift: %v", changed)
-	}
+	require.NoError(t, err, "CheckDrift failed")
+	require.Empty(t, changed, "expected the committed generated files to match GenerateAll's output, drift: %v", changed)
 }
 
 // coverageRepositoryRoot resolves the real repository root from this
@@ -110,8 +88,6 @@ func testCommittedFilesMatchGenerated(t *testing.T) {
 func coverageRepositoryRoot(t *testing.T) string {
 	t.Helper()
 	workingDirectory, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("os.Getwd: %v", err)
-	}
+	require.NoError(t, err, "os.Getwd")
 	return filepath.Clean(filepath.Join(workingDirectory, "..", ".."))
 }

@@ -5,10 +5,10 @@
 package pool_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/deployment"
 	"github.com/lnorton89/golc/internal/pool"
@@ -16,29 +16,19 @@ import (
 
 func TestDeletePoolCascadesInstancesAndGroupRefs(t *testing.T) {
 	poolA, err := pool.NewPool("Pool A", nil)
-	if err != nil {
-		t.Fatalf("NewPool A: %v", err)
-	}
+	require.NoError(t, err, "NewPool A")
 	memberA, err := pool.NewPoolMember("acme/par64", "sha256:aaaaaaaa")
-	if err != nil {
-		t.Fatalf("NewPoolMember A: %v", err)
-	}
+	require.NoError(t, err, "NewPoolMember A")
 	poolA.Members = append(poolA.Members, memberA)
 
 	poolB, err := pool.NewPool("Pool B", nil)
-	if err != nil {
-		t.Fatalf("NewPool B: %v", err)
-	}
+	require.NoError(t, err, "NewPool B")
 	memberB, err := pool.NewPoolMember("acme/par64", "sha256:bbbbbbbb")
-	if err != nil {
-		t.Fatalf("NewPoolMember B: %v", err)
-	}
+	require.NoError(t, err, "NewPoolMember B")
 	poolB.Members = append(poolB.Members, memberB)
 
 	d, err := deployment.NewDeployment("Venue A")
-	if err != nil {
-		t.Fatalf("NewDeployment: %v", err)
-	}
+	require.NoError(t, err, "NewDeployment")
 	instanceAID := uuid.Must(uuid.NewV7())
 	instanceBID := uuid.Must(uuid.NewV7())
 	d.Instances = []deployment.Instance{
@@ -60,30 +50,23 @@ func TestDeletePoolCascadesInstancesAndGroupRefs(t *testing.T) {
 		[]pool.Group{group},
 		poolA.ID,
 	)
-	if err != nil {
-		t.Fatalf("DeletePool: %v", err)
-	}
+	require.NoError(t, err, "DeletePool")
 
-	if len(newPools) != 1 || newPools[0].ID != poolB.ID {
-		t.Fatalf("expected only Pool B to survive, got %+v", newPools)
-	}
-	if len(newDeployments) != 1 || len(newDeployments[0].Instances) != 1 || newDeployments[0].Instances[0].ID != instanceBID {
-		t.Fatalf("expected only Pool B's instance to survive, got %+v", newDeployments)
-	}
-	if len(newGroups) != 1 || len(newGroups[0].MemberRefs) != 1 || newGroups[0].MemberRefs[0].PoolID != poolB.ID {
-		t.Fatalf("expected only the Pool B member ref to survive, got %+v", newGroups)
-	}
+	require.Len(t, newPools, 1, "expected only Pool B to survive, got %+v", newPools)
+	require.Equal(t, poolB.ID, newPools[0].ID)
+	require.Len(t, newDeployments, 1)
+	require.Len(t, newDeployments[0].Instances, 1, "expected only Pool B's instance to survive, got %+v", newDeployments)
+	require.Equal(t, instanceBID, newDeployments[0].Instances[0].ID)
+	require.Len(t, newGroups, 1)
+	require.Len(t, newGroups[0].MemberRefs, 1, "expected only the Pool B member ref to survive, got %+v", newGroups)
+	require.Equal(t, poolB.ID, newGroups[0].MemberRefs[0].PoolID)
 }
 
 func TestDeletePoolUnknownIDRejected(t *testing.T) {
 	p, err := pool.NewPool("Pool A", nil)
-	if err != nil {
-		t.Fatalf("NewPool: %v", err)
-	}
+	require.NoError(t, err, "NewPool")
 	unknownID := uuid.Must(uuid.NewV7())
 
 	_, _, _, err = pool.DeletePool([]pool.Pool{p}, nil, nil, unknownID)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_POOL_NOT_FOUND") {
-		t.Fatalf("expected GOLC_POOL_NOT_FOUND, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_POOL_NOT_FOUND")
 }

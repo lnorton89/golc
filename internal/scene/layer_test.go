@@ -10,6 +10,8 @@ package scene_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/fixture"
 	"github.com/lnorton89/golc/internal/scene"
 )
@@ -33,12 +35,8 @@ func TestLayerCombinationFixedPriorityOverwritesOnlyTouchedAttributes(t *testing
 		},
 	}
 	result := scene.ReduceLayers(contributions)
-	if result.Values[fixture.CapabilityIntensity] != 0.2 {
-		t.Fatalf("expected motion to overwrite the shared intensity attribute, got %v", result.Values[fixture.CapabilityIntensity])
-	}
-	if result.Values[fixture.CapabilityColor] != 0.5 {
-		t.Fatalf("expected base-look's untouched color attribute to survive, got %v", result.Values[fixture.CapabilityColor])
-	}
+	require.Equal(t, 0.2, result.Values[fixture.CapabilityIntensity], "expected motion to overwrite the shared intensity attribute")
+	require.Equal(t, 0.5, result.Values[fixture.CapabilityColor], "expected base-look's untouched color attribute to survive")
 }
 
 func TestLayerCombinationDisabledLayerContributesNothing(t *testing.T) {
@@ -59,9 +57,7 @@ func TestLayerCombinationDisabledLayerContributesNothing(t *testing.T) {
 		},
 	}
 	result := scene.ReduceLayers(contributions)
-	if result.Values[fixture.CapabilityIntensity] != 1.0 {
-		t.Fatalf("expected a disabled chase layer to contribute nothing, got %v", result.Values[fixture.CapabilityIntensity])
-	}
+	require.Equal(t, 1.0, result.Values[fixture.CapabilityIntensity], "expected a disabled chase layer to contribute nothing")
 }
 
 func TestLayerCombinationPriorityIsOrderNotMagnitude(t *testing.T) {
@@ -86,9 +82,7 @@ func TestLayerCombinationPriorityIsOrderNotMagnitude(t *testing.T) {
 		},
 	}
 	result := scene.ReduceLayers(contributions)
-	if result.Values[fixture.CapabilityIntensity] != 0.2 {
-		t.Fatalf("expected the lower-magnitude motion value to win by priority order (NOT HTP), got %v", result.Values[fixture.CapabilityIntensity])
-	}
+	require.Equal(t, 0.2, result.Values[fixture.CapabilityIntensity], "expected the lower-magnitude motion value to win by priority order (NOT HTP)")
 }
 
 func TestLayerCombinationPerLayerSelectionScopesIndependently(t *testing.T) {
@@ -104,9 +98,7 @@ func TestLayerCombinationPerLayerSelectionScopesIndependently(t *testing.T) {
 			}},
 		},
 	})
-	if instanceA.Values[fixture.CapabilityIntensity] != 0.8 {
-		t.Fatalf("expected base-look alone to cover instance A, got %v", instanceA.Values[fixture.CapabilityIntensity])
-	}
+	require.Equal(t, 0.8, instanceA.Values[fixture.CapabilityIntensity], "expected base-look alone to cover instance A")
 
 	// Instance B: both base-look and chase touch it -- chase's narrower
 	// selection includes B, so it overlays base-look here.
@@ -126,7 +118,5 @@ func TestLayerCombinationPerLayerSelectionScopesIndependently(t *testing.T) {
 			}},
 		},
 	})
-	if instanceB.Values[fixture.CapabilityIntensity] != 0.3 {
-		t.Fatalf("expected chase to overlay base-look on the narrower-scoped instance B, got %v", instanceB.Values[fixture.CapabilityIntensity])
-	}
+	require.Equal(t, 0.3, instanceB.Values[fixture.CapabilityIntensity], "expected chase to overlay base-look on the narrower-scoped instance B")
 }

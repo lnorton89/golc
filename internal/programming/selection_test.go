@@ -7,11 +7,10 @@
 package programming_test
 
 import (
-	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/deployment"
 	"github.com/lnorton89/golc/internal/pool"
@@ -72,44 +71,32 @@ func TestSelectionResolvesPool(t *testing.T) {
 	pools, groups, deployments, poolA, _, _, _, _, _, _, _, instA1, instA2, _, instA1Dep2, _ := newFixture(t)
 
 	got, err := programming.Resolve(pools, groups, deployments, programming.Selection{PoolIDs: []uuid.UUID{poolA.ID}})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
+	require.NoError(t, err, "Resolve")
 	// poolA selection matches every instance whose PoolID is poolA, across
 	// both deployments: instA1/instA2 in deployment1, instA1Dep2 in
 	// deployment2 (a second instance also patched from poolA's member m1).
 	want := []uuid.UUID{instA1.ID, instA2.ID, instA1Dep2.ID}
-	if !reflect.DeepEqual(instanceIDs(got), want) {
-		t.Fatalf("pool selection: got %v, want %v", instanceIDs(got), want)
-	}
+	require.Equal(t, want, instanceIDs(got), "pool selection")
 }
 
 func TestSelectionResolvesGroup(t *testing.T) {
 	pools, groups, deployments, _, _, _, _, _, _, _, _, instA1, _, _, instA1Dep2, groupA := newFixture(t)
 
 	got, err := programming.Resolve(pools, groups, deployments, programming.Selection{GroupIDs: []uuid.UUID{groupA.ID}})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
+	require.NoError(t, err, "Resolve")
 	// groupA's MemberRef selects poolA's member m1 -- it resolves to every
 	// instance patched from that member, across both deployments.
 	want := []uuid.UUID{instA1.ID, instA1Dep2.ID}
-	if !reflect.DeepEqual(instanceIDs(got), want) {
-		t.Fatalf("group selection: got %v, want %v", instanceIDs(got), want)
-	}
+	require.Equal(t, want, instanceIDs(got), "group selection")
 }
 
 func TestSelectionResolvesDeploymentInstance(t *testing.T) {
 	pools, groups, deployments, _, _, _, _, _, _, _, _, _, instA2, _, _, _ := newFixture(t)
 
 	got, err := programming.Resolve(pools, groups, deployments, programming.Selection{InstanceIDs: []uuid.UUID{instA2.ID}})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
+	require.NoError(t, err, "Resolve")
 	want := []uuid.UUID{instA2.ID}
-	if !reflect.DeepEqual(instanceIDs(got), want) {
-		t.Fatalf("instance selection: got %v, want %v", instanceIDs(got), want)
-	}
+	require.Equal(t, want, instanceIDs(got), "instance selection")
 }
 
 func TestSelectionResolvesDirectFixtureRef(t *testing.T) {
@@ -118,13 +105,9 @@ func TestSelectionResolvesDirectFixtureRef(t *testing.T) {
 	got, err := programming.Resolve(pools, groups, deployments, programming.Selection{
 		FixtureRefs: []programming.FixtureRef{{PoolID: poolA.ID, PoolMemberID: m1.ID}},
 	})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
+	require.NoError(t, err, "Resolve")
 	want := []uuid.UUID{instA1.ID, instA1Dep2.ID}
-	if !reflect.DeepEqual(instanceIDs(got), want) {
-		t.Fatalf("direct fixture ref selection: got %v, want %v", instanceIDs(got), want)
-	}
+	require.Equal(t, want, instanceIDs(got), "direct fixture ref selection")
 }
 
 func TestSelectionOverlapDedupes(t *testing.T) {
@@ -134,41 +117,29 @@ func TestSelectionOverlapDedupes(t *testing.T) {
 		InstanceIDs: []uuid.UUID{instA1.ID},
 		FixtureRefs: []programming.FixtureRef{{PoolID: poolA.ID, PoolMemberID: m1.ID}},
 	})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
+	require.NoError(t, err, "Resolve")
 	// instA1 is reachable through both selectors (its own instance ID
 	// directly, and the direct fixture ref on poolA's member m1) -- it
 	// must appear exactly once. instA1Dep2 (also patched from m1, in the
 	// other deployment) is added once by the fixture ref selector only.
 	want := []uuid.UUID{instA1.ID, instA1Dep2.ID}
-	if !reflect.DeepEqual(instanceIDs(got), want) {
-		t.Fatalf("overlap selection: got %v, want %v", instanceIDs(got), want)
-	}
+	require.Equal(t, want, instanceIDs(got), "overlap selection")
 }
 
 func TestSelectionEmptyZeroSelectors(t *testing.T) {
 	pools, groups, deployments, _, _, _, _, _, _, _, _, _, _, _, _, _ := newFixture(t)
 
 	got, err := programming.Resolve(pools, groups, deployments, programming.Selection{})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
-	if len(got.Instances) != 0 {
-		t.Fatalf("expected empty resolved set for zero selectors, got %v", got.Instances)
-	}
+	require.NoError(t, err, "Resolve")
+	require.Empty(t, got.Instances, "expected empty resolved set for zero selectors")
 }
 
 func TestSelectionEmptyPool(t *testing.T) {
 	pools, groups, deployments, _, _, emptyPool, _, _, _, _, _, _, _, _, _, _ := newFixture(t)
 
 	got, err := programming.Resolve(pools, groups, deployments, programming.Selection{PoolIDs: []uuid.UUID{emptyPool.ID}})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
-	if len(got.Instances) != 0 {
-		t.Fatalf("expected empty resolved set for an empty pool, got %v", got.Instances)
-	}
+	require.NoError(t, err, "Resolve")
+	require.Empty(t, got.Instances, "expected empty resolved set for an empty pool")
 }
 
 func TestSelectionStableOrdering(t *testing.T) {
@@ -176,16 +147,10 @@ func TestSelectionStableOrdering(t *testing.T) {
 
 	sel := programming.Selection{PoolIDs: []uuid.UUID{poolA.ID, poolB.ID}}
 	first, err := programming.Resolve(pools, groups, deployments, sel)
-	if err != nil {
-		t.Fatalf("Resolve (first): %v", err)
-	}
+	require.NoError(t, err, "Resolve (first)")
 	second, err := programming.Resolve(pools, groups, deployments, sel)
-	if err != nil {
-		t.Fatalf("Resolve (second): %v", err)
-	}
-	if !reflect.DeepEqual(first, second) {
-		t.Fatalf("expected identical resolution order across repeated calls:\nfirst:  %+v\nsecond: %+v", first, second)
-	}
+	require.NoError(t, err, "Resolve (second)")
+	require.Equal(t, second, first, "expected identical resolution order across repeated calls")
 	// deployment declaration order (dep1 before dep2), then instance
 	// declaration order within each deployment. Selecting both poolA and
 	// poolB matches every instance in this fixture.
@@ -195,36 +160,28 @@ func TestSelectionStableOrdering(t *testing.T) {
 		deployments[1].Instances[0].ID,
 		deployments[1].Instances[1].ID,
 	}
-	if !reflect.DeepEqual(instanceIDs(first), want) {
-		t.Fatalf("expected deployment-then-instance declaration order: got %v, want %v", instanceIDs(first), want)
-	}
+	require.Equal(t, want, instanceIDs(first), "expected deployment-then-instance declaration order")
 }
 
 func TestSelectionDanglingPool(t *testing.T) {
 	pools, groups, deployments, _, _, _, _, _, _, _, _, _, _, _, _, _ := newFixture(t)
 
 	_, err := programming.Resolve(pools, groups, deployments, programming.Selection{PoolIDs: []uuid.UUID{uuid.New()}})
-	if err == nil || !strings.Contains(err.Error(), "GOLC_SELECTION_DANGLING_REFERENCE") {
-		t.Fatalf("expected GOLC_SELECTION_DANGLING_REFERENCE for unknown pool, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_SELECTION_DANGLING_REFERENCE", "expected error for unknown pool")
 }
 
 func TestSelectionDanglingGroup(t *testing.T) {
 	pools, groups, deployments, _, _, _, _, _, _, _, _, _, _, _, _, _ := newFixture(t)
 
 	_, err := programming.Resolve(pools, groups, deployments, programming.Selection{GroupIDs: []uuid.UUID{uuid.New()}})
-	if err == nil || !strings.Contains(err.Error(), "GOLC_SELECTION_DANGLING_REFERENCE") {
-		t.Fatalf("expected GOLC_SELECTION_DANGLING_REFERENCE for unknown group, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_SELECTION_DANGLING_REFERENCE", "expected error for unknown group")
 }
 
 func TestSelectionDanglingInstance(t *testing.T) {
 	pools, groups, deployments, _, _, _, _, _, _, _, _, _, _, _, _, _ := newFixture(t)
 
 	_, err := programming.Resolve(pools, groups, deployments, programming.Selection{InstanceIDs: []uuid.UUID{uuid.New()}})
-	if err == nil || !strings.Contains(err.Error(), "GOLC_SELECTION_DANGLING_REFERENCE") {
-		t.Fatalf("expected GOLC_SELECTION_DANGLING_REFERENCE for unknown deployment instance, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_SELECTION_DANGLING_REFERENCE", "expected error for unknown deployment instance")
 }
 
 func TestSelectionDanglingFixtureRefUnknownPool(t *testing.T) {
@@ -233,9 +190,7 @@ func TestSelectionDanglingFixtureRefUnknownPool(t *testing.T) {
 	_, err := programming.Resolve(pools, groups, deployments, programming.Selection{
 		FixtureRefs: []programming.FixtureRef{{PoolID: uuid.New(), PoolMemberID: uuid.New()}},
 	})
-	if err == nil || !strings.Contains(err.Error(), "GOLC_SELECTION_DANGLING_REFERENCE") {
-		t.Fatalf("expected GOLC_SELECTION_DANGLING_REFERENCE for fixture ref with unknown pool, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_SELECTION_DANGLING_REFERENCE", "expected error for fixture ref with unknown pool")
 }
 
 func TestSelectionDanglingFixtureRefUnknownMember(t *testing.T) {
@@ -244,9 +199,7 @@ func TestSelectionDanglingFixtureRefUnknownMember(t *testing.T) {
 	_, err := programming.Resolve(pools, groups, deployments, programming.Selection{
 		FixtureRefs: []programming.FixtureRef{{PoolID: poolA.ID, PoolMemberID: uuid.New()}},
 	})
-	if err == nil || !strings.Contains(err.Error(), "GOLC_SELECTION_DANGLING_REFERENCE") {
-		t.Fatalf("expected GOLC_SELECTION_DANGLING_REFERENCE for fixture ref with unknown pool member, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_SELECTION_DANGLING_REFERENCE", "expected error for fixture ref with unknown pool member")
 }
 
 func TestSelectionResolveDoesNotImportShow(t *testing.T) {
@@ -281,24 +234,15 @@ func TestScrubDanglingRemovesEachSelectorKindIndependently(t *testing.T) {
 
 	scrubbed := programming.ScrubDangling(sel, pools, groups, deployments)
 
-	if !reflect.DeepEqual(scrubbed.PoolIDs, []uuid.UUID{poolA.ID}) {
-		t.Fatalf("expected only the valid pool ID to survive, got %v", scrubbed.PoolIDs)
-	}
-	if !reflect.DeepEqual(scrubbed.GroupIDs, []uuid.UUID{groupA.ID}) {
-		t.Fatalf("expected only the valid group ID to survive, got %v", scrubbed.GroupIDs)
-	}
-	if !reflect.DeepEqual(scrubbed.InstanceIDs, []uuid.UUID{instA1.ID}) {
-		t.Fatalf("expected only the valid instance ID to survive, got %v", scrubbed.InstanceIDs)
-	}
-	if !reflect.DeepEqual(scrubbed.FixtureRefs, []programming.FixtureRef{validFixtureRef}) {
-		t.Fatalf("expected only the valid fixture ref to survive, got %v", scrubbed.FixtureRefs)
-	}
+	require.Equal(t, []uuid.UUID{poolA.ID}, scrubbed.PoolIDs, "expected only the valid pool ID to survive")
+	require.Equal(t, []uuid.UUID{groupA.ID}, scrubbed.GroupIDs, "expected only the valid group ID to survive")
+	require.Equal(t, []uuid.UUID{instA1.ID}, scrubbed.InstanceIDs, "expected only the valid instance ID to survive")
+	require.Equal(t, []programming.FixtureRef{validFixtureRef}, scrubbed.FixtureRefs, "expected only the valid fixture ref to survive")
 
 	// Resolve itself must remain untouched and still strict against the
 	// original (unscrubbed) Selection.
-	if _, err := programming.Resolve(pools, groups, deployments, sel); err == nil || !strings.Contains(err.Error(), "GOLC_SELECTION_DANGLING_REFERENCE") {
-		t.Fatalf("expected Resolve to remain strict against a dangling Selection, got %v", err)
-	}
+	_, err := programming.Resolve(pools, groups, deployments, sel)
+	require.ErrorContains(t, err, "GOLC_SELECTION_DANGLING_REFERENCE", "expected Resolve to remain strict against a dangling Selection")
 }
 
 // TestScrubDanglingLeavesFullyValidSelectionUnchanged proves nothing is
@@ -315,7 +259,5 @@ func TestScrubDanglingLeavesFullyValidSelectionUnchanged(t *testing.T) {
 	}
 
 	scrubbed := programming.ScrubDangling(sel, pools, groups, deployments)
-	if !reflect.DeepEqual(scrubbed, sel) {
-		t.Fatalf("expected a fully valid Selection to pass through unchanged, got %+v want %+v", scrubbed, sel)
-	}
+	require.Equal(t, sel, scrubbed, "expected a fully valid Selection to pass through unchanged")
 }

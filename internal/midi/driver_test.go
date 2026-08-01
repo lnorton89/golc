@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gomidi/midi/v2"
 	"gitlab.com/gomidi/midi/v2/drivers"
 	"gitlab.com/gomidi/midi/v2/drivers/testdrv"
@@ -34,30 +35,20 @@ func TestDriverDecodesNoteOn(t *testing.T) {
 	testDrv := testdrv.New("test-note-on")
 	ins, _ := testDrv.Ins()
 	outs, _ := testDrv.Outs()
-	if err := outs[0].Open(); err != nil {
-		t.Fatalf("out.Open(): %v", err)
-	}
+	require.NoError(t, outs[0].Open(), "out.Open()")
 
 	d, err := Open(ins[0])
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
+	require.NoError(t, err, "Open")
 	events, err := d.Listen()
-	if err != nil {
-		t.Fatalf("Listen: %v", err)
-	}
+	require.NoError(t, err, "Listen")
 	defer d.Close()
 
-	if err := outs[0].Send(midi.NoteOn(2, 60, 100).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	require.NoError(t, outs[0].Send(midi.NoteOn(2, 60, 100).Bytes()), "Send")
 
 	select {
 	case evt := <-events:
 		want := Event{Key: ControlKey{Channel: 2, Kind: Note, Number: 60}, Value: float64(100) / 127}
-		if evt != want {
-			t.Fatalf("event = %+v, want %+v", evt, want)
-		}
+		require.Equal(t, want, evt)
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for Note-on event")
 	}
@@ -70,30 +61,20 @@ func TestDriverDecodesNoteOff(t *testing.T) {
 	testDrv := testdrv.New("test-note-off")
 	ins, _ := testDrv.Ins()
 	outs, _ := testDrv.Outs()
-	if err := outs[0].Open(); err != nil {
-		t.Fatalf("out.Open(): %v", err)
-	}
+	require.NoError(t, outs[0].Open(), "out.Open()")
 
 	d, err := Open(ins[0])
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
+	require.NoError(t, err, "Open")
 	events, err := d.Listen()
-	if err != nil {
-		t.Fatalf("Listen: %v", err)
-	}
+	require.NoError(t, err, "Listen")
 	defer d.Close()
 
-	if err := outs[0].Send(midi.NoteOff(3, 64).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	require.NoError(t, outs[0].Send(midi.NoteOff(3, 64).Bytes()), "Send")
 
 	select {
 	case evt := <-events:
 		want := Event{Key: ControlKey{Channel: 3, Kind: Note, Number: 64}, Value: 0}
-		if evt != want {
-			t.Fatalf("event = %+v, want %+v", evt, want)
-		}
+		require.Equal(t, want, evt)
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for Note-off event")
 	}
@@ -107,30 +88,20 @@ func TestDriverDecodesControlChange(t *testing.T) {
 	testDrv := testdrv.New("test-cc")
 	ins, _ := testDrv.Ins()
 	outs, _ := testDrv.Outs()
-	if err := outs[0].Open(); err != nil {
-		t.Fatalf("out.Open(): %v", err)
-	}
+	require.NoError(t, outs[0].Open(), "out.Open()")
 
 	d, err := Open(ins[0])
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
+	require.NoError(t, err, "Open")
 	events, err := d.Listen()
-	if err != nil {
-		t.Fatalf("Listen: %v", err)
-	}
+	require.NoError(t, err, "Listen")
 	defer d.Close()
 
-	if err := outs[0].Send(midi.ControlChange(1, 74, 64).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	require.NoError(t, outs[0].Send(midi.ControlChange(1, 74, 64).Bytes()), "Send")
 
 	select {
 	case evt := <-events:
 		want := Event{Key: ControlKey{Channel: 1, Kind: ControlChange, Number: 74}, Value: float64(64) / 127}
-		if evt != want {
-			t.Fatalf("event = %+v, want %+v", evt, want)
-		}
+		require.Equal(t, want, evt)
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for ControlChange event")
 	}
@@ -145,37 +116,23 @@ func TestDriverStatusOKUntilClosed(t *testing.T) {
 	ins, _ := testDrv.Ins()
 
 	d, err := Open(ins[0])
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	if d.Status() != DriverStatusOK {
-		t.Fatalf("Status() = %v, want DriverStatusOK", d.Status())
-	}
-	if err := d.Err(); err != nil {
-		t.Fatalf("Err() = %v, want nil", err)
-	}
+	require.NoError(t, err, "Open")
+	require.Equal(t, DriverStatusOK, d.Status())
+	require.NoError(t, d.Err())
 
-	if _, err := d.Listen(); err != nil {
-		t.Fatalf("Listen: %v", err)
-	}
-	if err := d.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
-	}
+	_, err = d.Listen()
+	require.NoError(t, err, "Listen")
+	require.NoError(t, d.Close(), "Close")
 
-	if d.Status() != DriverStatusClosed {
-		t.Fatalf("Status() after Close = %v, want DriverStatusClosed", d.Status())
-	}
-	if err := d.Err(); err == nil {
-		t.Fatal("Err() after Close = nil, want a GOLC_MIDI_PORT_CLOSED diagnostic")
-	}
+	require.Equal(t, DriverStatusClosed, d.Status(), "Status() after Close")
+	require.Error(t, d.Err(), "Err() after Close = nil, want a GOLC_MIDI_PORT_CLOSED diagnostic")
 }
 
 // TestDriverOpenRejectsNilPort proves Open fails fast with a diagnostic
 // rather than constructing a Driver that would panic on first use.
 func TestDriverOpenRejectsNilPort(t *testing.T) {
-	if _, err := Open(nil); err == nil {
-		t.Fatal("Open(nil) = nil error, want GOLC_MIDI_PORT_OPEN_FAILED")
-	}
+	_, err := Open(nil)
+	require.Error(t, err, "Open(nil) = nil error, want GOLC_MIDI_PORT_OPEN_FAILED")
 }
 
 // TestDriverListensOnEveryWrappedPort proves a Driver wrapping more than
@@ -193,45 +150,29 @@ func TestDriverListensOnEveryWrappedPort(t *testing.T) {
 	secondIns, _ := secondDrv.Ins()
 	firstOuts, _ := firstDrv.Outs()
 	secondOuts, _ := secondDrv.Outs()
-	if err := firstOuts[0].Open(); err != nil {
-		t.Fatalf("first out.Open(): %v", err)
-	}
-	if err := secondOuts[0].Open(); err != nil {
-		t.Fatalf("second out.Open(): %v", err)
-	}
+	require.NoError(t, firstOuts[0].Open(), "first out.Open()")
+	require.NoError(t, secondOuts[0].Open(), "second out.Open()")
 
 	d, err := newDriver([]drivers.In{firstIns[0], secondIns[0]})
-	if err != nil {
-		t.Fatalf("newDriver: %v", err)
-	}
+	require.NoError(t, err, "newDriver")
 	events, err := d.Listen()
-	if err != nil {
-		t.Fatalf("Listen: %v", err)
-	}
+	require.NoError(t, err, "Listen")
 	defer d.Close()
 
-	if err := firstOuts[0].Send(midi.NoteOn(1, 10, 100).Bytes()); err != nil {
-		t.Fatalf("Send on first port: %v", err)
-	}
+	require.NoError(t, firstOuts[0].Send(midi.NoteOn(1, 10, 100).Bytes()), "Send on first port")
 	select {
 	case evt := <-events:
 		want := Event{Key: ControlKey{Channel: 1, Kind: Note, Number: 10}, Value: float64(100) / 127}
-		if evt != want {
-			t.Fatalf("event from first port = %+v, want %+v", evt, want)
-		}
+		require.Equal(t, want, evt, "event from first port")
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for event from the first port")
 	}
 
-	if err := secondOuts[0].Send(midi.ControlChange(2, 20, 64).Bytes()); err != nil {
-		t.Fatalf("Send on second port: %v", err)
-	}
+	require.NoError(t, secondOuts[0].Send(midi.ControlChange(2, 20, 64).Bytes()), "Send on second port")
 	select {
 	case evt := <-events:
 		want := Event{Key: ControlKey{Channel: 2, Kind: ControlChange, Number: 20}, Value: float64(64) / 127}
-		if evt != want {
-			t.Fatalf("event from second port = %+v, want %+v", evt, want)
-		}
+		require.Equal(t, want, evt, "event from second port")
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for event from the second port -- a regression here means Listen went back to only the first port")
 	}
@@ -253,10 +194,6 @@ func TestDriverListensOnEveryWrappedPort(t *testing.T) {
 // above) covers the same "no usable port" failure shape.
 func TestDriverOpenFirstAvailableUsesRegisteredDriver(t *testing.T) {
 	d, err := OpenFirstAvailable()
-	if err != nil {
-		t.Fatalf("OpenFirstAvailable() = %v, want a Driver wrapping testdrv's auto-registered port", err)
-	}
-	if d.Status() != DriverStatusOK {
-		t.Fatalf("Status() = %v, want DriverStatusOK", d.Status())
-	}
+	require.NoError(t, err, "OpenFirstAvailable() want a Driver wrapping testdrv's auto-registered port")
+	require.Equal(t, DriverStatusOK, d.Status())
 }

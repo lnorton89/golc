@@ -12,12 +12,13 @@
 package scriptsdk_test
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/scriptsdk"
@@ -52,49 +53,39 @@ func TestScopeScriptsdk(t *testing.T) {
 }
 
 func testRegisterSDKMethodRejects(t *testing.T) {
-	if err := scriptsdk.RegisterSDKMethod(scriptsdk.SDKMethodDescriptor{
+	err := scriptsdk.RegisterSDKMethod(scriptsdk.SDKMethodDescriptor{
 		Route:  "sdkfixture alpha",
 		Method: "sdkfixture.alpha",
 		Scope:  show.APIKeyScopePlayback,
 		Params: fixtureParams{},
 		Result: fixtureResult{},
-	}); err != nil {
-		t.Fatalf("expected the first registration to succeed: %v", err)
-	}
+	})
+	require.NoError(t, err, "expected the first registration to succeed")
 
-	if err := scriptsdk.RegisterSDKMethod(scriptsdk.SDKMethodDescriptor{
+	err = scriptsdk.RegisterSDKMethod(scriptsdk.SDKMethodDescriptor{
 		Route:  "sdkfixture alpha",
 		Method: "sdkfixture.alphaDuplicate",
 		Scope:  show.APIKeyScopePlayback,
 		Params: fixtureParams{},
 		Result: fixtureResult{},
-	}); err == nil {
-		t.Fatal("expected a duplicate Route to be rejected")
-	} else if !strings.Contains(err.Error(), "GOLC_SCRIPTSDK_ROUTE_DUPLICATE") {
-		t.Fatalf("expected GOLC_SCRIPTSDK_ROUTE_DUPLICATE, got %v", err)
-	}
+	})
+	require.ErrorContains(t, err, "GOLC_SCRIPTSDK_ROUTE_DUPLICATE", "expected a duplicate Route to be rejected")
 
-	if err := scriptsdk.RegisterSDKMethod(scriptsdk.SDKMethodDescriptor{
+	err = scriptsdk.RegisterSDKMethod(scriptsdk.SDKMethodDescriptor{
 		Method: "sdkfixture.missingRoute",
 		Scope:  show.APIKeyScopePlayback,
 		Params: fixtureParams{},
 		Result: fixtureResult{},
-	}); err == nil {
-		t.Fatal("expected a descriptor missing Route to be rejected")
-	} else if !strings.Contains(err.Error(), "GOLC_SCRIPTSDK_DESCRIPTOR_INVALID") {
-		t.Fatalf("expected GOLC_SCRIPTSDK_DESCRIPTOR_INVALID, got %v", err)
-	}
+	})
+	require.ErrorContains(t, err, "GOLC_SCRIPTSDK_DESCRIPTOR_INVALID", "expected a descriptor missing Route to be rejected")
 
-	if err := scriptsdk.RegisterSDKMethod(scriptsdk.SDKMethodDescriptor{
+	err = scriptsdk.RegisterSDKMethod(scriptsdk.SDKMethodDescriptor{
 		Route:  "sdkfixture missingscope",
 		Method: "sdkfixture.missingScope",
 		Params: fixtureParams{},
 		Result: fixtureResult{},
-	}); err == nil {
-		t.Fatal("expected a descriptor missing Scope to be rejected")
-	} else if !strings.Contains(err.Error(), "GOLC_SCRIPTSDK_DESCRIPTOR_INVALID") {
-		t.Fatalf("expected GOLC_SCRIPTSDK_DESCRIPTOR_INVALID, got %v", err)
-	}
+	})
+	require.ErrorContains(t, err, "GOLC_SCRIPTSDK_DESCRIPTOR_INVALID", "expected a descriptor missing Scope to be rejected")
 }
 
 func testRegisteredSDKMethodsSorted(t *testing.T) {
@@ -119,9 +110,7 @@ func testRegisteredSDKMethodsSorted(t *testing.T) {
 		routes[i] = d.Route
 	}
 	for i := 1; i < len(routes); i++ {
-		if routes[i-1] > routes[i] {
-			t.Fatalf("expected RegisteredSDKMethods to return Route-sorted order, got %v", routes)
-		}
+		require.LessOrEqual(t, routes[i-1], routes[i], "expected RegisteredSDKMethods to return Route-sorted order, got %v", routes)
 	}
 
 	// Mutating the returned snapshot must never affect the package-level
@@ -129,9 +118,7 @@ func testRegisteredSDKMethodsSorted(t *testing.T) {
 	descriptors[0].Route = "mutated-in-place"
 	again := scriptsdk.RegisteredSDKMethods()
 	for _, d := range again {
-		if d.Route == "mutated-in-place" {
-			t.Fatal("expected mutating the returned snapshot to leave the registry unaffected")
-		}
+		require.NotEqual(t, "mutated-in-place", d.Route, "expected mutating the returned snapshot to leave the registry unaffected")
 	}
 }
 
@@ -146,103 +133,65 @@ func testGenerateIntoDeterministic(t *testing.T) {
 
 	dirA := t.TempDir()
 	dirB := t.TempDir()
-	if err := scriptsdk.GenerateInto(dirA); err != nil {
-		t.Fatalf("GenerateInto(dirA) failed: %v", err)
-	}
-	if err := scriptsdk.GenerateInto(dirB); err != nil {
-		t.Fatalf("GenerateInto(dirB) failed: %v", err)
-	}
+	require.NoError(t, scriptsdk.GenerateInto(dirA), "GenerateInto(dirA) failed")
+	require.NoError(t, scriptsdk.GenerateInto(dirB), "GenerateInto(dirB) failed")
 
 	for _, relative := range []string{"internal/scriptsdk/generated/golc.d.ts", "internal/scriptsdk/generated/golc-runtime.ts"} {
 		a, err := os.ReadFile(filepath.Join(dirA, filepath.FromSlash(relative)))
-		if err != nil {
-			t.Fatalf("read dirA %s: %v", relative, err)
-		}
+		require.NoError(t, err, "read dirA %s", relative)
 		b, err := os.ReadFile(filepath.Join(dirB, filepath.FromSlash(relative)))
-		if err != nil {
-			t.Fatalf("read dirB %s: %v", relative, err)
-		}
-		if !bytes.Equal(a, b) {
-			t.Fatalf("expected byte-identical generation for %s across repeated runs", relative)
-		}
+		require.NoError(t, err, "read dirB %s", relative)
+		require.Equal(t, a, b, "expected byte-identical generation for %s across repeated runs", relative)
 	}
 }
 
 func testCheckDriftReporting(t *testing.T) {
 	root := t.TempDir()
-	if err := scriptsdk.GenerateAll(root); err != nil {
-		t.Fatalf("seed GenerateAll failed: %v", err)
-	}
+	require.NoError(t, scriptsdk.GenerateAll(root), "seed GenerateAll failed")
 
 	changed, err := scriptsdk.CheckDrift(root)
-	if err != nil {
-		t.Fatalf("CheckDrift failed: %v", err)
-	}
-	if len(changed) != 0 {
-		t.Fatalf("expected zero drift against freshly seeded committed bytes, got %v", changed)
-	}
+	require.NoError(t, err, "CheckDrift failed")
+	require.Empty(t, changed, "expected zero drift against freshly seeded committed bytes, got %v", changed)
 
 	typesPath := filepath.Join(root, "internal", "scriptsdk", "generated", "golc.d.ts")
 	original, err := os.ReadFile(typesPath)
-	if err != nil {
-		t.Fatalf("read seeded golc.d.ts: %v", err)
-	}
+	require.NoError(t, err, "read seeded golc.d.ts")
 	mutated := append(append([]byte{}, original...), '\n', '/', '/', ' ', 'h', 'a', 'n', 'd', '-', 'e', 'd', 'i', 't')
-	if err := os.WriteFile(typesPath, mutated, 0o644); err != nil {
-		t.Fatalf("mutate committed golc.d.ts: %v", err)
-	}
+	require.NoError(t, os.WriteFile(typesPath, mutated, 0o644), "mutate committed golc.d.ts")
 
 	changed, err = scriptsdk.CheckDrift(root)
-	if err != nil {
-		t.Fatalf("CheckDrift after mutation failed: %v", err)
-	}
-	if len(changed) != 1 || changed[0] != "internal/scriptsdk/generated/golc.d.ts" {
-		t.Fatalf("expected drift to name exactly golc.d.ts, got %v", changed)
-	}
+	require.NoError(t, err, "CheckDrift after mutation failed")
+	require.Len(t, changed, 1, "expected drift to name exactly golc.d.ts, got %v", changed)
+	require.Equal(t, "internal/scriptsdk/generated/golc.d.ts", changed[0])
 }
 
 func testCheckDriftReadOnly(t *testing.T) {
 	root := t.TempDir()
-	if err := scriptsdk.GenerateAll(root); err != nil {
-		t.Fatalf("seed GenerateAll failed: %v", err)
-	}
+	require.NoError(t, scriptsdk.GenerateAll(root), "seed GenerateAll failed")
 
 	before := map[string][]byte{}
 	beforeModTime := map[string]time.Time{}
 	for _, relative := range []string{"internal/scriptsdk/generated/golc.d.ts", "internal/scriptsdk/generated/golc-runtime.ts"} {
 		full := filepath.Join(root, filepath.FromSlash(relative))
 		data, err := os.ReadFile(full)
-		if err != nil {
-			t.Fatalf("read seeded %s: %v", relative, err)
-		}
+		require.NoError(t, err, "read seeded %s", relative)
 		before[relative] = data
 		info, err := os.Stat(full)
-		if err != nil {
-			t.Fatalf("stat seeded %s: %v", relative, err)
-		}
+		require.NoError(t, err, "stat seeded %s", relative)
 		beforeModTime[relative] = info.ModTime()
 	}
 
-	if _, err := scriptsdk.CheckDrift(root); err != nil {
-		t.Fatalf("CheckDrift failed: %v", err)
-	}
+	_, err := scriptsdk.CheckDrift(root)
+	require.NoError(t, err, "CheckDrift failed")
 
 	for relative, want := range before {
 		full := filepath.Join(root, filepath.FromSlash(relative))
 		got, err := os.ReadFile(full)
-		if err != nil {
-			t.Fatalf("re-read %s after CheckDrift: %v", relative, err)
-		}
-		if !bytes.Equal(got, want) {
-			t.Fatalf("expected CheckDrift to leave committed bytes at %s untouched", relative)
-		}
+		require.NoError(t, err, "re-read %s after CheckDrift", relative)
+		require.Equal(t, want, got, "expected CheckDrift to leave committed bytes at %s untouched", relative)
 		info, err := os.Stat(full)
-		if err != nil {
-			t.Fatalf("re-stat %s after CheckDrift: %v", relative, err)
-		}
-		if !info.ModTime().Equal(beforeModTime[relative]) {
-			t.Fatalf("expected CheckDrift to leave %s's mtime untouched, got %v want %v", relative, info.ModTime(), beforeModTime[relative])
-		}
+		require.NoError(t, err, "re-stat %s after CheckDrift", relative)
+		require.True(t, info.ModTime().Equal(beforeModTime[relative]), "expected CheckDrift to leave %s's mtime untouched, got %v want %v", relative, info.ModTime(), beforeModTime[relative])
 	}
 }
 
@@ -257,32 +206,18 @@ func testRenderedTypesShape(t *testing.T) {
 	})
 
 	root := t.TempDir()
-	if err := scriptsdk.GenerateAll(root); err != nil {
-		t.Fatalf("GenerateAll failed: %v", err)
-	}
+	require.NoError(t, scriptsdk.GenerateAll(root), "GenerateAll failed")
 	data, err := os.ReadFile(filepath.Join(root, "internal", "scriptsdk", "generated", "golc.d.ts"))
-	if err != nil {
-		t.Fatalf("read golc.d.ts: %v", err)
-	}
+	require.NoError(t, err, "read golc.d.ts")
 	text := string(data)
 
-	if !strings.Contains(text, "declare namespace golc") {
-		t.Fatalf("expected golc.d.ts to declare an ambient global golc namespace, got:\n%s", text)
-	}
-	if !strings.Contains(text, "function shapeCheck(params: fixtureParams): Promise<fixtureResult>;") {
-		t.Fatalf("expected golc.d.ts to declare the fixture method signature, got:\n%s", text)
-	}
-	if !strings.Contains(text, "GENERATED by github.com/lnorton89/golc/internal/scriptsdk. DO NOT EDIT.") {
-		t.Fatalf("expected golc.d.ts to carry the generated marker, got:\n%s", text)
-	}
+	require.Contains(t, text, "declare namespace golc", "expected golc.d.ts to declare an ambient global golc namespace, got:\n%s", text)
+	require.Contains(t, text, "function shapeCheck(params: fixtureParams): Promise<fixtureResult>;", "expected golc.d.ts to declare the fixture method signature, got:\n%s", text)
+	require.Contains(t, text, "GENERATED by github.com/lnorton89/golc/internal/scriptsdk. DO NOT EDIT.", "expected golc.d.ts to carry the generated marker, got:\n%s", text)
 
 	withoutComments := stripLineComments(text)
-	if strings.Contains(withoutComments, "import ") {
-		t.Fatalf("expected golc.d.ts to contain no import keyword, got:\n%s", text)
-	}
-	if strings.Contains(withoutComments, "export ") {
-		t.Fatalf("expected golc.d.ts to contain no export keyword, got:\n%s", text)
-	}
+	require.NotContains(t, withoutComments, "import ", "expected golc.d.ts to contain no import keyword, got:\n%s", text)
+	require.NotContains(t, withoutComments, "export ", "expected golc.d.ts to contain no export keyword, got:\n%s", text)
 }
 
 // stripLineComments removes every "// ..." line comment from text -- the

@@ -15,8 +15,9 @@
 package pool_test
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/pool"
 )
@@ -25,40 +26,29 @@ func TestPlanIntegrityRejectsTamper(t *testing.T) {
 	fx, target, _, _, _ := newFixtureState(t)
 	req := pool.ImpactRequest{PoolID: target.ID, Propagate: "preview"}
 	plan, err := pool.BuildImpactPlan(fx.pools, fx.deployments, fx.groups, fx.revision, req)
-	if err != nil {
-		t.Fatalf("BuildImpactPlan: %v", err)
-	}
-	if err := pool.ValidatePlanIntegrity(plan); err != nil {
-		t.Fatalf("expected a freshly built plan to pass integrity, got %v", err)
-	}
+	require.NoError(t, err, "BuildImpactPlan")
+	require.NoError(t, pool.ValidatePlanIntegrity(plan), "expected a freshly built plan to pass integrity")
 
 	tampered := plan
 	tampered.Propagate = "immediate"
-	if err := pool.ValidatePlanIntegrity(tampered); err == nil || !strings.Contains(err.Error(), "GOLC_POOL_PLAN_HASH") {
-		t.Fatalf("expected GOLC_POOL_PLAN_HASH for a plan altered after hashing, got %v", err)
-	}
+	err = pool.ValidatePlanIntegrity(tampered)
+	require.ErrorContains(t, err, "GOLC_POOL_PLAN_HASH", "expected GOLC_POOL_PLAN_HASH for a plan altered after hashing")
 
 	wrongSchema := plan
 	wrongSchema.SchemaVersion = plan.SchemaVersion + 1
-	if err := pool.ValidatePlanIntegrity(wrongSchema); err == nil || !strings.Contains(err.Error(), "GOLC_POOL_PLAN_SCHEMA") {
-		t.Fatalf("expected GOLC_POOL_PLAN_SCHEMA for a wrong schema version, got %v", err)
-	}
+	err = pool.ValidatePlanIntegrity(wrongSchema)
+	require.ErrorContains(t, err, "GOLC_POOL_PLAN_SCHEMA", "expected GOLC_POOL_PLAN_SCHEMA for a wrong schema version")
 }
 
 func TestPlanFreshnessRejectsStale(t *testing.T) {
 	fx, target, _, _, _ := newFixtureState(t)
 	req := pool.ImpactRequest{PoolID: target.ID, Propagate: "preview"}
 	plan, err := pool.BuildImpactPlan(fx.pools, fx.deployments, fx.groups, fx.revision, req)
-	if err != nil {
-		t.Fatalf("BuildImpactPlan: %v", err)
-	}
-	if err := pool.ValidatePlanFreshness(plan, fx.pools, fx.deployments, fx.groups, fx.revision); err != nil {
-		t.Fatalf("expected a freshly built plan to pass freshness against the same state, got %v", err)
-	}
+	require.NoError(t, err, "BuildImpactPlan")
+	require.NoError(t, pool.ValidatePlanFreshness(plan, fx.pools, fx.deployments, fx.groups, fx.revision), "expected a freshly built plan to pass freshness against the same state")
 
-	if err := pool.ValidatePlanFreshness(plan, fx.pools, fx.deployments, fx.groups, fx.revision+1); err == nil || !strings.Contains(err.Error(), "GOLC_POOL_PLAN_STALE") {
-		t.Fatalf("expected GOLC_POOL_PLAN_STALE once the show revision moved, got %v", err)
-	}
+	err = pool.ValidatePlanFreshness(plan, fx.pools, fx.deployments, fx.groups, fx.revision+1)
+	require.ErrorContains(t, err, "GOLC_POOL_PLAN_STALE", "expected GOLC_POOL_PLAN_STALE once the show revision moved")
 }
 
 func TestApplyAtomic(t *testing.T) {
@@ -70,28 +60,18 @@ func TestApplyAtomic(t *testing.T) {
 		Propagate: "preview",
 	}
 	plan, err := pool.BuildImpactPlan(fx.pools, fx.deployments, fx.groups, fx.revision, req)
-	if err != nil {
-		t.Fatalf("BuildImpactPlan: %v", err)
-	}
+	require.NoError(t, err, "BuildImpactPlan")
 
 	beforeMemberCount := len(fx.pools[0].Members)
 	beforeInstanceCount := len(fx.deployments[0].Instances)
 
 	newPools, newDeployments, _, err := pool.Apply(fx.pools, fx.deployments, fx.groups, plan)
-	if err != nil {
-		t.Fatalf("Apply: %v", err)
-	}
-	if len(newPools[0].Members) != beforeMemberCount+1 {
-		t.Fatalf("expected the pool to gain exactly one member, got %d want %d", len(newPools[0].Members), beforeMemberCount+1)
-	}
-	if len(newDeployments[0].Instances) != beforeInstanceCount+1 {
-		t.Fatalf("expected the deployment to gain exactly one proposed instance, got %d want %d", len(newDeployments[0].Instances), beforeInstanceCount+1)
-	}
+	require.NoError(t, err, "Apply")
+	require.Len(t, newPools[0].Members, beforeMemberCount+1, "expected the pool to gain exactly one member")
+	require.Len(t, newDeployments[0].Instances, beforeInstanceCount+1, "expected the deployment to gain exactly one proposed instance")
 	// The original slices must be left completely unchanged (all-or-
 	// nothing at the model boundary: Apply never mutates its inputs).
-	if len(fx.pools[0].Members) != beforeMemberCount {
-		t.Fatalf("expected Apply to leave the input pool slice unmutated, got %d members", len(fx.pools[0].Members))
-	}
+	require.Len(t, fx.pools[0].Members, beforeMemberCount, "expected Apply to leave the input pool slice unmutated")
 
 	postApplyRevision := fx.revision + 1 // simulate show.Save's revision bump
 
@@ -99,7 +79,6 @@ func TestApplyAtomic(t *testing.T) {
 	// by the freshness gate every "pool apply" invocation runs before
 	// Apply (CONTEXT D-16): the plan's ExpectedRevision no longer matches
 	// the post-apply revision (single-use).
-	if err := pool.ValidatePlanFreshness(plan, newPools, newDeployments, fx.groups, postApplyRevision); err == nil || !strings.Contains(err.Error(), "GOLC_POOL_PLAN_STALE") {
-		t.Fatalf("expected a re-apply of the same plan to be rejected as stale, got %v", err)
-	}
+	err = pool.ValidatePlanFreshness(plan, newPools, newDeployments, fx.groups, postApplyRevision)
+	require.ErrorContains(t, err, "GOLC_POOL_PLAN_STALE", "expected a re-apply of the same plan to be rejected as stale")
 }

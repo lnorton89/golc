@@ -8,71 +8,49 @@
 package scene_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/scene"
 )
 
 func TestSingleActiveSceneAcceptsZeroOrOneActive(t *testing.T) {
 	a, err := scene.NewScene("A", 4)
-	if err != nil {
-		t.Fatalf("NewScene: %v", err)
-	}
+	require.NoError(t, err, "NewScene")
 	b, err := scene.NewScene("B", 4)
-	if err != nil {
-		t.Fatalf("NewScene: %v", err)
-	}
-	if err := scene.ValidateSingleActiveScene([]scene.Scene{a, b}); err != nil {
-		t.Fatalf("expected zero active scenes to be valid, got %v", err)
-	}
+	require.NoError(t, err, "NewScene")
+	require.NoError(t, scene.ValidateSingleActiveScene([]scene.Scene{a, b}), "expected zero active scenes to be valid")
 	a.Active = true
-	if err := scene.ValidateSingleActiveScene([]scene.Scene{a, b}); err != nil {
-		t.Fatalf("expected exactly one active scene to be valid, got %v", err)
-	}
+	require.NoError(t, scene.ValidateSingleActiveScene([]scene.Scene{a, b}), "expected exactly one active scene to be valid")
 }
 
 func TestSingleActiveSceneRejectsMultipleActive(t *testing.T) {
 	a, err := scene.NewScene("A", 4)
-	if err != nil {
-		t.Fatalf("NewScene: %v", err)
-	}
+	require.NoError(t, err, "NewScene")
 	b, err := scene.NewScene("B", 4)
-	if err != nil {
-		t.Fatalf("NewScene: %v", err)
-	}
+	require.NoError(t, err, "NewScene")
 	a.Active = true
 	b.Active = true
 	err = scene.ValidateSingleActiveScene([]scene.Scene{a, b})
-	if err == nil || !strings.Contains(err.Error(), "GOLC_SCENE_MULTIPLE_ACTIVE") {
-		t.Fatalf("expected GOLC_SCENE_MULTIPLE_ACTIVE for two active scenes, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_SCENE_MULTIPLE_ACTIVE", "expected error for two active scenes")
 }
 
 func TestSingleActiveSceneActivateNeverTransientlyTwoActive(t *testing.T) {
 	a, err := scene.NewScene("A", 4)
-	if err != nil {
-		t.Fatalf("NewScene: %v", err)
-	}
+	require.NoError(t, err, "NewScene")
 	b, err := scene.NewScene("B", 4)
-	if err != nil {
-		t.Fatalf("NewScene: %v", err)
-	}
+	require.NoError(t, err, "NewScene")
 
 	activated, err := scene.ActivateScene([]scene.Scene{a, b}, "B")
-	if err != nil {
-		t.Fatalf("ActivateScene: %v", err)
-	}
+	require.NoError(t, err, "ActivateScene")
 	assertExactlyOneActiveNamed(t, activated, "B")
 
 	// A second activate against the other scene still keeps exactly one
 	// active -- never transiently two.
 	reactivated, err := scene.ActivateScene(activated, "A")
-	if err != nil {
-		t.Fatalf("ActivateScene (second): %v", err)
-	}
+	require.NoError(t, err, "ActivateScene (second)")
 	assertExactlyOneActiveNamed(t, reactivated, "A")
 }
 
@@ -82,86 +60,56 @@ func assertExactlyOneActiveNamed(t *testing.T, scenes []scene.Scene, expectedNam
 	for _, s := range scenes {
 		if s.Active {
 			activeCount++
-			if s.Name != expectedName {
-				t.Fatalf("expected %q to be the only active scene, got %q active", expectedName, s.Name)
-			}
+			require.Equal(t, expectedName, s.Name, "expected %q to be the only active scene", expectedName)
 		}
 	}
-	if activeCount != 1 {
-		t.Fatalf("expected exactly one active scene, got %d", activeCount)
-	}
+	require.Equal(t, 1, activeCount, "expected exactly one active scene")
 }
 
 func TestSingleActiveSceneActivateNotFound(t *testing.T) {
 	a, err := scene.NewScene("A", 4)
-	if err != nil {
-		t.Fatalf("NewScene: %v", err)
-	}
+	require.NoError(t, err, "NewScene")
 	_, err = scene.ActivateScene([]scene.Scene{a}, "Missing")
-	if err == nil || !strings.Contains(err.Error(), "GOLC_SCENE_NOT_FOUND") {
-		t.Fatalf("expected GOLC_SCENE_NOT_FOUND, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_SCENE_NOT_FOUND")
 }
 
 func TestSceneBarsPerLoopBoundary(t *testing.T) {
-	if _, err := scene.NewScene("Loop", 1); err != nil {
-		t.Fatalf("expected bars_per_loop=1 to be valid (loops every bar), got %v", err)
-	}
-	if _, err := scene.NewScene("Loop", 0); err == nil || !strings.Contains(err.Error(), "GOLC_SCENE_BARS_INVALID") {
-		t.Fatalf("expected GOLC_SCENE_BARS_INVALID for bars_per_loop=0, got %v", err)
-	}
-	if _, err := scene.NewScene("Loop", -1); err == nil || !strings.Contains(err.Error(), "GOLC_SCENE_BARS_INVALID") {
-		t.Fatalf("expected GOLC_SCENE_BARS_INVALID for a negative bars_per_loop, got %v", err)
-	}
-	if _, err := scene.NewScene("Loop", 100000); err == nil || !strings.Contains(err.Error(), "GOLC_SCENE_BARS_INVALID") {
-		t.Fatalf("expected GOLC_SCENE_BARS_INVALID above the declared ceiling, got %v", err)
-	}
+	_, err := scene.NewScene("Loop", 1)
+	require.NoError(t, err, "expected bars_per_loop=1 to be valid (loops every bar)")
+	_, err = scene.NewScene("Loop", 0)
+	require.ErrorContains(t, err, "GOLC_SCENE_BARS_INVALID", "expected error for bars_per_loop=0")
+	_, err = scene.NewScene("Loop", -1)
+	require.ErrorContains(t, err, "GOLC_SCENE_BARS_INVALID", "expected error for a negative bars_per_loop")
+	_, err = scene.NewScene("Loop", 100000)
+	require.ErrorContains(t, err, "GOLC_SCENE_BARS_INVALID", "expected error above the declared ceiling")
 }
 
 func TestSceneNameEmptyRejected(t *testing.T) {
 	_, err := scene.NewScene("  ", 4)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_SCENE_NAME_EMPTY") {
-		t.Fatalf("expected GOLC_SCENE_NAME_EMPTY, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_SCENE_NAME_EMPTY")
 }
 
 func TestSceneUniqueNamesRejectsDuplicates(t *testing.T) {
 	a, err := scene.NewScene("Verse", 4)
-	if err != nil {
-		t.Fatalf("NewScene: %v", err)
-	}
+	require.NoError(t, err, "NewScene")
 	b, err := scene.NewScene("Verse", 8)
-	if err != nil {
-		t.Fatalf("NewScene: %v", err)
-	}
+	require.NoError(t, err, "NewScene")
 	err = scene.ValidateSceneUniqueNames([]scene.Scene{a, b})
-	if err == nil || !strings.Contains(err.Error(), "GOLC_SCENE_DUPLICATE_NAME") {
-		t.Fatalf("expected GOLC_SCENE_DUPLICATE_NAME, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_SCENE_DUPLICATE_NAME")
 }
 
 func TestSceneSetLayerRejectsUnknownKind(t *testing.T) {
 	s, err := scene.NewScene("Verse", 4)
-	if err != nil {
-		t.Fatalf("NewScene: %v", err)
-	}
+	require.NoError(t, err, "NewScene")
 	_, err = scene.SetLayer(s, scene.Layer{Kind: scene.LayerKind("laser"), Enabled: true})
-	if err == nil || !strings.Contains(err.Error(), "GOLC_SCENE_LAYER_KIND_INVALID") {
-		t.Fatalf("expected GOLC_SCENE_LAYER_KIND_INVALID, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_SCENE_LAYER_KIND_INVALID")
 }
 
 func TestSceneValidateLayerReferencesRejectsDangling(t *testing.T) {
 	s, err := scene.NewScene("Verse", 4)
-	if err != nil {
-		t.Fatalf("NewScene: %v", err)
-	}
+	require.NoError(t, err, "NewScene")
 	s, err = scene.SetLayer(s, scene.Layer{Kind: scene.Chase, Enabled: true, Ref: uuid.Must(uuid.NewV7())})
-	if err != nil {
-		t.Fatalf("SetLayer: %v", err)
-	}
+	require.NoError(t, err, "SetLayer")
 	err = scene.ValidateLayerReferences([]scene.Scene{s}, nil, nil, nil, nil)
-	if err == nil || !strings.Contains(err.Error(), "GOLC_SCENE_LAYER_DANGLING_REFERENCE") {
-		t.Fatalf("expected GOLC_SCENE_LAYER_DANGLING_REFERENCE, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_SCENE_LAYER_DANGLING_REFERENCE")
 }
