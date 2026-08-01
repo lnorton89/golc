@@ -14,8 +14,9 @@
 package fixture_test
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/fixture"
 	"github.com/lnorton89/golc/internal/strictjson"
@@ -42,24 +43,14 @@ capabilities:
 
 func TestLoad(t *testing.T) {
 	def, err := fixture.Decode([]byte(validRGBParYAML))
-	if err != nil {
-		t.Fatalf("Decode(valid RGB PAR) failed: %v", err)
-	}
-	if def.Manufacturer != "Generic" || def.Model != "RGB PAR" {
-		t.Fatalf("unexpected manufacturer/model: %+v", def)
-	}
-	if len(def.Modes) != 1 || def.Modes[0].Name != "Standard" {
-		t.Fatalf("unexpected modes: %+v", def.Modes)
-	}
-	if len(def.Capabilities) != 2 {
-		t.Fatalf("expected 2 capabilities in declared order, got %d: %+v", len(def.Capabilities), def.Capabilities)
-	}
-	if def.Capabilities[0].Type != fixture.CapabilityIntensity {
-		t.Fatalf("expected first capability intensity (declared order), got %q", def.Capabilities[0].Type)
-	}
-	if def.Capabilities[1].Type != fixture.CapabilityColor {
-		t.Fatalf("expected second capability color (declared order), got %q", def.Capabilities[1].Type)
-	}
+	require.NoError(t, err, "Decode(valid RGB PAR) failed")
+	require.Equal(t, "Generic", def.Manufacturer, "unexpected manufacturer/model: %+v", def)
+	require.Equal(t, "RGB PAR", def.Model, "unexpected manufacturer/model: %+v", def)
+	require.Len(t, def.Modes, 1, "unexpected modes: %+v", def.Modes)
+	require.Equal(t, "Standard", def.Modes[0].Name, "unexpected modes: %+v", def.Modes)
+	require.Len(t, def.Capabilities, 2, "expected 2 capabilities in declared order, got %+v", def.Capabilities)
+	require.Equal(t, fixture.CapabilityIntensity, def.Capabilities[0].Type, "expected first capability intensity (declared order)")
+	require.Equal(t, fixture.CapabilityColor, def.Capabilities[1].Type, "expected second capability color (declared order)")
 }
 
 func TestDecodeRejects(t *testing.T) {
@@ -240,12 +231,7 @@ capabilities: null
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			_, err := fixture.Decode([]byte(testCase.yaml))
-			if err == nil {
-				t.Fatalf("expected Decode to reject %q, got nil error", testCase.name)
-			}
-			if !strings.Contains(err.Error(), testCase.wantCode) {
-				t.Fatalf("expected error to contain %s, got %v", testCase.wantCode, err)
-			}
+			require.ErrorContains(t, err, testCase.wantCode, "expected Decode to reject %q", testCase.name)
 		})
 	}
 }
@@ -270,12 +256,8 @@ capabilities:
     comment: strobe
 `
 	def, err := fixture.Decode([]byte(touching))
-	if err != nil {
-		t.Fatalf("expected exactly-adjacent same-type ranges to load, got error: %v", err)
-	}
-	if len(def.Capabilities) != 2 {
-		t.Fatalf("expected 2 capabilities, got %d", len(def.Capabilities))
-	}
+	require.NoError(t, err, "expected exactly-adjacent same-type ranges to load")
+	require.Len(t, def.Capabilities, 2)
 
 	overlapping := `schema_version: 1
 manufacturer: Generic
@@ -291,41 +273,24 @@ capabilities:
     comment: strobe
 `
 	_, err = fixture.Decode([]byte(overlapping))
-	if err == nil {
-		t.Fatal("expected overlapping same-type ranges to be rejected, got nil error")
-	}
-	if !strings.Contains(err.Error(), "GOLC_FIXTURE_CAPABILITY_RANGE_INVALID") {
-		t.Fatalf("expected GOLC_FIXTURE_CAPABILITY_RANGE_INVALID for an overlap, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_FIXTURE_CAPABILITY_RANGE_INVALID", "expected overlapping same-type ranges to be rejected")
 }
 
 func TestDecodeDeterministic(t *testing.T) {
 	first, err := fixture.Decode([]byte(validRGBParYAML))
-	if err != nil {
-		t.Fatalf("first Decode failed: %v", err)
-	}
+	require.NoError(t, err, "first Decode failed")
 	second, err := fixture.Decode([]byte(validRGBParYAML))
-	if err != nil {
-		t.Fatalf("second Decode failed: %v", err)
-	}
+	require.NoError(t, err, "second Decode failed")
 
 	for i := range first.Capabilities {
-		if first.Capabilities[i].Type != second.Capabilities[i].Type {
-			t.Fatalf("capability declared order drifted at index %d: %q vs %q", i, first.Capabilities[i].Type, second.Capabilities[i].Type)
-		}
+		require.Equal(t, second.Capabilities[i].Type, first.Capabilities[i].Type, "capability declared order drifted at index %d", i)
 	}
 
 	firstEncoded, err := strictjson.CanonicalEncode(first)
-	if err != nil {
-		t.Fatalf("CanonicalEncode(first) failed: %v", err)
-	}
+	require.NoError(t, err, "CanonicalEncode(first) failed")
 	secondEncoded, err := strictjson.CanonicalEncode(second)
-	if err != nil {
-		t.Fatalf("CanonicalEncode(second) failed: %v", err)
-	}
-	if string(firstEncoded) != string(secondEncoded) {
-		t.Fatalf("expected byte-identical canonical summary across repeated decodes:\nfirst:  %s\nsecond: %s", firstEncoded, secondEncoded)
-	}
+	require.NoError(t, err, "CanonicalEncode(second) failed")
+	require.Equal(t, string(secondEncoded), string(firstEncoded), "expected byte-identical canonical summary across repeated decodes")
 }
 
 // TestChannelLayout proves D-16/D-17's ordered DMX channel-layout
@@ -353,18 +318,10 @@ capabilities:
     range: [0, 1]
 `
 		def, err := fixture.Decode([]byte(validYAML))
-		if err != nil {
-			t.Fatalf("expected a valid multi-channel layout to decode, got: %v", err)
-		}
-		if len(def.Modes[0].Channels) != 2 {
-			t.Fatalf("expected 2 channel slots, got %d: %+v", len(def.Modes[0].Channels), def.Modes[0].Channels)
-		}
-		if def.Modes[0].Channels[0].Type != fixture.CapabilityIntensity {
-			t.Fatalf("expected first channel slot intensity (declared order), got %q", def.Modes[0].Channels[0].Type)
-		}
-		if def.Modes[0].Channels[1].Type != fixture.CapabilityColor {
-			t.Fatalf("expected second channel slot color (declared order), got %q", def.Modes[0].Channels[1].Type)
-		}
+		require.NoError(t, err, "expected a valid multi-channel layout to decode")
+		require.Len(t, def.Modes[0].Channels, 2, "expected 2 channel slots, got %+v", def.Modes[0].Channels)
+		require.Equal(t, fixture.CapabilityIntensity, def.Modes[0].Channels[0].Type, "expected first channel slot intensity (declared order)")
+		require.Equal(t, fixture.CapabilityColor, def.Modes[0].Channels[1].Type, "expected second channel slot color (declared order)")
 	})
 
 	t.Run("empty channel layout rejected", func(t *testing.T) {
@@ -378,12 +335,7 @@ capabilities:
     range: [0, 1]
 `
 		_, err := fixture.Decode([]byte(yaml))
-		if err == nil {
-			t.Fatal("expected a mode with no declared channels to be rejected")
-		}
-		if !strings.Contains(err.Error(), "GOLC_FIXTURE_CHANNEL_LAYOUT_MISSING") {
-			t.Fatalf("expected GOLC_FIXTURE_CHANNEL_LAYOUT_MISSING, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_FIXTURE_CHANNEL_LAYOUT_MISSING", "expected a mode with no declared channels to be rejected")
 	})
 
 	t.Run("unknown channel capability type rejected", func(t *testing.T) {
@@ -400,12 +352,7 @@ capabilities:
     range: [0, 1]
 `
 		_, err := fixture.Decode([]byte(yaml))
-		if err == nil {
-			t.Fatal("expected an unknown channel capability type to be rejected")
-		}
-		if !strings.Contains(err.Error(), "GOLC_FIXTURE_CHANNEL_TYPE_UNKNOWN") {
-			t.Fatalf("expected GOLC_FIXTURE_CHANNEL_TYPE_UNKNOWN, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_FIXTURE_CHANNEL_TYPE_UNKNOWN", "expected an unknown channel capability type to be rejected")
 	})
 
 	t.Run("invalid occurrence rejected", func(t *testing.T) {
@@ -422,11 +369,6 @@ capabilities:
     range: [0, 1]
 `
 		_, err := fixture.Decode([]byte(yaml))
-		if err == nil {
-			t.Fatal("expected an occurrence index with no matching declared capability to be rejected")
-		}
-		if !strings.Contains(err.Error(), "GOLC_FIXTURE_CHANNEL_OCCURRENCE_INVALID") {
-			t.Fatalf("expected GOLC_FIXTURE_CHANNEL_OCCURRENCE_INVALID, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_FIXTURE_CHANNEL_OCCURRENCE_INVALID", "expected an occurrence index with no matching declared capability to be rejected")
 	})
 }

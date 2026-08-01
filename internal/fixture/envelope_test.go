@@ -10,8 +10,9 @@
 package fixture_test
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/fixture"
 	"github.com/lnorton89/golc/internal/strictjson"
@@ -24,36 +25,24 @@ import (
 // the artifact shape ever drifts.
 func TestDecodeEnvelopeAcceptsImportArtifact(t *testing.T) {
 	def, err := fixture.Decode([]byte(validRGBParYAML))
-	if err != nil {
-		t.Fatalf("Decode(valid RGB PAR): %v", err)
-	}
+	require.NoError(t, err, "Decode(valid RGB PAR)")
 	identity, err := fixture.Pin(def)
-	if err != nil {
-		t.Fatalf("Pin: %v", err)
-	}
+	require.NoError(t, err, "Pin")
 	provenance := fixture.NewProvenance(def, identity, "ofl:acme/test")
 	provenance.Warnings = []fixture.LossyImportWarning{
 		{Severity: "warning", CapabilityType: "gobo", Detail: "gobo wheel approximated as a static color"},
 	}
 
 	payload, err := strictjson.CanonicalEncode(fixture.ImportEnvelope{Definition: def, Provenance: provenance})
-	if err != nil {
-		t.Fatalf("CanonicalEncode(ImportEnvelope): %v", err)
-	}
+	require.NoError(t, err, "CanonicalEncode(ImportEnvelope)")
 
 	envelope, err := fixture.DecodeEnvelope(payload)
-	if err != nil {
-		t.Fatalf("DecodeEnvelope: %v", err)
-	}
-	if envelope.Definition.Manufacturer != def.Manufacturer || envelope.Definition.Model != def.Model {
-		t.Fatalf("expected envelope definition to match the source definition, got %+v", envelope.Definition)
-	}
-	if err := fixture.Validate(envelope.Definition); err != nil {
-		t.Fatalf("expected the decoded envelope's definition to pass Validate, got %v", err)
-	}
-	if len(envelope.Provenance.Warnings) != 1 || envelope.Provenance.Warnings[0].Detail != provenance.Warnings[0].Detail {
-		t.Fatalf("expected provenance warnings to survive decode, got %+v", envelope.Provenance.Warnings)
-	}
+	require.NoError(t, err, "DecodeEnvelope")
+	require.Equal(t, def.Manufacturer, envelope.Definition.Manufacturer, "expected envelope definition to match the source definition, got %+v", envelope.Definition)
+	require.Equal(t, def.Model, envelope.Definition.Model, "expected envelope definition to match the source definition, got %+v", envelope.Definition)
+	require.NoError(t, fixture.Validate(envelope.Definition), "expected the decoded envelope's definition to pass Validate")
+	require.Len(t, envelope.Provenance.Warnings, 1, "expected provenance warnings to survive decode, got %+v", envelope.Provenance.Warnings)
+	require.Equal(t, provenance.Warnings[0].Detail, envelope.Provenance.Warnings[0].Detail, "expected provenance warnings to survive decode")
 }
 
 // TestDecodeEnvelopeRejectsBareDefinition proves a bare definition document
@@ -64,12 +53,7 @@ func TestDecodeEnvelopeAcceptsImportArtifact(t *testing.T) {
 func TestDecodeEnvelopeRejectsBareDefinition(t *testing.T) {
 	bare := []byte(`{"schema_version":1,"manufacturer":"Generic","model":"RGB PAR","modes":[],"capabilities":[]}`)
 	_, err := fixture.DecodeEnvelope(bare)
-	if err == nil {
-		t.Fatal("expected a bare definition document (no \"definition\" key) to be rejected")
-	}
-	if !strings.Contains(err.Error(), "GOLC_FIXTURE_ENVELOPE_INVALID") {
-		t.Fatalf("expected GOLC_FIXTURE_ENVELOPE_INVALID, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_FIXTURE_ENVELOPE_INVALID", "expected a bare definition document (no \"definition\" key) to be rejected")
 }
 
 // TestDecodeEnvelopeRejectsInvalidDefinition proves an envelope whose
@@ -83,10 +67,5 @@ func TestDecodeEnvelopeRejectsInvalidDefinition(t *testing.T) {
 		"provenance": {"source":"ofl:acme/test","schema_version":1,"content_hash":"x","revision":"x","validation_result":"valid","warnings":[]}
 	}`)
 	_, err := fixture.DecodeEnvelope(invalid)
-	if err == nil {
-		t.Fatal("expected an envelope with an invalid nested definition to be rejected")
-	}
-	if !strings.Contains(err.Error(), "GOLC_FIXTURE_ENVELOPE_INVALID") {
-		t.Fatalf("expected GOLC_FIXTURE_ENVELOPE_INVALID, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_FIXTURE_ENVELOPE_INVALID", "expected an envelope with an invalid nested definition to be rejected")
 }

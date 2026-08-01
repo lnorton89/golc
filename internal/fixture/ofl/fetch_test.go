@@ -17,8 +17,9 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/fixture/ofl"
 )
@@ -33,12 +34,7 @@ func TestFetchRejectsBadScheme(t *testing.T) {
 		AllowMirror:  true,
 	}
 	_, err := ofl.Fetch(context.Background(), ref)
-	if err == nil {
-		t.Fatal("expected Fetch to reject a non-http(s) mirror scheme")
-	}
-	if !strings.Contains(err.Error(), "GOLC_FIXTURE_OFL_MIRROR_SCHEME") {
-		t.Fatalf("expected GOLC_FIXTURE_OFL_MIRROR_SCHEME, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_FIXTURE_OFL_MIRROR_SCHEME", "expected Fetch to reject a non-http(s) mirror scheme")
 }
 
 // TestFetchRejectsUnapprovedHost proves a non-default mirror host without
@@ -52,12 +48,7 @@ func TestFetchRejectsUnapprovedHost(t *testing.T) {
 		AllowMirror:  false,
 	}
 	_, err := ofl.Fetch(context.Background(), ref)
-	if err == nil {
-		t.Fatal("expected Fetch to reject a non-default mirror host without --allow-mirror")
-	}
-	if !strings.Contains(err.Error(), "GOLC_FIXTURE_OFL_MIRROR_HOST") {
-		t.Fatalf("expected GOLC_FIXTURE_OFL_MIRROR_HOST, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_FIXTURE_OFL_MIRROR_HOST", "expected Fetch to reject a non-default mirror host without --allow-mirror")
 }
 
 // TestFetchAllowsApprovedMirrorAndCaches proves an explicitly
@@ -76,12 +67,8 @@ func TestFetchAllowsApprovedMirrorAndCaches(t *testing.T) {
 
 	ref := ofl.OFLRef{Manufacturer: "acme", Key: "test", Mirror: server.URL, AllowMirror: true}
 	got, err := ofl.Fetch(context.Background(), ref)
-	if err != nil {
-		t.Fatalf("expected an approved mirror fetch to succeed, got %v", err)
-	}
-	if string(got) != string(body) {
-		t.Fatalf("expected fetched bytes to match the server response, got %q", got)
-	}
+	require.NoError(t, err, "expected an approved mirror fetch to succeed")
+	require.Equal(t, string(body), string(got), "expected fetched bytes to match the server response")
 }
 
 // TestFetchRejectsRedirectToDisallowedScheme proves the SSRF guard
@@ -97,12 +84,7 @@ func TestFetchRejectsRedirectToDisallowedScheme(t *testing.T) {
 
 	ref := ofl.OFLRef{Manufacturer: "acme", Key: "test", Mirror: server.URL, AllowMirror: true}
 	_, err := ofl.Fetch(context.Background(), ref)
-	if err == nil {
-		t.Fatal("expected Fetch to reject a redirect to a non-http(s) scheme")
-	}
-	if !strings.Contains(err.Error(), "GOLC_FIXTURE_OFL_MIRROR_HOST") {
-		t.Fatalf("expected the redirect rejection to surface a GOLC_FIXTURE_OFL_MIRROR_HOST diagnostic, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_FIXTURE_OFL_MIRROR_HOST", "expected the redirect rejection to surface a GOLC_FIXTURE_OFL_MIRROR_HOST diagnostic")
 }
 
 // TestFetchRejectsOversizedResponse proves the response-size cap (T-02-06)
@@ -116,10 +98,5 @@ func TestFetchRejectsOversizedResponse(t *testing.T) {
 
 	ref := ofl.OFLRef{Manufacturer: "acme", Key: "big", Mirror: server.URL, AllowMirror: true}
 	_, err := ofl.Fetch(context.Background(), ref)
-	if err == nil {
-		t.Fatal("expected Fetch to reject an oversized response")
-	}
-	if !strings.Contains(err.Error(), "GOLC_FIXTURE_OFL_TOO_LARGE") {
-		t.Fatalf("expected GOLC_FIXTURE_OFL_TOO_LARGE, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_FIXTURE_OFL_TOO_LARGE", "expected Fetch to reject an oversized response")
 }

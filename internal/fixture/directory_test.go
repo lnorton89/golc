@@ -16,8 +16,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/fixture"
 	"github.com/lnorton89/golc/internal/strictjson"
@@ -25,9 +26,7 @@ import (
 
 func writeDirectoryTestFile(t *testing.T, dir, name, content string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile(%s): %v", name, err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644), "WriteFile(%s)", name)
 }
 
 // TestListDirectorySkipsNonFixtureFiles proves a non-recursive scan
@@ -39,20 +38,13 @@ func TestListDirectorySkipsNonFixtureFiles(t *testing.T) {
 	writeDirectoryTestFile(t, dir, "a.yaml", validRGBParYAML)
 	writeDirectoryTestFile(t, dir, "b.yml", validRGBParYAML)
 	writeDirectoryTestFile(t, dir, "notes.txt", "this is not a fixture")
-	if err := os.Mkdir(filepath.Join(dir, "subdir"), 0o755); err != nil {
-		t.Fatalf("Mkdir(subdir): %v", err)
-	}
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "subdir"), 0o755), "Mkdir(subdir)")
 
 	entries, err := fixture.ListDirectory(dir)
-	if err != nil {
-		t.Fatalf("ListDirectory: %v", err)
-	}
-	if len(entries) != 2 {
-		t.Fatalf("expected exactly 2 YAML entries, got %d: %+v", len(entries), entries)
-	}
-	if entries[0].FileName != "a.yaml" || entries[1].FileName != "b.yml" {
-		t.Fatalf("expected os.ReadDir filename order a.yaml, b.yml, got %q, %q", entries[0].FileName, entries[1].FileName)
-	}
+	require.NoError(t, err, "ListDirectory")
+	require.Len(t, entries, 2, "expected exactly 2 YAML entries, got %+v", entries)
+	require.Equal(t, "a.yaml", entries[0].FileName, "expected os.ReadDir filename order a.yaml, b.yml")
+	require.Equal(t, "b.yml", entries[1].FileName, "expected os.ReadDir filename order a.yaml, b.yml")
 }
 
 // TestListDirectoryRecordsPerEntryFailureWithoutAbortingScan proves a
@@ -68,12 +60,8 @@ func TestListDirectoryRecordsPerEntryFailureWithoutAbortingScan(t *testing.T) {
 	writeDirectoryTestFile(t, dir, "bad.yaml", "   \n")
 
 	entries, err := fixture.ListDirectory(dir)
-	if err != nil {
-		t.Fatalf("ListDirectory: %v", err)
-	}
-	if len(entries) != 2 {
-		t.Fatalf("expected 2 entries (one valid, one malformed), got %d: %+v", len(entries), entries)
-	}
+	require.NoError(t, err, "ListDirectory")
+	require.Len(t, entries, 2, "expected 2 entries (one valid, one malformed), got %+v", entries)
 
 	var good, bad *fixture.DirectoryEntry
 	for i := range entries {
@@ -84,18 +72,11 @@ func TestListDirectoryRecordsPerEntryFailureWithoutAbortingScan(t *testing.T) {
 			bad = &entries[i]
 		}
 	}
-	if good == nil || bad == nil {
-		t.Fatalf("expected both good.yaml and bad.yaml entries, got %+v", entries)
-	}
-	if good.Err != nil {
-		t.Fatalf("expected good.yaml to carry no error, got %v", good.Err)
-	}
-	if good.Identity.StableKey == "" {
-		t.Fatalf("expected good.yaml to carry a populated Identity, got %+v", good.Identity)
-	}
-	if bad.Err == nil {
-		t.Fatalf("expected bad.yaml to carry a non-nil Err")
-	}
+	require.NotNil(t, good, "expected both good.yaml and bad.yaml entries, got %+v", entries)
+	require.NotNil(t, bad, "expected both good.yaml and bad.yaml entries, got %+v", entries)
+	require.NoError(t, good.Err, "expected good.yaml to carry no error")
+	require.NotEmpty(t, good.Identity.StableKey, "expected good.yaml to carry a populated Identity, got %+v", good.Identity)
+	require.Error(t, bad.Err, "expected bad.yaml to carry a non-nil Err")
 }
 
 // TestListDirectoryMissingDirectoryReturnsNotExistError proves a
@@ -107,15 +88,9 @@ func TestListDirectoryMissingDirectoryReturnsNotExistError(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "does-not-exist")
 
 	_, err := fixture.ListDirectory(missing)
-	if err == nil {
-		t.Fatalf("expected an error for a nonexistent directory")
-	}
-	if !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("expected errors.Is(err, fs.ErrNotExist), got %v", err)
-	}
-	if !strings.Contains(err.Error(), "GOLC_FIXTURE_DIR_READ_FAILED") {
-		t.Fatalf("expected error to carry GOLC_FIXTURE_DIR_READ_FAILED, got %v", err)
-	}
+	require.Error(t, err, "expected an error for a nonexistent directory")
+	require.True(t, errors.Is(err, fs.ErrNotExist), "expected errors.Is(err, fs.ErrNotExist), got %v", err)
+	require.Contains(t, err.Error(), "GOLC_FIXTURE_DIR_READ_FAILED")
 }
 
 // buildImportEnvelopeBytes builds a byte-identical "fixture import --out"
@@ -125,18 +100,12 @@ func TestListDirectoryMissingDirectoryReturnsNotExistError(t *testing.T) {
 func buildImportEnvelopeBytes(t *testing.T) []byte {
 	t.Helper()
 	def, err := fixture.Decode([]byte(validRGBParYAML))
-	if err != nil {
-		t.Fatalf("Decode(valid RGB PAR): %v", err)
-	}
+	require.NoError(t, err, "Decode(valid RGB PAR)")
 	identity, err := fixture.Pin(def)
-	if err != nil {
-		t.Fatalf("Pin: %v", err)
-	}
+	require.NoError(t, err, "Pin")
 	provenance := fixture.NewProvenance(def, identity, "ofl:acme/test")
 	payload, err := strictjson.CanonicalEncode(fixture.ImportEnvelope{Definition: def, Provenance: provenance})
-	if err != nil {
-		t.Fatalf("CanonicalEncode(ImportEnvelope): %v", err)
-	}
+	require.NoError(t, err, "CanonicalEncode(ImportEnvelope)")
 	return payload
 }
 
@@ -154,12 +123,8 @@ func TestListDirectoryIncludesImportArtifacts(t *testing.T) {
 	writeDirectoryTestFile(t, dir, "malformed.json", `{"not":"an envelope"}`)
 
 	entries, err := fixture.ListDirectory(dir)
-	if err != nil {
-		t.Fatalf("ListDirectory: %v", err)
-	}
-	if len(entries) != 3 {
-		t.Fatalf("expected 3 entries (2 valid, 1 malformed), got %d: %+v", len(entries), entries)
-	}
+	require.NoError(t, err, "ListDirectory")
+	require.Len(t, entries, 3, "expected 3 entries (2 valid, 1 malformed), got %+v", entries)
 
 	var yamlEntry, jsonEntry, malformedEntry *fixture.DirectoryEntry
 	for i := range entries {
@@ -172,31 +137,18 @@ func TestListDirectoryIncludesImportArtifacts(t *testing.T) {
 			malformedEntry = &entries[i]
 		}
 	}
-	if yamlEntry == nil || jsonEntry == nil || malformedEntry == nil {
-		t.Fatalf("expected hand-authored.yaml, imported.json, and malformed.json entries, got %+v", entries)
-	}
+	require.NotNil(t, yamlEntry, "expected hand-authored.yaml, imported.json, and malformed.json entries, got %+v", entries)
+	require.NotNil(t, jsonEntry, "expected hand-authored.yaml, imported.json, and malformed.json entries, got %+v", entries)
+	require.NotNil(t, malformedEntry, "expected hand-authored.yaml, imported.json, and malformed.json entries, got %+v", entries)
 
-	if yamlEntry.Err != nil {
-		t.Fatalf("expected hand-authored.yaml to carry no error, got %v", yamlEntry.Err)
-	}
-	if yamlEntry.Identity.StableKey == "" {
-		t.Fatalf("expected hand-authored.yaml to carry a populated Identity, got %+v", yamlEntry.Identity)
-	}
+	require.NoError(t, yamlEntry.Err, "expected hand-authored.yaml to carry no error")
+	require.NotEmpty(t, yamlEntry.Identity.StableKey, "expected hand-authored.yaml to carry a populated Identity, got %+v", yamlEntry.Identity)
 
-	if jsonEntry.Err != nil {
-		t.Fatalf("expected imported.json to carry no error, got %v", jsonEntry.Err)
-	}
-	if jsonEntry.Identity.StableKey == "" {
-		t.Fatalf("expected imported.json to carry a populated pinned Identity, got %+v", jsonEntry.Identity)
-	}
-	if jsonEntry.Definition.Manufacturer == "" || jsonEntry.Definition.Model == "" {
-		t.Fatalf("expected imported.json to carry a populated Definition, got %+v", jsonEntry.Definition)
-	}
-	if jsonEntry.Provenance.Source != "ofl:acme/test" {
-		t.Fatalf("expected imported.json to carry its envelope's Provenance, got %+v", jsonEntry.Provenance)
-	}
+	require.NoError(t, jsonEntry.Err, "expected imported.json to carry no error")
+	require.NotEmpty(t, jsonEntry.Identity.StableKey, "expected imported.json to carry a populated pinned Identity, got %+v", jsonEntry.Identity)
+	require.NotEmpty(t, jsonEntry.Definition.Manufacturer, "expected imported.json to carry a populated Definition, got %+v", jsonEntry.Definition)
+	require.NotEmpty(t, jsonEntry.Definition.Model, "expected imported.json to carry a populated Definition, got %+v", jsonEntry.Definition)
+	require.Equal(t, "ofl:acme/test", jsonEntry.Provenance.Source, "expected imported.json to carry its envelope's Provenance, got %+v", jsonEntry.Provenance)
 
-	if malformedEntry.Err == nil {
-		t.Fatalf("expected malformed.json to carry a non-nil Err")
-	}
+	require.Error(t, malformedEntry.Err, "expected malformed.json to carry a non-nil Err")
 }
