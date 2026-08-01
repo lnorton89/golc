@@ -7,18 +7,11 @@
 }
 
 .canvas {
-  flex: 1;
   min-width: 0;
-  min-height: 0;
   padding: var(--space-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
 }
 
 .layout {
-  flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -28,9 +21,12 @@
   flex-shrink: 0;
 }
 
+.hotkeysPanel {
+  flex-shrink: 0;
+}
+
 .aboutPanel {
-  flex: 1;
-  min-height: 0;
+  flex-shrink: 0;
 }
 
 .themeRow {
@@ -41,8 +37,6 @@
 }
 
 .about {
-  flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
@@ -70,10 +64,6 @@
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: var(--text-xs);
   color: var(--muted);
-}
-
-.creditsScroll {
-  margin-top: var(--space-xs);
 }
 
 .creditsColumns {

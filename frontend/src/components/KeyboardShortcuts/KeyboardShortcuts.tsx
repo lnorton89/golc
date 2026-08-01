@@ -1,27 +1,55 @@
 // KeyboardShortcuts.tsx fills 06-04-PLAN.md Task 2's stub with the
 // documented reference panel for the in-webview keyboard workflow
-// (06-06-PLAN.md Task 2, PLAY-02): every shortcut listed here is read
-// directly from frontend/src/hooks/useKeyboardWorkflow.ts's
-// PLAYBACK_SHORTCUTS constant -- the same list that hook's own keydown
-// handler implements -- so the reference panel and the actual key
-// bindings can never drift apart. Shortcuts are grouped by category
-// (Scenes/Layers/Tempo/Transport) and the group list scrolls within a
-// fixed-height area once it exceeds one screen (06-UI-SPEC.md overflow
-// backstop: "Panel scrolls or groups shortcuts by category once content
-// exceeds one screen").
+// (06-06-PLAN.md Task 2, PLAY-02): every shortcut listed here is read from
+// lib/hotkeys.ts's HOTKEY_ACTIONS and NAV_ACTIONS, resolved against the
+// operator's live bindings (useHotkeyBindings/useNavHotkeyBindings) -- the
+// same bindings useKeyboardWorkflow.ts/useGlobalKeyboardWorkflow.ts's own
+// keydown handlers match against -- so a rebind made in Settings > Hotkeys
+// is reflected here immediately, and the reference panel can never show a
+// stale key. Shortcuts are grouped by category (Scenes/Layers/Tempo/
+// Transport/Navigation) and the group list scrolls within a fixed-height
+// area once it exceeds one screen (06-UI-SPEC.md overflow backstop:
+// "Panel scrolls or groups shortcuts by category once content exceeds one
+// screen").
 //
 // This component is mounted from PlaybackControls.tsx (toggled by a
 // "Keyboard Shortcuts" button) rather than from App.tsx directly --
 // App.tsx's layout/mount points are never edited by Wave 3/4 plans
-// (06-04-PLAN.md Task 2's contract).
+// (06-04-PLAN.md Task 2's contract). It's also reused read-only inside
+// Settings' Hotkeys panel, next to the editable HotkeySettings component.
 
-import { PLAYBACK_SHORTCUTS } from "../../hooks/useKeyboardWorkflow";
+import { useHotkeyBindings } from "../../hooks/useHotkeyBindings";
+import { useNavHotkeyBindings } from "../../hooks/useNavHotkeyBindings";
+import { HOTKEY_ACTIONS, NAV_ACTIONS, SCENE_SWITCH_SHORTCUT, formatChordLabel, formatHotkeyLabel } from "../../lib/hotkeys";
 import styles from "./KeyboardShortcuts.module.css";
 
+interface DisplayShortcut {
+  category: string;
+  keys: string;
+  description: string;
+}
+
 export default function KeyboardShortcuts() {
+  const bindings = useHotkeyBindings();
+  const navBindings = useNavHotkeyBindings();
+
+  const shortcuts: DisplayShortcut[] = [
+    SCENE_SWITCH_SHORTCUT,
+    ...HOTKEY_ACTIONS.map((action) => ({
+      category: action.category,
+      keys: formatHotkeyLabel(bindings[action.id]),
+      description: action.description,
+    })),
+    ...NAV_ACTIONS.map((action) => ({
+      category: action.category,
+      keys: formatChordLabel(navBindings[action.id]),
+      description: action.description,
+    })),
+  ];
+
   const categories: string[] = [];
-  const byCategory = new Map<string, typeof PLAYBACK_SHORTCUTS>();
-  for (const shortcut of PLAYBACK_SHORTCUTS) {
+  const byCategory = new Map<string, DisplayShortcut[]>();
+  for (const shortcut of shortcuts) {
     const existing = byCategory.get(shortcut.category);
     if (existing) {
       existing.push(shortcut);
