@@ -110,6 +110,16 @@
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
+.heightPresetButtonActive {
+  color: var(--page);
+  background: var(--accent);
+}
+
+.heightPresetButtonActive:hover {
+  color: var(--page);
+  background: var(--accent);
+}
+
 .secondaryButton {
   display: inline-flex;
   align-items: center;

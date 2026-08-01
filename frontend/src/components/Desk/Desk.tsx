@@ -510,13 +510,21 @@ export default function Desk() {
                 <div className={styles.heightPresetGroup} role="group" aria-label="Universe panel height">
                   {UNIVERSE_HEIGHT_PRESETS.map((preset) => {
                     const Icon = preset.icon;
+                    // Reflects the last preset clicked, not a live check
+                    // against every row's own current height -- once a
+                    // row is independently dragged away from it, this
+                    // stays lit until a different preset is chosen (rows
+                    // are independent per the feedback above, so there is
+                    // no single "current" height to validate against).
+                    const active = heightPreset?.value === preset.value;
                     return (
                       <button
                         key={preset.label}
                         type="button"
                         title={preset.label}
                         aria-label={preset.label}
-                        className={styles.heightPresetButton}
+                        aria-pressed={active}
+                        className={active ? `${styles.heightPresetButton} ${styles.heightPresetButtonActive}` : styles.heightPresetButton}
                         onClick={() =>
                           setHeightPreset((current) => ({ value: preset.value, version: (current?.version ?? 0) + 1 }))
                         }
