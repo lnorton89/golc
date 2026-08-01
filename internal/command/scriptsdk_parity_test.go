@@ -23,6 +23,7 @@ import (
 
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/scriptsdk"
+	"github.com/stretchr/testify/require"
 )
 
 // testOnlyRoutes names every route that exists solely because a _test.go
@@ -39,9 +40,7 @@ var testOnlyRoutes = map[string]bool{
 
 func TestEveryDeclaredRouteIsClassified(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry failed: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry failed: %v", err)
 
 	exposed := map[string]bool{}
 	for _, descriptor := range scriptsdk.RegisteredSDKMethods() {
@@ -63,21 +62,17 @@ func TestEveryDeclaredRouteIsClassified(t *testing.T) {
 		unclassified = append(unclassified, registration.Route)
 	}
 
-	if len(unclassified) > 0 {
-		sort.Strings(unclassified)
-		t.Fatalf(
-			"GOLC_SCRIPTSDK_ROUTE_UNCLASSIFIED: the following route(s) declared in internal/command are neither "+
-				"an exposed scriptsdk SDK method nor a scriptsdk excludedRoutes entry with a reason -- classify "+
-				"each one in internal/scriptsdk/descriptors.go: %s",
-			strings.Join(unclassified, ", "))
-	}
+	sort.Strings(unclassified)
+	require.Empty(t, unclassified,
+		"GOLC_SCRIPTSDK_ROUTE_UNCLASSIFIED: the following route(s) declared in internal/command are neither "+
+			"an exposed scriptsdk SDK method nor a scriptsdk excludedRoutes entry with a reason -- classify "+
+			"each one in internal/scriptsdk/descriptors.go: %s",
+		strings.Join(unclassified, ", "))
 }
 
 func TestNoSDKMethodTargetsUndeclaredRoute(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry failed: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry failed: %v", err)
 
 	declared := map[string]bool{}
 	for _, registration := range registry.Routes() {
@@ -96,11 +91,9 @@ func TestNoSDKMethodTargetsUndeclaredRoute(t *testing.T) {
 		}
 	}
 
-	if len(undeclared) > 0 {
-		sort.Strings(undeclared)
-		t.Fatalf(
-			"GOLC_SCRIPTSDK_ROUTE_UNDECLARED: the following scriptsdk route(s) do not exist in "+
-				"internal/command's registry -- fix the Route string in internal/scriptsdk/descriptors.go: %s",
-			strings.Join(undeclared, ", "))
-	}
+	sort.Strings(undeclared)
+	require.Empty(t, undeclared,
+		"GOLC_SCRIPTSDK_ROUTE_UNDECLARED: the following scriptsdk route(s) do not exist in "+
+			"internal/command's registry -- fix the Route string in internal/scriptsdk/descriptors.go: %s",
+		strings.Join(undeclared, ", "))
 }

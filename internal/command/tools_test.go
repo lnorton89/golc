@@ -15,9 +15,10 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 var _ = MustDeclareScope(ScopeRegistration{
@@ -242,12 +243,10 @@ func writeFixtureFiles(t *testing.T, dir string, files ToolsUpdateCurrentFiles) 
 	}
 	for relative, content := range writes {
 		absolute := filepath.Join(dir, filepath.FromSlash(relative))
-		if err := os.MkdirAll(filepath.Dir(absolute), 0o755); err != nil {
-			t.Fatalf("mkdir fixture parent %q: %v", relative, err)
-		}
-		if err := os.WriteFile(absolute, content, 0o644); err != nil {
-			t.Fatalf("write fixture %q: %v", relative, err)
-		}
+		err := os.MkdirAll(filepath.Dir(absolute), 0o755)
+		require.NoError(t, err, "mkdir fixture parent %q: %v", relative, err)
+		err = os.WriteFile(absolute, content, 0o644)
+		require.NoError(t, err, "write fixture %q: %v", relative, err)
 	}
 }
 
@@ -274,9 +273,7 @@ func snapshotDir(t *testing.T, root string) map[string][]byte {
 		snapshot[filepath.ToSlash(relative)] = content
 		return nil
 	})
-	if err != nil {
-		t.Fatalf("snapshotDir(%q): %v", root, err)
-	}
+	require.NoError(t, err, "snapshotDir(%q): %v", root, err)
 	return snapshot
 }
 
@@ -290,9 +287,7 @@ func snapshotDir(t *testing.T, root string) map[string][]byte {
 func TestScopeToolsUpdate(t *testing.T) {
 	t.Run("tools.go never imports process-execution or archive-install machinery", func(t *testing.T) {
 		source, err := os.ReadFile("tools.go")
-		if err != nil {
-			t.Fatalf("read tools.go: %v", err)
-		}
+		require.NoError(t, err, "read tools.go: %v", err)
 		forbidden := []string{
 			"os/exec",
 			"exec.Command",
@@ -304,51 +299,42 @@ func TestScopeToolsUpdate(t *testing.T) {
 			"internal/bootstrap",
 		}
 		for _, needle := range forbidden {
-			if strings.Contains(string(source), needle) {
-				t.Fatalf("tools.go must never reference %q (T-01-14/D-04: check/write must never install or execute anything)", needle)
-			}
+			require.NotContains(t, string(source), needle, "tools.go must never reference %q (T-01-14/D-04: check/write must never install or execute anything)", needle)
 		}
 	})
 
 	t.Run("tools update --check and tools update --write are reachable through the default registry", func(t *testing.T) {
 		registry, err := NewDefaultCommandRegistry()
-		if err != nil {
-			t.Fatalf("NewDefaultCommandRegistry: %v", err)
-		}
+		require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 		for _, args := range [][]string{
 			{"tools", "update", "--check"},
 			{"tools", "update", "--write"},
 		} {
 			registration, rest, ok := registry.Lookup(args)
-			if !ok {
-				t.Fatalf("expected %v to resolve to a registered route", args)
-			}
-			if registration.Route != "tools update" {
-				t.Fatalf("expected route %q, got %q", "tools update", registration.Route)
-			}
+			require.True(t, ok, "expected %v to resolve to a registered route", args)
+			require.Equal(t, "tools update", registration.Route, "expected route %q, got %q", "tools update", registration.Route)
 			wantRest := args[2:]
-			if !reflect.DeepEqual(rest, wantRest) {
-				t.Fatalf("expected remaining args %v, got %v", wantRest, rest)
-			}
+			require.Equal(t, wantRest, rest, "expected remaining args %v, got %v", wantRest, rest)
 		}
 	})
 
 	t.Run("tools update requires exactly one of --check or --write", func(t *testing.T) {
-		if _, err := parseToolsUpdateArgs(nil); err == nil {
-			t.Fatal("expected an error for no arguments")
-		}
-		if _, err := parseToolsUpdateArgs([]string{"--check", "--write"}); err == nil {
-			t.Fatal("expected an error for both flags together")
-		}
-		if _, err := parseToolsUpdateArgs([]string{"--bogus"}); err == nil {
-			t.Fatal("expected an error for an unsupported argument")
-		}
-		if mode, err := parseToolsUpdateArgs([]string{"--check"}); err != nil || mode != "check" {
-			t.Fatalf("expected mode %q, got %q err %v", "check", mode, err)
-		}
-		if mode, err := parseToolsUpdateArgs([]string{"--write"}); err != nil || mode != "write" {
-			t.Fatalf("expected mode %q, got %q err %v", "write", mode, err)
-		}
+		_, err := parseToolsUpdateArgs(nil)
+		require.Error(t, err, "expected an error for no arguments")
+
+		_, err = parseToolsUpdateArgs([]string{"--check", "--write"})
+		require.Error(t, err, "expected an error for both flags together")
+
+		_, err = parseToolsUpdateArgs([]string{"--bogus"})
+		require.Error(t, err, "expected an error for an unsupported argument")
+
+		mode, err := parseToolsUpdateArgs([]string{"--check"})
+		require.NoError(t, err, "expected mode %q, got %q err %v", "check", mode, err)
+		require.Equal(t, "check", mode, "expected mode %q, got %q err %v", "check", mode, err)
+
+		mode, err = parseToolsUpdateArgs([]string{"--write"})
+		require.NoError(t, err, "expected mode %q, got %q err %v", "write", mode, err)
+		require.Equal(t, "write", mode, "expected mode %q, got %q err %v", "write", mode, err)
 	})
 
 	t.Run("check is deterministic and never writes to disk", func(t *testing.T) {
@@ -358,34 +344,20 @@ func TestScopeToolsUpdate(t *testing.T) {
 		before := snapshotDir(t, dir)
 
 		current, err := readToolsUpdateCurrentFiles(dir)
-		if err != nil {
-			t.Fatalf("readToolsUpdateCurrentFiles: %v", err)
-		}
+		require.NoError(t, err, "readToolsUpdateCurrentFiles: %v", err)
 		source := &fakeMetadataSource{proposal: fixtureProposal()}
 
 		result1, err := BuildToolsUpdateProposal(source, current)
-		if err != nil {
-			t.Fatalf("BuildToolsUpdateProposal (first): %v", err)
-		}
+		require.NoError(t, err, "BuildToolsUpdateProposal (first): %v", err)
 		result2, err := BuildToolsUpdateProposal(source, current)
-		if err != nil {
-			t.Fatalf("BuildToolsUpdateProposal (second): %v", err)
-		}
+		require.NoError(t, err, "BuildToolsUpdateProposal (second): %v", err)
 
-		if !reflect.DeepEqual(result1.Files, result2.Files) {
-			t.Fatal("expected byte-identical proposed files across two check runs against identical fake metadata")
-		}
-		if !reflect.DeepEqual(result1.Diffs, result2.Diffs) {
-			t.Fatal("expected byte-identical diff bytes across two check runs against identical fake metadata")
-		}
-		if source.calls != 2 {
-			t.Fatalf("expected the fake metadata source to be consulted exactly twice, got %d", source.calls)
-		}
+		require.Equal(t, result1.Files, result2.Files, "expected byte-identical proposed files across two check runs against identical fake metadata")
+		require.Equal(t, result1.Diffs, result2.Diffs, "expected byte-identical diff bytes across two check runs against identical fake metadata")
+		require.Equal(t, 2, source.calls, "expected the fake metadata source to be consulted exactly twice, got %d", source.calls)
 
 		after := snapshotDir(t, dir)
-		if !reflect.DeepEqual(before, after) {
-			t.Fatal("check must never write to disk: fixture directory changed after two proposal builds")
-		}
+		require.Equal(t, before, after, "check must never write to disk: fixture directory changed after two proposal builds")
 	})
 
 	t.Run("write changes exactly the five allowlisted paths and matches the reviewed proposal byte-for-byte", func(t *testing.T) {
@@ -403,42 +375,31 @@ func TestScopeToolsUpdate(t *testing.T) {
 		}
 		for relative, content := range decoys {
 			absolute := filepath.Join(dir, filepath.FromSlash(relative))
-			if err := os.MkdirAll(filepath.Dir(absolute), 0o755); err != nil {
-				t.Fatalf("mkdir decoy %q: %v", relative, err)
-			}
-			if err := os.WriteFile(absolute, []byte(content), 0o644); err != nil {
-				t.Fatalf("write decoy %q: %v", relative, err)
-			}
+			err := os.MkdirAll(filepath.Dir(absolute), 0o755)
+			require.NoError(t, err, "mkdir decoy %q: %v", relative, err)
+			err = os.WriteFile(absolute, []byte(content), 0o644)
+			require.NoError(t, err, "write decoy %q: %v", relative, err)
 		}
 
 		before := snapshotDir(t, dir)
 
 		current, err := readToolsUpdateCurrentFiles(dir)
-		if err != nil {
-			t.Fatalf("readToolsUpdateCurrentFiles: %v", err)
-		}
+		require.NoError(t, err, "readToolsUpdateCurrentFiles: %v", err)
 		source := &fakeMetadataSource{proposal: fixtureProposal()}
 		result, err := BuildToolsUpdateProposal(source, current)
-		if err != nil {
-			t.Fatalf("BuildToolsUpdateProposal: %v", err)
-		}
+		require.NoError(t, err, "BuildToolsUpdateProposal: %v", err)
 
-		if err := writeToolsUpdateFiles(dir, result.Files); err != nil {
-			t.Fatalf("writeToolsUpdateFiles: %v", err)
-		}
+		err = writeToolsUpdateFiles(dir, result.Files)
+		require.NoError(t, err, "writeToolsUpdateFiles: %v", err)
 
 		after := snapshotDir(t, dir)
 
-		if len(after) != len(before) {
-			t.Fatalf("write must create no new and delete no existing paths: before had %d files, after has %d", len(before), len(after))
-		}
+		require.Equal(t, len(before), len(after), "write must create no new and delete no existing paths: before had %d files, after has %d", len(before), len(after))
 
 		changed := map[string]bool{}
 		for relative, beforeContent := range before {
 			afterContent, ok := after[relative]
-			if !ok {
-				t.Fatalf("path %q disappeared after write", relative)
-			}
+			require.True(t, ok, "path %q disappeared after write", relative)
 			if !bytes.Equal(beforeContent, afterContent) {
 				changed[relative] = true
 			}
@@ -448,15 +409,12 @@ func TestScopeToolsUpdate(t *testing.T) {
 		for _, relative := range toolsUpdateAllowlist {
 			wantChanged[relative] = true
 		}
-		if !reflect.DeepEqual(changed, wantChanged) {
-			t.Fatalf("expected exactly the five allowlisted paths to change, got %v", changed)
-		}
+		require.Equal(t, wantChanged, changed, "expected exactly the five allowlisted paths to change, got %v", changed)
 
 		for relative, content := range decoys {
 			got, ok := after[filepath.ToSlash(relative)]
-			if !ok || string(got) != content {
-				t.Fatalf("decoy %q was modified by write (cache/node_modules/dist must remain unchanged)", relative)
-			}
+			require.True(t, ok, "decoy %q was modified by write (cache/node_modules/dist must remain unchanged)", relative)
+			require.Equal(t, content, string(got), "decoy %q was modified by write (cache/node_modules/dist must remain unchanged)", relative)
 		}
 
 		wantFiles := map[string][]byte{
@@ -468,9 +426,7 @@ func TestScopeToolsUpdate(t *testing.T) {
 		}
 		for relative, want := range wantFiles {
 			got := after[relative]
-			if !bytes.Equal(got, want) {
-				t.Fatalf("path %q on disk does not equal the reviewed proposal bytes", relative)
-			}
+			require.Equal(t, want, got, "path %q on disk does not equal the reviewed proposal bytes", relative)
 		}
 	})
 
@@ -478,33 +434,23 @@ func TestScopeToolsUpdate(t *testing.T) {
 		dir := t.TempDir()
 		writeFixtureFiles(t, dir, fixtureCurrentFiles())
 		current, err := readToolsUpdateCurrentFiles(dir)
-		if err != nil {
-			t.Fatalf("readToolsUpdateCurrentFiles: %v", err)
-		}
+		require.NoError(t, err, "readToolsUpdateCurrentFiles: %v", err)
 		proposal := fixtureProposal()
 		source := &fakeMetadataSource{proposal: proposal}
 		result, err := BuildToolsUpdateProposal(source, current)
-		if err != nil {
-			t.Fatalf("BuildToolsUpdateProposal: %v", err)
-		}
+		require.NoError(t, err, "BuildToolsUpdateProposal: %v", err)
 
-		if err := verifyNpmConsistency(result.Files.PackageJSON, result.Files.PackageLock); err != nil {
-			t.Fatalf("expected mutually consistent npm proposal, got: %v", err)
-		}
+		err = verifyNpmConsistency(result.Files.PackageJSON, result.Files.PackageLock)
+		require.NoError(t, err, "expected mutually consistent npm proposal, got: %v", err)
 
 		var manifest struct {
 			Dependencies    map[string]string `json:"dependencies"`
 			DevDependencies map[string]string `json:"devDependencies"`
 		}
-		if err := json.Unmarshal(result.Files.PackageJSON, &manifest); err != nil {
-			t.Fatalf("unmarshal proposed package.json: %v", err)
-		}
-		if manifest.Dependencies["@linear/sdk"] != proposal.LinearSDK.Version {
-			t.Fatalf("expected @linear/sdk %q, got %q", proposal.LinearSDK.Version, manifest.Dependencies["@linear/sdk"])
-		}
-		if manifest.DevDependencies["typescript"] != proposal.TypeScript.Version {
-			t.Fatalf("expected typescript %q, got %q", proposal.TypeScript.Version, manifest.DevDependencies["typescript"])
-		}
+		err = json.Unmarshal(result.Files.PackageJSON, &manifest)
+		require.NoError(t, err, "unmarshal proposed package.json: %v", err)
+		require.Equal(t, proposal.LinearSDK.Version, manifest.Dependencies["@linear/sdk"], "expected @linear/sdk %q, got %q", proposal.LinearSDK.Version, manifest.Dependencies["@linear/sdk"])
+		require.Equal(t, proposal.TypeScript.Version, manifest.DevDependencies["typescript"], "expected typescript %q, got %q", proposal.TypeScript.Version, manifest.DevDependencies["typescript"])
 
 		var lock struct {
 			LockfileVersion int `json:"lockfileVersion"`
@@ -514,54 +460,38 @@ func TestScopeToolsUpdate(t *testing.T) {
 				Resolved  string `json:"resolved"`
 			} `json:"packages"`
 		}
-		if err := json.Unmarshal(result.Files.PackageLock, &lock); err != nil {
-			t.Fatalf("unmarshal proposed package-lock.json: %v", err)
-		}
-		if lock.LockfileVersion != 3 {
-			t.Fatalf("expected lockfileVersion 3 preserved, got %d", lock.LockfileVersion)
-		}
+		err = json.Unmarshal(result.Files.PackageLock, &lock)
+		require.NoError(t, err, "unmarshal proposed package-lock.json: %v", err)
+		require.Equal(t, 3, lock.LockfileVersion, "expected lockfileVersion 3 preserved, got %d", lock.LockfileVersion)
 		sdkEntry := lock.Packages["node_modules/@linear/sdk"]
-		if sdkEntry.Version != proposal.LinearSDK.Version || sdkEntry.Integrity != proposal.LinearSDK.Integrity || sdkEntry.Resolved != proposal.LinearSDK.Resolved {
-			t.Fatalf("node_modules/@linear/sdk entry does not match the proposed pin exactly: %+v", sdkEntry)
-		}
+		require.Equal(t, proposal.LinearSDK.Version, sdkEntry.Version, "node_modules/@linear/sdk entry does not match the proposed pin exactly: %+v", sdkEntry)
+		require.Equal(t, proposal.LinearSDK.Integrity, sdkEntry.Integrity, "node_modules/@linear/sdk entry does not match the proposed pin exactly: %+v", sdkEntry)
+		require.Equal(t, proposal.LinearSDK.Resolved, sdkEntry.Resolved, "node_modules/@linear/sdk entry does not match the proposed pin exactly: %+v", sdkEntry)
 		tsEntry := lock.Packages["node_modules/typescript"]
-		if tsEntry.Version != proposal.TypeScript.Version || tsEntry.Integrity != proposal.TypeScript.Integrity || tsEntry.Resolved != proposal.TypeScript.Resolved {
-			t.Fatalf("node_modules/typescript entry does not match the proposed pin exactly: %+v", tsEntry)
-		}
+		require.Equal(t, proposal.TypeScript.Version, tsEntry.Version, "node_modules/typescript entry does not match the proposed pin exactly: %+v", tsEntry)
+		require.Equal(t, proposal.TypeScript.Integrity, tsEntry.Integrity, "node_modules/typescript entry does not match the proposed pin exactly: %+v", tsEntry)
+		require.Equal(t, proposal.TypeScript.Resolved, tsEntry.Resolved, "node_modules/typescript entry does not match the proposed pin exactly: %+v", tsEntry)
 	})
 
 	t.Run("Go module proposal keeps go.mod and go.sum mutually consistent", func(t *testing.T) {
 		dir := t.TempDir()
 		writeFixtureFiles(t, dir, fixtureCurrentFiles())
 		current, err := readToolsUpdateCurrentFiles(dir)
-		if err != nil {
-			t.Fatalf("readToolsUpdateCurrentFiles: %v", err)
-		}
+		require.NoError(t, err, "readToolsUpdateCurrentFiles: %v", err)
 		proposal := fixtureProposal()
 		source := &fakeMetadataSource{proposal: proposal}
 		result, err := BuildToolsUpdateProposal(source, current)
-		if err != nil {
-			t.Fatalf("BuildToolsUpdateProposal: %v", err)
-		}
+		require.NoError(t, err, "BuildToolsUpdateProposal: %v", err)
 
-		if !bytes.Contains(result.Files.GoMod, []byte(proposal.GoModule.Path+" "+proposal.GoModule.Version)) {
-			t.Fatalf("expected go.mod to contain %s %s, got:\n%s", proposal.GoModule.Path, proposal.GoModule.Version, result.Files.GoMod)
-		}
-		if bytes.Contains(result.Files.GoMod, []byte(" v1.6.0")) {
-			t.Fatal("expected the old go.mod pin to be fully replaced, not left alongside the new one")
-		}
+		require.Contains(t, string(result.Files.GoMod), proposal.GoModule.Path+" "+proposal.GoModule.Version, "expected go.mod to contain %s %s, got:\n%s", proposal.GoModule.Path, proposal.GoModule.Version, result.Files.GoMod)
+		require.NotContains(t, string(result.Files.GoMod), " v1.6.0", "expected the old go.mod pin to be fully replaced, not left alongside the new one")
 
 		wantSumLine := proposal.GoModule.Path + " " + proposal.GoModule.Version + " h1:" + proposal.GoModule.SumHash
 		wantModLine := proposal.GoModule.Path + " " + proposal.GoModule.Version + "/go.mod h1:" + proposal.GoModule.ModHash
-		if !bytes.Contains(result.Files.GoSum, []byte(wantSumLine)) {
-			t.Fatalf("expected go.sum to contain %q, got:\n%s", wantSumLine, result.Files.GoSum)
-		}
-		if !bytes.Contains(result.Files.GoSum, []byte(wantModLine)) {
-			t.Fatalf("expected go.sum to contain %q, got:\n%s", wantModLine, result.Files.GoSum)
-		}
-		if bytes.Contains(result.Files.GoSum, []byte("v1.6.0 h1:")) || bytes.Contains(result.Files.GoSum, []byte("v1.6.0/go.mod h1:")) {
-			t.Fatal("expected the old go.sum lines to be fully replaced, not left alongside the new ones")
-		}
+		require.Contains(t, string(result.Files.GoSum), wantSumLine, "expected go.sum to contain %q, got:\n%s", wantSumLine, result.Files.GoSum)
+		require.Contains(t, string(result.Files.GoSum), wantModLine, "expected go.sum to contain %q, got:\n%s", wantModLine, result.Files.GoSum)
+		require.NotContains(t, string(result.Files.GoSum), "v1.6.0 h1:", "expected the old go.sum lines to be fully replaced, not left alongside the new ones")
+		require.NotContains(t, string(result.Files.GoSum), "v1.6.0/go.mod h1:", "expected the old go.sum lines to be fully replaced, not left alongside the new ones")
 	})
 
 	t.Run("toolchain.toml proposal changes all twenty-two declared pin lines and preserves everything else", func(t *testing.T) {
@@ -569,39 +499,25 @@ func TestScopeToolsUpdate(t *testing.T) {
 		fixture := fixtureCurrentFiles()
 		writeFixtureFiles(t, dir, fixture)
 		current, err := readToolsUpdateCurrentFiles(dir)
-		if err != nil {
-			t.Fatalf("readToolsUpdateCurrentFiles: %v", err)
-		}
+		require.NoError(t, err, "readToolsUpdateCurrentFiles: %v", err)
 		proposal := fixtureProposal()
 		source := &fakeMetadataSource{proposal: proposal}
 		result, err := BuildToolsUpdateProposal(source, current)
-		if err != nil {
-			t.Fatalf("BuildToolsUpdateProposal: %v", err)
-		}
+		require.NoError(t, err, "BuildToolsUpdateProposal: %v", err)
 
 		oldLines := strings.Split(string(fixture.ToolchainTOML), "\n")
 		newLines := strings.Split(string(result.Files.ToolchainTOML), "\n")
-		if len(oldLines) != len(newLines) {
-			t.Fatalf("expected the same line count (surgical value replacement only), got %d vs %d", len(oldLines), len(newLines))
-		}
+		require.Equal(t, len(oldLines), len(newLines), "expected the same line count (surgical value replacement only), got %d vs %d", len(oldLines), len(newLines))
 		changedLines := 0
 		for i := range oldLines {
 			if oldLines[i] != newLines[i] {
 				changedLines++
 			}
 		}
-		if changedLines != 22 {
-			t.Fatalf("expected exactly 22 changed lines (two versions plus twenty platform fields), got %d", changedLines)
-		}
-		if !strings.Contains(string(result.Files.ToolchainTOML), "# GOLC toolchain concern") {
-			t.Fatal("expected the header comment to survive untouched")
-		}
-		if !strings.Contains(string(result.Files.ToolchainTOML), `downloads = ".tools/cache/downloads"`) {
-			t.Fatal("expected the [cache] section to survive untouched")
-		}
-		if !strings.Contains(string(result.Files.ToolchainTOML), `downloads = ".tools/cache/downloads"`) {
-			t.Fatal("expected unrelated cache data to survive untouched")
-		}
+		require.Equal(t, 22, changedLines, "expected exactly 22 changed lines (two versions plus twenty platform fields), got %d", changedLines)
+		require.Contains(t, string(result.Files.ToolchainTOML), "# GOLC toolchain concern", "expected the header comment to survive untouched")
+		require.Contains(t, string(result.Files.ToolchainTOML), `downloads = ".tools/cache/downloads"`, "expected the [cache] section to survive untouched")
+		require.Contains(t, string(result.Files.ToolchainTOML), `downloads = ".tools/cache/downloads"`, "expected unrelated cache data to survive untouched")
 	})
 
 	t.Run("toolchain proposal rejects incomplete or extra platform maps before rewrite", func(t *testing.T) {
@@ -615,9 +531,8 @@ func TestScopeToolsUpdate(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				proposal := fixtureProposal()
 				mutate(&proposal)
-				if _, err := BuildToolsUpdateProposal(&fakeMetadataSource{proposal: proposal}, current); err == nil {
-					t.Fatal("invalid platform map unexpectedly produced a proposal")
-				}
+				_, err := BuildToolsUpdateProposal(&fakeMetadataSource{proposal: proposal}, current)
+				require.Error(t, err, "invalid platform map unexpectedly produced a proposal")
 			})
 		}
 	})
@@ -628,24 +543,17 @@ func TestScopeToolsUpdate(t *testing.T) {
 		writeFixtureFiles(t, dir, fixture)
 
 		current, err := readToolsUpdateCurrentFiles(dir)
-		if err != nil {
-			t.Fatalf("readToolsUpdateCurrentFiles: %v", err)
-		}
+		require.NoError(t, err, "readToolsUpdateCurrentFiles: %v", err)
 		source := &fakeMetadataSource{proposal: fixtureProposal()}
-		if _, err := BuildToolsUpdateProposal(source, current); err != nil {
-			t.Fatalf("BuildToolsUpdateProposal: %v", err)
-		}
+		_, err = BuildToolsUpdateProposal(source, current)
+		require.NoError(t, err, "BuildToolsUpdateProposal: %v", err)
 
 		// A "bootstrap read" is just reading the five files back from disk:
 		// it must still see the original, reviewed bytes, never the
 		// in-memory proposal computed above.
 		bootstrapRead, err := readToolsUpdateCurrentFiles(dir)
-		if err != nil {
-			t.Fatalf("readToolsUpdateCurrentFiles (simulated bootstrap): %v", err)
-		}
-		if !reflect.DeepEqual(bootstrapRead, current) {
-			t.Fatal("expected a simulated bootstrap read after check to see only the original reviewed bytes")
-		}
+		require.NoError(t, err, "readToolsUpdateCurrentFiles (simulated bootstrap): %v", err)
+		require.Equal(t, current, bootstrapRead, "expected a simulated bootstrap read after check to see only the original reviewed bytes")
 	})
 
 	t.Run("registry.Execute serves tools update --check/--write end-to-end with the production default source", func(t *testing.T) {
@@ -654,35 +562,23 @@ func TestScopeToolsUpdate(t *testing.T) {
 		before := snapshotDir(t, dir)
 
 		registry, err := NewDefaultCommandRegistry()
-		if err != nil {
-			t.Fatalf("NewDefaultCommandRegistry: %v", err)
-		}
+		require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 
 		checkResult := registry.Execute(Request{Args: []string{"tools", "update", "--check"}, Root: dir})
-		if checkResult.ExitCode != 0 {
-			t.Fatalf("expected exit 0 from tools update --check, got %d (stderr: %s)", checkResult.ExitCode, checkResult.Stderr)
-		}
+		require.Equal(t, 0, checkResult.ExitCode, "expected exit 0 from tools update --check, got %d (stderr: %s)", checkResult.ExitCode, checkResult.Stderr)
 		after := snapshotDir(t, dir)
-		if !reflect.DeepEqual(before, after) {
-			t.Fatal("tools update --check must never write to disk")
-		}
+		require.Equal(t, before, after, "tools update --check must never write to disk")
 
 		writeResult := registry.Execute(Request{Args: []string{"tools", "update", "--write"}, Root: dir})
-		if writeResult.ExitCode != 0 {
-			t.Fatalf("expected exit 0 from tools update --write, got %d (stderr: %s)", writeResult.ExitCode, writeResult.Stderr)
-		}
+		require.Equal(t, 0, writeResult.ExitCode, "expected exit 0 from tools update --write, got %d (stderr: %s)", writeResult.ExitCode, writeResult.Stderr)
 		afterWrite := snapshotDir(t, dir)
-		if len(after) != len(afterWrite) {
-			t.Fatal("tools update --write must not create or delete any path outside the allowlist")
-		}
+		require.Equal(t, len(after), len(afterWrite), "tools update --write must not create or delete any path outside the allowlist")
 
 		// config/toolchain.toml, go.mod, and go.sum are rewritten through
 		// surgical line replacement, so a value-for-value no-op is also a
 		// byte-for-byte no-op.
 		for _, relative := range toolsUpdateAllowlist[:3] {
-			if !bytes.Equal(after[relative], afterWrite[relative]) {
-				t.Fatalf("expected the production default source to reaffirm the existing pin for %q as a byte-identical no-op write", relative)
-			}
+			require.Equal(t, after[relative], afterWrite[relative], "expected the production default source to reaffirm the existing pin for %q as a byte-identical no-op write", relative)
 		}
 
 		// package.json and package-lock.json are rewritten through
@@ -690,15 +586,11 @@ func TestScopeToolsUpdate(t *testing.T) {
 		// proposal is value-for-value identical but may reorder keys.
 		for _, relative := range toolsUpdateAllowlist[3:] {
 			var before, afterValue any
-			if err := json.Unmarshal(after[relative], &before); err != nil {
-				t.Fatalf("unmarshal pre-write %q: %v", relative, err)
-			}
-			if err := json.Unmarshal(afterWrite[relative], &afterValue); err != nil {
-				t.Fatalf("unmarshal post-write %q: %v", relative, err)
-			}
-			if !reflect.DeepEqual(before, afterValue) {
-				t.Fatalf("expected the production default source to reaffirm the existing pin for %q as a value-for-value no-op write", relative)
-			}
+			err := json.Unmarshal(after[relative], &before)
+			require.NoError(t, err, "unmarshal pre-write %q: %v", relative, err)
+			err = json.Unmarshal(afterWrite[relative], &afterValue)
+			require.NoError(t, err, "unmarshal post-write %q: %v", relative, err)
+			require.Equal(t, before, afterValue, "expected the production default source to reaffirm the existing pin for %q as a value-for-value no-op write", relative)
 		}
 	})
 }
