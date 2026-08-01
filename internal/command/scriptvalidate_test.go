@@ -9,11 +9,11 @@ package command_test
 import (
 	"encoding/json"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/scriptsdk"
+	"github.com/stretchr/testify/require"
 )
 
 type scriptValidateResultView struct {
@@ -32,59 +32,41 @@ type scriptValidateResultView struct {
 // install is required for this test to pass.
 func TestScriptValidateNotFoundNeverSpawnsProcess(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "show.golc"
 
 	create := registry.Execute(command.Request{Root: root, Args: []string{"script", "create", "Other", "--show", showPath}})
-	if create.ExitCode != 0 {
-		t.Fatalf("script create failed: exit=%d stderr=%s", create.ExitCode, create.Stderr)
-	}
+	require.Equal(t, 0, create.ExitCode, "script create failed: exit=%d stderr=%s", create.ExitCode, create.Stderr)
 
 	result := registry.Execute(command.Request{Root: root, Args: []string{"script", "validate", "Missing", "--show", showPath}})
-	if result.ExitCode != 1 {
-		t.Fatalf("expected ExitCode 1 for a missing script, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_SCRIPT_NOT_FOUND") {
-		t.Fatalf("expected GOLC_SCRIPT_NOT_FOUND, got stderr=%s", result.Stderr)
-	}
+	require.Equal(t, 1, result.ExitCode, "expected ExitCode 1 for a missing script, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
+	require.Contains(t, string(result.Stderr), "GOLC_SCRIPT_NOT_FOUND", "expected GOLC_SCRIPT_NOT_FOUND, got stderr=%s", result.Stderr)
 }
 
 // TestScriptValidateShowMissingNeverSpawnsProcess covers: the route never
 // runs a check when the show cannot be loaded.
 func TestScriptValidateShowMissingNeverSpawnsProcess(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 
 	result := registry.Execute(command.Request{Root: root, Args: []string{"script", "validate", "Chase", "--show", "never-created.golc"}})
-	if result.ExitCode != 1 {
-		t.Fatalf("expected ExitCode 1 when the show cannot be loaded, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
-	}
+	require.Equal(t, 1, result.ExitCode, "expected ExitCode 1 when the show cannot be loaded, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
 }
 
 // TestScriptValidateMalformedInvocationExitsTwo covers: "a malformed
 // invocation exits 2."
 func TestScriptValidateMalformedInvocationExitsTwo(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 
 	missingShow := registry.Execute(command.Request{Root: root, Args: []string{"script", "validate", "Chase"}})
-	if missingShow.ExitCode != 2 {
-		t.Fatalf("expected ExitCode 2 for a missing --show, got %d stderr=%s", missingShow.ExitCode, missingShow.Stderr)
-	}
+	require.Equal(t, 2, missingShow.ExitCode, "expected ExitCode 2 for a missing --show, got %d stderr=%s", missingShow.ExitCode, missingShow.Stderr)
 
 	unknownFlag := registry.Execute(command.Request{Root: root, Args: []string{"script", "validate", "Chase", "--bogus", "value", "--show", "show.golc"}})
-	if unknownFlag.ExitCode != 2 {
-		t.Fatalf("expected ExitCode 2 for an unknown flag, got %d stderr=%s", unknownFlag.ExitCode, unknownFlag.Stderr)
-	}
+	require.Equal(t, 2, unknownFlag.ExitCode, "expected ExitCode 2 for an unknown flag, got %d stderr=%s", unknownFlag.ExitCode, unknownFlag.Stderr)
 }
 
 // TestScriptValidateForbiddenImportNeverSpawnsProcess proves the
@@ -97,29 +79,21 @@ func TestScriptValidateMalformedInvocationExitsTwo(t *testing.T) {
 // error instead.
 func TestScriptValidateForbiddenImportNeverSpawnsProcess(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "show.golc"
 
 	createScriptWithSource(t, registry, root, showPath, "Bad", `import { evil } from "./mod.ts";`)
 
 	result := registry.Execute(command.Request{Root: root, Args: []string{"script", "validate", "Bad", "--show", showPath}})
-	if result.ExitCode != 1 {
-		t.Fatalf("expected ExitCode 1 for a script with a forbidden import, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
-	}
+	require.Equal(t, 1, result.ExitCode, "expected ExitCode 1 for a script with a forbidden import, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
 
 	var view scriptValidateResultView
-	if err := json.Unmarshal(result.Stdout, &view); err != nil {
-		t.Fatalf("unmarshal script validate output: %v stdout=%s", err, result.Stdout)
-	}
-	if view.Valid {
-		t.Fatal("expected valid=false")
-	}
-	if len(view.Diagnostics) != 1 || view.Diagnostics[0].Code != "GOLC_SCRIPT_IMPORT_FORBIDDEN" {
-		t.Fatalf("expected exactly one GOLC_SCRIPT_IMPORT_FORBIDDEN diagnostic, got %+v", view.Diagnostics)
-	}
+	err = json.Unmarshal(result.Stdout, &view)
+	require.NoError(t, err, "unmarshal script validate output: %v stdout=%s", err, result.Stdout)
+	require.False(t, view.Valid, "expected valid=false")
+	require.Len(t, view.Diagnostics, 1, "expected exactly one GOLC_SCRIPT_IMPORT_FORBIDDEN diagnostic, got %+v", view.Diagnostics)
+	require.Equal(t, "GOLC_SCRIPT_IMPORT_FORBIDDEN", view.Diagnostics[0].Code, "expected exactly one GOLC_SCRIPT_IMPORT_FORBIDDEN diagnostic, got %+v", view.Diagnostics)
 }
 
 // TestScriptValidateClassifiedAsExcluded proves "script validate" is
@@ -131,12 +105,8 @@ func TestScriptValidateForbiddenImportNeverSpawnsProcess(t *testing.T) {
 func TestScriptValidateClassifiedAsExcluded(t *testing.T) {
 	reasons := scriptsdk.RegisteredExclusions()
 	reason, excluded := reasons["script validate"]
-	if !excluded {
-		t.Fatal(`expected "script validate" to be classified in scriptsdk's excludedRoutes, not exposed as an SDK method`)
-	}
-	if !strings.Contains(reason, "validate or introspect other scripts") {
-		t.Fatalf("expected the exclusion reason to explain why, got %q", reason)
-	}
+	require.True(t, excluded, `expected "script validate" to be classified in scriptsdk's excludedRoutes, not exposed as an SDK method`)
+	require.Contains(t, reason, "validate or introspect other scripts", "expected the exclusion reason to explain why, got %q", reason)
 }
 
 // TestScriptValidateCleanScript covers: "script validate <name> --show
@@ -145,9 +115,7 @@ func TestScriptValidateClassifiedAsExcluded(t *testing.T) {
 func TestScriptValidateCleanScript(t *testing.T) {
 	root := skipUnlessDenoProvisionedForCommandTest(t)
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	// An absolute temp path, not one relative to root: root is the real
 	// repository root here (needed for Deno toolchain resolution), and
 	// this show must never collide with a repeat run's own script names
@@ -157,17 +125,13 @@ func TestScriptValidateCleanScript(t *testing.T) {
 	createScriptWithSource(t, registry, root, showPath, "Clean", `await golc.scene.activate({ name: "Alpha", show: "ignored" });`)
 
 	result := registry.Execute(command.Request{Root: root, Args: []string{"script", "validate", "Clean", "--show", showPath}})
-	if result.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0 for a clean script, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "expected ExitCode 0 for a clean script, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
 
 	var view scriptValidateResultView
-	if err := json.Unmarshal(result.Stdout, &view); err != nil {
-		t.Fatalf("unmarshal script validate output: %v stdout=%s", err, result.Stdout)
-	}
-	if !view.Valid || len(view.Diagnostics) != 0 {
-		t.Fatalf("expected valid:true with zero diagnostics, got %+v", view)
-	}
+	err = json.Unmarshal(result.Stdout, &view)
+	require.NoError(t, err, "unmarshal script validate output: %v stdout=%s", err, result.Stdout)
+	require.True(t, view.Valid, "expected valid:true with zero diagnostics, got %+v", view)
+	require.Empty(t, view.Diagnostics, "expected valid:true with zero diagnostics, got %+v", view)
 }
 
 // TestScriptValidateWrongFieldTypeScript covers: "script validate <name>
@@ -177,24 +141,18 @@ func TestScriptValidateCleanScript(t *testing.T) {
 func TestScriptValidateWrongFieldTypeScript(t *testing.T) {
 	root := skipUnlessDenoProvisionedForCommandTest(t)
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	// See TestScriptValidateCleanScript.
 	showPath := filepath.Join(t.TempDir(), "show.golc")
 
 	createScriptWithSource(t, registry, root, showPath, "WrongField", `await golc.scene.activate({ wrongField: 1 });`)
 
 	result := registry.Execute(command.Request{Root: root, Args: []string{"script", "validate", "WrongField", "--show", showPath}})
-	if result.ExitCode != 1 {
-		t.Fatalf("expected ExitCode 1 for a wrong-field-type script, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
-	}
+	require.Equal(t, 1, result.ExitCode, "expected ExitCode 1 for a wrong-field-type script, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
 
 	var view scriptValidateResultView
-	if err := json.Unmarshal(result.Stdout, &view); err != nil {
-		t.Fatalf("unmarshal script validate output: %v stdout=%s", err, result.Stdout)
-	}
-	if view.Valid || len(view.Diagnostics) == 0 {
-		t.Fatalf("expected valid:false with at least one diagnostic, got %+v", view)
-	}
+	err = json.Unmarshal(result.Stdout, &view)
+	require.NoError(t, err, "unmarshal script validate output: %v stdout=%s", err, result.Stdout)
+	require.False(t, view.Valid, "expected valid:false with at least one diagnostic, got %+v", view)
+	require.NotEmpty(t, view.Diagnostics, "expected valid:false with at least one diagnostic, got %+v", view)
 }

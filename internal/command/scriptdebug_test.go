@@ -11,8 +11,9 @@ package command_test
 import (
 	"encoding/json"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/scriptsdk"
@@ -24,38 +25,26 @@ import (
 // unprovisioned Deno would fail loudly with a different error instead.
 func TestScriptDebugNotFoundNeverSpawnsProcess(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "show.golc"
 
 	create := registry.Execute(command.Request{Root: root, Args: []string{"script", "create", "Idle", "--show", showPath}})
-	if create.ExitCode != 0 {
-		t.Fatalf("script create failed: exit=%d stderr=%s", create.ExitCode, create.Stderr)
-	}
+	require.Equal(t, 0, create.ExitCode, "script create failed: exit=%d stderr=%s", create.ExitCode, create.Stderr)
 
 	result := registry.Execute(command.Request{Root: root, Args: []string{"script", "debug", "Missing", "--show", showPath}})
-	if result.ExitCode != 1 {
-		t.Fatalf("expected ExitCode 1, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_SCRIPT_NOT_FOUND") {
-		t.Fatalf("expected GOLC_SCRIPT_NOT_FOUND, got stderr=%s", result.Stderr)
-	}
+	require.Equal(t, 1, result.ExitCode, "expected ExitCode 1, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
+	require.Contains(t, string(result.Stderr), "GOLC_SCRIPT_NOT_FOUND", "expected GOLC_SCRIPT_NOT_FOUND, got stderr=%s", result.Stderr)
 }
 
 // TestScriptDebugMalformedInvocationExitsTwo covers a missing --show.
 func TestScriptDebugMalformedInvocationExitsTwo(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 
 	result := registry.Execute(command.Request{Root: root, Args: []string{"script", "debug", "Idle"}})
-	if result.ExitCode != 2 {
-		t.Fatalf("expected ExitCode 2 for a missing --show, got %d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 2, result.ExitCode, "expected ExitCode 2 for a missing --show, got %d stderr=%s", result.ExitCode, result.Stderr)
 }
 
 // TestScriptDebugBreakpointNotPositiveIntegerExitsTwo covers: "A
@@ -63,25 +52,17 @@ func TestScriptDebugMalformedInvocationExitsTwo(t *testing.T) {
 // GOLC_SCRIPT_BREAKPOINT_INVALID."
 func TestScriptDebugBreakpointNotPositiveIntegerExitsTwo(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "show.golc"
 
 	create := registry.Execute(command.Request{Root: root, Args: []string{"script", "create", "Idle", "--show", showPath}})
-	if create.ExitCode != 0 {
-		t.Fatalf("script create failed: exit=%d stderr=%s", create.ExitCode, create.Stderr)
-	}
+	require.Equal(t, 0, create.ExitCode, "script create failed: exit=%d stderr=%s", create.ExitCode, create.Stderr)
 
 	for _, badValue := range []string{"0", "-1", "notanumber"} {
 		result := registry.Execute(command.Request{Root: root, Args: []string{"script", "debug", "Idle", "--show", showPath, "--breakpoint", badValue}})
-		if result.ExitCode != 2 {
-			t.Fatalf("breakpoint=%q: expected ExitCode 2, got %d stderr=%s", badValue, result.ExitCode, result.Stderr)
-		}
-		if !strings.Contains(string(result.Stderr), "GOLC_SCRIPT_BREAKPOINT_INVALID") {
-			t.Fatalf("breakpoint=%q: expected GOLC_SCRIPT_BREAKPOINT_INVALID, got stderr=%s", badValue, result.Stderr)
-		}
+		require.Equal(t, 2, result.ExitCode, "breakpoint=%q: expected ExitCode 2, got %d stderr=%s", badValue, result.ExitCode, result.Stderr)
+		require.Contains(t, string(result.Stderr), "GOLC_SCRIPT_BREAKPOINT_INVALID", "breakpoint=%q: expected GOLC_SCRIPT_BREAKPOINT_INVALID, got stderr=%s", badValue, result.Stderr)
 	}
 }
 
@@ -91,21 +72,15 @@ func TestScriptDebugBreakpointNotPositiveIntegerExitsTwo(t *testing.T) {
 // fast, before any process is spawned.
 func TestScriptDebugBreakpointExceedsLineCountExitsTwo(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "show.golc"
 
 	createScriptWithSource(t, registry, root, showPath, "OneLine", "const x = 1;")
 
 	result := registry.Execute(command.Request{Root: root, Args: []string{"script", "debug", "OneLine", "--show", showPath, "--breakpoint", "999"}})
-	if result.ExitCode != 2 {
-		t.Fatalf("expected ExitCode 2 for an out-of-range breakpoint, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_SCRIPT_BREAKPOINT_INVALID") {
-		t.Fatalf("expected GOLC_SCRIPT_BREAKPOINT_INVALID, got stderr=%s", result.Stderr)
-	}
+	require.Equal(t, 2, result.ExitCode, "expected ExitCode 2 for an out-of-range breakpoint, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
+	require.Contains(t, string(result.Stderr), "GOLC_SCRIPT_BREAKPOINT_INVALID", "expected GOLC_SCRIPT_BREAKPOINT_INVALID, got stderr=%s", result.Stderr)
 }
 
 // TestScriptDebugClassifiedAsExcluded proves "script debug" is classified
@@ -114,12 +89,8 @@ func TestScriptDebugBreakpointExceedsLineCountExitsTwo(t *testing.T) {
 func TestScriptDebugClassifiedAsExcluded(t *testing.T) {
 	reasons := scriptsdk.RegisteredExclusions()
 	reason, excluded := reasons["script debug"]
-	if !excluded {
-		t.Fatal(`expected "script debug" to be classified in scriptsdk's excludedRoutes, not exposed as an SDK method`)
-	}
-	if !strings.Contains(reason, "launch, debug, or step") {
-		t.Fatalf("expected the exclusion reason to explain why, got %q", reason)
-	}
+	require.True(t, excluded, `expected "script debug" to be classified in scriptsdk's excludedRoutes, not exposed as an SDK method`)
+	require.Contains(t, reason, "launch, debug, or step", "expected the exclusion reason to explain why, got %q", reason)
 }
 
 // TestScriptStepRoutesClassifiedAsExcluded covers every one of the four
@@ -128,12 +99,8 @@ func TestScriptStepRoutesClassifiedAsExcluded(t *testing.T) {
 	reasons := scriptsdk.RegisteredExclusions()
 	for _, route := range []string{"script continue", "script step-over", "script step-into", "script step-out"} {
 		reason, excluded := reasons[route]
-		if !excluded {
-			t.Fatalf("expected %q to be classified in scriptsdk's excludedRoutes, not exposed as an SDK method", route)
-		}
-		if !strings.Contains(reason, "launch, debug, or step") {
-			t.Fatalf("route %q: expected the exclusion reason to explain why, got %q", route, reason)
-		}
+		require.True(t, excluded, "expected %q to be classified in scriptsdk's excludedRoutes, not exposed as an SDK method", route)
+		require.Contains(t, reason, "launch, debug, or step", "route %q: expected the exclusion reason to explain why, got %q", route, reason)
 	}
 }
 
@@ -143,20 +110,14 @@ func TestScriptStepRoutesClassifiedAsExcluded(t *testing.T) {
 // required.
 func TestScriptStepRoutesNoActiveDebugRunExitOne(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "show.golc"
 
 	for _, route := range []string{"continue", "step-over", "step-into", "step-out"} {
 		result := registry.Execute(command.Request{Root: root, Args: []string{"script", route, "--show", showPath}})
-		if result.ExitCode != 1 {
-			t.Fatalf("route %q: expected ExitCode 1, got %d stdout=%s stderr=%s", route, result.ExitCode, result.Stdout, result.Stderr)
-		}
-		if !strings.Contains(string(result.Stderr), "GOLC_SCRIPT_NO_ACTIVE_DEBUG") {
-			t.Fatalf("route %q: expected GOLC_SCRIPT_NO_ACTIVE_DEBUG, got stderr=%s", route, result.Stderr)
-		}
+		require.Equal(t, 1, result.ExitCode, "route %q: expected ExitCode 1, got %d stdout=%s stderr=%s", route, result.ExitCode, result.Stdout, result.Stderr)
+		require.Contains(t, string(result.Stderr), "GOLC_SCRIPT_NO_ACTIVE_DEBUG", "route %q: expected GOLC_SCRIPT_NO_ACTIVE_DEBUG, got stderr=%s", route, result.Stderr)
 	}
 }
 
@@ -164,16 +125,12 @@ func TestScriptStepRoutesNoActiveDebugRunExitOne(t *testing.T) {
 // for every one of the four step-control routes.
 func TestScriptStepRoutesMalformedInvocationExitsTwo(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 
 	for _, route := range []string{"continue", "step-over", "step-into", "step-out"} {
 		result := registry.Execute(command.Request{Root: root, Args: []string{"script", route}})
-		if result.ExitCode != 2 {
-			t.Fatalf("route %q: expected ExitCode 2 for a missing --show, got %d stderr=%s", route, result.ExitCode, result.Stderr)
-		}
+		require.Equal(t, 2, result.ExitCode, "route %q: expected ExitCode 2 for a missing --show, got %d stderr=%s", route, result.ExitCode, result.Stderr)
 	}
 }
 
@@ -185,17 +142,13 @@ func TestScriptStepRoutesMalformedInvocationExitsTwo(t *testing.T) {
 // registry.
 func TestScriptDebugRoutesClassifiedByParityTest(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	declared := map[string]bool{}
 	for _, registration := range registry.Routes() {
 		declared[registration.Route] = true
 	}
 	for _, route := range []string{"script debug", "script continue", "script step-over", "script step-into", "script step-out"} {
-		if !declared[route] {
-			t.Fatalf("expected route %q to be declared in the command registry", route)
-		}
+		require.True(t, declared[route], "expected route %q to be declared in the command registry", route)
 	}
 }
 
@@ -209,9 +162,7 @@ func TestScriptDebugRoutesClassifiedByParityTest(t *testing.T) {
 func TestScriptDebugSetsBreakpointAndCompletesCleanly(t *testing.T) {
 	root := skipUnlessDenoProvisionedForCommandTest(t)
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	// An absolute temp path, not one relative to root: root is the real
 	// repository root here (needed for Deno toolchain resolution), and
 	// this show must never collide with a repeat run's own script names
@@ -221,20 +172,13 @@ func TestScriptDebugSetsBreakpointAndCompletesCleanly(t *testing.T) {
 	createScriptWithSource(t, registry, root, showPath, "DebugMe", "const x = 1;\nconst y = 2;\n")
 
 	result := registry.Execute(command.Request{Root: root, Args: []string{"script", "debug", "DebugMe", "--show", showPath, "--breakpoint", "1"}})
-	if result.ExitCode != 0 {
-		t.Fatalf("script debug failed: exit=%d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "script debug failed: exit=%d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
 
 	var view scriptRunResultView
-	if err := json.Unmarshal(result.Stdout, &view); err != nil {
-		t.Fatalf("unmarshal script debug output: %v stdout=%s", err, result.Stdout)
-	}
-	if view.RunID == "" {
-		t.Fatal("expected a non-empty run_id")
-	}
-	if view.Status != "succeeded" {
-		t.Fatalf("expected status succeeded, got %q (reason: %s)", view.Status, view.Reason)
-	}
+	err = json.Unmarshal(result.Stdout, &view)
+	require.NoError(t, err, "unmarshal script debug output: %v stdout=%s", err, result.Stdout)
+	require.NotEmpty(t, view.RunID, "expected a non-empty run_id")
+	require.Equal(t, "succeeded", view.Status, "expected status succeeded, got %q (reason: %s)", view.Status, view.Reason)
 }
 
 // TestScriptDebugNoBreakpointsResumesImmediately covers: "script debug
@@ -243,18 +187,14 @@ func TestScriptDebugSetsBreakpointAndCompletesCleanly(t *testing.T) {
 func TestScriptDebugNoBreakpointsResumesImmediately(t *testing.T) {
 	root := skipUnlessDenoProvisionedForCommandTest(t)
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	// See TestScriptDebugSetsBreakpointAndCompletesCleanly.
 	showPath := filepath.Join(t.TempDir(), "show.golc")
 
 	createScriptWithSource(t, registry, root, showPath, "NoBreakpoints", "// no SDK calls\n")
 
 	result := registry.Execute(command.Request{Root: root, Args: []string{"script", "debug", "NoBreakpoints", "--show", showPath}})
-	if result.ExitCode != 0 {
-		t.Fatalf("script debug failed: exit=%d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "script debug failed: exit=%d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
 }
 
 // TestScriptDebugCrashReportsSourceMappedStackFrames covers: "A debug run
@@ -263,24 +203,17 @@ func TestScriptDebugNoBreakpointsResumesImmediately(t *testing.T) {
 func TestScriptDebugCrashReportsSourceMappedStackFrames(t *testing.T) {
 	root := skipUnlessDenoProvisionedForCommandTest(t)
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	// See TestScriptDebugSetsBreakpointAndCompletesCleanly.
 	showPath := filepath.Join(t.TempDir(), "show.golc")
 
 	createScriptWithSource(t, registry, root, showPath, "Crashes", "throw new Error(\"boom\");\n")
 
 	result := registry.Execute(command.Request{Root: root, Args: []string{"script", "debug", "Crashes", "--show", showPath}})
-	if result.ExitCode != 1 {
-		t.Fatalf("expected ExitCode 1 for a crashing debug run, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
-	}
+	require.Equal(t, 1, result.ExitCode, "expected ExitCode 1 for a crashing debug run, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
 
 	var view scriptRunResultView
-	if err := json.Unmarshal(result.Stdout, &view); err != nil {
-		t.Fatalf("unmarshal script debug output: %v stdout=%s", err, result.Stdout)
-	}
-	if !strings.Contains(view.Reason, "boom") {
-		t.Fatalf("expected the failure reason to mention the thrown error, got %q", view.Reason)
-	}
+	err = json.Unmarshal(result.Stdout, &view)
+	require.NoError(t, err, "unmarshal script debug output: %v stdout=%s", err, result.Stdout)
+	require.Contains(t, view.Reason, "boom", "expected the failure reason to mention the thrown error, got %q", view.Reason)
 }

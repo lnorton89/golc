@@ -1,7 +1,6 @@
 package command_test
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 
@@ -10,6 +9,8 @@ import (
 	// the package is the only wiring required for the default registry to
 	// serve them, which is exactly what cmd/golc-project/main.go does.
 	_ "github.com/lnorton89/golc/internal/projectconfig"
+
+	"github.com/stretchr/testify/require"
 )
 
 // The fixture route and scope below are declared through the exact
@@ -32,9 +33,7 @@ var _ = command.MustDeclareRoute(command.CommandRegistration{
 func newDefaultRegistry(t *testing.T) *command.CommandRegistry {
 	t.Helper()
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry failed: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry failed: %v", err)
 	return registry
 }
 
@@ -42,72 +41,46 @@ func TestSelfRegisteredFixtureRouteReachableFromDefaultRegistry(t *testing.T) {
 	registry := newDefaultRegistry(t)
 
 	registration, rest, ok := registry.Lookup([]string{"routerfixture", "echo", "value-1"})
-	if !ok {
-		t.Fatal("fixture route declared via MustDeclareRoute was not reachable from NewDefaultCommandRegistry")
-	}
-	if registration.Route != "routerfixture echo" {
-		t.Fatalf("expected normalized route %q, got %q", "routerfixture echo", registration.Route)
-	}
-	if !reflect.DeepEqual(rest, []string{"value-1"}) {
-		t.Fatalf("expected remaining args [value-1], got %v", rest)
-	}
+	require.True(t, ok, "fixture route declared via MustDeclareRoute was not reachable from NewDefaultCommandRegistry")
+	require.Equal(t, "routerfixture echo", registration.Route, "expected normalized route %q, got %q", "routerfixture echo", registration.Route)
+	require.Equal(t, []string{"value-1"}, rest, "expected remaining args [value-1], got %v", rest)
 
 	result := registry.Execute(command.Request{Args: []string{"routerfixture", "echo", "value-1"}})
-	if result.ExitCode != 0 {
-		t.Fatalf("expected exit 0 from fixture handler, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
-	if got := string(result.Stdout); got != "fixture:value-1" {
-		t.Fatalf("expected handler output fixture:value-1, got %q", got)
-	}
+	require.Equal(t, 0, result.ExitCode, "expected exit 0 from fixture handler, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	got := string(result.Stdout)
+	require.Equal(t, "fixture:value-1", got, "expected handler output fixture:value-1, got %q", got)
 }
 
 func TestDefaultRegistryServesConfigInspect(t *testing.T) {
 	registry := newDefaultRegistry(t)
 
 	registration, rest, ok := registry.Lookup([]string{"config", "inspect", "runtime", "--format", "json"})
-	if !ok {
-		t.Fatal("config inspect must self-register into the default registry")
-	}
-	if registration.Route != "config inspect" {
-		t.Fatalf("expected route %q, got %q", "config inspect", registration.Route)
-	}
-	if !reflect.DeepEqual(rest, []string{"runtime", "--format", "json"}) {
-		t.Fatalf("expected remaining args [runtime --format json], got %v", rest)
-	}
+	require.True(t, ok, "config inspect must self-register into the default registry")
+	require.Equal(t, "config inspect", registration.Route, "expected route %q, got %q", "config inspect", registration.Route)
+	require.Equal(t, []string{"runtime", "--format", "json"}, rest, "expected remaining args [runtime --format json], got %v", rest)
 }
 
 func TestRegisterRouteRejectsDuplicateNormalizedRoutes(t *testing.T) {
 	registry := command.NewCommandRegistry()
-	if err := registry.RegisterScope(command.ScopeRegistration{Scope: "config"}); err != nil {
-		t.Fatalf("RegisterScope failed: %v", err)
-	}
+	err := registry.RegisterScope(command.ScopeRegistration{Scope: "config"})
+	require.NoError(t, err, "RegisterScope failed: %v", err)
 	handler := func(command.Request) command.Result { return command.Result{} }
-	if err := registry.RegisterRoute(command.CommandRegistration{Route: "config inspect", Handler: handler}); err != nil {
-		t.Fatalf("first RegisterRoute failed: %v", err)
-	}
+	err = registry.RegisterRoute(command.CommandRegistration{Route: "config inspect", Handler: handler})
+	require.NoError(t, err, "first RegisterRoute failed: %v", err)
 
-	err := registry.RegisterRoute(command.CommandRegistration{Route: "  Config   INSPECT ", Handler: handler})
-	if err == nil {
-		t.Fatal("expected duplicate normalized route to be rejected")
-	}
-	if !strings.Contains(err.Error(), "GOLC_ROUTE_DUPLICATE: config inspect") {
-		t.Fatalf("expected stable GOLC_ROUTE_DUPLICATE diagnostic, got %q", err.Error())
-	}
+	err = registry.RegisterRoute(command.CommandRegistration{Route: "  Config   INSPECT ", Handler: handler})
+	require.Error(t, err, "expected duplicate normalized route to be rejected")
+	require.Contains(t, err.Error(), "GOLC_ROUTE_DUPLICATE: config inspect", "expected stable GOLC_ROUTE_DUPLICATE diagnostic, got %q", err.Error())
 }
 
 func TestRegisterScopeRejectsDuplicateNormalizedScopes(t *testing.T) {
 	registry := command.NewCommandRegistry()
-	if err := registry.RegisterScope(command.ScopeRegistration{Scope: "config"}); err != nil {
-		t.Fatalf("first RegisterScope failed: %v", err)
-	}
+	err := registry.RegisterScope(command.ScopeRegistration{Scope: "config"})
+	require.NoError(t, err, "first RegisterScope failed: %v", err)
 
-	err := registry.RegisterScope(command.ScopeRegistration{Scope: " CONFIG "})
-	if err == nil {
-		t.Fatal("expected duplicate normalized scope to be rejected")
-	}
-	if !strings.Contains(err.Error(), "GOLC_SCOPE_DUPLICATE: config") {
-		t.Fatalf("expected stable GOLC_SCOPE_DUPLICATE diagnostic, got %q", err.Error())
-	}
+	err = registry.RegisterScope(command.ScopeRegistration{Scope: " CONFIG "})
+	require.Error(t, err, "expected duplicate normalized scope to be rejected")
+	require.Contains(t, err.Error(), "GOLC_SCOPE_DUPLICATE: config", "expected stable GOLC_SCOPE_DUPLICATE diagnostic, got %q", err.Error())
 }
 
 func TestRegisterRouteRequiresDeclaredOwningScope(t *testing.T) {
@@ -115,12 +88,8 @@ func TestRegisterRouteRequiresDeclaredOwningScope(t *testing.T) {
 	handler := func(command.Request) command.Result { return command.Result{} }
 
 	err := registry.RegisterRoute(command.CommandRegistration{Route: "orphan run", Handler: handler})
-	if err == nil {
-		t.Fatal("expected a route without a declared owning scope to be rejected")
-	}
-	if !strings.Contains(err.Error(), "GOLC_ROUTE_SCOPE_UNDECLARED") {
-		t.Fatalf("expected stable GOLC_ROUTE_SCOPE_UNDECLARED diagnostic, got %q", err.Error())
-	}
+	require.Error(t, err, "expected a route without a declared owning scope to be rejected")
+	require.Contains(t, err.Error(), "GOLC_ROUTE_SCOPE_UNDECLARED", "expected stable GOLC_ROUTE_SCOPE_UNDECLARED diagnostic, got %q", err.Error())
 }
 
 func TestRoutesAndScopesAreDeterministicAcrossDeclarationOrder(t *testing.T) {
@@ -141,14 +110,12 @@ func TestRoutesAndScopesAreDeterministicAcrossDeclarationOrder(t *testing.T) {
 			}
 		}
 		for _, scope := range orderedScopes {
-			if err := registry.RegisterScope(command.ScopeRegistration{Scope: scope}); err != nil {
-				t.Fatalf("RegisterScope(%q) failed: %v", scope, err)
-			}
+			err := registry.RegisterScope(command.ScopeRegistration{Scope: scope})
+			require.NoError(t, err, "RegisterScope(%q) failed: %v", scope, err)
 		}
 		for _, route := range orderedRoutes {
-			if err := registry.RegisterRoute(command.CommandRegistration{Route: route, Handler: handler}); err != nil {
-				t.Fatalf("RegisterRoute(%q) failed: %v", route, err)
-			}
+			err := registry.RegisterRoute(command.CommandRegistration{Route: route, Handler: handler})
+			require.NoError(t, err, "RegisterRoute(%q) failed: %v", route, err)
 		}
 		return registry
 	}
@@ -173,63 +140,40 @@ func TestRoutesAndScopesAreDeterministicAcrossDeclarationOrder(t *testing.T) {
 
 	wantRoutes := []string{"alpha list", "alpha run", "mid check", "zeta run"}
 	wantScopes := []string{"alpha", "mid", "zeta"}
-	if got := routeKeys(forward); !reflect.DeepEqual(got, wantRoutes) {
-		t.Fatalf("forward Routes() not sorted: %v", got)
-	}
-	if got := routeKeys(backward); !reflect.DeepEqual(got, wantRoutes) {
-		t.Fatalf("backward Routes() not sorted: %v", got)
-	}
-	if got := scopeKeys(forward); !reflect.DeepEqual(got, wantScopes) {
-		t.Fatalf("forward Scopes() not sorted: %v", got)
-	}
-	if got := scopeKeys(backward); !reflect.DeepEqual(got, wantScopes) {
-		t.Fatalf("backward Scopes() not sorted: %v", got)
-	}
+	require.Equal(t, wantRoutes, routeKeys(forward), "forward Routes() not sorted: %v", routeKeys(forward))
+	require.Equal(t, wantRoutes, routeKeys(backward), "backward Routes() not sorted: %v", routeKeys(backward))
+	require.Equal(t, wantScopes, scopeKeys(forward), "forward Scopes() not sorted: %v", scopeKeys(forward))
+	require.Equal(t, wantScopes, scopeKeys(backward), "backward Scopes() not sorted: %v", scopeKeys(backward))
 }
 
 func TestLookupPrefersLongestExactRoute(t *testing.T) {
 	registry := command.NewCommandRegistry()
-	if err := registry.RegisterScope(command.ScopeRegistration{Scope: "config"}); err != nil {
-		t.Fatalf("RegisterScope failed: %v", err)
-	}
+	err := registry.RegisterScope(command.ScopeRegistration{Scope: "config"})
+	require.NoError(t, err, "RegisterScope failed: %v", err)
 	handler := func(command.Request) command.Result { return command.Result{} }
 	for _, route := range []string{"config", "config inspect"} {
-		if err := registry.RegisterRoute(command.CommandRegistration{Route: route, Handler: handler}); err != nil {
-			t.Fatalf("RegisterRoute(%q) failed: %v", route, err)
-		}
+		err := registry.RegisterRoute(command.CommandRegistration{Route: route, Handler: handler})
+		require.NoError(t, err, "RegisterRoute(%q) failed: %v", route, err)
 	}
 
 	registration, rest, ok := registry.Lookup([]string{"config", "inspect", "runtime"})
-	if !ok || registration.Route != "config inspect" {
-		t.Fatalf("expected longest match config inspect, got ok=%v route=%q", ok, registration.Route)
-	}
-	if !reflect.DeepEqual(rest, []string{"runtime"}) {
-		t.Fatalf("expected remaining args [runtime], got %v", rest)
-	}
+	require.True(t, ok && registration.Route == "config inspect", "expected longest match config inspect, got ok=%v route=%q", ok, registration.Route)
+	require.Equal(t, []string{"runtime"}, rest, "expected remaining args [runtime], got %v", rest)
 
 	registration, rest, ok = registry.Lookup([]string{"config", "list"})
-	if !ok || registration.Route != "config" {
-		t.Fatalf("expected fallback match config, got ok=%v route=%q", ok, registration.Route)
-	}
-	if !reflect.DeepEqual(rest, []string{"list"}) {
-		t.Fatalf("expected remaining args [list], got %v", rest)
-	}
+	require.True(t, ok && registration.Route == "config", "expected fallback match config, got ok=%v route=%q", ok, registration.Route)
+	require.Equal(t, []string{"list"}, rest, "expected remaining args [list], got %v", rest)
 
-	if _, _, ok := registry.Lookup([]string{"unknown"}); ok {
-		t.Fatal("expected no match for an unregistered route")
-	}
+	_, _, ok = registry.Lookup([]string{"unknown"})
+	require.False(t, ok, "expected no match for an unregistered route")
 }
 
 func TestExecuteUnknownRouteFailsWithStableCode(t *testing.T) {
 	registry := newDefaultRegistry(t)
 
 	result := registry.Execute(command.Request{Args: []string{"definitely", "not", "registered"}})
-	if result.ExitCode == 0 {
-		t.Fatal("expected a nonzero exit code for an unknown route")
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_ROUTE_UNKNOWN") {
-		t.Fatalf("expected stable GOLC_ROUTE_UNKNOWN diagnostic, got %q", result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected a nonzero exit code for an unknown route")
+	require.Contains(t, string(result.Stderr), "GOLC_ROUTE_UNKNOWN", "expected stable GOLC_ROUTE_UNKNOWN diagnostic, got %q", result.Stderr)
 }
 
 // TestExecuteBareInvocationPrintsUsage proves a zero-argument invocation
@@ -240,17 +184,9 @@ func TestExecuteBareInvocationPrintsUsage(t *testing.T) {
 	registry := newDefaultRegistry(t)
 
 	result := registry.Execute(command.Request{Args: []string{}})
-	if result.ExitCode == 0 {
-		t.Fatal("expected a nonzero exit code for a bare invocation")
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected a nonzero exit code for a bare invocation")
 	stderr := string(result.Stderr)
-	if strings.Contains(stderr, `GOLC_ROUTE_UNKNOWN: no registered route matches ""`) {
-		t.Fatalf("expected a usage listing, not the generic unknown-route diagnostic, got %q", stderr)
-	}
-	if !strings.Contains(stderr, "GOLC_ROUTE_MISSING") {
-		t.Fatalf("expected GOLC_ROUTE_MISSING diagnostic, got %q", stderr)
-	}
-	if !strings.Contains(stderr, "routerfixture echo") {
-		t.Fatalf("expected the usage listing to include a registered route, got %q", stderr)
-	}
+	require.NotContains(t, stderr, `GOLC_ROUTE_UNKNOWN: no registered route matches ""`, "expected a usage listing, not the generic unknown-route diagnostic, got %q", stderr)
+	require.Contains(t, stderr, "GOLC_ROUTE_MISSING", "expected GOLC_ROUTE_MISSING diagnostic, got %q", stderr)
+	require.Contains(t, stderr, "routerfixture echo", "expected the usage listing to include a registered route, got %q", stderr)
 }

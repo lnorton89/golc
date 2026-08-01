@@ -33,6 +33,8 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/pool"
 	"github.com/lnorton89/golc/internal/show"
@@ -46,18 +48,13 @@ import (
 func seedRecoveryPoint(t *testing.T, root, showPath string, revision int, state show.State) {
 	t.Helper()
 	payload, err := strictjson.CanonicalEncode(state)
-	if err != nil {
-		t.Fatalf("CanonicalEncode: %v", err)
-	}
+	require.NoError(t, err, "CanonicalEncode: %v", err)
 	db, err := sql.Open("sqlite", filepath.Join(root, showPath))
-	if err != nil {
-		t.Fatalf("sql.Open: %v", err)
-	}
+	require.NoError(t, err, "sql.Open: %v", err)
 	defer db.Close()
-	if _, err := db.Exec(`INSERT INTO recovery_points (created_at, revision, blob) VALUES (?, ?, ?)`,
-		"2026-07-23T00:00:01Z", revision, payload); err != nil {
-		t.Fatalf("seeding recovery point: %v", err)
-	}
+	_, err = db.Exec(`INSERT INTO recovery_points (created_at, revision, blob) VALUES (?, ?, ?)`,
+		"2026-07-23T00:00:01Z", revision, payload)
+	require.NoError(t, err, "seeding recovery point: %v", err)
 }
 
 // seedOlderSchemaShow creates a valid .golc file at root/showPath (via the
@@ -75,34 +72,23 @@ func seedRecoveryPoint(t *testing.T, root, showPath string, revision int, state 
 func seedOlderSchemaShow(t *testing.T, registry *command.CommandRegistry, root, showPath string) show.State {
 	t.Helper()
 	createPool := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash Pool", "--show", showPath}})
-	if createPool.ExitCode != 0 {
-		t.Fatalf("pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
-	}
+	require.Equal(t, 0, createPool.ExitCode, "pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
 	clean, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load (seed): %v", err)
-	}
+	require.NoError(t, err, "show.Load (seed): %v", err)
 	older := clean
 	older.SchemaVersion = 0
 	payload, err := strictjson.CanonicalEncode(older)
-	if err != nil {
-		t.Fatalf("CanonicalEncode: %v", err)
-	}
+	require.NoError(t, err, "CanonicalEncode: %v", err)
 
 	db, err := sql.Open("sqlite", filepath.Join(root, showPath))
-	if err != nil {
-		t.Fatalf("sql.Open: %v", err)
-	}
+	require.NoError(t, err, "sql.Open: %v", err)
 	defer db.Close()
-	if _, err := db.Exec(`UPDATE show_meta SET schema_version = 0 WHERE id = 1`); err != nil {
-		t.Fatalf("seeding schema_version: %v", err)
-	}
-	if _, err := db.Exec(`UPDATE show_state SET blob = ? WHERE id = 1`, payload); err != nil {
-		t.Fatalf("seeding blob: %v", err)
-	}
-	if _, err := db.Exec(`PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
-		t.Fatalf("checkpoint: %v", err)
-	}
+	_, err = db.Exec(`UPDATE show_meta SET schema_version = 0 WHERE id = 1`)
+	require.NoError(t, err, "seeding schema_version: %v", err)
+	_, err = db.Exec(`UPDATE show_state SET blob = ? WHERE id = 1`, payload)
+	require.NoError(t, err, "seeding blob: %v", err)
+	_, err = db.Exec(`PRAGMA wal_checkpoint(TRUNCATE)`)
+	require.NoError(t, err, "checkpoint: %v", err)
 	return older
 }
 
@@ -116,21 +102,15 @@ func seedOlderSchemaShow(t *testing.T, registry *command.CommandRegistry, root, 
 func seedTooNewSchemaShow(t *testing.T, registry *command.CommandRegistry, root, showPath string) {
 	t.Helper()
 	createPool := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash Pool", "--show", showPath}})
-	if createPool.ExitCode != 0 {
-		t.Fatalf("pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
-	}
+	require.Equal(t, 0, createPool.ExitCode, "pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
 
 	db, err := sql.Open("sqlite", filepath.Join(root, showPath))
-	if err != nil {
-		t.Fatalf("sql.Open: %v", err)
-	}
+	require.NoError(t, err, "sql.Open: %v", err)
 	defer db.Close()
-	if _, err := db.Exec(`UPDATE show_meta SET schema_version = ? WHERE id = 1`, show.SchemaVersion+1); err != nil {
-		t.Fatalf("bumping schema_version: %v", err)
-	}
-	if _, err := db.Exec(`PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
-		t.Fatalf("checkpoint: %v", err)
-	}
+	_, err = db.Exec(`UPDATE show_meta SET schema_version = ? WHERE id = 1`, show.SchemaVersion+1)
+	require.NoError(t, err, "bumping schema_version: %v", err)
+	_, err = db.Exec(`PRAGMA wal_checkpoint(TRUNCATE)`)
+	require.NoError(t, err, "checkpoint: %v", err)
 }
 
 // TestShowSaveRoute proves "show save" loads and re-saves a ShowState,
@@ -138,52 +118,34 @@ func seedTooNewSchemaShow(t *testing.T, registry *command.CommandRegistry, root,
 // transaction contract, CONTEXT D-04) and reporting the new revision.
 func TestShowSaveRoute(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "show.golc"
 
 	createPool := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash Pool", "--show", showPath}})
-	if createPool.ExitCode != 0 {
-		t.Fatalf("pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
-	}
+	require.Equal(t, 0, createPool.ExitCode, "pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
 	afterCreate, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load after pool create: %v", err)
-	}
+	require.NoError(t, err, "show.Load after pool create: %v", err)
 
 	saveResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "save", "--show", showPath}})
-	if saveResult.ExitCode != 0 {
-		t.Fatalf("show save failed: exit=%d stderr=%s", saveResult.ExitCode, saveResult.Stderr)
-	}
-	if !strings.Contains(string(saveResult.Stdout), "GOLC_SHOW_SAVED") {
-		t.Fatalf("expected GOLC_SHOW_SAVED in show save output, got %s", saveResult.Stdout)
-	}
+	require.Equal(t, 0, saveResult.ExitCode, "show save failed: exit=%d stderr=%s", saveResult.ExitCode, saveResult.Stderr)
+	require.Contains(t, string(saveResult.Stdout), "GOLC_SHOW_SAVED", "expected GOLC_SHOW_SAVED in show save output, got %s", saveResult.Stdout)
 
 	afterSave, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load after show save: %v", err)
-	}
-	if afterSave.Revision != afterCreate.Revision+1 {
-		t.Fatalf("expected show save to bump Revision by exactly 1, got %d (was %d)", afterSave.Revision, afterCreate.Revision)
-	}
-	if len(afterSave.Pools) != 1 || afterSave.Pools[0].Name != "Wash Pool" {
-		t.Fatalf("expected show save to preserve the existing pool, got %+v", afterSave.Pools)
-	}
+	require.NoError(t, err, "show.Load after show save: %v", err)
+	require.Equal(t, afterCreate.Revision+1, afterSave.Revision, "expected show save to bump Revision by exactly 1, got %d (was %d)", afterSave.Revision, afterCreate.Revision)
+	require.Len(t, afterSave.Pools, 1, "expected show save to preserve the existing pool, got %+v", afterSave.Pools)
+	require.Equal(t, "Wash Pool", afterSave.Pools[0].Name, "expected show save to preserve the existing pool, got %+v", afterSave.Pools)
 }
 
 // TestShowSaveUsageMissingShowFlag proves "show save" rejects a missing
 // --show with exit 2 and GOLC_SHOW_USAGE.
 func TestShowSaveUsageMissingShowFlag(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	result := registry.Execute(command.Request{Root: t.TempDir(), Args: []string{"show", "save"}})
-	if result.ExitCode != 2 || !strings.Contains(string(result.Stderr), "GOLC_SHOW_USAGE") {
-		t.Fatalf("expected exit 2 GOLC_SHOW_USAGE for a missing --show, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 2, result.ExitCode, "expected exit 2 GOLC_SHOW_USAGE for a missing --show, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	require.Contains(t, string(result.Stderr), "GOLC_SHOW_USAGE", "expected exit 2 GOLC_SHOW_USAGE for a missing --show, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
 }
 
 // TestShowSaveAsRoute proves "show save-as" writes the destination file
@@ -191,72 +153,45 @@ func TestShowSaveUsageMissingShowFlag(t *testing.T) {
 // Loaded, never re-Saved).
 func TestShowSaveAsRoute(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	srcPath := "src.golc"
 	destPath := "dest.golc"
 
 	createPool := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash Pool", "--show", srcPath}})
-	if createPool.ExitCode != 0 {
-		t.Fatalf("pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
-	}
+	require.Equal(t, 0, createPool.ExitCode, "pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
 	srcBefore, err := show.Load(root, srcPath)
-	if err != nil {
-		t.Fatalf("show.Load(src) before save-as: %v", err)
-	}
+	require.NoError(t, err, "show.Load(src) before save-as: %v", err)
 
 	saveAsResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "save-as", "--show", srcPath, "--to", destPath}})
-	if saveAsResult.ExitCode != 0 {
-		t.Fatalf("show save-as failed: exit=%d stderr=%s", saveAsResult.ExitCode, saveAsResult.Stderr)
-	}
-	if !strings.Contains(string(saveAsResult.Stdout), "GOLC_SHOW_SAVED_AS") {
-		t.Fatalf("expected GOLC_SHOW_SAVED_AS in show save-as output, got %s", saveAsResult.Stdout)
-	}
+	require.Equal(t, 0, saveAsResult.ExitCode, "show save-as failed: exit=%d stderr=%s", saveAsResult.ExitCode, saveAsResult.Stderr)
+	require.Contains(t, string(saveAsResult.Stdout), "GOLC_SHOW_SAVED_AS", "expected GOLC_SHOW_SAVED_AS in show save-as output, got %s", saveAsResult.Stdout)
 
 	srcAfter, err := show.Load(root, srcPath)
-	if err != nil {
-		t.Fatalf("show.Load(src) after save-as: %v", err)
-	}
-	if srcAfter.Revision != srcBefore.Revision {
-		t.Fatalf("expected show save-as to leave the source Revision untouched: before=%d after=%d", srcBefore.Revision, srcAfter.Revision)
-	}
+	require.NoError(t, err, "show.Load(src) after save-as: %v", err)
+	require.Equal(t, srcBefore.Revision, srcAfter.Revision, "expected show save-as to leave the source Revision untouched: before=%d after=%d", srcBefore.Revision, srcAfter.Revision)
 
 	dest, err := show.Load(root, destPath)
-	if err != nil {
-		t.Fatalf("show.Load(dest) after save-as: %v", err)
-	}
-	if len(dest.Pools) != 1 || dest.Pools[0].Name != "Wash Pool" {
-		t.Fatalf("expected the destination to carry the source's pool, got %+v", dest.Pools)
-	}
+	require.NoError(t, err, "show.Load(dest) after save-as: %v", err)
+	require.Len(t, dest.Pools, 1, "expected the destination to carry the source's pool, got %+v", dest.Pools)
+	require.Equal(t, "Wash Pool", dest.Pools[0].Name, "expected the destination to carry the source's pool, got %+v", dest.Pools)
 }
 
 // TestShowOpenCleanFileReportsNoRecovery proves "show open" on a cleanly
 // saved file never emits the recovery offer.
 func TestShowOpenCleanFileReportsNoRecovery(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "show.golc"
 
 	createPool := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash Pool", "--show", showPath}})
-	if createPool.ExitCode != 0 {
-		t.Fatalf("pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
-	}
+	require.Equal(t, 0, createPool.ExitCode, "pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
 
 	openResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "open", "--show", showPath}})
-	if openResult.ExitCode != 0 {
-		t.Fatalf("show open failed: exit=%d stderr=%s", openResult.ExitCode, openResult.Stderr)
-	}
-	if strings.Contains(string(openResult.Stdout), "GOLC_SHOW_RECOVERY_AVAILABLE") {
-		t.Fatalf("expected no recovery offer on a cleanly saved file, got %s", openResult.Stdout)
-	}
-	if !strings.Contains(string(openResult.Stdout), "GOLC_SHOW_OPENED") {
-		t.Fatalf("expected GOLC_SHOW_OPENED in show open output, got %s", openResult.Stdout)
-	}
+	require.Equal(t, 0, openResult.ExitCode, "show open failed: exit=%d stderr=%s", openResult.ExitCode, openResult.Stderr)
+	require.NotContains(t, string(openResult.Stdout), "GOLC_SHOW_RECOVERY_AVAILABLE", "expected no recovery offer on a cleanly saved file, got %s", openResult.Stdout)
+	require.Contains(t, string(openResult.Stdout), "GOLC_SHOW_OPENED", "expected GOLC_SHOW_OPENED in show open output, got %s", openResult.Stdout)
 }
 
 // TestShowOpenReportsRecoveryOfferWithoutMutating proves "show open" on a
@@ -266,48 +201,30 @@ func TestShowOpenCleanFileReportsNoRecovery(t *testing.T) {
 // --discard-recovery is given.
 func TestShowOpenReportsRecoveryOfferWithoutMutating(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "show.golc"
 
 	createPool := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash Pool", "--show", showPath}})
-	if createPool.ExitCode != 0 {
-		t.Fatalf("pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
-	}
+	require.Equal(t, 0, createPool.ExitCode, "pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
 	clean, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load: %v", err)
 
 	interrupted := clean
 	interrupted.Revision = clean.Revision + 1
 	seedRecoveryPoint(t, root, showPath, clean.Revision+1, interrupted)
 
 	openResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "open", "--show", showPath}})
-	if openResult.ExitCode != 0 {
-		t.Fatalf("show open failed: exit=%d stderr=%s", openResult.ExitCode, openResult.Stderr)
-	}
-	if !strings.Contains(string(openResult.Stdout), "GOLC_SHOW_RECOVERY_AVAILABLE") {
-		t.Fatalf("expected a recovery offer, got %s", openResult.Stdout)
-	}
+	require.Equal(t, 0, openResult.ExitCode, "show open failed: exit=%d stderr=%s", openResult.ExitCode, openResult.Stderr)
+	require.Contains(t, string(openResult.Stdout), "GOLC_SHOW_RECOVERY_AVAILABLE", "expected a recovery offer, got %s", openResult.Stdout)
 
 	after, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load after open: %v", err)
-	}
-	if after.Revision != clean.Revision {
-		t.Fatalf("expected show open to leave Revision unchanged (offered, not applied): before=%d after=%d", clean.Revision, after.Revision)
-	}
+	require.NoError(t, err, "show.Load after open: %v", err)
+	require.Equal(t, clean.Revision, after.Revision, "expected show open to leave Revision unchanged (offered, not applied): before=%d after=%d", clean.Revision, after.Revision)
 
 	points, err := show.DetectRecoveryPoints(root, showPath)
-	if err != nil {
-		t.Fatalf("show.DetectRecoveryPoints after open: %v", err)
-	}
-	if len(points) != 1 {
-		t.Fatalf("expected show open to leave the offered recovery point untouched, got %d points", len(points))
-	}
+	require.NoError(t, err, "show.DetectRecoveryPoints after open: %v", err)
+	require.Len(t, points, 1, "expected show open to leave the offered recovery point untouched, got %d points", len(points))
 }
 
 // TestShowOpenDiscardRecoveryRemovesPoints proves --discard-recovery
@@ -316,47 +233,29 @@ func TestShowOpenReportsRecoveryOfferWithoutMutating(t *testing.T) {
 // anything.
 func TestShowOpenDiscardRecoveryRemovesPoints(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "show.golc"
 
 	createPool := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash Pool", "--show", showPath}})
-	if createPool.ExitCode != 0 {
-		t.Fatalf("pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
-	}
+	require.Equal(t, 0, createPool.ExitCode, "pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
 	clean, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load: %v", err)
 	interrupted := clean
 	interrupted.Revision = clean.Revision + 1
 	seedRecoveryPoint(t, root, showPath, clean.Revision+1, interrupted)
 
 	discardResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "open", "--show", showPath, "--discard-recovery"}})
-	if discardResult.ExitCode != 0 {
-		t.Fatalf("show open --discard-recovery failed: exit=%d stderr=%s", discardResult.ExitCode, discardResult.Stderr)
-	}
-	if !strings.Contains(string(discardResult.Stdout), "GOLC_SHOW_RECOVERY_DISCARDED") {
-		t.Fatalf("expected GOLC_SHOW_RECOVERY_DISCARDED, got %s", discardResult.Stdout)
-	}
+	require.Equal(t, 0, discardResult.ExitCode, "show open --discard-recovery failed: exit=%d stderr=%s", discardResult.ExitCode, discardResult.Stderr)
+	require.Contains(t, string(discardResult.Stdout), "GOLC_SHOW_RECOVERY_DISCARDED", "expected GOLC_SHOW_RECOVERY_DISCARDED, got %s", discardResult.Stdout)
 
 	points, err := show.DetectRecoveryPoints(root, showPath)
-	if err != nil {
-		t.Fatalf("show.DetectRecoveryPoints after discard: %v", err)
-	}
-	if len(points) != 0 {
-		t.Fatalf("expected no offered recovery points after discard, got %d", len(points))
-	}
+	require.NoError(t, err, "show.DetectRecoveryPoints after discard: %v", err)
+	require.Empty(t, points, "expected no offered recovery points after discard, got %d", len(points))
 
 	reopenResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "open", "--show", showPath}})
-	if reopenResult.ExitCode != 0 {
-		t.Fatalf("show open (after discard) failed: exit=%d stderr=%s", reopenResult.ExitCode, reopenResult.Stderr)
-	}
-	if strings.Contains(string(reopenResult.Stdout), "GOLC_SHOW_RECOVERY_AVAILABLE") {
-		t.Fatalf("expected no recovery offer after discard, got %s", reopenResult.Stdout)
-	}
+	require.Equal(t, 0, reopenResult.ExitCode, "show open (after discard) failed: exit=%d stderr=%s", reopenResult.ExitCode, reopenResult.Stderr)
+	require.NotContains(t, string(reopenResult.Stdout), "GOLC_SHOW_RECOVERY_AVAILABLE", "expected no recovery offer after discard, got %s", reopenResult.Stdout)
 }
 
 // TestShowOpenAcceptRecoveryPromotesChosenPoint proves --accept-recovery
@@ -365,20 +264,14 @@ func TestShowOpenDiscardRecoveryRemovesPoints(t *testing.T) {
 // accepted blob's own stamped Revision).
 func TestShowOpenAcceptRecoveryPromotesChosenPoint(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "show.golc"
 
 	createPool := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash Pool", "--show", showPath}})
-	if createPool.ExitCode != 0 {
-		t.Fatalf("pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
-	}
+	require.Equal(t, 0, createPool.ExitCode, "pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
 	clean, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load: %v", err)
 
 	recovered := clean
 	recovered.Pools = append([]pool.Pool(nil), clean.Pools...)
@@ -387,33 +280,20 @@ func TestShowOpenAcceptRecoveryPromotesChosenPoint(t *testing.T) {
 	seedRecoveryPoint(t, root, showPath, clean.Revision+1, recovered)
 
 	points, err := show.DetectRecoveryPoints(root, showPath)
-	if err != nil {
-		t.Fatalf("show.DetectRecoveryPoints: %v", err)
-	}
-	if len(points) != 1 {
-		t.Fatalf("expected exactly 1 offered recovery point, got %d", len(points))
-	}
+	require.NoError(t, err, "show.DetectRecoveryPoints: %v", err)
+	require.Len(t, points, 1, "expected exactly 1 offered recovery point, got %d", len(points))
 
 	acceptResult := registry.Execute(command.Request{Root: root, Args: []string{
 		"show", "open", "--show", showPath, "--accept-recovery", strconv.Itoa(points[0].ID),
 	}})
-	if acceptResult.ExitCode != 0 {
-		t.Fatalf("show open --accept-recovery failed: exit=%d stderr=%s", acceptResult.ExitCode, acceptResult.Stderr)
-	}
-	if !strings.Contains(string(acceptResult.Stdout), "GOLC_SHOW_RECOVERY_ACCEPTED") {
-		t.Fatalf("expected GOLC_SHOW_RECOVERY_ACCEPTED, got %s", acceptResult.Stdout)
-	}
+	require.Equal(t, 0, acceptResult.ExitCode, "show open --accept-recovery failed: exit=%d stderr=%s", acceptResult.ExitCode, acceptResult.Stderr)
+	require.Contains(t, string(acceptResult.Stdout), "GOLC_SHOW_RECOVERY_ACCEPTED", "expected GOLC_SHOW_RECOVERY_ACCEPTED, got %s", acceptResult.Stdout)
 
 	after, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load after accept: %v", err)
-	}
-	if len(after.Pools) != 1 || after.Pools[0].Name != "Recovered Pool" {
-		t.Fatalf("expected the accepted recovery point's pool to become current, got %+v", after.Pools)
-	}
-	if after.Revision != clean.Revision+2 {
-		t.Fatalf("expected Revision to advance via Save to %d, got %d", clean.Revision+2, after.Revision)
-	}
+	require.NoError(t, err, "show.Load after accept: %v", err)
+	require.Len(t, after.Pools, 1, "expected the accepted recovery point's pool to become current, got %+v", after.Pools)
+	require.Equal(t, "Recovered Pool", after.Pools[0].Name, "expected the accepted recovery point's pool to become current, got %+v", after.Pools)
+	require.Equal(t, clean.Revision+2, after.Revision, "expected Revision to advance via Save to %d, got %d", clean.Revision+2, after.Revision)
 }
 
 // TestShowOpenAcceptRecoveryRejectsUnofferedID proves --accept-recovery
@@ -422,38 +302,30 @@ func TestShowOpenAcceptRecoveryPromotesChosenPoint(t *testing.T) {
 // never silently applying anything.
 func TestShowOpenAcceptRecoveryRejectsUnofferedID(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "show.golc"
 
 	createPool := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash Pool", "--show", showPath}})
-	if createPool.ExitCode != 0 {
-		t.Fatalf("pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
-	}
+	require.Equal(t, 0, createPool.ExitCode, "pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
 
 	result := registry.Execute(command.Request{Root: root, Args: []string{
 		"show", "open", "--show", showPath, "--accept-recovery", "999999",
 	}})
-	if result.ExitCode != 1 || !strings.Contains(string(result.Stderr), "GOLC_SHOW_RECOVERY_NOT_FOUND") {
-		t.Fatalf("expected exit 1 GOLC_SHOW_RECOVERY_NOT_FOUND for an unoffered id, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 1, result.ExitCode, "expected exit 1 GOLC_SHOW_RECOVERY_NOT_FOUND for an unoffered id, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	require.Contains(t, string(result.Stderr), "GOLC_SHOW_RECOVERY_NOT_FOUND", "expected exit 1 GOLC_SHOW_RECOVERY_NOT_FOUND for an unoffered id, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
 }
 
 // TestShowOpenUsageRejectsAcceptAndDiscardTogether proves
 // --accept-recovery and --discard-recovery are mutually exclusive.
 func TestShowOpenUsageRejectsAcceptAndDiscardTogether(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	result := registry.Execute(command.Request{Root: t.TempDir(), Args: []string{
 		"show", "open", "--show", "show.golc", "--accept-recovery", "1", "--discard-recovery",
 	}})
-	if result.ExitCode != 2 || !strings.Contains(string(result.Stderr), "GOLC_SHOW_USAGE") {
-		t.Fatalf("expected exit 2 GOLC_SHOW_USAGE for --accept-recovery and --discard-recovery together, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 2, result.ExitCode, "expected exit 2 GOLC_SHOW_USAGE for --accept-recovery and --discard-recovery together, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
+	require.Contains(t, string(result.Stderr), "GOLC_SHOW_USAGE", "expected exit 2 GOLC_SHOW_USAGE for --accept-recovery and --discard-recovery together, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
 }
 
 // TestShowOpenMigrationRequiresConfirm proves CONTEXT D-08's detection
@@ -463,45 +335,29 @@ func TestShowOpenUsageRejectsAcceptAndDiscardTogether(t *testing.T) {
 // caller explicitly confirms.
 func TestShowOpenMigrationRequiresConfirm(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "show.golc"
 	seedOlderSchemaShow(t, registry, root, showPath)
 
 	resolved := filepath.Join(root, showPath)
 	before, err := os.ReadFile(resolved)
-	if err != nil {
-		t.Fatalf("reading fixture bytes: %v", err)
-	}
+	require.NoError(t, err, "reading fixture bytes: %v", err)
 
 	openResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "open", "--show", showPath}})
-	if openResult.ExitCode == 0 {
-		t.Fatalf("expected show open to refuse an older-schema file without --confirm-migration, got exit 0: stdout=%s", openResult.Stdout)
-	}
-	if !strings.Contains(string(openResult.Stderr), "GOLC_SHOW_MIGRATION_REQUIRED") {
-		t.Fatalf("expected GOLC_SHOW_MIGRATION_REQUIRED, got exit=%d stderr=%s", openResult.ExitCode, openResult.Stderr)
-	}
+	require.NotEqual(t, 0, openResult.ExitCode, "expected show open to refuse an older-schema file without --confirm-migration, got exit 0: stdout=%s", openResult.Stdout)
+	require.Contains(t, string(openResult.Stderr), "GOLC_SHOW_MIGRATION_REQUIRED", "expected GOLC_SHOW_MIGRATION_REQUIRED, got exit=%d stderr=%s", openResult.ExitCode, openResult.Stderr)
 
 	after, err := os.ReadFile(resolved)
-	if err != nil {
-		t.Fatalf("re-reading fixture bytes: %v", err)
-	}
-	if !bytes.Equal(before, after) {
-		t.Fatalf("show open without --confirm-migration rewrote the file; expected byte-for-byte unchanged")
-	}
+	require.NoError(t, err, "re-reading fixture bytes: %v", err)
+	require.True(t, bytes.Equal(before, after), "show open without --confirm-migration rewrote the file; expected byte-for-byte unchanged")
 
 	// No backup should exist either -- detection alone never triggers
 	// verifiedBackup.
 	entries, err := os.ReadDir(root)
-	if err != nil {
-		t.Fatalf("ReadDir: %v", err)
-	}
+	require.NoError(t, err, "ReadDir: %v", err)
 	for _, entry := range entries {
-		if strings.Contains(entry.Name(), ".backup-") {
-			t.Fatalf("expected no backup file from detection alone, found %s", entry.Name())
-		}
+		require.NotContains(t, entry.Name(), ".backup-", "expected no backup file from detection alone, found %s", entry.Name())
 	}
 }
 
@@ -517,9 +373,7 @@ func TestShowOpenMigrationWithConfirm(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "show.golc"
 	seedOlderSchemaShow(t, registry, root, showPath)
@@ -527,32 +381,19 @@ func TestShowOpenMigrationWithConfirm(t *testing.T) {
 	openResult := registry.Execute(command.Request{Root: root, Args: []string{
 		"show", "open", "--show", showPath, "--confirm-migration",
 	}})
-	if openResult.ExitCode != 0 {
-		t.Fatalf("show open --confirm-migration failed: exit=%d stderr=%s", openResult.ExitCode, openResult.Stderr)
-	}
-	if !strings.Contains(string(openResult.Stdout), "GOLC_SHOW_MIGRATED") {
-		t.Fatalf("expected GOLC_SHOW_MIGRATED in show open --confirm-migration output, got %s", openResult.Stdout)
-	}
-	if !strings.Contains(string(openResult.Stdout), "GOLC_SHOW_OPENED") {
-		t.Fatalf("expected GOLC_SHOW_OPENED after a successful migration, got %s", openResult.Stdout)
-	}
+	require.Equal(t, 0, openResult.ExitCode, "show open --confirm-migration failed: exit=%d stderr=%s", openResult.ExitCode, openResult.Stderr)
+	require.Contains(t, string(openResult.Stdout), "GOLC_SHOW_MIGRATED", "expected GOLC_SHOW_MIGRATED in show open --confirm-migration output, got %s", openResult.Stdout)
+	require.Contains(t, string(openResult.Stdout), "GOLC_SHOW_OPENED", "expected GOLC_SHOW_OPENED after a successful migration, got %s", openResult.Stdout)
 
 	migrated, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load after migration: %v", err)
-	}
-	if migrated.SchemaVersion != show.SchemaVersion {
-		t.Fatalf("expected schema_version %d after migration, got %d", show.SchemaVersion, migrated.SchemaVersion)
-	}
-	if len(migrated.Pools) != 1 || migrated.Pools[0].Name != "Wash Pool" {
-		t.Fatalf("expected the migrated show to preserve the original pool, got %+v", migrated.Pools)
-	}
+	require.NoError(t, err, "show.Load after migration: %v", err)
+	require.Equal(t, show.SchemaVersion, migrated.SchemaVersion, "expected schema_version %d after migration, got %d", show.SchemaVersion, migrated.SchemaVersion)
+	require.Len(t, migrated.Pools, 1, "expected the migrated show to preserve the original pool, got %+v", migrated.Pools)
+	require.Equal(t, "Wash Pool", migrated.Pools[0].Name, "expected the migrated show to preserve the original pool, got %+v", migrated.Pools)
 
 	// A verified backup must exist on disk in root.
 	entries, err := os.ReadDir(root)
-	if err != nil {
-		t.Fatalf("ReadDir: %v", err)
-	}
+	require.NoError(t, err, "ReadDir: %v", err)
 	found := false
 	for _, entry := range entries {
 		if strings.HasPrefix(entry.Name(), showPath+".backup-") {
@@ -560,9 +401,7 @@ func TestShowOpenMigrationWithConfirm(t *testing.T) {
 			break
 		}
 	}
-	if !found {
-		t.Fatalf("expected a %s.backup-* file after a confirmed migration, found none in %v", showPath, entries)
-	}
+	require.True(t, found, "expected a %s.backup-* file after a confirmed migration, found none in %v", showPath, entries)
 }
 
 // TestShowSaveRefusesNewerFormat proves D-10: "show save" against a
@@ -570,39 +409,28 @@ func TestShowOpenMigrationWithConfirm(t *testing.T) {
 // is left byte-unchanged (never re-saved).
 func TestShowSaveRefusesNewerFormat(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "future.golc"
 	seedTooNewSchemaShow(t, registry, root, showPath)
 
 	resolved := filepath.Join(root, showPath)
 	before, err := os.ReadFile(resolved)
-	if err != nil {
-		t.Fatalf("reading fixture bytes: %v", err)
-	}
+	require.NoError(t, err, "reading fixture bytes: %v", err)
 
 	saveResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "save", "--show", showPath}})
-	if saveResult.ExitCode != 1 || !strings.Contains(string(saveResult.Stderr), "GOLC_SHOW_SCHEMA_TOO_NEW") {
-		t.Fatalf("expected exit 1 GOLC_SHOW_SCHEMA_TOO_NEW for show save against a too-new file, got exit=%d stderr=%s", saveResult.ExitCode, saveResult.Stderr)
-	}
+	require.Equal(t, 1, saveResult.ExitCode, "expected exit 1 GOLC_SHOW_SCHEMA_TOO_NEW for show save against a too-new file, got exit=%d stderr=%s", saveResult.ExitCode, saveResult.Stderr)
+	require.Contains(t, string(saveResult.Stderr), "GOLC_SHOW_SCHEMA_TOO_NEW", "expected exit 1 GOLC_SHOW_SCHEMA_TOO_NEW for show save against a too-new file, got exit=%d stderr=%s", saveResult.ExitCode, saveResult.Stderr)
 
 	saveAsResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "save-as", "--show", showPath, "--to", "dest.golc"}})
-	if saveAsResult.ExitCode != 1 || !strings.Contains(string(saveAsResult.Stderr), "GOLC_SHOW_SCHEMA_TOO_NEW") {
-		t.Fatalf("expected exit 1 GOLC_SHOW_SCHEMA_TOO_NEW for show save-as against a too-new source, got exit=%d stderr=%s", saveAsResult.ExitCode, saveAsResult.Stderr)
-	}
-	if _, err := os.Stat(filepath.Join(root, "dest.golc")); err == nil {
-		t.Fatalf("expected show save-as to never write a destination for a too-new source")
-	}
+	require.Equal(t, 1, saveAsResult.ExitCode, "expected exit 1 GOLC_SHOW_SCHEMA_TOO_NEW for show save-as against a too-new source, got exit=%d stderr=%s", saveAsResult.ExitCode, saveAsResult.Stderr)
+	require.Contains(t, string(saveAsResult.Stderr), "GOLC_SHOW_SCHEMA_TOO_NEW", "expected exit 1 GOLC_SHOW_SCHEMA_TOO_NEW for show save-as against a too-new source, got exit=%d stderr=%s", saveAsResult.ExitCode, saveAsResult.Stderr)
+	_, err = os.Stat(filepath.Join(root, "dest.golc"))
+	require.Error(t, err, "expected show save-as to never write a destination for a too-new source")
 
 	after, err := os.ReadFile(resolved)
-	if err != nil {
-		t.Fatalf("re-reading fixture bytes: %v", err)
-	}
-	if !bytes.Equal(before, after) {
-		t.Fatalf("show save/save-as rewrote a too-new source file; expected byte-for-byte unchanged")
-	}
+	require.NoError(t, err, "re-reading fixture bytes: %v", err)
+	require.True(t, bytes.Equal(before, after), "show save/save-as rewrote a too-new source file; expected byte-for-byte unchanged")
 }
 
 // TestShowOpenRefusesNewerFormat proves D-10: "show open" (the edit path)
@@ -610,31 +438,22 @@ func TestShowSaveRefusesNewerFormat(t *testing.T) {
 // the file is left byte-unchanged.
 func TestShowOpenRefusesNewerFormat(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "future.golc"
 	seedTooNewSchemaShow(t, registry, root, showPath)
 
 	resolved := filepath.Join(root, showPath)
 	before, err := os.ReadFile(resolved)
-	if err != nil {
-		t.Fatalf("reading fixture bytes: %v", err)
-	}
+	require.NoError(t, err, "reading fixture bytes: %v", err)
 
 	openResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "open", "--show", showPath}})
-	if openResult.ExitCode != 1 || !strings.Contains(string(openResult.Stderr), "GOLC_SHOW_SCHEMA_TOO_NEW") {
-		t.Fatalf("expected exit 1 GOLC_SHOW_SCHEMA_TOO_NEW for show open against a too-new file, got exit=%d stderr=%s", openResult.ExitCode, openResult.Stderr)
-	}
+	require.Equal(t, 1, openResult.ExitCode, "expected exit 1 GOLC_SHOW_SCHEMA_TOO_NEW for show open against a too-new file, got exit=%d stderr=%s", openResult.ExitCode, openResult.Stderr)
+	require.Contains(t, string(openResult.Stderr), "GOLC_SHOW_SCHEMA_TOO_NEW", "expected exit 1 GOLC_SHOW_SCHEMA_TOO_NEW for show open against a too-new file, got exit=%d stderr=%s", openResult.ExitCode, openResult.Stderr)
 
 	after, err := os.ReadFile(resolved)
-	if err != nil {
-		t.Fatalf("re-reading fixture bytes: %v", err)
-	}
-	if !bytes.Equal(before, after) {
-		t.Fatalf("show open rewrote a too-new file; expected byte-for-byte unchanged")
-	}
+	require.NoError(t, err, "re-reading fixture bytes: %v", err)
+	require.True(t, bytes.Equal(before, after), "show open rewrote a too-new file; expected byte-for-byte unchanged")
 }
 
 // TestShowCurrentVersionOpensNormally proves a current-version file is
@@ -642,30 +461,20 @@ func TestShowOpenRefusesNewerFormat(t *testing.T) {
 // normally with no false migration-required or too-new refusal.
 func TestShowCurrentVersionOpensNormally(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
 	root := t.TempDir()
 	showPath := "show.golc"
 
 	createPool := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash Pool", "--show", showPath}})
-	if createPool.ExitCode != 0 {
-		t.Fatalf("pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
-	}
+	require.Equal(t, 0, createPool.ExitCode, "pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
 
 	openResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "open", "--show", showPath}})
-	if openResult.ExitCode != 0 {
-		t.Fatalf("show open failed for a current-version file: exit=%d stderr=%s", openResult.ExitCode, openResult.Stderr)
-	}
-	if strings.Contains(string(openResult.Stdout), "GOLC_SHOW_MIGRATION_REQUIRED") || strings.Contains(string(openResult.Stderr), "GOLC_SHOW_MIGRATION_REQUIRED") {
-		t.Fatalf("expected no migration-required notice for a current-version file, got stdout=%s stderr=%s", openResult.Stdout, openResult.Stderr)
-	}
-	if strings.Contains(string(openResult.Stdout), "GOLC_SHOW_SCHEMA_TOO_NEW") || strings.Contains(string(openResult.Stderr), "GOLC_SHOW_SCHEMA_TOO_NEW") {
-		t.Fatalf("expected no too-new refusal for a current-version file, got stdout=%s stderr=%s", openResult.Stdout, openResult.Stderr)
-	}
+	require.Equal(t, 0, openResult.ExitCode, "show open failed for a current-version file: exit=%d stderr=%s", openResult.ExitCode, openResult.Stderr)
+	require.NotContains(t, string(openResult.Stdout), "GOLC_SHOW_MIGRATION_REQUIRED", "expected no migration-required notice for a current-version file, got stdout=%s stderr=%s", openResult.Stdout, openResult.Stderr)
+	require.NotContains(t, string(openResult.Stderr), "GOLC_SHOW_MIGRATION_REQUIRED", "expected no migration-required notice for a current-version file, got stdout=%s stderr=%s", openResult.Stdout, openResult.Stderr)
+	require.NotContains(t, string(openResult.Stdout), "GOLC_SHOW_SCHEMA_TOO_NEW", "expected no too-new refusal for a current-version file, got stdout=%s stderr=%s", openResult.Stdout, openResult.Stderr)
+	require.NotContains(t, string(openResult.Stderr), "GOLC_SHOW_SCHEMA_TOO_NEW", "expected no too-new refusal for a current-version file, got stdout=%s stderr=%s", openResult.Stdout, openResult.Stderr)
 
 	saveResult := registry.Execute(command.Request{Root: root, Args: []string{"show", "save", "--show", showPath}})
-	if saveResult.ExitCode != 0 {
-		t.Fatalf("show save failed for a current-version file: exit=%d stderr=%s", saveResult.ExitCode, saveResult.Stderr)
-	}
+	require.Equal(t, 0, saveResult.ExitCode, "show save failed for a current-version file: exit=%d stderr=%s", saveResult.ExitCode, saveResult.Stderr)
 }
