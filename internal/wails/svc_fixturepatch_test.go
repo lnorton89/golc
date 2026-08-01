@@ -16,10 +16,10 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/deployment"
@@ -74,24 +74,16 @@ func seedFixturePatchShowState(t *testing.T, root, showPath string) (poolName, d
 	t.Helper()
 
 	p, err := pool.NewPool("Wash Pool", nil)
-	if err != nil {
-		t.Fatalf("NewPool: %v", err)
-	}
+	require.NoError(t, err, "NewPool")
 	member, err := pool.NewPoolMember("acme/par64", "sha256:11111111")
-	if err != nil {
-		t.Fatalf("NewPoolMember: %v", err)
-	}
+	require.NoError(t, err, "NewPoolMember")
 	p.Members = append(p.Members, member)
 
 	d, err := deployment.NewDeployment("Venue A")
-	if err != nil {
-		t.Fatalf("NewDeployment: %v", err)
-	}
+	require.NoError(t, err, "NewDeployment")
 	d.Active = true
 	instanceID, err := uuid.NewV7()
-	if err != nil {
-		t.Fatalf("uuid.NewV7: %v", err)
-	}
+	require.NoError(t, err, "uuid.NewV7")
 	d.Instances = append(d.Instances, deployment.Instance{
 		ID:           instanceID,
 		PoolID:       p.ID,
@@ -102,9 +94,8 @@ func seedFixturePatchShowState(t *testing.T, root, showPath string) (poolName, d
 	})
 
 	state := show.State{Pools: []pool.Pool{p}, Deployments: []deployment.Deployment{d}}
-	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("show.Save (seed): %v", err)
-	}
+	err = show.Save(root, showPath, state)
+	require.NoError(t, err, "show.Save (seed)")
 	return p.Name, d.Name
 }
 
@@ -117,27 +108,16 @@ func TestFixturePatchServiceCreateAndListPool(t *testing.T) {
 	svc := NewFixturePatchService("", root, showPath)
 
 	before, err := svc.ListPatch()
-	if err != nil {
-		t.Fatalf("ListPatch (empty show): %v", err)
-	}
-	if len(before.Pools) != 0 {
-		t.Fatalf("expected zero pools on a fresh show, got %+v", before.Pools)
-	}
+	require.NoError(t, err, "ListPatch (empty show)")
+	require.Len(t, before.Pools, 0, "expected zero pools on a fresh show: %+v", before.Pools)
 
-	if result := svc.CreatePool("Wash Pool", nil); result.ExitCode != 0 {
-		t.Fatalf("CreatePool failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreatePool("Wash Pool", nil)
+	require.Equal(t, 0, result.ExitCode, "CreatePool failed: stderr=%s", result.Stderr)
 
 	after, err := svc.ListPatch()
-	if err != nil {
-		t.Fatalf("ListPatch after create: %v", err)
-	}
-	if len(after.Pools) != 1 || after.Pools[0].Name != "Wash Pool" {
-		t.Fatalf("expected exactly one pool named Wash Pool, got %+v", after.Pools)
-	}
-	if len(after.Pools[0].Members) != 0 {
-		t.Fatalf("expected a freshly created pool to have zero members, got %+v", after.Pools[0])
-	}
+	require.NoError(t, err, "ListPatch after create")
+	require.True(t, len(after.Pools) == 1 && after.Pools[0].Name == "Wash Pool", "expected exactly one pool named Wash Pool, got %+v", after.Pools)
+	require.Len(t, after.Pools[0].Members, 0, "expected a freshly created pool to have zero members: %+v", after.Pools[0])
 }
 
 // TestFixturePatchServiceAddMemberPreviewThenApply proves the add-member
@@ -155,69 +135,44 @@ func TestFixturePatchServiceAddMemberPreviewThenApply(t *testing.T) {
 	svc := NewFixturePatchService("", root, showPath)
 
 	preview := svc.AddPoolMemberPreview(poolName, "acme/par64", "sha256:22222222", "Standard", 0)
-	if preview.ExitCode != 0 {
-		t.Fatalf("AddPoolMemberPreview failed: exit=%d stderr=%s", preview.ExitCode, preview.Stderr)
-	}
+	require.Equal(t, 0, preview.ExitCode, "AddPoolMemberPreview failed: stderr=%s", preview.Stderr)
 	plan, err := decodeImpactPlan(preview.Stdout)
-	if err != nil {
-		t.Fatalf("decode impact preview: %v", err)
-	}
-	if plan.PlanID == "" {
-		t.Fatal("expected a non-empty plan_id in the preview")
-	}
+	require.NoError(t, err, "decode impact preview")
+	require.NotEmpty(t, plan.PlanID, "expected a non-empty plan_id in the preview")
 	foundAdd := false
 	for _, op := range plan.Operations {
 		if op.DependentKind == "deployment_instance" && op.Action == "add" {
 			foundAdd = true
-			if op.ProposedUniverse == 0 || op.ProposedAddress == 0 {
-				t.Fatalf("expected a non-zero system-computed proposed_universe/proposed_address, got %+v", op)
-			}
+			require.True(t, op.ProposedUniverse != 0 && op.ProposedAddress != 0, "expected a non-zero system-computed proposed_universe/proposed_address, got %+v", op)
 		}
 	}
-	if !foundAdd {
-		t.Fatalf("expected a proposed deployment_instance add operation, got %+v", plan.Operations)
-	}
+	require.True(t, foundAdd, "expected a proposed deployment_instance add operation, got %+v", plan.Operations)
 
 	// The pool's members must be UNCHANGED until ApplyPatch commits --
 	// preview never mutates the ShowState document (POOL-04/D-15).
 	afterPreview, err := svc.ListPatch()
-	if err != nil {
-		t.Fatalf("ListPatch after preview: %v", err)
-	}
+	require.NoError(t, err, "ListPatch after preview")
 	previewPool := findPatchPoolView(afterPreview.Pools, poolName)
-	if previewPool == nil || len(previewPool.Members) != 1 {
-		t.Fatalf("expected the pool to still carry exactly its original member before apply, got %+v", previewPool)
-	}
+	require.True(t, previewPool != nil && len(previewPool.Members) == 1, "expected the pool to still carry exactly its original member before apply, got %+v", previewPool)
 
-	if result := svc.ApplyPatch(plan.PlanID); result.ExitCode != 0 {
-		t.Fatalf("ApplyPatch failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.ApplyPatch(plan.PlanID)
+	require.Equal(t, 0, result.ExitCode, "ApplyPatch failed: stderr=%s", result.Stderr)
 
 	afterApply, err := svc.ListPatch()
-	if err != nil {
-		t.Fatalf("ListPatch after apply: %v", err)
-	}
+	require.NoError(t, err, "ListPatch after apply")
 	appliedPool := findPatchPoolView(afterApply.Pools, poolName)
-	if appliedPool == nil || len(appliedPool.Members) != 2 {
-		t.Fatalf("expected the pool to gain the new member after apply, got %+v", appliedPool)
-	}
+	require.True(t, appliedPool != nil && len(appliedPool.Members) == 2, "expected the pool to gain the new member after apply, got %+v", appliedPool)
 
 	appliedDeployment := findPatchDeploymentView(afterApply.Deployments, deploymentName)
-	if appliedDeployment == nil {
-		t.Fatalf("expected deployment %q to be present, got %+v", deploymentName, afterApply.Deployments)
-	}
-	if len(appliedDeployment.Instances) != 2 {
-		t.Fatalf("expected the deployment to gain the proposed instance, got %+v", appliedDeployment.Instances)
-	}
+	require.NotNil(t, appliedDeployment, "expected deployment %q to be present, got %+v", deploymentName, afterApply.Deployments)
+	require.Len(t, appliedDeployment.Instances, 2, "expected the deployment to gain the proposed instance: %+v", appliedDeployment.Instances)
 	foundInstance := false
 	for _, instance := range appliedDeployment.Instances {
 		if instance.Mode == "Standard" && instance.Universe > 0 && instance.Address > 0 {
 			foundInstance = true
 		}
 	}
-	if !foundInstance {
-		t.Fatalf("expected at least one instance with a positive universe/address, got %+v", appliedDeployment.Instances)
-	}
+	require.True(t, foundInstance, "expected at least one instance with a positive universe/address, got %+v", appliedDeployment.Instances)
 }
 
 // TestFixturePatchServiceCreateAndActivateDeployment proves
@@ -228,32 +183,23 @@ func TestFixturePatchServiceCreateAndActivateDeployment(t *testing.T) {
 	showPath := filepath.Join(t.TempDir(), "show.golc")
 	svc := NewFixturePatchService("", root, showPath)
 
-	if result := svc.CreateDeployment("Venue B"); result.ExitCode != 0 {
-		t.Fatalf("CreateDeployment failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := svc.CreateDeployment("Venue C"); result.ExitCode != 0 {
-		t.Fatalf("CreateDeployment failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := svc.ActivateDeployment("Venue B"); result.ExitCode != 0 {
-		t.Fatalf("ActivateDeployment failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateDeployment("Venue B")
+	require.Equal(t, 0, result.ExitCode, "CreateDeployment failed: stderr=%s", result.Stderr)
+	result = svc.CreateDeployment("Venue C")
+	require.Equal(t, 0, result.ExitCode, "CreateDeployment failed: stderr=%s", result.Stderr)
+	result = svc.ActivateDeployment("Venue B")
+	require.Equal(t, 0, result.ExitCode, "ActivateDeployment failed: stderr=%s", result.Stderr)
 
 	view, err := svc.ListPatch()
-	if err != nil {
-		t.Fatalf("ListPatch: %v", err)
-	}
+	require.NoError(t, err, "ListPatch")
 	activeCount := 0
 	for _, d := range view.Deployments {
 		if d.Active {
 			activeCount++
-			if d.Name != "Venue B" {
-				t.Fatalf("expected Venue B to be the active deployment, got %+v", d)
-			}
+			require.Equal(t, "Venue B", d.Name, "expected Venue B to be the active deployment, got %+v", d)
 		}
 	}
-	if activeCount != 1 {
-		t.Fatalf("expected exactly one active deployment, got %d", activeCount)
-	}
+	require.Equal(t, 1, activeCount, "expected exactly one active deployment")
 }
 
 // TestFixturePatchServiceRejectsMalformedMember proves a malformed member
@@ -266,9 +212,8 @@ func TestFixturePatchServiceRejectsMalformedMember(t *testing.T) {
 	svc := NewFixturePatchService("", root, showPath)
 
 	result := svc.AddPoolMemberPreview(poolName, "", "", "", 0)
-	if result.ExitCode == 0 || !strings.Contains(result.Stderr, "GOLC_POOL_APPLY_USAGE") {
-		t.Fatalf("expected GOLC_POOL_APPLY_USAGE for a malformed member triple, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected GOLC_POOL_APPLY_USAGE for a malformed member triple")
+	require.Contains(t, result.Stderr, "GOLC_POOL_APPLY_USAGE")
 }
 
 // TestFixturePatchServiceRejectsEmbeddedDelimiterInMemberFields proves
@@ -293,9 +238,8 @@ func TestFixturePatchServiceRejectsEmbeddedDelimiterInMemberFields(t *testing.T)
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			result := svc.AddPoolMemberPreview(poolName, tc.stableKey, tc.hash, tc.mode, 0)
-			if result.ExitCode == 0 || !strings.Contains(result.Stderr, "GOLC_WAILS_POOL_MEMBER_FIELD_INVALID") {
-				t.Fatalf("expected GOLC_WAILS_POOL_MEMBER_FIELD_INVALID for an embedded delimiter in %s, got exit=%d stderr=%s", tc.name, result.ExitCode, result.Stderr)
-			}
+			require.NotEqual(t, 0, result.ExitCode, "expected GOLC_WAILS_POOL_MEMBER_FIELD_INVALID for an embedded delimiter in %s", tc.name)
+			require.Contains(t, result.Stderr, "GOLC_WAILS_POOL_MEMBER_FIELD_INVALID", "embedded delimiter in %s", tc.name)
 		})
 	}
 }
@@ -309,34 +253,20 @@ func TestFixturePatchServiceEmptyAndCountStates(t *testing.T) {
 	svc := NewFixturePatchService("", root, showPath)
 
 	empty, err := svc.ListPatch()
-	if err != nil {
-		t.Fatalf("ListPatch (empty): %v", err)
-	}
-	if len(empty.Pools) != 0 || len(empty.Deployments) != 0 {
-		t.Fatalf("expected zero pools and deployments on a fresh show, got %+v", empty)
-	}
+	require.NoError(t, err, "ListPatch (empty)")
+	require.True(t, len(empty.Pools) == 0 && len(empty.Deployments) == 0, "expected zero pools and deployments on a fresh show, got %+v", empty)
 
-	if result := svc.CreatePool("Solo Pool", nil); result.ExitCode != 0 {
-		t.Fatalf("CreatePool failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreatePool("Solo Pool", nil)
+	require.Equal(t, 0, result.ExitCode, "CreatePool failed: stderr=%s", result.Stderr)
 	one, err := svc.ListPatch()
-	if err != nil {
-		t.Fatalf("ListPatch (one pool): %v", err)
-	}
-	if len(one.Pools) != 1 {
-		t.Fatalf("expected exactly one pool, got %+v", one.Pools)
-	}
+	require.NoError(t, err, "ListPatch (one pool)")
+	require.Len(t, one.Pools, 1, "expected exactly one pool: %+v", one.Pools)
 
-	if result := svc.CreatePool("Second Pool", nil); result.ExitCode != 0 {
-		t.Fatalf("CreatePool failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.CreatePool("Second Pool", nil)
+	require.Equal(t, 0, result.ExitCode, "CreatePool failed: stderr=%s", result.Stderr)
 	many, err := svc.ListPatch()
-	if err != nil {
-		t.Fatalf("ListPatch (many pools): %v", err)
-	}
-	if len(many.Pools) != 2 {
-		t.Fatalf("expected exactly two pools, got %+v", many.Pools)
-	}
+	require.NoError(t, err, "ListPatch (many pools)")
+	require.Len(t, many.Pools, 2, "expected exactly two pools: %+v", many.Pools)
 }
 
 // TestFixturePatchServiceApplyStalePlanRejected proves applying a
@@ -349,35 +279,25 @@ func TestFixturePatchServiceApplyStalePlanRejected(t *testing.T) {
 	svc := NewFixturePatchService("", root, showPath)
 
 	preview := svc.AddPoolMemberPreview(poolName, "acme/par64", "sha256:33333333", "Standard", 0)
-	if preview.ExitCode != 0 {
-		t.Fatalf("AddPoolMemberPreview failed: exit=%d stderr=%s", preview.ExitCode, preview.Stderr)
-	}
+	require.Equal(t, 0, preview.ExitCode, "AddPoolMemberPreview failed: stderr=%s", preview.Stderr)
 	plan, err := decodeImpactPlan(preview.Stdout)
-	if err != nil {
-		t.Fatalf("decode impact preview: %v", err)
-	}
+	require.NoError(t, err, "decode impact preview")
 
 	// A registry-level "pool create" mutation between preview and apply
 	// moves the ShowState revision, staling the previewed plan.
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
-	if result := registry.Execute(command.Request{Root: root, Args: []string{
+	require.NoError(t, err, "NewDefaultCommandRegistry")
+	createResult := registry.Execute(command.Request{Root: root, Args: []string{
 		"pool", "create", "Unrelated Pool", "--show", showPath,
-	}}); result.ExitCode != 0 {
-		t.Fatalf("pool create (stale trigger) failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	}})
+	require.Equal(t, 0, createResult.ExitCode, "pool create (stale trigger) failed: stderr=%s", createResult.Stderr)
 
 	stale := svc.ApplyPatch(plan.PlanID)
-	if stale.ExitCode == 0 || !strings.Contains(stale.Stderr, "GOLC_POOL_PLAN_STALE") {
-		t.Fatalf("expected GOLC_POOL_PLAN_STALE for a stale apply, got exit=%d stderr=%s", stale.ExitCode, stale.Stderr)
-	}
+	require.NotEqual(t, 0, stale.ExitCode, "expected a stale apply to fail")
+	require.Contains(t, stale.Stderr, "GOLC_POOL_PLAN_STALE")
 
 	unknown := svc.ApplyPatch("not-a-real-plan-id")
-	if unknown.ExitCode == 0 {
-		t.Fatalf("expected an unknown plan-id apply to fail, got exit=%d stdout=%s", unknown.ExitCode, unknown.Stdout)
-	}
+	require.NotEqual(t, 0, unknown.ExitCode, "expected an unknown plan-id apply to fail, got stdout=%s", unknown.Stdout)
 }
 
 // seedFreshFixturePatchShowState builds and saves a minimal ShowState with
@@ -388,19 +308,14 @@ func seedFreshFixturePatchShowState(t *testing.T, root, showPath string) (poolNa
 	t.Helper()
 
 	p, err := pool.NewPool("Fresh Pool", nil)
-	if err != nil {
-		t.Fatalf("NewPool: %v", err)
-	}
+	require.NoError(t, err, "NewPool")
 	d, err := deployment.NewDeployment("Venue A")
-	if err != nil {
-		t.Fatalf("NewDeployment: %v", err)
-	}
+	require.NoError(t, err, "NewDeployment")
 	d.Active = true
 
 	state := show.State{Pools: []pool.Pool{p}, Deployments: []deployment.Deployment{d}}
-	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("show.Save (seed): %v", err)
-	}
+	err = show.Save(root, showPath, state)
+	require.NoError(t, err, "show.Save (seed)")
 	return p.Name, d.ID.String()
 }
 
@@ -421,13 +336,9 @@ func TestAddPoolMembersPreview(t *testing.T) {
 	svc := NewFixturePatchService("", root, showPath)
 
 	preview := svc.AddPoolMembersPreview(poolName, "acme/par64", "sha256:aaaaaaaa", "Standard", 3, deploymentID, 1, 1, 5)
-	if preview.ExitCode != 0 {
-		t.Fatalf("AddPoolMembersPreview failed: exit=%d stderr=%s", preview.ExitCode, preview.Stderr)
-	}
+	require.Equal(t, 0, preview.ExitCode, "AddPoolMembersPreview failed: stderr=%s", preview.Stderr)
 	plan, err := decodeImpactPlan(preview.Stdout)
-	if err != nil {
-		t.Fatalf("decode impact preview: %v", err)
-	}
+	require.NoError(t, err, "decode impact preview")
 
 	var addOps []pool.ImpactOp
 	for _, op := range plan.Operations {
@@ -435,35 +346,24 @@ func TestAddPoolMembersPreview(t *testing.T) {
 			addOps = append(addOps, op)
 		}
 	}
-	if len(addOps) != 3 {
-		t.Fatalf("expected 3 proposed instances, got %d: %+v", len(addOps), addOps)
-	}
+	require.Len(t, addOps, 3, "expected 3 proposed instances: %+v", addOps)
 	sort.Slice(addOps, func(i, j int) bool { return addOps[i].ProposedAddress < addOps[j].ProposedAddress })
 	wantAddresses := []int{1, 6, 11}
 	seen := map[[2]int]bool{}
 	for i, op := range addOps {
-		if op.ProposedUniverse != 1 || op.ProposedAddress != wantAddresses[i] {
-			t.Fatalf("expected 5-channel-spaced addresses %v, got op[%d]=%+v", wantAddresses, i, op)
-		}
+		require.True(t, op.ProposedUniverse == 1 && op.ProposedAddress == wantAddresses[i], "expected 5-channel-spaced addresses %v, got op[%d]=%+v", wantAddresses, i, op)
 		key := [2]int{op.ProposedUniverse, op.ProposedAddress}
-		if seen[key] {
-			t.Fatalf("expected distinct proposed addresses across the batch, got a collision at %+v", op)
-		}
+		require.False(t, seen[key], "expected distinct proposed addresses across the batch, got a collision at %+v", op)
 		seen[key] = true
 	}
 
-	if result := svc.ApplyPatch(plan.PlanID); result.ExitCode != 0 {
-		t.Fatalf("ApplyPatch failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.ApplyPatch(plan.PlanID)
+	require.Equal(t, 0, result.ExitCode, "ApplyPatch failed: stderr=%s", result.Stderr)
 
 	after, err := svc.ListPatch()
-	if err != nil {
-		t.Fatalf("ListPatch after apply: %v", err)
-	}
+	require.NoError(t, err, "ListPatch after apply")
 	appliedDeployment := findPatchDeploymentView(after.Deployments, "Venue A")
-	if appliedDeployment == nil || len(appliedDeployment.Instances) != 3 {
-		t.Fatalf("expected the deployment to gain 3 new instances, got %+v", appliedDeployment)
-	}
+	require.True(t, appliedDeployment != nil && len(appliedDeployment.Instances) == 3, "expected the deployment to gain 3 new instances, got %+v", appliedDeployment)
 }
 
 // TestRenamePool proves RenamePool renames a pool in place (members/
@@ -475,22 +375,17 @@ func TestRenamePool(t *testing.T) {
 	poolName, _ := seedFixturePatchShowState(t, root, showPath)
 	svc := NewFixturePatchService("", root, showPath)
 
-	if result := svc.RenamePool(poolName, "Renamed Pool"); result.ExitCode != 0 {
-		t.Fatalf("RenamePool failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.RenamePool(poolName, "Renamed Pool")
+	require.Equal(t, 0, result.ExitCode, "RenamePool failed: stderr=%s", result.Stderr)
 
 	view, err := svc.ListPatch()
-	if err != nil {
-		t.Fatalf("ListPatch: %v", err)
-	}
+	require.NoError(t, err, "ListPatch")
 	renamed := findPatchPoolView(view.Pools, "Renamed Pool")
-	if renamed == nil || len(renamed.Members) != 1 {
-		t.Fatalf("expected the pool to survive rename with its member intact, got %+v", view.Pools)
-	}
+	require.True(t, renamed != nil && len(renamed.Members) == 1, "expected the pool to survive rename with its member intact, got %+v", view.Pools)
 
-	if result := svc.RenamePool("Nonexistent", "Whatever"); result.ExitCode == 0 || !strings.Contains(result.Stderr, "GOLC_POOL_NOT_FOUND") {
-		t.Fatalf("expected GOLC_POOL_NOT_FOUND, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	notFound := svc.RenamePool("Nonexistent", "Whatever")
+	require.NotEqual(t, 0, notFound.ExitCode, "expected GOLC_POOL_NOT_FOUND")
+	require.Contains(t, notFound.Stderr, "GOLC_POOL_NOT_FOUND")
 }
 
 // TestRenameDeployment proves RenameDeployment renames a deployment in
@@ -501,18 +396,13 @@ func TestRenameDeployment(t *testing.T) {
 	_, deploymentName := seedFixturePatchShowState(t, root, showPath)
 	svc := NewFixturePatchService("", root, showPath)
 
-	if result := svc.RenameDeployment(deploymentName, "Renamed Deployment"); result.ExitCode != 0 {
-		t.Fatalf("RenameDeployment failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.RenameDeployment(deploymentName, "Renamed Deployment")
+	require.Equal(t, 0, result.ExitCode, "RenameDeployment failed: stderr=%s", result.Stderr)
 
 	view, err := svc.ListPatch()
-	if err != nil {
-		t.Fatalf("ListPatch: %v", err)
-	}
+	require.NoError(t, err, "ListPatch")
 	renamed := findPatchDeploymentView(view.Deployments, "Renamed Deployment")
-	if renamed == nil || len(renamed.Instances) != 1 {
-		t.Fatalf("expected the deployment to survive rename with its instance intact, got %+v", view.Deployments)
-	}
+	require.True(t, renamed != nil && len(renamed.Instances) == 1, "expected the deployment to survive rename with its instance intact, got %+v", view.Deployments)
 }
 
 // TestDeletePoolCascadesThroughListPatch proves DeletePool cascade-deletes
@@ -524,25 +414,18 @@ func TestDeletePoolCascadesThroughListPatch(t *testing.T) {
 	poolName, deploymentName := seedFixturePatchShowState(t, root, showPath)
 	svc := NewFixturePatchService("", root, showPath)
 
-	if result := svc.DeletePool(poolName); result.ExitCode != 0 {
-		t.Fatalf("DeletePool failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.DeletePool(poolName)
+	require.Equal(t, 0, result.ExitCode, "DeletePool failed: stderr=%s", result.Stderr)
 
 	view, err := svc.ListPatch()
-	if err != nil {
-		t.Fatalf("ListPatch: %v", err)
-	}
-	if len(view.Pools) != 0 {
-		t.Fatalf("expected zero pools after DeletePool, got %+v", view.Pools)
-	}
-	deployment := findPatchDeploymentView(view.Deployments, deploymentName)
-	if deployment == nil || len(deployment.Instances) != 0 {
-		t.Fatalf("expected the deployment to survive with zero instances, got %+v", deployment)
-	}
+	require.NoError(t, err, "ListPatch")
+	require.Len(t, view.Pools, 0, "expected zero pools after DeletePool: %+v", view.Pools)
+	dep := findPatchDeploymentView(view.Deployments, deploymentName)
+	require.True(t, dep != nil && len(dep.Instances) == 0, "expected the deployment to survive with zero instances, got %+v", dep)
 
-	if result := svc.DeletePool("Nonexistent"); result.ExitCode == 0 || !strings.Contains(result.Stderr, "GOLC_POOL_NOT_FOUND") {
-		t.Fatalf("expected GOLC_POOL_NOT_FOUND, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	notFound := svc.DeletePool("Nonexistent")
+	require.NotEqual(t, 0, notFound.ExitCode, "expected GOLC_POOL_NOT_FOUND")
+	require.Contains(t, notFound.Stderr, "GOLC_POOL_NOT_FOUND")
 }
 
 // TestDeleteDeploymentThroughListPatch proves DeleteDeployment removes a
@@ -552,24 +435,18 @@ func TestDeleteDeploymentThroughListPatch(t *testing.T) {
 	showPath := filepath.Join(t.TempDir(), "show.golc")
 	svc := NewFixturePatchService("", root, showPath)
 
-	if result := svc.CreateDeployment("Venue A"); result.ExitCode != 0 {
-		t.Fatalf("CreateDeployment failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := svc.DeleteDeployment("Venue A"); result.ExitCode != 0 {
-		t.Fatalf("DeleteDeployment failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateDeployment("Venue A")
+	require.Equal(t, 0, result.ExitCode, "CreateDeployment failed: stderr=%s", result.Stderr)
+	result = svc.DeleteDeployment("Venue A")
+	require.Equal(t, 0, result.ExitCode, "DeleteDeployment failed: stderr=%s", result.Stderr)
 
 	view, err := svc.ListPatch()
-	if err != nil {
-		t.Fatalf("ListPatch: %v", err)
-	}
-	if len(view.Deployments) != 0 {
-		t.Fatalf("expected zero deployments after DeleteDeployment, got %+v", view.Deployments)
-	}
+	require.NoError(t, err, "ListPatch")
+	require.Len(t, view.Deployments, 0, "expected zero deployments after DeleteDeployment: %+v", view.Deployments)
 
-	if result := svc.DeleteDeployment("Nonexistent"); result.ExitCode == 0 || !strings.Contains(result.Stderr, "GOLC_DEPLOYMENT_NOT_FOUND") {
-		t.Fatalf("expected GOLC_DEPLOYMENT_NOT_FOUND, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	notFound := svc.DeleteDeployment("Nonexistent")
+	require.NotEqual(t, 0, notFound.ExitCode, "expected GOLC_DEPLOYMENT_NOT_FOUND")
+	require.Contains(t, notFound.Stderr, "GOLC_DEPLOYMENT_NOT_FOUND")
 }
 
 // TestReassignInstanceThroughWails proves ReassignInstance updates an
@@ -582,58 +459,39 @@ func TestReassignInstanceThroughWails(t *testing.T) {
 	svc := NewFixturePatchService("", root, showPath)
 
 	before, err := svc.ListPatch()
-	if err != nil {
-		t.Fatalf("ListPatch (before): %v", err)
-	}
+	require.NoError(t, err, "ListPatch (before)")
 	seededDeployment := findPatchDeploymentView(before.Deployments, deploymentName)
-	if seededDeployment == nil || len(seededDeployment.Instances) != 1 {
-		t.Fatalf("expected exactly one seeded instance, got %+v", seededDeployment)
-	}
+	require.True(t, seededDeployment != nil && len(seededDeployment.Instances) == 1, "expected exactly one seeded instance, got %+v", seededDeployment)
 	instanceID := seededDeployment.Instances[0].ID
 
-	if result := svc.ReassignInstance(deploymentName, instanceID, "Extended", 3, 50); result.ExitCode != 0 {
-		t.Fatalf("ReassignInstance failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.ReassignInstance(deploymentName, instanceID, "Extended", 3, 50)
+	require.Equal(t, 0, result.ExitCode, "ReassignInstance failed: stderr=%s", result.Stderr)
 
 	after, err := svc.ListPatch()
-	if err != nil {
-		t.Fatalf("ListPatch (after): %v", err)
-	}
+	require.NoError(t, err, "ListPatch (after)")
 	updatedDeployment := findPatchDeploymentView(after.Deployments, deploymentName)
-	if updatedDeployment == nil || len(updatedDeployment.Instances) != 1 {
-		t.Fatalf("expected exactly one instance to survive, got %+v", updatedDeployment)
-	}
+	require.True(t, updatedDeployment != nil && len(updatedDeployment.Instances) == 1, "expected exactly one instance to survive, got %+v", updatedDeployment)
 	updated := updatedDeployment.Instances[0]
-	if updated.Mode != "Extended" || updated.Universe != 3 || updated.Address != 50 {
-		t.Fatalf("expected mode/universe/address to update, got %+v", updated)
-	}
+	require.True(t, updated.Mode == "Extended" && updated.Universe == 3 && updated.Address == 50, "expected mode/universe/address to update, got %+v", updated)
 
 	// Add a second instance to create a real collision target.
 	preview := svc.AddPoolMembersPreview(poolName, "acme/par64", "sha256:99999999", "Standard", 1, "", 0, 0, 0)
-	if preview.ExitCode != 0 {
-		t.Fatalf("AddPoolMembersPreview failed: exit=%d stderr=%s", preview.ExitCode, preview.Stderr)
-	}
+	require.Equal(t, 0, preview.ExitCode, "AddPoolMembersPreview failed: stderr=%s", preview.Stderr)
 	plan, err := decodeImpactPlan(preview.Stdout)
-	if err != nil {
-		t.Fatalf("decode impact preview: %v", err)
-	}
-	if result := svc.ApplyPatch(plan.PlanID); result.ExitCode != 0 {
-		t.Fatalf("ApplyPatch failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	require.NoError(t, err, "decode impact preview")
+	applyResult := svc.ApplyPatch(plan.PlanID)
+	require.Equal(t, 0, applyResult.ExitCode, "ApplyPatch failed: stderr=%s", applyResult.Stderr)
 
 	collide := svc.ReassignInstance(deploymentName, instanceID, "Extended", 1, 1)
-	if collide.ExitCode == 0 || !strings.Contains(collide.Stderr, "GOLC_DEPLOYMENT_ADDRESS_COLLISION") {
-		t.Fatalf("expected GOLC_DEPLOYMENT_ADDRESS_COLLISION, got exit=%d stderr=%s", collide.ExitCode, collide.Stderr)
-	}
+	require.NotEqual(t, 0, collide.ExitCode, "expected GOLC_DEPLOYMENT_ADDRESS_COLLISION")
+	require.Contains(t, collide.Stderr, "GOLC_DEPLOYMENT_ADDRESS_COLLISION")
 
 	unchanged, err := svc.ListPatch()
-	if err != nil {
-		t.Fatalf("ListPatch (after failed collision): %v", err)
-	}
+	require.NoError(t, err, "ListPatch (after failed collision)")
 	unchangedDeployment := findPatchDeploymentView(unchanged.Deployments, deploymentName)
 	for _, instance := range unchangedDeployment.Instances {
-		if instance.ID == instanceID && (instance.Universe != 3 || instance.Address != 50) {
-			t.Fatalf("expected the instance to be left unchanged after a failed reassign, got %+v", instance)
+		if instance.ID == instanceID {
+			require.True(t, instance.Universe == 3 && instance.Address == 50, "expected the instance to be left unchanged after a failed reassign, got %+v", instance)
 		}
 	}
 }

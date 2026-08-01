@@ -18,16 +18,18 @@ package wails
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	gomidi "gitlab.com/gomidi/midi/v2"
 	"gitlab.com/gomidi/midi/v2/drivers/testdrv"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/artnet/ipc"
 	"github.com/lnorton89/golc/internal/midi"
@@ -47,26 +49,18 @@ func newMidiTestFixture(t *testing.T, name string) (svc *MidiService, root, show
 
 	testDrv := testdrv.New(name)
 	ins, err := testDrv.Ins()
-	if err != nil || len(ins) != 1 {
-		t.Fatalf("testdrv.Ins() = %v, %v", ins, err)
-	}
+	require.True(t, err == nil && len(ins) == 1, "testdrv.Ins() = %v, %v", ins, err)
 	outs, err := testDrv.Outs()
-	if err != nil || len(outs) != 1 {
-		t.Fatalf("testdrv.Outs() = %v, %v", outs, err)
-	}
-	if err := outs[0].Open(); err != nil {
-		t.Fatalf("out.Open(): %v", err)
-	}
+	require.True(t, err == nil && len(outs) == 1, "testdrv.Outs() = %v, %v", outs, err)
+	err = outs[0].Open()
+	require.NoError(t, err, "out.Open()")
 
 	d, err := midi.Open(ins[0])
-	if err != nil {
-		t.Fatalf("midi.Open: %v", err)
-	}
+	require.NoError(t, err, "midi.Open")
 
 	svc = NewMidiService("", root, showPath)
-	if err := svc.AttachDriver(d); err != nil {
-		t.Fatalf("AttachDriver: %v", err)
-	}
+	err = svc.AttachDriver(d)
+	require.NoError(t, err, "AttachDriver")
 	t.Cleanup(svc.DetachDriver)
 
 	return svc, root, showPath, outs[0]
@@ -95,7 +89,7 @@ func waitForLearningActive(t *testing.T, svc *MidiService) {
 		}
 		time.Sleep(2 * time.Millisecond)
 	}
-	t.Fatal("timed out waiting for StartLearn to open its capture window")
+	require.Fail(t, "timed out waiting for StartLearn to open its capture window")
 }
 
 // startLearnAndSend runs StartLearn(surfaceName, ref) in the background,
@@ -109,15 +103,14 @@ func startLearnAndSend(t *testing.T, svc *MidiService, surfaceName string, ref C
 	}()
 	waitForLearningActive(t, svc)
 
-	if err := out.Send(msg.Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err := out.Send(msg.Bytes())
+	require.NoError(t, err, "Send")
 
 	select {
 	case result := <-resultCh:
 		return result
 	case <-time.After(3 * time.Second):
-		t.Fatal("timed out waiting for StartLearn to return")
+		require.Fail(t, "timed out waiting for StartLearn to return")
 		return Result{}
 	}
 }
@@ -136,13 +129,11 @@ func TestMidiServiceCancelLearnDoubleCallDoesNotPanic(t *testing.T) {
 	svc, root, showPath, _ := newMidiTestFixture(t, "test-cancel-learn-double")
 
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r := surfaceSvc.CreateSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "CreateSurface: stderr=%s", r.Stderr)
 	blackout := ControlRefInput{Kind: "safety", Safety: "blackout"}
-	if r := surfaceSvc.AssignItem("Front of House", blackout); r.ExitCode != 0 {
-		t.Fatalf("AssignItem: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = surfaceSvc.AssignItem("Front of House", blackout)
+	require.Equal(t, 0, r.ExitCode, "AssignItem: stderr=%s", r.Stderr)
 
 	resultCh := make(chan Result, 1)
 	go func() {
@@ -151,30 +142,22 @@ func TestMidiServiceCancelLearnDoubleCallDoesNotPanic(t *testing.T) {
 	waitForLearningActive(t, svc)
 
 	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("CancelLearn panicked on a double call: %v", r)
+		if rec := recover(); rec != nil {
+			require.Fail(t, "CancelLearn panicked on a double call", "%v", rec)
 		}
 	}()
 
 	first := svc.CancelLearn()
-	if first.ExitCode != 0 {
-		t.Fatalf("first CancelLearn failed: exit=%d stderr=%s", first.ExitCode, first.Stderr)
-	}
+	require.Equal(t, 0, first.ExitCode, "first CancelLearn failed: stderr=%s", first.Stderr)
 	second := svc.CancelLearn()
-	if second.ExitCode == 0 {
-		t.Fatal("expected the second CancelLearn to fail (no session active), got success")
-	}
-	if !strings.Contains(second.Stderr, "GOLC_MIDI_LEARN_NOT_ACTIVE") {
-		t.Fatalf("expected GOLC_MIDI_LEARN_NOT_ACTIVE in stderr, got %q", second.Stderr)
-	}
+	require.NotEqual(t, 0, second.ExitCode, "expected the second CancelLearn to fail (no session active), got success")
+	require.Contains(t, second.Stderr, "GOLC_MIDI_LEARN_NOT_ACTIVE")
 
 	select {
-	case r := <-resultCh:
-		if r.ExitCode == 0 {
-			t.Fatalf("expected StartLearn to fail after cancellation, got success: %+v", r)
-		}
+	case sr := <-resultCh:
+		require.NotEqual(t, 0, sr.ExitCode, "expected StartLearn to fail after cancellation, got success: %+v", sr)
 	case <-time.After(3 * time.Second):
-		t.Fatal("timed out waiting for StartLearn to return after CancelLearn")
+		require.Fail(t, "timed out waiting for StartLearn to return after CancelLearn")
 	}
 }
 
@@ -190,13 +173,11 @@ func TestMidiServiceCancelLearnConcurrentDoubleCallDoesNotPanic(t *testing.T) {
 	svc, root, showPath, _ := newMidiTestFixture(t, "test-cancel-learn-concurrent")
 
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r := surfaceSvc.CreateSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "CreateSurface: stderr=%s", r.Stderr)
 	blackout := ControlRefInput{Kind: "safety", Safety: "blackout"}
-	if r := surfaceSvc.AssignItem("Front of House", blackout); r.ExitCode != 0 {
-		t.Fatalf("AssignItem: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = surfaceSvc.AssignItem("Front of House", blackout)
+	require.Equal(t, 0, r.ExitCode, "AssignItem: stderr=%s", r.Stderr)
 
 	go func() {
 		svc.StartLearn("Front of House", blackout)
@@ -215,47 +196,33 @@ func TestMidiServiceCancelLearnConcurrentDoubleCallDoesNotPanic(t *testing.T) {
 	wg.Wait()
 
 	successes := 0
-	for _, r := range results {
-		if r.ExitCode == 0 {
+	for _, res := range results {
+		if res.ExitCode == 0 {
 			successes++
 		}
 	}
-	if successes != 1 {
-		t.Fatalf("expected exactly one of the two concurrent CancelLearn calls to succeed, got %d successes: %+v", successes, results)
-	}
+	require.Equal(t, 1, successes, "expected exactly one of the two concurrent CancelLearn calls to succeed: %+v", results)
 }
 
 func TestMidiServiceStartLearnPersistsMapping(t *testing.T) {
 	svc, root, showPath, out := newMidiTestFixture(t, "test-learn-accept")
 
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r := surfaceSvc.CreateSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "CreateSurface: stderr=%s", r.Stderr)
 	blackout := ControlRefInput{Kind: "safety", Safety: "blackout"}
-	if r := surfaceSvc.AssignItem("Front of House", blackout); r.ExitCode != 0 {
-		t.Fatalf("AssignItem: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = surfaceSvc.AssignItem("Front of House", blackout)
+	require.Equal(t, 0, r.ExitCode, "AssignItem: stderr=%s", r.Stderr)
 
 	result := startLearnAndSend(t, svc, "Front of House", blackout, out, gomidi.NoteOn(1, 36, 100))
-	if result.ExitCode != 0 {
-		t.Fatalf("StartLearn failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "StartLearn failed: stderr=%s", result.Stderr)
 
 	mappings, err := svc.ListMappings("Front of House")
-	if err != nil {
-		t.Fatalf("ListMappings: %v", err)
-	}
-	if len(mappings) != 1 {
-		t.Fatalf("expected exactly one persisted mapping, got %+v", mappings)
-	}
+	require.NoError(t, err, "ListMappings")
+	require.Len(t, mappings, 1, "expected exactly one persisted mapping: %+v", mappings)
 	got := mappings[0]
-	if got.Channel != 1 || got.Kind != "note" || got.Number != 36 {
-		t.Fatalf("mapping = %+v, want channel=1 kind=note number=36", got)
-	}
-	if got.Target.Kind != "safety" || got.Target.Safety != "blackout" {
-		t.Fatalf("mapping target = %+v, want the blackout safety control", got.Target)
-	}
+	require.True(t, got.Channel == 1 && got.Kind == "note" && got.Number == 36, "mapping = %+v, want channel=1 kind=note number=36", got)
+	require.True(t, got.Target.Kind == "safety" && got.Target.Safety == "blackout", "mapping target = %+v, want the blackout safety control", got.Target)
 }
 
 // TestMidiServiceStartLearnRejectsConflictOnSameSurfaceButNotOther proves
@@ -277,36 +244,25 @@ func TestMidiServiceStartLearnRejectsConflictOnSameSurfaceButNotOther(t *testing
 	collidingMsg := gomidi.NoteOn(1, 36, 100)
 
 	first := startLearnAndSend(t, svc, "Front of House", blackout, out, collidingMsg)
-	if first.ExitCode != 0 {
-		t.Fatalf("first StartLearn failed: exit=%d stderr=%s", first.ExitCode, first.Stderr)
-	}
+	require.Equal(t, 0, first.ExitCode, "first StartLearn failed: stderr=%s", first.Stderr)
 
 	// Same surface, same (channel, kind, number), a different target
 	// control -- rejected outright, the existing mapping left untouched
 	// (D-06).
 	second := startLearnAndSend(t, svc, "Front of House", grand, out, collidingMsg)
-	if second.ExitCode == 0 || !strings.Contains(second.Stderr, "GOLC_MIDI_MAPPING_CONFLICT") {
-		t.Fatalf("expected GOLC_MIDI_MAPPING_CONFLICT, got exit=%d stderr=%s", second.ExitCode, second.Stderr)
-	}
+	require.NotEqual(t, 0, second.ExitCode, "expected GOLC_MIDI_MAPPING_CONFLICT")
+	require.Contains(t, second.Stderr, "GOLC_MIDI_MAPPING_CONFLICT")
 	// 06-UI-SPEC.md's exact mapping-conflict copy embeds the conflicting
 	// control's own label ("Blackout"), not the newly-attempted target's.
-	if !strings.Contains(second.Stderr, "already mapped to \"Blackout\"") {
-		t.Fatalf("expected the UI-SPEC mapping-conflict copy naming the existing control, got stderr=%s", second.Stderr)
-	}
+	require.Contains(t, second.Stderr, `already mapped to "Blackout"`, "expected the UI-SPEC mapping-conflict copy naming the existing control")
 	mappings, err := svc.ListMappings("Front of House")
-	if err != nil {
-		t.Fatalf("ListMappings: %v", err)
-	}
-	if len(mappings) != 1 || mappings[0].Target.Safety != "blackout" {
-		t.Fatalf("expected the prior mapping to remain untouched, got %+v", mappings)
-	}
+	require.NoError(t, err, "ListMappings")
+	require.True(t, len(mappings) == 1 && mappings[0].Target.Safety == "blackout", "expected the prior mapping to remain untouched, got %+v", mappings)
 
 	// A different surface's mapping set is independent -- the identical
 	// tuple is free there (D-07).
 	third := startLearnAndSend(t, svc, "Backstage", blackout, out, collidingMsg)
-	if third.ExitCode != 0 {
-		t.Fatalf("expected the identical tuple to be learnable on a different surface, got exit=%d stderr=%s", third.ExitCode, third.Stderr)
-	}
+	require.Equal(t, 0, third.ExitCode, "expected the identical tuple to be learnable on a different surface, got stderr=%s", third.Stderr)
 }
 
 // TestMidiServiceStartLearnRejectsUnassignedControl proves D-08: the
@@ -321,16 +277,13 @@ func TestMidiServiceStartLearnRejectsUnassignedControl(t *testing.T) {
 	// Blackout is deliberately left unassigned.
 
 	result := svc.StartLearn("Front of House", ControlRefInput{Kind: "safety", Safety: "blackout"})
-	if result.ExitCode == 0 || !strings.Contains(result.Stderr, "GOLC_OPERATORSURFACE_LOCKED") {
-		t.Fatalf("expected GOLC_OPERATORSURFACE_LOCKED for an unassigned control, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected GOLC_OPERATORSURFACE_LOCKED for an unassigned control")
+	require.Contains(t, result.Stderr, "GOLC_OPERATORSURFACE_LOCKED")
 
 	svc.mu.Lock()
 	stillIdle := svc.learning == nil
 	svc.mu.Unlock()
-	if !stillIdle {
-		t.Fatal("expected StartLearn to reject before ever opening a capture window")
-	}
+	require.True(t, stillIdle, "expected StartLearn to reject before ever opening a capture window")
 }
 
 // TestMidiServiceListMappingsResolvesNamesAndLabels proves ListMappings'
@@ -349,45 +302,26 @@ func TestMidiServiceListMappingsResolvesNamesAndLabels(t *testing.T) {
 	surfaceSvc.AssignItem("Front of House", grand)
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load")
 	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
-	if !found {
-		t.Fatal("surface not found")
-	}
+	require.True(t, found, "surface not found")
 	grandRef, err := resolveSurfaceControlRef(state, grand)
-	if err != nil {
-		t.Fatalf("resolveSurfaceControlRef: %v", err)
-	}
+	require.NoError(t, err, "resolveSurfaceControlRef")
 	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
 		Channel: 3, Kind: operatorsurface.ControlChange, Number: 74, Target: grandRef,
 	})
-	if err != nil {
-		t.Fatalf("AddMidiMapping: %v", err)
-	}
+	require.NoError(t, err, "AddMidiMapping")
 	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
-	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("show.Save: %v", err)
-	}
+	err = show.Save(root, showPath, state)
+	require.NoError(t, err, "show.Save")
 
 	mappings, err := svc.ListMappings("Front of House")
-	if err != nil {
-		t.Fatalf("ListMappings: %v", err)
-	}
-	if len(mappings) != 1 {
-		t.Fatalf("expected exactly one mapping, got %+v", mappings)
-	}
+	require.NoError(t, err, "ListMappings")
+	require.Len(t, mappings, 1, "expected exactly one mapping: %+v", mappings)
 	got := mappings[0]
-	if got.Target.Kind != "master" || got.Target.MasterKind != "grand" {
-		t.Fatalf("Target = %+v, want kind=master masterKind=grand", got.Target)
-	}
-	if got.Label != "Grand Master" {
-		t.Fatalf("Label = %q, want %q", got.Label, "Grand Master")
-	}
-	if got.Channel != 3 || got.Kind != "control_change" || got.Number != 74 {
-		t.Fatalf("mapping = %+v, want channel=3 kind=control_change number=74", got)
-	}
+	require.True(t, got.Target.Kind == "master" && got.Target.MasterKind == "grand", "Target = %+v, want kind=master masterKind=grand", got.Target)
+	require.Equal(t, "Grand Master", got.Label)
+	require.True(t, got.Channel == 3 && got.Kind == "control_change" && got.Number == 74, "mapping = %+v, want channel=3 kind=control_change number=74", got)
 }
 
 // TestMidiServiceFaderTakeoverCrossToCatchAndButtonActsImmediately proves
@@ -410,41 +344,27 @@ func TestMidiServiceFaderTakeoverCrossToCatchAndButtonActsImmediately(t *testing
 	// against the model -- a live learn round-trip isn't needed just to
 	// fixture these.
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load")
 	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
-	if !found {
-		t.Fatal("surface not found")
-	}
+	require.True(t, found, "surface not found")
 	grandRef, err := resolveSurfaceControlRef(state, grand)
-	if err != nil {
-		t.Fatalf("resolveSurfaceControlRef(grand): %v", err)
-	}
+	require.NoError(t, err, "resolveSurfaceControlRef(grand)")
 	blackoutRef, err := resolveSurfaceControlRef(state, blackout)
-	if err != nil {
-		t.Fatalf("resolveSurfaceControlRef(blackout): %v", err)
-	}
+	require.NoError(t, err, "resolveSurfaceControlRef(blackout)")
 	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
 		Channel: 1, Kind: operatorsurface.ControlChange, Number: 7, Target: grandRef,
 	})
-	if err != nil {
-		t.Fatalf("AddMidiMapping (fader): %v", err)
-	}
+	require.NoError(t, err, "AddMidiMapping (fader)")
 	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
 		Channel: 1, Kind: operatorsurface.Note, Number: 40, Target: blackoutRef,
 	})
-	if err != nil {
-		t.Fatalf("AddMidiMapping (button): %v", err)
-	}
+	require.NoError(t, err, "AddMidiMapping (button)")
 	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
-	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("show.Save: %v", err)
-	}
+	err = show.Save(root, showPath, state)
+	require.NoError(t, err, "show.Save")
 
-	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r := svc.SetActiveSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "SetActiveSurface: stderr=%s", r.Stderr)
 
 	var mu sync.Mutex
 	var feedback []MidiFeedback
@@ -476,50 +396,35 @@ func TestMidiServiceFaderTakeoverCrossToCatchAndButtonActsImmediately(t *testing
 
 	// Physical value well below the 0.5 default ghost/target: must not
 	// arm/control, but the live position must still be published (D-09).
-	if err := out.Send(gomidi.ControlChange(1, 7, 20).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.ControlChange(1, 7, 20).Bytes())
+	require.NoError(t, err, "Send")
 	waitForCondition(t, func() bool { _, ok := latestFader(); return ok })
 
 	before, ok := latestFader()
-	if !ok {
-		t.Fatal("expected at least one fader feedback push before crossing")
-	}
-	if before.Armed {
-		t.Fatalf("expected not armed before crossing, got %+v", before)
-	}
-	if before.AppValue != defaultTakeoverAppValue {
-		t.Fatalf("expected the ghost/target marker to remain at the seeded AppValue before crossing, got %+v", before)
-	}
+	require.True(t, ok, "expected at least one fader feedback push before crossing")
+	require.False(t, before.Armed, "expected not armed before crossing, got %+v", before)
+	require.Equal(t, defaultTakeoverAppValue, before.AppValue, "expected the ghost/target marker to remain at the seeded AppValue before crossing, got %+v", before)
 	wantPhysical := float64(20) / 127
-	if before.Physical != wantPhysical {
-		t.Fatalf("expected live physical position %v before crossing, got %+v", wantPhysical, before)
-	}
+	require.Equal(t, wantPhysical, before.Physical, "expected live physical position before crossing, got %+v", before)
 
 	// Cross the ghost/target marker: must now control (armed), tracking
 	// the physical value.
-	if err := out.Send(gomidi.ControlChange(1, 7, 100).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.ControlChange(1, 7, 100).Bytes())
+	require.NoError(t, err, "Send")
 	wantPhysicalAfter := float64(100) / 127
 	waitForCondition(t, func() bool {
 		fb, ok := latestFader()
 		return ok && fb.Armed && fb.Physical == wantPhysicalAfter
 	})
 	after, _ := latestFader()
-	if !after.Armed {
-		t.Fatalf("expected armed after crossing, got %+v", after)
-	}
-	if after.AppValue != after.Physical {
-		t.Fatalf("expected the controlling AppValue to track the physical value once armed, got %+v", after)
-	}
+	require.True(t, after.Armed, "expected armed after crossing, got %+v", after)
+	require.Equal(t, after.Physical, after.AppValue, "expected the controlling AppValue to track the physical value once armed, got %+v", after)
 
 	// A mapped button (Note) acts immediately -- Armed=true with no
 	// crossing/arming delay, independent of the fader's own state above
 	// (D-12).
-	if err := out.Send(gomidi.NoteOn(1, 40, 127).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.NoteOn(1, 40, 127).Bytes())
+	require.NoError(t, err, "Send")
 	waitForCondition(t, func() bool {
 		mu.Lock()
 		defer mu.Unlock()
@@ -538,9 +443,7 @@ func TestMidiServiceFaderTakeoverCrossToCatchAndButtonActsImmediately(t *testing
 		}
 	}
 	mu.Unlock()
-	if !buttonFeedback.Armed {
-		t.Fatalf("expected a Note mapping to report Armed=true immediately (D-12), got %+v", buttonFeedback)
-	}
+	require.True(t, buttonFeedback.Armed, "expected a Note mapping to report Armed=true immediately (D-12), got %+v", buttonFeedback)
 }
 
 // waitForCondition polls cond until it reports true, bounding the wait so
@@ -555,7 +458,7 @@ func waitForCondition(t *testing.T, cond func() bool) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	t.Fatal("timed out waiting for expected MIDI feedback")
+	require.Fail(t, "timed out waiting for expected MIDI feedback")
 }
 
 // The tests below (06-09-PLAN.md Gap B[1] closure) prove
@@ -610,7 +513,7 @@ func waitForDispatchCount(t *testing.T, capture *dispatchCapture, want int) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	t.Fatalf("timed out waiting for at least %d dispatched requests, got %d", want, capture.count())
+	require.Fail(t, fmt.Sprintf("timed out waiting for at least %d dispatched requests, got %d", want, capture.count()))
 }
 
 // loadShowWithRetry re-reads the ShowState at root/showPath, retrying a
@@ -633,12 +536,10 @@ func loadShowWithRetry(t *testing.T, root, showPath string) show.State {
 			return state
 		}
 		lastErr = err
-		if !strings.Contains(err.Error(), "database is locked") {
-			t.Fatalf("show.Load: %v", err)
-		}
+		require.Contains(t, err.Error(), "database is locked", "show.Load: %v", err)
 		time.Sleep(5 * time.Millisecond)
 	}
-	t.Fatalf("show.Load: repeated database-is-locked retries exhausted: %v", lastErr)
+	require.Fail(t, fmt.Sprintf("show.Load: repeated database-is-locked retries exhausted: %v", lastErr))
 	return show.State{}
 }
 
@@ -658,7 +559,7 @@ func waitForSceneActive(t *testing.T, root, showPath, sceneName string) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	t.Fatalf("timed out waiting for scene %q to become active", sceneName)
+	require.Fail(t, fmt.Sprintf("timed out waiting for scene %q to become active", sceneName))
 }
 
 // waitForLayerEnabled polls the ShowState at root/showPath until
@@ -682,16 +583,14 @@ func waitForLayerEnabled(t *testing.T, root, showPath, sceneName, kind string, w
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	t.Fatalf("timed out waiting for %s/%s Enabled=%v", sceneName, kind, want)
+	require.Fail(t, fmt.Sprintf("timed out waiting for %s/%s Enabled=%v", sceneName, kind, want))
 }
 
 // assertMasterSetForward asserts got is an "artnet master set" Request
 // carrying --grand wantLevel and --source manual.
 func assertMasterSetForward(t *testing.T, got ipc.Request, wantLevel float64) {
 	t.Helper()
-	if got.Route != "artnet master set" {
-		t.Fatalf("forwarded route = %q, want %q", got.Route, "artnet master set")
-	}
+	require.Equal(t, "artnet master set", got.Route, "forwarded route")
 	idx := -1
 	for i, a := range got.Args {
 		if a == "--grand" {
@@ -699,25 +598,17 @@ func assertMasterSetForward(t *testing.T, got ipc.Request, wantLevel float64) {
 			break
 		}
 	}
-	if idx == -1 || idx+1 >= len(got.Args) {
-		t.Fatalf("expected --grand in forwarded args, got %v", got.Args)
-	}
+	require.True(t, idx != -1 && idx+1 < len(got.Args), "expected --grand in forwarded args, got %v", got.Args)
 	gotLevel, err := strconv.ParseFloat(got.Args[idx+1], 64)
-	if err != nil {
-		t.Fatalf("--grand value %q is not a valid number: %v", got.Args[idx+1], err)
-	}
-	if math.Abs(gotLevel-wantLevel) > 1e-6 {
-		t.Fatalf("forwarded --grand level = %v, want %v", gotLevel, wantLevel)
-	}
+	require.NoError(t, err, "--grand value %q is not a valid number", got.Args[idx+1])
+	require.LessOrEqual(t, math.Abs(gotLevel-wantLevel), 1e-6, "forwarded --grand level = %v, want %v", gotLevel, wantLevel)
 	found := false
 	for i := 0; i < len(got.Args)-1; i++ {
 		if got.Args[i] == "--source" && got.Args[i+1] == "manual" {
 			found = true
 		}
 	}
-	if !found {
-		t.Fatalf("expected --source manual in forwarded args, got %v", got.Args)
-	}
+	require.True(t, found, "expected --source manual in forwarded args, got %v", got.Args)
 }
 
 // TestMidiServiceDispatchSceneNoteSwitchesActiveScene proves Gap B[1]'s
@@ -733,58 +624,44 @@ func TestMidiServiceDispatchSceneNoteSwitchesActiveScene(t *testing.T) {
 	execRegistry(t, root, "scene", "activate", "Bridge", "--show", showPath)
 
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r := surfaceSvc.CreateSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "CreateSurface: stderr=%s", r.Stderr)
 	chorus := ControlRefInput{Kind: "scene", Scene: "Chorus"}
-	if r := surfaceSvc.AssignItem("Front of House", chorus); r.ExitCode != 0 {
-		t.Fatalf("AssignItem: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = surfaceSvc.AssignItem("Front of House", chorus)
+	require.Equal(t, 0, r.ExitCode, "AssignItem: stderr=%s", r.Stderr)
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load")
 	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
-	if !found {
-		t.Fatal("surface not found")
-	}
+	require.True(t, found, "surface not found")
 	chorusRef, err := resolveSurfaceControlRef(state, chorus)
-	if err != nil {
-		t.Fatalf("resolveSurfaceControlRef: %v", err)
-	}
+	require.NoError(t, err, "resolveSurfaceControlRef")
 	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
 		Channel: 1, Kind: operatorsurface.Note, Number: 40, Target: chorusRef,
 	})
-	if err != nil {
-		t.Fatalf("AddMidiMapping: %v", err)
-	}
+	require.NoError(t, err, "AddMidiMapping")
 	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
-	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("show.Save: %v", err)
-	}
+	err = show.Save(root, showPath, state)
+	require.NoError(t, err, "show.Save")
 
-	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = svc.SetActiveSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "SetActiveSurface: stderr=%s", r.Stderr)
 
-	if err := out.Send(gomidi.NoteOn(1, 40, 100).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.NoteOn(1, 40, 100).Bytes())
+	require.NoError(t, err, "Send")
 	waitForSceneActive(t, root, showPath, "Chorus")
 
 	// A following Note-off must not error, re-switch, or revert.
-	if err := out.Send(gomidi.NoteOff(1, 40).Bytes()); err != nil {
-		t.Fatalf("Send (note-off): %v", err)
-	}
+	err = out.Send(gomidi.NoteOff(1, 40).Bytes())
+	require.NoError(t, err, "Send (note-off)")
 	time.Sleep(50 * time.Millisecond)
 	after := loadShowWithRetry(t, root, showPath)
 	for _, sc := range after.Scenes {
-		if sc.Name == "Chorus" && !sc.Active {
-			t.Fatalf("expected Chorus to remain active after a Note-off, got Active=%v", sc.Active)
+		if sc.Name == "Chorus" {
+			require.True(t, sc.Active, "expected Chorus to remain active after a Note-off, got Active=%v", sc.Active)
 		}
-		if sc.Name == "Bridge" && sc.Active {
-			t.Fatal("expected Bridge to remain inactive after a Note-off on the Chorus mapping")
+		if sc.Name == "Bridge" {
+			require.False(t, sc.Active, "expected Bridge to remain inactive after a Note-off on the Chorus mapping")
 		}
 	}
 }
@@ -800,69 +677,46 @@ func TestMidiServiceDispatchLayerNoteTogglesEnabledPreservingRef(t *testing.T) {
 	execRegistry(t, root, "theme", "create", "Warm", "--show", showPath)
 
 	seeded, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load (seed): %v", err)
-	}
-	if len(seeded.Themes) != 1 {
-		t.Fatalf("expected exactly one seeded theme, got %d", len(seeded.Themes))
-	}
+	require.NoError(t, err, "show.Load (seed)")
+	require.Len(t, seeded.Themes, 1, "expected exactly one seeded theme")
 	themeID := seeded.Themes[0].ID
 	execRegistry(t, root, "scene", "layer", "set", "Verse", "--kind", "color_theme", "--ref", themeID.String(), "--show", showPath)
 
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r := surfaceSvc.CreateSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "CreateSurface: stderr=%s", r.Stderr)
 	layerInput := ControlRefInput{Kind: "layer", Scene: "Verse", LayerKind: "color_theme"}
-	if r := surfaceSvc.AssignItem("Front of House", layerInput); r.ExitCode != 0 {
-		t.Fatalf("AssignItem: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = surfaceSvc.AssignItem("Front of House", layerInput)
+	require.Equal(t, 0, r.ExitCode, "AssignItem: stderr=%s", r.Stderr)
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load")
 	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
-	if !found {
-		t.Fatal("surface not found")
-	}
+	require.True(t, found, "surface not found")
 	layerRef, err := resolveSurfaceControlRef(state, layerInput)
-	if err != nil {
-		t.Fatalf("resolveSurfaceControlRef: %v", err)
-	}
+	require.NoError(t, err, "resolveSurfaceControlRef")
 	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
 		Channel: 1, Kind: operatorsurface.Note, Number: 41, Target: layerRef,
 	})
-	if err != nil {
-		t.Fatalf("AddMidiMapping: %v", err)
-	}
+	require.NoError(t, err, "AddMidiMapping")
 	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
-	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("show.Save: %v", err)
-	}
+	err = show.Save(root, showPath, state)
+	require.NoError(t, err, "show.Save")
 
-	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = svc.SetActiveSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "SetActiveSurface: stderr=%s", r.Stderr)
 
 	beforeLayer := findLayer(t, state, "Verse", "color_theme")
-	if !beforeLayer.Enabled {
-		t.Fatal("expected the seeded layer to start enabled")
-	}
-	if beforeLayer.Ref != themeID {
-		t.Fatalf("expected the seeded layer Ref=%v, got %v", themeID, beforeLayer.Ref)
-	}
+	require.True(t, beforeLayer.Enabled, "expected the seeded layer to start enabled")
+	require.Equal(t, themeID, beforeLayer.Ref, "expected the seeded layer Ref")
 
-	if err := out.Send(gomidi.NoteOn(1, 41, 100).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.NoteOn(1, 41, 100).Bytes())
+	require.NoError(t, err, "Send")
 	waitForLayerEnabled(t, root, showPath, "Verse", "color_theme", false)
 
 	after := loadShowWithRetry(t, root, showPath)
 	toggled := findLayer(t, after, "Verse", "color_theme")
-	if toggled.Ref != themeID {
-		t.Fatalf("expected Ref to be preserved across the MIDI-driven toggle, got %v want %v", toggled.Ref, themeID)
-	}
+	require.Equal(t, themeID, toggled.Ref, "expected Ref to be preserved across the MIDI-driven toggle")
 }
 
 // TestMidiServiceDispatchMasterCcForwardsOnlyAfterCrossing proves Gap B[1]'s
@@ -874,63 +728,45 @@ func TestMidiServiceDispatchMasterCcForwardsOnlyAfterCrossing(t *testing.T) {
 	svc, root, showPath, out := newMidiTestFixture(t, "test-dispatch-master-cc")
 
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r := surfaceSvc.CreateSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "CreateSurface: stderr=%s", r.Stderr)
 	grand := ControlRefInput{Kind: "master", MasterKind: "grand"}
-	if r := surfaceSvc.AssignItem("Front of House", grand); r.ExitCode != 0 {
-		t.Fatalf("AssignItem: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = surfaceSvc.AssignItem("Front of House", grand)
+	require.Equal(t, 0, r.ExitCode, "AssignItem: stderr=%s", r.Stderr)
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load")
 	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
-	if !found {
-		t.Fatal("surface not found")
-	}
+	require.True(t, found, "surface not found")
 	grandRef, err := resolveSurfaceControlRef(state, grand)
-	if err != nil {
-		t.Fatalf("resolveSurfaceControlRef: %v", err)
-	}
+	require.NoError(t, err, "resolveSurfaceControlRef")
 	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
 		Channel: 1, Kind: operatorsurface.ControlChange, Number: 7, Target: grandRef,
 	})
-	if err != nil {
-		t.Fatalf("AddMidiMapping: %v", err)
-	}
+	require.NoError(t, err, "AddMidiMapping")
 	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
-	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("show.Save: %v", err)
-	}
+	err = show.Save(root, showPath, state)
+	require.NoError(t, err, "show.Save")
 
 	capture := &dispatchCapture{}
 	svc.dial = capture.dial
 
-	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = svc.SetActiveSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "SetActiveSurface: stderr=%s", r.Stderr)
 
 	// Below the 0.5 default ghost/target: not yet crossed, must forward
 	// nothing.
-	if err := out.Send(gomidi.ControlChange(1, 7, 20).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.ControlChange(1, 7, 20).Bytes())
+	require.NoError(t, err, "Send")
 	time.Sleep(50 * time.Millisecond)
-	if got := capture.count(); got != 0 {
-		t.Fatalf("expected zero forwards before crossing, got %d: %+v", got, capture.all())
-	}
+	require.Equal(t, 0, capture.count(), "expected zero forwards before crossing: %+v", capture.all())
 
 	// Cross the marker: exactly one forward with the crossed value.
-	if err := out.Send(gomidi.ControlChange(1, 7, 100).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.ControlChange(1, 7, 100).Bytes())
+	require.NoError(t, err, "Send")
 	waitForDispatchCount(t, capture, 1)
 	requests := capture.all()
-	if len(requests) != 1 {
-		t.Fatalf("expected exactly one forward after crossing, got %d: %+v", len(requests), requests)
-	}
+	require.Len(t, requests, 1, "expected exactly one forward after crossing: %+v", requests)
 	assertMasterSetForward(t, requests[0], float64(100)/127)
 }
 
@@ -942,61 +778,43 @@ func TestMidiServiceDispatchSafetyNoteForwardsDaemonRoute(t *testing.T) {
 	svc, root, showPath, out := newMidiTestFixture(t, "test-dispatch-safety-note")
 
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r := surfaceSvc.CreateSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "CreateSurface: stderr=%s", r.Stderr)
 	blackout := ControlRefInput{Kind: "safety", Safety: "blackout"}
-	if r := surfaceSvc.AssignItem("Front of House", blackout); r.ExitCode != 0 {
-		t.Fatalf("AssignItem: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = surfaceSvc.AssignItem("Front of House", blackout)
+	require.Equal(t, 0, r.ExitCode, "AssignItem: stderr=%s", r.Stderr)
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load")
 	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
-	if !found {
-		t.Fatal("surface not found")
-	}
+	require.True(t, found, "surface not found")
 	blackoutRef, err := resolveSurfaceControlRef(state, blackout)
-	if err != nil {
-		t.Fatalf("resolveSurfaceControlRef: %v", err)
-	}
+	require.NoError(t, err, "resolveSurfaceControlRef")
 	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
 		Channel: 1, Kind: operatorsurface.Note, Number: 50, Target: blackoutRef,
 	})
-	if err != nil {
-		t.Fatalf("AddMidiMapping: %v", err)
-	}
+	require.NoError(t, err, "AddMidiMapping")
 	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
-	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("show.Save: %v", err)
-	}
+	err = show.Save(root, showPath, state)
+	require.NoError(t, err, "show.Save")
 
 	capture := &dispatchCapture{}
 	svc.dial = capture.dial
 
-	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = svc.SetActiveSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "SetActiveSurface: stderr=%s", r.Stderr)
 
-	if err := out.Send(gomidi.NoteOn(1, 50, 100).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.NoteOn(1, 50, 100).Bytes())
+	require.NoError(t, err, "Send")
 	waitForDispatchCount(t, capture, 1)
 	requests := capture.all()
-	if len(requests) != 1 {
-		t.Fatalf("expected exactly one forward, got %d: %+v", len(requests), requests)
-	}
+	require.Len(t, requests, 1, "expected exactly one forward: %+v", requests)
 	assertSafetyForward(t, requests[0], "artnet safety blackout", []string{"--on", "true", "--source", "manual"})
 
-	if err := out.Send(gomidi.NoteOff(1, 50).Bytes()); err != nil {
-		t.Fatalf("Send (note-off): %v", err)
-	}
+	err = out.Send(gomidi.NoteOff(1, 50).Bytes())
+	require.NoError(t, err, "Send (note-off)")
 	time.Sleep(50 * time.Millisecond)
-	if got := capture.count(); got != 1 {
-		t.Fatalf("expected no additional forward on Note-off, got %d: %+v", got, capture.all())
-	}
+	require.Equal(t, 1, capture.count(), "expected no additional forward on Note-off: %+v", capture.all())
 }
 
 // TestMidiServiceDispatchUnmappedEventDoesNothing proves Gap B[1]'s
@@ -1008,36 +826,27 @@ func TestMidiServiceDispatchUnmappedEventDoesNothing(t *testing.T) {
 	execRegistry(t, root, "scene", "create", "Verse", "--bars", "4", "--show", showPath)
 
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r := surfaceSvc.CreateSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "CreateSurface: stderr=%s", r.Stderr)
 
 	capture := &dispatchCapture{}
 	svc.dial = capture.dial
 
-	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = svc.SetActiveSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "SetActiveSurface: stderr=%s", r.Stderr)
 
 	before := loadShowWithRetry(t, root, showPath)
 
-	if err := out.Send(gomidi.NoteOn(1, 99, 100).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err := out.Send(gomidi.NoteOn(1, 99, 100).Bytes())
+	require.NoError(t, err, "Send")
 	time.Sleep(50 * time.Millisecond)
 
 	after := loadShowWithRetry(t, root, showPath)
-	if len(after.Scenes) != len(before.Scenes) {
-		t.Fatalf("expected no scene-count change, before=%d after=%d", len(before.Scenes), len(after.Scenes))
-	}
+	require.Equal(t, len(before.Scenes), len(after.Scenes), "expected no scene-count change")
 	for _, sc := range after.Scenes {
-		if sc.Active {
-			t.Fatalf("expected no scene to become active from an unmapped event, got %+v", sc)
-		}
+		require.False(t, sc.Active, "expected no scene to become active from an unmapped event, got %+v", sc)
 	}
-	if got := capture.count(); got != 0 {
-		t.Fatalf("expected zero daemon forwards from an unmapped event, got %d: %+v", got, capture.all())
-	}
+	require.Equal(t, 0, capture.count(), "expected zero daemon forwards from an unmapped event: %+v", capture.all())
 }
 
 // TestMidiServiceDispatchSceneEdgeFiresPerPressNotPerMessage proves a scene
@@ -1054,81 +863,60 @@ func TestMidiServiceDispatchSceneEdgeFiresPerPressNotPerMessage(t *testing.T) {
 	execRegistry(t, root, "scene", "activate", "Alpha", "--show", showPath)
 
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r := surfaceSvc.CreateSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "CreateSurface: stderr=%s", r.Stderr)
 	beta := ControlRefInput{Kind: "scene", Scene: "Beta"}
 	gamma := ControlRefInput{Kind: "scene", Scene: "Gamma"}
-	if r := surfaceSvc.AssignItem("Front of House", beta); r.ExitCode != 0 {
-		t.Fatalf("AssignItem(beta): exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
-	if r := surfaceSvc.AssignItem("Front of House", gamma); r.ExitCode != 0 {
-		t.Fatalf("AssignItem(gamma): exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = surfaceSvc.AssignItem("Front of House", beta)
+	require.Equal(t, 0, r.ExitCode, "AssignItem(beta): stderr=%s", r.Stderr)
+	r = surfaceSvc.AssignItem("Front of House", gamma)
+	require.Equal(t, 0, r.ExitCode, "AssignItem(gamma): stderr=%s", r.Stderr)
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load")
 	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
-	if !found {
-		t.Fatal("surface not found")
-	}
+	require.True(t, found, "surface not found")
 	betaRef, err := resolveSurfaceControlRef(state, beta)
-	if err != nil {
-		t.Fatalf("resolveSurfaceControlRef(beta): %v", err)
-	}
+	require.NoError(t, err, "resolveSurfaceControlRef(beta)")
 	gammaRef, err := resolveSurfaceControlRef(state, gamma)
-	if err != nil {
-		t.Fatalf("resolveSurfaceControlRef(gamma): %v", err)
-	}
+	require.NoError(t, err, "resolveSurfaceControlRef(gamma)")
 	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
 		Channel: 1, Kind: operatorsurface.Note, Number: 10, Target: betaRef,
 	})
-	if err != nil {
-		t.Fatalf("AddMidiMapping(beta): %v", err)
-	}
+	require.NoError(t, err, "AddMidiMapping(beta)")
 	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
 		Channel: 1, Kind: operatorsurface.Note, Number: 11, Target: gammaRef,
 	})
-	if err != nil {
-		t.Fatalf("AddMidiMapping(gamma): %v", err)
-	}
+	require.NoError(t, err, "AddMidiMapping(gamma)")
 	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
-	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("show.Save: %v", err)
-	}
+	err = show.Save(root, showPath, state)
+	require.NoError(t, err, "show.Save")
 
-	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = svc.SetActiveSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "SetActiveSurface: stderr=%s", r.Stderr)
 
 	// Repeated press without release: fires each time, never errors.
-	if err := out.Send(gomidi.NoteOn(1, 10, 100).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.NoteOn(1, 10, 100).Bytes())
+	require.NoError(t, err, "Send")
 	waitForSceneActive(t, root, showPath, "Beta")
-	if err := out.Send(gomidi.NoteOn(1, 10, 100).Bytes()); err != nil {
-		t.Fatalf("Send (repeat press): %v", err)
-	}
+	err = out.Send(gomidi.NoteOn(1, 10, 100).Bytes())
+	require.NoError(t, err, "Send (repeat press)")
 	time.Sleep(50 * time.Millisecond)
 	stillBeta := loadShowWithRetry(t, root, showPath)
 	for _, sc := range stillBeta.Scenes {
-		if sc.Name == "Beta" && !sc.Active {
-			t.Fatal("expected Beta to remain active after a repeated press")
+		if sc.Name == "Beta" {
+			require.True(t, sc.Active, "expected Beta to remain active after a repeated press")
 		}
 	}
 
 	// A Note-off between presses dispatches nothing.
-	if err := out.Send(gomidi.NoteOff(1, 10).Bytes()); err != nil {
-		t.Fatalf("Send (note-off): %v", err)
-	}
+	err = out.Send(gomidi.NoteOff(1, 10).Bytes())
+	require.NoError(t, err, "Send (note-off)")
 	time.Sleep(50 * time.Millisecond)
 
 	// The dispatch loop keeps processing a subsequent mapped press.
-	if err := out.Send(gomidi.NoteOn(1, 11, 100).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.NoteOn(1, 11, 100).Bytes())
+	require.NoError(t, err, "Send")
 	waitForSceneActive(t, root, showPath, "Gamma")
 }
 
@@ -1144,81 +932,58 @@ func TestMidiServiceDispatchMasterCcContinuesWhileArmed(t *testing.T) {
 	execRegistry(t, root, "scene", "activate", "Alpha", "--show", showPath)
 
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r := surfaceSvc.CreateSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "CreateSurface: stderr=%s", r.Stderr)
 	grand := ControlRefInput{Kind: "master", MasterKind: "grand"}
 	beta := ControlRefInput{Kind: "scene", Scene: "Beta"}
-	if r := surfaceSvc.AssignItem("Front of House", grand); r.ExitCode != 0 {
-		t.Fatalf("AssignItem(grand): exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
-	if r := surfaceSvc.AssignItem("Front of House", beta); r.ExitCode != 0 {
-		t.Fatalf("AssignItem(beta): exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = surfaceSvc.AssignItem("Front of House", grand)
+	require.Equal(t, 0, r.ExitCode, "AssignItem(grand): stderr=%s", r.Stderr)
+	r = surfaceSvc.AssignItem("Front of House", beta)
+	require.Equal(t, 0, r.ExitCode, "AssignItem(beta): stderr=%s", r.Stderr)
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load")
 	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
-	if !found {
-		t.Fatal("surface not found")
-	}
+	require.True(t, found, "surface not found")
 	grandRef, err := resolveSurfaceControlRef(state, grand)
-	if err != nil {
-		t.Fatalf("resolveSurfaceControlRef(grand): %v", err)
-	}
+	require.NoError(t, err, "resolveSurfaceControlRef(grand)")
 	betaRef, err := resolveSurfaceControlRef(state, beta)
-	if err != nil {
-		t.Fatalf("resolveSurfaceControlRef(beta): %v", err)
-	}
+	require.NoError(t, err, "resolveSurfaceControlRef(beta)")
 	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
 		Channel: 1, Kind: operatorsurface.ControlChange, Number: 7, Target: grandRef,
 	})
-	if err != nil {
-		t.Fatalf("AddMidiMapping(grand): %v", err)
-	}
+	require.NoError(t, err, "AddMidiMapping(grand)")
 	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
 		Channel: 1, Kind: operatorsurface.ControlChange, Number: 8, Target: betaRef,
 	})
-	if err != nil {
-		t.Fatalf("AddMidiMapping(beta): %v", err)
-	}
+	require.NoError(t, err, "AddMidiMapping(beta)")
 	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
-	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("show.Save: %v", err)
-	}
+	err = show.Save(root, showPath, state)
+	require.NoError(t, err, "show.Save")
 
 	capture := &dispatchCapture{}
 	svc.dial = capture.dial
 
-	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = svc.SetActiveSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "SetActiveSurface: stderr=%s", r.Stderr)
 
 	// A control's very first message can never arm (TakeoverState seeds
 	// LastPhysical to NaN, so no crossing check can pass yet) -- establish
 	// a below-threshold physical position first, then cross the marker, then
 	// hold past it with two further updates -- each must independently
 	// forward (continuous).
-	if err := out.Send(gomidi.ControlChange(1, 7, 20).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.ControlChange(1, 7, 20).Bytes())
+	require.NoError(t, err, "Send")
 	time.Sleep(50 * time.Millisecond)
-	if got := capture.count(); got != 0 {
-		t.Fatalf("expected zero forwards before crossing, got %d: %+v", got, capture.all())
-	}
-	if err := out.Send(gomidi.ControlChange(1, 7, 100).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	require.Equal(t, 0, capture.count(), "expected zero forwards before crossing: %+v", capture.all())
+	err = out.Send(gomidi.ControlChange(1, 7, 100).Bytes())
+	require.NoError(t, err, "Send")
 	waitForDispatchCount(t, capture, 1)
-	if err := out.Send(gomidi.ControlChange(1, 7, 110).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.ControlChange(1, 7, 110).Bytes())
+	require.NoError(t, err, "Send")
 	waitForDispatchCount(t, capture, 2)
-	if err := out.Send(gomidi.ControlChange(1, 7, 120).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.ControlChange(1, 7, 120).Bytes())
+	require.NoError(t, err, "Send")
 	waitForDispatchCount(t, capture, 3)
 
 	// Cross the scene CC's own ghost/target marker once (again establishing
@@ -1227,28 +992,22 @@ func TestMidiServiceDispatchMasterCcContinuesWhileArmed(t *testing.T) {
 	// own first message): fires the switch exactly once, then never
 	// re-switches on further armed messages, and never dials through the
 	// master-set path.
-	if err := out.Send(gomidi.ControlChange(1, 8, 20).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
-	if err := out.Send(gomidi.ControlChange(1, 8, 100).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.ControlChange(1, 8, 20).Bytes())
+	require.NoError(t, err, "Send")
+	err = out.Send(gomidi.ControlChange(1, 8, 100).Bytes())
+	require.NoError(t, err, "Send")
 	waitForSceneActive(t, root, showPath, "Beta")
-	if err := out.Send(gomidi.ControlChange(1, 8, 110).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
-	if err := out.Send(gomidi.ControlChange(1, 8, 120).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.ControlChange(1, 8, 110).Bytes())
+	require.NoError(t, err, "Send")
+	err = out.Send(gomidi.ControlChange(1, 8, 120).Bytes())
+	require.NoError(t, err, "Send")
 	time.Sleep(50 * time.Millisecond)
 
-	if got := capture.count(); got != 3 {
-		t.Fatalf("expected exactly 3 master-set forwards (scene dispatch never dials), got %d: %+v", got, capture.all())
-	}
+	require.Equal(t, 3, capture.count(), "expected exactly 3 master-set forwards (scene dispatch never dials): %+v", capture.all())
 	final := loadShowWithRetry(t, root, showPath)
 	for _, sc := range final.Scenes {
-		if sc.Name == "Beta" && !sc.Active {
-			t.Fatal("expected Beta to remain active (no re-switch needed/attempted)")
+		if sc.Name == "Beta" {
+			require.True(t, sc.Active, "expected Beta to remain active (no re-switch needed/attempted)")
 		}
 	}
 }
@@ -1264,9 +1023,8 @@ func TestMidiServiceDispatchDeletedTargetIsSilentNoOp(t *testing.T) {
 	execRegistry(t, root, "scene", "create", "Alive", "--bars", "4", "--show", showPath)
 
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if r := surfaceSvc.CreateSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("CreateSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r := surfaceSvc.CreateSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "CreateSurface: stderr=%s", r.Stderr)
 	// Ghost is deliberately never assigned to the surface's SceneRefs: the
 	// MIDI mapping is added directly (via operatorsurface.AddMidiMapping,
 	// mirroring this file's other direct-mapping fixtures), and show.Save
@@ -1276,38 +1034,25 @@ func TestMidiServiceDispatchDeletedTargetIsSilentNoOp(t *testing.T) {
 	// membership.
 	ghost := ControlRefInput{Kind: "scene", Scene: "Ghost"}
 	alive := ControlRefInput{Kind: "scene", Scene: "Alive"}
-	if r := surfaceSvc.AssignItem("Front of House", alive); r.ExitCode != 0 {
-		t.Fatalf("AssignItem(alive): exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = surfaceSvc.AssignItem("Front of House", alive)
+	require.Equal(t, 0, r.ExitCode, "AssignItem(alive): stderr=%s", r.Stderr)
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load")
 	surface, found := surfaceByName(state.OperatorSurfaces, "Front of House")
-	if !found {
-		t.Fatal("surface not found")
-	}
+	require.True(t, found, "surface not found")
 	ghostRef, err := resolveSurfaceControlRef(state, ghost)
-	if err != nil {
-		t.Fatalf("resolveSurfaceControlRef(ghost): %v", err)
-	}
+	require.NoError(t, err, "resolveSurfaceControlRef(ghost)")
 	aliveRef, err := resolveSurfaceControlRef(state, alive)
-	if err != nil {
-		t.Fatalf("resolveSurfaceControlRef(alive): %v", err)
-	}
+	require.NoError(t, err, "resolveSurfaceControlRef(alive)")
 	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
 		Channel: 1, Kind: operatorsurface.Note, Number: 60, Target: ghostRef,
 	})
-	if err != nil {
-		t.Fatalf("AddMidiMapping(ghost): %v", err)
-	}
+	require.NoError(t, err, "AddMidiMapping(ghost)")
 	surface, err = operatorsurface.AddMidiMapping(surface, operatorsurface.MidiMapping{
 		Channel: 1, Kind: operatorsurface.Note, Number: 61, Target: aliveRef,
 	})
-	if err != nil {
-		t.Fatalf("AddMidiMapping(alive): %v", err)
-	}
+	require.NoError(t, err, "AddMidiMapping(alive)")
 	state.OperatorSurfaces = replaceSurfaceByID(state.OperatorSurfaces, surface)
 
 	// Delete the Ghost scene directly from the show, leaving the mapping's
@@ -1321,22 +1066,18 @@ func TestMidiServiceDispatchDeletedTargetIsSilentNoOp(t *testing.T) {
 		}
 	}
 	state.Scenes = filtered
-	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("show.Save: %v", err)
-	}
+	err = show.Save(root, showPath, state)
+	require.NoError(t, err, "show.Save")
 
-	if r := svc.SetActiveSurface("Front of House"); r.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface: exit=%d stderr=%s", r.ExitCode, r.Stderr)
-	}
+	r = svc.SetActiveSurface("Front of House")
+	require.Equal(t, 0, r.ExitCode, "SetActiveSurface: stderr=%s", r.Stderr)
 
-	if err := out.Send(gomidi.NoteOn(1, 60, 100).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.NoteOn(1, 60, 100).Bytes())
+	require.NoError(t, err, "Send")
 	time.Sleep(50 * time.Millisecond)
 
 	// The dispatch loop must keep working afterward.
-	if err := out.Send(gomidi.NoteOn(1, 61, 100).Bytes()); err != nil {
-		t.Fatalf("Send: %v", err)
-	}
+	err = out.Send(gomidi.NoteOn(1, 61, 100).Bytes())
+	require.NoError(t, err, "Send")
 	waitForSceneActive(t, root, showPath, "Alive")
 }
