@@ -95,8 +95,8 @@ func main() {
 
 	err := wails.Run(&options.App{
 		Title:  "GOLC",
-		Width:  1280,
-		Height: 800,
+		Width:  1536,
+		Height: 960,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
