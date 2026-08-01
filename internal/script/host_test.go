@@ -15,19 +15,13 @@ import (
 	"testing"
 
 	"github.com/lnorton89/golc/internal/show"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBuildDenoArgsRunMode(t *testing.T) {
 	got := buildDenoArgs("/tmp/run/script.ts", LaunchModeRun, 0)
 	want := []string{"run", "--no-prompt", "/tmp/run/script.ts"}
-	if len(got) != len(want) {
-		t.Fatalf("buildDenoArgs = %v, want %v", got, want)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("buildDenoArgs = %v, want %v", got, want)
-		}
-	}
+	require.Equal(t, want, got, "buildDenoArgs = %v, want %v", got, want)
 }
 
 // TestBuildDenoArgsDebugMode covers 08-09-PLAN.md Task 1's exact
@@ -38,14 +32,7 @@ func TestBuildDenoArgsRunMode(t *testing.T) {
 func TestBuildDenoArgsDebugMode(t *testing.T) {
 	got := buildDenoArgs("/tmp/run/script.ts", LaunchModeDebug, 54321)
 	want := []string{"run", "--no-prompt", "--inspect-brk=127.0.0.1:54321", "/tmp/run/script.ts"}
-	if len(got) != len(want) {
-		t.Fatalf("buildDenoArgs = %v, want %v", got, want)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("buildDenoArgs = %v, want %v", got, want)
-		}
-	}
+	require.Equal(t, want, got, "buildDenoArgs = %v, want %v", got, want)
 }
 
 // TestDenoCommandLineHasNoAllowFlags asserts that for every launch mode
@@ -76,9 +63,7 @@ func TestDenoCommandLineHasNoAllowFlags(t *testing.T) {
 					inspectorArgs := 0
 					for _, arg := range args {
 						for _, forbidden := range forbiddenDenoArgPrefixes {
-							if strings.HasPrefix(arg, forbidden) {
-								t.Fatalf("buildDenoArgs(mode=%s) produced forbidden argument %q (prefix %q)", mode, arg, forbidden)
-							}
+							require.False(t, strings.HasPrefix(arg, forbidden), "buildDenoArgs(mode=%s) produced forbidden argument %q (prefix %q)", mode, arg, forbidden)
 						}
 						if strings.HasPrefix(arg, "--inspect") {
 							inspectorArgs++
@@ -86,13 +71,9 @@ func TestDenoCommandLineHasNoAllowFlags(t *testing.T) {
 					}
 					switch mode {
 					case LaunchModeRun:
-						if inspectorArgs != 0 {
-							t.Fatalf("buildDenoArgs(mode=%s) produced %d inspector argument(s), want 0", mode, inspectorArgs)
-						}
+						require.Equal(t, 0, inspectorArgs, "buildDenoArgs(mode=%s) produced %d inspector argument(s), want 0", mode, inspectorArgs)
 					case LaunchModeDebug:
-						if inspectorArgs != 1 {
-							t.Fatalf("buildDenoArgs(mode=%s) produced %d inspector argument(s), want exactly 1", mode, inspectorArgs)
-						}
+						require.Equal(t, 1, inspectorArgs, "buildDenoArgs(mode=%s) produced %d inspector argument(s), want exactly 1", mode, inspectorArgs)
 					}
 				})
 			}
@@ -105,33 +86,19 @@ func TestDenoCommandLineHasNoAllowFlags(t *testing.T) {
 // calls do not collide.
 func TestPickEphemeralLoopbackPort(t *testing.T) {
 	first, err := pickEphemeralLoopbackPort()
-	if err != nil {
-		t.Fatalf("pickEphemeralLoopbackPort: %v", err)
-	}
-	if first == 0 {
-		t.Fatal("expected a non-zero ephemeral port")
-	}
+	require.NoError(t, err, "pickEphemeralLoopbackPort: %v", err)
+	require.NotZero(t, first, "expected a non-zero ephemeral port")
 	second, err := pickEphemeralLoopbackPort()
-	if err != nil {
-		t.Fatalf("pickEphemeralLoopbackPort: %v", err)
-	}
-	if second == 0 {
-		t.Fatal("expected a non-zero ephemeral port")
-	}
-	if first == second {
-		t.Fatalf("expected two consecutive calls not to collide, both returned %d", first)
-	}
+	require.NoError(t, err, "pickEphemeralLoopbackPort: %v", err)
+	require.NotZero(t, second, "expected a non-zero ephemeral port")
+	require.NotEqual(t, first, second, "expected two consecutive calls not to collide, both returned %d", first)
 }
 
 func TestNewHostFailsClosedWhenDenoMissing(t *testing.T) {
 	root := t.TempDir()
 	_, err := NewHost(HostConfig{Root: root})
-	if err == nil {
-		t.Fatal("expected an error when no Deno install exists")
-	}
-	if !strings.Contains(err.Error(), "GOLC_SCRIPT_DENO_MISSING") {
-		t.Fatalf("expected GOLC_SCRIPT_DENO_MISSING, got %v", err)
-	}
+	require.Error(t, err, "expected an error when no Deno install exists")
+	require.Contains(t, err.Error(), "GOLC_SCRIPT_DENO_MISSING", "expected GOLC_SCRIPT_DENO_MISSING, got %v", err)
 }
 
 // TestNoInspectorOutsideDebugMode is the real-process proof behind D-02:
@@ -149,20 +116,12 @@ func TestNoInspectorOutsideDebugMode(t *testing.T) {
 	root := skipUnlessDenoProvisioned(t)
 
 	host, err := NewHost(HostConfig{Root: root, ShowPath: root + "/fixture.golc", Executor: &fakeExecutor{}})
-	if err != nil {
-		t.Fatalf("NewHost: %v", err)
-	}
+	require.NoError(t, err, "NewHost: %v", err)
 
 	outcome, runErr := host.Run(t.Context(), show.Script{Name: "NoInspector", Source: "// no SDK calls"}, LaunchModeRun, nil)
-	if runErr != nil {
-		t.Fatalf("Run: %v", runErr)
-	}
-	if outcome.Status != show.ScriptRunStatusSucceeded {
-		t.Fatalf("Status = %q, want %q (reason: %s)", outcome.Status, show.ScriptRunStatusSucceeded, outcome.Reason)
-	}
+	require.NoError(t, runErr, "Run: %v", runErr)
+	require.Equal(t, show.ScriptRunStatusSucceeded, outcome.Status, "Status = %q, want %q (reason: %s)", outcome.Status, show.ScriptRunStatusSucceeded, outcome.Reason)
 	for _, line := range outcome.Logs {
-		if strings.Contains(line.Message, "Debugger listening") || strings.Contains(line.Message, "ws://") {
-			t.Fatalf("Run mode produced an inspector banner in captured output: %q", line.Message)
-		}
+		require.False(t, strings.Contains(line.Message, "Debugger listening") || strings.Contains(line.Message, "ws://"), "Run mode produced an inspector banner in captured output: %q", line.Message)
 	}
 }

@@ -6,11 +6,13 @@
 package script
 
 import (
+	"fmt"
 	"io"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/security"
 	"github.com/lnorton89/golc/internal/show"
@@ -41,13 +43,11 @@ func TestScriptEventBusPublishAssignsStrictlyIncreasingSeq(t *testing.T) {
 		case ev := <-ch:
 			seqs = append(seqs, ev.Seq)
 		case <-time.After(time.Second):
-			t.Fatalf("timed out waiting for event %d", i)
+			require.FailNow(t, fmt.Sprintf("timed out waiting for event %d", i))
 		}
 	}
 	for i, seq := range seqs {
-		if seq != int64(i+1) {
-			t.Fatalf("seqs = %v, want strictly increasing starting at 1", seqs)
-		}
+		require.Equal(t, int64(i+1), seq, "seqs = %v, want strictly increasing starting at 1", seqs)
 	}
 }
 
@@ -59,9 +59,7 @@ func TestScriptEventBusLiveSubscriberReceivesEventsInOrderNoGaps(t *testing.T) {
 
 	_, resync, ch, unsubscribe := SubscribeScriptEvents(0)
 	defer unsubscribe()
-	if resync {
-		t.Fatal("a fresh subscriber (lastSeq<=0) must never be told to resync")
-	}
+	require.False(t, resync, "a fresh subscriber (lastSeq<=0) must never be told to resync")
 
 	for i := 0; i < 5; i++ {
 		PublishScriptEvent(ScriptEvent{Kind: ScriptEventLog, Message: "line"})
@@ -71,12 +69,10 @@ func TestScriptEventBusLiveSubscriberReceivesEventsInOrderNoGaps(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		select {
 		case ev := <-ch:
-			if ev.Seq <= last {
-				t.Fatalf("event %d Seq=%d did not increase from %d", i, ev.Seq, last)
-			}
+			require.Greater(t, ev.Seq, last, "event %d Seq=%d did not increase from %d", i, ev.Seq, last)
 			last = ev.Seq
 		case <-time.After(time.Second):
-			t.Fatalf("timed out waiting for event %d", i)
+			require.FailNow(t, fmt.Sprintf("timed out waiting for event %d", i))
 		}
 	}
 }
@@ -93,17 +89,11 @@ func TestScriptEventBusReconnectReplaysWithinWindow(t *testing.T) {
 
 	replay, resync, _, unsubscribe := SubscribeScriptEvents(2)
 	defer unsubscribe()
-	if resync {
-		t.Fatal("expected an in-window replay, not a resync")
-	}
-	if len(replay) != 3 {
-		t.Fatalf("len(replay) = %d, want 3 (Seq 3,4,5)", len(replay))
-	}
+	require.False(t, resync, "expected an in-window replay, not a resync")
+	require.Len(t, replay, 3, "len(replay) = %d, want 3 (Seq 3,4,5)", len(replay))
 	for i, ev := range replay {
 		wantSeq := int64(3 + i)
-		if ev.Seq != wantSeq {
-			t.Fatalf("replay[%d].Seq = %d, want %d", i, ev.Seq, wantSeq)
-		}
+		require.Equal(t, wantSeq, ev.Seq, "replay[%d].Seq = %d, want %d", i, ev.Seq, wantSeq)
 	}
 }
 
@@ -124,12 +114,8 @@ func TestScriptEventBusReconnectScrolledOutResyncsNoPartialReplay(t *testing.T) 
 	// out entirely.
 	replay, resync, _, unsubscribe := SubscribeScriptEvents(1)
 	defer unsubscribe()
-	if !resync {
-		t.Fatal("expected a resync for a scrolled-out Seq")
-	}
-	if len(replay) != 0 {
-		t.Fatalf("expected no partial replay alongside a resync, got %d events", len(replay))
-	}
+	require.True(t, resync, "expected a resync for a scrolled-out Seq")
+	require.Empty(t, replay, "expected no partial replay alongside a resync, got %d events", len(replay))
 }
 
 // TestScriptEventBusOverflowTriggersResyncAtMeasuredCapacity is the
@@ -149,12 +135,9 @@ func TestScriptEventBusOverflowTriggersResyncAtMeasuredCapacity(t *testing.T) {
 	// At exactly ScriptEventRingCapacity published events, Seq 1 is still
 	// the oldest retained entry -- no resync yet: the client has seen
 	// everything up to (and including) the buffer's own oldest-1 boundary.
-	if _, resync, _, unsubscribe := SubscribeScriptEvents(1); resync {
-		unsubscribe()
-		t.Fatal("expected no resync at exactly ScriptEventRingCapacity published events")
-	} else {
-		unsubscribe()
-	}
+	_, resync, _, unsubscribe := SubscribeScriptEvents(1)
+	unsubscribe()
+	require.False(t, resync, "expected no resync at exactly ScriptEventRingCapacity published events")
 
 	// Two more events push Seq 1 AND Seq 2 out of the ring (capacity 8
 	// now retains Seq 3..10): a client still holding Seq 1 has a genuine
@@ -163,11 +146,9 @@ func TestScriptEventBusOverflowTriggersResyncAtMeasuredCapacity(t *testing.T) {
 	// last-seen id is safe (no gap), but two is not.
 	PublishScriptEvent(ScriptEvent{Kind: ScriptEventLog, Message: "n+1"})
 	PublishScriptEvent(ScriptEvent{Kind: ScriptEventLog, Message: "n+2"})
-	_, resync, _, unsubscribe := SubscribeScriptEvents(1)
+	_, resync, _, unsubscribe = SubscribeScriptEvents(1)
 	defer unsubscribe()
-	if !resync {
-		t.Fatal("expected a resync once a genuine gap (two scrolled-out events) exists past the client's last-seen Seq")
-	}
+	require.True(t, resync, "expected a resync once a genuine gap (two scrolled-out events) exists past the client's last-seen Seq")
 }
 
 // TestScriptEventBusPublishRedactsMessageAndReason covers: "Every
@@ -191,13 +172,13 @@ func TestScriptEventBusPublishRedactsMessageAndReason(t *testing.T) {
 		select {
 		case ev := <-ch:
 			if ev.Kind == ScriptEventLog && (ev.Message == "" || contains(ev.Message, security.CanaryToken)) {
-				t.Fatalf("expected Message to be redacted, got %q", ev.Message)
+				require.FailNow(t, fmt.Sprintf("expected Message to be redacted, got %q", ev.Message))
 			}
 			if ev.Kind == ScriptEventTerminal && (ev.Reason == "" || contains(ev.Reason, security.CanaryToken)) {
-				t.Fatalf("expected Reason to be redacted, got %q", ev.Reason)
+				require.FailNow(t, fmt.Sprintf("expected Reason to be redacted, got %q", ev.Reason))
 			}
 		case <-time.After(time.Second):
-			t.Fatal("timed out waiting for event")
+			require.FailNow(t, "timed out waiting for event")
 		}
 	}
 }
@@ -229,11 +210,9 @@ func TestScriptEventBusResetGivesFreshSequence(t *testing.T) {
 
 	select {
 	case ev := <-ch:
-		if ev.Seq != 1 {
-			t.Fatalf("Seq = %d after reset, want 1", ev.Seq)
-		}
+		require.Equal(t, int64(1), ev.Seq, "Seq = %d after reset, want 1", ev.Seq)
 	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for event")
+		require.FailNow(t, "timed out waiting for event")
 	}
 }
 
@@ -246,9 +225,7 @@ func TestScriptEventBusResetGivesFreshSequence(t *testing.T) {
 // status and reason for each.
 func TestComputeTerminalEventEverySevenTerminationCauses(t *testing.T) {
 	runID, err := uuid.NewV7()
-	if err != nil {
-		t.Fatalf("uuid.NewV7: %v", err)
-	}
+	require.NoError(t, err, "uuid.NewV7: %v", err)
 	run := &Run{RunID: runID, ScriptName: "Chase"}
 
 	cases := []struct {
@@ -313,18 +290,12 @@ func TestComputeTerminalEventEverySevenTerminationCauses(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			ev := computeTerminalEvent(run, tc.result, tc.runErr)
-			if ev.Kind != ScriptEventTerminal {
-				t.Fatalf("Kind = %q, want %q", ev.Kind, ScriptEventTerminal)
-			}
+			require.Equal(t, ScriptEventTerminal, ev.Kind, "Kind = %q, want %q", ev.Kind, ScriptEventTerminal)
 			if ev.RunID != run.RunID || ev.ScriptName != run.ScriptName {
-				t.Fatalf("expected RunID/ScriptName to be carried, got %+v", ev)
+				require.FailNow(t, fmt.Sprintf("expected RunID/ScriptName to be carried, got %+v", ev))
 			}
-			if ev.Status != tc.wantStatus {
-				t.Fatalf("Status = %q, want %q", ev.Status, tc.wantStatus)
-			}
-			if ev.Reason != tc.wantReason {
-				t.Fatalf("Reason = %q, want %q", ev.Reason, tc.wantReason)
-			}
+			require.Equal(t, tc.wantStatus, ev.Status, "Status = %q, want %q", ev.Status, tc.wantStatus)
+			require.Equal(t, tc.wantReason, ev.Reason, "Reason = %q, want %q", ev.Reason, tc.wantReason)
 		})
 	}
 }
@@ -337,18 +308,12 @@ func TestComputeTerminalEventEverySevenTerminationCauses(t *testing.T) {
 // runErr), never an empty/blank one.
 func TestComputeTerminalEventEarlyFailureBeforeDispatchStillPublishes(t *testing.T) {
 	runID, err := uuid.NewV7()
-	if err != nil {
-		t.Fatalf("uuid.NewV7: %v", err)
-	}
+	require.NoError(t, err, "uuid.NewV7: %v", err)
 	run := &Run{RunID: runID, ScriptName: "Chase"}
 
 	ev := computeTerminalEvent(run, RunOutcome{}, errWithMessage("GOLC_SCRIPT_RUN_TEMP_DIR_FAILED: disk full"))
-	if ev.Status != show.ScriptRunStatusFailed {
-		t.Fatalf("Status = %q, want %q for an early failure", ev.Status, show.ScriptRunStatusFailed)
-	}
-	if ev.Reason != "GOLC_SCRIPT_RUN_TEMP_DIR_FAILED: disk full" {
-		t.Fatalf("Reason = %q, want the early failure's own message", ev.Reason)
-	}
+	require.Equal(t, show.ScriptRunStatusFailed, ev.Status, "Status = %q, want %q for an early failure", ev.Status, show.ScriptRunStatusFailed)
+	require.Equal(t, "GOLC_SCRIPT_RUN_TEMP_DIR_FAILED: disk full", ev.Reason, "Reason = %q, want the early failure's own message", ev.Reason)
 }
 
 type simpleErr string
@@ -382,9 +347,7 @@ func TestPublishScriptEventTerminalPublishesExactlyOnePerCause(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			resetScriptEventsForTest(t)
 			runID, err := uuid.NewV7()
-			if err != nil {
-				t.Fatalf("uuid.NewV7: %v", err)
-			}
+			require.NoError(t, err, "uuid.NewV7: %v", err)
 			run := &Run{RunID: runID, ScriptName: "Chase"}
 
 			_, _, ch, unsubscribe := SubscribeScriptEvents(0)
@@ -397,19 +360,15 @@ func TestPublishScriptEventTerminalPublishesExactlyOnePerCause(t *testing.T) {
 			case ev := <-ch:
 				terminals = append(terminals, ev)
 			case <-time.After(time.Second):
-				t.Fatal("timed out waiting for the terminal event")
+				require.FailNow(t, "timed out waiting for the terminal event")
 			}
 			select {
 			case ev := <-ch:
 				terminals = append(terminals, ev)
 			default:
 			}
-			if len(terminals) != 1 {
-				t.Fatalf("expected exactly one terminal event, got %d: %+v", len(terminals), terminals)
-			}
-			if terminals[0].Kind != ScriptEventTerminal {
-				t.Fatalf("Kind = %q, want %q", terminals[0].Kind, ScriptEventTerminal)
-			}
+			require.Len(t, terminals, 1, "expected exactly one terminal event, got %d: %+v", len(terminals), terminals)
+			require.Equal(t, ScriptEventTerminal, terminals[0].Kind, "Kind = %q, want %q", terminals[0].Kind, ScriptEventTerminal)
 		})
 	}
 }
@@ -463,7 +422,7 @@ func TestRunDispatchIOPublishesLogAndOutcomeScriptEvents(t *testing.T) {
 				sawOutcome = true
 			}
 		case <-timeout:
-			t.Fatalf("timed out waiting for both a script.log and script.outcome event (sawLog=%v sawOutcome=%v)", sawLog, sawOutcome)
+			require.FailNow(t, fmt.Sprintf("timed out waiting for both a script.log and script.outcome event (sawLog=%v sawOutcome=%v)", sawLog, sawOutcome))
 		}
 	}
 }

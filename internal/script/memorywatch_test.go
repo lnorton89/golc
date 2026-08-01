@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/lnorton89/golc/internal/show"
+	"github.com/stretchr/testify/require"
 )
 
 // fakeMemorySampler is a memorySampler whose returned value/error and
@@ -62,9 +63,7 @@ func waitUntil(t *testing.T, timeout time.Duration, cond func() bool) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	if !cond() {
-		t.Fatalf("condition not met within %s", timeout)
-	}
+	require.True(t, cond(), "condition not met within %s", timeout)
 }
 
 // TestMemoryWatchTerminatesAboveTrigger covers: "A sampler that returns a
@@ -86,9 +85,8 @@ func TestMemoryWatchTerminatesAboveTrigger(t *testing.T) {
 	})
 
 	reason, terminating := run.terminationReason()
-	if !terminating || reason.Code != "GOLC_SCRIPT_MEMORY_EXCEEDED" {
-		t.Fatalf("expected a GOLC_SCRIPT_MEMORY_EXCEEDED termination, got %+v (terminating=%v)", reason, terminating)
-	}
+	require.True(t, terminating, "expected a GOLC_SCRIPT_MEMORY_EXCEEDED termination, got %+v (terminating=%v)", reason, terminating)
+	require.Equal(t, "GOLC_SCRIPT_MEMORY_EXCEEDED", reason.Code, "expected a GOLC_SCRIPT_MEMORY_EXCEEDED termination, got %+v (terminating=%v)", reason, terminating)
 }
 
 // TestMemoryWatchNeverTerminatesBelowTrigger covers: "A sampler pinned
@@ -104,9 +102,8 @@ func TestMemoryWatchNeverTerminatesBelowTrigger(t *testing.T) {
 	defer stop()
 
 	time.Sleep(1 * time.Second)
-	if _, terminating := run.terminationReason(); terminating {
-		t.Fatal("expected no termination for a sampler pinned well below the trigger")
-	}
+	_, terminating := run.terminationReason()
+	require.False(t, terminating, "expected no termination for a sampler pinned well below the trigger")
 }
 
 // TestMemoryWatchStopsPermanentlyOnUnsupportedSentinel covers: "A sampler
@@ -123,18 +120,14 @@ func TestMemoryWatchStopsPermanentlyOnUnsupportedSentinel(t *testing.T) {
 	defer stop()
 
 	time.Sleep(500 * time.Millisecond)
-	if calls := sampler.callCount(); calls > 2 {
-		t.Fatalf("expected at most 2 sampler calls after the unsupported sentinel, got %d", calls)
-	}
-	if _, terminating := run.terminationReason(); terminating {
-		t.Fatal("expected no termination from the unsupported-platform sentinel")
-	}
+	calls := sampler.callCount()
+	require.LessOrEqual(t, calls, 2, "expected at most 2 sampler calls after the unsupported sentinel, got %d", calls)
+	_, terminating := run.terminationReason()
+	require.False(t, terminating, "expected no termination from the unsupported-platform sentinel")
 
 	callsAfterSettle := sampler.callCount()
 	time.Sleep(300 * time.Millisecond)
-	if sampler.callCount() != callsAfterSettle {
-		t.Fatal("expected the loop to have already stopped permanently on the sentinel")
-	}
+	require.Equal(t, callsAfterSettle, sampler.callCount(), "expected the loop to have already stopped permanently on the sentinel")
 }
 
 // TestMemoryWatchTransientErrorDoesNotStopTheLoop covers: "A sampler
@@ -151,9 +144,8 @@ func TestMemoryWatchTransientErrorDoesNotStopTheLoop(t *testing.T) {
 	defer stop()
 
 	time.Sleep(250 * time.Millisecond)
-	if _, terminating := run.terminationReason(); terminating {
-		t.Fatal("expected no termination while the sampler only ever errors transiently")
-	}
+	_, terminating := run.terminationReason()
+	require.False(t, terminating, "expected no termination while the sampler only ever errors transiently")
 
 	sampler.set(64*1024*1024, nil)
 
@@ -162,9 +154,8 @@ func TestMemoryWatchTransientErrorDoesNotStopTheLoop(t *testing.T) {
 		return terminating
 	})
 	reason, terminating := run.terminationReason()
-	if !terminating || reason.Code != "GOLC_SCRIPT_MEMORY_EXCEEDED" {
-		t.Fatalf("expected termination once the transient sampler starts returning an above-trigger sample, got %+v (terminating=%v)", reason, terminating)
-	}
+	require.True(t, terminating, "expected termination once the transient sampler starts returning an above-trigger sample, got %+v (terminating=%v)", reason, terminating)
+	require.Equal(t, "GOLC_SCRIPT_MEMORY_EXCEEDED", reason.Code, "expected termination once the transient sampler starts returning an above-trigger sample, got %+v (terminating=%v)", reason, terminating)
 }
 
 // TestMemoryWatchStopFunctionEndsTheGoroutine covers: "Calling the
@@ -186,9 +177,8 @@ func TestMemoryWatchStopFunctionEndsTheGoroutine(t *testing.T) {
 
 	callsAtStop := sampler.callCount()
 	time.Sleep(1 * time.Second)
-	if got := sampler.callCount(); got != callsAtStop {
-		t.Fatalf("expected no further sampler calls after stop, calls at stop = %d, now = %d", callsAtStop, got)
-	}
+	got := sampler.callCount()
+	require.Equal(t, callsAtStop, got, "expected no further sampler calls after stop, calls at stop = %d, now = %d", callsAtStop, got)
 }
 
 // TestMemoryWatchContextCancelEndsTheGoroutineTheSameWay covers:
@@ -205,9 +195,8 @@ func TestMemoryWatchContextCancelEndsTheGoroutineTheSameWay(t *testing.T) {
 
 	callsAtCancel := sampler.callCount()
 	time.Sleep(1 * time.Second)
-	if got := sampler.callCount(); got != callsAtCancel {
-		t.Fatalf("expected no further sampler calls after context cancellation, calls at cancel = %d, now = %d", callsAtCancel, got)
-	}
+	got := sampler.callCount()
+	require.Equal(t, callsAtCancel, got, "expected no further sampler calls after context cancellation, calls at cancel = %d, now = %d", callsAtCancel, got)
 }
 
 // TestMemoryWatchNeverOverwritesAnAlreadyRecordedReason covers D-11
@@ -218,9 +207,7 @@ func TestMemoryWatchContextCancelEndsTheGoroutineTheSameWay(t *testing.T) {
 func TestMemoryWatchNeverOverwritesAnAlreadyRecordedReason(t *testing.T) {
 	run := mustNewRun(t)
 	deadlineReason := TerminationReason{Code: "GOLC_SCRIPT_DEADLINE_EXCEEDED", Message: "pre-set", At: time.Now()}
-	if !run.beginTermination(deadlineReason) {
-		t.Fatal("expected the pre-set deadline reason to be recorded")
-	}
+	require.True(t, run.beginTermination(deadlineReason), "expected the pre-set deadline reason to be recorded")
 
 	sampler := &fakeMemorySampler{value: 64 * 1024 * 1024}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -230,7 +217,6 @@ func TestMemoryWatchNeverOverwritesAnAlreadyRecordedReason(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 	reason, terminating := run.terminationReason()
-	if !terminating || reason.Code != "GOLC_SCRIPT_DEADLINE_EXCEEDED" {
-		t.Fatalf("expected the pre-set deadline reason to survive, got %+v (terminating=%v)", reason, terminating)
-	}
+	require.True(t, terminating, "expected the pre-set deadline reason to survive, got %+v (terminating=%v)", reason, terminating)
+	require.Equal(t, "GOLC_SCRIPT_DEADLINE_EXCEEDED", reason.Code, "expected the pre-set deadline reason to survive, got %+v (terminating=%v)", reason, terminating)
 }

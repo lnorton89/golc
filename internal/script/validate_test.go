@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/lnorton89/golc/internal/show"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCheckForbiddenModuleSyntaxIgnoresCommentsAndStrings(t *testing.T) {
@@ -24,78 +25,55 @@ func TestCheckForbiddenModuleSyntaxIgnoresCommentsAndStrings(t *testing.T) {
 	}, "\n")
 
 	diagnostics := checkForbiddenModuleSyntax(source)
-	if len(diagnostics) != 0 {
-		t.Fatalf("expected zero diagnostics for comment/string-only occurrences, got %+v", diagnostics)
-	}
+	require.Empty(t, diagnostics, "expected zero diagnostics for comment/string-only occurrences, got %+v", diagnostics)
 }
 
 func TestCheckForbiddenModuleSyntaxDetectsStaticImport(t *testing.T) {
 	source := "await golc.scene.activate({ name: \"Alpha\" });\nimport { evil } from \"./mod.ts\";\n"
 	diagnostics := checkForbiddenModuleSyntax(source)
-	if len(diagnostics) != 1 {
-		t.Fatalf("expected exactly one diagnostic, got %d: %+v", len(diagnostics), diagnostics)
-	}
-	if diagnostics[0].Code != "GOLC_SCRIPT_IMPORT_FORBIDDEN" {
-		t.Fatalf("Code = %q, want GOLC_SCRIPT_IMPORT_FORBIDDEN", diagnostics[0].Code)
-	}
-	if diagnostics[0].Line != 2 {
-		t.Fatalf("Line = %d, want 2", diagnostics[0].Line)
-	}
+	require.Len(t, diagnostics, 1, "expected exactly one diagnostic, got %+v", diagnostics)
+	require.Equal(t, "GOLC_SCRIPT_IMPORT_FORBIDDEN", diagnostics[0].Code, "Code = %q, want GOLC_SCRIPT_IMPORT_FORBIDDEN", diagnostics[0].Code)
+	require.Equal(t, 2, diagnostics[0].Line, "Line = %d, want 2", diagnostics[0].Line)
 }
 
 func TestCheckForbiddenModuleSyntaxDetectsDynamicImport(t *testing.T) {
 	source := "await golc.scene.activate({ name: \"Alpha\" });\nconst mod = await import(\"./mod.ts\");\n"
 	diagnostics := checkForbiddenModuleSyntax(source)
-	if len(diagnostics) != 1 {
-		t.Fatalf("expected exactly one diagnostic, got %d: %+v", len(diagnostics), diagnostics)
-	}
-	if diagnostics[0].Line != 2 {
-		t.Fatalf("Line = %d, want 2", diagnostics[0].Line)
-	}
-	if !strings.Contains(diagnostics[0].Message, "dynamic import") {
-		t.Fatalf("expected the message to name a dynamic import, got %q", diagnostics[0].Message)
-	}
+	require.Len(t, diagnostics, 1, "expected exactly one diagnostic, got %d: %+v", len(diagnostics), diagnostics)
+	require.Equal(t, 2, diagnostics[0].Line, "Line = %d, want 2", diagnostics[0].Line)
+	require.Contains(t, diagnostics[0].Message, "dynamic import", "expected the message to name a dynamic import, got %q", diagnostics[0].Message)
 }
 
 func TestCheckForbiddenModuleSyntaxDetectsExportDeclaration(t *testing.T) {
 	source := "export const shared = 1;\n"
 	diagnostics := checkForbiddenModuleSyntax(source)
-	if len(diagnostics) != 1 || diagnostics[0].Line != 1 {
-		t.Fatalf("expected exactly one diagnostic on line 1, got %+v", diagnostics)
-	}
+	require.Len(t, diagnostics, 1, "expected exactly one diagnostic on line 1, got %+v", diagnostics)
+	require.Equal(t, 1, diagnostics[0].Line, "expected exactly one diagnostic on line 1, got %+v", diagnostics)
 }
 
 func TestCheckForbiddenModuleSyntaxDetectsReexportFrom(t *testing.T) {
 	source := "export * from \"./mod.ts\";\n"
 	diagnostics := checkForbiddenModuleSyntax(source)
-	if len(diagnostics) == 0 {
-		t.Fatal("expected at least one diagnostic for a re-export")
-	}
+	require.NotEmpty(t, diagnostics, "expected at least one diagnostic for a re-export")
 }
 
 func TestCheckForbiddenModuleSyntaxAllowsAmbientGolcCallsOnly(t *testing.T) {
 	source := "await golc.scene.create({ name: \"Alpha\", bars: 4, show: \"show.golc\" });\n" +
 		"await golc.scene.activate({ name: \"Alpha\", show: \"show.golc\" });\n"
 	diagnostics := checkForbiddenModuleSyntax(source)
-	if len(diagnostics) != 0 {
-		t.Fatalf("expected zero diagnostics for a script that only calls the ambient golc namespace, got %+v", diagnostics)
-	}
+	require.Empty(t, diagnostics, "expected zero diagnostics for a script that only calls the ambient golc namespace, got %+v", diagnostics)
 }
 
 func TestCheckForbiddenModuleSyntaxDetectsImportHiddenInTemplateSubstitution(t *testing.T) {
 	source := "const evil = `${await import(\"./mod.ts\")}`;\n"
 	diagnostics := checkForbiddenModuleSyntax(source)
-	if len(diagnostics) == 0 {
-		t.Fatal("expected the gate to see a dynamic import hidden inside a template literal substitution")
-	}
+	require.NotEmpty(t, diagnostics, "expected the gate to see a dynamic import hidden inside a template literal substitution")
 }
 
 func TestCheckForbiddenModuleSyntaxDoesNotFlagIdentifiersContainingImport(t *testing.T) {
 	source := "const importantValue = 5;\nconst exportedLabel = \"x\";\n"
 	diagnostics := checkForbiddenModuleSyntax(source)
-	if len(diagnostics) != 0 {
-		t.Fatalf("expected zero diagnostics for identifiers merely containing the substrings, got %+v", diagnostics)
-	}
+	require.Empty(t, diagnostics, "expected zero diagnostics for identifiers merely containing the substrings, got %+v", diagnostics)
 }
 
 // --- Task 2: deno check type validation and shim-offset math -----------
@@ -103,13 +81,9 @@ func TestCheckForbiddenModuleSyntaxDoesNotFlagIdentifiersContainingImport(t *tes
 func TestBuildDenoCheckArgs(t *testing.T) {
 	got := buildDenoCheckArgs("/tmp/validate/script.ts")
 	want := []string{"check", "--no-remote", "/tmp/validate/script.ts"}
-	if len(got) != len(want) {
-		t.Fatalf("buildDenoCheckArgs = %v, want %v", got, want)
-	}
+	require.Len(t, got, len(want), "buildDenoCheckArgs = %v, want %v", got, want)
 	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("buildDenoCheckArgs = %v, want %v", got, want)
-		}
+		require.Equal(t, want[i], got[i], "buildDenoCheckArgs = %v, want %v", got, want)
 	}
 }
 
@@ -121,9 +95,7 @@ func TestBuildDenoCheckArgsHasNoAllowFlags(t *testing.T) {
 	args := buildDenoCheckArgs("/tmp/validate/script.ts")
 	for _, arg := range args {
 		for _, forbidden := range forbiddenDenoArgPrefixes {
-			if strings.HasPrefix(arg, forbidden) {
-				t.Fatalf("buildDenoCheckArgs produced forbidden argument %q (prefix %q)", arg, forbidden)
-			}
+			require.False(t, strings.HasPrefix(arg, forbidden), "buildDenoCheckArgs produced forbidden argument %q (prefix %q)", arg, forbidden)
 		}
 	}
 }
@@ -135,15 +107,9 @@ func TestShimLineOffsetForDerivedFromShimContent(t *testing.T) {
 	shortOffset := shimLineOffsetFor(shortShim)
 	longOffset := shimLineOffsetFor(longShim)
 
-	if shortOffset != 3 {
-		t.Fatalf("shimLineOffsetFor(shortShim) = %d, want 3", shortOffset)
-	}
-	if longOffset != 5 {
-		t.Fatalf("shimLineOffsetFor(longShim) = %d, want 5", longOffset)
-	}
-	if longOffset-shortOffset != 2 {
-		t.Fatalf("expected the offset to grow by exactly the shim's added line count (2), got a delta of %d", longOffset-shortOffset)
-	}
+	require.Equal(t, 3, shortOffset, "shimLineOffsetFor(shortShim) = %d, want 3", shortOffset)
+	require.Equal(t, 5, longOffset, "shimLineOffsetFor(longShim) = %d, want 5", longOffset)
+	require.Equal(t, 2, longOffset-shortOffset, "expected the offset to grow by exactly the shim's added line count (2), got a delta of %d", longOffset-shortOffset)
 }
 
 func TestParseDenoCheckDiagnosticsSubtractsShimOffset(t *testing.T) {
@@ -155,18 +121,10 @@ func TestParseDenoCheckDiagnosticsSubtractsShimOffset(t *testing.T) {
 	}, "\n")
 
 	diagnostics := parseDenoCheckDiagnostics(output, shimOffset)
-	if len(diagnostics) != 1 {
-		t.Fatalf("expected exactly one diagnostic, got %d: %+v", len(diagnostics), diagnostics)
-	}
-	if diagnostics[0].Line != 2 {
-		t.Fatalf("Line = %d, want 2 (raw line 5 minus shim offset 3)", diagnostics[0].Line)
-	}
-	if diagnostics[0].Column != 31 {
-		t.Fatalf("Column = %d, want 31", diagnostics[0].Column)
-	}
-	if diagnostics[0].Code != "GOLC_SCRIPT_TYPECHECK_FAILED" {
-		t.Fatalf("Code = %q, want GOLC_SCRIPT_TYPECHECK_FAILED", diagnostics[0].Code)
-	}
+	require.Len(t, diagnostics, 1, "expected exactly one diagnostic, got %d: %+v", len(diagnostics), diagnostics)
+	require.Equal(t, 2, diagnostics[0].Line, "Line = %d, want 2 (raw line 5 minus shim offset 3)", diagnostics[0].Line)
+	require.Equal(t, 31, diagnostics[0].Column, "Column = %d, want 31", diagnostics[0].Column)
+	require.Equal(t, "GOLC_SCRIPT_TYPECHECK_FAILED", diagnostics[0].Code, "Code = %q, want GOLC_SCRIPT_TYPECHECK_FAILED", diagnostics[0].Code)
 }
 
 func TestParseDenoCheckDiagnosticsFlagsPositionInsideShim(t *testing.T) {
@@ -177,15 +135,9 @@ func TestParseDenoCheckDiagnosticsFlagsPositionInsideShim(t *testing.T) {
 	}, "\n")
 
 	diagnostics := parseDenoCheckDiagnostics(output, shimOffset)
-	if len(diagnostics) != 1 {
-		t.Fatalf("expected exactly one diagnostic, got %d: %+v", len(diagnostics), diagnostics)
-	}
-	if diagnostics[0].Code != "GOLC_SCRIPT_SDK_SHIM_ERROR" {
-		t.Fatalf("Code = %q, want GOLC_SCRIPT_SDK_SHIM_ERROR", diagnostics[0].Code)
-	}
-	if diagnostics[0].Line != 2 {
-		t.Fatalf("expected the raw (materialized-file) line to be preserved for a shim-internal diagnostic, got %d", diagnostics[0].Line)
-	}
+	require.Len(t, diagnostics, 1, "expected exactly one diagnostic, got %d: %+v", len(diagnostics), diagnostics)
+	require.Equal(t, "GOLC_SCRIPT_SDK_SHIM_ERROR", diagnostics[0].Code, "Code = %q, want GOLC_SCRIPT_SDK_SHIM_ERROR", diagnostics[0].Code)
+	require.Equal(t, 2, diagnostics[0].Line, "expected the raw (materialized-file) line to be preserved for a shim-internal diagnostic, got %d", diagnostics[0].Line)
 }
 
 // TestParseDenoCheckDiagnosticsOffsetDerivedFromMaterializedFileNotHardcoded
@@ -206,15 +158,10 @@ func TestParseDenoCheckDiagnosticsOffsetDerivedFromMaterializedFileNotHardcoded(
 	shortResult := parseDenoCheckDiagnostics(output, shortShimOffset)
 	longResult := parseDenoCheckDiagnostics(output, longShimOffset)
 
-	if len(shortResult) != 1 || len(longResult) != 1 {
-		t.Fatalf("expected exactly one diagnostic each, got short=%+v long=%+v", shortResult, longResult)
-	}
-	if shortResult[0].Line == longResult[0].Line {
-		t.Fatalf("expected a longer shim to shift the reported user line, got the same line (%d) for both", shortResult[0].Line)
-	}
-	if shortResult[0].Line-longResult[0].Line != (longShimOffset - shortShimOffset) {
-		t.Fatalf("expected the line delta to equal exactly the shim-offset delta")
-	}
+	require.Len(t, shortResult, 1, "expected exactly one diagnostic each, got short=%+v long=%+v", shortResult, longResult)
+	require.Len(t, longResult, 1, "expected exactly one diagnostic each, got short=%+v long=%+v", shortResult, longResult)
+	require.NotEqual(t, longResult[0].Line, shortResult[0].Line, "expected a longer shim to shift the reported user line, got the same line (%d) for both", shortResult[0].Line)
+	require.Equal(t, longShimOffset-shortShimOffset, shortResult[0].Line-longResult[0].Line, "expected the line delta to equal exactly the shim-offset delta")
 }
 
 // TestValidateModuleGateNeverSpawnsSubprocess covers: "The gate runs
@@ -229,15 +176,10 @@ func TestValidateModuleGateNeverSpawnsSubprocess(t *testing.T) {
 	source := `import { evil } from "./mod.ts";`
 
 	result, err := Validate(context.Background(), root, show.Script{Name: "Bad", Source: source})
-	if err != nil {
-		t.Fatalf("Validate returned an error (implies it tried to resolve/spawn Deno): %v", err)
-	}
-	if result.Valid {
-		t.Fatal("expected Valid=false for a script with a forbidden import")
-	}
-	if len(result.Diagnostics) != 1 || result.Diagnostics[0].Code != "GOLC_SCRIPT_IMPORT_FORBIDDEN" {
-		t.Fatalf("expected exactly one GOLC_SCRIPT_IMPORT_FORBIDDEN diagnostic, got %+v", result.Diagnostics)
-	}
+	require.NoError(t, err, "Validate returned an error (implies it tried to resolve/spawn Deno): %v", err)
+	require.False(t, result.Valid, "expected Valid=false for a script with a forbidden import")
+	require.Len(t, result.Diagnostics, 1, "expected exactly one GOLC_SCRIPT_IMPORT_FORBIDDEN diagnostic, got %+v", result.Diagnostics)
+	require.Equal(t, "GOLC_SCRIPT_IMPORT_FORBIDDEN", result.Diagnostics[0].Code, "expected exactly one GOLC_SCRIPT_IMPORT_FORBIDDEN diagnostic, got %+v", result.Diagnostics)
 }
 
 // TestValidateSizeGateNeverSpawnsSubprocess is
@@ -247,15 +189,10 @@ func TestValidateSizeGateNeverSpawnsSubprocess(t *testing.T) {
 	oversized := strings.Repeat("x", maxScriptSourceBytes+1)
 
 	result, err := Validate(context.Background(), root, show.Script{Name: "Huge", Source: oversized})
-	if err != nil {
-		t.Fatalf("Validate returned an error (implies it tried to resolve/spawn Deno): %v", err)
-	}
-	if result.Valid {
-		t.Fatal("expected Valid=false for an oversized script")
-	}
-	if len(result.Diagnostics) != 1 || result.Diagnostics[0].Code != "GOLC_SCRIPT_SOURCE_TOO_LARGE" {
-		t.Fatalf("expected exactly one GOLC_SCRIPT_SOURCE_TOO_LARGE diagnostic, got %+v", result.Diagnostics)
-	}
+	require.NoError(t, err, "Validate returned an error (implies it tried to resolve/spawn Deno): %v", err)
+	require.False(t, result.Valid, "expected Valid=false for an oversized script")
+	require.Len(t, result.Diagnostics, 1, "expected exactly one GOLC_SCRIPT_SOURCE_TOO_LARGE diagnostic, got %+v", result.Diagnostics)
+	require.Equal(t, "GOLC_SCRIPT_SOURCE_TOO_LARGE", result.Diagnostics[0].Code, "expected exactly one GOLC_SCRIPT_SOURCE_TOO_LARGE diagnostic, got %+v", result.Diagnostics)
 }
 
 // --- real-Deno-gated tests (skip when .tools/toolchains/deno/ is not
@@ -266,12 +203,9 @@ func TestValidateCleanScriptReportsZeroDiagnostics(t *testing.T) {
 
 	source := `await golc.scene.activate({ name: "Alpha", show: "ignored" });`
 	result, err := Validate(context.Background(), root, show.Script{Name: "Clean", Source: source})
-	if err != nil {
-		t.Fatalf("Validate: %v", err)
-	}
-	if !result.Valid || len(result.Diagnostics) != 0 {
-		t.Fatalf("expected a clean, valid result, got %+v", result)
-	}
+	require.NoError(t, err, "Validate: %v", err)
+	require.True(t, result.Valid, "expected a clean, valid result, got %+v", result)
+	require.Empty(t, result.Diagnostics, "expected a clean, valid result, got %+v", result)
 }
 
 func TestValidateWrongFieldTypeReportsDiagnostic(t *testing.T) {
@@ -279,12 +213,9 @@ func TestValidateWrongFieldTypeReportsDiagnostic(t *testing.T) {
 
 	source := `await golc.scene.activate({ wrongField: 1 });`
 	result, err := Validate(context.Background(), root, show.Script{Name: "WrongField", Source: source})
-	if err != nil {
-		t.Fatalf("Validate: %v", err)
-	}
-	if result.Valid || len(result.Diagnostics) == 0 {
-		t.Fatalf("expected at least one type-error diagnostic, got %+v", result)
-	}
+	require.NoError(t, err, "Validate: %v", err)
+	require.False(t, result.Valid, "expected at least one type-error diagnostic, got %+v", result)
+	require.NotEmpty(t, result.Diagnostics, "expected at least one type-error diagnostic, got %+v", result)
 }
 
 func TestValidateUnknownMethodReportsDiagnostic(t *testing.T) {
@@ -292,10 +223,7 @@ func TestValidateUnknownMethodReportsDiagnostic(t *testing.T) {
 
 	source := `await golc.notAMethod();`
 	result, err := Validate(context.Background(), root, show.Script{Name: "UnknownMethod", Source: source})
-	if err != nil {
-		t.Fatalf("Validate: %v", err)
-	}
-	if result.Valid || len(result.Diagnostics) == 0 {
-		t.Fatalf("expected at least one type-error diagnostic proving the .d.ts is loaded, got %+v", result)
-	}
+	require.NoError(t, err, "Validate: %v", err)
+	require.False(t, result.Valid, "expected at least one type-error diagnostic proving the .d.ts is loaded, got %+v", result)
+	require.NotEmpty(t, result.Diagnostics, "expected at least one type-error diagnostic proving the .d.ts is loaded, got %+v", result)
 }

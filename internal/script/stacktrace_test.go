@@ -6,8 +6,9 @@
 package script
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TestParseStackTrace is the table-driven proof of every stacktrace.go
@@ -60,13 +61,9 @@ func TestParseStackTrace(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := parseStackTrace(tt.raw, tt.shimLineCount, scriptName)
-			if len(got) != len(tt.want) {
-				t.Fatalf("parseStackTrace() = %+v, want %+v", got, tt.want)
-			}
+			require.Len(t, got, len(tt.want), "parseStackTrace() = %+v, want %+v", got, tt.want)
 			for i := range tt.want {
-				if got[i] != tt.want[i] {
-					t.Fatalf("parseStackTrace()[%d] = %+v, want %+v", i, got[i], tt.want[i])
-				}
+				require.Equal(t, tt.want[i], got[i], "parseStackTrace()[%d] = %+v, want %+v", i, got[i], tt.want[i])
 			}
 		})
 	}
@@ -87,19 +84,13 @@ func TestParseStackTraceNeverLeaksTempPath(t *testing.T) {
 		"    at " + tempPath + ":2:1\n"
 
 	frames := parseStackTrace(raw, 10, scriptName)
-	if len(frames) == 0 {
-		t.Fatal("expected at least one parsed frame")
-	}
+	require.NotEmpty(t, frames, "expected at least one parsed frame")
 	for _, frame := range frames {
-		if strings.Contains(frame.File, tempDir) || strings.Contains(frame.Function, tempDir) {
-			t.Fatalf("frame leaked the temp directory path: %+v", frame)
-		}
-		if strings.Contains(frame.File, "golc-script-run-") || strings.Contains(frame.Function, "golc-script-run-") {
-			t.Fatalf("frame leaked a temp run directory name: %+v", frame)
-		}
-		if frame.File != scriptName {
-			t.Fatalf("frame.File = %q, want the script's user-facing name %q, not the temp path", frame.File, scriptName)
-		}
+		require.NotContains(t, frame.File, tempDir, "frame leaked the temp directory path: %+v", frame)
+		require.NotContains(t, frame.Function, tempDir, "frame leaked the temp directory path: %+v", frame)
+		require.NotContains(t, frame.File, "golc-script-run-", "frame leaked a temp run directory name: %+v", frame)
+		require.NotContains(t, frame.Function, "golc-script-run-", "frame leaked a temp run directory name: %+v", frame)
+		require.Equal(t, scriptName, frame.File, "frame.File = %q, want the script's user-facing name %q, not the temp path", frame.File, scriptName)
 	}
 }
 
@@ -118,9 +109,9 @@ func TestCorrectLine(t *testing.T) {
 	}
 	for _, tt := range tests {
 		userLine, inShim := correctLine(tt.rawLine, tt.shimLineCount)
-		if userLine != tt.wantUserLine || inShim != tt.wantInShim {
-			t.Fatalf("correctLine(%d, %d) = (%d, %v), want (%d, %v)",
-				tt.rawLine, tt.shimLineCount, userLine, inShim, tt.wantUserLine, tt.wantInShim)
-		}
+		require.Equal(t, tt.wantUserLine, userLine, "correctLine(%d, %d) = (%d, %v), want (%d, %v)",
+			tt.rawLine, tt.shimLineCount, userLine, inShim, tt.wantUserLine, tt.wantInShim)
+		require.Equal(t, tt.wantInShim, inShim, "correctLine(%d, %d) = (%d, %v), want (%d, %v)",
+			tt.rawLine, tt.shimLineCount, userLine, inShim, tt.wantUserLine, tt.wantInShim)
 	}
 }
