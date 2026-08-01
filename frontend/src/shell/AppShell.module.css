@@ -18,7 +18,7 @@
      ever, inline style always wins for resolving the variable, and the
      transition below animates its resolved value exactly like any other
      transitionable property. */
-  grid-template-columns: 186px minmax(0, 1fr) var(--inspector-width, 0px);
+  grid-template-columns: var(--rail-width, 186px) minmax(0, 1fr) var(--inspector-width, 0px);
   transition: grid-template-columns var(--motion-settle);
   /* SafetyCluster now lives inline in the 52px header (GlobalFrame.tsx,
      header-merge pass) instead of its own dedicated grid row -- D-13
@@ -47,6 +47,11 @@
 .rail {
   grid-area: rail;
   min-height: 0;
+  /* position:relative anchoring for the ResizeHandle overlay AppShell.tsx
+     places at this wrapper's own trailing edge (see ResizeHandle.module
+     .css's own doc comment on why an overlay handle beats a dedicated
+     grid track). */
+  position: relative;
 }
 
 /* main/inspector get a breathing gap below the header and above the
@@ -86,6 +91,9 @@
   margin-right: var(--space-md);
   width: 100%;
   overflow: hidden;
+  /* position:relative anchoring for the ResizeHandle overlay AppShell.tsx
+     places at this wrapper's own leading edge -- mirrors .rail above. */
+  position: relative;
 }
 
 /* Compact desktop widths: collapse the inspector column and let the rail
@@ -95,7 +103,11 @@
    nothing clips horizontally at the sketch's compact-desktop breakpoint. */
 @media (max-width: 1100px) {
   .appShell {
-    grid-template-columns: 160px minmax(0, 1fr) 0;
+    /* min(), not a flat 160px override: a rail the user dragged narrower
+       than 160px is still honored, only a wider one gets capped -- keeps
+       "the rail stays reachable at compact widths" without discarding a
+       deliberately-smaller resize choice. */
+    grid-template-columns: min(var(--rail-width, 186px), 160px) minmax(0, 1fr) 0;
   }
 
   .inspector {

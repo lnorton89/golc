@@ -6,7 +6,7 @@
 // layers), LookBrowser (published into the contextual inspector), and
 // BarTimelinePanel (bottom evaluation panel, absorbing PlaybackControls'
 // old Transport/Evaluate control). No ProgrammingService call changed.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { Layers, Zap } from "lucide-react";
 
 import {
@@ -49,6 +49,8 @@ import LayerRow, { LAYER_KINDS, type LayerKind } from "../../components/ScenePro
 import LookBrowser, { type PresetKind } from "../../components/SceneProgramming/LookBrowser";
 import BarTimelinePanel from "../../components/SceneProgramming/BarTimelinePanel";
 import { useInspectorSlot } from "../../shell/InspectorSlot";
+import { useResizablePanel } from "../../hooks/useResizablePanel";
+import ResizeHandle from "../../components/primitives/ResizeHandle/ResizeHandle";
 import styles from "./ScenesLooksWorkspace.module.css";
 
 /** looksForKind returns the reusable-look list a given layer kind's picker
@@ -75,6 +77,13 @@ export default function ScenesLooksWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [selectedSceneName, setSelectedSceneName] = useState<string | null>(null);
   const [presetLoading, setPresetLoading] = useState(false);
+  const sceneListPanel = useResizablePanel({
+    min: 160,
+    max: 400,
+    defaultSize: 205,
+    storageKey: "golc.sceneListWidth",
+    edge: "end",
+  });
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -363,15 +372,27 @@ export default function ScenesLooksWorkspace() {
         ) : (
           <>
             {error ? <p className={styles.errorText}>{error}</p> : null}
-            <div className={styles.layout}>
-              <SceneList
-                scenes={view.scenes}
-                selectedName={selectedSceneName}
-                onSelect={setSelectedSceneName}
-                onCreate={handleCreateScene}
-                onRename={(oldName, newName) => void handleRenameScene(oldName, newName)}
-                onDelete={(name) => void handleDeleteScene(name)}
-              />
+            <div
+              className={styles.layout}
+              style={{ "--scenelist-width": `${sceneListPanel.size}px` } as CSSProperties}
+            >
+              <div className={styles.sceneListColumn}>
+                <SceneList
+                  scenes={view.scenes}
+                  selectedName={selectedSceneName}
+                  onSelect={setSelectedSceneName}
+                  onCreate={handleCreateScene}
+                  onRename={(oldName, newName) => void handleRenameScene(oldName, newName)}
+                  onDelete={(name) => void handleDeleteScene(name)}
+                />
+                <ResizeHandle
+                  edge="end"
+                  label="Resize scene list"
+                  isResizing={sceneListPanel.isResizing}
+                  onPointerDown={sceneListPanel.handlePointerDown}
+                  onDoubleClick={sceneListPanel.resetSize}
+                />
+              </div>
 
               <div className={styles.mainColumn}>
                 {selectedScene ? (
