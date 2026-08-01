@@ -14,7 +14,6 @@ package command_test
 
 import (
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -23,6 +22,7 @@ import (
 	"github.com/lnorton89/golc/internal/programming"
 	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/show"
+	"github.com/stretchr/testify/require"
 )
 
 func findThemeByID(themes []programming.Theme, id uuid.UUID) (programming.Theme, bool) {
@@ -72,22 +72,14 @@ func seedHistoryShowState(t *testing.T, root, showPath string) show.State {
 	t.Helper()
 
 	sunset, err := programming.NewTheme("Sunset")
-	if err != nil {
-		t.Fatalf("NewTheme(Sunset): %v", err)
-	}
+	require.NoError(t, err)
 	ocean, err := programming.NewTheme("Ocean")
-	if err != nil {
-		t.Fatalf("NewTheme(Ocean): %v", err)
-	}
+	require.NoError(t, err)
 
 	fullWash, err := programming.NewPreset("Full Wash", programming.PresetIntensity)
-	if err != nil {
-		t.Fatalf("NewPreset(Full Wash): %v", err)
-	}
+	require.NoError(t, err)
 	house, err := programming.NewPreset("House", programming.PresetIntensity)
-	if err != nil {
-		t.Fatalf("NewPreset(House): %v", err)
-	}
+	require.NoError(t, err)
 
 	// Steps are tagged with a distinguishing Attributes[0].Value equal to
 	// their original index (0, 1, 2) so a later "chase reorder" can be
@@ -98,27 +90,17 @@ func seedHistoryShowState(t *testing.T, root, showPath string) show.State {
 		{Attributes: []programming.PresetAttribute{{Capability: "intensity", Value: 2}}},
 	}
 	sweep, err := programming.NewChase("Sweep", steps, programming.StepUnitBar, 1)
-	if err != nil {
-		t.Fatalf("NewChase(Sweep): %v", err)
-	}
+	require.NoError(t, err)
 
 	arc, err := programming.NewMotionPreset("Arc", nil)
-	if err != nil {
-		t.Fatalf("NewMotionPreset(Arc): %v", err)
-	}
+	require.NoError(t, err)
 	fade, err := programming.NewMotionPreset("Fade", nil)
-	if err != nil {
-		t.Fatalf("NewMotionPreset(Fade): %v", err)
-	}
+	require.NoError(t, err)
 
 	primary, err := scene.NewScene("Primary", 4)
-	if err != nil {
-		t.Fatalf("NewScene(Primary): %v", err)
-	}
+	require.NoError(t, err)
 	secondary, err := scene.NewScene("Secondary", 8)
-	if err != nil {
-		t.Fatalf("NewScene(Secondary): %v", err)
-	}
+	require.NoError(t, err)
 
 	state := show.State{
 		Themes:        []programming.Theme{sunset, ocean},
@@ -128,21 +110,17 @@ func seedHistoryShowState(t *testing.T, root, showPath string) show.State {
 		Scenes:        []scene.Scene{primary, secondary},
 	}
 	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("show.Save (seed): %v", err)
+		require.NoError(t, err)
 	}
 	reloaded, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load (seed reload): %v", err)
-	}
+	require.NoError(t, err)
 	return reloaded
 }
 
 func TestHistoryRoutes(t *testing.T) {
 	root := t.TempDir()
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err)
 	showPath := filepath.Join(t.TempDir(), "show.json")
 	seeded := seedHistoryShowState(t, root, showPath)
 	themeSunsetID := seeded.Themes[0].ID
@@ -155,300 +133,218 @@ func TestHistoryRoutes(t *testing.T) {
 	dupTheme := registry.Execute(command.Request{Root: root, Args: []string{
 		"theme", "rename", "Sunset", "Ocean", "--show", showPath,
 	}})
-	if dupTheme.ExitCode == 0 || !strings.Contains(string(dupTheme.Stderr), "GOLC_THEME_DUPLICATE_NAME") {
-		t.Fatalf("expected GOLC_THEME_DUPLICATE_NAME renaming Sunset->Ocean (existing name), got exit=%d stderr=%s", dupTheme.ExitCode, dupTheme.Stderr)
-	}
+	require.NotEqual(t, 0, dupTheme.ExitCode)
+	require.Contains(t, string(dupTheme.Stderr), "GOLC_THEME_DUPLICATE_NAME", "expected GOLC_THEME_DUPLICATE_NAME renaming Sunset->Ocean (existing name), got exit=%d stderr=%s", dupTheme.ExitCode, dupTheme.Stderr)
 
 	themeRename := registry.Execute(command.Request{Root: root, Args: []string{
 		"theme", "rename", "Sunset", "Sunrise", "--show", showPath,
 	}})
-	if themeRename.ExitCode != 0 {
-		t.Fatalf("theme rename failed: exit=%d stderr=%s", themeRename.ExitCode, themeRename.Stderr)
-	}
+	require.Equal(t, 0, themeRename.ExitCode, "theme rename failed: exit=%d stderr=%s", themeRename.ExitCode, themeRename.Stderr)
 	afterThemeRename, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load after theme rename: %v", err)
-	}
+	require.NoError(t, err)
 	renamedTheme, found := findThemeByID(afterThemeRename.Themes, themeSunsetID)
-	if !found || renamedTheme.Name != "Sunrise" {
-		t.Fatalf("expected theme %s renamed to Sunrise with ID preserved, got %+v", themeSunsetID, afterThemeRename.Themes)
-	}
+	require.True(t, found)
+	require.Equal(t, "Sunrise", renamedTheme.Name, "expected theme %s renamed to Sunrise with ID preserved, got %+v", themeSunsetID, afterThemeRename.Themes)
 
 	themeRenameNotFound := registry.Execute(command.Request{Root: root, Args: []string{
 		"theme", "rename", "NoSuchTheme", "Whatever", "--show", showPath,
 	}})
-	if themeRenameNotFound.ExitCode == 0 || !strings.Contains(string(themeRenameNotFound.Stderr), "GOLC_THEME_NOT_FOUND") {
-		t.Fatalf("expected GOLC_THEME_NOT_FOUND, got exit=%d stderr=%s", themeRenameNotFound.ExitCode, themeRenameNotFound.Stderr)
-	}
+	require.NotEqual(t, 0, themeRenameNotFound.ExitCode)
+	require.Contains(t, string(themeRenameNotFound.Stderr), "GOLC_THEME_NOT_FOUND", "expected GOLC_THEME_NOT_FOUND, got exit=%d stderr=%s", themeRenameNotFound.ExitCode, themeRenameNotFound.Stderr)
 
 	// --- theme delete: not-found, success ---
 	themeDeleteNotFound := registry.Execute(command.Request{Root: root, Args: []string{
 		"theme", "delete", "NoSuchTheme", "--show", showPath,
 	}})
-	if themeDeleteNotFound.ExitCode == 0 || !strings.Contains(string(themeDeleteNotFound.Stderr), "GOLC_THEME_NOT_FOUND") {
-		t.Fatalf("expected GOLC_THEME_NOT_FOUND, got exit=%d stderr=%s", themeDeleteNotFound.ExitCode, themeDeleteNotFound.Stderr)
-	}
+	require.NotEqual(t, 0, themeDeleteNotFound.ExitCode)
+	require.Contains(t, string(themeDeleteNotFound.Stderr), "GOLC_THEME_NOT_FOUND", "expected GOLC_THEME_NOT_FOUND, got exit=%d stderr=%s", themeDeleteNotFound.ExitCode, themeDeleteNotFound.Stderr)
 	themeDelete := registry.Execute(command.Request{Root: root, Args: []string{
 		"theme", "delete", "Sunrise", "--show", showPath,
 	}})
-	if themeDelete.ExitCode != 0 {
-		t.Fatalf("theme delete failed: exit=%d stderr=%s", themeDelete.ExitCode, themeDelete.Stderr)
-	}
+	require.Equal(t, 0, themeDelete.ExitCode, "theme delete failed: exit=%d stderr=%s", themeDelete.ExitCode, themeDelete.Stderr)
 	afterThemeDelete, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load after theme delete: %v", err)
-	}
-	if len(afterThemeDelete.Themes) != 1 || afterThemeDelete.Themes[0].Name != "Ocean" {
-		t.Fatalf("expected exactly Ocean to remain after deleting Sunrise, got %+v", afterThemeDelete.Themes)
-	}
+	require.NoError(t, err)
+	require.Len(t, afterThemeDelete.Themes, 1)
+	require.Equal(t, "Ocean", afterThemeDelete.Themes[0].Name, "expected exactly Ocean to remain after deleting Sunrise, got %+v", afterThemeDelete.Themes)
 
 	// --- preset rename: duplicate-name rejection, success (ID-stable) ---
 	presetDup := registry.Execute(command.Request{Root: root, Args: []string{
 		"preset", "rename", "Full Wash", "House", "--show", showPath,
 	}})
-	if presetDup.ExitCode == 0 || !strings.Contains(string(presetDup.Stderr), "GOLC_PRESET_DUPLICATE_NAME") {
-		t.Fatalf("expected GOLC_PRESET_DUPLICATE_NAME, got exit=%d stderr=%s", presetDup.ExitCode, presetDup.Stderr)
-	}
+	require.NotEqual(t, 0, presetDup.ExitCode)
+	require.Contains(t, string(presetDup.Stderr), "GOLC_PRESET_DUPLICATE_NAME", "expected GOLC_PRESET_DUPLICATE_NAME, got exit=%d stderr=%s", presetDup.ExitCode, presetDup.Stderr)
 	presetRename := registry.Execute(command.Request{Root: root, Args: []string{
 		"preset", "rename", "Full Wash", "Warm Wash", "--show", showPath,
 	}})
-	if presetRename.ExitCode != 0 {
-		t.Fatalf("preset rename failed: exit=%d stderr=%s", presetRename.ExitCode, presetRename.Stderr)
-	}
+	require.Equal(t, 0, presetRename.ExitCode, "preset rename failed: exit=%d stderr=%s", presetRename.ExitCode, presetRename.Stderr)
 	afterPresetRename, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load after preset rename: %v", err)
-	}
+	require.NoError(t, err)
 	renamedPreset, found := findPresetByID(afterPresetRename.Presets, presetFullWashID)
-	if !found || renamedPreset.Name != "Warm Wash" {
-		t.Fatalf("expected preset %s renamed to Warm Wash with ID preserved, got %+v", presetFullWashID, afterPresetRename.Presets)
-	}
+	require.True(t, found)
+	require.Equal(t, "Warm Wash", renamedPreset.Name, "expected preset %s renamed to Warm Wash with ID preserved, got %+v", presetFullWashID, afterPresetRename.Presets)
 
 	// --- preset delete: not-found, success ---
 	presetDeleteNotFound := registry.Execute(command.Request{Root: root, Args: []string{
 		"preset", "delete", "NoSuchPreset", "--show", showPath,
 	}})
-	if presetDeleteNotFound.ExitCode == 0 || !strings.Contains(string(presetDeleteNotFound.Stderr), "GOLC_PRESET_NOT_FOUND") {
-		t.Fatalf("expected GOLC_PRESET_NOT_FOUND, got exit=%d stderr=%s", presetDeleteNotFound.ExitCode, presetDeleteNotFound.Stderr)
-	}
+	require.NotEqual(t, 0, presetDeleteNotFound.ExitCode)
+	require.Contains(t, string(presetDeleteNotFound.Stderr), "GOLC_PRESET_NOT_FOUND", "expected GOLC_PRESET_NOT_FOUND, got exit=%d stderr=%s", presetDeleteNotFound.ExitCode, presetDeleteNotFound.Stderr)
 	presetDelete := registry.Execute(command.Request{Root: root, Args: []string{
 		"preset", "delete", "Warm Wash", "--show", showPath,
 	}})
-	if presetDelete.ExitCode != 0 {
-		t.Fatalf("preset delete failed: exit=%d stderr=%s", presetDelete.ExitCode, presetDelete.Stderr)
-	}
+	require.Equal(t, 0, presetDelete.ExitCode, "preset delete failed: exit=%d stderr=%s", presetDelete.ExitCode, presetDelete.Stderr)
 
 	// --- chase update: usage rejection (no fields), success (rename+step-duration, ID-stable) ---
 	chaseUpdateMissingFields := registry.Execute(command.Request{Root: root, Args: []string{
 		"chase", "update", "Sweep", "--show", showPath,
 	}})
-	if chaseUpdateMissingFields.ExitCode != 2 || !strings.Contains(string(chaseUpdateMissingFields.Stderr), "GOLC_CHASE_USAGE") {
-		t.Fatalf("expected exit 2 GOLC_CHASE_USAGE for chase update with no fields, got exit=%d stderr=%s", chaseUpdateMissingFields.ExitCode, chaseUpdateMissingFields.Stderr)
-	}
+	require.Equal(t, 2, chaseUpdateMissingFields.ExitCode)
+	require.Contains(t, string(chaseUpdateMissingFields.Stderr), "GOLC_CHASE_USAGE", "expected exit 2 GOLC_CHASE_USAGE for chase update with no fields, got exit=%d stderr=%s", chaseUpdateMissingFields.ExitCode, chaseUpdateMissingFields.Stderr)
 	chaseUpdate := registry.Execute(command.Request{Root: root, Args: []string{
 		"chase", "update", "Sweep", "--name", "Sweep2", "--step-duration", "2", "--show", showPath,
 	}})
-	if chaseUpdate.ExitCode != 0 {
-		t.Fatalf("chase update failed: exit=%d stderr=%s", chaseUpdate.ExitCode, chaseUpdate.Stderr)
-	}
+	require.Equal(t, 0, chaseUpdate.ExitCode, "chase update failed: exit=%d stderr=%s", chaseUpdate.ExitCode, chaseUpdate.Stderr)
 	afterChaseUpdate, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load after chase update: %v", err)
-	}
+	require.NoError(t, err)
 	updatedChase, found := findChaseByID(afterChaseUpdate.Chases, chaseSweepID)
-	if !found || updatedChase.Name != "Sweep2" || updatedChase.StepDuration != 2 {
-		t.Fatalf("expected chase %s renamed to Sweep2 with step-duration 2, ID preserved, got %+v", chaseSweepID, afterChaseUpdate.Chases)
-	}
+	require.True(t, found)
+	require.Equal(t, "Sweep2", updatedChase.Name)
+	require.EqualValues(t, 2, updatedChase.StepDuration, "expected chase %s renamed to Sweep2 with step-duration 2, ID preserved, got %+v", chaseSweepID, afterChaseUpdate.Chases)
 
 	// --- chase reorder: non-permutation rejection, deterministic success ---
 	chaseReorderNonPermutation := registry.Execute(command.Request{Root: root, Args: []string{
 		"chase", "reorder", "Sweep2", "--order", "0,0,1", "--show", showPath,
 	}})
-	if chaseReorderNonPermutation.ExitCode != 2 || !strings.Contains(string(chaseReorderNonPermutation.Stderr), "GOLC_CHASE_USAGE") {
-		t.Fatalf("expected exit 2 GOLC_CHASE_USAGE for a non-permutation --order, got exit=%d stderr=%s", chaseReorderNonPermutation.ExitCode, chaseReorderNonPermutation.Stderr)
-	}
+	require.Equal(t, 2, chaseReorderNonPermutation.ExitCode)
+	require.Contains(t, string(chaseReorderNonPermutation.Stderr), "GOLC_CHASE_USAGE", "expected exit 2 GOLC_CHASE_USAGE for a non-permutation --order, got exit=%d stderr=%s", chaseReorderNonPermutation.ExitCode, chaseReorderNonPermutation.Stderr)
 	chaseReorder := registry.Execute(command.Request{Root: root, Args: []string{
 		"chase", "reorder", "Sweep2", "--order", "2,0,1", "--show", showPath,
 	}})
-	if chaseReorder.ExitCode != 0 {
-		t.Fatalf("chase reorder failed: exit=%d stderr=%s", chaseReorder.ExitCode, chaseReorder.Stderr)
-	}
+	require.Equal(t, 0, chaseReorder.ExitCode, "chase reorder failed: exit=%d stderr=%s", chaseReorder.ExitCode, chaseReorder.Stderr)
 	afterReorder, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load after chase reorder: %v", err)
-	}
+	require.NoError(t, err)
 	reorderedChase, found := findChaseByID(afterReorder.Chases, chaseSweepID)
-	if !found {
-		t.Fatalf("expected chase %s to still exist after reorder", chaseSweepID)
-	}
+	require.True(t, found, "expected chase %s to still exist after reorder", chaseSweepID)
 	if len(reorderedChase.Steps) != 3 ||
 		reorderedChase.Steps[0].Attributes[0].Value != 2 ||
 		reorderedChase.Steps[1].Attributes[0].Value != 0 ||
 		reorderedChase.Steps[2].Attributes[0].Value != 1 {
-		t.Fatalf("expected steps permuted to original-index order [2,0,1], got %+v", reorderedChase.Steps)
+		require.Len(t, reorderedChase.Steps, 3)
+		require.Equal(t, 2, reorderedChase.Steps[0].Attributes[0].Value)
+		require.Equal(t, 0, reorderedChase.Steps[1].Attributes[0].Value)
+		require.Equal(t, 1, reorderedChase.Steps[2].Attributes[0].Value, "expected steps permuted to original-index order [2,0,1], got %+v", reorderedChase.Steps)
 	}
 
 	// --- chase duplicate: fresh ID, copied steps ---
 	chaseDuplicate := registry.Execute(command.Request{Root: root, Args: []string{
 		"chase", "duplicate", "Sweep2", "Sweep3", "--show", showPath,
 	}})
-	if chaseDuplicate.ExitCode != 0 {
-		t.Fatalf("chase duplicate failed: exit=%d stderr=%s", chaseDuplicate.ExitCode, chaseDuplicate.Stderr)
-	}
+	require.Equal(t, 0, chaseDuplicate.ExitCode, "chase duplicate failed: exit=%d stderr=%s", chaseDuplicate.ExitCode, chaseDuplicate.Stderr)
 	afterChaseDuplicate, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load after chase duplicate: %v", err)
-	}
+	require.NoError(t, err)
 	var duplicatedChase *programming.Chase
 	for i := range afterChaseDuplicate.Chases {
 		if afterChaseDuplicate.Chases[i].Name == "Sweep3" {
 			duplicatedChase = &afterChaseDuplicate.Chases[i]
 		}
 	}
-	if duplicatedChase == nil {
-		t.Fatalf("expected a duplicated chase named Sweep3, got %+v", afterChaseDuplicate.Chases)
-	}
-	if duplicatedChase.ID == chaseSweepID {
-		t.Fatalf("expected the duplicated chase to mint a fresh ID distinct from the source")
-	}
-	if len(duplicatedChase.Steps) != 3 {
-		t.Fatalf("expected the duplicated chase to copy all 3 steps, got %+v", duplicatedChase.Steps)
-	}
+	require.NotNil(t, duplicatedChase, "expected a duplicated chase named Sweep3, got %+v", afterChaseDuplicate.Chases)
+	require.NotEqual(t, chaseSweepID, duplicatedChase.ID, "expected the duplicated chase to mint a fresh ID distinct from the source")
+	require.Len(t, duplicatedChase.Steps, 3, "expected the duplicated chase to copy all 3 steps, got %+v", duplicatedChase.Steps)
 
 	// --- chase delete: not-found, success ---
 	chaseDeleteNotFound := registry.Execute(command.Request{Root: root, Args: []string{
 		"chase", "delete", "NoSuchChase", "--show", showPath,
 	}})
-	if chaseDeleteNotFound.ExitCode == 0 || !strings.Contains(string(chaseDeleteNotFound.Stderr), "GOLC_CHASE_NOT_FOUND") {
-		t.Fatalf("expected GOLC_CHASE_NOT_FOUND, got exit=%d stderr=%s", chaseDeleteNotFound.ExitCode, chaseDeleteNotFound.Stderr)
-	}
+	require.NotEqual(t, 0, chaseDeleteNotFound.ExitCode)
+	require.Contains(t, string(chaseDeleteNotFound.Stderr), "GOLC_CHASE_NOT_FOUND", "expected GOLC_CHASE_NOT_FOUND, got exit=%d stderr=%s", chaseDeleteNotFound.ExitCode, chaseDeleteNotFound.Stderr)
 	chaseDelete := registry.Execute(command.Request{Root: root, Args: []string{
 		"chase", "delete", "Sweep3", "--show", showPath,
 	}})
-	if chaseDelete.ExitCode != 0 {
-		t.Fatalf("chase delete failed: exit=%d stderr=%s", chaseDelete.ExitCode, chaseDelete.Stderr)
-	}
+	require.Equal(t, 0, chaseDelete.ExitCode, "chase delete failed: exit=%d stderr=%s", chaseDelete.ExitCode, chaseDelete.Stderr)
 
 	// --- motion rename: duplicate-name rejection, success (ID-stable) ---
 	motionDup := registry.Execute(command.Request{Root: root, Args: []string{
 		"motion", "rename", "Arc", "Fade", "--show", showPath,
 	}})
-	if motionDup.ExitCode == 0 || !strings.Contains(string(motionDup.Stderr), "GOLC_MOTION_PRESET_DUPLICATE_NAME") {
-		t.Fatalf("expected GOLC_MOTION_PRESET_DUPLICATE_NAME, got exit=%d stderr=%s", motionDup.ExitCode, motionDup.Stderr)
-	}
+	require.NotEqual(t, 0, motionDup.ExitCode)
+	require.Contains(t, string(motionDup.Stderr), "GOLC_MOTION_PRESET_DUPLICATE_NAME", "expected GOLC_MOTION_PRESET_DUPLICATE_NAME, got exit=%d stderr=%s", motionDup.ExitCode, motionDup.Stderr)
 	motionRename := registry.Execute(command.Request{Root: root, Args: []string{
 		"motion", "rename", "Arc", "Sweep Motion", "--show", showPath,
 	}})
-	if motionRename.ExitCode != 0 {
-		t.Fatalf("motion rename failed: exit=%d stderr=%s", motionRename.ExitCode, motionRename.Stderr)
-	}
+	require.Equal(t, 0, motionRename.ExitCode, "motion rename failed: exit=%d stderr=%s", motionRename.ExitCode, motionRename.Stderr)
 	afterMotionRename, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load after motion rename: %v", err)
-	}
+	require.NoError(t, err)
 	renamedMotion, found := findMotionByID(afterMotionRename.MotionPresets, motionArcID)
-	if !found || renamedMotion.Name != "Sweep Motion" {
-		t.Fatalf("expected motion preset %s renamed to 'Sweep Motion' with ID preserved, got %+v", motionArcID, afterMotionRename.MotionPresets)
-	}
+	require.True(t, found)
+	require.Equal(t, "Sweep Motion", renamedMotion.Name, "expected motion preset %s renamed to 'Sweep Motion' with ID preserved, got %+v", motionArcID, afterMotionRename.MotionPresets)
 
 	// --- motion duplicate: fresh ID ---
 	motionDuplicate := registry.Execute(command.Request{Root: root, Args: []string{
 		"motion", "duplicate", "Sweep Motion", "Sweep Motion Copy", "--show", showPath,
 	}})
-	if motionDuplicate.ExitCode != 0 {
-		t.Fatalf("motion duplicate failed: exit=%d stderr=%s", motionDuplicate.ExitCode, motionDuplicate.Stderr)
-	}
+	require.Equal(t, 0, motionDuplicate.ExitCode, "motion duplicate failed: exit=%d stderr=%s", motionDuplicate.ExitCode, motionDuplicate.Stderr)
 	afterMotionDuplicate, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load after motion duplicate: %v", err)
-	}
+	require.NoError(t, err)
 	var duplicatedMotion *programming.MotionPreset
 	for i := range afterMotionDuplicate.MotionPresets {
 		if afterMotionDuplicate.MotionPresets[i].Name == "Sweep Motion Copy" {
 			duplicatedMotion = &afterMotionDuplicate.MotionPresets[i]
 		}
 	}
-	if duplicatedMotion == nil {
-		t.Fatalf("expected a duplicated motion preset named 'Sweep Motion Copy', got %+v", afterMotionDuplicate.MotionPresets)
-	}
-	if duplicatedMotion.ID == motionArcID {
-		t.Fatalf("expected the duplicated motion preset to mint a fresh ID distinct from the source")
-	}
+	require.NotNil(t, duplicatedMotion, "expected a duplicated motion preset named 'Sweep Motion Copy', got %+v", afterMotionDuplicate.MotionPresets)
+	require.NotEqual(t, motionArcID, duplicatedMotion.ID, "expected the duplicated motion preset to mint a fresh ID distinct from the source")
 
 	// --- motion delete: not-found, success ---
 	motionDeleteNotFound := registry.Execute(command.Request{Root: root, Args: []string{
 		"motion", "delete", "NoSuchMotion", "--show", showPath,
 	}})
-	if motionDeleteNotFound.ExitCode == 0 || !strings.Contains(string(motionDeleteNotFound.Stderr), "GOLC_MOTION_PRESET_NOT_FOUND") {
-		t.Fatalf("expected GOLC_MOTION_PRESET_NOT_FOUND, got exit=%d stderr=%s", motionDeleteNotFound.ExitCode, motionDeleteNotFound.Stderr)
-	}
+	require.NotEqual(t, 0, motionDeleteNotFound.ExitCode)
+	require.Contains(t, string(motionDeleteNotFound.Stderr), "GOLC_MOTION_PRESET_NOT_FOUND", "expected GOLC_MOTION_PRESET_NOT_FOUND, got exit=%d stderr=%s", motionDeleteNotFound.ExitCode, motionDeleteNotFound.Stderr)
 	motionDelete := registry.Execute(command.Request{Root: root, Args: []string{
 		"motion", "delete", "Sweep Motion Copy", "--show", showPath,
 	}})
-	if motionDelete.ExitCode != 0 {
-		t.Fatalf("motion delete failed: exit=%d stderr=%s", motionDelete.ExitCode, motionDelete.Stderr)
-	}
+	require.Equal(t, 0, motionDelete.ExitCode, "motion delete failed: exit=%d stderr=%s", motionDelete.ExitCode, motionDelete.Stderr)
 
 	// --- scene rename: duplicate-name rejection, success (ID-stable) ---
 	sceneDup := registry.Execute(command.Request{Root: root, Args: []string{
 		"scene", "rename", "Primary", "Secondary", "--show", showPath,
 	}})
-	if sceneDup.ExitCode == 0 || !strings.Contains(string(sceneDup.Stderr), "GOLC_SCENE_DUPLICATE_NAME") {
-		t.Fatalf("expected GOLC_SCENE_DUPLICATE_NAME, got exit=%d stderr=%s", sceneDup.ExitCode, sceneDup.Stderr)
-	}
+	require.NotEqual(t, 0, sceneDup.ExitCode)
+	require.Contains(t, string(sceneDup.Stderr), "GOLC_SCENE_DUPLICATE_NAME", "expected GOLC_SCENE_DUPLICATE_NAME, got exit=%d stderr=%s", sceneDup.ExitCode, sceneDup.Stderr)
 	sceneRename := registry.Execute(command.Request{Root: root, Args: []string{
 		"scene", "rename", "Primary", "Main Stage", "--show", showPath,
 	}})
-	if sceneRename.ExitCode != 0 {
-		t.Fatalf("scene rename failed: exit=%d stderr=%s", sceneRename.ExitCode, sceneRename.Stderr)
-	}
+	require.Equal(t, 0, sceneRename.ExitCode, "scene rename failed: exit=%d stderr=%s", sceneRename.ExitCode, sceneRename.Stderr)
 	afterSceneRename, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load after scene rename: %v", err)
-	}
+	require.NoError(t, err)
 	renamedScene, found := findSceneByName(afterSceneRename.Scenes, "Main Stage")
-	if !found || renamedScene.ID != scenePrimaryID {
-		t.Fatalf("expected scene %s renamed to 'Main Stage' with ID preserved, got %+v", scenePrimaryID, afterSceneRename.Scenes)
-	}
+	require.True(t, found)
+	require.Equal(t, scenePrimaryID, renamedScene.ID, "expected scene %s renamed to 'Main Stage' with ID preserved, got %+v", scenePrimaryID, afterSceneRename.Scenes)
 
 	// --- scene duplicate: fresh ID, forced-inactive ---
 	sceneDuplicate := registry.Execute(command.Request{Root: root, Args: []string{
 		"scene", "duplicate", "Main Stage", "Main Stage Copy", "--show", showPath,
 	}})
-	if sceneDuplicate.ExitCode != 0 {
-		t.Fatalf("scene duplicate failed: exit=%d stderr=%s", sceneDuplicate.ExitCode, sceneDuplicate.Stderr)
-	}
+	require.Equal(t, 0, sceneDuplicate.ExitCode, "scene duplicate failed: exit=%d stderr=%s", sceneDuplicate.ExitCode, sceneDuplicate.Stderr)
 	afterSceneDuplicate, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load after scene duplicate: %v", err)
-	}
+	require.NoError(t, err)
 	duplicatedScene, found := findSceneByName(afterSceneDuplicate.Scenes, "Main Stage Copy")
-	if !found {
-		t.Fatalf("expected a duplicated scene named 'Main Stage Copy', got %+v", afterSceneDuplicate.Scenes)
-	}
-	if duplicatedScene.ID == scenePrimaryID {
-		t.Fatalf("expected the duplicated scene to mint a fresh ID distinct from the source")
-	}
-	if duplicatedScene.BarsPerLoop != 4 {
-		t.Fatalf("expected the duplicated scene to copy BarsPerLoop=4, got %d", duplicatedScene.BarsPerLoop)
-	}
-	if duplicatedScene.Active {
-		t.Fatalf("expected the duplicated scene to start inactive regardless of the source's Active state")
-	}
+	require.True(t, found, "expected a duplicated scene named 'Main Stage Copy', got %+v", afterSceneDuplicate.Scenes)
+	require.NotEqual(t, scenePrimaryID, duplicatedScene.ID, "expected the duplicated scene to mint a fresh ID distinct from the source")
+	require.Equal(t, 4, duplicatedScene.BarsPerLoop, "expected the duplicated scene to copy BarsPerLoop=4, got %d", duplicatedScene.BarsPerLoop)
+	require.False(t, duplicatedScene.Active, "expected the duplicated scene to start inactive regardless of the source's Active state")
 
 	// --- scene delete: not-found, success ---
 	sceneDeleteNotFound := registry.Execute(command.Request{Root: root, Args: []string{
 		"scene", "delete", "NoSuchScene", "--show", showPath,
 	}})
-	if sceneDeleteNotFound.ExitCode == 0 || !strings.Contains(string(sceneDeleteNotFound.Stderr), "GOLC_SCENE_NOT_FOUND") {
-		t.Fatalf("expected GOLC_SCENE_NOT_FOUND, got exit=%d stderr=%s", sceneDeleteNotFound.ExitCode, sceneDeleteNotFound.Stderr)
-	}
+	require.NotEqual(t, 0, sceneDeleteNotFound.ExitCode)
+	require.Contains(t, string(sceneDeleteNotFound.Stderr), "GOLC_SCENE_NOT_FOUND", "expected GOLC_SCENE_NOT_FOUND, got exit=%d stderr=%s", sceneDeleteNotFound.ExitCode, sceneDeleteNotFound.Stderr)
 	sceneDelete := registry.Execute(command.Request{Root: root, Args: []string{
 		"scene", "delete", "Main Stage Copy", "--show", showPath,
 	}})
-	if sceneDelete.ExitCode != 0 {
-		t.Fatalf("scene delete failed: exit=%d stderr=%s", sceneDelete.ExitCode, sceneDelete.Stderr)
-	}
+	require.Equal(t, 0, sceneDelete.ExitCode, "scene delete failed: exit=%d stderr=%s", sceneDelete.ExitCode, sceneDelete.Stderr)
 }
 
 // TestHistoryLiveActiveEdit proves CONTEXT D-08: any CRUD verb succeeds
@@ -459,50 +355,32 @@ func TestHistoryRoutes(t *testing.T) {
 func TestHistoryLiveActiveEdit(t *testing.T) {
 	root := t.TempDir()
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err)
 	showPath := filepath.Join(t.TempDir(), "show.json")
 
 	theme, err := programming.NewTheme("Warm")
-	if err != nil {
-		t.Fatalf("NewTheme: %v", err)
-	}
+	require.NoError(t, err)
 	chase, err := programming.NewChase("Live Sweep", []programming.ChaseStep{
 		{Attributes: []programming.PresetAttribute{{Capability: "intensity", Value: 0}}},
 		{Attributes: []programming.PresetAttribute{{Capability: "intensity", Value: 1}}},
 	}, programming.StepUnitBar, 1)
-	if err != nil {
-		t.Fatalf("NewChase: %v", err)
-	}
+	require.NoError(t, err)
 	motion, err := programming.NewMotionPreset("Live Arc", nil)
-	if err != nil {
-		t.Fatalf("NewMotionPreset: %v", err)
-	}
+	require.NoError(t, err)
 	// "Spare" is deliberately NOT referenced by any scene layer below --
 	// see the delete sub-test's comment for why deleting an unreferenced
 	// object (rather than a referenced one) is the correct probe for D-08.
 	spare, err := programming.NewPreset("Spare", programming.PresetIntensity)
-	if err != nil {
-		t.Fatalf("NewPreset(Spare): %v", err)
-	}
+	require.NoError(t, err)
 
 	main, err := scene.NewScene("Main", 4)
-	if err != nil {
-		t.Fatalf("NewScene(Main): %v", err)
-	}
+	require.NoError(t, err)
 	main, err = scene.SetLayer(main, scene.Layer{Kind: scene.ColorTheme, Enabled: true, Ref: theme.ID})
-	if err != nil {
-		t.Fatalf("SetLayer(ColorTheme): %v", err)
-	}
+	require.NoError(t, err)
 	main, err = scene.SetLayer(main, scene.Layer{Kind: scene.Chase, Enabled: true, Ref: chase.ID})
-	if err != nil {
-		t.Fatalf("SetLayer(Chase): %v", err)
-	}
+	require.NoError(t, err)
 	main, err = scene.SetLayer(main, scene.Layer{Kind: scene.Motion, Enabled: true, Ref: motion.ID})
-	if err != nil {
-		t.Fatalf("SetLayer(Motion): %v", err)
-	}
+	require.NoError(t, err)
 	main.Active = true
 
 	state := show.State{
@@ -513,16 +391,13 @@ func TestHistoryLiveActiveEdit(t *testing.T) {
 		Scenes:        []scene.Scene{main},
 	}
 	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("show.Save (seed): %v", err)
+		require.NoError(t, err)
 	}
 
 	seeded, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load (seed reload): %v", err)
-	}
-	if len(seeded.Scenes) != 1 || !seeded.Scenes[0].Active {
-		t.Fatalf("expected exactly one active scene in the seeded state, got %+v", seeded.Scenes)
-	}
+	require.NoError(t, err)
+	require.Len(t, seeded.Scenes, 1)
+	require.True(t, seeded.Scenes[0].Active, "expected exactly one active scene in the seeded state, got %+v", seeded.Scenes)
 
 	// rename: "Warm" is referenced by Main's active ColorTheme layer.
 	// Renaming never changes the theme's ID, so the layer's Ref stays
@@ -531,18 +406,14 @@ func TestHistoryLiveActiveEdit(t *testing.T) {
 	renameResult := registry.Execute(command.Request{Root: root, Args: []string{
 		"theme", "rename", "Warm", "Warm2", "--show", showPath,
 	}})
-	if renameResult.ExitCode != 0 {
-		t.Fatalf("theme rename against a live-active-referenced theme failed: exit=%d stderr=%s", renameResult.ExitCode, renameResult.Stderr)
-	}
+	require.Equal(t, 0, renameResult.ExitCode, "theme rename against a live-active-referenced theme failed: exit=%d stderr=%s", renameResult.ExitCode, renameResult.Stderr)
 
 	// reorder: "Live Sweep" is referenced by Main's active Chase layer.
 	// Reordering steps never changes the chase's ID.
 	reorderResult := registry.Execute(command.Request{Root: root, Args: []string{
 		"chase", "reorder", "Live Sweep", "--order", "1,0", "--show", showPath,
 	}})
-	if reorderResult.ExitCode != 0 {
-		t.Fatalf("chase reorder against a live-active-referenced chase failed: exit=%d stderr=%s", reorderResult.ExitCode, reorderResult.Stderr)
-	}
+	require.Equal(t, 0, reorderResult.ExitCode, "chase reorder against a live-active-referenced chase failed: exit=%d stderr=%s", reorderResult.ExitCode, reorderResult.Stderr)
 
 	// duplicate: "Live Arc" is referenced by Main's active Motion layer.
 	// Duplicating never touches the source object, so the active scene's
@@ -550,9 +421,7 @@ func TestHistoryLiveActiveEdit(t *testing.T) {
 	duplicateResult := registry.Execute(command.Request{Root: root, Args: []string{
 		"motion", "duplicate", "Live Arc", "Live Arc Copy", "--show", showPath,
 	}})
-	if duplicateResult.ExitCode != 0 {
-		t.Fatalf("motion duplicate against a live-active-referenced motion preset failed: exit=%d stderr=%s", duplicateResult.ExitCode, duplicateResult.Stderr)
-	}
+	require.Equal(t, 0, duplicateResult.ExitCode, "motion duplicate against a live-active-referenced motion preset failed: exit=%d stderr=%s", duplicateResult.ExitCode, duplicateResult.Stderr)
 
 	// duplicate (scene itself): Main is the currently-active scene. This
 	// both proves the no-gate rule (duplicating the active scene succeeds)
@@ -562,9 +431,7 @@ func TestHistoryLiveActiveEdit(t *testing.T) {
 	sceneDuplicateResult := registry.Execute(command.Request{Root: root, Args: []string{
 		"scene", "duplicate", "Main", "Main Copy", "--show", showPath,
 	}})
-	if sceneDuplicateResult.ExitCode != 0 {
-		t.Fatalf("scene duplicate against the currently-active scene failed: exit=%d stderr=%s", sceneDuplicateResult.ExitCode, sceneDuplicateResult.Stderr)
-	}
+	require.Equal(t, 0, sceneDuplicateResult.ExitCode, "scene duplicate against the currently-active scene failed: exit=%d stderr=%s", sceneDuplicateResult.ExitCode, sceneDuplicateResult.Stderr)
 
 	// delete: "Spare" is a preset that is NOT referenced by any scene
 	// layer, so this exercises the plain not-referenced path. Deleting the
@@ -578,23 +445,15 @@ func TestHistoryLiveActiveEdit(t *testing.T) {
 	deleteResult := registry.Execute(command.Request{Root: root, Args: []string{
 		"preset", "delete", "Spare", "--show", showPath,
 	}})
-	if deleteResult.ExitCode != 0 {
-		t.Fatalf("preset delete while a scene is active failed: exit=%d stderr=%s", deleteResult.ExitCode, deleteResult.Stderr)
-	}
+	require.Equal(t, 0, deleteResult.ExitCode, "preset delete while a scene is active failed: exit=%d stderr=%s", deleteResult.ExitCode, deleteResult.Stderr)
 
 	final, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load (final): %v", err)
-	}
-	if len(final.Presets) != 0 {
-		t.Fatalf("expected Spare to be deleted, got %+v", final.Presets)
-	}
+	require.NoError(t, err)
+	require.Len(t, final.Presets, 0, "expected Spare to be deleted, got %+v", final.Presets)
 	mainScene, found := findSceneByName(final.Scenes, "Main")
-	if !found || !mainScene.Active {
-		t.Fatalf("expected the original Main scene to remain active, got %+v", final.Scenes)
-	}
+	require.True(t, found)
+	require.True(t, mainScene.Active, "expected the original Main scene to remain active, got %+v", final.Scenes)
 	mainCopyScene, found := findSceneByName(final.Scenes, "Main Copy")
-	if !found || mainCopyScene.Active {
-		t.Fatalf("expected the duplicated Main Copy scene to be inactive, got %+v", final.Scenes)
-	}
+	require.True(t, found)
+	require.False(t, mainCopyScene.Active, "expected the duplicated Main Copy scene to be inactive, got %+v", final.Scenes)
 }

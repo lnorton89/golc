@@ -17,67 +17,47 @@ package command_test
 import (
 	"encoding/json"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/command"
 )
 
 func TestPoolDeployRoutes(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry")
 	root := t.TempDir()
 	showPath := "show.json"
 
 	createPool := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash Pool", "--requires", "intensity,color", "--show", showPath}})
-	if createPool.ExitCode != 0 {
-		t.Fatalf("pool create failed: exit=%d stderr=%s", createPool.ExitCode, createPool.Stderr)
-	}
+	require.Equalf(t, 0, createPool.ExitCode, "pool create failed: stderr=%s", createPool.Stderr)
 
 	dupPool := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash Pool", "--show", showPath}})
-	if dupPool.ExitCode == 0 || !strings.Contains(string(dupPool.Stderr), "GOLC_POOL_DUPLICATE_NAME") {
-		t.Fatalf("expected GOLC_POOL_DUPLICATE_NAME for duplicate pool create, got exit=%d stderr=%s", dupPool.ExitCode, dupPool.Stderr)
-	}
+	require.NotEqualf(t, 0, dupPool.ExitCode, "expected GOLC_POOL_DUPLICATE_NAME for duplicate pool create, got stderr=%s", dupPool.Stderr)
+	require.Contains(t, string(dupPool.Stderr), "GOLC_POOL_DUPLICATE_NAME")
 
 	depA := registry.Execute(command.Request{Root: root, Args: []string{"deployment", "create", "Venue A", "--show", showPath}})
-	if depA.ExitCode != 0 {
-		t.Fatalf("deployment create (A) failed: exit=%d stderr=%s", depA.ExitCode, depA.Stderr)
-	}
+	require.Equalf(t, 0, depA.ExitCode, "deployment create (A) failed: stderr=%s", depA.Stderr)
 	depB := registry.Execute(command.Request{Root: root, Args: []string{"deployment", "create", "Venue B", "--show", showPath}})
-	if depB.ExitCode != 0 {
-		t.Fatalf("deployment create (B) failed: exit=%d stderr=%s", depB.ExitCode, depB.Stderr)
-	}
+	require.Equalf(t, 0, depB.ExitCode, "deployment create (B) failed: stderr=%s", depB.Stderr)
 
 	dupDeployment := registry.Execute(command.Request{Root: root, Args: []string{"deployment", "create", "Venue A", "--show", showPath}})
-	if dupDeployment.ExitCode == 0 || !strings.Contains(string(dupDeployment.Stderr), "GOLC_DEPLOYMENT_DUPLICATE_NAME") {
-		t.Fatalf("expected GOLC_DEPLOYMENT_DUPLICATE_NAME for duplicate deployment create, got exit=%d stderr=%s", dupDeployment.ExitCode, dupDeployment.Stderr)
-	}
+	require.NotEqualf(t, 0, dupDeployment.ExitCode, "expected GOLC_DEPLOYMENT_DUPLICATE_NAME for duplicate deployment create, got stderr=%s", dupDeployment.Stderr)
+	require.Contains(t, string(dupDeployment.Stderr), "GOLC_DEPLOYMENT_DUPLICATE_NAME")
 
 	activateA := registry.Execute(command.Request{Root: root, Args: []string{"deployment", "activate", "Venue A", "--show", showPath}})
-	if activateA.ExitCode != 0 {
-		t.Fatalf("deployment activate (A) failed: exit=%d stderr=%s", activateA.ExitCode, activateA.Stderr)
-	}
+	require.Equalf(t, 0, activateA.ExitCode, "deployment activate (A) failed: stderr=%s", activateA.Stderr)
 	activateB := registry.Execute(command.Request{Root: root, Args: []string{"deployment", "activate", "Venue B", "--show", showPath}})
-	if activateB.ExitCode != 0 {
-		t.Fatalf("deployment activate (B) failed: exit=%d stderr=%s", activateB.ExitCode, activateB.Stderr)
-	}
+	require.Equalf(t, 0, activateB.ExitCode, "deployment activate (B) failed: stderr=%s", activateB.Stderr)
 
 	inspectFirst := registry.Execute(command.Request{Root: root, Args: []string{"show", "inspect", "--show", showPath}})
-	if inspectFirst.ExitCode != 0 {
-		t.Fatalf("show inspect failed: exit=%d stderr=%s", inspectFirst.ExitCode, inspectFirst.Stderr)
-	}
+	require.Equalf(t, 0, inspectFirst.ExitCode, "show inspect failed: stderr=%s", inspectFirst.Stderr)
 	inspectSecond := registry.Execute(command.Request{Root: root, Args: []string{"show", "inspect", "--show", showPath}})
-	if inspectSecond.ExitCode != 0 {
-		t.Fatalf("show inspect (second) failed: exit=%d stderr=%s", inspectSecond.ExitCode, inspectSecond.Stderr)
-	}
-	if string(inspectFirst.Stdout) != string(inspectSecond.Stdout) {
-		t.Fatalf("expected deterministic show inspect output:\nfirst:  %s\nsecond: %s", inspectFirst.Stdout, inspectSecond.Stdout)
-	}
-	if strings.Contains(string(inspectFirst.Stdout), root) || strings.Contains(string(inspectFirst.Stdout), filepath.Join(root, showPath)) {
-		t.Fatalf("expected no absolute filesystem path in show inspect output, got %s", inspectFirst.Stdout)
-	}
+	require.Equalf(t, 0, inspectSecond.ExitCode, "show inspect (second) failed: stderr=%s", inspectSecond.Stderr)
+	require.Equalf(t, string(inspectSecond.Stdout), string(inspectFirst.Stdout), "expected deterministic show inspect output")
+	require.NotContains(t, string(inspectFirst.Stdout), root)
+	require.NotContainsf(t, string(inspectFirst.Stdout), filepath.Join(root, showPath), "expected no absolute filesystem path in show inspect output, got %s", inspectFirst.Stdout)
 
 	var view struct {
 		Pools []struct {
@@ -91,19 +71,14 @@ func TestPoolDeployRoutes(t *testing.T) {
 			InstanceCount int    `json:"instance_count"`
 		} `json:"deployments"`
 	}
-	if err := json.Unmarshal(inspectFirst.Stdout, &view); err != nil {
-		t.Fatalf("unmarshal show inspect output: %v", err)
-	}
-	if len(view.Pools) != 1 || view.Pools[0].Name != "Wash Pool" {
-		t.Fatalf("expected exactly one pool named Wash Pool, got %+v", view.Pools)
-	}
+	require.NoError(t, json.Unmarshal(inspectFirst.Stdout, &view), "unmarshal show inspect output")
+	require.Lenf(t, view.Pools, 1, "expected exactly one pool named Wash Pool, got %+v", view.Pools)
+	require.Equal(t, "Wash Pool", view.Pools[0].Name)
 	activeCount := 0
 	for _, d := range view.Deployments {
 		if d.Active {
 			activeCount++
 		}
 	}
-	if activeCount != 1 {
-		t.Fatalf("expected exactly one active deployment in show inspect, got %d among %+v", activeCount, view.Deployments)
-	}
+	require.Equalf(t, 1, activeCount, "expected exactly one active deployment in show inspect, got %d among %+v", activeCount, view.Deployments)
 }

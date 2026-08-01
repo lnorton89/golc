@@ -49,6 +49,7 @@ import (
 	"github.com/lnorton89/golc/internal/programming"
 	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/show"
+	"github.com/stretchr/testify/require"
 )
 
 // testArtnetPipeName returns a per-test, per-process, per-nanosecond-
@@ -83,9 +84,7 @@ func platformTestEndpoint(t *testing.T, prefix string) string {
 func testArtnetLoopbackInterfaceIndex(t *testing.T) int {
 	t.Helper()
 	ifaces, err := artnet.ListCandidateInterfaces()
-	if err != nil {
-		t.Fatalf("ListCandidateInterfaces: %v", err)
-	}
+	require.NoError(t, err)
 	for _, iface := range ifaces {
 		for _, addr := range iface.Addrs {
 			if ipNet, ok := addr.(*net.IPNet); ok && ipNet.IP.IsLoopback() && ipNet.IP.To4() != nil {
@@ -103,9 +102,7 @@ func testArtnetLoopbackInterfaceIndex(t *testing.T) int {
 func minimalArtnetShowState(t *testing.T) show.State {
 	t.Helper()
 	sc, err := scene.NewScene("Test Scene", 1)
-	if err != nil {
-		t.Fatalf("scene.NewScene: %v", err)
-	}
+	require.NoError(t, err)
 	sc.Active = true
 	return show.State{Scenes: []scene.Scene{sc}, Tempo: show.Tempo{BPM: 120}}
 }
@@ -134,7 +131,7 @@ func startTestArtnetDaemon(t *testing.T) string {
 		select {
 		case <-runDone:
 		case <-time.After(5 * time.Second):
-			t.Fatal("artnet.Run did not return within 5s of ctx cancel")
+			require.FailNow(t, "artnet.Run did not return within 5s of ctx cancel")
 		}
 	})
 
@@ -147,7 +144,7 @@ func startTestArtnetDaemon(t *testing.T) string {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatalf("daemon did not come up on pipe %s", pipeName)
+	require.FailNow(t, "", "daemon did not come up on pipe %s", pipeName)
 	return ""
 }
 
@@ -182,29 +179,21 @@ func startTestArtnetDaemonWithIntensity(t *testing.T) (pipeName string, instance
 	dep := deployment.Deployment{ID: uuid.New(), Active: true, Instances: []deployment.Instance{instance}}
 
 	preset, err := programming.NewPreset("Full Intensity", programming.PresetIntensity)
-	if err != nil {
-		t.Fatalf("programming.NewPreset: %v", err)
-	}
+	require.NoError(t, err)
 	preset.Attributes = []programming.PresetAttribute{
 		{InstanceID: instanceID, Capability: fixture.CapabilityIntensity, Value: 1.0},
 	}
 
 	sc, err := scene.NewScene("Test Scene", 1)
-	if err != nil {
-		t.Fatalf("scene.NewScene: %v", err)
-	}
+	require.NoError(t, err)
 	sc.Active = true
 	baseLook, ok := sc.LayerByKind(scene.BaseLook)
-	if !ok {
-		t.Fatal("expected a BaseLook layer slot")
-	}
+	require.True(t, ok, "expected a BaseLook layer slot")
 	baseLook.Enabled = true
 	baseLook.Ref = preset.ID
 	baseLook.Selection = programming.Selection{InstanceIDs: []uuid.UUID{instanceID}}
 	sc, err = scene.SetLayer(sc, baseLook)
-	if err != nil {
-		t.Fatalf("scene.SetLayer: %v", err)
-	}
+	require.NoError(t, err)
 
 	state := show.State{
 		Deployments: []deployment.Deployment{dep},
@@ -245,7 +234,7 @@ func startTestArtnetDaemonWithIntensity(t *testing.T) (pipeName string, instance
 		select {
 		case <-runDone:
 		case <-time.After(5 * time.Second):
-			t.Fatal("artnet.Run did not return within 5s of ctx cancel")
+			require.FailNow(t, "artnet.Run did not return within 5s of ctx cancel")
 		}
 	})
 
@@ -258,7 +247,7 @@ func startTestArtnetDaemonWithIntensity(t *testing.T) (pipeName string, instance
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatalf("daemon did not come up on pipe %s", pipeName)
+	require.FailNow(t, "", "daemon did not come up on pipe %s", pipeName)
 	return "", uuid.UUID{}, 0
 }
 
@@ -279,41 +268,32 @@ func findArtnetTargetHealth(payload artnetStatusPayload, universe int, ip string
 func TestScopeArtnet(t *testing.T) {
 	t.Run("parseArtnetArgs accepts --flag value and --flag=value forms", func(t *testing.T) {
 		values, err := parseArtnetArgs("usage", []string{"--universe", "1", "--ip=127.0.0.1"}, nil)
-		if err != nil {
-			t.Fatalf("expected no error, got: %v", err)
-		}
-		if values["universe"] != "1" || values["ip"] != "127.0.0.1" {
-			t.Fatalf("unexpected parsed values: %+v", values)
-		}
+		require.NoError(t, err)
+		require.Equal(t, "1", values["universe"])
+		require.Equal(t, "127.0.0.1", values["ip"], "unexpected parsed values: %+v", values)
 	})
 
 	t.Run("parseArtnetArgs treats a declared bool flag as valueless", func(t *testing.T) {
 		values, err := parseArtnetArgs("usage", []string{"--json"}, map[string]bool{"json": true})
-		if err != nil {
-			t.Fatalf("expected no error, got: %v", err)
-		}
-		if values["json"] != "true" {
-			t.Fatalf("expected json=true, got %+v", values)
-		}
+		require.NoError(t, err)
+		require.Equal(t, "true", values["json"], "expected json=true, got %+v", values)
 	})
 
 	t.Run("parseArtnetArgs rejects an argument not starting with --", func(t *testing.T) {
 		if _, err := parseArtnetArgs("usage", []string{"bogus"}, nil); err == nil {
-			t.Fatal("expected an error for a non-flag argument")
+			require.Error(t, err)
 		}
 	})
 
 	t.Run("pipeNameFromFlags defaults to the production pipe name", func(t *testing.T) {
 		if got := pipeNameFromFlags(map[string]string{}); got != artnetipc.PipeName {
-			t.Fatalf("expected default pipe name %q, got %q", artnetipc.PipeName, got)
+			require.Equal(t, artnetipc.PipeName, got, "expected default pipe name %q, got %q", artnetipc.PipeName, got)
 		}
 	})
 
 	t.Run("the artnet scope and every route self-register", func(t *testing.T) {
 		registry, err := NewDefaultCommandRegistry()
-		if err != nil {
-			t.Fatalf("NewDefaultCommandRegistry: %v", err)
-		}
+		require.NoError(t, err)
 		for _, route := range []string{
 			"artnet serve", "artnet interface list", "artnet configure",
 			"artnet status", "artnet target enable", "artnet target disable",
@@ -321,7 +301,7 @@ func TestScopeArtnet(t *testing.T) {
 			"artnet safety revoke-automation", "artnet master set",
 		} {
 			if _, _, ok := registry.Lookup(strings.Fields(route)); !ok {
-				t.Fatalf("expected route %q to be registered", route)
+				require.True(t, ok, "expected route %q to be registered", route)
 			}
 		}
 	})
@@ -332,12 +312,8 @@ func TestScopeArtnet(t *testing.T) {
 // ExitCode 2, without ever dialing a daemon.
 func TestArtnetConfigureUsageErrors(t *testing.T) {
 	result := runArtnetConfigure(Request{Args: []string{"--universe", "1"}})
-	if result.ExitCode != 2 {
-		t.Fatalf("expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_USAGE") {
-		t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
-	}
+	require.Equal(t, 2, result.ExitCode, "expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	require.Contains(t, string(result.Stderr), "GOLC_ARTNET_USAGE", "expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
 }
 
 // TestArtnetConfigureInvalidTargetReturnsDomainError proves a
@@ -346,12 +322,8 @@ func TestArtnetConfigureUsageErrors(t *testing.T) {
 // domain error with ExitCode 1, again without ever dialing a daemon.
 func TestArtnetConfigureInvalidTargetReturnsDomainError(t *testing.T) {
 	result := runArtnetConfigure(Request{Args: []string{"--universe", "0", "--ip", "10.0.0.1"}})
-	if result.ExitCode != 1 {
-		t.Fatalf("expected ExitCode 1, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_TARGET_INVALID") {
-		t.Fatalf("expected GOLC_ARTNET_TARGET_INVALID, got: %s", result.Stderr)
-	}
+	require.Equal(t, 1, result.ExitCode, "expected ExitCode 1, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	require.Contains(t, string(result.Stderr), "GOLC_ARTNET_TARGET_INVALID", "expected GOLC_ARTNET_TARGET_INVALID, got: %s", result.Stderr)
 }
 
 // TestArtnetNoDaemonReturnsDaemonUnreachable proves a client route with no
@@ -363,12 +335,8 @@ func TestArtnetNoDaemonReturnsDaemonUnreachable(t *testing.T) {
 	result := runArtnetConfigure(Request{Args: []string{
 		"--universe", "1", "--ip", "10.0.0.1", "--pipe", pipeName,
 	}})
-	if result.ExitCode != 1 {
-		t.Fatalf("expected ExitCode 1, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_DAEMON_UNREACHABLE") {
-		t.Fatalf("expected GOLC_ARTNET_DAEMON_UNREACHABLE, got: %s", result.Stderr)
-	}
+	require.Equal(t, 1, result.ExitCode, "expected ExitCode 1, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	require.Contains(t, string(result.Stderr), "GOLC_ARTNET_DAEMON_UNREACHABLE", "expected GOLC_ARTNET_DAEMON_UNREACHABLE, got: %s", result.Stderr)
 }
 
 // TestBackfillDefaultBPMPersistsWhenUnset proves backfillDefaultBPM writes
@@ -383,31 +351,21 @@ func TestBackfillDefaultBPMPersistsWhenUnset(t *testing.T) {
 	showPath := "show.golc"
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("seeding initial show: %v", err)
-	}
+	require.NoError(t, err)
 	// Force the pre-DefaultBPM condition this backfill exists for, rather
 	// than relying on Load's own now-defaulted fresh state.
 	state.Tempo.BPM = 0
 	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("saving zero-BPM show: %v", err)
+		require.NoError(t, err)
 	}
 
 	updated, err := backfillDefaultBPM(root, showPath, state)
-	if err != nil {
-		t.Fatalf("backfillDefaultBPM: %v", err)
-	}
-	if updated.Tempo.BPM != show.DefaultBPM {
-		t.Fatalf("returned Tempo.BPM = %v, want %v", updated.Tempo.BPM, show.DefaultBPM)
-	}
+	require.NoError(t, err)
+	require.EqualValues(t, show.DefaultBPM, updated.Tempo.BPM, "returned Tempo.BPM = %v, want %v", updated.Tempo.BPM, show.DefaultBPM)
 
 	reloaded, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("reloading after backfill: %v", err)
-	}
-	if reloaded.Tempo.BPM != show.DefaultBPM {
-		t.Fatalf("persisted Tempo.BPM = %v, want %v -- backfillDefaultBPM must Save, not just mutate in memory", reloaded.Tempo.BPM, show.DefaultBPM)
-	}
+	require.NoError(t, err)
+	require.EqualValues(t, show.DefaultBPM, reloaded.Tempo.BPM, "persisted Tempo.BPM = %v, want %v -- backfillDefaultBPM must Save, not just mutate in memory", reloaded.Tempo.BPM, show.DefaultBPM)
 }
 
 // TestBackfillDefaultBPMLeavesExistingBPMAlone proves backfillDefaultBPM
@@ -417,21 +375,15 @@ func TestBackfillDefaultBPMLeavesExistingBPMAlone(t *testing.T) {
 	showPath := "show.golc"
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("seeding initial show: %v", err)
-	}
+	require.NoError(t, err)
 	state.Tempo.BPM = 140
 	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("saving 140 BPM show: %v", err)
+		require.NoError(t, err)
 	}
 
 	updated, err := backfillDefaultBPM(root, showPath, state)
-	if err != nil {
-		t.Fatalf("backfillDefaultBPM: %v", err)
-	}
-	if updated.Tempo.BPM != 140 {
-		t.Fatalf("Tempo.BPM = %v, want unchanged 140", updated.Tempo.BPM)
-	}
+	require.NoError(t, err)
+	require.EqualValues(t, 140, updated.Tempo.BPM, "Tempo.BPM = %v, want unchanged 140", updated.Tempo.BPM)
 }
 
 // TestArtnetStatusJSONContainsHealthFields proves "artnet status --json"
@@ -440,14 +392,10 @@ func TestArtnetStatusJSONContainsHealthFields(t *testing.T) {
 	pipeName := startTestArtnetDaemon(t)
 
 	result := runArtnetStatus(Request{Args: []string{"--json", "--pipe", pipeName}})
-	if result.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
 	body := string(result.Stdout)
 	for _, want := range []string{`"frame"`, `"targets"`, "OnCadence"} {
-		if !strings.Contains(body, want) {
-			t.Fatalf("expected JSON status to contain %q, got: %s", want, body)
-		}
+		require.Contains(t, body, want, "expected JSON status to contain %q, got: %s", want, body)
 	}
 }
 
@@ -460,21 +408,13 @@ func TestArtnetStatusPlainRendersPersistentTable(t *testing.T) {
 	configureResult := runArtnetConfigure(Request{Args: []string{
 		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454", "--pipe", pipeName,
 	}})
-	if configureResult.ExitCode != 0 {
-		t.Fatalf("expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
-	}
+	require.Equal(t, 0, configureResult.ExitCode, "expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
 
 	statusResult := runArtnetStatus(Request{Args: []string{"--pipe", pipeName}})
-	if statusResult.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", statusResult.ExitCode, statusResult.Stderr)
-	}
+	require.Equal(t, 0, statusResult.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", statusResult.ExitCode, statusResult.Stderr)
 	body := string(statusResult.Stdout)
-	if !strings.Contains(body, "GOLC_ARTNET_STATUS") {
-		t.Fatalf("expected the plain status header, got: %s", body)
-	}
-	if !strings.Contains(body, "127.0.0.1") {
-		t.Fatalf("expected the configured target's IP in the persistent table, got: %s", body)
-	}
+	require.Contains(t, body, "GOLC_ARTNET_STATUS", "expected the plain status header, got: %s", body)
+	require.Contains(t, body, "127.0.0.1", "expected the configured target's IP in the persistent table, got: %s", body)
 }
 
 // TestArtnetStatusJSONContainsUniverseValues proves 04-08-PLAN.md's
@@ -490,9 +430,7 @@ func TestArtnetStatusJSONContainsUniverseValues(t *testing.T) {
 	configureResult := runArtnetConfigure(Request{Args: []string{
 		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454", "--pipe", pipeName,
 	}})
-	if configureResult.ExitCode != 0 {
-		t.Fatalf("expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
-	}
+	require.Equal(t, 0, configureResult.ExitCode, "expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
 
 	type universeEntry struct {
 		Universe int    `json:"universe"`
@@ -505,24 +443,20 @@ func TestArtnetStatusJSONContainsUniverseValues(t *testing.T) {
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		result := runArtnetStatus(Request{Args: []string{"--json", "--pipe", pipeName}})
-		if result.ExitCode != 0 {
-			t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-		}
+		require.Equal(t, 0, result.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
 		var payload jsonStatusPayload
 		if err := json.Unmarshal(result.Stdout, &payload); err != nil {
-			t.Fatalf("json.Unmarshal: %v", err)
+			require.NoError(t, err)
 		}
 		for _, u := range payload.Universes {
 			if u.Universe == 1 {
-				if len(u.Values) != 512 {
-					t.Fatalf("expected universe 1's values to be 512 bytes, got %d", len(u.Values))
-				}
+				require.Len(t, u.Values, 512, "expected universe 1's values to be 512 bytes, got %d", len(u.Values))
 				return
 			}
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	t.Fatal("expected a populated universe 1 values entry within the deadline")
+	require.FailNow(t, "expected a populated universe 1 values entry within the deadline")
 }
 
 // TestArtnetStatusPlainRendersUniverseValues proves plain "artnet status"
@@ -534,23 +468,19 @@ func TestArtnetStatusPlainRendersUniverseValues(t *testing.T) {
 	configureResult := runArtnetConfigure(Request{Args: []string{
 		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454", "--pipe", pipeName,
 	}})
-	if configureResult.ExitCode != 0 {
-		t.Fatalf("expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
-	}
+	require.Equal(t, 0, configureResult.ExitCode, "expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		statusResult := runArtnetStatus(Request{Args: []string{"--pipe", pipeName}})
-		if statusResult.ExitCode != 0 {
-			t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", statusResult.ExitCode, statusResult.Stderr)
-		}
+		require.Equal(t, 0, statusResult.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", statusResult.ExitCode, statusResult.Stderr)
 		body := string(statusResult.Stdout)
 		if strings.Contains(body, "GOLC_ARTNET_UNIVERSE: universe=1") && strings.Contains(body, "channels=512") {
 			return
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	t.Fatal("expected a GOLC_ARTNET_UNIVERSE line for universe=1 channels=512 within the deadline")
+	require.FailNow(t, "expected a GOLC_ARTNET_UNIVERSE line for universe=1 channels=512 within the deadline")
 }
 
 // TestArtnetStatusPlainRendersPinnedInterface proves 04-09-PLAN.md's
@@ -562,16 +492,10 @@ func TestArtnetStatusPlainRendersPinnedInterface(t *testing.T) {
 	loopbackIdx := testArtnetLoopbackInterfaceIndex(t)
 
 	result := runArtnetStatus(Request{Args: []string{"--pipe", pipeName}})
-	if result.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
 	body := string(result.Stdout)
-	if !strings.Contains(body, fmt.Sprintf("GOLC_ARTNET_INTERFACE_STATUS: index=%d", loopbackIdx)) {
-		t.Fatalf("expected GOLC_ARTNET_INTERFACE_STATUS: index=%d, got: %s", loopbackIdx, body)
-	}
-	if !strings.Contains(body, "status=ok") {
-		t.Fatalf("expected status=ok, got: %s", body)
-	}
+	require.Contains(t, body, fmt.Sprintf("GOLC_ARTNET_INTERFACE_STATUS: index=%d", loopbackIdx), "expected GOLC_ARTNET_INTERFACE_STATUS: index=%d, got: %s", loopbackIdx, body)
+	require.Contains(t, body, "status=ok", "expected status=ok, got: %s", body)
 }
 
 // TestArtnetStatusJSONIncludesInterfaceStatus proves "artnet status --json"
@@ -582,15 +506,9 @@ func TestArtnetStatusJSONIncludesInterfaceStatus(t *testing.T) {
 	loopbackIdx := testArtnetLoopbackInterfaceIndex(t)
 
 	payload, errResult, ok := fetchArtnetStatus(pipeName, "")
-	if !ok {
-		t.Fatalf("fetchArtnetStatus failed: %+v", errResult)
-	}
-	if payload.Interface.PinnedIndex != loopbackIdx {
-		t.Fatalf("expected Interface.PinnedIndex %d, got %d", loopbackIdx, payload.Interface.PinnedIndex)
-	}
-	if payload.Interface.Status != "ok" {
-		t.Fatalf("expected Interface.Status \"ok\", got %q", payload.Interface.Status)
-	}
+	require.True(t, ok, "fetchArtnetStatus failed: %+v", errResult)
+	require.Equal(t, loopbackIdx, payload.Interface.PinnedIndex, "expected Interface.PinnedIndex %d, got %d", loopbackIdx, payload.Interface.PinnedIndex)
+	require.Equal(t, "ok", payload.Interface.Status, "expected Interface.Status \"ok\", got %q", payload.Interface.Status)
 }
 
 // TestArtnetInterfaceListAnnotatesPinnedWhenDaemonRunning proves
@@ -602,9 +520,7 @@ func TestArtnetInterfaceListAnnotatesPinnedWhenDaemonRunning(t *testing.T) {
 	loopbackIdx := testArtnetLoopbackInterfaceIndex(t)
 
 	plainResult := runArtnetInterfaceList(Request{Args: []string{"--pipe", pipeName}})
-	if plainResult.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", plainResult.ExitCode, plainResult.Stderr)
-	}
+	require.Equal(t, 0, plainResult.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", plainResult.ExitCode, plainResult.Stderr)
 	plainBody := string(plainResult.Stdout)
 	found := false
 	for _, line := range strings.Split(plainBody, "\n") {
@@ -614,30 +530,23 @@ func TestArtnetInterfaceListAnnotatesPinnedWhenDaemonRunning(t *testing.T) {
 			}
 		}
 	}
-	if !found {
-		t.Fatalf("expected the loopback row to be marked pinned=yes status=ok, got: %s", plainBody)
-	}
+	require.True(t, found, "expected the loopback row to be marked pinned=yes status=ok, got: %s", plainBody)
 
 	jsonResult := runArtnetInterfaceList(Request{Args: []string{"--json", "--pipe", pipeName}})
-	if jsonResult.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", jsonResult.ExitCode, jsonResult.Stderr)
-	}
+	require.Equal(t, 0, jsonResult.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", jsonResult.ExitCode, jsonResult.Stderr)
 	var entries []interfaceListEntry
 	if err := json.Unmarshal(jsonResult.Stdout, &entries); err != nil {
-		t.Fatalf("json.Unmarshal: %v", err)
+		require.NoError(t, err)
 	}
 	entryFound := false
 	for _, e := range entries {
 		if e.Index == loopbackIdx {
-			if !e.Pinned || e.Status != "ok" {
-				t.Fatalf("expected loopback entry Pinned=true Status=ok, got: %+v", e)
-			}
+			require.True(t, e.Pinned)
+			require.Equal(t, "ok", e.Status, "expected loopback entry Pinned=true Status=ok, got: %+v", e)
 			entryFound = true
 		}
 	}
-	if !entryFound {
-		t.Fatalf("expected an entry for loopback index %d, got: %+v", loopbackIdx, entries)
-	}
+	require.True(t, entryFound, "expected an entry for loopback index %d, got: %+v", loopbackIdx, entries)
 }
 
 // TestArtnetInterfaceListWorksWithNoDaemon proves the no-regression
@@ -648,17 +557,11 @@ func TestArtnetInterfaceListWorksWithNoDaemon(t *testing.T) {
 	pipeName := testArtnetPipeName(t) // nothing ever listens on this pipe
 
 	result := runArtnetInterfaceList(Request{Args: []string{"--pipe", pipeName}})
-	if result.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
 	body := string(result.Stdout)
-	if strings.Contains(body, "GOLC_ARTNET_DAEMON_UNREACHABLE") {
-		t.Fatalf("expected no GOLC_ARTNET_DAEMON_UNREACHABLE regression, got: %s", body)
-	}
+	require.NotContains(t, body, "GOLC_ARTNET_DAEMON_UNREACHABLE", "expected no GOLC_ARTNET_DAEMON_UNREACHABLE regression, got: %s", body)
 	lines := strings.Split(strings.TrimRight(body, "\n"), "\n")
-	if len(lines) < 2 {
-		t.Fatalf("expected at least a header and one candidate interface row, got: %s", body)
-	}
+	require.GreaterOrEqual(t, len(lines), 2, "expected at least a header and one candidate interface row, got: %s", body)
 }
 
 // TestArtnetTargetEnableDisableRoundTrip proves "artnet target disable"
@@ -670,47 +573,29 @@ func TestArtnetTargetEnableDisableRoundTrip(t *testing.T) {
 	configureResult := runArtnetConfigure(Request{Args: []string{
 		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454", "--pipe", pipeName,
 	}})
-	if configureResult.ExitCode != 0 {
-		t.Fatalf("expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
-	}
+	require.Equal(t, 0, configureResult.ExitCode, "expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
 
 	disableResult := runArtnetTargetDisable(Request{Args: []string{
 		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454", "--pipe", pipeName,
 	}})
-	if disableResult.ExitCode != 0 {
-		t.Fatalf("expected target disable to succeed, got ExitCode %d stderr %s", disableResult.ExitCode, disableResult.Stderr)
-	}
+	require.Equal(t, 0, disableResult.ExitCode, "expected target disable to succeed, got ExitCode %d stderr %s", disableResult.ExitCode, disableResult.Stderr)
 
 	afterDisable, errResult, ok := fetchArtnetStatus(pipeName, "")
-	if !ok {
-		t.Fatalf("fetchArtnetStatus after disable failed: %+v", errResult)
-	}
+	require.True(t, ok, "fetchArtnetStatus after disable failed: %+v", errResult)
 	th, found := findArtnetTargetHealth(afterDisable, 1, "127.0.0.1", 6454)
-	if !found {
-		t.Fatalf("expected target 1/127.0.0.1:6454 in status, got: %+v", afterDisable)
-	}
-	if th.Target.Enabled {
-		t.Fatal("expected the target to be disabled after 'artnet target disable'")
-	}
+	require.True(t, found, "expected target 1/127.0.0.1:6454 in status, got: %+v", afterDisable)
+	require.False(t, th.Target.Enabled, "expected the target to be disabled after 'artnet target disable'")
 
 	enableResult := runArtnetTargetEnable(Request{Args: []string{
 		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454", "--pipe", pipeName,
 	}})
-	if enableResult.ExitCode != 0 {
-		t.Fatalf("expected target enable to succeed, got ExitCode %d stderr %s", enableResult.ExitCode, enableResult.Stderr)
-	}
+	require.Equal(t, 0, enableResult.ExitCode, "expected target enable to succeed, got ExitCode %d stderr %s", enableResult.ExitCode, enableResult.Stderr)
 
 	afterEnable, errResult2, ok2 := fetchArtnetStatus(pipeName, "")
-	if !ok2 {
-		t.Fatalf("fetchArtnetStatus after enable failed: %+v", errResult2)
-	}
+	require.True(t, ok2, "fetchArtnetStatus after enable failed: %+v", errResult2)
 	th2, found2 := findArtnetTargetHealth(afterEnable, 1, "127.0.0.1", 6454)
-	if !found2 {
-		t.Fatalf("expected target 1/127.0.0.1:6454 in status, got: %+v", afterEnable)
-	}
-	if !th2.Target.Enabled {
-		t.Fatal("expected the target to be enabled after 'artnet target enable'")
-	}
+	require.True(t, found2, "expected target 1/127.0.0.1:6454 in status, got: %+v", afterEnable)
+	require.True(t, th2.Target.Enabled, "expected the target to be enabled after 'artnet target enable'")
 }
 
 // TestArtnetTargetUnknownReturnsNotFound proves an unknown target selector
@@ -721,24 +606,16 @@ func TestArtnetTargetUnknownReturnsNotFound(t *testing.T) {
 	result := runArtnetTargetEnable(Request{Args: []string{
 		"--universe", "99", "--ip", "10.0.0.9", "--port", "6454", "--pipe", pipeName,
 	}})
-	if result.ExitCode != 1 {
-		t.Fatalf("expected ExitCode 1, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_TARGET_NOT_FOUND") {
-		t.Fatalf("expected GOLC_ARTNET_TARGET_NOT_FOUND, got: %s", result.Stderr)
-	}
+	require.Equal(t, 1, result.ExitCode, "expected ExitCode 1, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	require.Contains(t, string(result.Stderr), "GOLC_ARTNET_TARGET_NOT_FOUND", "expected GOLC_ARTNET_TARGET_NOT_FOUND, got: %s", result.Stderr)
 }
 
 // TestArtnetDiscoverUsageErrors proves a missing --interface is rejected
 // as GOLC_ARTNET_USAGE, ExitCode 2, without ever scanning the network.
 func TestArtnetDiscoverUsageErrors(t *testing.T) {
 	result := runArtnetDiscover(Request{Args: nil})
-	if result.ExitCode != 2 {
-		t.Fatalf("expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_USAGE") {
-		t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
-	}
+	require.Equal(t, 2, result.ExitCode, "expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	require.Contains(t, string(result.Stderr), "GOLC_ARTNET_USAGE", "expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
 }
 
 // TestArtnetDiscoverUnknownInterfaceReturnsNotFound proves an interface
@@ -746,12 +623,8 @@ func TestArtnetDiscoverUsageErrors(t *testing.T) {
 // GOLC_ARTNET_INTERFACE_NOT_FOUND, ExitCode 1.
 func TestArtnetDiscoverUnknownInterfaceReturnsNotFound(t *testing.T) {
 	result := runArtnetDiscover(Request{Args: []string{"--interface", "999999"}})
-	if result.ExitCode != 1 {
-		t.Fatalf("expected ExitCode 1, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_INTERFACE_NOT_FOUND") {
-		t.Fatalf("expected GOLC_ARTNET_INTERFACE_NOT_FOUND, got: %s", result.Stderr)
-	}
+	require.Equal(t, 1, result.ExitCode, "expected ExitCode 1, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	require.Contains(t, string(result.Stderr), "GOLC_ARTNET_INTERFACE_NOT_FOUND", "expected GOLC_ARTNET_INTERFACE_NOT_FOUND, got: %s", result.Stderr)
 }
 
 // TestArtnetDiscoverRendersSuggestions proves a bounded "artnet discover"
@@ -764,12 +637,8 @@ func TestArtnetDiscoverRendersSuggestions(t *testing.T) {
 	result := runArtnetDiscover(Request{Args: []string{
 		"--interface", strconv.Itoa(interfaceIndex), "--window", "50ms",
 	}})
-	if result.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
-	if !strings.Contains(string(result.Stdout), "GOLC_ARTNET_DISCOVER") {
-		t.Fatalf("expected the discover suggestions header, got: %s", result.Stdout)
-	}
+	require.Equal(t, 0, result.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	require.Contains(t, string(result.Stdout), "GOLC_ARTNET_DISCOVER", "expected the discover suggestions header, got: %s", result.Stdout)
 }
 
 // TestArtnetDiscoverPerformsNoTargetMutation proves (D-06): running
@@ -783,38 +652,25 @@ func TestArtnetDiscoverPerformsNoTargetMutation(t *testing.T) {
 	configureResult := runArtnetConfigure(Request{Args: []string{
 		"--universe", "1", "--ip", "127.0.0.1", "--port", "6454", "--pipe", pipeName,
 	}})
-	if configureResult.ExitCode != 0 {
-		t.Fatalf("expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
-	}
+	require.Equal(t, 0, configureResult.ExitCode, "expected configure to succeed, got ExitCode %d stderr %s", configureResult.ExitCode, configureResult.Stderr)
 
 	before, errResult, ok := fetchArtnetStatus(pipeName, "")
-	if !ok {
-		t.Fatalf("fetchArtnetStatus before discover failed: %+v", errResult)
-	}
+	require.True(t, ok, "fetchArtnetStatus before discover failed: %+v", errResult)
 
 	discoverResult := runArtnetDiscover(Request{Args: []string{
 		"--interface", strconv.Itoa(interfaceIndex), "--window", "50ms",
 	}})
-	if discoverResult.ExitCode != 0 {
-		t.Fatalf("expected discover ExitCode 0, got %d (stderr: %s)", discoverResult.ExitCode, discoverResult.Stderr)
-	}
+	require.Equal(t, 0, discoverResult.ExitCode, "expected discover ExitCode 0, got %d (stderr: %s)", discoverResult.ExitCode, discoverResult.Stderr)
 
 	after, errResult2, ok2 := fetchArtnetStatus(pipeName, "")
-	if !ok2 {
-		t.Fatalf("fetchArtnetStatus after discover failed: %+v", errResult2)
-	}
+	require.True(t, ok2, "fetchArtnetStatus after discover failed: %+v", errResult2)
 
-	if len(before.Targets) != len(after.Targets) {
-		t.Fatalf("expected target count unchanged, before=%d after=%d", len(before.Targets), len(after.Targets))
-	}
+	require.Len(t, before.Targets, len(after.Targets), "expected target count unchanged, before=%d after=%d", len(before.Targets), len(after.Targets))
 	beforeTarget, foundBefore := findArtnetTargetHealth(before, 1, "127.0.0.1", 6454)
 	afterTarget, foundAfter := findArtnetTargetHealth(after, 1, "127.0.0.1", 6454)
-	if !foundBefore || !foundAfter {
-		t.Fatalf("expected the configured target present before and after discover: before=%v after=%v", foundBefore, foundAfter)
-	}
-	if beforeTarget.Target.Enabled != afterTarget.Target.Enabled {
-		t.Fatalf("expected the target's Enabled state unchanged by discover: before=%v after=%v", beforeTarget.Target.Enabled, afterTarget.Target.Enabled)
-	}
+	require.True(t, foundBefore)
+	require.True(t, foundAfter, "expected the configured target present before and after discover: before=%v after=%v", foundBefore, foundAfter)
+	require.Equal(t, afterTarget.Target.Enabled, beforeTarget.Target.Enabled, "expected the target's Enabled state unchanged by discover: before=%v after=%v", beforeTarget.Target.Enabled, afterTarget.Target.Enabled)
 }
 
 // waitForUniverseChannel0 polls "artnet status" until universe's channel 0
@@ -824,9 +680,7 @@ func waitForUniverseChannel0(t *testing.T, pipeName string, universe int, want b
 	var last byte
 	for time.Now().Before(deadline) {
 		payload, errResult, ok := fetchArtnetStatus(pipeName, "")
-		if !ok {
-			t.Fatalf("fetchArtnetStatus failed: %+v", errResult)
-		}
+		require.True(t, ok, "fetchArtnetStatus failed: %+v", errResult)
 		for _, u := range payload.Universes {
 			if u.Universe == universe && len(u.Values) > 0 {
 				last = u.Values[0]
@@ -851,23 +705,19 @@ func TestArtnetSafetyBlackoutDrivesUniverseToZero(t *testing.T) {
 	pipeName, _, universe := startTestArtnetDaemonWithIntensity(t)
 
 	if _, ok := waitForUniverseChannel0(t, pipeName, universe, 255, time.Now().Add(2*time.Second)); !ok {
-		t.Fatal("expected the programmed instance's channel 0 to reach 255 before any override")
+		require.True(t, ok, "expected the programmed instance's channel 0 to reach 255 before any override")
 	}
 
 	onResult := runArtnetSafetyBlackout(Request{Args: []string{"--on", "true", "--pipe", pipeName}})
-	if onResult.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", onResult.ExitCode, onResult.Stderr)
-	}
+	require.Equal(t, 0, onResult.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", onResult.ExitCode, onResult.Stderr)
 	if _, ok := waitForUniverseChannel0(t, pipeName, universe, 0, time.Now().Add(2*time.Second)); !ok {
-		t.Fatal("expected channel 0 to reach 0 within the deadline after blackout")
+		require.True(t, ok, "expected channel 0 to reach 0 within the deadline after blackout")
 	}
 
 	offResult := runArtnetSafetyBlackout(Request{Args: []string{"--on", "false", "--pipe", pipeName}})
-	if offResult.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", offResult.ExitCode, offResult.Stderr)
-	}
+	require.Equal(t, 0, offResult.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", offResult.ExitCode, offResult.Stderr)
 	if _, ok := waitForUniverseChannel0(t, pipeName, universe, 255, time.Now().Add(2*time.Second)); !ok {
-		t.Fatal("expected channel 0 to restore to 255 within the deadline after blackout is turned off")
+		require.True(t, ok, "expected channel 0 to restore to 255 within the deadline after blackout is turned off")
 	}
 }
 
@@ -878,15 +728,13 @@ func TestArtnetSafetyStopAllDrivesUniverseToZero(t *testing.T) {
 	pipeName, _, universe := startTestArtnetDaemonWithIntensity(t)
 
 	if _, ok := waitForUniverseChannel0(t, pipeName, universe, 255, time.Now().Add(2*time.Second)); !ok {
-		t.Fatal("expected the programmed instance's channel 0 to reach 255 before any override")
+		require.True(t, ok, "expected the programmed instance's channel 0 to reach 255 before any override")
 	}
 
 	result := runArtnetSafetyStopAll(Request{Args: []string{"--pipe", pipeName}})
-	if result.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
 	if _, ok := waitForUniverseChannel0(t, pipeName, universe, 0, time.Now().Add(2*time.Second)); !ok {
-		t.Fatal("expected channel 0 to reach 0 within the deadline after stop-all")
+		require.True(t, ok, "expected channel 0 to reach 0 within the deadline after stop-all")
 	}
 }
 
@@ -899,19 +747,13 @@ func TestArtnetSafetyRevokeAutomationDoesNotBlockManualCLI(t *testing.T) {
 	pipeName := startTestArtnetDaemon(t)
 
 	revokeResult := runArtnetSafetyRevokeAutomation(Request{Args: []string{"--on", "true", "--pipe", pipeName}})
-	if revokeResult.ExitCode != 0 {
-		t.Fatalf("expected revoke-automation ExitCode 0, got %d (stderr: %s)", revokeResult.ExitCode, revokeResult.Stderr)
-	}
+	require.Equal(t, 0, revokeResult.ExitCode, "expected revoke-automation ExitCode 0, got %d (stderr: %s)", revokeResult.ExitCode, revokeResult.Stderr)
 
 	blackoutResult := runArtnetSafetyBlackout(Request{Args: []string{"--on", "true", "--pipe", pipeName}})
-	if blackoutResult.ExitCode != 0 {
-		t.Fatalf("expected a manual-sourced CLI blackout to succeed while revoked, got ExitCode %d (stderr: %s)", blackoutResult.ExitCode, blackoutResult.Stderr)
-	}
+	require.Equal(t, 0, blackoutResult.ExitCode, "expected a manual-sourced CLI blackout to succeed while revoked, got ExitCode %d (stderr: %s)", blackoutResult.ExitCode, blackoutResult.Stderr)
 
 	masterResult := runArtnetMasterSet(Request{Args: []string{"--grand", "0.5", "--pipe", pipeName}})
-	if masterResult.ExitCode != 0 {
-		t.Fatalf("expected a manual-sourced CLI master set to succeed while revoked, got ExitCode %d (stderr: %s)", masterResult.ExitCode, masterResult.Stderr)
-	}
+	require.Equal(t, 0, masterResult.ExitCode, "expected a manual-sourced CLI master set to succeed while revoked, got ExitCode %d (stderr: %s)", masterResult.ExitCode, masterResult.Stderr)
 }
 
 // TestArtnetSafetyToggleUsageErrors proves a malformed --on value is
@@ -928,12 +770,8 @@ func TestArtnetSafetyToggleUsageErrors(t *testing.T) {
 	} {
 		t.Run(route.name, func(t *testing.T) {
 			result := route.handler(Request{Args: []string{"--on", "not-a-bool"}})
-			if result.ExitCode != 2 {
-				t.Fatalf("expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-			}
-			if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_USAGE") {
-				t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
-			}
+			require.Equal(t, 2, result.ExitCode, "expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+			require.Contains(t, string(result.Stderr), "GOLC_ARTNET_USAGE", "expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
 		})
 	}
 }
@@ -945,17 +783,13 @@ func TestArtnetSafetyMasterSetGrandAndGroupRoundTrip(t *testing.T) {
 	pipeName := startTestArtnetDaemon(t)
 
 	grandResult := runArtnetMasterSet(Request{Args: []string{"--grand", "0.5", "--pipe", pipeName}})
-	if grandResult.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", grandResult.ExitCode, grandResult.Stderr)
-	}
+	require.Equal(t, 0, grandResult.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", grandResult.ExitCode, grandResult.Stderr)
 
 	groupID := uuid.New()
 	groupResult := runArtnetMasterSet(Request{Args: []string{
 		"--group", groupID.String(), "--level", "0.5", "--pipe", pipeName,
 	}})
-	if groupResult.ExitCode != 0 {
-		t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", groupResult.ExitCode, groupResult.Stderr)
-	}
+	require.Equal(t, 0, groupResult.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", groupResult.ExitCode, groupResult.Stderr)
 }
 
 // TestArtnetSafetyMasterSetUsageErrors proves malformed "artnet master
@@ -965,32 +799,20 @@ func TestArtnetSafetyMasterSetGrandAndGroupRoundTrip(t *testing.T) {
 func TestArtnetSafetyMasterSetUsageErrors(t *testing.T) {
 	t.Run("neither --grand nor --group", func(t *testing.T) {
 		result := runArtnetMasterSet(Request{Args: nil})
-		if result.ExitCode != 2 {
-			t.Fatalf("expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-		}
-		if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_USAGE") {
-			t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
-		}
+		require.Equal(t, 2, result.ExitCode, "expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+		require.Contains(t, string(result.Stderr), "GOLC_ARTNET_USAGE", "expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
 	})
 
 	t.Run("non-numeric --grand", func(t *testing.T) {
 		result := runArtnetMasterSet(Request{Args: []string{"--grand", "bogus"}})
-		if result.ExitCode != 2 {
-			t.Fatalf("expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-		}
-		if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_USAGE") {
-			t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
-		}
+		require.Equal(t, 2, result.ExitCode, "expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+		require.Contains(t, string(result.Stderr), "GOLC_ARTNET_USAGE", "expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
 	})
 
 	t.Run("invalid --group UUID", func(t *testing.T) {
 		result := runArtnetMasterSet(Request{Args: []string{"--group", "not-a-uuid", "--level", "0.5"}})
-		if result.ExitCode != 2 {
-			t.Fatalf("expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-		}
-		if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_USAGE") {
-			t.Fatalf("expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
-		}
+		require.Equal(t, 2, result.ExitCode, "expected ExitCode 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+		require.Contains(t, string(result.Stderr), "GOLC_ARTNET_USAGE", "expected GOLC_ARTNET_USAGE, got: %s", result.Stderr)
 	})
 }
 
@@ -1002,12 +824,8 @@ func TestArtnetSafetyMasterSetOutOfRangeReturnsDomainError(t *testing.T) {
 	pipeName := startTestArtnetDaemon(t)
 
 	result := runArtnetMasterSet(Request{Args: []string{"--grand", "1.5", "--pipe", pipeName}})
-	if result.ExitCode != 1 {
-		t.Fatalf("expected ExitCode 1, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_ARTNET_SAFETY_MASTER_INVALID") {
-		t.Fatalf("expected GOLC_ARTNET_SAFETY_MASTER_INVALID, got: %s", result.Stderr)
-	}
+	require.Equal(t, 1, result.ExitCode, "expected ExitCode 1, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	require.Contains(t, string(result.Stderr), "GOLC_ARTNET_SAFETY_MASTER_INVALID", "expected GOLC_ARTNET_SAFETY_MASTER_INVALID, got: %s", result.Stderr)
 }
 
 // --- 07-02-PLAN.md Task 2: api.Server hosted as a daemon Subsystem -------
@@ -1041,10 +859,10 @@ func writeAPISubsystemTestFile(t *testing.T, root, relative, content string) {
 	t.Helper()
 	target := filepath.Join(root, filepath.FromSlash(relative))
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		t.Fatalf("MkdirAll(%q): %v", relative, err)
+		require.NoError(t, err, "MkdirAll(%q): %v", relative, err)
 	}
 	if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile(%q): %v", relative, err)
+		require.NoError(t, err, "WriteFile(%q): %v", relative, err)
 	}
 }
 
@@ -1060,9 +878,7 @@ func TestArtnetRunHostsAPIServerSubsystemAndServesLoopbackHTTP(t *testing.T) {
 	showPath := filepath.Join(root, "show.golc")
 
 	registry, err := NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err)
 	apiServer := api.NewServer(apiCommandExecutor{registry: registry}, root, showPath)
 
 	// 07-04-PLAN.md Task 2: every /v1 request now requires a valid API
@@ -1070,11 +886,9 @@ func TestArtnetRunHostsAPIServerSubsystemAndServesLoopbackHTTP(t *testing.T) {
 	// HTTP layer, since this test only needs a credential to already
 	// exist) and present it as a bearer token below.
 	generated, err := show.GenerateAPIKey()
-	if err != nil {
-		t.Fatalf("GenerateAPIKey: %v", err)
-	}
+	require.NoError(t, err)
 	if _, err := show.InsertAPIKey(root, showPath, generated, []show.APIKeyScope{show.APIKeyScopePlayback}, time.Now().UTC().Add(time.Hour)); err != nil {
-		t.Fatalf("InsertAPIKey: %v", err)
+		require.NoError(t, err)
 	}
 
 	pipeName := testArtnetPipeName(t)
@@ -1096,7 +910,7 @@ func TestArtnetRunHostsAPIServerSubsystemAndServesLoopbackHTTP(t *testing.T) {
 		select {
 		case <-runDone:
 		case <-time.After(5 * time.Second):
-			t.Fatal("artnet.Run did not return within 5s of ctx cancel")
+			require.FailNow(t, "artnet.Run did not return within 5s of ctx cancel")
 		}
 	})
 
@@ -1117,9 +931,7 @@ func TestArtnetRunHostsAPIServerSubsystemAndServesLoopbackHTTP(t *testing.T) {
 	httpDeadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(httpDeadline) {
 		req, reqErr := http.NewRequest(http.MethodGet, "http://127.0.0.1:4590/v1/config/runtime", nil)
-		if reqErr != nil {
-			t.Fatalf("http.NewRequest: %v", reqErr)
-		}
+		require.NoError(t, reqErr)
 		req.Header.Set("Authorization", "Bearer "+generated.RawToken)
 		var getErr error
 		resp, getErr = http.DefaultClient.Do(req)
@@ -1128,11 +940,7 @@ func TestArtnetRunHostsAPIServerSubsystemAndServesLoopbackHTTP(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if resp == nil {
-		t.Fatal("GET http://127.0.0.1:4590/v1/config/runtime never succeeded within the deadline")
-	}
+	require.NotNil(t, resp, "GET http://127.0.0.1:4590/v1/config/runtime never succeeded within the deadline")
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200 from GET /v1/config/runtime, got %d", resp.StatusCode)
-	}
+	require.Equal(t, http.StatusOK, resp.StatusCode, "expected 200 from GET /v1/config/runtime, got %d", resp.StatusCode)
 }

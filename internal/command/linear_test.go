@@ -21,6 +21,7 @@ import (
 	"github.com/lnorton89/golc/internal/trace/catalog"
 	"github.com/lnorton89/golc/internal/trace/reconcile"
 	"github.com/lnorton89/golc/internal/trace/transport"
+	"github.com/stretchr/testify/require"
 )
 
 var _ = MustDeclareScope(ScopeRegistration{
@@ -49,10 +50,10 @@ const replayFixtureLinearMap = `{
 func writeReplayFixtureFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
+		require.NoError(t, err, "mkdir %s: %v", filepath.Dir(path), err)
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
+		require.NoError(t, err, "write %s: %v", path, err)
 	}
 }
 
@@ -288,21 +289,15 @@ var _ captureSnapshotter = (*fakeReplayClient)(nil)
 func buildAndWriteReplayPlan(t *testing.T, root string, snapshot transport.Snapshot, outName string) (reconcile.Plan, string) {
 	t.Helper()
 	migrated, err := catalog.MigrateV1ToV2(root)
-	if err != nil {
-		t.Fatalf("MigrateV1ToV2: %v", err)
-	}
+	require.NoError(t, err)
 	intents := intentsFromMigratedMap(migrated)
 	plan, err := reconcile.BuildCompletePreview(intents, migrated.RemoteMappings, snapshot, nil)
-	if err != nil {
-		t.Fatalf("BuildCompletePreview: %v", err)
-	}
+	require.NoError(t, err)
 	payload, err := strictjson.CanonicalEncode(plan)
-	if err != nil {
-		t.Fatalf("CanonicalEncode(plan): %v", err)
-	}
+	require.NoError(t, err)
 	planPath := filepath.Join(root, outName)
 	if err := os.WriteFile(planPath, payload, 0o644); err != nil {
-		t.Fatalf("write %s: %v", planPath, err)
+		require.NoError(t, err, "write %s: %v", planPath, err)
 	}
 	return plan, planPath
 }
@@ -345,13 +340,9 @@ func TestScopeLinearApplyReplay(t *testing.T) {
 		request := Request{Root: root, Args: []string{planPath, "--plan-id", plan.PlanID}}
 
 		first := runLinearApply(request)
-		if first.ExitCode != 0 {
-			t.Fatalf("first apply: ExitCode = %d, want 0; stderr: %s", first.ExitCode, first.Stderr)
-		}
+		require.Equal(t, 0, first.ExitCode, "first apply: ExitCode = %d, want 0; stderr: %s", first.ExitCode, first.Stderr)
 		firstCreateCalls := fake.totalCreateCalls()
-		if firstCreateCalls != len(plan.Operations) {
-			t.Fatalf("first apply: total Create calls = %d, want %d (one per operation)", firstCreateCalls, len(plan.Operations))
-		}
+		require.Equal(t, len(plan.Operations), firstCreateCalls, "first apply: total Create calls = %d, want %d (one per operation)", firstCreateCalls, len(plan.Operations))
 
 		// No intervening "linear preview": apply the exact same plan file a
 		// second time. The bare apply.Apply entry point has no freshness
@@ -359,14 +350,10 @@ func TestScopeLinearApplyReplay(t *testing.T) {
 		// second, duplicate remote object -- this is the RED failure this
 		// task documents.
 		second := runLinearApply(request)
-		if second.ExitCode == 0 {
-			t.Fatalf("second apply of the exact same plan unexpectedly succeeded (ExitCode 0); want a GOLC_APPLY_ staleness rejection; stdout: %s", second.Stdout)
-		}
-		if !strings.Contains(string(second.Stderr), "GOLC_APPLY_") {
-			t.Fatalf("second apply stderr = %q, want it to contain GOLC_APPLY_ (the D-18 freshness rejection)", second.Stderr)
-		}
+		require.NotEqual(t, 0, second.ExitCode, "second apply of the exact same plan unexpectedly succeeded (ExitCode 0); want a GOLC_APPLY_ staleness rejection; stdout: %s", second.Stdout)
+		require.Contains(t, string(second.Stderr), "GOLC_APPLY_", "second apply stderr = %q, want it to contain GOLC_APPLY_ (the D-18 freshness rejection)", second.Stderr)
 		if got := fake.totalCreateCalls(); got != firstCreateCalls {
-			t.Fatalf("second apply issued %d additional Create call(s) (total now %d, want unchanged %d) -- a stale re-apply duplicated remote objects instead of being rejected", got-firstCreateCalls, got, firstCreateCalls)
+			require.Equal(t, firstCreateCalls, got, "second apply issued %d additional Create call(s) (total now %d, want unchanged %d) -- a stale re-apply duplicated remote objects instead of being rejected", got-firstCreateCalls, got, firstCreateCalls)
 		}
 	})
 
@@ -378,9 +365,7 @@ func TestScopeLinearApplyReplay(t *testing.T) {
 		root := newApplyReplayFixtureRepository(t)
 		snapshot := emptyCompleteSnapshot
 		plan, planPath := buildAndWriteReplayPlan(t, root, snapshot, "apply-plan-b.json")
-		if len(plan.Operations) == 0 {
-			t.Fatal("fixture plan has no operations to exercise a partial failure against")
-		}
+		require.NotEmpty(t, plan.Operations, "fixture plan has no operations to exercise a partial failure against")
 		// The first operation in canonical D-17 order (milestone, rank 0)
 		// is the one this test induces a single transient failure against,
 		// so the achieved prefix on the first attempt is empty and the
@@ -403,19 +388,15 @@ func TestScopeLinearApplyReplay(t *testing.T) {
 		request := Request{Root: root, Args: []string{planPath, "--plan-id", plan.PlanID}}
 
 		first := runLinearApply(request)
-		if first.ExitCode != 0 {
-			t.Fatalf("first (partial) apply: ExitCode = %d, want 0 (a transient per-operation failure is reported inside the report, not as a route-level error); stderr: %s", first.ExitCode, first.Stderr)
-		}
-		if fake.createCalls[failLocalID] != 1 {
-			t.Fatalf("createCalls[%s] after first attempt = %d, want exactly 1 (the induced failure)", failLocalID, fake.createCalls[failLocalID])
-		}
+		require.Equal(t, 0, first.ExitCode, "first (partial) apply: ExitCode = %d, want 0 (a transient per-operation failure is reported inside the report, not as a route-level error); stderr: %s", first.ExitCode, first.Stderr)
+		require.Equal(t, 1, fake.createCalls[failLocalID], "createCalls[%s] after first attempt = %d, want exactly 1 (the induced failure)", failLocalID, fake.createCalls[failLocalID])
 		if _, found := fake.byUUID[failLocalID]; found {
-			t.Fatalf("fake unexpectedly recorded a remote object for %s after its induced Create failure", failLocalID)
+			require.False(t, found, "fake unexpectedly recorded a remote object for %s after its induced Create failure", failLocalID)
 		}
 
 		journalPath := planPath + ".journal.json"
 		if _, err := os.Stat(journalPath); !os.IsNotExist(err) {
-			t.Fatalf("journal file %s exists after an empty achieved prefix (nothing should have been committed): stat err = %v", journalPath, err)
+			require.True(t, os.IsNotExist(err), "journal file %s exists after an empty achieved prefix (nothing should have been committed): stat err = %v", journalPath, err)
 		}
 
 		// Retry the exact same plan file within the same journal lineage:
@@ -427,12 +408,8 @@ func TestScopeLinearApplyReplay(t *testing.T) {
 		// the previously failing local ID succeeds this time because
 		// fakeReplayClient's failure hook fires exactly once.
 		second := runLinearApply(request)
-		if second.ExitCode != 0 {
-			t.Fatalf("retry apply: ExitCode = %d, want 0; stderr: %s", second.ExitCode, second.Stderr)
-		}
-		if fake.createCalls[failLocalID] != 2 {
-			t.Fatalf("createCalls[%s] after retry = %d, want exactly 2 (one failed attempt, one successful retry -- never re-attempted a third time)", failLocalID, fake.createCalls[failLocalID])
-		}
+		require.Equal(t, 0, second.ExitCode, "retry apply: ExitCode = %d, want 0; stderr: %s", second.ExitCode, second.Stderr)
+		require.Equal(t, 2, fake.createCalls[failLocalID], "createCalls[%s] after retry = %d, want exactly 2 (one failed attempt, one successful retry -- never re-attempted a third time)", failLocalID, fake.createCalls[failLocalID])
 		successfulObjects := 0
 		for _, state := range fake.byUUID {
 			marker, found, err := reconcile.ParseMarker(state.Description)
@@ -440,16 +417,12 @@ func TestScopeLinearApplyReplay(t *testing.T) {
 				successfulObjects++
 			}
 		}
-		if successfulObjects != 1 {
-			t.Fatalf("fake has %d remote objects for %s after retry, want exactly 1 (no duplicate)", successfulObjects, failLocalID)
-		}
+		require.Equal(t, 1, successfulObjects, "fake has %d remote objects for %s after retry, want exactly 1 (no duplicate)", successfulObjects, failLocalID)
 		for _, op := range plan.Operations {
 			if op.LocalID == failLocalID {
 				continue
 			}
-			if fake.createCalls[op.LocalID] != 1 {
-				t.Fatalf("createCalls[%s] = %d after the retry completed every operation exactly once, want 1", op.LocalID, fake.createCalls[op.LocalID])
-			}
+			require.Equal(t, 1, fake.createCalls[op.LocalID], "createCalls[%s] = %d after the retry completed every operation exactly once, want 1", op.LocalID, fake.createCalls[op.LocalID])
 		}
 
 		// A subsequent stale re-apply of the very same plan bytes (now that
@@ -457,14 +430,8 @@ func TestScopeLinearApplyReplay(t *testing.T) {
 		// resuming a transient failure never weakens the D-18 staleness
 		// guard for a truly stale replay.
 		third := runLinearApply(request)
-		if third.ExitCode == 0 {
-			t.Fatalf("third apply of the now-fully-achieved plan unexpectedly succeeded; want a GOLC_APPLY_ staleness rejection")
-		}
-		if !strings.Contains(string(third.Stderr), "GOLC_APPLY_") {
-			t.Fatalf("third apply stderr = %q, want it to contain GOLC_APPLY_", third.Stderr)
-		}
-		if fake.createCalls[failLocalID] != 2 {
-			t.Fatalf("createCalls[%s] after the rejected third apply = %d, want unchanged 2", failLocalID, fake.createCalls[failLocalID])
-		}
+		require.NotEqual(t, 0, third.ExitCode, "third apply of the now-fully-achieved plan unexpectedly succeeded; want a GOLC_APPLY_ staleness rejection")
+		require.Contains(t, string(third.Stderr), "GOLC_APPLY_", "third apply stderr = %q, want it to contain GOLC_APPLY_", third.Stderr)
+		require.Equal(t, 2, fake.createCalls[failLocalID], "createCalls[%s] after the rejected third apply = %d, want unchanged 2", failLocalID, fake.createCalls[failLocalID])
 	})
 }

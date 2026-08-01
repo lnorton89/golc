@@ -1,6 +1,7 @@
 package command
 
 import (
+	"github.com/stretchr/testify/require"
 	"strings"
 	"testing"
 )
@@ -26,35 +27,25 @@ var _ = MustDeclareScope(ScopeRegistration{
 func TestScopeOfflineAcceptance(t *testing.T) {
 	root := commandParityRepositoryRoot(t)
 	if _, err := resolvePinnedGoExecutable(root); err != nil {
-		t.Fatalf("pinned Go toolchain not bootstrapped: %v", err)
+		require.NoError(t, err)
 	}
 
 	t.Run("test --quick passes against the real repository", func(t *testing.T) {
 		result := runTestQuick(root)
-		if result.ExitCode != 0 {
-			t.Fatalf("test --quick exited %d\nstdout: %s\nstderr: %s", result.ExitCode, result.Stdout, result.Stderr)
-		}
+		require.Equal(t, 0, result.ExitCode, "test --quick exited %d\nstdout: %s\nstderr: %s", result.ExitCode, result.Stdout, result.Stderr)
 	})
 
 	t.Run("generate --check reports zero drift against the real repository", func(t *testing.T) {
 		result := runGenerate(Request{Root: root, Args: []string{"--check"}})
-		if result.ExitCode != 0 {
-			t.Fatalf("generate --check exited %d\nstdout: %s\nstderr: %s", result.ExitCode, result.Stdout, result.Stderr)
-		}
+		require.Equal(t, 0, result.ExitCode, "generate --check exited %d\nstdout: %s\nstderr: %s", result.ExitCode, result.Stdout, result.Stderr)
 		want := "generate --check: no drift; every committed schema, the api OpenAPI contract, and the scriptsdk generated SDK match their source.\n"
-		if string(result.Stdout) != want {
-			t.Fatalf("generate --check stdout = %q, want %q", result.Stdout, want)
-		}
+		require.Equal(t, want, string(result.Stdout), "generate --check stdout = %q, want %q", result.Stdout, want)
 	})
 
 	t.Run("check --offline completes the whole graph with network denied", func(t *testing.T) {
 		result := runCheckOffline(root)
-		if result.ExitCode != 0 {
-			t.Fatalf("check --offline exited %d\nstdout: %s\nstderr: %s", result.ExitCode, result.Stdout, result.Stderr)
-		}
+		require.Equal(t, 0, result.ExitCode, "check --offline exited %d\nstdout: %s\nstderr: %s", result.ExitCode, result.Stdout, result.Stderr)
 		want := "check --offline: generate, check, build, and test all completed with network denied.\n"
-		if !strings.HasSuffix(string(result.Stdout), want) {
-			t.Fatalf("check --offline stdout = %q, want it to end with %q", result.Stdout, want)
-		}
+		require.True(t, strings.HasSuffix(string(result.Stdout), want), "check --offline stdout = %q, want it to end with %q", result.Stdout, want)
 	})
 }
