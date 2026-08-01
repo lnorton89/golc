@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/lnorton89/golc/internal/bootstrap"
+	"github.com/stretchr/testify/require"
 )
 
 // TestScopeBuildArgs is the exact quick-test marker for scope
@@ -19,82 +20,61 @@ import (
 func TestScopeBuildArgs(t *testing.T) {
 	t.Run("no arguments means the bare full build", func(t *testing.T) {
 		scope, err := parseBuildArgs(nil)
-		if err != nil {
-			t.Fatalf("expected no error, got: %v", err)
-		}
-		if scope != "" {
-			t.Fatalf("expected an empty scope, got %q", scope)
-		}
+		require.NoError(t, err)
+		require.Equal(t, "", scope, "expected an empty scope, got %q", scope)
 	})
 
 	t.Run("--scope <name> selects a named scope", func(t *testing.T) {
 		scope, err := parseBuildArgs([]string{"--scope", "linear-sdk"})
-		if err != nil {
-			t.Fatalf("expected no error, got: %v", err)
-		}
-		if scope != "linear-sdk" {
-			t.Fatalf("expected scope %q, got %q", "linear-sdk", scope)
-		}
+		require.NoError(t, err)
+		require.Equal(t, "linear-sdk", scope, "expected scope %q, got %q", "linear-sdk", scope)
 	})
 
 	t.Run("--scope=<name> selects a named scope", func(t *testing.T) {
 		scope, err := parseBuildArgs([]string{"--scope=linear-sdk"})
-		if err != nil {
-			t.Fatalf("expected no error, got: %v", err)
-		}
-		if scope != "linear-sdk" {
-			t.Fatalf("expected scope %q, got %q", "linear-sdk", scope)
-		}
+		require.NoError(t, err)
+		require.Equal(t, "linear-sdk", scope, "expected scope %q, got %q", "linear-sdk", scope)
 	})
 
 	t.Run("--scope without a value is rejected", func(t *testing.T) {
 		if _, err := parseBuildArgs([]string{"--scope"}); err == nil {
-			t.Fatal("expected an error for a bare --scope")
+			require.Error(t, err)
 		}
 	})
 
 	t.Run("--scope with an empty value is rejected", func(t *testing.T) {
 		if _, err := parseBuildArgs([]string{"--scope", ""}); err == nil {
-			t.Fatal("expected an error for --scope with an empty value")
+			require.Error(t, err)
 		}
 		if _, err := parseBuildArgs([]string{"--scope="}); err == nil {
-			t.Fatal("expected an error for --scope= with an empty value")
+			require.Error(t, err)
 		}
 	})
 
 	t.Run("an unsupported argument is rejected", func(t *testing.T) {
 		if _, err := parseBuildArgs([]string{"--bogus"}); err == nil {
-			t.Fatal("expected an error for an unsupported argument")
+			require.Error(t, err)
 		}
 	})
 
 	t.Run("linear-sdk build scope self-registers with the documented directory", func(t *testing.T) {
 		registration, found := lookupNodeBuildScope("linear-sdk")
-		if !found {
-			t.Fatal("expected the linear-sdk build scope to be registered")
-		}
-		if registration.Dir != "tools/linear-sync" {
-			t.Fatalf("expected Dir %q, got %q", "tools/linear-sync", registration.Dir)
-		}
+		require.True(t, found, "expected the linear-sdk build scope to be registered")
+		require.Equal(t, "tools/linear-sync", registration.Dir, "expected Dir %q, got %q", "tools/linear-sync", registration.Dir)
 	})
 
 	t.Run("an unknown build scope is not registered", func(t *testing.T) {
 		if _, found := lookupNodeBuildScope("does-not-exist"); found {
-			t.Fatal("expected an unregistered scope name to be absent")
+			require.False(t, found, "expected an unregistered scope name to be absent")
 		}
 	})
 
 	t.Run("linear-sdk-operations test scope self-registers with a non-empty command", func(t *testing.T) {
 		registration, found := lookupNodeScope("linear-sdk-operations")
-		if !found {
-			t.Fatal("expected the linear-sdk-operations quick-test scope to be registered")
-		}
-		if registration.Dir != "tools/linear-sync" {
-			t.Fatalf("expected Dir %q, got %q", "tools/linear-sync", registration.Dir)
-		}
-		if len(registration.Arguments) == 0 || registration.Arguments[0] != "--test" {
-			t.Fatalf("expected registered Node arguments without an executable, got %v", registration.Arguments)
-		}
+		require.True(t, found, "expected the linear-sdk-operations quick-test scope to be registered")
+		require.Equal(t, "tools/linear-sync", registration.Dir, "expected Dir %q, got %q", "tools/linear-sync", registration.Dir)
+		require.NotEmpty(t, registration.Arguments)
+		require.Equal(t, "--test", registration.Arguments[0], "expected registered Node arguments without an executable, got %v", registration.Arguments)
 	})
 
 	t.Run("environment upsert replaces stale root entries case-insensitively", func(t *testing.T) {
@@ -109,29 +89,29 @@ func TestScopeBuildArgs(t *testing.T) {
 			name, value, _ := strings.Cut(entry, "=")
 			if strings.EqualFold(name, "GOLC_PROJECT_ROOT") {
 				rootEntries++
-				if name != "GOLC_PROJECT_ROOT" || value != root {
-					t.Fatalf("root entry = %q, want canonical replacement", entry)
-				}
+				require.Equal(t, "GOLC_PROJECT_ROOT", name)
+				require.Equal(t, root, value, "root entry = %q, want canonical replacement", entry)
 			}
 		}
-		if rootEntries != 1 {
-			t.Fatalf("root entry count = %d in %v", rootEntries, got)
-		}
-		if !slices.Contains(got, "PATH=fixture") || !slices.Contains(got, "CACHE=keep") {
-			t.Fatalf("unrelated environment entries were not preserved: %v", got)
-		}
+		require.Equal(t, 1, rootEntries, "root entry count = %d in %v", rootEntries, got)
+		require.False(t, !slices.Contains(got, "PATH=fixture"))
+		require.False(t, !slices.Contains(got, "CACHE=keep"), "unrelated environment entries were not preserved: %v", got)
 
 		t.Setenv("GOLC_PROJECT_ROOT", "stale")
 		projectEnvironment := projectGoEnvironment(root)
-		if !slices.Contains(projectEnvironment, "GOLC_PROJECT_ROOT="+root) {
-			t.Fatalf("project Go environment does not contain authoritative root: %v", projectEnvironment)
+		found := false
+		for _, entry := range projectEnvironment {
+			if entry == "GOLC_PROJECT_ROOT="+root {
+				found = true
+			}
 		}
+		require.True(t, found, "project Go environment does not contain authoritative root: %v", projectEnvironment)
 	})
 
 	t.Run("pinned Go and Node resolvers use the runtime platform layout", func(t *testing.T) {
 		root := t.TempDir()
 		if err := os.MkdirAll(filepath.Join(root, "config"), 0o755); err != nil {
-			t.Fatal(err)
+			require.NoError(t, err)
 		}
 		manifest := `schema_version = 2
 
@@ -142,24 +122,20 @@ version = "1.26.5"
 version = "24.18.0"
 `
 		if err := os.WriteFile(filepath.Join(root, "config", "toolchain.toml"), []byte(manifest), 0o644); err != nil {
-			t.Fatal(err)
+			require.NoError(t, err)
 		}
 
 		goBase := filepath.Join(root, ".tools", "toolchains", "go", "1.26.5")
 		goExecutable := filepath.Join(goBase, bootstrap.PlatformKey(), "go", "bin", bootstrap.ExecutableName("go"))
 		if err := os.MkdirAll(filepath.Dir(goExecutable), 0o755); err != nil {
-			t.Fatal(err)
+			require.NoError(t, err)
 		}
 		if err := os.WriteFile(goExecutable, []byte("go\n"), 0o755); err != nil {
-			t.Fatal(err)
+			require.NoError(t, err)
 		}
 		gotGo, err := resolvePinnedGoExecutable(root)
-		if err != nil {
-			t.Fatalf("resolvePinnedGoExecutable: %v", err)
-		}
-		if gotGo != goExecutable {
-			t.Fatalf("Go executable = %q, want %q", gotGo, goExecutable)
-		}
+		require.NoError(t, err)
+		require.Equal(t, goExecutable, gotGo, "Go executable = %q, want %q", gotGo, goExecutable)
 
 		nodeInstall := filepath.Join(root, ".tools", "toolchains", "node", "24.18.0", bootstrap.PlatformKey())
 		extractedRoot := filepath.Join(nodeInstall, "verified-payload-not-derived-from-version")
@@ -174,22 +150,18 @@ version = "24.18.0"
 		nodeExecutable := filepath.Join(extractedRoot, nodeRelative)
 		for _, path := range []string{nodeExecutable, filepath.Join(extractedRoot, npmRelative)} {
 			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-				t.Fatal(err)
+				require.NoError(t, err)
 			}
 			if err := os.WriteFile(path, []byte("node\n"), 0o755); err != nil {
-				t.Fatal(err)
+				require.NoError(t, err)
 			}
 		}
 		if err := os.WriteFile(filepath.Join(nodeInstall, bootstrap.ManifestName), []byte("{}\n"), 0o644); err != nil {
-			t.Fatal(err)
+			require.NoError(t, err)
 		}
 		gotNode, err := resolvePinnedNodeExecutable(root)
-		if err != nil {
-			t.Fatalf("resolvePinnedNodeExecutable: %v", err)
-		}
-		if gotNode != nodeExecutable {
-			t.Fatalf("Node executable = %q, want %q", gotNode, nodeExecutable)
-		}
+		require.NoError(t, err)
+		require.Equal(t, nodeExecutable, gotNode, "Node executable = %q, want %q", gotNode, nodeExecutable)
 	})
 }
 
@@ -205,14 +177,11 @@ version = "24.18.0"
 func TestBuildRouteCompilesTheProductionRepository(t *testing.T) {
 	root := commandParityRepositoryRoot(t)
 	if _, err := resolvePinnedGoExecutable(root); err != nil {
-		t.Fatalf("pinned Go toolchain not bootstrapped: %v", err)
+		require.NoError(t, err)
 	}
 
 	result := runBuild(Request{Route: "build", Root: root})
-	if result.ExitCode != 0 {
-		t.Fatalf("bare build route exited %d\nstdout: %s\nstderr: %s",
-			result.ExitCode, result.Stdout, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "bare build route exited %d\nstdout: %s\nstderr: %s", result.ExitCode, result.Stdout, result.Stderr)
 }
 
 // TestBuildablePackagesExcludesMagefiles proves the exclusion directly
@@ -221,20 +190,12 @@ func TestBuildRouteCompilesTheProductionRepository(t *testing.T) {
 func TestBuildablePackagesExcludesMagefiles(t *testing.T) {
 	root := commandParityRepositoryRoot(t)
 	goExecutable, err := resolvePinnedGoExecutable(root)
-	if err != nil {
-		t.Fatalf("pinned Go toolchain not bootstrapped: %v", err)
-	}
+	require.NoError(t, err)
 
 	packages, err := buildablePackages(goExecutable, root)
-	if err != nil {
-		t.Fatalf("buildablePackages: %v", err)
-	}
-	if len(packages) == 0 {
-		t.Fatal("expected at least one buildable package")
-	}
+	require.NoError(t, err)
+	require.NotEmpty(t, packages, "expected at least one buildable package")
 	for _, pkg := range packages {
-		if strings.HasSuffix(pkg, magefilesImportSuffix) {
-			t.Fatalf("expected the magefiles package to be excluded, found %q", pkg)
-		}
+		require.False(t, strings.HasSuffix(pkg, magefilesImportSuffix), "expected the magefiles package to be excluded, found %q", pkg)
 	}
 }

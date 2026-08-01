@@ -16,10 +16,10 @@ package command_test
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/lnorton89/golc/internal/command"
+	"github.com/stretchr/testify/require"
 )
 
 const fixtureValidRGBParYAML = `schema_version: 1
@@ -54,48 +54,34 @@ func writeFixtureTestFile(t *testing.T, root, name, content string) string {
 	t.Helper()
 	path := filepath.Join(root, name)
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
+		require.NoError(t, err, "write %s: %v", path, err)
 	}
 	return path
 }
 
 func TestFixtureValidateRoute(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry failed: %v", err)
-	}
+	require.NoError(t, err)
 	root := t.TempDir()
 
 	t.Run("valid fixture exits 0 with a deterministic canonical summary", func(t *testing.T) {
 		path := writeFixtureTestFile(t, root, "valid.yaml", fixtureValidRGBParYAML)
 
 		first := registry.Execute(command.Request{Root: root, Args: []string{"fixture", "validate", path}})
-		if first.ExitCode != 0 {
-			t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", first.ExitCode, first.Stderr)
-		}
-		if len(first.Stdout) == 0 {
-			t.Fatal("expected a non-empty canonical summary on Stdout")
-		}
+		require.Equal(t, 0, first.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", first.ExitCode, first.Stderr)
+		require.NotEmpty(t, first.Stdout, "expected a non-empty canonical summary on Stdout")
 
 		second := registry.Execute(command.Request{Root: root, Args: []string{"fixture", "validate", path}})
-		if second.ExitCode != 0 {
-			t.Fatalf("expected second ExitCode 0, got %d (stderr: %s)", second.ExitCode, second.Stderr)
-		}
-		if string(first.Stdout) != string(second.Stdout) {
-			t.Fatalf("expected byte-identical repeated validation:\nfirst:  %s\nsecond: %s", first.Stdout, second.Stdout)
-		}
+		require.Equal(t, 0, second.ExitCode, "expected second ExitCode 0, got %d (stderr: %s)", second.ExitCode, second.Stderr)
+		require.Equal(t, string(second.Stdout), string(first.Stdout), "expected byte-identical repeated validation:\nfirst:  %s\nsecond: %s", first.Stdout, second.Stdout)
 	})
 
 	t.Run("duplicate-key fixture exits 2 with GOLC_FIXTURE_YAML_INVALID", func(t *testing.T) {
 		path := writeFixtureTestFile(t, root, "duplicate-key.yaml", fixtureDuplicateKeyYAML)
 
 		result := registry.Execute(command.Request{Root: root, Args: []string{"fixture", "validate", path}})
-		if result.ExitCode != 2 {
-			t.Fatalf("expected ExitCode 2, got %d (stdout: %s)", result.ExitCode, result.Stdout)
-		}
-		if !strings.Contains(string(result.Stderr), "GOLC_FIXTURE_YAML_INVALID") {
-			t.Fatalf("expected GOLC_FIXTURE_YAML_INVALID on Stderr, got %q", result.Stderr)
-		}
+		require.Equal(t, 2, result.ExitCode, "expected ExitCode 2, got %d (stdout: %s)", result.ExitCode, result.Stdout)
+		require.Contains(t, string(result.Stderr), "GOLC_FIXTURE_YAML_INVALID", "expected GOLC_FIXTURE_YAML_INVALID on Stderr, got %q", result.Stderr)
 	})
 }
 
@@ -113,44 +99,28 @@ func TestFixtureValidateRoute(t *testing.T) {
 // "fixture inspect" route -- that is the RED state this task proves.
 func TestFixtureInspectRoute(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry failed: %v", err)
-	}
+	require.NoError(t, err)
 	root := t.TempDir()
 
 	t.Run("valid fixture exits 0 with a deterministic identity+provenance envelope and no absolute path", func(t *testing.T) {
 		path := writeFixtureTestFile(t, root, "valid.yaml", fixtureValidRGBParYAML)
 
 		first := registry.Execute(command.Request{Root: root, Args: []string{"fixture", "inspect", path}})
-		if first.ExitCode != 0 {
-			t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", first.ExitCode, first.Stderr)
-		}
-		if len(first.Stdout) == 0 {
-			t.Fatal("expected a non-empty identity+provenance envelope on Stdout")
-		}
-		if strings.Contains(string(first.Stdout), root) {
-			t.Fatalf("expected no absolute filesystem path (temp root %q) in Stdout, got %q", root, first.Stdout)
-		}
+		require.Equal(t, 0, first.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", first.ExitCode, first.Stderr)
+		require.NotEmpty(t, first.Stdout, "expected a non-empty identity+provenance envelope on Stdout")
+		require.NotContains(t, string(first.Stdout), root, "expected no absolute filesystem path (temp root %q) in Stdout, got %q", root, first.Stdout)
 
 		second := registry.Execute(command.Request{Root: root, Args: []string{"fixture", "inspect", path}})
-		if second.ExitCode != 0 {
-			t.Fatalf("expected second ExitCode 0, got %d (stderr: %s)", second.ExitCode, second.Stderr)
-		}
-		if string(first.Stdout) != string(second.Stdout) {
-			t.Fatalf("expected byte-identical repeated inspect:\nfirst:  %s\nsecond: %s", first.Stdout, second.Stdout)
-		}
+		require.Equal(t, 0, second.ExitCode, "expected second ExitCode 0, got %d (stderr: %s)", second.ExitCode, second.Stderr)
+		require.Equal(t, string(second.Stdout), string(first.Stdout), "expected byte-identical repeated inspect:\nfirst:  %s\nsecond: %s", first.Stdout, second.Stdout)
 	})
 
 	t.Run("duplicate-key fixture exits 2 with GOLC_FIXTURE_YAML_INVALID", func(t *testing.T) {
 		path := writeFixtureTestFile(t, root, "duplicate-key-inspect.yaml", fixtureDuplicateKeyYAML)
 
 		result := registry.Execute(command.Request{Root: root, Args: []string{"fixture", "inspect", path}})
-		if result.ExitCode != 2 {
-			t.Fatalf("expected ExitCode 2, got %d (stdout: %s)", result.ExitCode, result.Stdout)
-		}
-		if !strings.Contains(string(result.Stderr), "GOLC_FIXTURE_YAML_INVALID") {
-			t.Fatalf("expected GOLC_FIXTURE_YAML_INVALID on Stderr, got %q", result.Stderr)
-		}
+		require.Equal(t, 2, result.ExitCode, "expected ExitCode 2, got %d (stdout: %s)", result.ExitCode, result.Stdout)
+		require.Contains(t, string(result.Stderr), "GOLC_FIXTURE_YAML_INVALID", "expected GOLC_FIXTURE_YAML_INVALID on Stderr, got %q", result.Stderr)
 	})
 
 	// TestFixtureInspectRoute/an OFL-imported .json envelope inspects as
@@ -168,20 +138,12 @@ func TestFixtureInspectRoute(t *testing.T) {
 		importResult := registry.Execute(command.Request{Root: root, Args: []string{
 			"fixture", "import", "--ofl-file", corpusPath, "--out", importedPath,
 		}})
-		if importResult.ExitCode != 0 {
-			t.Fatalf("expected the import to succeed (ExitCode 0), got %d (stderr: %s)", importResult.ExitCode, importResult.Stderr)
-		}
+		require.Equal(t, 0, importResult.ExitCode, "expected the import to succeed (ExitCode 0), got %d (stderr: %s)", importResult.ExitCode, importResult.Stderr)
 
 		result := registry.Execute(command.Request{Root: root, Args: []string{"fixture", "inspect", importedPath}})
-		if result.ExitCode != 0 {
-			t.Fatalf("expected ExitCode 0 inspecting an imported .json envelope, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-		}
-		if !strings.Contains(string(result.Stdout), `"content_hash"`) {
-			t.Fatalf("expected a pinned content_hash in Stdout, got %s", result.Stdout)
-		}
-		if !strings.Contains(string(result.Stdout), `"ofl:`) {
-			t.Fatalf("expected the envelope's own OFL provenance source (not a recomputed path-based one), got %s", result.Stdout)
-		}
+		require.Equal(t, 0, result.ExitCode, "expected ExitCode 0 inspecting an imported .json envelope, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+		require.Contains(t, string(result.Stdout), `"content_hash"`, "expected a pinned content_hash in Stdout, got %s", result.Stdout)
+		require.Contains(t, string(result.Stdout), `"ofl:`, "expected the envelope's own OFL provenance source (not a recomputed path-based one), got %s", result.Stdout)
 	})
 }
 
@@ -192,9 +154,7 @@ func TestFixtureInspectRoute(t *testing.T) {
 func oflCorpusDir(t *testing.T) string {
 	t.Helper()
 	dir, err := filepath.Abs(filepath.Join("..", "..", "tests", "fixtures", "ofl"))
-	if err != nil {
-		t.Fatalf("resolving OFL corpus directory: %v", err)
-	}
+	require.NoError(t, err)
 	return dir
 }
 
@@ -211,9 +171,7 @@ func oflCorpusDir(t *testing.T) string {
 // this task proves.
 func TestFixtureImportRoute(t *testing.T) {
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry failed: %v", err)
-	}
+	require.NoError(t, err)
 	root := t.TempDir()
 
 	t.Run("--ofl-file imports offline with ExitCode 0 and writes a pinned fixture+provenance", func(t *testing.T) {
@@ -223,23 +181,13 @@ func TestFixtureImportRoute(t *testing.T) {
 		result := registry.Execute(command.Request{Root: root, Args: []string{
 			"fixture", "import", "--ofl-file", corpusPath, "--out", outPath,
 		}})
-		if result.ExitCode != 0 {
-			t.Fatalf("expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-		}
+		require.Equal(t, 0, result.ExitCode, "expected ExitCode 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
 
 		written, readErr := os.ReadFile(outPath)
-		if readErr != nil {
-			t.Fatalf("expected --out file to be written: %v", readErr)
-		}
-		if len(written) == 0 {
-			t.Fatal("expected a non-empty written fixture+provenance payload")
-		}
-		if !strings.Contains(string(written), `"content_hash"`) {
-			t.Fatalf("expected the written payload to contain a pinned content_hash, got %s", written)
-		}
-		if !strings.Contains(string(written), `"warnings"`) {
-			t.Fatalf("expected the written payload to contain a provenance warnings array, got %s", written)
-		}
+		require.NoError(t, readErr)
+		require.NotEmpty(t, written, "expected a non-empty written fixture+provenance payload")
+		require.Contains(t, string(written), `"content_hash"`, "expected the written payload to contain a pinned content_hash, got %s", written)
+		require.Contains(t, string(written), `"warnings"`, "expected the written payload to contain a provenance warnings array, got %s", written)
 	})
 
 	t.Run("--ofl and --ofl-file together are rejected with GOLC_FIXTURE_USAGE", func(t *testing.T) {
@@ -249,11 +197,7 @@ func TestFixtureImportRoute(t *testing.T) {
 		result := registry.Execute(command.Request{Root: root, Args: []string{
 			"fixture", "import", "--ofl", "chauvet-dj/led-par-64-tri-b", "--ofl-file", corpusPath, "--out", outPath,
 		}})
-		if result.ExitCode != 2 {
-			t.Fatalf("expected ExitCode 2, got %d (stdout: %s)", result.ExitCode, result.Stdout)
-		}
-		if !strings.Contains(string(result.Stderr), "GOLC_FIXTURE_USAGE") {
-			t.Fatalf("expected GOLC_FIXTURE_USAGE on Stderr, got %q", result.Stderr)
-		}
+		require.Equal(t, 2, result.ExitCode, "expected ExitCode 2, got %d (stdout: %s)", result.ExitCode, result.Stdout)
+		require.Contains(t, string(result.Stderr), "GOLC_FIXTURE_USAGE", "expected GOLC_FIXTURE_USAGE on Stderr, got %q", result.Stderr)
 	})
 }

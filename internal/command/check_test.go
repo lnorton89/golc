@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/lnorton89/golc/internal/delivery"
+	"github.com/stretchr/testify/require"
 )
 
 func TestScopeCommandParity(t *testing.T) {
@@ -40,7 +41,7 @@ func TestScopeCommandParity(t *testing.T) {
 		} {
 			t.Run(test.name, func(t *testing.T) {
 				if err := validateCommandParity(graph, test.data); err != nil {
-					t.Fatalf("validateCommandParity: %v", err)
+					require.NoError(t, err)
 				}
 			})
 		}
@@ -52,7 +53,7 @@ func TestScopeCommandParity(t *testing.T) {
 		t.Run("accepted once, before every target dispatch", func(t *testing.T) {
 			data := []byte(strings.Replace(string(workflow), "steps:\n", "steps:\n"+installLine, 1))
 			if err := validateCommandParity(graph, data); err != nil {
-				t.Fatalf("validateCommandParity: %v", err)
+				require.NoError(t, err)
 			}
 		})
 
@@ -175,13 +176,9 @@ func TestScopeCommandParity(t *testing.T) {
 	t.Run("production repository uses the configured Mage graph without credentials", func(t *testing.T) {
 		root := commandParityRepositoryRoot(t)
 		productionGraph, err := delivery.LoadPRGraph(root)
-		if err != nil {
-			t.Fatalf("delivery.LoadPRGraph: %v", err)
-		}
+		require.NoError(t, err)
 		workflowBytes, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(prWorkflowPath)))
-		if err != nil {
-			t.Fatalf("read production workflow: %v", err)
-		}
+		require.NoError(t, err)
 
 		// Presence of process credentials must neither be required nor
 		// consulted by the in-process parity gate.
@@ -189,12 +186,10 @@ func TestScopeCommandParity(t *testing.T) {
 		t.Setenv("LINEAR_TEAM_ID", "parity-must-not-read-this")
 
 		if err := validateCommandParity(productionGraph, workflowBytes); err != nil {
-			t.Fatalf("validate production command parity: %v", err)
+			require.NoError(t, err)
 		}
 		targets, err := workflowMageTargets(workflowBytes)
-		if err != nil {
-			t.Fatalf("parse production Mage targets: %v", err)
-		}
+		require.NoError(t, err)
 		wantTargets := []string{
 			"Bootstrap",
 			"GenerateCheck",
@@ -203,21 +198,13 @@ func TestScopeCommandParity(t *testing.T) {
 			"TestQuick",
 			"PackageFoundation",
 		}
-		if strings.Join(targets, ",") != strings.Join(wantTargets, ",") {
-			t.Fatalf("production targets = %v, want %v", targets, wantTargets)
-		}
+		require.Equal(t, strings.Join(wantTargets, ","), strings.Join(targets, ","), "production targets = %v, want %v", targets, wantTargets)
 
 		result := runCheckCommandParity(root)
-		if result.ExitCode != 0 {
-			t.Fatalf("runCheckCommandParity failed: %s", result.Stderr)
-		}
-		if !strings.Contains(string(result.Stdout), "6 PR step(s)") {
-			t.Fatalf("success report = %q, want descriptor-backed step count", result.Stdout)
-		}
+		require.Equal(t, 0, result.ExitCode, "runCheckCommandParity failed: %s", result.Stderr)
+		require.Contains(t, string(result.Stdout), "6 PR step(s)", "success report = %q, want descriptor-backed step count", result.Stdout)
 		for _, token := range append(append([]string(nil), prForbiddenTokens...), "LINEAR_API_KEY", "LINEAR_TEAM_ID") {
-			if strings.Contains(string(workflowBytes), token) {
-				t.Fatalf("production workflow contains forbidden credential or mutation token %q", token)
-			}
+			require.NotContains(t, string(workflowBytes), token, "production workflow contains forbidden credential or mutation token %q", token)
 		}
 	})
 
@@ -225,25 +212,25 @@ func TestScopeCommandParity(t *testing.T) {
 		missingConfig := runCheckCommandParity(t.TempDir())
 		if missingConfig.ExitCode != 1 ||
 			!strings.HasPrefix(string(missingConfig.Stderr), "GOLC_CHECK_PARITY_CONFIG:") {
-			t.Fatalf("missing config result = %+v, want GOLC_CHECK_PARITY_CONFIG", missingConfig)
+			require.Equal(t, 1, missingConfig.ExitCode)
+			require.True(t, strings.HasPrefix(string(missingConfig.Stderr), "GOLC_CHECK_PARITY_CONFIG:"), "missing config result = %+v, want GOLC_CHECK_PARITY_CONFIG", missingConfig)
 		}
 
 		root := t.TempDir()
 		configDir := filepath.Join(root, "config")
 		if err := os.MkdirAll(configDir, 0o755); err != nil {
-			t.Fatalf("mkdir config: %v", err)
+			require.NoError(t, err)
 		}
 		configBytes, err := os.ReadFile(filepath.Join(commandParityRepositoryRoot(t), "config", "commands.toml"))
-		if err != nil {
-			t.Fatalf("read production commands config: %v", err)
-		}
+		require.NoError(t, err)
 		if err := os.WriteFile(filepath.Join(configDir, "commands.toml"), configBytes, 0o644); err != nil {
-			t.Fatalf("write commands config: %v", err)
+			require.NoError(t, err)
 		}
 		missingWorkflow := runCheckCommandParity(root)
 		if missingWorkflow.ExitCode != 1 ||
 			!strings.HasPrefix(string(missingWorkflow.Stderr), "GOLC_CHECK_PARITY_WORKFLOW_MISSING:") {
-			t.Fatalf("missing workflow result = %+v, want GOLC_CHECK_PARITY_WORKFLOW_MISSING", missingWorkflow)
+			require.Equal(t, 1, missingWorkflow.ExitCode)
+			require.True(t, strings.HasPrefix(string(missingWorkflow.Stderr), "GOLC_CHECK_PARITY_WORKFLOW_MISSING:"), "missing workflow result = %+v, want GOLC_CHECK_PARITY_WORKFLOW_MISSING", missingWorkflow)
 		}
 	})
 }
@@ -280,19 +267,13 @@ func assertCommandParityErrorPrefix(
 ) {
 	t.Helper()
 	err := validateCommandParity(graph, workflow)
-	if err == nil {
-		t.Fatalf("validateCommandParity unexpectedly succeeded; want prefix %q", prefix)
-	}
-	if !strings.HasPrefix(err.Error(), prefix) {
-		t.Fatalf("error = %q, want prefix %q", err, prefix)
-	}
+	require.Error(t, err)
+	require.True(t, strings.HasPrefix(err.Error(), prefix), "error = %q, want prefix %q", err, prefix)
 }
 
 func commandParityRepositoryRoot(t *testing.T) string {
 	t.Helper()
 	workingDirectory, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("os.Getwd: %v", err)
-	}
+	require.NoError(t, err)
 	return filepath.Clean(filepath.Join(workingDirectory, "..", ".."))
 }

@@ -6,20 +6,16 @@
 package command
 
 import (
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
 func TestDocsRouteRejectsArguments(t *testing.T) {
 	result := runDocs(Request{Route: "docs", Args: []string{"--bogus"}, Root: t.TempDir()})
-	if result.ExitCode != 2 {
-		t.Fatalf("expected exit code 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
-	if !strings.Contains(string(result.Stderr), "GOLC_DOCS_USAGE") {
-		t.Fatalf("expected a GOLC_DOCS_USAGE diagnostic, got: %s", result.Stderr)
-	}
+	require.Equal(t, 2, result.ExitCode, "expected exit code 2, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	require.Contains(t, string(result.Stderr), "GOLC_DOCS_USAGE", "expected a GOLC_DOCS_USAGE diagnostic, got: %s", result.Stderr)
 }
 
 // TestDocsRouteRegeneratesIntoDisposableRoot proves the route wiring
@@ -31,32 +27,28 @@ func TestDocsRouteRegeneratesIntoDisposableRoot(t *testing.T) {
 	root := t.TempDir()
 	packageDir := filepath.Join(root, "internal", "widget")
 	if err := os.MkdirAll(packageDir, 0o755); err != nil {
-		t.Fatalf("prepare fixture package: %v", err)
+		require.NoError(t, err)
 	}
 	source := "// Package widget is a fixture used only by docs_test.go.\npackage widget\n"
 	if err := os.WriteFile(filepath.Join(packageDir, "widget.go"), []byte(source), 0o644); err != nil {
-		t.Fatalf("write fixture package: %v", err)
+		require.NoError(t, err)
 	}
 	catalogDir := filepath.Join(root, "frontend", "src", "shell")
 	if err := os.MkdirAll(catalogDir, 0o755); err != nil {
-		t.Fatalf("prepare desktop catalog directory: %v", err)
+		require.NoError(t, err)
 	}
 	catalog := `{"schemaVersion":1,"groups":[{"label":"Show","views":[{"id":"show-overview","slug":"show-overview","navLabel":"Overview","title":"Show overview","purpose":"Review the current show.","actions":["Inspect"],"screenshot":"/desktop-views/show-overview.png"}]}]}`
 	if err := os.WriteFile(filepath.Join(catalogDir, "desktopViews.json"), []byte(catalog), 0o644); err != nil {
-		t.Fatalf("write desktop catalog fixture: %v", err)
+		require.NoError(t, err)
 	}
 
 	result := runDocs(Request{Route: "docs", Args: nil, Root: root})
-	if result.ExitCode != 0 {
-		t.Fatalf("expected exit code 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
-	}
-	if !strings.Contains(string(result.Stdout), "1 package reference page(s) written") {
-		t.Fatalf("expected a summary reporting one page, got: %s", result.Stdout)
-	}
+	require.Equal(t, 0, result.ExitCode, "expected exit code 0, got %d (stderr: %s)", result.ExitCode, result.Stderr)
+	require.Contains(t, string(result.Stdout), "1 package reference page(s) written", "expected a summary reporting one page, got: %s", result.Stdout)
 	if _, err := os.Stat(filepath.Join(root, "docs", "reference", "widget.md")); err != nil {
-		t.Fatalf("expected the widget page to exist: %v", err)
+		require.NoError(t, err)
 	}
 	if _, err := os.Stat(filepath.Join(root, "site", "src", "content", "reference", "widget.md")); err != nil {
-		t.Fatalf("expected the widget page's site copy to exist: %v", err)
+		require.NoError(t, err)
 	}
 }

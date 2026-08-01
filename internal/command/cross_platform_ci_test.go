@@ -1,6 +1,8 @@
 package command
 
 import (
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,9 +23,7 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 	t.Run("production observation workflow is a closed nonblocking contract", func(t *testing.T) {
 		path := filepath.Join(root, ".github", "workflows", "cross-platform-mage.yml")
 		raw, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read observation workflow: %v", err)
-		}
+		require.NoError(t, err)
 		text := strings.ReplaceAll(string(raw), "\r\n", "\n")
 		lines := strings.Split(text, "\n")
 
@@ -34,7 +34,7 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 					return
 				}
 			}
-			t.Errorf("workflow missing exact line %q", want)
+			assert.Fail(t, "", "workflow missing exact line %q", want)
 		}
 		for _, line := range []string{
 			"  pull_request:",
@@ -69,9 +69,7 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 			}
 		}
 		wantRunners := []string{"windows-latest", "ubuntu-latest", "macos-latest"}
-		if !reflect.DeepEqual(runners, wantRunners) {
-			t.Fatalf("matrix runners = %v, want %v", runners, wantRunners)
-		}
+		require.True(t, reflect.DeepEqual(runners, wantRunners), "matrix runners = %v, want %v", runners, wantRunners)
 		wantExecutable := []string{
 			"sudo apt-get update && sudo apt-get install -y libx11-dev xvfb",
 			`Xvfb :99 -screen 0 1024x768x24 & echo "DISPLAY=:99" >> "$GITHUB_ENV"`,
@@ -89,12 +87,8 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 			"mage Test",
 			"mage PackageFoundation",
 		}
-		if !reflect.DeepEqual(executable, wantExecutable) {
-			t.Fatalf("executable order = %v, want %v", executable, wantExecutable)
-		}
-		if !reflect.DeepEqual(actions, []string{"actions/checkout@v4"}) {
-			t.Fatalf("actions = %v, want only checkout", actions)
-		}
+		require.True(t, reflect.DeepEqual(executable, wantExecutable), "executable order = %v, want %v", executable, wantExecutable)
+		require.True(t, reflect.DeepEqual(actions, []string{"actions/checkout@v4"}), "actions = %v, want only checkout", actions)
 
 		lower := strings.ToLower(text)
 		for _, forbidden := range []string{
@@ -104,9 +98,7 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 			"supports linux", "supports macos", "linux support", "macos support",
 			"qualified platform",
 		} {
-			if strings.Contains(lower, forbidden) {
-				t.Errorf("workflow contains forbidden token %q", forbidden)
-			}
+			assert.NotContains(t, lower, forbidden, "workflow contains forbidden token %q", forbidden)
 		}
 	})
 
@@ -129,33 +121,23 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 		} {
 			path := filepath.Join(root, relative)
 			info, err := os.Stat(path)
-			if err != nil {
-				t.Fatalf("stat %s: %v", relative, err)
-			}
-			if info.Size() == 0 {
-				t.Fatalf("%s is empty", relative)
-			}
+			require.NoError(t, err, "stat %s: %v", relative, err)
+			require.NotEqual(t, 0, info.Size(), "%s is empty", relative)
 			raw, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatalf("read %s: %v", relative, err)
-			}
+			require.NoError(t, err, "read %s: %v", relative, err)
 			text := string(raw)
 			// Both scripts parameterize the section lookup by tool name
 			// rather than spelling "toolchain.go"/"toolchain.mage"
 			// literally, so check the generic section-path shape plus
 			// that both tool names are actually invoked.
 			for _, want := range []string{"toolchain.", ".platforms.", "archive_url", "archive_sha256", `"go"`, `"mage"`} {
-				if !strings.Contains(text, want) {
-					t.Errorf("%s does not reference %q; it must read the pin from config/toolchain.toml, not duplicate it", relative, want)
-				}
+				assert.Contains(t, text, want, "%s does not reference %q; it must read the pin from config/toolchain.toml, not duplicate it", relative, want)
 			}
 		}
 
 		toolchainPath := filepath.Join(root, "config", "toolchain.toml")
 		toolchainText, err := os.ReadFile(toolchainPath)
-		if err != nil {
-			t.Fatalf("read config/toolchain.toml: %v", err)
-		}
+		require.NoError(t, err)
 		for _, section := range []string{
 			`[toolchain.go.platforms."windows-amd64"]`,
 			`[toolchain.go.platforms."linux-amd64"]`,
@@ -166,17 +148,13 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 			`[toolchain.mage.platforms."darwin-amd64"]`,
 			`[toolchain.mage.platforms."darwin-arm64"]`,
 		} {
-			if !strings.Contains(string(toolchainText), section) {
-				t.Errorf("config/toolchain.toml is missing expected section %q the install scripts depend on", section)
-			}
+			assert.Contains(t, string(toolchainText), section, "config/toolchain.toml is missing expected section %q the install scripts depend on", section)
 		}
 	})
 
 	t.Run("Mage tests cross-compile for every configured contributor platform", func(t *testing.T) {
 		goExecutable, err := resolvePinnedGoExecutable(root)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		platforms := []struct{ goos, goarch string }{
 			{"windows", "amd64"},
 			{"linux", "amd64"},
@@ -200,17 +178,18 @@ func TestScopeCrossPlatformCI(t *testing.T) {
 				environment = upsertEnvironment(environment, "CGO_ENABLED", "0")
 				cmd.Env = environment
 				if combined, err := cmd.CombinedOutput(); err != nil {
-					t.Fatalf("cross-compile: %v\n%s", err, combined)
+					require.NoError(t, err, "cross-compile: %v\n%s", err, combined)
 				}
 				if info, err := os.Stat(output); err != nil || !info.Mode().IsRegular() {
-					t.Fatalf("cross-compile output missing: %v", err)
+					require.NoError(t, err)
+					require.True(t, info.Mode().IsRegular(), "cross-compile output missing: %v", err)
 				}
 				if runtime.GOOS == "windows" && platform.goos == "windows" && platform.goarch == "amd64" {
 					native := exec.Command(output, "-test.run", "^TestMagefileExportsAndImports$", "-test.count=1")
 					native.Dir = filepath.Join(root, "magefiles")
 					native.Env = environment
 					if combined, err := native.CombinedOutput(); err != nil {
-						t.Fatalf("native Mage test execution: %v\n%s", err, combined)
+						require.NoError(t, err, "native Mage test execution: %v\n%s", err, combined)
 					}
 				}
 			})

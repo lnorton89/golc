@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/deployment"
@@ -41,12 +42,9 @@ import (
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 	root, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatalf("resolve repository root: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(root, "golc.project.toml")); err != nil {
-		t.Fatalf("repository root %q has no golc.project.toml: %v", root, err)
-	}
+	require.NoError(t, err, "resolve repository root")
+	_, err = os.Stat(filepath.Join(root, "golc.project.toml"))
+	require.NoErrorf(t, err, "repository root %q has no golc.project.toml", root)
 	return root
 }
 
@@ -58,24 +56,16 @@ func seedPoolShowState(t *testing.T, root, showPath string) string {
 	t.Helper()
 
 	p, err := pool.NewPool("Wash Pool", nil)
-	if err != nil {
-		t.Fatalf("NewPool: %v", err)
-	}
+	require.NoError(t, err, "NewPool")
 	member, err := pool.NewPoolMember("acme/par64", "sha256:11111111")
-	if err != nil {
-		t.Fatalf("NewPoolMember: %v", err)
-	}
+	require.NoError(t, err, "NewPoolMember")
 	p.Members = append(p.Members, member)
 
 	d, err := deployment.NewDeployment("Venue A")
-	if err != nil {
-		t.Fatalf("NewDeployment: %v", err)
-	}
+	require.NoError(t, err, "NewDeployment")
 	d.Active = true
 	instanceID, err := uuid.NewV7()
-	if err != nil {
-		t.Fatalf("uuid.NewV7: %v", err)
-	}
+	require.NoError(t, err, "uuid.NewV7")
 	d.Instances = append(d.Instances, deployment.Instance{
 		ID:           instanceID,
 		PoolID:       p.ID,
@@ -86,9 +76,7 @@ func seedPoolShowState(t *testing.T, root, showPath string) string {
 	})
 
 	state := show.State{Pools: []pool.Pool{p}, Deployments: []deployment.Deployment{d}}
-	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("show.Save (seed): %v", err)
-	}
+	require.NoError(t, show.Save(root, showPath, state), "show.Save (seed)")
 	return p.Name
 }
 
@@ -116,37 +104,27 @@ func seedFreshPoolShowState(t *testing.T, root, showPath string) (poolName, depl
 	t.Helper()
 
 	p, err := pool.NewPool("Fresh Pool", nil)
-	if err != nil {
-		t.Fatalf("NewPool: %v", err)
-	}
+	require.NoError(t, err, "NewPool")
 	d, err := deployment.NewDeployment("Venue A")
-	if err != nil {
-		t.Fatalf("NewDeployment: %v", err)
-	}
+	require.NoError(t, err, "NewDeployment")
 	d.Active = true
 
 	state := show.State{Pools: []pool.Pool{p}, Deployments: []deployment.Deployment{d}}
-	if err := show.Save(root, showPath, state); err != nil {
-		t.Fatalf("show.Save (seed): %v", err)
-	}
+	require.NoError(t, show.Save(root, showPath, state), "show.Save (seed)")
 	return p.Name, d.ID.String()
 }
 
 func TestPoolUpdateApplyRoutes(t *testing.T) {
 	root := repositoryRoot(t)
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry")
 
 	showPath := filepath.Join(t.TempDir(), "show.json")
 	poolName := seedPoolShowState(t, root, showPath)
 	planPath := filepath.Join(t.TempDir(), "plan.json")
 
 	before, err := os.ReadFile(showPath)
-	if err != nil {
-		t.Fatalf("read seed show file: %v", err)
-	}
+	require.NoError(t, err, "read seed show file")
 
 	update := registry.Execute(command.Request{Root: root, Args: []string{
 		"pool", "update", poolName,
@@ -154,93 +132,64 @@ func TestPoolUpdateApplyRoutes(t *testing.T) {
 		"--out", planPath,
 		"--show", showPath,
 	}})
-	if update.ExitCode != 0 {
-		t.Fatalf("pool update failed: exit=%d stderr=%s", update.ExitCode, update.Stderr)
-	}
+	require.Equalf(t, 0, update.ExitCode, "pool update failed: stderr=%s", update.Stderr)
 
 	after, err := os.ReadFile(showPath)
-	if err != nil {
-		t.Fatalf("read show file after dry-run: %v", err)
-	}
-	if string(before) != string(after) {
-		t.Fatal("expected pool update (dry-run) to leave the ShowState file byte-unchanged")
-	}
+	require.NoError(t, err, "read show file after dry-run")
+	require.Equal(t, string(before), string(after), "expected pool update (dry-run) to leave the ShowState file byte-unchanged")
 
 	planBytes, err := os.ReadFile(planPath)
-	if err != nil {
-		t.Fatalf("read written plan: %v", err)
-	}
+	require.NoError(t, err, "read written plan")
 	var view poolPlanView
-	if err := json.Unmarshal(planBytes, &view); err != nil {
-		t.Fatalf("unmarshal plan: %v", err)
-	}
-	if view.PlanID == "" {
-		t.Fatal("expected a non-empty plan_id")
-	}
-	if len(view.Add) != 1 || view.Add[0].FixtureStableKey != "acme/par64" {
-		t.Fatalf("expected the plan to carry the requested add spec, got %+v", view.Add)
-	}
+	require.NoError(t, json.Unmarshal(planBytes, &view), "unmarshal plan")
+	require.NotEmpty(t, view.PlanID, "expected a non-empty plan_id")
+	require.Lenf(t, view.Add, 1, "expected the plan to carry the requested add spec, got %+v", view.Add)
+	require.Equal(t, "acme/par64", view.Add[0].FixtureStableKey)
 	foundAddOp := false
 	for _, op := range view.Operations {
 		if op.DependentKind == "deployment_instance" && op.Action == "add" {
 			foundAddOp = true
 		}
 	}
-	if !foundAddOp {
-		t.Fatalf("expected a proposed deployment_instance add operation, got %+v", view.Operations)
-	}
+	require.Truef(t, foundAddOp, "expected a proposed deployment_instance add operation, got %+v", view.Operations)
 
 	apply := registry.Execute(command.Request{Root: root, Args: []string{
 		"pool", "apply", planPath, "--plan-id", view.PlanID, "--show", showPath,
 	}})
-	if apply.ExitCode != 0 {
-		t.Fatalf("pool apply failed: exit=%d stderr=%s", apply.ExitCode, apply.Stderr)
-	}
+	require.Equalf(t, 0, apply.ExitCode, "pool apply failed: stderr=%s", apply.Stderr)
 
 	applied, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load after apply: %v", err)
-	}
-	if len(applied.Pools) != 1 || len(applied.Pools[0].Members) != 2 {
-		t.Fatalf("expected the pool to gain the new member, got %+v", applied.Pools)
-	}
-	if len(applied.Deployments) != 1 || len(applied.Deployments[0].Instances) != 2 {
-		t.Fatalf("expected the deployment to gain the proposed instance, got %+v", applied.Deployments)
-	}
+	require.NoError(t, err, "show.Load after apply")
+	require.Lenf(t, applied.Pools, 1, "expected the pool to gain the new member, got %+v", applied.Pools)
+	require.Lenf(t, applied.Pools[0].Members, 2, "expected the pool to gain the new member, got %+v", applied.Pools)
+	require.Lenf(t, applied.Deployments, 1, "expected the deployment to gain the proposed instance, got %+v", applied.Deployments)
+	require.Lenf(t, applied.Deployments[0].Instances, 2, "expected the deployment to gain the proposed instance, got %+v", applied.Deployments)
 
 	// A stale re-apply of the exact same plan file is rejected (single-use):
 	// the ShowState revision moved when the first apply saved.
 	staleApply := registry.Execute(command.Request{Root: root, Args: []string{
 		"pool", "apply", planPath, "--plan-id", view.PlanID, "--show", showPath,
 	}})
-	if staleApply.ExitCode == 0 || !strings.Contains(string(staleApply.Stderr), "GOLC_POOL_PLAN_STALE") {
-		t.Fatalf("expected GOLC_POOL_PLAN_STALE for a stale re-apply, got exit=%d stderr=%s", staleApply.ExitCode, staleApply.Stderr)
-	}
+	require.NotEqualf(t, 0, staleApply.ExitCode, "expected GOLC_POOL_PLAN_STALE for a stale re-apply, got stderr=%s", staleApply.Stderr)
+	require.Contains(t, string(staleApply.Stderr), "GOLC_POOL_PLAN_STALE")
 
 	// A tampered plan file (bytes altered after hashing) is rejected by
 	// the integrity gate before freshness is even considered.
 	tamperedPath := filepath.Join(t.TempDir(), "tampered-plan.json")
 	tampered := strings.Replace(string(planBytes), "\"preview\"", "\"immediate\"", 1)
-	if tampered == string(planBytes) {
-		t.Fatal("expected the tamper substitution to change the plan bytes")
-	}
-	if err := os.WriteFile(tamperedPath, []byte(tampered), 0o644); err != nil {
-		t.Fatalf("write tampered plan: %v", err)
-	}
+	require.NotEqual(t, string(planBytes), tampered, "expected the tamper substitution to change the plan bytes")
+	require.NoError(t, os.WriteFile(tamperedPath, []byte(tampered), 0o644), "write tampered plan")
 	tamperedApply := registry.Execute(command.Request{Root: root, Args: []string{
 		"pool", "apply", tamperedPath, "--plan-id", view.PlanID, "--show", showPath,
 	}})
-	if tamperedApply.ExitCode == 0 || !strings.Contains(string(tamperedApply.Stderr), "GOLC_POOL_PLAN_HASH") {
-		t.Fatalf("expected GOLC_POOL_PLAN_HASH for a tampered plan, got exit=%d stderr=%s", tamperedApply.ExitCode, tamperedApply.Stderr)
-	}
+	require.NotEqualf(t, 0, tamperedApply.ExitCode, "expected GOLC_POOL_PLAN_HASH for a tampered plan, got stderr=%s", tamperedApply.Stderr)
+	require.Contains(t, string(tamperedApply.Stderr), "GOLC_POOL_PLAN_HASH")
 }
 
 func TestPropagationDefaultReview(t *testing.T) {
 	root := repositoryRoot(t)
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry")
 
 	showPath := filepath.Join(t.TempDir(), "show.json")
 	poolName := seedPoolShowState(t, root, showPath)
@@ -252,20 +201,12 @@ func TestPropagationDefaultReview(t *testing.T) {
 		"--out", defaultPlanPath,
 		"--show", showPath,
 	}})
-	if defaultUpdate.ExitCode != 0 {
-		t.Fatalf("pool update (no --propagate) failed: exit=%d stderr=%s", defaultUpdate.ExitCode, defaultUpdate.Stderr)
-	}
+	require.Equalf(t, 0, defaultUpdate.ExitCode, "pool update (no --propagate) failed: stderr=%s", defaultUpdate.Stderr)
 	var defaultView poolPlanView
 	defaultBytes, err := os.ReadFile(defaultPlanPath)
-	if err != nil {
-		t.Fatalf("read default plan: %v", err)
-	}
-	if err := json.Unmarshal(defaultBytes, &defaultView); err != nil {
-		t.Fatalf("unmarshal default plan: %v", err)
-	}
-	if defaultView.Propagate != "preview" {
-		t.Fatalf("expected the unset propagation default to resolve to review-required (preview), got %q", defaultView.Propagate)
-	}
+	require.NoError(t, err, "read default plan")
+	require.NoError(t, json.Unmarshal(defaultBytes, &defaultView), "unmarshal default plan")
+	require.Equalf(t, "preview", defaultView.Propagate, "expected the unset propagation default to resolve to review-required (preview), got %q", defaultView.Propagate)
 
 	immediatePlanPath := filepath.Join(t.TempDir(), "immediate-plan.json")
 	immediateUpdate := registry.Execute(command.Request{Root: root, Args: []string{
@@ -275,20 +216,12 @@ func TestPropagationDefaultReview(t *testing.T) {
 		"--out", immediatePlanPath,
 		"--show", showPath,
 	}})
-	if immediateUpdate.ExitCode != 0 {
-		t.Fatalf("pool update (--propagate immediate) failed: exit=%d stderr=%s", immediateUpdate.ExitCode, immediateUpdate.Stderr)
-	}
+	require.Equalf(t, 0, immediateUpdate.ExitCode, "pool update (--propagate immediate) failed: stderr=%s", immediateUpdate.Stderr)
 	var immediateView poolPlanView
 	immediateBytes, err := os.ReadFile(immediatePlanPath)
-	if err != nil {
-		t.Fatalf("read immediate plan: %v", err)
-	}
-	if err := json.Unmarshal(immediateBytes, &immediateView); err != nil {
-		t.Fatalf("unmarshal immediate plan: %v", err)
-	}
-	if immediateView.Propagate != "immediate" {
-		t.Fatalf("expected --propagate immediate to override the default, got %q", immediateView.Propagate)
-	}
+	require.NoError(t, err, "read immediate plan")
+	require.NoError(t, json.Unmarshal(immediateBytes, &immediateView), "unmarshal immediate plan")
+	require.Equalf(t, "immediate", immediateView.Propagate, "expected --propagate immediate to override the default, got %q", immediateView.Propagate)
 
 	invalid := registry.Execute(command.Request{Root: root, Args: []string{
 		"pool", "update", poolName,
@@ -296,9 +229,8 @@ func TestPropagationDefaultReview(t *testing.T) {
 		"--out", filepath.Join(t.TempDir(), "bogus-plan.json"),
 		"--show", showPath,
 	}})
-	if invalid.ExitCode == 0 || !strings.Contains(string(invalid.Stderr), "GOLC_POOL_APPLY_USAGE") {
-		t.Fatalf("expected GOLC_POOL_APPLY_USAGE for an invalid --propagate value, got exit=%d stderr=%s", invalid.ExitCode, invalid.Stderr)
-	}
+	require.NotEqualf(t, 0, invalid.ExitCode, "expected GOLC_POOL_APPLY_USAGE for an invalid --propagate value, got stderr=%s", invalid.Stderr)
+	require.Contains(t, string(invalid.Stderr), "GOLC_POOL_APPLY_USAGE")
 }
 
 // TestPoolUpdateAttachDeploymentFlag proves "pool update --attach-deployment"
@@ -308,9 +240,7 @@ func TestPropagationDefaultReview(t *testing.T) {
 func TestPoolUpdateAttachDeploymentFlag(t *testing.T) {
 	root := repositoryRoot(t)
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry")
 
 	showPath := filepath.Join(t.TempDir(), "show.json")
 	poolName, deploymentID := seedFreshPoolShowState(t, root, showPath)
@@ -323,30 +253,21 @@ func TestPoolUpdateAttachDeploymentFlag(t *testing.T) {
 		"--out", planPath,
 		"--show", showPath,
 	}})
-	if update.ExitCode != 0 {
-		t.Fatalf("pool update --attach-deployment failed: exit=%d stderr=%s", update.ExitCode, update.Stderr)
-	}
+	require.Equalf(t, 0, update.ExitCode, "pool update --attach-deployment failed: stderr=%s", update.Stderr)
 
 	planBytes, err := os.ReadFile(planPath)
-	if err != nil {
-		t.Fatalf("read written plan: %v", err)
-	}
+	require.NoError(t, err, "read written plan")
 	var view poolPlanView
-	if err := json.Unmarshal(planBytes, &view); err != nil {
-		t.Fatalf("unmarshal plan: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(planBytes, &view), "unmarshal plan")
 	foundAddOp := false
 	for _, op := range view.Operations {
 		if op.DependentKind == "deployment_instance" && op.Action == "add" {
 			foundAddOp = true
-			if op.ProposedUniverse != 1 || op.ProposedAddress != 1 {
-				t.Fatalf("expected the first proposed instance in a fresh deployment to land at (1, 1), got (%d, %d)", op.ProposedUniverse, op.ProposedAddress)
-			}
+			require.Equalf(t, 1, op.ProposedUniverse, "expected the first proposed instance in a fresh deployment to land at (1, 1), got (%d, %d)", op.ProposedUniverse, op.ProposedAddress)
+			require.Equalf(t, 1, op.ProposedAddress, "expected the first proposed instance in a fresh deployment to land at (1, 1), got (%d, %d)", op.ProposedUniverse, op.ProposedAddress)
 		}
 	}
-	if !foundAddOp {
-		t.Fatalf("expected --attach-deployment to force-propose a deployment_instance add operation, got %+v", view.Operations)
-	}
+	require.Truef(t, foundAddOp, "expected --attach-deployment to force-propose a deployment_instance add operation, got %+v", view.Operations)
 }
 
 // TestPoolUpdateAttachDeploymentRejectsUnknownID proves an
@@ -355,17 +276,13 @@ func TestPoolUpdateAttachDeploymentFlag(t *testing.T) {
 func TestPoolUpdateAttachDeploymentRejectsUnknownID(t *testing.T) {
 	root := repositoryRoot(t)
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry")
 
 	showPath := filepath.Join(t.TempDir(), "show.json")
 	poolName, _ := seedFreshPoolShowState(t, root, showPath)
 
 	unknownID, err := uuid.NewV7()
-	if err != nil {
-		t.Fatalf("uuid.NewV7: %v", err)
-	}
+	require.NoError(t, err, "uuid.NewV7")
 	update := registry.Execute(command.Request{Root: root, Args: []string{
 		"pool", "update", poolName,
 		"--add", "acme/par64|sha256:66666666|Standard",
@@ -373,9 +290,8 @@ func TestPoolUpdateAttachDeploymentRejectsUnknownID(t *testing.T) {
 		"--out", filepath.Join(t.TempDir(), "plan.json"),
 		"--show", showPath,
 	}})
-	if update.ExitCode == 0 || !strings.Contains(string(update.Stderr), "GOLC_POOL_PLAN_UNKNOWN_DEPLOYMENT") {
-		t.Fatalf("expected GOLC_POOL_PLAN_UNKNOWN_DEPLOYMENT, got exit=%d stderr=%s", update.ExitCode, update.Stderr)
-	}
+	require.NotEqualf(t, 0, update.ExitCode, "expected GOLC_POOL_PLAN_UNKNOWN_DEPLOYMENT, got stderr=%s", update.Stderr)
+	require.Contains(t, string(update.Stderr), "GOLC_POOL_PLAN_UNKNOWN_DEPLOYMENT")
 }
 
 // TestPoolUpdateStartAddressFlags proves --start-universe/--start-address
@@ -384,9 +300,7 @@ func TestPoolUpdateAttachDeploymentRejectsUnknownID(t *testing.T) {
 func TestPoolUpdateStartAddressFlags(t *testing.T) {
 	root := repositoryRoot(t)
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry")
 
 	showPath := filepath.Join(t.TempDir(), "show.json")
 	poolName := seedPoolShowState(t, root, showPath)
@@ -401,18 +315,12 @@ func TestPoolUpdateStartAddressFlags(t *testing.T) {
 		"--out", planPath,
 		"--show", showPath,
 	}})
-	if update.ExitCode != 0 {
-		t.Fatalf("pool update --start-universe/--start-address failed: exit=%d stderr=%s", update.ExitCode, update.Stderr)
-	}
+	require.Equalf(t, 0, update.ExitCode, "pool update --start-universe/--start-address failed: stderr=%s", update.Stderr)
 
 	planBytes, err := os.ReadFile(planPath)
-	if err != nil {
-		t.Fatalf("read written plan: %v", err)
-	}
+	require.NoError(t, err, "read written plan")
 	var view poolPlanView
-	if err := json.Unmarshal(planBytes, &view); err != nil {
-		t.Fatalf("unmarshal plan: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(planBytes, &view), "unmarshal plan")
 	var addOps []struct {
 		DependentKind    string `json:"dependent_kind"`
 		Action           string `json:"action"`
@@ -424,15 +332,11 @@ func TestPoolUpdateStartAddressFlags(t *testing.T) {
 			addOps = append(addOps, op)
 		}
 	}
-	if len(addOps) != 2 {
-		t.Fatalf("expected 2 proposed instances, got %d: %+v", len(addOps), addOps)
-	}
-	if addOps[0].ProposedUniverse != 3 || addOps[0].ProposedAddress != 50 {
-		t.Fatalf("expected the first proposed instance to anchor at (3, 50), got (%d, %d)", addOps[0].ProposedUniverse, addOps[0].ProposedAddress)
-	}
-	if addOps[1].ProposedUniverse != 3 || addOps[1].ProposedAddress != 51 {
-		t.Fatalf("expected the second proposed instance to auto-increment to (3, 51), got (%d, %d)", addOps[1].ProposedUniverse, addOps[1].ProposedAddress)
-	}
+	require.Lenf(t, addOps, 2, "expected 2 proposed instances, got %d: %+v", len(addOps), addOps)
+	require.Equalf(t, 3, addOps[0].ProposedUniverse, "expected the first proposed instance to anchor at (3, 50), got (%d, %d)", addOps[0].ProposedUniverse, addOps[0].ProposedAddress)
+	require.Equalf(t, 50, addOps[0].ProposedAddress, "expected the first proposed instance to anchor at (3, 50), got (%d, %d)", addOps[0].ProposedUniverse, addOps[0].ProposedAddress)
+	require.Equalf(t, 3, addOps[1].ProposedUniverse, "expected the second proposed instance to auto-increment to (3, 51), got (%d, %d)", addOps[1].ProposedUniverse, addOps[1].ProposedAddress)
+	require.Equalf(t, 51, addOps[1].ProposedAddress, "expected the second proposed instance to auto-increment to (3, 51), got (%d, %d)", addOps[1].ProposedUniverse, addOps[1].ProposedAddress)
 }
 
 // TestPoolUpdateStartUniverseParseUsage proves a non-numeric
@@ -440,9 +344,7 @@ func TestPoolUpdateStartAddressFlags(t *testing.T) {
 func TestPoolUpdateStartUniverseParseUsage(t *testing.T) {
 	root := repositoryRoot(t)
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry")
 
 	showPath := filepath.Join(t.TempDir(), "show.json")
 	poolName := seedPoolShowState(t, root, showPath)
@@ -454,9 +356,8 @@ func TestPoolUpdateStartUniverseParseUsage(t *testing.T) {
 		"--out", filepath.Join(t.TempDir(), "plan.json"),
 		"--show", showPath,
 	}})
-	if update.ExitCode == 0 || !strings.Contains(string(update.Stderr), "GOLC_POOL_APPLY_USAGE") {
-		t.Fatalf("expected GOLC_POOL_APPLY_USAGE for a non-numeric --start-universe, got exit=%d stderr=%s", update.ExitCode, update.Stderr)
-	}
+	require.NotEqualf(t, 0, update.ExitCode, "expected GOLC_POOL_APPLY_USAGE for a non-numeric --start-universe, got stderr=%s", update.Stderr)
+	require.Contains(t, string(update.Stderr), "GOLC_POOL_APPLY_USAGE")
 }
 
 // TestPoolUpdateAddChannelCountSpacing proves --add's optional trailing
@@ -467,9 +368,7 @@ func TestPoolUpdateStartUniverseParseUsage(t *testing.T) {
 func TestPoolUpdateAddChannelCountSpacing(t *testing.T) {
 	root := repositoryRoot(t)
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry")
 
 	showPath := filepath.Join(t.TempDir(), "show.json")
 	poolName, deploymentID := seedFreshPoolShowState(t, root, showPath)
@@ -486,18 +385,12 @@ func TestPoolUpdateAddChannelCountSpacing(t *testing.T) {
 		"--out", planPath,
 		"--show", showPath,
 	}})
-	if update.ExitCode != 0 {
-		t.Fatalf("pool update --add with channel_count failed: exit=%d stderr=%s", update.ExitCode, update.Stderr)
-	}
+	require.Equalf(t, 0, update.ExitCode, "pool update --add with channel_count failed: stderr=%s", update.Stderr)
 
 	planBytes, err := os.ReadFile(planPath)
-	if err != nil {
-		t.Fatalf("read written plan: %v", err)
-	}
+	require.NoError(t, err, "read written plan")
 	var view poolPlanView
-	if err := json.Unmarshal(planBytes, &view); err != nil {
-		t.Fatalf("unmarshal plan: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(planBytes, &view), "unmarshal plan")
 	var addOps []struct {
 		DependentKind    string `json:"dependent_kind"`
 		Action           string `json:"action"`
@@ -509,14 +402,11 @@ func TestPoolUpdateAddChannelCountSpacing(t *testing.T) {
 			addOps = append(addOps, op)
 		}
 	}
-	if len(addOps) != 3 {
-		t.Fatalf("expected 3 proposed instances, got %d: %+v", len(addOps), addOps)
-	}
+	require.Lenf(t, addOps, 3, "expected 3 proposed instances, got %d: %+v", len(addOps), addOps)
 	wantAddresses := []int{1, 6, 11}
 	for i, op := range addOps {
-		if op.ProposedUniverse != 1 || op.ProposedAddress != wantAddresses[i] {
-			t.Fatalf("expected 5-channel-spaced addresses %v, got op[%d]=(%d, %d)", wantAddresses, i, op.ProposedUniverse, op.ProposedAddress)
-		}
+		require.Equalf(t, 1, op.ProposedUniverse, "expected 5-channel-spaced addresses %v, got op[%d]=(%d, %d)", wantAddresses, i, op.ProposedUniverse, op.ProposedAddress)
+		require.Equalf(t, wantAddresses[i], op.ProposedAddress, "expected 5-channel-spaced addresses %v, got op[%d]=(%d, %d)", wantAddresses, i, op.ProposedUniverse, op.ProposedAddress)
 	}
 }
 
@@ -526,9 +416,7 @@ func TestPoolUpdateAddChannelCountSpacing(t *testing.T) {
 func TestPoolUpdateAddChannelCountUsage(t *testing.T) {
 	root := repositoryRoot(t)
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry")
 
 	showPath := filepath.Join(t.TempDir(), "show.json")
 	poolName := seedPoolShowState(t, root, showPath)
@@ -539,7 +427,6 @@ func TestPoolUpdateAddChannelCountUsage(t *testing.T) {
 		"--out", filepath.Join(t.TempDir(), "plan.json"),
 		"--show", showPath,
 	}})
-	if update.ExitCode == 0 || !strings.Contains(string(update.Stderr), "GOLC_POOL_APPLY_USAGE") {
-		t.Fatalf("expected GOLC_POOL_APPLY_USAGE for a non-numeric channel_count, got exit=%d stderr=%s", update.ExitCode, update.Stderr)
-	}
+	require.NotEqualf(t, 0, update.ExitCode, "expected GOLC_POOL_APPLY_USAGE for a non-numeric channel_count, got stderr=%s", update.Stderr)
+	require.Contains(t, string(update.Stderr), "GOLC_POOL_APPLY_USAGE")
 }
