@@ -12,105 +12,70 @@
 package show_test
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/show"
 )
 
 func TestNewScript(t *testing.T) {
 	s, err := show.NewScript("Chase Cycler")
-	if err != nil {
-		t.Fatalf("NewScript: %v", err)
-	}
+	require.NoError(t, err, "NewScript")
 	var zero [16]byte
-	if s.ID == zero {
-		t.Fatalf("expected NewScript to mint a non-nil UUIDv7 ID")
-	}
-	if s.Name != "Chase Cycler" {
-		t.Fatalf("expected Name %q, got %q", "Chase Cycler", s.Name)
-	}
-	if s.Source != "" {
-		t.Fatalf("expected an empty Source, got %q", s.Source)
-	}
-	if s.CapabilityProfile.Preset != show.ResourcePresetQuickAction {
-		t.Fatalf("expected the quick-action preset, got %q", s.CapabilityProfile.Preset)
-	}
-	if s.CapabilityProfile.Scope != show.APIKeyScopePlayback {
-		t.Fatalf("expected the least-privileged playback scope, got %q", s.CapabilityProfile.Scope)
-	}
-	if s.LastRunStatus != show.ScriptRunStatusNeverRun {
-		t.Fatalf("expected LastRunStatus never_run, got %q", s.LastRunStatus)
-	}
+	require.NotEqual(t, zero, s.ID, "expected NewScript to mint a non-nil UUIDv7 ID")
+	require.Equal(t, "Chase Cycler", s.Name)
+	require.Empty(t, s.Source, "expected an empty Source")
+	require.Equal(t, show.ResourcePresetQuickAction, s.CapabilityProfile.Preset, "expected the quick-action preset")
+	require.Equal(t, show.APIKeyScopePlayback, s.CapabilityProfile.Scope, "expected the least-privileged playback scope")
+	require.Equal(t, show.ScriptRunStatusNeverRun, s.LastRunStatus)
 }
 
 func TestNewScriptMintsDistinctIDs(t *testing.T) {
 	first, err := show.NewScript("Chase Cycler")
-	if err != nil {
-		t.Fatalf("NewScript (first): %v", err)
-	}
+	require.NoError(t, err, "NewScript (first)")
 	second, err := show.NewScript("Chase Cycler")
-	if err != nil {
-		t.Fatalf("NewScript (second): %v", err)
-	}
-	if first.ID == second.ID {
-		t.Fatalf("expected two calls to NewScript to mint distinct IDs, both got %s", first.ID)
-	}
+	require.NoError(t, err, "NewScript (second)")
+	require.NotEqual(t, first.ID, second.ID, "expected two calls to NewScript to mint distinct IDs")
 }
 
 func TestNewScriptRejectsEmptyName(t *testing.T) {
-	if _, err := show.NewScript(""); err == nil || !strings.Contains(err.Error(), "GOLC_SCRIPT_NAME_EMPTY") {
-		t.Fatalf("expected GOLC_SCRIPT_NAME_EMPTY for an empty name, got %v", err)
-	}
-	if _, err := show.NewScript("   "); err == nil || !strings.Contains(err.Error(), "GOLC_SCRIPT_NAME_EMPTY") {
-		t.Fatalf("expected GOLC_SCRIPT_NAME_EMPTY for a whitespace-only name, got %v", err)
-	}
+	_, err := show.NewScript("")
+	require.ErrorContains(t, err, "GOLC_SCRIPT_NAME_EMPTY", "expected error for an empty name")
+	_, err = show.NewScript("   ")
+	require.ErrorContains(t, err, "GOLC_SCRIPT_NAME_EMPTY", "expected error for a whitespace-only name")
 }
 
 func TestValidateScript(t *testing.T) {
 	valid, err := show.NewScript("Chase Cycler")
-	if err != nil {
-		t.Fatalf("NewScript: %v", err)
-	}
-	if err := show.ValidateScript(valid); err != nil {
-		t.Fatalf("expected a NewScript-constructed script to validate cleanly, got %v", err)
-	}
+	require.NoError(t, err, "NewScript")
+	require.NoError(t, show.ValidateScript(valid), "expected a NewScript-constructed script to validate cleanly")
 
 	emptyName := valid
 	emptyName.Name = ""
-	if err := show.ValidateScript(emptyName); err == nil || !strings.Contains(err.Error(), "GOLC_SCRIPT_NAME_EMPTY") {
-		t.Fatalf("expected GOLC_SCRIPT_NAME_EMPTY for an empty name, got %v", err)
-	}
+	err = show.ValidateScript(emptyName)
+	require.ErrorContains(t, err, "GOLC_SCRIPT_NAME_EMPTY", "expected error for an empty name")
 
 	whitespaceName := valid
 	whitespaceName.Name = "   "
-	if err := show.ValidateScript(whitespaceName); err == nil || !strings.Contains(err.Error(), "GOLC_SCRIPT_NAME_EMPTY") {
-		t.Fatalf("expected GOLC_SCRIPT_NAME_EMPTY for a whitespace-only name, got %v", err)
-	}
+	err = show.ValidateScript(whitespaceName)
+	require.ErrorContains(t, err, "GOLC_SCRIPT_NAME_EMPTY", "expected error for a whitespace-only name")
 
 	invalidScope := valid
 	invalidScope.CapabilityProfile.Scope = "bogus"
-	if err := show.ValidateScript(invalidScope); err == nil || !strings.Contains(err.Error(), "GOLC_SCRIPT_SCOPE_INVALID") {
-		t.Fatalf("expected GOLC_SCRIPT_SCOPE_INVALID for an invalid scope, got %v", err)
-	}
+	err = show.ValidateScript(invalidScope)
+	require.ErrorContains(t, err, "GOLC_SCRIPT_SCOPE_INVALID", "expected error for an invalid scope")
 }
 
 func TestValidateScriptUniqueNames(t *testing.T) {
-	if err := show.ValidateScriptUniqueNames(nil); err != nil {
-		t.Fatalf("expected an empty slice to be accepted, got %v", err)
-	}
+	require.NoError(t, show.ValidateScriptUniqueNames(nil), "expected an empty slice to be accepted")
 
 	a, err := show.NewScript("Chase Cycler")
-	if err != nil {
-		t.Fatalf("NewScript: %v", err)
-	}
+	require.NoError(t, err, "NewScript")
 	b, err := show.NewScript("Chase Cycler")
-	if err != nil {
-		t.Fatalf("NewScript: %v", err)
-	}
-	if err := show.ValidateScriptUniqueNames([]show.Script{a, b}); err == nil || !strings.Contains(err.Error(), "GOLC_SCRIPT_NAME_DUPLICATE") {
-		t.Fatalf("expected GOLC_SCRIPT_NAME_DUPLICATE for two same-named scripts, got %v", err)
-	}
+	require.NoError(t, err, "NewScript")
+	err = show.ValidateScriptUniqueNames([]show.Script{a, b})
+	require.ErrorContains(t, err, "GOLC_SCRIPT_NAME_DUPLICATE", "expected error for two same-named scripts")
 }
 
 func TestResolveResourceLimitsQuickAction(t *testing.T) {
@@ -124,35 +89,19 @@ func TestResolveResourceLimitsQuickAction(t *testing.T) {
 		CPUCapPercent:   999999,
 	}
 	limits := profile.ResolveResourceLimits()
-	if limits.Deadline.Seconds() != 30 {
-		t.Fatalf("expected quick-action deadline 30s, got %v", limits.Deadline)
-	}
-	if limits.RatePerSecond != 20 {
-		t.Fatalf("expected quick-action rate 20/s, got %d", limits.RatePerSecond)
-	}
-	if limits.MemoryLimitMB != 256 {
-		t.Fatalf("expected quick-action memory 256MB, got %d", limits.MemoryLimitMB)
-	}
-	if limits.CPUCapPercent != 25 {
-		t.Fatalf("expected quick-action CPU cap 25%%, got %d", limits.CPUCapPercent)
-	}
+	require.Equal(t, float64(30), limits.Deadline.Seconds(), "expected quick-action deadline 30s")
+	require.Equal(t, 20, limits.RatePerSecond, "expected quick-action rate 20/s")
+	require.Equal(t, 256, limits.MemoryLimitMB, "expected quick-action memory 256MB")
+	require.Equal(t, 25, limits.CPUCapPercent, "expected quick-action CPU cap 25%%")
 }
 
 func TestResolveResourceLimitsLongRunning(t *testing.T) {
 	profile := show.CapabilityProfile{Preset: show.ResourcePresetLongRunning}
 	limits := profile.ResolveResourceLimits()
-	if limits.Deadline.Seconds() != 3600 {
-		t.Fatalf("expected long-running deadline 3600s, got %v", limits.Deadline)
-	}
-	if limits.RatePerSecond != 5 {
-		t.Fatalf("expected long-running rate 5/s, got %d", limits.RatePerSecond)
-	}
-	if limits.MemoryLimitMB != 512 {
-		t.Fatalf("expected long-running memory 512MB, got %d", limits.MemoryLimitMB)
-	}
-	if limits.CPUCapPercent != 25 {
-		t.Fatalf("expected long-running CPU cap 25%%, got %d", limits.CPUCapPercent)
-	}
+	require.Equal(t, float64(3600), limits.Deadline.Seconds(), "expected long-running deadline 3600s")
+	require.Equal(t, 5, limits.RatePerSecond, "expected long-running rate 5/s")
+	require.Equal(t, 512, limits.MemoryLimitMB, "expected long-running memory 512MB")
+	require.Equal(t, 25, limits.CPUCapPercent, "expected long-running CPU cap 25%%")
 }
 
 func TestResolveResourceLimitsAdvancedFallsBackToSafeDefaults(t *testing.T) {
@@ -176,18 +125,10 @@ func TestResolveResourceLimitsAdvancedFallsBackToSafeDefaults(t *testing.T) {
 				CPUCapPercent:   tc.cpuCapPercent,
 			}
 			limits := profile.ResolveResourceLimits()
-			if limits.Deadline.Seconds() != 30 {
-				t.Fatalf("expected the package default deadline 30s (not zero, not unlimited), got %v", limits.Deadline)
-			}
-			if limits.RatePerSecond != 20 {
-				t.Fatalf("expected the package default rate 20/s, got %d", limits.RatePerSecond)
-			}
-			if limits.MemoryLimitMB != 256 {
-				t.Fatalf("expected the package default memory 256MB, got %d", limits.MemoryLimitMB)
-			}
-			if limits.CPUCapPercent != 25 {
-				t.Fatalf("expected the package default CPU cap 25%%, got %d", limits.CPUCapPercent)
-			}
+			require.Equal(t, float64(30), limits.Deadline.Seconds(), "expected the package default deadline 30s (not zero, not unlimited)")
+			require.Equal(t, 20, limits.RatePerSecond, "expected the package default rate 20/s")
+			require.Equal(t, 256, limits.MemoryLimitMB, "expected the package default memory 256MB")
+			require.Equal(t, 25, limits.CPUCapPercent, "expected the package default CPU cap 25%%")
 		})
 	}
 }
@@ -201,18 +142,10 @@ func TestResolveResourceLimitsAdvancedHonorsExplicitValues(t *testing.T) {
 		CPUCapPercent:   10,
 	}
 	limits := profile.ResolveResourceLimits()
-	if limits.Deadline.Seconds() != 120 {
-		t.Fatalf("expected the explicit deadline 120s, got %v", limits.Deadline)
-	}
-	if limits.RatePerSecond != 7 {
-		t.Fatalf("expected the explicit rate 7/s, got %d", limits.RatePerSecond)
-	}
-	if limits.MemoryLimitMB != 64 {
-		t.Fatalf("expected the explicit memory 64MB, got %d", limits.MemoryLimitMB)
-	}
-	if limits.CPUCapPercent != 10 {
-		t.Fatalf("expected the explicit CPU cap 10%%, got %d", limits.CPUCapPercent)
-	}
+	require.Equal(t, float64(120), limits.Deadline.Seconds(), "expected the explicit deadline 120s")
+	require.Equal(t, 7, limits.RatePerSecond, "expected the explicit rate 7/s")
+	require.Equal(t, 64, limits.MemoryLimitMB, "expected the explicit memory 64MB")
+	require.Equal(t, 10, limits.CPUCapPercent, "expected the explicit CPU cap 10%%")
 }
 
 // TestShowStateScriptValidation proves script.go's wiring into
@@ -224,40 +157,24 @@ func TestShowStateScriptValidation(t *testing.T) {
 	root := t.TempDir()
 
 	a, err := show.NewScript("Chase Cycler")
-	if err != nil {
-		t.Fatalf("NewScript: %v", err)
-	}
+	require.NoError(t, err, "NewScript")
 	b, err := show.NewScript("Chase Cycler")
-	if err != nil {
-		t.Fatalf("NewScript: %v", err)
-	}
+	require.NoError(t, err, "NewScript")
 	dupState := show.State{Scripts: []show.Script{a, b}}
-	if err := show.Save(root, "dup-scripts.golc", dupState); err == nil || !strings.Contains(err.Error(), "GOLC_SHOW_STATE_INVALID") {
-		t.Fatalf("expected GOLC_SHOW_STATE_INVALID for duplicate script names, got %v", err)
-	}
+	err = show.Save(root, "dup-scripts.golc", dupState)
+	require.ErrorContains(t, err, "GOLC_SHOW_STATE_INVALID", "expected error for duplicate script names")
 
 	source := "export function run() {\n  // deliberately preserved formatting\n\tconsole.log('hi');\n}\n"
 	single, err := show.NewScript("Chase Cycler")
-	if err != nil {
-		t.Fatalf("NewScript: %v", err)
-	}
+	require.NoError(t, err, "NewScript")
 	single.Source = source
 	validState := show.State{Scripts: []show.Script{single}}
-	if err := show.Save(root, "single-script.golc", validState); err != nil {
-		t.Fatalf("expected a valid single script to save, got %v", err)
-	}
+	require.NoError(t, show.Save(root, "single-script.golc", validState), "expected a valid single script to save")
 
 	loaded, err := show.Load(root, "single-script.golc")
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if len(loaded.Scripts) != 1 {
-		t.Fatalf("expected exactly one script to round-trip, got %d", len(loaded.Scripts))
-	}
-	if loaded.Scripts[0].ID != single.ID || loaded.Scripts[0].Name != single.Name {
-		t.Fatalf("script identity did not round-trip: %+v", loaded.Scripts[0])
-	}
-	if loaded.Scripts[0].Source != source {
-		t.Fatalf("expected Source to round-trip byte-for-byte:\nwant %q\ngot  %q", source, loaded.Scripts[0].Source)
-	}
+	require.NoError(t, err, "Load")
+	require.Len(t, loaded.Scripts, 1, "expected exactly one script to round-trip")
+	require.Equal(t, single.ID, loaded.Scripts[0].ID, "script identity did not round-trip: %+v", loaded.Scripts[0])
+	require.Equal(t, single.Name, loaded.Scripts[0].Name, "script identity did not round-trip: %+v", loaded.Scripts[0])
+	require.Equal(t, source, loaded.Scripts[0].Source, "expected Source to round-trip byte-for-byte")
 }
