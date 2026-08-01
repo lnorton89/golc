@@ -17,9 +17,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/bootstrap"
 )
@@ -122,9 +123,7 @@ rl.on("line", (raw) => {
 `
 	dir := t.TempDir()
 	path := filepath.Join(dir, "fixture.js")
-	if err := os.WriteFile(path, []byte(script), 0o644); err != nil {
-		t.Fatalf("writing fixture script: %v", err)
-	}
+	require.NoError(t, os.WriteFile(path, []byte(script), 0o644), "writing fixture script")
 	return path
 }
 
@@ -142,9 +141,7 @@ func newTestClient(t *testing.T, sentinelPath string, timeout time.Duration) *Pr
 		Env:            env,
 		Timeout:        timeout,
 	})
-	if err != nil {
-		t.Fatalf("NewProcessClient: %v", err)
-	}
+	require.NoError(t, err, "NewProcessClient")
 	t.Cleanup(func() { _ = client.Close() })
 	return client
 }
@@ -153,20 +150,14 @@ func TestScopeTraceTransportProcess(t *testing.T) {
 	t.Run("Call round-trips one strict JSON line", func(t *testing.T) {
 		client := newTestClient(t, filepath.Join(t.TempDir(), "unused"), 5*time.Second)
 		response, err := client.Call(context.Background(), []byte(`{"mode":"echo","value":"hello"}`))
-		if err != nil {
-			t.Fatalf("Call: %v", err)
-		}
+		require.NoError(t, err, "Call")
 		var decoded struct {
 			Echo struct {
 				Value string `json:"value"`
 			} `json:"echo"`
 		}
-		if err := json.Unmarshal(response, &decoded); err != nil {
-			t.Fatalf("decoding response %s: %v", response, err)
-		}
-		if decoded.Echo.Value != "hello" {
-			t.Fatalf("expected echoed value %q, got %q", "hello", decoded.Echo.Value)
-		}
+		require.NoError(t, json.Unmarshal(response, &decoded), "decoding response %s", response)
+		require.Equal(t, "hello", decoded.Echo.Value)
 	})
 
 	t.Run("child receives normalized project root over absent or stale environment", func(t *testing.T) {
@@ -185,25 +176,17 @@ func TestScopeTraceTransportProcess(t *testing.T) {
 				Env:            env,
 				Timeout:        5 * time.Second,
 			})
-			if err != nil {
-				t.Fatalf("NewProcessClient: %v", err)
-			}
+			require.NoError(t, err, "NewProcessClient")
 			response, err := client.Call(context.Background(), []byte(`{"mode":"project-root"}`))
 			if closeErr := client.Close(); err == nil && closeErr != nil {
 				err = closeErr
 			}
-			if err != nil {
-				t.Fatalf("project-root call: %v", err)
-			}
+			require.NoError(t, err, "project-root call")
 			var decoded struct {
 				ProjectRoot string `json:"projectRoot"`
 			}
-			if err := json.Unmarshal(response, &decoded); err != nil {
-				t.Fatal(err)
-			}
-			if decoded.ProjectRoot != root {
-				t.Fatalf("child project root = %q, want %q", decoded.ProjectRoot, root)
-			}
+			require.NoError(t, json.Unmarshal(response, &decoded))
+			require.Equal(t, root, decoded.ProjectRoot, "child project root")
 		}
 	})
 
@@ -230,9 +213,8 @@ func TestScopeTraceTransportProcess(t *testing.T) {
 		// The fixture would write the sentinel file 5s after receiving the
 		// request; the process tree must already be dead well before then.
 		time.Sleep(300 * time.Millisecond)
-		if _, statErr := os.Stat(sentinel); statErr == nil {
-			t.Fatalf("sentinel file exists: timed-out process was not actually killed before completing its work")
-		}
+		_, statErr := os.Stat(sentinel)
+		require.Error(t, statErr, "sentinel file exists: timed-out process was not actually killed before completing its work")
 
 		// The client is permanently closed after a timeout: a further Call
 		// must fail fast rather than silently reusing a dead process.
@@ -251,15 +233,9 @@ func TestScopeTraceTransportProcess(t *testing.T) {
 	t.Run("Call never leaks a raw canary-laden stderr line into its error", func(t *testing.T) {
 		client := newTestClient(t, filepath.Join(t.TempDir(), "unused"), 5*time.Second)
 		_, err := client.Call(context.Background(), []byte(`{"mode":"stderr-canary"}`))
-		if err == nil {
-			t.Fatalf("expected a failure calling a process that exits without a response")
-		}
-		if strings.Contains(err.Error(), "GOLC_FAKE_SECRET_CANARY_4f9c2e6b1a7d3f809c21") {
-			t.Fatalf("error leaked the raw canary token: %v", err)
-		}
-		if !strings.Contains(err.Error(), "<redacted>") {
-			t.Fatalf("expected the redacted marker in the error, got: %v", err)
-		}
+		require.Error(t, err, "expected a failure calling a process that exits without a response")
+		require.NotContains(t, err.Error(), "GOLC_FAKE_SECRET_CANARY_4f9c2e6b1a7d3f809c21", "error leaked the raw canary token")
+		require.Contains(t, err.Error(), "<redacted>", "expected the redacted marker in the error")
 	})
 
 	t.Run("NewProcessClient fails closed on a missing node executable", func(t *testing.T) {
@@ -285,12 +261,8 @@ func TestScopeTraceTransportProcess(t *testing.T) {
 
 	t.Run("Close is idempotent and safe to call more than once", func(t *testing.T) {
 		client := newTestClient(t, filepath.Join(t.TempDir(), "unused"), 5*time.Second)
-		if err := client.Close(); err != nil {
-			t.Fatalf("first Close: %v", err)
-		}
-		if err := client.Close(); err != nil {
-			t.Fatalf("second Close: %v", err)
-		}
+		require.NoError(t, client.Close(), "first Close")
+		require.NoError(t, client.Close(), "second Close")
 	})
 
 	t.Run("NewProcessClient requires an absolute normalized project root", func(t *testing.T) {
@@ -301,14 +273,8 @@ func TestScopeTraceTransportProcess(t *testing.T) {
 
 func requireRPCCode(t *testing.T, err error, code string) {
 	t.Helper()
-	if err == nil {
-		t.Fatalf("expected an error with code %s, got nil", code)
-	}
+	require.Error(t, err, "expected an error with code %s, got nil", code)
 	rpcErr, ok := err.(*RPCError)
-	if !ok {
-		t.Fatalf("expected *RPCError, got %T: %v", err, err)
-	}
-	if rpcErr.Code != code {
-		t.Fatalf("expected code %s, got %s (%v)", code, rpcErr.Code, err)
-	}
+	require.True(t, ok, "expected *RPCError, got %T: %v", err, err)
+	require.Equal(t, code, rpcErr.Code, "unexpected RPC error code (full error: %v)", err)
 }

@@ -14,8 +14,9 @@ package catalog_test
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/strictjson"
@@ -41,9 +42,7 @@ func newMigrationFixtureRepository(t *testing.T) string {
 	root := newFixtureRepository(t)
 	legacyPath := filepath.Join(repositoryRoot(t), "tests", "fixtures", "linear", "map-schema1.json")
 	legacy, err := os.ReadFile(legacyPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", legacyPath, err)
-	}
+	require.NoError(t, err, "read %s", legacyPath)
 	writeFixtureFile(t, filepath.Join(root, ".planning", "linear-map.json"), string(legacy))
 	return root
 }
@@ -64,73 +63,53 @@ func TestScopeLinearMap(t *testing.T) {
 		root := newMigrationFixtureRepository(t)
 
 		built, err := catalog.BuildCatalog(root)
-		if err != nil {
-			t.Fatalf("BuildCatalog: %v", err)
-		}
+		require.NoError(t, err, "BuildCatalog")
 		migrated, err := catalog.MigrateV1ToV2(root)
-		if err != nil {
-			t.Fatalf("MigrateV1ToV2: %v", err)
-		}
+		require.NoError(t, err, "MigrateV1ToV2")
 
-		if migrated.Schema != 2 {
-			t.Fatalf("Schema = %d, want 2", migrated.Schema)
-		}
-		if migrated.Repository.ProjectID != "project:golc" || migrated.Repository.Name != "GOLC" {
-			t.Fatalf("repository = %+v, want project:golc/GOLC", migrated.Repository)
-		}
-		if migrated.ActiveMilestone.MilestoneID != "milestone:v1" || migrated.ActiveMilestone.Name != "GOLC v1" {
-			t.Fatalf("active_milestone = %+v, want milestone:v1/GOLC v1", migrated.ActiveMilestone)
-		}
+		require.Equal(t, 2, migrated.Schema)
+		require.Equal(t, "project:golc", migrated.Repository.ProjectID)
+		require.Equal(t, "GOLC", migrated.Repository.Name)
+		require.Equal(t, "milestone:v1", migrated.ActiveMilestone.MilestoneID)
+		require.Equal(t, "GOLC v1", migrated.ActiveMilestone.Name)
 
 		milestoneMapping, ok := remoteMappingFor(migrated, "milestone:v1")
-		if !ok {
-			t.Fatal("milestone:v1 remote mapping missing")
-		}
-		if milestoneMapping.LinearType != "project" || milestoneMapping.Status != "pending" {
-			t.Fatalf("milestone:v1 mapping = %+v, want linear_type=project status=pending", milestoneMapping)
-		}
-		if milestoneMapping.LinearUUID != nil || milestoneMapping.Identifier != nil || milestoneMapping.URL != nil {
-			t.Fatalf("milestone:v1 mapping carries a non-null remote identity: %+v", milestoneMapping)
-		}
+		require.True(t, ok, "milestone:v1 remote mapping missing")
+		require.Equal(t, "project", milestoneMapping.LinearType)
+		require.Equal(t, "pending", milestoneMapping.Status)
+		require.Nil(t, milestoneMapping.LinearUUID, "milestone:v1 mapping carries a non-null remote identity: %+v", milestoneMapping)
+		require.Nil(t, milestoneMapping.Identifier, "milestone:v1 mapping carries a non-null remote identity: %+v", milestoneMapping)
+		require.Nil(t, milestoneMapping.URL, "milestone:v1 mapping carries a non-null remote identity: %+v", milestoneMapping)
 
-		if len(migrated.Entities) != len(built.Entities) {
-			t.Fatalf("Entities has %d entries, catalog has %d", len(migrated.Entities), len(built.Entities))
-		}
+		require.Len(t, migrated.Entities, len(built.Entities))
 		for index, entity := range built.Entities {
 			summary := migrated.Entities[index]
-			if summary.LocalID != entity.ID || summary.Kind != string(entity.Kind) ||
-				summary.ParentLocalID != entity.Parent || summary.Display != entity.Display || summary.Source != entity.Source {
-				t.Fatalf("entity %d = %+v, want mirror of catalog entity %+v", index, summary, entity)
-			}
+			require.Equal(t, entity.ID, summary.LocalID, "entity %d, want mirror of catalog entity %+v", index, entity)
+			require.Equal(t, string(entity.Kind), summary.Kind, "entity %d, want mirror of catalog entity %+v", index, entity)
+			require.Equal(t, entity.Parent, summary.ParentLocalID, "entity %d, want mirror of catalog entity %+v", index, entity)
+			require.Equal(t, entity.Display, summary.Display, "entity %d, want mirror of catalog entity %+v", index, entity)
+			require.Equal(t, entity.Source, summary.Source, "entity %d, want mirror of catalog entity %+v", index, entity)
 		}
 
 		// Every entity except the project root has exactly one remote
 		// mapping, and every mapping refers to a real entity.
 		wantMappings := len(built.Entities) - 1
-		if len(migrated.RemoteMappings) != wantMappings {
-			t.Fatalf("RemoteMappings has %d entries, want %d (entities minus the project root)", len(migrated.RemoteMappings), wantMappings)
-		}
+		require.Len(t, migrated.RemoteMappings, wantMappings, "want entities minus the project root")
 		seen := map[string]bool{}
 		for _, mapping := range migrated.RemoteMappings {
-			if seen[mapping.RepoID] {
-				t.Fatalf("duplicate remote mapping for %s", mapping.RepoID)
-			}
+			require.False(t, seen[mapping.RepoID], "duplicate remote mapping for %s", mapping.RepoID)
 			seen[mapping.RepoID] = true
-			if _, exists := built.Lookup(mapping.RepoID); !exists {
-				t.Fatalf("remote mapping %s has no matching catalog entity", mapping.RepoID)
-			}
+			_, exists := built.Lookup(mapping.RepoID)
+			require.True(t, exists, "remote mapping %s has no matching catalog entity", mapping.RepoID)
 		}
-		if _, projectMapped := remoteMappingFor(migrated, "project:golc"); projectMapped {
-			t.Fatal("the project root must never carry a remote mapping")
-		}
+		_, projectMapped := remoteMappingFor(migrated, "project:golc")
+		require.False(t, projectMapped, "the project root must never carry a remote mapping")
 	})
 
 	t.Run("MigrateV1ToV2 assigns the Linear remote type per catalog kind", func(t *testing.T) {
 		root := newMigrationFixtureRepository(t)
 		migrated, err := catalog.MigrateV1ToV2(root)
-		if err != nil {
-			t.Fatalf("MigrateV1ToV2: %v", err)
-		}
+		require.NoError(t, err, "MigrateV1ToV2")
 
 		wantTypes := map[string]string{
 			"milestone:v1": "project",
@@ -147,12 +126,8 @@ func TestScopeLinearMap(t *testing.T) {
 		}
 		for repoID, wantType := range wantTypes {
 			mapping, ok := remoteMappingFor(migrated, repoID)
-			if !ok {
-				t.Fatalf("remote mapping for %s missing", repoID)
-			}
-			if mapping.LinearType != wantType {
-				t.Fatalf("%s linear_type = %q, want %q", repoID, mapping.LinearType, wantType)
-			}
+			require.True(t, ok, "remote mapping for %s missing", repoID)
+			require.Equal(t, wantType, mapping.LinearType, "%s linear_type", repoID)
 		}
 	})
 
@@ -187,70 +162,40 @@ func TestScopeLinearMap(t *testing.T) {
 		mapPath := filepath.Join(root, ".planning", "linear-map.json")
 
 		before, err := os.ReadFile(mapPath)
-		if err != nil {
-			t.Fatalf("read before Check: %v", err)
-		}
-		if err := catalog.CheckMigration(root); err == nil {
-			t.Fatal("CheckMigration on an unmigrated schema-1 seed unexpectedly reported no drift")
-		} else if !strings.Contains(err.Error(), "GOLC_MIGRATE_DRIFT") {
-			t.Fatalf("expected GOLC_MIGRATE_DRIFT, got: %v", err)
-		}
+		require.NoError(t, err, "read before Check")
+		checkErr := catalog.CheckMigration(root)
+		require.Error(t, checkErr, "CheckMigration on an unmigrated schema-1 seed unexpectedly reported no drift")
+		require.Contains(t, checkErr.Error(), "GOLC_MIGRATE_DRIFT")
 		after, err := os.ReadFile(mapPath)
-		if err != nil {
-			t.Fatalf("read after Check: %v", err)
-		}
-		if string(before) != string(after) {
-			t.Fatal("CheckMigration modified the file; it must be read-only")
-		}
+		require.NoError(t, err, "read after Check")
+		require.Equal(t, string(before), string(after), "CheckMigration modified the file; it must be read-only")
 
-		if err := catalog.WriteMigration(root); err != nil {
-			t.Fatalf("WriteMigration (first run): %v", err)
-		}
+		require.NoError(t, catalog.WriteMigration(root), "WriteMigration (first run)")
 		firstWrite, err := os.ReadFile(mapPath)
-		if err != nil {
-			t.Fatalf("read after first WriteMigration: %v", err)
-		}
-		if err := catalog.CheckMigration(root); err != nil {
-			t.Fatalf("CheckMigration after WriteMigration: %v", err)
-		}
+		require.NoError(t, err, "read after first WriteMigration")
+		require.NoError(t, catalog.CheckMigration(root), "CheckMigration after WriteMigration")
 
-		if err := catalog.WriteMigration(root); err != nil {
-			t.Fatalf("WriteMigration (second run): %v", err)
-		}
+		require.NoError(t, catalog.WriteMigration(root), "WriteMigration (second run)")
 		secondWrite, err := os.ReadFile(mapPath)
-		if err != nil {
-			t.Fatalf("read after second WriteMigration: %v", err)
-		}
-		if string(firstWrite) != string(secondWrite) {
-			t.Fatalf("WriteMigration is not byte-idempotent:\nfirst:\n%s\nsecond:\n%s", firstWrite, secondWrite)
-		}
+		require.NoError(t, err, "read after second WriteMigration")
+		require.Equal(t, string(firstWrite), string(secondWrite), "WriteMigration is not byte-idempotent")
 
 		entries, err := os.ReadDir(filepath.Join(root, ".planning"))
-		if err != nil {
-			t.Fatalf("read .planning dir: %v", err)
-		}
+		require.NoError(t, err, "read .planning dir")
 		for _, entry := range entries {
-			if strings.Contains(entry.Name(), ".tmp-") {
-				t.Fatalf("temporary file %q leaked after atomic replacement", entry.Name())
-			}
+			require.NotContains(t, entry.Name(), ".tmp-", "temporary file leaked after atomic replacement")
 		}
 	})
 
 	t.Run("WriteMigration preserves an already-synced remote mapping on re-run", func(t *testing.T) {
 		root := newMigrationFixtureRepository(t)
-		if err := catalog.WriteMigration(root); err != nil {
-			t.Fatalf("WriteMigration (first run): %v", err)
-		}
+		require.NoError(t, catalog.WriteMigration(root), "WriteMigration (first run)")
 
 		mapPath := filepath.Join(root, ".planning", "linear-map.json")
 		data, err := os.ReadFile(mapPath)
-		if err != nil {
-			t.Fatalf("read: %v", err)
-		}
+		require.NoError(t, err, "read")
 		var current catalog.Map
-		if err := strictjson.DecodeStrict(data, &current); err != nil {
-			t.Fatalf("DecodeStrict: %v", err)
-		}
+		require.NoError(t, strictjson.DecodeStrict(data, &current), "DecodeStrict")
 		linked := false
 		uuid := "11111111-1111-1111-1111-111111111111"
 		identifier := "GOLC-42"
@@ -264,99 +209,60 @@ func TestScopeLinearMap(t *testing.T) {
 				linked = true
 			}
 		}
-		if !linked {
-			t.Fatal("fixture is missing plan:01-01 remote mapping; test setup is broken")
-		}
+		require.True(t, linked, "fixture is missing plan:01-01 remote mapping; test setup is broken")
 		encoded, err := strictjson.CanonicalEncode(&current)
-		if err != nil {
-			t.Fatalf("CanonicalEncode: %v", err)
-		}
+		require.NoError(t, err, "CanonicalEncode")
 		writeFixtureFile(t, mapPath, string(encoded))
 
-		if err := catalog.WriteMigration(root); err != nil {
-			t.Fatalf("WriteMigration (second run, after simulated sync): %v", err)
-		}
+		require.NoError(t, catalog.WriteMigration(root), "WriteMigration (second run, after simulated sync)")
 		reread, err := os.ReadFile(mapPath)
-		if err != nil {
-			t.Fatalf("read after second WriteMigration: %v", err)
-		}
+		require.NoError(t, err, "read after second WriteMigration")
 		var after catalog.Map
-		if err := strictjson.DecodeStrict(reread, &after); err != nil {
-			t.Fatalf("DecodeStrict after second WriteMigration: %v", err)
-		}
+		require.NoError(t, strictjson.DecodeStrict(reread, &after), "DecodeStrict after second WriteMigration")
 		mapping, ok := remoteMappingFor(&after, "plan:01-01")
-		if !ok {
-			t.Fatal("plan:01-01 remote mapping missing after re-migration")
-		}
-		if mapping.Status != "linked" || mapping.LinearUUID == nil || *mapping.LinearUUID != uuid ||
-			mapping.Identifier == nil || *mapping.Identifier != identifier || mapping.URL == nil || *mapping.URL != url {
-			t.Fatalf("plan:01-01 mapping was not preserved across re-migration: %+v", mapping)
-		}
-		if err := catalog.CheckMigration(root); err != nil {
-			t.Fatalf("CheckMigration after preserving a synced mapping: %v", err)
-		}
+		require.True(t, ok, "plan:01-01 remote mapping missing after re-migration")
+		require.Equal(t, "linked", mapping.Status, "plan:01-01 mapping was not preserved across re-migration: %+v", mapping)
+		require.NotNil(t, mapping.LinearUUID, "plan:01-01 mapping was not preserved across re-migration: %+v", mapping)
+		require.Equal(t, uuid, *mapping.LinearUUID)
+		require.NotNil(t, mapping.Identifier, "plan:01-01 mapping was not preserved across re-migration: %+v", mapping)
+		require.Equal(t, identifier, *mapping.Identifier)
+		require.NotNil(t, mapping.URL, "plan:01-01 mapping was not preserved across re-migration: %+v", mapping)
+		require.Equal(t, url, *mapping.URL)
+		require.NoError(t, catalog.CheckMigration(root), "CheckMigration after preserving a synced mapping")
 	})
 
 	t.Run("fixture migration output matches the committed golden byte-for-byte", func(t *testing.T) {
 		root := newMigrationFixtureRepository(t)
 		migrated, err := catalog.MigrateV1ToV2(root)
-		if err != nil {
-			t.Fatalf("MigrateV1ToV2: %v", err)
-		}
+		require.NoError(t, err, "MigrateV1ToV2")
 		encoded, err := strictjson.CanonicalEncode(migrated)
-		if err != nil {
-			t.Fatalf("CanonicalEncode: %v", err)
-		}
+		require.NoError(t, err, "CanonicalEncode")
 		goldenPath := filepath.Join(repositoryRoot(t), "tests", "golden", "linear-map-schema2.json")
 		golden, err := os.ReadFile(goldenPath)
-		if err != nil {
-			t.Fatalf("read golden %s: %v", goldenPath, err)
-		}
-		if string(encoded) != string(golden) {
-			t.Fatalf("migration output does not match the committed golden:\ngot:\n%s\nwant:\n%s", encoded, golden)
-		}
+		require.NoError(t, err, "read golden %s", goldenPath)
+		require.Equal(t, string(golden), string(encoded), "migration output does not match the committed golden")
 	})
 
 	t.Run("migration output never contains an unrelated credential canary", func(t *testing.T) {
 		t.Setenv("GOLC_TEST_CREDENTIAL_CANARY", "gsd-fake-secret-9f3d7c21-do-not-leak")
 		root := newMigrationFixtureRepository(t)
 		migrated, err := catalog.MigrateV1ToV2(root)
-		if err != nil {
-			t.Fatalf("MigrateV1ToV2: %v", err)
-		}
+		require.NoError(t, err, "MigrateV1ToV2")
 		encoded, err := strictjson.CanonicalEncode(migrated)
-		if err != nil {
-			t.Fatalf("CanonicalEncode: %v", err)
-		}
-		if strings.Contains(string(encoded), "gsd-fake-secret-9f3d7c21-do-not-leak") {
-			t.Fatal("migration output leaked an unrelated environment value")
-		}
+		require.NoError(t, err, "CanonicalEncode")
+		require.NotContains(t, string(encoded), "gsd-fake-secret-9f3d7c21-do-not-leak", "migration output leaked an unrelated environment value")
 	})
 
 	t.Run("real repository seed migrates end to end offline", func(t *testing.T) {
 		root := repositoryRoot(t)
 		built, err := catalog.BuildCatalog(root)
-		if err != nil {
-			t.Fatalf("BuildCatalog: %v", err)
-		}
+		require.NoError(t, err, "BuildCatalog")
 		migrated, err := catalog.MigrateV1ToV2(root)
-		if err != nil {
-			t.Fatalf("MigrateV1ToV2: %v", err)
-		}
-		if migrated.Repository.ProjectID != "project:golc" {
-			t.Fatalf("Repository.ProjectID = %q, want project:golc", migrated.Repository.ProjectID)
-		}
-		if migrated.ActiveMilestone.MilestoneID != "milestone:v1" {
-			t.Fatalf("ActiveMilestone.MilestoneID = %q, want milestone:v1", migrated.ActiveMilestone.MilestoneID)
-		}
-		if len(migrated.Entities) != len(built.Entities) {
-			t.Fatalf("Entities has %d entries, catalog has %d", len(migrated.Entities), len(built.Entities))
-		}
-		if len(migrated.RemoteMappings) != len(built.Entities)-1 {
-			t.Fatalf("RemoteMappings has %d entries, want %d", len(migrated.RemoteMappings), len(built.Entities)-1)
-		}
-		if err := catalog.CheckMigration(root); err != nil {
-			t.Fatalf("CheckMigration on the real repository: %v", err)
-		}
+		require.NoError(t, err, "MigrateV1ToV2")
+		require.Equal(t, "project:golc", migrated.Repository.ProjectID)
+		require.Equal(t, "milestone:v1", migrated.ActiveMilestone.MilestoneID)
+		require.Len(t, migrated.Entities, len(built.Entities))
+		require.Len(t, migrated.RemoteMappings, len(built.Entities)-1)
+		require.NoError(t, catalog.CheckMigration(root), "CheckMigration on the real repository")
 	})
 }

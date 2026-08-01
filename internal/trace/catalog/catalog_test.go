@@ -18,6 +18,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/trace/catalog"
 )
@@ -35,29 +37,21 @@ var _ = command.MustDeclareScope(command.ScopeRegistration{
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
+	require.NoError(t, err, "getwd")
 	for {
 		if _, statErr := os.Stat(filepath.Join(dir, "golc.project.toml")); statErr == nil {
 			return dir
 		}
 		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("repository root with golc.project.toml not found above test directory")
-		}
+		require.NotEqual(t, dir, parent, "repository root with golc.project.toml not found above test directory")
 		dir = parent
 	}
 }
 
 func writeFixtureFile(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755), "mkdir %s", filepath.Dir(path))
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644), "write %s", path)
 }
 
 const fixturePhaseSlug = "01-test-phase"
@@ -173,12 +167,7 @@ func newFixtureRepository(t *testing.T) string {
 // requireErrorCode asserts err is non-nil and carries the stable code.
 func requireErrorCode(t *testing.T, err error, code string) {
 	t.Helper()
-	if err == nil {
-		t.Fatalf("expected error with code %s, got nil", code)
-	}
-	if !strings.Contains(err.Error(), code) {
-		t.Fatalf("expected error code %s, got: %v", code, err)
-	}
+	require.ErrorContains(t, err, code)
 }
 
 // entityIDs returns the catalog entity IDs in catalog order.
@@ -254,16 +243,10 @@ func loadLinearFixture(t *testing.T, root, name string) fixtureCatalogFile {
 	t.Helper()
 	path := filepath.Join(root, "tests", "fixtures", "linear", name)
 	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read fixture %s: %v", path, err)
-	}
+	require.NoError(t, err, "read fixture %s", path)
 	var file fixtureCatalogFile
-	if err := json.Unmarshal(content, &file); err != nil {
-		t.Fatalf("decode fixture %s: %v", path, err)
-	}
-	if len(file.Entities) == 0 {
-		t.Fatalf("fixture %s declares no entities", path)
-	}
+	require.NoError(t, json.Unmarshal(content, &file), "decode fixture %s", path)
+	require.NotEmpty(t, file.Entities, "fixture %s declares no entities", path)
 	return file
 }
 
@@ -274,9 +257,7 @@ func fixtureCatalogEntities(t *testing.T, file fixtureCatalogFile) []catalog.Ent
 	entities := make([]catalog.Entity, 0, len(file.Entities))
 	for _, fixture := range file.Entities {
 		kind, known := fixtureKinds[fixture.Kind]
-		if !known {
-			t.Fatalf("fixture entity %s declares unknown kind %q", fixture.ID, fixture.Kind)
-		}
+		require.True(t, known, "fixture entity %s declares unknown kind %q", fixture.ID, fixture.Kind)
 		entities = append(entities, catalog.Entity{
 			ID:      fixture.ID,
 			Kind:    kind,
@@ -309,22 +290,16 @@ var (
 func scanExecutableTaskPositions(t *testing.T, planPath string) []int {
 	t.Helper()
 	content, err := os.ReadFile(planPath)
-	if err != nil {
-		t.Fatalf("read %s: %v", planPath, err)
-	}
+	require.NoError(t, err, "read %s", planPath)
 	text := string(content)
 	start := strings.Index(text, "<tasks>")
 	end := strings.Index(text, "</tasks>")
-	if start < 0 || end < 0 || end < start {
-		t.Fatalf("%s: no <tasks> region", planPath)
-	}
+	require.False(t, start < 0 || end < 0 || end < start, "%s: no <tasks> region", planPath)
 	region := text[start:end]
 	positions := []int{}
 	for ordinal, tag := range testTaskTagPattern.FindAllString(region, -1) {
 		typeMatch := testTaskTypePattern.FindStringSubmatch(tag)
-		if typeMatch == nil {
-			t.Fatalf("%s: task tag without type attribute: %s", planPath, tag)
-		}
+		require.NotNil(t, typeMatch, "%s: task tag without type attribute: %s", planPath, tag)
 		if typeMatch[1] == "auto" {
 			positions = append(positions, ordinal+1)
 		}
@@ -338,9 +313,7 @@ func TestScopeLinearCatalog(t *testing.T) {
 	t.Run("real repository catalog contains the fixed offline identities", func(t *testing.T) {
 		root := repositoryRoot(t)
 		built, err := catalog.BuildCatalog(root)
-		if err != nil {
-			t.Fatalf("BuildCatalog: %v", err)
-		}
+		require.NoError(t, err, "BuildCatalog")
 		fixed := []struct {
 			id   string
 			kind catalog.Kind
@@ -359,30 +332,20 @@ func TestScopeLinearCatalog(t *testing.T) {
 		}
 		for _, expectation := range fixed {
 			entity, ok := built.Lookup(expectation.id)
-			if !ok {
-				t.Fatalf("catalog is missing %s", expectation.id)
-			}
-			if entity.Kind != expectation.kind {
-				t.Fatalf("%s: kind %q, want %q", expectation.id, entity.Kind, expectation.kind)
-			}
-			if countID(built, expectation.id) != 1 {
-				t.Fatalf("%s appears %d times, want exactly once", expectation.id, countID(built, expectation.id))
-			}
+			require.True(t, ok, "catalog is missing %s", expectation.id)
+			require.Equal(t, expectation.kind, entity.Kind, "%s: kind", expectation.id)
+			require.Equal(t, 1, countID(built, expectation.id), "%s appears wrong number of times", expectation.id)
 		}
 	})
 
 	t.Run("real repository plans and executable tasks are discovered dynamically and exactly once", func(t *testing.T) {
 		root := repositoryRoot(t)
 		built, err := catalog.BuildCatalog(root)
-		if err != nil {
-			t.Fatalf("BuildCatalog: %v", err)
-		}
+		require.NoError(t, err, "BuildCatalog")
 
 		phasesDir := filepath.Join(root, ".planning", "phases")
 		phaseEntries, err := os.ReadDir(phasesDir)
-		if err != nil {
-			t.Fatalf("read phases dir: %v", err)
-		}
+		require.NoError(t, err, "read phases dir")
 
 		discoveredPlanFiles := 0
 		discoveredTasks := 0
@@ -396,9 +359,7 @@ func TestScopeLinearCatalog(t *testing.T) {
 			}
 			phaseNumber := dirMatch[1]
 			planEntries, err := os.ReadDir(filepath.Join(phasesDir, phaseEntry.Name()))
-			if err != nil {
-				t.Fatalf("read phase dir: %v", err)
-			}
+			require.NoError(t, err, "read phase dir")
 			for _, planEntry := range planEntries {
 				fileMatch := testPlanFilePattern.FindStringSubmatch(planEntry.Name())
 				if fileMatch == nil {
@@ -406,27 +367,19 @@ func TestScopeLinearCatalog(t *testing.T) {
 				}
 				discoveredPlanFiles++
 				planID := "plan:" + phaseNumber + "-" + fileMatch[2]
-				if countID(built, planID) != 1 {
-					t.Fatalf("%s appears %d times, want exactly once", planID, countID(built, planID))
-				}
+				require.Equal(t, 1, countID(built, planID), "%s appears wrong number of times", planID)
 				planPath := filepath.Join(phasesDir, phaseEntry.Name(), planEntry.Name())
 				for _, position := range scanExecutableTaskPositions(t, planPath) {
 					discoveredTasks++
 					taskID := planID[len("plan:"):]
 					fullTaskID := "task:" + taskID + "." + strconv.Itoa(position)
-					if countID(built, fullTaskID) != 1 {
-						t.Fatalf("%s appears %d times, want exactly once", fullTaskID, countID(built, fullTaskID))
-					}
+					require.Equal(t, 1, countID(built, fullTaskID), "%s appears wrong number of times", fullTaskID)
 					entity, _ := built.Lookup(fullTaskID)
-					if entity.Parent != planID {
-						t.Fatalf("%s parent %q, want %q", fullTaskID, entity.Parent, planID)
-					}
+					require.Equal(t, planID, entity.Parent, "%s parent", fullTaskID)
 				}
 			}
 		}
-		if discoveredPlanFiles == 0 {
-			t.Fatal("independent scan found no plan files; test harness is broken")
-		}
+		require.NotZero(t, discoveredPlanFiles, "independent scan found no plan files; test harness is broken")
 
 		catalogPlans := 0
 		catalogTasks := 0
@@ -438,20 +391,14 @@ func TestScopeLinearCatalog(t *testing.T) {
 				catalogTasks++
 			}
 		}
-		if catalogPlans != discoveredPlanFiles {
-			t.Fatalf("catalog has %d plans, independent scan found %d", catalogPlans, discoveredPlanFiles)
-		}
-		if catalogTasks != discoveredTasks {
-			t.Fatalf("catalog has %d tasks, independent scan found %d", catalogTasks, discoveredTasks)
-		}
+		require.Equal(t, discoveredPlanFiles, catalogPlans, "catalog plan count vs independent scan")
+		require.Equal(t, discoveredTasks, catalogTasks, "catalog task count vs independent scan")
 	})
 
 	t.Run("fixture discovery sorts plans numerically and excludes checkpoint tasks", func(t *testing.T) {
 		root := newFixtureRepository(t)
 		built, err := catalog.BuildCatalog(root)
-		if err != nil {
-			t.Fatalf("BuildCatalog: %v", err)
-		}
+		require.NoError(t, err, "BuildCatalog")
 
 		planOrder := []string{}
 		for _, entity := range built.Entities {
@@ -460,33 +407,23 @@ func TestScopeLinearCatalog(t *testing.T) {
 			}
 		}
 		wantOrder := []string{"plan:01-01", "plan:01-02", "plan:01-10"}
-		if strings.Join(planOrder, ",") != strings.Join(wantOrder, ",") {
-			t.Fatalf("plan order %v, want %v", planOrder, wantOrder)
-		}
+		require.Equal(t, wantOrder, planOrder, "plan order")
 
 		for _, id := range []string{"task:01-01.1", "task:01-01.3", "task:01-02.1", "task:01-10.1"} {
-			if countID(built, id) != 1 {
-				t.Fatalf("%s appears %d times, want exactly once", id, countID(built, id))
-			}
+			require.Equal(t, 1, countID(built, id), "%s appears wrong number of times", id)
 		}
-		if countID(built, "task:01-01.2") != 0 {
-			t.Fatal("checkpoint task position 2 must not receive an executable task entity")
-		}
+		require.Zero(t, countID(built, "task:01-01.2"), "checkpoint task position 2 must not receive an executable task entity")
 
-		if _, ok := built.Lookup("req:TSTA-01"); !ok {
-			t.Fatal("fixture requirement req:TSTA-01 missing")
-		}
-		if _, ok := built.Lookup("req:TSTB-02"); !ok {
-			t.Fatal("fixture requirement req:TSTB-02 missing")
-		}
+		_, ok := built.Lookup("req:TSTA-01")
+		require.True(t, ok, "fixture requirement req:TSTA-01 missing")
+		_, ok = built.Lookup("req:TSTB-02")
+		require.True(t, ok, "fixture requirement req:TSTB-02 missing")
 	})
 
 	t.Run("display renames never change any durable id", func(t *testing.T) {
 		root := newFixtureRepository(t)
 		before, err := catalog.BuildCatalog(root)
-		if err != nil {
-			t.Fatalf("BuildCatalog before rename: %v", err)
-		}
+		require.NoError(t, err, "BuildCatalog before rename")
 
 		planning := filepath.Join(root, ".planning")
 		phaseDir := filepath.Join(planning, "phases", fixturePhaseSlug)
@@ -502,14 +439,8 @@ func TestScopeLinearCatalog(t *testing.T) {
 		}))
 
 		after, err := catalog.BuildCatalog(root)
-		if err != nil {
-			t.Fatalf("BuildCatalog after rename: %v", err)
-		}
-		beforeIDs := strings.Join(entityIDs(before), "\n")
-		afterIDs := strings.Join(entityIDs(after), "\n")
-		if beforeIDs != afterIDs {
-			t.Fatalf("IDs changed across display renames:\nbefore:\n%s\nafter:\n%s", beforeIDs, afterIDs)
-		}
+		require.NoError(t, err, "BuildCatalog after rename")
+		require.Equal(t, entityIDs(before), entityIDs(after), "IDs changed across display renames")
 	})
 
 	t.Run("plan filenames violating the grammar are rejected", func(t *testing.T) {
@@ -521,9 +452,7 @@ func TestScopeLinearCatalog(t *testing.T) {
 		}))
 		_, err := catalog.BuildCatalog(root)
 		requireErrorCode(t, err, "GOLC_CATALOG_PLAN_FILENAME")
-		if err := os.Remove(filepath.Join(phaseDir, "01-3-PLAN.md")); err != nil {
-			t.Fatalf("remove: %v", err)
-		}
+		require.NoError(t, os.Remove(filepath.Join(phaseDir, "01-3-PLAN.md")), "remove")
 
 		writeFixtureFile(t, filepath.Join(phaseDir, "02-05-PLAN.md"), fixturePlan(fixturePhaseSlug, "05", []string{
 			fixtureAutoTask("Task 1: Wrong phase prefix"),
@@ -541,9 +470,7 @@ func TestScopeLinearCatalog(t *testing.T) {
 		}))
 		_, err := catalog.BuildCatalog(root)
 		requireErrorCode(t, err, "GOLC_CATALOG_PLAN_FRONTMATTER")
-		if err := os.Remove(filepath.Join(phaseDir, "01-05-PLAN.md")); err != nil {
-			t.Fatalf("remove: %v", err)
-		}
+		require.NoError(t, os.Remove(filepath.Join(phaseDir, "01-05-PLAN.md")), "remove")
 
 		writeFixtureFile(t, filepath.Join(phaseDir, "01-06-PLAN.md"), fixturePlan("99-wrong-phase", "06", []string{
 			fixtureAutoTask("Task 1: Mismatched phase slug"),
@@ -567,12 +494,8 @@ func TestScopeLinearCatalog(t *testing.T) {
 		}
 		for _, expectation := range accepted {
 			parsed, err := catalog.ParseID(expectation.id)
-			if err != nil {
-				t.Fatalf("ParseID(%q): %v", expectation.id, err)
-			}
-			if parsed.Kind != expectation.kind {
-				t.Fatalf("ParseID(%q) kind %q, want %q", expectation.id, parsed.Kind, expectation.kind)
-			}
+			require.NoError(t, err, "ParseID(%q)", expectation.id)
+			require.Equal(t, expectation.kind, parsed.Kind, "ParseID(%q) kind", expectation.id)
 		}
 
 		rejected := []string{
@@ -596,49 +519,40 @@ func TestScopeLinearCatalog(t *testing.T) {
 			"task:Display Name.1",
 		}
 		for _, id := range rejected {
-			if _, err := catalog.ParseID(id); err == nil {
-				t.Fatalf("ParseID(%q) accepted an invalid id", id)
-			}
+			_, err := catalog.ParseID(id)
+			require.Error(t, err, "ParseID(%q) accepted an invalid id", id)
 		}
 
-		if id, err := catalog.PhaseID("01"); err != nil || id != "phase:01" {
-			t.Fatalf("PhaseID(01) = %q, %v", id, err)
-		}
-		if _, err := catalog.PhaseID("1"); err == nil {
-			t.Fatal("PhaseID(1) accepted a one-digit phase")
-		}
-		if id, err := catalog.PlanID("01", "08"); err != nil || id != "plan:01-08" {
-			t.Fatalf("PlanID(01,08) = %q, %v", id, err)
-		}
-		if _, err := catalog.PlanID("1", "8"); err == nil {
-			t.Fatal("PlanID(1,8) accepted one-digit parts")
-		}
-		if id, err := catalog.TaskID("01", "08", 1); err != nil || id != "task:01-08.1" {
-			t.Fatalf("TaskID(01,08,1) = %q, %v", id, err)
-		}
-		if _, err := catalog.TaskID("01", "08", 0); err == nil {
-			t.Fatal("TaskID position 0 accepted")
-		}
-		if id, err := catalog.RequirementID("CONF-01"); err != nil || id != "req:CONF-01" {
-			t.Fatalf("RequirementID(CONF-01) = %q, %v", id, err)
-		}
-		if _, err := catalog.RequirementID("GOLC-123"); err == nil {
-			t.Fatal("RequirementID accepted an issue-key shape")
-		}
+		id, err := catalog.PhaseID("01")
+		require.NoError(t, err)
+		require.Equal(t, "phase:01", id)
+		_, err = catalog.PhaseID("1")
+		require.Error(t, err, "PhaseID(1) accepted a one-digit phase")
+		id, err = catalog.PlanID("01", "08")
+		require.NoError(t, err)
+		require.Equal(t, "plan:01-08", id)
+		_, err = catalog.PlanID("1", "8")
+		require.Error(t, err, "PlanID(1,8) accepted one-digit parts")
+		id, err = catalog.TaskID("01", "08", 1)
+		require.NoError(t, err)
+		require.Equal(t, "task:01-08.1", id)
+		_, err = catalog.TaskID("01", "08", 0)
+		require.Error(t, err, "TaskID position 0 accepted")
+		id, err = catalog.RequirementID("CONF-01")
+		require.NoError(t, err)
+		require.Equal(t, "req:CONF-01", id)
+		_, err = catalog.RequirementID("GOLC-123")
+		require.Error(t, err, "RequirementID accepted an issue-key shape")
 	})
 
 	t.Run("validators reject duplicates wrong parents cycles and external sources", func(t *testing.T) {
 		base := validSyntheticEntities()
 
-		if err := catalog.Validate(syntheticCatalog(base)); err != nil {
-			t.Fatalf("valid synthetic catalog rejected: %v", err)
-		}
+		require.NoError(t, catalog.Validate(syntheticCatalog(base)), "valid synthetic catalog rejected")
 
 		fresh := catalog.NewCatalog()
 		for _, entity := range base {
-			if err := fresh.Add(entity); err != nil {
-				t.Fatalf("Add(%s): %v", entity.ID, err)
-			}
+			require.NoError(t, fresh.Add(entity), "Add(%s)", entity.ID)
 		}
 		requireErrorCode(t, fresh.Add(base[len(base)-1]), "GOLC_CATALOG_ID_DUPLICATE")
 
@@ -703,9 +617,7 @@ func TestScopeLinearCatalog(t *testing.T) {
 		for _, field := range []string{"status", "assignee", "priority", "estimate", "completed_at"} {
 			requireErrorCode(t, built.SetAuthority(field, catalog.AuthorityRepository),
 				"GOLC_CATALOG_AUTHORITY_LINEAR_FIELD")
-			if err := built.SetAuthority(field, catalog.AuthorityLinear); err != nil {
-				t.Fatalf("confirming linear ownership of %s failed: %v", field, err)
-			}
+			require.NoError(t, built.SetAuthority(field, catalog.AuthorityLinear), "confirming linear ownership of %s failed", field)
 		}
 		for _, field := range []string{"comment", "comments", "discussion"} {
 			requireErrorCode(t, built.SetAuthority(field, catalog.AuthorityRepository),
@@ -716,9 +628,7 @@ func TestScopeLinearCatalog(t *testing.T) {
 		requireErrorCode(t, built.SetAuthority("unregistered_field", catalog.AuthorityRepository),
 			"GOLC_CATALOG_FIELD_UNKNOWN")
 
-		if err := catalog.Validate(built); err != nil {
-			t.Fatalf("untampered authorities rejected: %v", err)
-		}
+		require.NoError(t, catalog.Validate(built), "untampered authorities rejected")
 
 		tampered := syntheticCatalog(validSyntheticEntities())
 		tampered.Authorities["scope"] = catalog.AuthorityLinear
@@ -740,12 +650,8 @@ func TestScopeLinearCatalog(t *testing.T) {
 	t.Run("real repository catalog validates end to end offline", func(t *testing.T) {
 		root := repositoryRoot(t)
 		built, err := catalog.BuildCatalog(root)
-		if err != nil {
-			t.Fatalf("BuildCatalog: %v", err)
-		}
-		if err := catalog.Validate(built); err != nil {
-			t.Fatalf("Validate: %v", err)
-		}
+		require.NoError(t, err, "BuildCatalog")
+		require.NoError(t, catalog.Validate(built), "Validate")
 	})
 
 	t.Run("adversarial linear fixtures load and fail with specific diagnostics", func(t *testing.T) {
@@ -774,18 +680,12 @@ func TestScopeLinearCatalog(t *testing.T) {
 		before := loadLinearFixture(t, root, "catalog-rename-before.json")
 		after := loadLinearFixture(t, root, "catalog-rename-after.json")
 
-		if len(before.Entities) != len(after.Entities) {
-			t.Fatalf("rename fixture entity count differs: before=%d after=%d", len(before.Entities), len(after.Entities))
-		}
+		require.Len(t, after.Entities, len(before.Entities), "rename fixture entity count differs")
 
 		beforeCatalog := syntheticCatalog(fixtureCatalogEntities(t, before))
 		afterCatalog := syntheticCatalog(fixtureCatalogEntities(t, after))
-		if err := catalog.Validate(beforeCatalog); err != nil {
-			t.Fatalf("catalog-rename-before.json failed validation: %v", err)
-		}
-		if err := catalog.Validate(afterCatalog); err != nil {
-			t.Fatalf("catalog-rename-after.json failed validation: %v", err)
-		}
+		require.NoError(t, catalog.Validate(beforeCatalog), "catalog-rename-before.json failed validation")
+		require.NoError(t, catalog.Validate(afterCatalog), "catalog-rename-after.json failed validation")
 
 		afterByID := make(map[string]fixtureEntity, len(after.Entities))
 		for _, entity := range after.Entities {
@@ -795,28 +695,16 @@ func TestScopeLinearCatalog(t *testing.T) {
 		displayChanged := false
 		for _, beforeEntity := range before.Entities {
 			afterEntity, ok := afterByID[beforeEntity.ID]
-			if !ok {
-				t.Fatalf("id %s present before rename is missing after rename", beforeEntity.ID)
-			}
-			if afterEntity.Kind != beforeEntity.Kind {
-				t.Fatalf("%s kind changed across rename: %q -> %q", beforeEntity.ID, beforeEntity.Kind, afterEntity.Kind)
-			}
-			if afterEntity.Parent != beforeEntity.Parent {
-				t.Fatalf("%s parent changed across rename: %q -> %q", beforeEntity.ID, beforeEntity.Parent, afterEntity.Parent)
-			}
-			if afterEntity.Source != beforeEntity.Source {
-				t.Fatalf("%s source changed across rename: %q -> %q", beforeEntity.ID, beforeEntity.Source, afterEntity.Source)
-			}
-			if !uuidPointersEqual(beforeEntity.MappedUUID, afterEntity.MappedUUID) {
-				t.Fatalf("%s mapped_uuid changed across rename", beforeEntity.ID)
-			}
+			require.True(t, ok, "id %s present before rename is missing after rename", beforeEntity.ID)
+			require.Equal(t, beforeEntity.Kind, afterEntity.Kind, "%s kind changed across rename", beforeEntity.ID)
+			require.Equal(t, beforeEntity.Parent, afterEntity.Parent, "%s parent changed across rename", beforeEntity.ID)
+			require.Equal(t, beforeEntity.Source, afterEntity.Source, "%s source changed across rename", beforeEntity.ID)
+			require.True(t, uuidPointersEqual(beforeEntity.MappedUUID, afterEntity.MappedUUID), "%s mapped_uuid changed across rename", beforeEntity.ID)
 			if afterEntity.Display != beforeEntity.Display {
 				displayChanged = true
 			}
 		}
-		if !displayChanged {
-			t.Fatal("rename fixture pair does not change any display text; it does not exercise a rename")
-		}
+		require.True(t, displayChanged, "rename fixture pair does not change any display text; it does not exercise a rename")
 
 		hasNonNilMappedUUID := false
 		for _, entity := range before.Entities {
@@ -825,8 +713,6 @@ func TestScopeLinearCatalog(t *testing.T) {
 				break
 			}
 		}
-		if !hasNonNilMappedUUID {
-			t.Fatal("rename fixture pair must exercise at least one non-null mapped_uuid")
-		}
+		require.True(t, hasNonNilMappedUUID, "rename fixture pair must exercise at least one non-null mapped_uuid")
 	})
 }
