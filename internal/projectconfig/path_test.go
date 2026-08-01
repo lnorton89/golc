@@ -12,8 +12,9 @@ package projectconfig_test
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/projectconfig"
 )
@@ -31,11 +32,8 @@ func testPathContainment(t *testing.T) {
 			`config\..\escape`,
 			"config/./x",
 		} {
-			if err := projectconfig.ValidateConcernPath(relative); err == nil {
-				t.Fatalf("expected %q to be rejected", relative)
-			} else if !strings.Contains(err.Error(), "GOLC_CONFIG_PATH_ESCAPE") {
-				t.Fatalf("expected GOLC_CONFIG_PATH_ESCAPE for %q, got %q", relative, err.Error())
-			}
+			err := projectconfig.ValidateConcernPath(relative)
+			require.ErrorContains(t, err, "GOLC_CONFIG_PATH_ESCAPE", "expected %q to be rejected", relative)
 		}
 	})
 
@@ -45,75 +43,48 @@ func testPathContainment(t *testing.T) {
 			".tools/cache/downloads",
 			"a/b/c",
 		} {
-			if err := projectconfig.ValidateConcernPath(relative); err != nil {
-				t.Fatalf("expected %q to be accepted, got %v", relative, err)
-			}
+			require.NoError(t, projectconfig.ValidateConcernPath(relative), "expected %q to be accepted", relative)
 		}
 	})
 
 	t.Run("ResolveContainedPath rejects lexical escapes before touching disk", func(t *testing.T) {
 		root := t.TempDir()
 		_, err := projectconfig.ResolveContainedPath(root, "../escape")
-		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_PATH_ESCAPE") {
-			t.Fatalf("expected GOLC_CONFIG_PATH_ESCAPE, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_CONFIG_PATH_ESCAPE")
 	})
 
 	t.Run("ResolveContainedPath accepts an existing contained path", func(t *testing.T) {
 		root := t.TempDir()
-		if err := os.MkdirAll(filepath.Join(root, "config", "integrations"), 0o755); err != nil {
-			t.Fatalf("mkdir: %v", err)
-		}
+		require.NoError(t, os.MkdirAll(filepath.Join(root, "config", "integrations"), 0o755), "mkdir")
 		resolved, err := projectconfig.ResolveContainedPath(root, "config/integrations")
-		if err != nil {
-			t.Fatalf("ResolveContainedPath failed: %v", err)
-		}
+		require.NoError(t, err, "ResolveContainedPath failed")
 		resolvedRoot, err := filepath.EvalSymlinks(root)
-		if err != nil {
-			t.Fatalf("EvalSymlinks(root) failed: %v", err)
-		}
+		require.NoError(t, err, "EvalSymlinks(root) failed")
 		want := filepath.Join(resolvedRoot, "config", "integrations")
-		if resolved != want {
-			t.Fatalf("expected %q, got %q", want, resolved)
-		}
+		require.Equal(t, want, resolved)
 	})
 
 	t.Run("ResolveContainedPath accepts a not-yet-created leaf under an existing contained ancestor", func(t *testing.T) {
 		root := t.TempDir()
-		if err := os.MkdirAll(filepath.Join(root, ".tools", "cache"), 0o755); err != nil {
-			t.Fatalf("mkdir: %v", err)
-		}
+		require.NoError(t, os.MkdirAll(filepath.Join(root, ".tools", "cache"), 0o755), "mkdir")
 		resolved, err := projectconfig.ResolveContainedPath(root, ".tools/cache/downloads")
-		if err != nil {
-			t.Fatalf("ResolveContainedPath failed on a lazily created cache path: %v", err)
-		}
+		require.NoError(t, err, "ResolveContainedPath failed on a lazily created cache path")
 		resolvedRoot, err := filepath.EvalSymlinks(root)
-		if err != nil {
-			t.Fatalf("EvalSymlinks(root) failed: %v", err)
-		}
+		require.NoError(t, err, "EvalSymlinks(root) failed")
 		want := filepath.Join(resolvedRoot, ".tools", "cache", "downloads")
-		if resolved != want {
-			t.Fatalf("expected %q, got %q", want, resolved)
-		}
-		if _, statErr := os.Stat(resolved); !os.IsNotExist(statErr) {
-			t.Fatal("ResolveContainedPath must not create the leaf itself")
-		}
+		require.Equal(t, want, resolved)
+		_, statErr := os.Stat(resolved)
+		require.True(t, os.IsNotExist(statErr), "ResolveContainedPath must not create the leaf itself")
 	})
 
 	t.Run("ResolveContainedPath accepts a fully not-yet-created relative path", func(t *testing.T) {
 		root := t.TempDir()
 		resolved, err := projectconfig.ResolveContainedPath(root, ".tools/cache/downloads")
-		if err != nil {
-			t.Fatalf("ResolveContainedPath failed when no ancestor exists yet: %v", err)
-		}
+		require.NoError(t, err, "ResolveContainedPath failed when no ancestor exists yet")
 		resolvedRoot, err := filepath.EvalSymlinks(root)
-		if err != nil {
-			t.Fatalf("EvalSymlinks(root) failed: %v", err)
-		}
+		require.NoError(t, err, "EvalSymlinks(root) failed")
 		want := filepath.Join(resolvedRoot, ".tools", "cache", "downloads")
-		if resolved != want {
-			t.Fatalf("expected %q, got %q", want, resolved)
-		}
+		require.Equal(t, want, resolved)
 	})
 
 	t.Run("ResolveContainedPath rejects a symlinked ancestor that escapes the repository", func(t *testing.T) {
@@ -123,36 +94,22 @@ func testPathContainment(t *testing.T) {
 			t.Skipf("symlink creation unavailable on this host: %v", err)
 		}
 		_, err := projectconfig.ResolveContainedPath(root, "escape-link/not-yet-created/leaf")
-		if err == nil {
-			t.Fatal("expected a symlinked ancestor escaping the repository to be rejected")
-		}
-		if !strings.Contains(err.Error(), "GOLC_CONFIG_PATH_ESCAPE") {
-			t.Fatalf("expected GOLC_CONFIG_PATH_ESCAPE, got %q", err.Error())
-		}
+		require.ErrorContains(t, err, "GOLC_CONFIG_PATH_ESCAPE", "expected a symlinked ancestor escaping the repository to be rejected")
 	})
 
 	t.Run("ResolveContainedPath rejects an existing leaf that is itself a symlink escaping the repository", func(t *testing.T) {
 		root := t.TempDir()
 		outsideFile := filepath.Join(t.TempDir(), "outside.toml")
-		if err := os.WriteFile(outsideFile, []byte("x"), 0o644); err != nil {
-			t.Fatalf("write outside file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(outsideFile, []byte("x"), 0o644), "write outside file")
 		if err := os.Symlink(outsideFile, filepath.Join(root, "leaf.toml")); err != nil {
 			t.Skipf("symlink creation unavailable on this host: %v", err)
 		}
 		_, err := projectconfig.ResolveContainedPath(root, "leaf.toml")
-		if err == nil {
-			t.Fatal("expected a leaf symlink escaping the repository to be rejected")
-		}
-		if !strings.Contains(err.Error(), "GOLC_CONFIG_PATH_ESCAPE") {
-			t.Fatalf("expected GOLC_CONFIG_PATH_ESCAPE, got %q", err.Error())
-		}
+		require.ErrorContains(t, err, "GOLC_CONFIG_PATH_ESCAPE", "expected a leaf symlink escaping the repository to be rejected")
 	})
 
 	t.Run("ResolveContainedPath rejects a missing repository root", func(t *testing.T) {
 		_, err := projectconfig.ResolveContainedPath(filepath.Join(t.TempDir(), "does-not-exist"), "config")
-		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_ROOT_MISSING") {
-			t.Fatalf("expected GOLC_CONFIG_ROOT_MISSING, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_CONFIG_ROOT_MISSING")
 	})
 }

@@ -17,6 +17,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/projectconfig"
 )
 
@@ -26,22 +28,12 @@ import (
 func TestDenoToolchainKeysValidateInProduction(t *testing.T) {
 	root := repositoryRoot(t)
 	values, warnings, err := projectconfig.ValidateConcern(root, projectconfig.DefaultSpec(), "toolchain")
-	if err != nil {
-		t.Fatalf("production toolchain concern must validate: %v", err)
-	}
-	if len(warnings) != 0 {
-		t.Fatalf("expected no toolchain warnings, got %v", warnings)
-	}
+	require.NoError(t, err, "production toolchain concern must validate")
+	require.Empty(t, warnings, "expected no toolchain warnings")
 
-	if got, want := values["toolchain.deno.official_host"], "github.com"; got != want {
-		t.Fatalf("toolchain.deno.official_host = %q, want %q", got, want)
-	}
-	if got, want := values["toolchain.deno.official_path_prefix"], "/denoland/deno/releases/download/"; got != want {
-		t.Fatalf("toolchain.deno.official_path_prefix = %q, want %q", got, want)
-	}
-	if values["toolchain.deno.version"] == "" {
-		t.Fatal("resolved values must include toolchain.deno.version")
-	}
+	require.Equal(t, "github.com", values["toolchain.deno.official_host"])
+	require.Equal(t, "/denoland/deno/releases/download/", values["toolchain.deno.official_path_prefix"])
+	require.NotEmpty(t, values["toolchain.deno.version"], "resolved values must include toolchain.deno.version")
 
 	denoPlatformPins := map[string][2]string{
 		"windows-amd64": {
@@ -67,12 +59,8 @@ func TestDenoToolchainKeysValidateInProduction(t *testing.T) {
 	}
 	for platform, pin := range denoPlatformPins {
 		prefix := "toolchain.deno.platforms." + platform
-		if got := values[prefix+".archive_url"]; got != pin[0] {
-			t.Errorf("%s.archive_url = %q, want %q", prefix, got, pin[0])
-		}
-		if got := values[prefix+".archive_sha256"]; got != pin[1] {
-			t.Errorf("%s.archive_sha256 = %q, want %q", prefix, got, pin[1])
-		}
+		require.Equal(t, pin[0], values[prefix+".archive_url"], "%s.archive_url", prefix)
+		require.Equal(t, pin[1], values[prefix+".archive_sha256"], "%s.archive_sha256", prefix)
 	}
 }
 
@@ -85,9 +73,7 @@ func TestDenoToolchainKeysValidateInProduction(t *testing.T) {
 func TestDenoToolchainRejectsInvalidAuthority(t *testing.T) {
 	root := repositoryRoot(t)
 	raw, err := os.ReadFile(filepath.Join(root, "config", "toolchain.toml"))
-	if err != nil {
-		t.Fatalf("read committed toolchain concern: %v", err)
-	}
+	require.NoError(t, err, "read committed toolchain concern")
 	valid := string(raw)
 
 	cases := map[string]struct {
@@ -117,12 +103,7 @@ func TestDenoToolchainRejectsInvalidAuthority(t *testing.T) {
 				"config/toolchain.toml": testCase.content,
 			})
 			_, _, err := projectconfig.ValidateConcern(fixtureRoot, projectconfig.DefaultSpec(), "toolchain")
-			if err == nil {
-				t.Fatal("invalid deno authority unexpectedly validated")
-			}
-			if !strings.Contains(err.Error(), testCase.wantContains) {
-				t.Fatalf("expected %q, got %v", testCase.wantContains, err)
-			}
+			require.ErrorContains(t, err, testCase.wantContains)
 		})
 	}
 }
@@ -144,10 +125,6 @@ func TestDenoArchiveURLPatternHost(t *testing.T) {
 		}
 		denoOfficialHost = concern.Keys["toolchain.deno.official_host"]
 	}
-	if len(denoOfficialHost.AllowedValues) != 1 || denoOfficialHost.AllowedValues[0] != "github.com" {
-		t.Fatalf("toolchain.deno.official_host must allow exactly github.com, got %v", denoOfficialHost.AllowedValues)
-	}
-	if !denoOfficialHost.Required {
-		t.Fatal("toolchain.deno.official_host must be required")
-	}
+	require.Equal(t, []string{"github.com"}, denoOfficialHost.AllowedValues, "toolchain.deno.official_host must allow exactly github.com")
+	require.True(t, denoOfficialHost.Required, "toolchain.deno.official_host must be required")
 }

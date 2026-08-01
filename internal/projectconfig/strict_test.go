@@ -18,6 +18,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/projectconfig"
 )
@@ -38,12 +40,9 @@ var _ = command.MustDeclareScope(command.ScopeRegistration{
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 	root, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatalf("resolve repository root: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(root, "golc.project.toml")); err != nil {
-		t.Fatalf("repository root %q has no golc.project.toml: %v", root, err)
-	}
+	require.NoError(t, err, "resolve repository root")
+	_, err = os.Stat(filepath.Join(root, "golc.project.toml"))
+	require.NoError(t, err, "repository root %q has no golc.project.toml", root)
 	return root
 }
 
@@ -60,17 +59,11 @@ func writeStrictRepository(t *testing.T, spec projectconfig.Spec, files map[stri
 		index.WriteString("id = \"" + concern.ID + "\"\n")
 		index.WriteString("path = \"" + concern.Path + "\"\n")
 	}
-	if err := os.WriteFile(filepath.Join(root, "golc.project.toml"), []byte(index.String()), 0o644); err != nil {
-		t.Fatalf("write root index: %v", err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(root, "golc.project.toml"), []byte(index.String()), 0o644), "write root index")
 	for relative, content := range files {
 		target := filepath.Join(root, filepath.FromSlash(relative))
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			t.Fatalf("mkdir for %s: %v", relative, err)
-		}
-		if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
-			t.Fatalf("write %s: %v", relative, err)
-		}
+		require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755), "mkdir for %s", relative)
+		require.NoError(t, os.WriteFile(target, []byte(content), 0o644), "write %s", relative)
 	}
 	return root
 }
@@ -159,9 +152,7 @@ func TestScopeConfigStrict(t *testing.T) {
 	t.Run("root index discovers exactly the seven concerns", func(t *testing.T) {
 		root := repositoryRoot(t)
 		index, err := projectconfig.LoadRootIndex(root)
-		if err != nil {
-			t.Fatalf("LoadRootIndex failed: %v", err)
-		}
+		require.NoError(t, err, "LoadRootIndex failed")
 		expected := map[string]string{
 			"toolchain":            "config/toolchain.toml",
 			"commands":             "config/commands.toml",
@@ -171,72 +162,42 @@ func TestScopeConfigStrict(t *testing.T) {
 			"linear":               "config/integrations/linear.toml",
 			"api":                  "config/api.toml",
 		}
-		if len(index.Concerns) != len(expected) {
-			t.Fatalf("expected exactly %d indexed concerns, got %d", len(expected), len(index.Concerns))
-		}
+		require.Len(t, index.Concerns, len(expected), "expected exactly %d indexed concerns", len(expected))
 		for _, concern := range index.Concerns {
 			path, known := expected[concern.ID]
-			if !known {
-				t.Fatalf("unexpected indexed concern %q", concern.ID)
-			}
-			if concern.Path != path {
-				t.Fatalf("concern %q must index %q, got %q", concern.ID, path, concern.Path)
-			}
+			require.True(t, known, "unexpected indexed concern %q", concern.ID)
+			require.Equal(t, path, concern.Path, "concern %q must index %q", concern.ID, path)
 		}
 	})
 
 	t.Run("production repository validates with one authority per key and no warnings", func(t *testing.T) {
 		root := repositoryRoot(t)
 		spec := projectconfig.DefaultSpec()
-		if err := projectconfig.ValidateAuthority(spec); err != nil {
-			t.Fatalf("ValidateAuthority failed: %v", err)
-		}
+		require.NoError(t, projectconfig.ValidateAuthority(spec), "ValidateAuthority failed")
 		values, warnings, err := projectconfig.ValidateRepository(root, spec)
-		if err != nil {
-			t.Fatalf("ValidateRepository failed: %v", err)
-		}
-		if len(warnings) != 0 {
-			t.Fatalf("expected no production warnings, got %v", warnings)
-		}
-		if values["runtime.log_level"] == "" {
-			t.Fatal("resolved values must include runtime.log_level")
-		}
+		require.NoError(t, err, "ValidateRepository failed")
+		require.Empty(t, warnings, "expected no production warnings")
+		require.NotEmpty(t, values["runtime.log_level"], "resolved values must include runtime.log_level")
 		goVersion := values["toolchain.go.version"]
-		if goVersion == "" {
-			t.Fatal("resolved values must include toolchain.go.version")
-		}
-		if values["commands.go_version"] != goVersion {
-			t.Fatalf("commands.go_version must resolve through its reference to toolchain.go.version %q, got %q",
-				goVersion, values["commands.go_version"])
-		}
-		if got, want := values["commands.cli_binary"], ".tools/installs/golc_project"; got != want {
-			t.Fatalf("commands.cli_binary = %q, want platform-neutral install root %q", got, want)
-		}
+		require.NotEmpty(t, goVersion, "resolved values must include toolchain.go.version")
+		require.Equal(t, goVersion, values["commands.go_version"], "commands.go_version must resolve through its reference to toolchain.go.version")
+		require.Equal(t, ".tools/installs/golc_project", values["commands.cli_binary"], "commands.cli_binary must be a platform-neutral install root")
 
 		// The commands concern must refer to the toolchain authority, never
 		// repeat the pinned literal (D-05 single authority).
 		commandsBytes, err := os.ReadFile(filepath.Join(root, "config", "commands.toml"))
-		if err != nil {
-			t.Fatalf("read commands concern: %v", err)
-		}
-		if !strings.Contains(string(commandsBytes), "ref:toolchain.go.version") {
-			t.Fatal("config/commands.toml must declare a typed reference to toolchain.go.version")
-		}
-		if strings.Contains(string(commandsBytes), goVersion) {
-			t.Fatalf("config/commands.toml must not duplicate the pinned Go version literal %q", goVersion)
-		}
+		require.NoError(t, err, "read commands concern")
+		require.Contains(t, string(commandsBytes), "ref:toolchain.go.version", "config/commands.toml must declare a typed reference to toolchain.go.version")
+		require.NotContains(t, string(commandsBytes), goVersion, "config/commands.toml must not duplicate the pinned Go version literal %q", goVersion)
 	})
 
 	t.Run("every production concern validates alone", func(t *testing.T) {
 		root := repositoryRoot(t)
 		spec := projectconfig.DefaultSpec()
-		if len(spec.Concerns) != 7 {
-			t.Fatalf("DefaultSpec must declare seven concerns, got %d", len(spec.Concerns))
-		}
+		require.Len(t, spec.Concerns, 7, "DefaultSpec must declare seven concerns")
 		for _, concern := range spec.Concerns {
-			if _, _, err := projectconfig.ValidateConcern(root, spec, concern.ID); err != nil {
-				t.Fatalf("concern %q must validate alone: %v", concern.ID, err)
-			}
+			_, _, err := projectconfig.ValidateConcern(root, spec, concern.ID)
+			require.NoError(t, err, "concern %q must validate alone", concern.ID)
 		}
 	})
 
@@ -315,29 +276,19 @@ func TestScopeConfigStrict(t *testing.T) {
 			"toolchain.node.platforms.windows-amd64.archive_url",
 			"toolchain.node.version",
 		}
-		if strings.Join(got, "\n") != strings.Join(want, "\n") {
-			t.Fatalf("toolchain keys mismatch:\ngot:  %v\nwant: %v", got, want)
-		}
+		require.Equal(t, strings.Join(want, "\n"), strings.Join(got, "\n"), "toolchain keys mismatch")
 	})
 
 	t.Run("production Go and Node authorities pin exact closed five-platform sets", func(t *testing.T) {
 		root := repositoryRoot(t)
 		values, warnings, err := projectconfig.ValidateConcern(root, projectconfig.DefaultSpec(), "toolchain")
-		if err != nil {
-			t.Fatalf("production toolchain concern must validate: %v", err)
-		}
-		if len(warnings) != 0 {
-			t.Fatalf("expected no toolchain warnings, got %v", warnings)
-		}
+		require.NoError(t, err, "production toolchain concern must validate")
+		require.Empty(t, warnings, "expected no toolchain warnings")
 		for tool, pins := range map[string]map[string][2]string{"go": goPlatformPins, "node": nodePlatformPins} {
 			for platform, pin := range pins {
 				prefix := "toolchain." + tool + ".platforms." + platform
-				if got := values[prefix+".archive_url"]; got != pin[0] {
-					t.Errorf("%s.archive_url = %q, want %q", prefix, got, pin[0])
-				}
-				if got := values[prefix+".archive_sha256"]; got != pin[1] {
-					t.Errorf("%s.archive_sha256 = %q, want %q", prefix, got, pin[1])
-				}
+				require.Equal(t, pin[0], values[prefix+".archive_url"], "%s.archive_url", prefix)
+				require.Equal(t, pin[1], values[prefix+".archive_sha256"], "%s.archive_sha256", prefix)
 			}
 		}
 	})
@@ -345,9 +296,7 @@ func TestScopeConfigStrict(t *testing.T) {
 	t.Run("Go and Node authorities reject incomplete extra malformed and platform-mismatched data", func(t *testing.T) {
 		root := repositoryRoot(t)
 		raw, err := os.ReadFile(filepath.Join(root, "config", "toolchain.toml"))
-		if err != nil {
-			t.Fatalf("read committed toolchain concern: %v", err)
-		}
+		require.NoError(t, err, "read committed toolchain concern")
 		valid := string(raw)
 		cases := map[string]string{
 			"missing Go digest": strings.Replace(valid,
@@ -369,9 +318,8 @@ archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd
 				fixtureRoot := writeStrictRepository(t, projectconfig.DefaultSpec(), map[string]string{
 					"config/toolchain.toml": content,
 				})
-				if _, _, err := projectconfig.ValidateConcern(fixtureRoot, projectconfig.DefaultSpec(), "toolchain"); err == nil {
-					t.Fatal("invalid Go/Node authority unexpectedly validated")
-				}
+				_, _, err := projectconfig.ValidateConcern(fixtureRoot, projectconfig.DefaultSpec(), "toolchain")
+				require.Error(t, err, "invalid Go/Node authority unexpectedly validated")
 			})
 		}
 	})
@@ -379,38 +327,22 @@ archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd
 	t.Run("production mage authority pins exactly five official release archives", func(t *testing.T) {
 		root := repositoryRoot(t)
 		values, warnings, err := projectconfig.ValidateConcern(root, projectconfig.DefaultSpec(), "toolchain")
-		if err != nil {
-			t.Fatalf("production toolchain concern must validate: %v", err)
-		}
-		if len(warnings) != 0 {
-			t.Fatalf("expected no toolchain warnings, got %v", warnings)
-		}
-		if got, want := values["toolchain.mage.version"], "1.17.2"; got != want {
-			t.Fatalf("toolchain.mage.version = %q, want %q", got, want)
-		}
-		if got, want := values["toolchain.mage.official_host"], "github.com"; got != want {
-			t.Fatalf("toolchain.mage.official_host = %q, want %q", got, want)
-		}
-		if got, want := values["toolchain.mage.official_path_prefix"], "/magefile/mage/releases/download/"; got != want {
-			t.Fatalf("toolchain.mage.official_path_prefix = %q, want %q", got, want)
-		}
+		require.NoError(t, err, "production toolchain concern must validate")
+		require.Empty(t, warnings, "expected no toolchain warnings")
+		require.Equal(t, "1.17.2", values["toolchain.mage.version"])
+		require.Equal(t, "github.com", values["toolchain.mage.official_host"])
+		require.Equal(t, "/magefile/mage/releases/download/", values["toolchain.mage.official_path_prefix"])
 		for platform, pin := range magePlatformPins {
 			prefix := "toolchain.mage.platforms." + platform
-			if got := values[prefix+".archive_url"]; got != pin[0] {
-				t.Errorf("%s.archive_url = %q, want %q", prefix, got, pin[0])
-			}
-			if got := values[prefix+".archive_sha256"]; got != pin[1] {
-				t.Errorf("%s.archive_sha256 = %q, want %q", prefix, got, pin[1])
-			}
+			require.Equal(t, pin[0], values[prefix+".archive_url"], "%s.archive_url", prefix)
+			require.Equal(t, pin[1], values[prefix+".archive_sha256"], "%s.archive_sha256", prefix)
 		}
 	})
 
 	t.Run("mage authority rejects missing extra or malformed platform data", func(t *testing.T) {
 		root := repositoryRoot(t)
 		raw, err := os.ReadFile(filepath.Join(root, "config", "toolchain.toml"))
-		if err != nil {
-			t.Fatalf("read committed toolchain concern: %v", err)
-		}
+		require.NoError(t, err, "read committed toolchain concern")
 		valid := string(raw)
 		cases := map[string]string{
 			"missing platform digest": strings.Replace(valid,
@@ -432,10 +364,9 @@ archive_sha256 = "970bc6efa76d6dc7285098a7033f4e6c83c18dc02f80548ae8de8dc5586e04
 				fixtureRoot := writeStrictRepository(t, projectconfig.DefaultSpec(), map[string]string{
 					"config/toolchain.toml": content,
 				})
-				if _, _, err := projectconfig.ValidateConcern(
-					fixtureRoot, projectconfig.DefaultSpec(), "toolchain"); err == nil {
-					t.Fatal("invalid Mage authority unexpectedly validated")
-				}
+				_, _, err := projectconfig.ValidateConcern(
+					fixtureRoot, projectconfig.DefaultSpec(), "toolchain")
+				require.Error(t, err, "invalid Mage authority unexpectedly validated")
 			})
 		}
 	})
@@ -448,19 +379,16 @@ archive_sha256 = "970bc6efa76d6dc7285098a7033f4e6c83c18dc02f80548ae8de8dc5586e04
 		root := writeStrictRepository(t, spec, map[string]string{
 			"config/toolchain.toml": strictToolchainConcern,
 		})
-		if _, _, err := projectconfig.ValidateConcern(root, spec, "toolchain"); err != nil {
-			t.Fatalf("an absent non-required key must remain valid: %v", err)
-		}
+		_, _, err := projectconfig.ValidateConcern(root, spec, "toolchain")
+		require.NoError(t, err, "an absent non-required key must remain valid")
 
 		required := spec
 		required.Concerns[1].Keys["toolchain.go.required_mirror"] = projectconfig.KeySpec{
 			Pattern:  regexp.MustCompile(`^[0-9]+(\.[0-9]+)*$`),
 			Required: true,
 		}
-		if _, _, err := projectconfig.ValidateConcern(root, required, "toolchain"); err == nil ||
-			!strings.Contains(err.Error(), "GOLC_CONFIG_REQUIRED_KEY_MISSING") {
-			t.Fatalf("expected required key failure, got %v", err)
-		}
+		_, _, err = projectconfig.ValidateConcern(root, required, "toolchain")
+		require.ErrorContains(t, err, "GOLC_CONFIG_REQUIRED_KEY_MISSING", "expected required key failure")
 	})
 
 	t.Run("quoted windows platform tables flatten exactly and unregistered platforms fail", func(t *testing.T) {
@@ -493,19 +421,13 @@ archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd
 `
 		root := writeStrictRepository(t, spec, map[string]string{"config/toolchain.toml": valid})
 		values, _, err := projectconfig.ValidateConcern(root, spec, "toolchain")
-		if err != nil {
-			t.Fatalf("quoted windows-amd64 table must validate: %v", err)
-		}
-		if values["toolchain.go.platforms.windows-amd64.archive_url"] == "" {
-			t.Fatal("quoted platform table did not flatten to its exact registered key")
-		}
+		require.NoError(t, err, "quoted windows-amd64 table must validate")
+		require.NotEmpty(t, values["toolchain.go.platforms.windows-amd64.archive_url"], "quoted platform table did not flatten to its exact registered key")
 
 		unregistered := strings.Replace(valid, `"windows-amd64"`, `"linux-amd64"`, 1)
 		root = writeStrictRepository(t, spec, map[string]string{"config/toolchain.toml": unregistered})
 		_, _, err = projectconfig.ValidateConcern(root, spec, "toolchain")
-		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_UNKNOWN_KEY") {
-			t.Fatalf("expected unregistered platform to fail closed, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_CONFIG_UNKNOWN_KEY", "expected unregistered platform to fail closed")
 	})
 
 	t.Run("unknown keys fail", func(t *testing.T) {
@@ -515,9 +437,7 @@ archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd
 			"config/toolchain.toml": strictToolchainConcern,
 		})
 		_, _, err := projectconfig.ValidateConcern(root, spec, "runtime")
-		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_UNKNOWN_KEY") {
-			t.Fatalf("expected GOLC_CONFIG_UNKNOWN_KEY, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_CONFIG_UNKNOWN_KEY")
 	})
 
 	t.Run("duplicate toml keys fail distinctly", func(t *testing.T) {
@@ -527,9 +447,7 @@ archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd
 			"config/toolchain.toml": strictToolchainConcern,
 		})
 		_, _, err := projectconfig.ValidateConcern(root, spec, "runtime")
-		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_DUPLICATE_KEY") {
-			t.Fatalf("expected GOLC_CONFIG_DUPLICATE_KEY, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_CONFIG_DUPLICATE_KEY")
 	})
 
 	t.Run("invalid values fail", func(t *testing.T) {
@@ -539,27 +457,21 @@ archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd
 			"config/toolchain.toml": strictToolchainConcern,
 		})
 		_, _, err := projectconfig.ValidateConcern(root, spec, "runtime")
-		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_VALUE_INVALID") {
-			t.Fatalf("expected GOLC_CONFIG_VALUE_INVALID for closed-set violation, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_CONFIG_VALUE_INVALID", "expected error for closed-set violation")
 
 		root = writeStrictRepository(t, spec, map[string]string{
 			"config/runtime.toml":   strictRuntimeConcern,
 			"config/toolchain.toml": "schema_version = 2\n\n[toolchain.go]\nversion = \"..\\\\escape\"\n",
 		})
 		_, _, err = projectconfig.ValidateConcern(root, spec, "toolchain")
-		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_VALUE_INVALID") {
-			t.Fatalf("expected GOLC_CONFIG_VALUE_INVALID for pattern violation, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_CONFIG_VALUE_INVALID", "expected error for pattern violation")
 
 		root = writeStrictRepository(t, spec, map[string]string{
 			"config/runtime.toml":   "schema_version = 2\n\n[runtime]\nlog_level = 3\n",
 			"config/toolchain.toml": strictToolchainConcern,
 		})
 		_, _, err = projectconfig.ValidateConcern(root, spec, "runtime")
-		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_VALUE_INVALID") {
-			t.Fatalf("expected GOLC_CONFIG_VALUE_INVALID for non-string value, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_CONFIG_VALUE_INVALID", "expected error for non-string value")
 	})
 
 	t.Run("deprecated-only input warns with migration guidance", func(t *testing.T) {
@@ -569,29 +481,15 @@ archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd
 			"config/toolchain.toml": strictToolchainConcern,
 		})
 		values, warnings, err := projectconfig.ValidateConcern(root, spec, "runtime")
-		if err != nil {
-			t.Fatalf("deprecated-only input must not be fatal: %v", err)
-		}
-		if values["runtime.log_level"] != "debug" {
-			t.Fatalf("deprecated value must apply to the replacement key, got %q", values["runtime.log_level"])
-		}
-		if len(warnings) != 1 {
-			t.Fatalf("expected exactly one deprecation warning, got %v", warnings)
-		}
+		require.NoError(t, err, "deprecated-only input must not be fatal")
+		require.Equal(t, "debug", values["runtime.log_level"], "deprecated value must apply to the replacement key")
+		require.Len(t, warnings, 1, "expected exactly one deprecation warning, got %v", warnings)
 		warning := warnings[0]
-		if warning.Code != "CFG_DEPRECATED_KEY" {
-			t.Fatalf("expected stable code CFG_DEPRECATED_KEY, got %q", warning.Code)
-		}
-		if warning.Key != "runtime.verbosity" {
-			t.Fatalf("warning must name the deprecated key, got %q", warning.Key)
-		}
-		if warning.Origin != "config/runtime.toml" {
-			t.Fatalf("warning origin must be the safe concern path, got %q", warning.Origin)
-		}
+		require.Equal(t, "CFG_DEPRECATED_KEY", warning.Code, "expected stable code CFG_DEPRECATED_KEY")
+		require.Equal(t, "runtime.verbosity", warning.Key, "warning must name the deprecated key")
+		require.Equal(t, "config/runtime.toml", warning.Origin, "warning origin must be the safe concern path")
 		for _, needle := range []string{"runtime.log_level", "0.1.0", "0.2.0", "1.0.0", "rename runtime.verbosity"} {
-			if !strings.Contains(warning.Message, needle) {
-				t.Fatalf("warning message must contain %q, got %q", needle, warning.Message)
-			}
+			require.Contains(t, warning.Message, needle, "warning message must contain %q", needle)
 		}
 	})
 
@@ -602,18 +500,14 @@ archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd
 			"config/toolchain.toml": strictToolchainConcern,
 		})
 		_, _, err := projectconfig.ValidateConcern(root, spec, "runtime")
-		if err == nil || !strings.Contains(err.Error(), "CFG_DEPRECATED_COLLISION") {
-			t.Fatalf("expected CFG_DEPRECATED_COLLISION, got %v", err)
-		}
+		require.ErrorContains(t, err, "CFG_DEPRECATED_COLLISION")
 	})
 
 	t.Run("duplicate authority in the registry fails", func(t *testing.T) {
 		spec := syntheticSpec()
 		spec.Concerns[1].Keys["runtime.log_level"] = projectconfig.KeySpec{AllowedValues: []string{"info"}}
 		err := projectconfig.ValidateAuthority(spec)
-		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_DUPLICATE_AUTHORITY") {
-			t.Fatalf("expected GOLC_CONFIG_DUPLICATE_AUTHORITY, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_CONFIG_DUPLICATE_AUTHORITY")
 	})
 
 	t.Run("a concern declaring another concern's key fails as duplicate authority", func(t *testing.T) {
@@ -623,9 +517,7 @@ archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd
 			"config/toolchain.toml": strictToolchainConcern,
 		})
 		_, _, err := projectconfig.ValidateConcern(root, spec, "runtime")
-		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_DUPLICATE_AUTHORITY") {
-			t.Fatalf("expected GOLC_CONFIG_DUPLICATE_AUTHORITY, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_CONFIG_DUPLICATE_AUTHORITY")
 	})
 
 	t.Run("unresolved references fail", func(t *testing.T) {
@@ -635,13 +527,10 @@ archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd
 			"config/runtime.toml":   "schema_version = 2\n\n[runtime]\nlog_level = \"info\"\ngo_version = \"ref:toolchain.go.missing\"\n",
 			"config/toolchain.toml": strictToolchainConcern,
 		})
-		if _, _, err := projectconfig.ValidateConcern(root, spec, "runtime"); err != nil {
-			t.Fatalf("a pending cross-concern reference must validate alone: %v", err)
-		}
-		_, _, err := projectconfig.ValidateRepository(root, spec)
-		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_REF_UNRESOLVED") {
-			t.Fatalf("expected GOLC_CONFIG_REF_UNRESOLVED, got %v", err)
-		}
+		_, _, err := projectconfig.ValidateConcern(root, spec, "runtime")
+		require.NoError(t, err, "a pending cross-concern reference must validate alone")
+		_, _, err = projectconfig.ValidateRepository(root, spec)
+		require.ErrorContains(t, err, "GOLC_CONFIG_REF_UNRESOLVED")
 	})
 
 	t.Run("cyclic references fail", func(t *testing.T) {
@@ -653,9 +542,7 @@ archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd
 			"config/toolchain.toml": "schema_version = 2\n\n[toolchain.go]\nversion = \"1.26.5\"\nmirror = \"ref:runtime.go_version\"\n",
 		})
 		_, _, err := projectconfig.ValidateRepository(root, spec)
-		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_REF_CYCLE") {
-			t.Fatalf("expected GOLC_CONFIG_REF_CYCLE, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_CONFIG_REF_CYCLE")
 	})
 
 	t.Run("a root index that hides or invents concerns fails", func(t *testing.T) {
@@ -665,81 +552,53 @@ archive_sha256 = "97e6b2a833b6d89f9ff17d25419ac0a7e3b482a044e9ab18cdef834bd834fd
 			"config/toolchain.toml": strictToolchainConcern,
 		})
 		hidden := "schema_version = 2\n\n[[concerns]]\nid = \"runtime\"\npath = \"config/runtime.toml\"\n"
-		if err := os.WriteFile(filepath.Join(root, "golc.project.toml"), []byte(hidden), 0o644); err != nil {
-			t.Fatalf("rewrite root index: %v", err)
-		}
+		require.NoError(t, os.WriteFile(filepath.Join(root, "golc.project.toml"), []byte(hidden), 0o644), "rewrite root index")
 		_, _, err := projectconfig.ValidateRepository(root, spec)
-		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_INDEX_MISMATCH") {
-			t.Fatalf("expected GOLC_CONFIG_INDEX_MISMATCH for a hidden concern, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_CONFIG_INDEX_MISMATCH", "expected error for a hidden concern")
 
 		invented := hidden +
 			"\n[[concerns]]\nid = \"toolchain\"\npath = \"config/toolchain.toml\"\n" +
 			"\n[[concerns]]\nid = \"shadow\"\npath = \"config/runtime.toml\"\n"
-		if err := os.WriteFile(filepath.Join(root, "golc.project.toml"), []byte(invented), 0o644); err != nil {
-			t.Fatalf("rewrite root index: %v", err)
-		}
+		require.NoError(t, os.WriteFile(filepath.Join(root, "golc.project.toml"), []byte(invented), 0o644), "rewrite root index")
 		_, _, err = projectconfig.ValidateRepository(root, spec)
-		if err == nil || !strings.Contains(err.Error(), "GOLC_CONFIG_INDEX_MISMATCH") {
-			t.Fatalf("expected GOLC_CONFIG_INDEX_MISMATCH for an invented concern, got %v", err)
-		}
+		require.ErrorContains(t, err, "GOLC_CONFIG_INDEX_MISMATCH", "expected error for an invented concern")
 	})
 
 	t.Run("malformed deprecation register entries fail", func(t *testing.T) {
 		missingMessage := syntheticSpec()
 		missingMessage.Deprecations[0].Message = ""
-		if err := projectconfig.ValidateAuthority(missingMessage); err == nil ||
-			!strings.Contains(err.Error(), "GOLC_CONFIG_DEPRECATION_INVALID") {
-			t.Fatalf("expected GOLC_CONFIG_DEPRECATION_INVALID for empty message, got %v", err)
-		}
+		err := projectconfig.ValidateAuthority(missingMessage)
+		require.ErrorContains(t, err, "GOLC_CONFIG_DEPRECATION_INVALID", "expected error for empty message")
 
 		unknownReplacement := syntheticSpec()
 		unknownReplacement.Deprecations[0].ReplacementKey = "runtime.nonexistent"
-		if err := projectconfig.ValidateAuthority(unknownReplacement); err == nil ||
-			!strings.Contains(err.Error(), "GOLC_CONFIG_DEPRECATION_INVALID") {
-			t.Fatalf("expected GOLC_CONFIG_DEPRECATION_INVALID for unowned replacement, got %v", err)
-		}
+		err = projectconfig.ValidateAuthority(unknownReplacement)
+		require.ErrorContains(t, err, "GOLC_CONFIG_DEPRECATION_INVALID", "expected error for unowned replacement")
 
 		ownedOldKey := syntheticSpec()
 		ownedOldKey.Deprecations[0].OldKey = "runtime.log_level"
-		if err := projectconfig.ValidateAuthority(ownedOldKey); err == nil ||
-			!strings.Contains(err.Error(), "GOLC_CONFIG_DEPRECATION_INVALID") {
-			t.Fatalf("expected GOLC_CONFIG_DEPRECATION_INVALID for owned old key, got %v", err)
-		}
+		err = projectconfig.ValidateAuthority(ownedOldKey)
+		require.ErrorContains(t, err, "GOLC_CONFIG_DEPRECATION_INVALID", "expected error for owned old key")
 	})
 
 	t.Run("linear concern declares names only and never credentials or remote ids", func(t *testing.T) {
 		root := repositoryRoot(t)
 		raw, err := os.ReadFile(filepath.Join(root, "config", "integrations", "linear.toml"))
-		if err != nil {
-			t.Fatalf("read linear concern: %v", err)
-		}
+		require.NoError(t, err, "read linear concern")
 		content := string(raw)
 
 		uuidPattern := regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`)
-		if uuidPattern.MatchString(content) {
-			t.Fatal("config/integrations/linear.toml must never contain an invented remote UUID")
-		}
-		if strings.Contains(content, "lin_api_") {
-			t.Fatal("config/integrations/linear.toml must never contain a Linear API key")
-		}
+		require.False(t, uuidPattern.MatchString(content), "config/integrations/linear.toml must never contain an invented remote UUID")
+		require.NotContains(t, content, "lin_api_", "config/integrations/linear.toml must never contain a Linear API key")
 
 		values, warnings, err := projectconfig.ValidateConcern(root, projectconfig.DefaultSpec(), "linear")
-		if err != nil {
-			t.Fatalf("linear concern must validate alone: %v", err)
-		}
-		if len(warnings) != 0 {
-			t.Fatalf("expected no linear warnings, got %v", warnings)
-		}
+		require.NoError(t, err, "linear concern must validate alone")
+		require.Empty(t, warnings, "expected no linear warnings")
 		envNamePattern := regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 		for _, key := range []string{"linear.env.api_key", "linear.env.team_id"} {
 			name, declared := values[key]
-			if !declared {
-				t.Fatalf("linear concern must declare %s", key)
-			}
-			if !envNamePattern.MatchString(name) {
-				t.Fatalf("%s must be an environment variable name, got %q", key, name)
-			}
+			require.True(t, declared, "linear concern must declare %s", key)
+			require.True(t, envNamePattern.MatchString(name), "%s must be an environment variable name, got %q", key, name)
 		}
 	})
 }

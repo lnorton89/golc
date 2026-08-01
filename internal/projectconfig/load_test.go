@@ -1,11 +1,12 @@
 package projectconfig_test
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/projectconfig"
 )
@@ -36,12 +37,8 @@ downloads = ".tools/cache/downloads"
 func writeRepositoryFile(t *testing.T, root, relative, content string) {
 	t.Helper()
 	target := filepath.Join(root, filepath.FromSlash(relative))
-	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		t.Fatalf("MkdirAll(%q) failed: %v", relative, err)
-	}
-	if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile(%q) failed: %v", relative, err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755), "MkdirAll(%q) failed", relative)
+	require.NoError(t, os.WriteFile(target, []byte(content), 0o644), "WriteFile(%q) failed", relative)
 }
 
 func newValidRepository(t *testing.T) string {
@@ -57,33 +54,20 @@ func TestInspectConcernEmitsDeterministicSortedJSON(t *testing.T) {
 	root := newValidRepository(t)
 
 	first, err := projectconfig.InspectConcern(root, "runtime")
-	if err != nil {
-		t.Fatalf("first InspectConcern failed: %v", err)
-	}
+	require.NoError(t, err, "first InspectConcern failed")
 	second, err := projectconfig.InspectConcern(root, "runtime")
-	if err != nil {
-		t.Fatalf("second InspectConcern failed: %v", err)
-	}
-	if !bytes.Equal(first, second) {
-		t.Fatalf("repeated inspection was not byte-identical:\nfirst:  %q\nsecond: %q", first, second)
-	}
+	require.NoError(t, err, "second InspectConcern failed")
+	require.Equal(t, first, second, "repeated inspection was not byte-identical")
 
 	want := "{\"runtime\":{\"log_level\":\"info\"}}\n"
-	if string(first) != want {
-		t.Fatalf("expected deterministic JSON %q, got %q", want, first)
-	}
+	require.Equal(t, want, string(first), "expected deterministic JSON")
 }
 
 func TestInspectConcernRejectsUnknownConcern(t *testing.T) {
 	root := newValidRepository(t)
 
 	_, err := projectconfig.InspectConcern(root, "nonexistent")
-	if err == nil {
-		t.Fatal("expected an unknown concern id to be rejected")
-	}
-	if !strings.Contains(err.Error(), "GOLC_CONFIG_CONCERN_UNKNOWN") {
-		t.Fatalf("expected stable GOLC_CONFIG_CONCERN_UNKNOWN diagnostic, got %q", err.Error())
-	}
+	require.ErrorContains(t, err, "GOLC_CONFIG_CONCERN_UNKNOWN", "expected stable GOLC_CONFIG_CONCERN_UNKNOWN diagnostic")
 }
 
 func TestLoadRootIndexRejectsUnknownKeys(t *testing.T) {
@@ -91,12 +75,7 @@ func TestLoadRootIndexRejectsUnknownKeys(t *testing.T) {
 	writeRepositoryFile(t, root, "golc.project.toml", validRootIndex+"\n[surprise]\nvalue = \"x\"\n")
 
 	_, err := projectconfig.LoadRootIndex(root)
-	if err == nil {
-		t.Fatal("expected unknown root-index keys to be rejected")
-	}
-	if !strings.Contains(err.Error(), "GOLC_CONFIG_UNKNOWN_KEY") {
-		t.Fatalf("expected stable GOLC_CONFIG_UNKNOWN_KEY diagnostic, got %q", err.Error())
-	}
+	require.ErrorContains(t, err, "GOLC_CONFIG_UNKNOWN_KEY", "expected stable GOLC_CONFIG_UNKNOWN_KEY diagnostic")
 }
 
 func TestLoadRootIndexRejectsDuplicateConcernIDs(t *testing.T) {
@@ -105,12 +84,7 @@ func TestLoadRootIndexRejectsDuplicateConcernIDs(t *testing.T) {
 	writeRepositoryFile(t, root, "golc.project.toml", duplicated)
 
 	_, err := projectconfig.LoadRootIndex(root)
-	if err == nil {
-		t.Fatal("expected duplicate concern ids to be rejected")
-	}
-	if !strings.Contains(err.Error(), "GOLC_CONFIG_CONCERN_DUPLICATE") {
-		t.Fatalf("expected stable GOLC_CONFIG_CONCERN_DUPLICATE diagnostic, got %q", err.Error())
-	}
+	require.ErrorContains(t, err, "GOLC_CONFIG_CONCERN_DUPLICATE", "expected stable GOLC_CONFIG_CONCERN_DUPLICATE diagnostic")
 }
 
 func TestLoadRootIndexRejectsWrongSchemaVersion(t *testing.T) {
@@ -118,12 +92,7 @@ func TestLoadRootIndexRejectsWrongSchemaVersion(t *testing.T) {
 	writeRepositoryFile(t, root, "golc.project.toml", strings.Replace(validRootIndex, "schema_version = 2", "schema_version = 1", 1))
 
 	_, err := projectconfig.LoadRootIndex(root)
-	if err == nil {
-		t.Fatal("expected an unsupported schema_version to be rejected")
-	}
-	if !strings.Contains(err.Error(), "GOLC_CONFIG_SCHEMA_VERSION") {
-		t.Fatalf("expected stable GOLC_CONFIG_SCHEMA_VERSION diagnostic, got %q", err.Error())
-	}
+	require.ErrorContains(t, err, "GOLC_CONFIG_SCHEMA_VERSION", "expected stable GOLC_CONFIG_SCHEMA_VERSION diagnostic")
 }
 
 func TestInspectConcernRequiresConcernSchemaVersion(t *testing.T) {
@@ -131,12 +100,7 @@ func TestInspectConcernRequiresConcernSchemaVersion(t *testing.T) {
 	writeRepositoryFile(t, root, "config/runtime.toml", "[runtime]\nlog_level = \"info\"\n")
 
 	_, err := projectconfig.InspectConcern(root, "runtime")
-	if err == nil {
-		t.Fatal("expected a concern without schema_version to be rejected")
-	}
-	if !strings.Contains(err.Error(), "GOLC_CONFIG_SCHEMA_VERSION") {
-		t.Fatalf("expected stable GOLC_CONFIG_SCHEMA_VERSION diagnostic, got %q", err.Error())
-	}
+	require.ErrorContains(t, err, "GOLC_CONFIG_SCHEMA_VERSION", "expected stable GOLC_CONFIG_SCHEMA_VERSION diagnostic")
 }
 
 func TestConcernPathsCannotEscapeRepository(t *testing.T) {
@@ -157,12 +121,7 @@ func TestConcernPathsCannotEscapeRepository(t *testing.T) {
 		writeRepositoryFile(t, root, "golc.project.toml", index)
 
 		_, err := projectconfig.InspectConcern(root, "runtime")
-		if err == nil {
-			t.Fatalf("expected concern path %q to be rejected", escape)
-		}
-		if !strings.Contains(err.Error(), "GOLC_CONFIG_PATH_ESCAPE") {
-			t.Fatalf("expected stable GOLC_CONFIG_PATH_ESCAPE diagnostic for %q, got %q", escape, err.Error())
-		}
+		require.ErrorContains(t, err, "GOLC_CONFIG_PATH_ESCAPE", "expected concern path %q to be rejected", escape)
 	}
 }
 
@@ -172,18 +131,11 @@ func TestConcernPathsCannotEscapeThroughSymlinks(t *testing.T) {
 	writeRepositoryFile(t, outside, "secret.toml", "schema_version = 2\n\n[runtime]\nlog_level = \"debug\"\n")
 
 	linkPath := filepath.Join(root, "config", "runtime.toml")
-	if err := os.Remove(linkPath); err != nil {
-		t.Fatalf("removing runtime concern for symlink test failed: %v", err)
-	}
+	require.NoError(t, os.Remove(linkPath), "removing runtime concern for symlink test failed")
 	if err := os.Symlink(filepath.Join(outside, "secret.toml"), linkPath); err != nil {
 		t.Skipf("symlink creation unavailable on this host: %v", err)
 	}
 
 	_, err := projectconfig.InspectConcern(root, "runtime")
-	if err == nil {
-		t.Fatal("expected a symlinked concern escaping the repository to be rejected")
-	}
-	if !strings.Contains(err.Error(), "GOLC_CONFIG_PATH_ESCAPE") {
-		t.Fatalf("expected stable GOLC_CONFIG_PATH_ESCAPE diagnostic, got %q", err.Error())
-	}
+	require.ErrorContains(t, err, "GOLC_CONFIG_PATH_ESCAPE", "expected a symlinked concern escaping the repository to be rejected")
 }
