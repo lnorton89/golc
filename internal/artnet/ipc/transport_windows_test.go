@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func testPipeName(t *testing.T) string {
@@ -17,16 +19,10 @@ func testPipeName(t *testing.T) string {
 }
 
 func TestWindowsTransportUsesStableProductionPipe(t *testing.T) {
-	if PipeName != `\\.\pipe\golc-artnet` {
-		t.Fatalf("PipeName = %q, want production named pipe", PipeName)
-	}
+	require.Equal(t, `\\.\pipe\golc-artnet`, PipeName, "want production named pipe")
 }
 
 func TestOwnerOnlySDDLRestrictsToOwner(t *testing.T) {
-	if !strings.Contains(ownerOnlySDDL, "D:P") {
-		t.Fatalf("expected a Protected DACL (D:P prefix), got %q", ownerOnlySDDL)
-	}
-	if !strings.Contains(ownerOnlySDDL, ";OW)") {
-		t.Fatalf("expected the sole ACE to grant access to the Owner (OW), got %q", ownerOnlySDDL)
-	}
+	require.Contains(t, ownerOnlySDDL, "D:P", "expected a Protected DACL (D:P prefix)")
+	require.Contains(t, ownerOnlySDDL, ";OW)", "expected the sole ACE to grant access to the Owner (OW)")
 }

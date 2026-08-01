@@ -8,10 +8,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"reflect"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestIPCRequestRoundTripsToResult proves (a): Forward's Request marshals
@@ -25,32 +26,24 @@ func TestIPCRequestRoundTripsToResult(t *testing.T) {
 	}
 
 	listener, err := NewListener(pipeName)
-	if err != nil {
-		t.Fatalf("NewListener: %v", err)
-	}
+	require.NoError(t, err, "NewListener")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	serveDone := make(chan error, 1)
 	go func() { serveDone <- Serve(ctx, listener, handler) }()
 	t.Cleanup(func() {
 		cancel()
-		if err := <-serveDone; err != nil {
-			t.Errorf("Serve returned error after cancel: %v", err)
-		}
+		assert.NoError(t, <-serveDone, "Serve returned error after cancel")
 	})
 
 	conn, err := Dial(pipeName)
-	if err != nil {
-		t.Fatalf("Dial: %v", err)
-	}
+	require.NoError(t, err, "Dial")
 	defer conn.Close()
 
 	request := Request{Route: "artnet status", Args: []string{"--json"}, Root: `C:\show`}
 	got := Forward(conn, request)
 
-	if !reflect.DeepEqual(got, wantResult) {
-		t.Fatalf("Forward result = %+v, want %+v", got, wantResult)
-	}
+	require.Equal(t, wantResult, got, "Forward result")
 }
 
 // TestIPCDialNonexistentPipeReturnsDaemonUnreachable proves (b): dialing a
@@ -63,15 +56,8 @@ func TestIPCDialNonexistentPipeReturnsDaemonUnreachable(t *testing.T) {
 	_, err := Dial(pipeName)
 	elapsed := time.Since(start)
 
-	if err == nil {
-		t.Fatal("expected Dial to a nonexistent pipe to fail, got nil error")
-	}
-	if !strings.Contains(err.Error(), "GOLC_ARTNET_DAEMON_UNREACHABLE") {
-		t.Fatalf("expected GOLC_ARTNET_DAEMON_UNREACHABLE, got: %v", err)
-	}
-	if elapsed > dialTimeout {
-		t.Fatalf("expected Dial to fail well within dialTimeout (%s), took %s", dialTimeout, elapsed)
-	}
+	require.ErrorContains(t, err, "GOLC_ARTNET_DAEMON_UNREACHABLE")
+	require.LessOrEqual(t, elapsed, dialTimeout, "expected Dial to fail well within dialTimeout (%s), took %s", dialTimeout, elapsed)
 }
 
 // TestReadFrameRejectsOversizedLength proves readFrame bounds a declared
@@ -81,7 +67,6 @@ func TestReadFrameRejectsOversizedLength(t *testing.T) {
 	header := make([]byte, 4)
 	binary.BigEndian.PutUint32(header, maxFrameSize+1)
 
-	if _, err := readFrame(bytes.NewReader(header)); err == nil {
-		t.Fatal("expected readFrame to reject a declared length above maxFrameSize")
-	}
+	_, err := readFrame(bytes.NewReader(header))
+	require.Error(t, err, "expected readFrame to reject a declared length above maxFrameSize")
 }

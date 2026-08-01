@@ -7,9 +7,10 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 // shortTestDir returns a short, per-test directory under /tmp rather than
@@ -34,9 +35,7 @@ import (
 func shortTestDir(t *testing.T) string {
 	t.Helper()
 	dir := filepath.Join("/tmp", fmt.Sprintf("golc-t-%d-%x", os.Getpid(), time.Now().UnixNano()))
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(dir, 0o700))
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	return dir
 }
@@ -49,15 +48,9 @@ func testPipeName(t *testing.T) string {
 
 func TestUnixProductionEndpointIsShortStableAndPerUser(t *testing.T) {
 	wantDir := filepath.Join("/tmp", fmt.Sprintf("golc-%d", os.Getuid()))
-	if filepath.Dir(PipeName) != wantDir {
-		t.Fatalf("PipeName directory = %q, want %q", filepath.Dir(PipeName), wantDir)
-	}
-	if filepath.Base(PipeName) != "artnet.sock" {
-		t.Fatalf("PipeName base = %q, want artnet.sock", filepath.Base(PipeName))
-	}
-	if len(PipeName) >= 100 {
-		t.Fatalf("PipeName is too long for portable Unix sockets: %d bytes", len(PipeName))
-	}
+	require.Equal(t, wantDir, filepath.Dir(PipeName), "PipeName directory")
+	require.Equal(t, "artnet.sock", filepath.Base(PipeName), "PipeName base")
+	require.Less(t, len(PipeName), 100, "PipeName is too long for portable Unix sockets")
 }
 
 func TestUnixListenerUsesOwnerOnlyModesAndUnlinksOnClose(t *testing.T) {
@@ -65,66 +58,45 @@ func TestUnixListenerUsesOwnerOnlyModesAndUnlinksOnClose(t *testing.T) {
 	endpoint := filepath.Join(dir, "artnet.sock")
 
 	listener, err := NewListener(endpoint)
-	if err != nil {
-		t.Fatalf("NewListener: %v", err)
-	}
+	require.NoError(t, err, "NewListener")
 
 	dirInfo, err := os.Lstat(dir)
-	if err != nil {
-		t.Fatalf("Lstat directory: %v", err)
-	}
-	if !dirInfo.IsDir() || dirInfo.Mode()&os.ModeSymlink != 0 || dirInfo.Mode().Perm() != 0o700 {
-		t.Fatalf("directory mode = %v, want real directory 0700", dirInfo.Mode())
-	}
+	require.NoError(t, err, "Lstat directory")
+	require.True(t, dirInfo.IsDir(), "directory mode = %v, want real directory 0700", dirInfo.Mode())
+	require.Equal(t, os.FileMode(0), dirInfo.Mode()&os.ModeSymlink, "directory mode = %v, want real directory 0700", dirInfo.Mode())
+	require.Equal(t, os.FileMode(0o700), dirInfo.Mode().Perm(), "directory mode = %v, want real directory 0700", dirInfo.Mode())
 	socketInfo, err := os.Lstat(endpoint)
-	if err != nil {
-		t.Fatalf("Lstat socket: %v", err)
-	}
-	if socketInfo.Mode()&os.ModeSocket == 0 || socketInfo.Mode().Perm() != 0o600 {
-		t.Fatalf("socket mode = %v, want socket 0600", socketInfo.Mode())
-	}
+	require.NoError(t, err, "Lstat socket")
+	require.NotEqual(t, os.FileMode(0), socketInfo.Mode()&os.ModeSocket, "socket mode = %v, want socket 0600", socketInfo.Mode())
+	require.Equal(t, os.FileMode(0o600), socketInfo.Mode().Perm(), "socket mode = %v, want socket 0600", socketInfo.Mode())
 
-	if err := listener.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
-	}
-	if _, err := os.Lstat(endpoint); !os.IsNotExist(err) {
-		t.Fatalf("socket remains after Close: %v", err)
-	}
+	require.NoError(t, listener.Close(), "Close")
+	_, err = os.Lstat(endpoint)
+	require.True(t, os.IsNotExist(err), "socket remains after Close: %v", err)
 }
 
 func TestUnixListenerPreservesActiveSocket(t *testing.T) {
 	endpoint := filepath.Join(shortTestDir(t), "active.sock")
 	active, err := NewListener(endpoint)
-	if err != nil {
-		t.Fatalf("first NewListener: %v", err)
-	}
+	require.NoError(t, err, "first NewListener")
 	defer active.Close()
 
-	if _, err := NewListener(endpoint); err == nil {
-		t.Fatal("second NewListener unexpectedly replaced active socket")
-	}
+	_, err = NewListener(endpoint)
+	require.Error(t, err, "second NewListener unexpectedly replaced active socket")
 	conn, err := net.DialTimeout("unix", endpoint, time.Second)
-	if err != nil {
-		t.Fatalf("active listener was displaced: %v", err)
-	}
+	require.NoError(t, err, "active listener was displaced")
 	_ = conn.Close()
 }
 
 func TestUnixListenerRecoversVerifiedStaleSocket(t *testing.T) {
 	endpoint := filepath.Join(shortTestDir(t), "stale.sock")
 	stale, err := net.ListenUnix("unix", &net.UnixAddr{Name: endpoint, Net: "unix"})
-	if err != nil {
-		t.Fatalf("seed stale socket: %v", err)
-	}
+	require.NoError(t, err, "seed stale socket")
 	stale.SetUnlinkOnClose(false)
-	if err := stale.Close(); err != nil {
-		t.Fatalf("close stale socket: %v", err)
-	}
+	require.NoError(t, stale.Close(), "close stale socket")
 
 	listener, err := NewListener(endpoint)
-	if err != nil {
-		t.Fatalf("NewListener did not recover stale socket: %v", err)
-	}
+	require.NoError(t, err, "NewListener did not recover stale socket")
 	_ = listener.Close()
 }
 
@@ -145,48 +117,29 @@ func TestUnixListenerPreservesUnsafeEndpointObjects(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := shortTestDir(t)
-			if err := os.MkdirAll(dir, 0o700); err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, os.MkdirAll(dir, 0o700))
 			endpoint := filepath.Join(dir, "endpoint")
-			if err := tc.seed(endpoint); err != nil {
-				t.Fatalf("seed: %v", err)
-			}
+			require.NoError(t, tc.seed(endpoint), "seed")
 			before, err := os.Lstat(endpoint)
-			if err != nil {
-				t.Fatalf("Lstat before: %v", err)
-			}
+			require.NoError(t, err, "Lstat before")
 
-			if _, err := NewListener(endpoint); err == nil {
-				t.Fatal("NewListener unexpectedly accepted unsafe endpoint")
-			}
+			_, err = NewListener(endpoint)
+			require.Error(t, err, "NewListener unexpectedly accepted unsafe endpoint")
 			after, err := os.Lstat(endpoint)
-			if err != nil {
-				t.Fatalf("unsafe endpoint was removed: %v", err)
-			}
-			if before.Mode().Type() != after.Mode().Type() {
-				t.Fatalf("endpoint type changed from %v to %v", before.Mode(), after.Mode())
-			}
+			require.NoError(t, err, "unsafe endpoint was removed")
+			require.Equal(t, before.Mode().Type(), after.Mode().Type(), "endpoint type changed")
 		})
 	}
 }
 
 func TestUnixListenerRejectsSymlinkParent(t *testing.T) {
 	root := shortTestDir(t)
-	if err := os.MkdirAll(root, 0o700); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(root, 0o700))
 	realDir := filepath.Join(root, "real")
-	if err := os.Mkdir(realDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.Mkdir(realDir, 0o700))
 	linkDir := filepath.Join(root, "link")
-	if err := os.Symlink(realDir, linkDir); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.Symlink(realDir, linkDir))
 
 	_, err := NewListener(filepath.Join(linkDir, "artnet.sock"))
-	if err == nil || !strings.Contains(err.Error(), "GOLC_ARTNET_IPC_LISTEN_FAILED") {
-		t.Fatalf("expected safe listen failure for symlink parent, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_ARTNET_IPC_LISTEN_FAILED", "expected safe listen failure for symlink parent")
 }
