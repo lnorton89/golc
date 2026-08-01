@@ -11,8 +11,9 @@ package api
 
 import (
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/show"
 )
@@ -45,28 +46,15 @@ func TestAuditObserverRecordsSuccessOutcome(t *testing.T) {
 	})
 
 	records, err := show.QueryAuditLog(root, showPath)
-	if err != nil {
-		t.Fatalf("QueryAuditLog: %v", err)
-	}
-	if len(records) != 1 {
-		t.Fatalf("expected exactly 1 audit_log row, got %d (%+v)", len(records), records)
-	}
+	require.NoError(t, err, "QueryAuditLog")
+	require.Len(t, records, 1, "expected exactly 1 audit_log row")
 	rec := records[0]
-	if rec.Actor != "key-abc123" {
-		t.Fatalf("expected actor=key-abc123, got %q", rec.Actor)
-	}
-	if rec.Source != "http" {
-		t.Fatalf("expected source=http, got %q", rec.Source)
-	}
-	if rec.CorrelationID != "corr-1" {
-		t.Fatalf("expected correlation_id=corr-1, got %q", rec.CorrelationID)
-	}
-	if rec.Outcome != "success" {
-		t.Fatalf("expected outcome=success, got %q", rec.Outcome)
-	}
-	if !rec.ResultingRevision.Valid || rec.ResultingRevision.Int64 != 1 {
-		t.Fatalf("expected resulting_revision=1, got %+v", rec.ResultingRevision)
-	}
+	require.Equal(t, "key-abc123", rec.Actor, "expected actor=key-abc123")
+	require.Equal(t, "http", rec.Source, "expected source=http")
+	require.Equal(t, "corr-1", rec.CorrelationID, "expected correlation_id=corr-1")
+	require.Equal(t, "success", rec.Outcome, "expected outcome=success")
+	require.True(t, rec.ResultingRevision.Valid, "expected resulting_revision to be valid")
+	require.Equal(t, int64(1), rec.ResultingRevision.Int64, "expected resulting_revision=1")
 }
 
 // TestAuditObserverRecordsFailureAndRejectedOutcomes proves a failed
@@ -89,23 +77,15 @@ func TestAuditObserverRecordsFailureAndRejectedOutcomes(t *testing.T) {
 	})
 
 	records, err := show.QueryAuditLog(root, showPath)
-	if err != nil {
-		t.Fatalf("QueryAuditLog: %v", err)
-	}
-	if len(records) != 2 {
-		t.Fatalf("expected exactly 2 audit_log rows, got %d (%+v)", len(records), records)
-	}
+	require.NoError(t, err, "QueryAuditLog")
+	require.Len(t, records, 2, "expected exactly 2 audit_log rows")
 	for _, rec := range records {
-		if rec.ResultingRevision.Valid {
-			t.Fatalf("expected a null resulting_revision for outcome %q, got %+v", rec.Outcome, rec.ResultingRevision)
-		}
+		require.False(t, rec.ResultingRevision.Valid, "expected a null resulting_revision for outcome %q, got %+v", rec.Outcome, rec.ResultingRevision)
 	}
-	if records[0].Outcome != "failure" || records[0].StatusCode != 500 {
-		t.Fatalf("expected first row outcome=failure status=500, got outcome=%q status=%d", records[0].Outcome, records[0].StatusCode)
-	}
-	if records[1].Outcome != "rejected" || records[1].StatusCode != 412 {
-		t.Fatalf("expected second row outcome=rejected status=412, got outcome=%q status=%d", records[1].Outcome, records[1].StatusCode)
-	}
+	require.Equal(t, "failure", records[0].Outcome, "expected first row outcome=failure")
+	require.Equal(t, 500, records[0].StatusCode, "expected first row status=500")
+	require.Equal(t, "rejected", records[1].Outcome, "expected second row outcome=rejected")
+	require.Equal(t, 412, records[1].StatusCode, "expected second row status=412")
 }
 
 // TestAuditObserverRecordsDryRunOutcome proves a dry-run produces one row
@@ -122,18 +102,10 @@ func TestAuditObserverRecordsDryRunOutcome(t *testing.T) {
 	})
 
 	records, err := show.QueryAuditLog(root, showPath)
-	if err != nil {
-		t.Fatalf("QueryAuditLog: %v", err)
-	}
-	if len(records) != 1 {
-		t.Fatalf("expected exactly 1 audit_log row, got %d", len(records))
-	}
-	if records[0].Outcome != "dry_run" {
-		t.Fatalf("expected outcome=dry_run, got %q", records[0].Outcome)
-	}
-	if records[0].ResultingRevision.Valid {
-		t.Fatalf("expected a null resulting_revision for a dry-run, got %+v", records[0].ResultingRevision)
-	}
+	require.NoError(t, err, "QueryAuditLog")
+	require.Len(t, records, 1, "expected exactly 1 audit_log row")
+	require.Equal(t, "dry_run", records[0].Outcome, "expected outcome=dry_run")
+	require.False(t, records[0].ResultingRevision.Valid, "expected a null resulting_revision for a dry-run")
 }
 
 // TestAuditObserverRedactsSensitiveFields proves redacted_details never
@@ -159,29 +131,15 @@ func TestAuditObserverRedactsSensitiveFields(t *testing.T) {
 	})
 
 	records, err := show.QueryAuditLog(root, showPath)
-	if err != nil {
-		t.Fatalf("QueryAuditLog: %v", err)
-	}
-	if len(records) != 2 {
-		t.Fatalf("expected exactly 2 audit_log rows, got %d", len(records))
-	}
+	require.NoError(t, err, "QueryAuditLog")
+	require.Len(t, records, 2, "expected exactly 2 audit_log rows")
 	for _, rec := range records {
-		if strings.Contains(rec.RedactedDetails, "supersecretvalue123") {
-			t.Fatalf("redacted_details leaked a raw token value: %s", rec.RedactedDetails)
-		}
-		if strings.Contains(rec.RedactedDetails, "abc123xyz789") {
-			t.Fatalf("redacted_details leaked a raw bearer token value: %s", rec.RedactedDetails)
-		}
-		if strings.Contains(rec.RedactedDetails, "Bearer ") {
-			t.Fatalf("redacted_details leaked a raw Authorization header value: %s", rec.RedactedDetails)
-		}
+		require.NotContains(t, rec.RedactedDetails, "supersecretvalue123", "redacted_details leaked a raw token value")
+		require.NotContains(t, rec.RedactedDetails, "abc123xyz789", "redacted_details leaked a raw bearer token value")
+		require.NotContains(t, rec.RedactedDetails, "Bearer ", "redacted_details leaked a raw Authorization header value")
 	}
-	if !strings.Contains(records[0].RedactedDetails, "ci-key") {
-		t.Fatalf("expected non-sensitive detail (ci-key) to survive redaction, got %s", records[0].RedactedDetails)
-	}
-	if !strings.Contains(records[0].RedactedDetails, "api-key create") {
-		t.Fatalf("expected the route to survive redaction, got %s", records[0].RedactedDetails)
-	}
+	require.Contains(t, records[0].RedactedDetails, "ci-key", "expected non-sensitive detail (ci-key) to survive redaction")
+	require.Contains(t, records[0].RedactedDetails, "api-key create", "expected the route to survive redaction")
 }
 
 // TestAuditObserverBatchSubEventsEachWriteOneRow proves an atomic batch's
@@ -202,10 +160,6 @@ func TestAuditObserverBatchSubEventsEachWriteOneRow(t *testing.T) {
 	}
 
 	records, err := show.QueryAuditLog(root, showPath)
-	if err != nil {
-		t.Fatalf("QueryAuditLog: %v", err)
-	}
-	if len(records) != 3 {
-		t.Fatalf("expected exactly 3 audit_log rows (one per batch sub-event), got %d", len(records))
-	}
+	require.NoError(t, err, "QueryAuditLog")
+	require.Len(t, records, 3, "expected exactly 3 audit_log rows (one per batch sub-event)")
 }

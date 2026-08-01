@@ -19,6 +19,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/api"
 	"github.com/lnorton89/golc/internal/routecatalog"
 	"github.com/lnorton89/golc/internal/show"
@@ -45,44 +47,26 @@ func TestDryRunLeavesRealRevisionUnchanged(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
 	before, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision before: %v", err)
-	}
+	require.NoError(t, err, "CurrentRevision before")
 
 	rec := doDryRunCreatePoolRequest(t, server.Handler(), token, "PreviewPool")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 for a dry-run create, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Equal(t, http.StatusOK, rec.Code, "expected 200 for a dry-run create (body: %s)", rec.Body.String())
 	result, revision := decodeMutationBody(t, rec)
-	if result == "" {
-		t.Fatalf("expected a non-empty projected result, got empty string")
-	}
-	if revision != nil {
-		t.Fatalf("expected no revision in a dry-run response, got %v", *revision)
-	}
+	require.NotEmpty(t, result, "expected a non-empty projected result")
+	require.Nil(t, revision, "expected no revision in a dry-run response")
 
 	after, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision after: %v", err)
-	}
-	if after != before {
-		t.Fatalf("expected the real revision to stay %d after a dry-run, got %d", before, after)
-	}
+	require.NoError(t, err, "CurrentRevision after")
+	require.Equal(t, before, after, "expected the real revision to stay unchanged after a dry-run")
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
-	if len(state.Pools) != 0 {
-		t.Fatalf("expected the real show to have no pools after a dry-run, got %d", len(state.Pools))
-	}
+	require.NoError(t, err, "show.Load")
+	require.Empty(t, state.Pools, "expected the real show to have no pools after a dry-run")
 }
 
 // --- TestDryRunSurfacesValidationErrorWithoutMutating ----------------------
@@ -94,45 +78,29 @@ func TestDryRunSurfacesValidationErrorWithoutMutating(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
 	// Create a real pool named "Dup" first.
 	created := doCreatePoolRequest(t, server.Handler(), token, "", "Dup")
-	if created.Code < 200 || created.Code >= 300 {
-		t.Fatalf("expected the setup create to succeed, got %d (body: %s)", created.Code, created.Body.String())
-	}
+	require.True(t, created.Code >= 200 && created.Code < 300, "expected the setup create to succeed, got %d (body: %s)", created.Code, created.Body.String())
 	afterSetup, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision after setup: %v", err)
-	}
+	require.NoError(t, err, "CurrentRevision after setup")
 
 	// A dry-run attempting to create another pool named "Dup" must fail
 	// with the same duplicate-name validation error the real mutation
 	// would produce.
 	rec := doDryRunCreatePoolRequest(t, server.Handler(), token, "Dup")
-	if rec.Code < 400 {
-		t.Fatalf("expected the dry-run of a duplicate-name create to fail, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.GreaterOrEqual(t, rec.Code, 400, "expected the dry-run of a duplicate-name create to fail, got %d (body: %s)", rec.Code, rec.Body.String())
 
 	after, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision after dry-run failure: %v", err)
-	}
-	if after != afterSetup {
-		t.Fatalf("expected the real revision to remain %d after a failed dry-run, got %d", afterSetup, after)
-	}
+	require.NoError(t, err, "CurrentRevision after dry-run failure")
+	require.Equal(t, afterSetup, after, "expected the real revision to remain unchanged after a failed dry-run")
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
-	if len(state.Pools) != 1 {
-		t.Fatalf("expected exactly the one real \"Dup\" pool from setup, got %d", len(state.Pools))
-	}
+	require.NoError(t, err, "show.Load")
+	require.Len(t, state.Pools, 1, "expected exactly the one real \"Dup\" pool from setup")
 }
 
 // --- TestDryRunLeavesNoTempCopy ---------------------------------------------
@@ -144,9 +112,7 @@ func TestDryRunLeavesNoTempCopy(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
@@ -154,9 +120,7 @@ func TestDryRunLeavesNoTempCopy(t *testing.T) {
 	assertNoBackupFiles(t, showPath)
 
 	created := doCreatePoolRequest(t, server.Handler(), token, "", "Existing")
-	if created.Code < 200 || created.Code >= 300 {
-		t.Fatalf("expected the setup create to succeed, got %d (body: %s)", created.Code, created.Body.String())
-	}
+	require.True(t, created.Code >= 200 && created.Code < 300, "expected the setup create to succeed, got %d (body: %s)", created.Code, created.Body.String())
 	doDryRunCreatePoolRequest(t, server.Handler(), token, "Existing") // duplicate -> dry-run failure path
 	assertNoBackupFiles(t, showPath)
 }
@@ -167,12 +131,8 @@ func TestDryRunLeavesNoTempCopy(t *testing.T) {
 func assertNoBackupFiles(t *testing.T, showPath string) {
 	t.Helper()
 	matches, err := filepath.Glob(showPath + ".backup-*")
-	if err != nil {
-		t.Fatalf("filepath.Glob: %v", err)
-	}
-	if len(matches) != 0 {
-		t.Fatalf("expected no leftover temp copy files, found: %v", matches)
-	}
+	require.NoError(t, err, "filepath.Glob")
+	require.Empty(t, matches, "expected no leftover temp copy files")
 }
 
 // --- TestDryRunObserverOutcome -----------------------------------------------
@@ -186,9 +146,7 @@ func TestDryRunObserverOutcome(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
@@ -198,17 +156,9 @@ func TestDryRunObserverOutcome(t *testing.T) {
 	})
 
 	rec := doDryRunCreatePoolRequest(t, server.Handler(), token, "Observed")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Equal(t, http.StatusOK, rec.Code, "body: %s", rec.Body.String())
 
-	if len(events) != 1 {
-		t.Fatalf("expected exactly 1 observer event, got %d: %+v", len(events), events)
-	}
-	if events[0].Outcome != "dry_run" {
-		t.Fatalf("expected outcome \"dry_run\", got %q", events[0].Outcome)
-	}
-	if events[0].ResultingRevision != nil {
-		t.Fatalf("expected no resulting revision on a dry-run event, got %v", *events[0].ResultingRevision)
-	}
+	require.Len(t, events, 1, "expected exactly 1 observer event: %+v", events)
+	require.Equal(t, "dry_run", events[0].Outcome)
+	require.Nil(t, events[0].ResultingRevision, "expected no resulting revision on a dry-run event")
 }

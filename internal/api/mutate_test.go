@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/api"
 	"github.com/lnorton89/golc/internal/routecatalog"
 	"github.com/lnorton89/golc/internal/show"
@@ -36,13 +38,9 @@ import (
 func seedKey(t *testing.T, root, showPath string, scopes []show.APIKeyScope) (token, keyID string) {
 	t.Helper()
 	generated, err := show.GenerateAPIKey()
-	if err != nil {
-		t.Fatalf("GenerateAPIKey: %v", err)
-	}
+	require.NoError(t, err, "GenerateAPIKey")
 	key, err := show.InsertAPIKey(root, showPath, generated, scopes, time.Now().UTC().Add(time.Hour))
-	if err != nil {
-		t.Fatalf("InsertAPIKey: %v", err)
-	}
+	require.NoError(t, err, "InsertAPIKey")
 	return generated.RawToken, key.KeyID
 }
 
@@ -52,9 +50,7 @@ func seedKey(t *testing.T, root, showPath string, scopes []show.APIKeyScope) (to
 func jsonBody(t *testing.T, value any) *bytes.Reader {
 	t.Helper()
 	payload, err := json.Marshal(value)
-	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
-	}
+	require.NoError(t, err, "json.Marshal")
 	return bytes.NewReader(payload)
 }
 
@@ -81,9 +77,8 @@ func decodeMutationBody(t *testing.T, rec *httptest.ResponseRecorder) (result st
 		Result   string `json:"result"`
 		Revision *int64 `json:"revision"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &decoded); err != nil {
-		t.Fatalf("decode mutation response %q: %v", rec.Body.String(), err)
-	}
+	err := json.Unmarshal(rec.Body.Bytes(), &decoded)
+	require.NoError(t, err, "decode mutation response %q", rec.Body.String())
 	return decoded.Result, decoded.Revision
 }
 
@@ -96,59 +91,36 @@ func TestMutateIfMatchRevisionLifecycle(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
 	before, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision before: %v", err)
-	}
-	if before != 0 {
-		t.Fatalf("expected a never-yet-saved show to report revision 0, got %d", before)
-	}
+	require.NoError(t, err, "CurrentRevision before")
+	require.Equal(t, int64(0), before, "expected a never-yet-saved show to report revision 0")
 
 	rec := doCreatePoolRequest(t, server.Handler(), token, "0", "Main")
-	if rec.Code < 200 || rec.Code >= 300 {
-		t.Fatalf("expected a 2xx creating with a matching If-Match, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.True(t, rec.Code >= 200 && rec.Code < 300, "expected a 2xx creating with a matching If-Match, got %d (body: %s)", rec.Code, rec.Body.String())
 	_, revision := decodeMutationBody(t, rec)
-	if revision == nil || *revision != 1 {
-		t.Fatalf("expected the response revision to be 1, got %v", revision)
-	}
+	require.NotNil(t, revision, "expected the response revision to be 1, got nil")
+	require.Equal(t, int64(1), *revision, "expected the response revision to be 1")
 
 	after, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision after: %v", err)
-	}
-	if after != 1 {
-		t.Fatalf("expected the real revision to be 1 after one successful mutation, got %d", after)
-	}
+	require.NoError(t, err, "CurrentRevision after")
+	require.Equal(t, int64(1), after, "expected the real revision to be 1 after one successful mutation")
 
 	// Repeat with the now-stale If-Match "0": must return 412 and create
 	// nothing.
 	stale := doCreatePoolRequest(t, server.Handler(), token, "0", "Second")
-	if stale.Code != http.StatusPreconditionFailed {
-		t.Fatalf("expected 412 for a stale If-Match, got %d (body: %s)", stale.Code, stale.Body.String())
-	}
+	require.Equal(t, http.StatusPreconditionFailed, stale.Code, "expected 412 for a stale If-Match (body: %s)", stale.Body.String())
 
 	stillAfter, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision after stale attempt: %v", err)
-	}
-	if stillAfter != 1 {
-		t.Fatalf("expected the real revision to remain 1 after a rejected stale mutation, got %d", stillAfter)
-	}
+	require.NoError(t, err, "CurrentRevision after stale attempt")
+	require.Equal(t, int64(1), stillAfter, "expected the real revision to remain 1 after a rejected stale mutation")
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
-	if len(state.Pools) != 1 {
-		t.Fatalf("expected exactly one pool to exist (the stale attempt must not have created \"Second\"), got %d", len(state.Pools))
-	}
+	require.NoError(t, err, "show.Load")
+	require.Len(t, state.Pools, 1, "expected exactly one pool to exist (the stale attempt must not have created \"Second\")")
 }
 
 // --- TestMutateRequiresScope -----------------------------------------------
@@ -159,24 +131,16 @@ func TestMutateRequiresScope(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopePlayback})
 
 	rec := doCreatePoolRequest(t, server.Handler(), token, "", "ShouldNotExist")
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 for a key lacking the authoring scope, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Equal(t, http.StatusForbidden, rec.Code, "expected 403 for a key lacking the authoring scope (body: %s)", rec.Body.String())
 
 	revision, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision: %v", err)
-	}
-	if revision != 0 {
-		t.Fatalf("expected the real revision to remain 0 after a scope-rejected mutation, got %d", revision)
-	}
+	require.NoError(t, err, "CurrentRevision")
+	require.Equal(t, int64(0), revision, "expected the real revision to remain 0 after a scope-rejected mutation")
 }
 
 // --- TestMutateSerializesConcurrentRequests --------------------------------
@@ -189,9 +153,7 @@ func TestMutateSerializesConcurrentRequests(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
@@ -211,34 +173,22 @@ func TestMutateSerializesConcurrentRequests(t *testing.T) {
 	wg.Wait()
 
 	for i, code := range codes {
-		if code < 200 || code >= 300 {
-			t.Fatalf("expected request %d to succeed, got status %d", i, code)
-		}
+		require.True(t, code >= 200 && code < 300, "expected request %d to succeed, got status %d", i, code)
 	}
 
 	revision, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision: %v", err)
-	}
-	if revision != int64(concurrency) {
-		t.Fatalf("expected the real revision to advance by exactly %d, got %d", concurrency, revision)
-	}
+	require.NoError(t, err, "CurrentRevision")
+	require.Equal(t, int64(concurrency), revision, "expected the real revision to advance by exactly %d", concurrency)
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
-	if len(state.Pools) != concurrency {
-		t.Fatalf("expected exactly %d pools (no lost update), got %d", concurrency, len(state.Pools))
-	}
+	require.NoError(t, err, "show.Load")
+	require.Len(t, state.Pools, concurrency, "expected no lost update")
 	seen := map[string]bool{}
 	for _, p := range state.Pools {
 		seen[p.Name] = true
 	}
 	for _, name := range names {
-		if !seen[name] {
-			t.Fatalf("expected pool %q to have been durably saved, but it is missing", name)
-		}
+		require.True(t, seen[name], "expected pool %q to have been durably saved, but it is missing", name)
 	}
 }
 
@@ -256,9 +206,7 @@ func TestMutateObserverFires(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 	token, keyID := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
@@ -272,51 +220,28 @@ func TestMutateObserverFires(t *testing.T) {
 
 	// A successful mutation.
 	ok := doCreatePoolRequest(t, server.Handler(), token, "", "Alpha")
-	if ok.Code < 200 || ok.Code >= 300 {
-		t.Fatalf("expected the first create to succeed, got %d (body: %s)", ok.Code, ok.Body.String())
-	}
+	require.True(t, ok.Code >= 200 && ok.Code < 300, "expected the first create to succeed, got %d (body: %s)", ok.Code, ok.Body.String())
 
 	// A failing mutation: a duplicate pool name is rejected by show.Save's
 	// whole-State validation (ExitCode 1 -> a typed 5xx).
 	dup := doCreatePoolRequest(t, server.Handler(), token, "", "Alpha")
-	if dup.Code < 400 {
-		t.Fatalf("expected the duplicate-name create to fail, got %d (body: %s)", dup.Code, dup.Body.String())
-	}
+	require.GreaterOrEqual(t, dup.Code, 400, "expected the duplicate-name create to fail (body: %s)", dup.Body.String())
 
 	mu.Lock()
 	defer mu.Unlock()
-	if len(events) != 2 {
-		t.Fatalf("expected exactly 2 observer events, got %d: %+v", len(events), events)
-	}
+	require.Len(t, events, 2, "expected exactly 2 observer events: %+v", events)
 
 	success := events[0]
-	if success.Outcome != "success" {
-		t.Fatalf("expected the first event's outcome to be \"success\", got %q", success.Outcome)
-	}
-	if success.Route != "pool create" {
-		t.Fatalf("expected the first event's route to be \"pool create\", got %q", success.Route)
-	}
-	if success.Actor != keyID {
-		t.Fatalf("expected the first event's actor to be %q, got %q", keyID, success.Actor)
-	}
-	if success.Source != "http" {
-		t.Fatalf("expected the first event's source to be \"http\", got %q", success.Source)
-	}
-	if success.ResultingRevision == nil || *success.ResultingRevision != 1 {
-		t.Fatalf("expected the first event's resulting revision to be 1, got %v", success.ResultingRevision)
-	}
-	if success.StatusCode < 200 || success.StatusCode >= 300 {
-		t.Fatalf("expected the first event's status code to be 2xx, got %d", success.StatusCode)
-	}
+	require.Equal(t, "success", success.Outcome, "expected the first event's outcome to be \"success\"")
+	require.Equal(t, "pool create", success.Route, "expected the first event's route to be \"pool create\"")
+	require.Equal(t, keyID, success.Actor, "expected the first event's actor to match the minted key")
+	require.Equal(t, "http", success.Source, "expected the first event's source to be \"http\"")
+	require.NotNil(t, success.ResultingRevision, "expected the first event's resulting revision to be 1, got nil")
+	require.Equal(t, int64(1), *success.ResultingRevision, "expected the first event's resulting revision to be 1")
+	require.True(t, success.StatusCode >= 200 && success.StatusCode < 300, "expected the first event's status code to be 2xx, got %d", success.StatusCode)
 
 	failure := events[1]
-	if failure.Outcome != "failure" {
-		t.Fatalf("expected the second event's outcome to be \"failure\", got %q", failure.Outcome)
-	}
-	if failure.ResultingRevision != nil {
-		t.Fatalf("expected the second event's resulting revision to be nil, got %v", *failure.ResultingRevision)
-	}
-	if failure.StatusCode < 400 {
-		t.Fatalf("expected the second event's status code to be an error status, got %d", failure.StatusCode)
-	}
+	require.Equal(t, "failure", failure.Outcome, "expected the second event's outcome to be \"failure\"")
+	require.Nil(t, failure.ResultingRevision, "expected the second event's resulting revision to be nil")
+	require.GreaterOrEqual(t, failure.StatusCode, 400, "expected the second event's status code to be an error status")
 }

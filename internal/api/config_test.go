@@ -17,6 +17,8 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // stubExecutorForConfigTest is a minimal Executor sufficient to construct a
@@ -48,12 +50,8 @@ func TestLoopbackDefault(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			server := NewServer(stubExecutorForConfigTest{}, "/repo/root", "/repo/root/show.golc", WithConfig(tc.cfg))
 			addr, err := server.listenAddr()
-			if err != nil {
-				t.Fatalf("listenAddr failed: %v", err)
-			}
-			if !strings.HasPrefix(addr, "127.0.0.1:") {
-				t.Fatalf("expected a loopback address, got %q", addr)
-			}
+			require.NoError(t, err, "listenAddr")
+			require.True(t, strings.HasPrefix(addr, "127.0.0.1:"), "expected a loopback address, got %q", addr)
 		})
 	}
 }
@@ -67,15 +65,8 @@ func TestRemoteRequiresInterface(t *testing.T) {
 		WithConfig(Config{RemoteEnabled: true, BindInterface: "", Port: 4591}))
 
 	err := server.Start(context.Background())
-	if err == nil {
-		t.Fatal("expected Start to fail when remote_enabled is true with an empty bind_interface")
-	}
-	if !strings.Contains(err.Error(), "GOLC_API_REMOTE_BIND_INTERFACE_REQUIRED") {
-		t.Fatalf("expected GOLC_API_REMOTE_BIND_INTERFACE_REQUIRED, got %v", err)
-	}
-	if server.httpServer != nil {
-		t.Fatal("expected no listener to be opened when Start fails before net.Listen")
-	}
+	require.ErrorContains(t, err, "GOLC_API_REMOTE_BIND_INTERFACE_REQUIRED")
+	require.Nil(t, server.httpServer, "expected no listener to be opened when Start fails before net.Listen")
 }
 
 // TestBindAddress proves remote_enabled=true with an explicit
@@ -86,12 +77,8 @@ func TestBindAddress(t *testing.T) {
 		WithConfig(Config{RemoteEnabled: true, BindInterface: "0.0.0.0", Port: 4592}))
 
 	addr, err := server.listenAddr()
-	if err != nil {
-		t.Fatalf("listenAddr failed: %v", err)
-	}
-	if addr != "0.0.0.0:4592" {
-		t.Fatalf("expected listen addr \"0.0.0.0:4592\", got %q", addr)
-	}
+	require.NoError(t, err, "listenAddr")
+	require.Equal(t, "0.0.0.0:4592", addr)
 }
 
 // TestListenAddrDefaultsPortWhenUnset proves a zero Config.Port falls back
@@ -99,11 +86,6 @@ func TestBindAddress(t *testing.T) {
 func TestListenAddrDefaultsPortWhenUnset(t *testing.T) {
 	server := NewServer(stubExecutorForConfigTest{}, "/repo/root", "/repo/root/show.golc")
 	addr, err := server.listenAddr()
-	if err != nil {
-		t.Fatalf("listenAddr failed: %v", err)
-	}
-	want := "127.0.0.1:4590"
-	if addr != want {
-		t.Fatalf("expected default listen addr %q, got %q", want, addr)
-	}
+	require.NoError(t, err, "listenAddr")
+	require.Equal(t, "127.0.0.1:4590", addr, "default listen addr")
 }

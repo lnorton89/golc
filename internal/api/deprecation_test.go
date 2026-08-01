@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
@@ -23,16 +25,10 @@ func TestMarkOperationDeprecatedSetsOpenAPIFlag(t *testing.T) {
 
 	MarkOperationDeprecated(op, DeprecationInfo{Sunset: sunset})
 
-	if !op.Deprecated {
-		t.Fatal("expected op.Deprecated to be true after MarkOperationDeprecated")
-	}
+	require.True(t, op.Deprecated, "expected op.Deprecated to be true after MarkOperationDeprecated")
 	info, ok := deprecationInfoFor(op)
-	if !ok {
-		t.Fatal("expected deprecationInfoFor to find the attached DeprecationInfo")
-	}
-	if !info.Sunset.Equal(sunset) {
-		t.Fatalf("expected Sunset %v, got %v", sunset, info.Sunset)
-	}
+	require.True(t, ok, "expected deprecationInfoFor to find the attached DeprecationInfo")
+	require.True(t, info.Sunset.Equal(sunset), "expected Sunset %v, got %v", sunset, info.Sunset)
 }
 
 // TestDeprecationInfoForUnmarkedOperation proves a normal, never-marked
@@ -40,12 +36,10 @@ func TestMarkOperationDeprecatedSetsOpenAPIFlag(t *testing.T) {
 // operation this plan ships.
 func TestDeprecationInfoForUnmarkedOperation(t *testing.T) {
 	op := &huma.Operation{OperationID: "get-widget"}
-	if _, ok := deprecationInfoFor(op); ok {
-		t.Fatal("expected an unmarked operation to report no DeprecationInfo")
-	}
-	if _, ok := deprecationInfoFor(nil); ok {
-		t.Fatal("expected a nil operation to report no DeprecationInfo without panicking")
-	}
+	_, ok := deprecationInfoFor(op)
+	require.False(t, ok, "expected an unmarked operation to report no DeprecationInfo")
+	_, ok = deprecationInfoFor(nil)
+	require.False(t, ok, "expected a nil operation to report no DeprecationInfo without panicking")
 }
 
 // TestDeprecationHeadersForSunsetAndLink proves the exact header set D-02's
@@ -55,23 +49,15 @@ func TestDeprecationHeadersForSunsetAndLink(t *testing.T) {
 	sunset := time.Date(2027, time.June, 15, 12, 30, 0, 0, time.UTC)
 
 	headers := deprecationHeadersFor(DeprecationInfo{Sunset: sunset})
-	if got := headers.Get("Deprecation"); got != "true" {
-		t.Fatalf("expected Deprecation: true, got %q", got)
-	}
-	if got, want := headers.Get("Sunset"), "Tue, 15 Jun 2027 12:30:00 GMT"; got != want {
-		t.Fatalf("expected Sunset: %q, got %q", want, got)
-	}
-	if got := headers.Get("Link"); got != "" {
-		t.Fatalf("expected no Link header when Link is unset, got %q", got)
-	}
+	require.Equal(t, "true", headers.Get("Deprecation"), "expected Deprecation: true")
+	require.Equal(t, "Tue, 15 Jun 2027 12:30:00 GMT", headers.Get("Sunset"))
+	require.Empty(t, headers.Get("Link"), "expected no Link header when Link is unset")
 
 	withLink := deprecationHeadersFor(DeprecationInfo{
 		Sunset: sunset,
 		Link:   "https://docs.example.com/migrate-to-v2",
 	})
-	if got, want := withLink.Get("Link"), `<https://docs.example.com/migrate-to-v2>; rel="deprecation"`; got != want {
-		t.Fatalf("expected Link: %q, got %q", want, got)
-	}
+	require.Equal(t, `<https://docs.example.com/migrate-to-v2>; rel="deprecation"`, withLink.Get("Link"))
 }
 
 // TestDeprecationHeadersUseUTC proves a non-UTC Sunset time is normalized
@@ -81,9 +67,7 @@ func TestDeprecationHeadersUseUTC(t *testing.T) {
 	sunset := time.Date(2027, time.March, 10, 9, 0, 0, 0, loc) // 14:00 UTC
 
 	headers := deprecationHeadersFor(DeprecationInfo{Sunset: sunset})
-	if got, want := headers.Get("Sunset"), "Wed, 10 Mar 2027 14:00:00 GMT"; got != want {
-		t.Fatalf("expected Sunset normalized to UTC: %q, got %q", want, got)
-	}
+	require.Equal(t, "Wed, 10 Mar 2027 14:00:00 GMT", headers.Get("Sunset"), "expected Sunset normalized to UTC")
 }
 
 // TestDeprecationMiddlewareEmitsHeadersOnLiveRequest proves the
@@ -127,17 +111,13 @@ func TestDeprecationMiddlewareEmitsHeadersOnLiveRequest(t *testing.T) {
 
 	wantHeaders := deprecationHeadersFor(DeprecationInfo{Sunset: sunset, Link: link})
 	for _, header := range []string{"Deprecation", "Sunset", "Link"} {
-		if got, want := deprecatedRec.Header().Get(header), wantHeaders.Get(header); got != want {
-			t.Fatalf("deprecated operation: expected %s: %q, got %q", header, want, got)
-		}
+		require.Equal(t, wantHeaders.Get(header), deprecatedRec.Header().Get(header), "deprecated operation: expected %s header", header)
 	}
 
 	currentRec := httptest.NewRecorder()
 	router.ServeHTTP(currentRec, httptest.NewRequest(http.MethodGet, "/current-widget", nil))
 	for _, header := range []string{"Deprecation", "Sunset", "Link"} {
-		if got := currentRec.Header().Get(header); got != "" {
-			t.Fatalf("non-deprecated operation: expected no %s header, got %q", header, got)
-		}
+		require.Empty(t, currentRec.Header().Get(header), "non-deprecated operation: expected no %s header", header)
 	}
 }
 
@@ -152,15 +132,11 @@ func TestDeprecationMiddlewareEmitsHeadersOnLiveRequest(t *testing.T) {
 // Task 1, closes 07-REVIEW.md WR-04).
 func TestBuildRouterInstallsDeprecationMiddleware(t *testing.T) {
 	source, err := os.ReadFile("router.go")
-	if err != nil {
-		t.Fatalf("os.ReadFile(router.go): %v", err)
-	}
+	require.NoError(t, err, "os.ReadFile(router.go)")
 	text := string(source)
 
 	useMiddlewareIdx := strings.Index(text, "humaAPI.UseMiddleware(")
-	if useMiddlewareIdx < 0 {
-		t.Fatal("expected router.go to contain a humaAPI.UseMiddleware( call")
-	}
+	require.GreaterOrEqual(t, useMiddlewareIdx, 0, "expected router.go to contain a humaAPI.UseMiddleware( call")
 	// Find the matching close paren for the outer UseMiddleware( call by
 	// tracking nesting depth -- a naive first-')' search would stop at the
 	// inner AuthMiddleware(...) call's own close paren instead.
@@ -181,14 +157,10 @@ func TestBuildRouterInstallsDeprecationMiddleware(t *testing.T) {
 			break
 		}
 	}
-	if endIdx < 0 {
-		t.Fatal("expected the humaAPI.UseMiddleware( call to close with a matching ')'")
-	}
+	require.GreaterOrEqual(t, endIdx, 0, "expected the humaAPI.UseMiddleware( call to close with a matching ')'")
 	call := text[useMiddlewareIdx : endIdx+1]
 
 	for _, want := range []string{"AuthMiddleware(", "RateLimitMiddleware(", "DeprecationMiddleware("} {
-		if !strings.Contains(call, want) {
-			t.Fatalf("expected buildRouter's UseMiddleware call to include %s, got: %s", want, call)
-		}
+		require.Contains(t, call, want, "expected buildRouter's UseMiddleware call to include %s, got: %s", want, call)
 	}
 }

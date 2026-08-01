@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/api"
 	"github.com/lnorton89/golc/internal/routecatalog"
 	"github.com/lnorton89/golc/internal/show"
@@ -48,50 +50,32 @@ func TestIdempotencyReplayWithinTTLAppliesOnce(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath, api.WithIdempotencyTTL(time.Hour))
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
 	const key = "idem-key-1"
 
 	first := doIdempotentCreatePoolRequest(t, server.Handler(), token, key, "Alpha")
-	if first.Code < 200 || first.Code >= 300 {
-		t.Fatalf("expected the first request to succeed, got %d (body: %s)", first.Code, first.Body.String())
-	}
+	require.True(t, first.Code >= 200 && first.Code < 300, "expected the first request to succeed, got %d (body: %s)", first.Code, first.Body.String())
 	firstResult, firstRevision := decodeMutationBody(t, first)
-	if firstRevision == nil || *firstRevision != 1 {
-		t.Fatalf("expected the first response revision to be 1, got %v", firstRevision)
-	}
+	require.NotNil(t, firstRevision, "expected the first response revision to be 1, got nil")
+	require.Equal(t, int64(1), *firstRevision, "expected the first response revision to be 1")
 
 	second := doIdempotentCreatePoolRequest(t, server.Handler(), token, key, "Alpha")
-	if second.Code != first.Code {
-		t.Fatalf("expected the replayed request to return the same status %d, got %d", first.Code, second.Code)
-	}
+	require.Equal(t, first.Code, second.Code, "expected the replayed request to return the same status")
 	secondResult, secondRevision := decodeMutationBody(t, second)
-	if secondResult != firstResult {
-		t.Fatalf("expected the replayed response body to match the original: %q vs %q", firstResult, secondResult)
-	}
-	if secondRevision == nil || *secondRevision != 1 {
-		t.Fatalf("expected the replayed response revision to still be 1, got %v", secondRevision)
-	}
+	require.Equal(t, firstResult, secondResult, "expected the replayed response body to match the original")
+	require.NotNil(t, secondRevision, "expected the replayed response revision to still be 1, got nil")
+	require.Equal(t, int64(1), *secondRevision, "expected the replayed response revision to still be 1")
 
 	revision, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision: %v", err)
-	}
-	if revision != 1 {
-		t.Fatalf("expected the real revision to have advanced by exactly 1 (not 2), got %d", revision)
-	}
+	require.NoError(t, err, "CurrentRevision")
+	require.Equal(t, int64(1), revision, "expected the real revision to have advanced by exactly 1 (not 2)")
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
-	if len(state.Pools) != 1 {
-		t.Fatalf("expected exactly one pool (the effect applied exactly once), got %d", len(state.Pools))
-	}
+	require.NoError(t, err, "show.Load")
+	require.Len(t, state.Pools, 1, "expected exactly one pool (the effect applied exactly once)")
 }
 
 // --- TestIdempotencyReExecutesAfterTTLExpires -------------------------------
@@ -103,9 +87,7 @@ func TestIdempotencyReExecutesAfterTTLExpires(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	const shortTTL = 20 * time.Millisecond
 	server := api.NewServer(catalog, root, showPath, api.WithIdempotencyTTL(shortTTL))
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
@@ -113,28 +95,19 @@ func TestIdempotencyReExecutesAfterTTLExpires(t *testing.T) {
 	const key = "idem-key-expiring"
 
 	first := doIdempotentCreatePoolRequest(t, server.Handler(), token, key, "Beta")
-	if first.Code < 200 || first.Code >= 300 {
-		t.Fatalf("expected the first request to succeed, got %d (body: %s)", first.Code, first.Body.String())
-	}
+	require.True(t, first.Code >= 200 && first.Code < 300, "expected the first request to succeed, got %d (body: %s)", first.Code, first.Body.String())
 
 	time.Sleep(shortTTL * 3)
 
 	second := doIdempotentCreatePoolRequest(t, server.Handler(), token, key, "Gamma")
-	if second.Code < 200 || second.Code >= 300 {
-		t.Fatalf("expected the post-TTL request to succeed as a fresh mutation, got %d (body: %s)", second.Code, second.Body.String())
-	}
+	require.True(t, second.Code >= 200 && second.Code < 300, "expected the post-TTL request to succeed as a fresh mutation, got %d (body: %s)", second.Code, second.Body.String())
 	_, secondRevision := decodeMutationBody(t, second)
-	if secondRevision == nil || *secondRevision != 2 {
-		t.Fatalf("expected the post-TTL request to genuinely re-execute (revision 2), got %v", secondRevision)
-	}
+	require.NotNil(t, secondRevision, "expected the post-TTL request to genuinely re-execute (revision 2), got nil")
+	require.Equal(t, int64(2), *secondRevision, "expected the post-TTL request to genuinely re-execute (revision 2)")
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
-	if len(state.Pools) != 2 {
-		t.Fatalf("expected two distinct pools (Beta from the first call, Gamma from the post-TTL re-execution), got %d", len(state.Pools))
-	}
+	require.NoError(t, err, "show.Load")
+	require.Len(t, state.Pools, 2, "expected two distinct pools (Beta from the first call, Gamma from the post-TTL re-execution)")
 }
 
 // --- TestIdempotencyKeyScopedByActor -----------------------------------------
@@ -153,9 +126,7 @@ func TestIdempotencyKeyScopedByActor(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath, api.WithIdempotencyTTL(time.Hour))
 	tokenA, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 	tokenB, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
@@ -163,45 +134,27 @@ func TestIdempotencyKeyScopedByActor(t *testing.T) {
 	const sharedKey = "shared-idem-key"
 
 	recA := doIdempotentCreatePoolRequest(t, server.Handler(), tokenA, sharedKey, "ActorAPool")
-	if recA.Code < 200 || recA.Code >= 300 {
-		t.Fatalf("expected actor A's request to succeed, got %d (body: %s)", recA.Code, recA.Body.String())
-	}
+	require.True(t, recA.Code >= 200 && recA.Code < 300, "expected actor A's request to succeed, got %d (body: %s)", recA.Code, recA.Body.String())
 	resultA, revisionA := decodeMutationBody(t, recA)
-	if revisionA == nil || *revisionA != 1 {
-		t.Fatalf("expected actor A's response revision to be 1, got %v", revisionA)
-	}
+	require.NotNil(t, revisionA, "expected actor A's response revision to be 1, got nil")
+	require.Equal(t, int64(1), *revisionA, "expected actor A's response revision to be 1")
 
 	recB := doIdempotentCreatePoolRequest(t, server.Handler(), tokenB, sharedKey, "ActorBPool")
-	if recB.Code < 200 || recB.Code >= 300 {
-		t.Fatalf("expected actor B's request to succeed, got %d (body: %s)", recB.Code, recB.Body.String())
-	}
+	require.True(t, recB.Code >= 200 && recB.Code < 300, "expected actor B's request to succeed, got %d (body: %s)", recB.Code, recB.Body.String())
 	resultB, revisionB := decodeMutationBody(t, recB)
-	if revisionB == nil || *revisionB != 2 {
-		t.Fatalf("expected actor B's response revision to be 2 (its own mutation, not a replay of actor A's), got %v", revisionB)
-	}
+	require.NotNil(t, revisionB, "expected actor B's response revision to be 2 (its own mutation, not a replay of actor A's), got nil")
+	require.Equal(t, int64(2), *revisionB, "expected actor B's response revision to be 2 (its own mutation, not a replay of actor A's)")
 
-	if resultA == resultB {
-		t.Fatalf("expected distinct result bodies for actor A and actor B, both got %q", resultA)
-	}
-	if *revisionA == *revisionB {
-		t.Fatalf("expected the two actors' reported revisions to differ, both got %d", *revisionA)
-	}
+	require.NotEqual(t, resultA, resultB, "expected distinct result bodies for actor A and actor B")
+	require.NotEqual(t, *revisionA, *revisionB, "expected the two actors' reported revisions to differ")
 
 	revision, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision: %v", err)
-	}
-	if revision != 2 {
-		t.Fatalf("expected the real revision to have advanced by 2 (both actors' mutations applied), got %d", revision)
-	}
+	require.NoError(t, err, "CurrentRevision")
+	require.Equal(t, int64(2), revision, "expected the real revision to have advanced by 2 (both actors' mutations applied)")
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
-	if len(state.Pools) != 2 {
-		t.Fatalf("expected exactly 2 pools (neither actor received the other's cached response), got %d", len(state.Pools))
-	}
+	require.NoError(t, err, "show.Load")
+	require.Len(t, state.Pools, 2, "expected exactly 2 pools (neither actor received the other's cached response)")
 }
 
 // --- TestIdempotencyDifferentKeysIndependent ---------------------------------
@@ -213,26 +166,16 @@ func TestIdempotencyDifferentKeysIndependent(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath, api.WithIdempotencyTTL(time.Hour))
 	token, _ := seedKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAuthoring})
 
 	first := doIdempotentCreatePoolRequest(t, server.Handler(), token, "key-a", "Delta")
-	if first.Code < 200 || first.Code >= 300 {
-		t.Fatalf("expected the first key's request to succeed, got %d (body: %s)", first.Code, first.Body.String())
-	}
+	require.True(t, first.Code >= 200 && first.Code < 300, "expected the first key's request to succeed, got %d (body: %s)", first.Code, first.Body.String())
 	second := doIdempotentCreatePoolRequest(t, server.Handler(), token, "key-b", "Epsilon")
-	if second.Code < 200 || second.Code >= 300 {
-		t.Fatalf("expected the second key's request to succeed, got %d (body: %s)", second.Code, second.Body.String())
-	}
+	require.True(t, second.Code >= 200 && second.Code < 300, "expected the second key's request to succeed, got %d (body: %s)", second.Code, second.Body.String())
 
 	revision, err := show.CurrentRevision(root, showPath)
-	if err != nil {
-		t.Fatalf("CurrentRevision: %v", err)
-	}
-	if revision != 2 {
-		t.Fatalf("expected two independent mutations to advance the revision by 2, got %d", revision)
-	}
+	require.NoError(t, err, "CurrentRevision")
+	require.Equal(t, int64(2), revision, "expected two independent mutations to advance the revision by 2")
 }

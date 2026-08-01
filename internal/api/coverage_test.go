@@ -17,6 +17,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/api"
 	"github.com/lnorton89/golc/internal/routecatalog"
 )
@@ -128,19 +131,13 @@ func buildExcludedRoutes() map[string]string {
 // silently unmapped, and never claimed by both sets at once.
 func TestCapabilityCoverage(t *testing.T) {
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	allRoutes := catalog.Names()
-	if len(allRoutes) == 0 {
-		t.Fatal("expected the real command registry to declare at least one route")
-	}
+	require.NotEmpty(t, allRoutes, "expected the real command registry to declare at least one route")
 
 	covered := map[string]bool{}
 	for _, route := range api.RegisteredRoutes() {
-		if covered[route] {
-			t.Fatalf("route %q is registered more than once in api.RegisteredRoutes()", route)
-		}
+		require.False(t, covered[route], "route %q is registered more than once in api.RegisteredRoutes()", route)
 		covered[route] = true
 	}
 
@@ -159,11 +156,11 @@ func TestCapabilityCoverage(t *testing.T) {
 
 	if len(uncovered) > 0 {
 		sort.Strings(uncovered)
-		t.Fatalf("routes present in neither api.RegisteredRoutes() nor the exclusion set: %v", uncovered)
+		require.Empty(t, uncovered, "routes present in neither api.RegisteredRoutes() nor the exclusion set")
 	}
 	if len(doubleMapped) > 0 {
 		sort.Strings(doubleMapped)
-		t.Fatalf("routes present in both api.RegisteredRoutes() and the exclusion set: %v", doubleMapped)
+		require.Empty(t, doubleMapped, "routes present in both api.RegisteredRoutes() and the exclusion set")
 	}
 
 	// Every excluded entry must name a route the real registry actually
@@ -182,7 +179,7 @@ func TestCapabilityCoverage(t *testing.T) {
 	}
 	if len(staleExclusions) > 0 {
 		sort.Strings(staleExclusions)
-		t.Fatalf("excludedRoutes names routes the live registry no longer declares: %v", staleExclusions)
+		require.Empty(t, staleExclusions, "excludedRoutes names routes the live registry no longer declares")
 	}
 }
 
@@ -202,21 +199,16 @@ func TestNoPendingRoutes(t *testing.T) {
 	placeholderMarkers := []string{"pending", "todo", "fixme", "tbd"}
 	for route, reason := range excludedRoutes {
 		trimmed := strings.TrimSpace(reason)
-		if trimmed == "" {
-			t.Errorf("route %q has a blank exclusion reason", route)
+		if !assert.NotEmpty(t, trimmed, "route %q has a blank exclusion reason", route) {
 			continue
 		}
 		lower := strings.ToLower(trimmed)
 		for _, marker := range placeholderMarkers {
-			if strings.Contains(lower, marker) {
-				t.Errorf("route %q's exclusion reason looks like an unfinished placeholder (%q): %q", route, marker, reason)
-			}
+			assert.NotContains(t, lower, marker, "route %q's exclusion reason looks like an unfinished placeholder (%q): %q", route, marker, reason)
 		}
 	}
 
-	if len(knownReasons) == 0 {
-		t.Fatal("expected at least one distinct, named exclusion category")
-	}
+	require.NotEmpty(t, knownReasons, "expected at least one distinct, named exclusion category")
 }
 
 // TestFutureWorkExclusionsNameDeferralOwner proves the four non-permanent
@@ -237,12 +229,8 @@ func TestFutureWorkExclusionsNameDeferralOwner(t *testing.T) {
 	}
 	for category, route := range deferredSamples {
 		reason, ok := excludedRoutes[route]
-		if !ok {
-			t.Fatalf("category %q: route %q not present in excludedRoutes -- update the sample route", category, route)
-		}
-		if !strings.Contains(reason, "EXTN-05") {
-			t.Errorf("category %q (sampled via route %q) lost its EXTN-05 deferral pointer: %q", category, route, reason)
-		}
+		require.True(t, ok, "category %q: route %q not present in excludedRoutes -- update the sample route", category, route)
+		assert.Contains(t, reason, "EXTN-05", "category %q (sampled via route %q) lost its EXTN-05 deferral pointer: %q", category, route, reason)
 	}
 
 	permanentSamples := map[string]string{
@@ -251,11 +239,7 @@ func TestFutureWorkExclusionsNameDeferralOwner(t *testing.T) {
 	}
 	for category, route := range permanentSamples {
 		reason, ok := excludedRoutes[route]
-		if !ok {
-			t.Fatalf("category %q: route %q not present in excludedRoutes -- update the sample route", category, route)
-		}
-		if strings.Contains(reason, "EXTN-05") {
-			t.Errorf("category %q (sampled via route %q) incorrectly claims a deferral owner; permanent categories must not: %q", category, route, reason)
-		}
+		require.True(t, ok, "category %q: route %q not present in excludedRoutes -- update the sample route", category, route)
+		assert.NotContains(t, reason, "EXTN-05", "category %q (sampled via route %q) incorrectly claims a deferral owner; permanent categories must not: %q", category, route, reason)
 	}
 }

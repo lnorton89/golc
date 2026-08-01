@@ -16,9 +16,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/api"
 	"github.com/lnorton89/golc/internal/routecatalog"
@@ -32,12 +33,9 @@ import (
 func seedAPIKey(t *testing.T, root, showPath string, scopes []show.APIKeyScope, ttl time.Duration) string {
 	t.Helper()
 	generated, err := show.GenerateAPIKey()
-	if err != nil {
-		t.Fatalf("GenerateAPIKey: %v", err)
-	}
-	if _, err := show.InsertAPIKey(root, showPath, generated, scopes, time.Now().UTC().Add(ttl)); err != nil {
-		t.Fatalf("InsertAPIKey: %v", err)
-	}
+	require.NoError(t, err, "GenerateAPIKey")
+	_, err = show.InsertAPIKey(root, showPath, generated, scopes, time.Now().UTC().Add(ttl))
+	require.NoError(t, err, "InsertAPIKey")
 	return generated.RawToken
 }
 
@@ -58,9 +56,7 @@ func doAuthedRequest(t *testing.T, handler http.Handler, method, target, token s
 func doAuthedJSONRequest(t *testing.T, handler http.Handler, method, target, token string, body any) *httptest.ResponseRecorder {
 	t.Helper()
 	payload, err := json.Marshal(body)
-	if err != nil {
-		t.Fatalf("json.Marshal request body: %v", err)
-	}
+	require.NoError(t, err, "json.Marshal request body")
 	req := httptest.NewRequest(method, target, bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	if token != "" {
@@ -84,36 +80,23 @@ func TestAuthRejectsMissingUnknownExpiredAndRevokedKeys(t *testing.T) {
 	server := api.NewServer(stub, root, showPath)
 
 	noHeader := doAuthedRequest(t, server.Handler(), http.MethodGet, "/v1/show", "")
-	if noHeader.Code != http.StatusUnauthorized {
-		t.Fatalf("expected 401 with no Authorization header, got %d (body: %s)", noHeader.Code, noHeader.Body.String())
-	}
+	require.Equal(t, http.StatusUnauthorized, noHeader.Code, "expected 401 with no Authorization header (body: %s)", noHeader.Body.String())
 
 	unknown := doAuthedRequest(t, server.Handler(), http.MethodGet, "/v1/show", "totally-unknown-token-value")
-	if unknown.Code != http.StatusUnauthorized {
-		t.Fatalf("expected 401 for an unknown token, got %d (body: %s)", unknown.Code, unknown.Body.String())
-	}
+	require.Equal(t, http.StatusUnauthorized, unknown.Code, "expected 401 for an unknown token (body: %s)", unknown.Body.String())
 
 	expiredToken := seedAPIKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopePlayback}, -time.Hour)
 	expired := doAuthedRequest(t, server.Handler(), http.MethodGet, "/v1/show", expiredToken)
-	if expired.Code != http.StatusUnauthorized {
-		t.Fatalf("expected 401 for an expired key, got %d (body: %s)", expired.Code, expired.Body.String())
-	}
+	require.Equal(t, http.StatusUnauthorized, expired.Code, "expected 401 for an expired key (body: %s)", expired.Body.String())
 
 	generated, err := show.GenerateAPIKey()
-	if err != nil {
-		t.Fatalf("GenerateAPIKey: %v", err)
-	}
+	require.NoError(t, err, "GenerateAPIKey")
 	key, err := show.InsertAPIKey(root, showPath, generated, []show.APIKeyScope{show.APIKeyScopePlayback}, time.Now().UTC().Add(time.Hour))
-	if err != nil {
-		t.Fatalf("InsertAPIKey: %v", err)
-	}
-	if err := show.RevokeAPIKey(root, showPath, key.KeyID); err != nil {
-		t.Fatalf("RevokeAPIKey: %v", err)
-	}
+	require.NoError(t, err, "InsertAPIKey")
+	err = show.RevokeAPIKey(root, showPath, key.KeyID)
+	require.NoError(t, err, "RevokeAPIKey")
 	revoked := doAuthedRequest(t, server.Handler(), http.MethodGet, "/v1/show", generated.RawToken)
-	if revoked.Code != http.StatusUnauthorized {
-		t.Fatalf("expected 401 for a revoked key, got %d (body: %s)", revoked.Code, revoked.Body.String())
-	}
+	require.Equal(t, http.StatusUnauthorized, revoked.Code, "expected 401 for a revoked key (body: %s)", revoked.Body.String())
 }
 
 // TestAuthValidKeyProceeds proves a valid, non-expired, non-revoked key
@@ -126,9 +109,7 @@ func TestAuthValidKeyProceeds(t *testing.T) {
 
 	token := seedAPIKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopePlayback}, time.Hour)
 	rec := doAuthedRequest(t, server.Handler(), http.MethodGet, "/v1/show", token)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 for a valid key, got %d (body: %s)", rec.Code, rec.Body.String())
-	}
+	require.Equal(t, http.StatusOK, rec.Code, "expected 200 for a valid key (body: %s)", rec.Body.String())
 }
 
 // --- TestRateLimit -----------------------------------------------------
@@ -146,18 +127,12 @@ func TestRateLimitPerKeyIndependent(t *testing.T) {
 	tokenB := seedAPIKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopePlayback}, time.Hour)
 
 	first := doAuthedRequest(t, server.Handler(), http.MethodGet, "/v1/show", tokenA)
-	if first.Code != http.StatusOK {
-		t.Fatalf("expected the first request from key A to succeed, got %d (body: %s)", first.Code, first.Body.String())
-	}
+	require.Equal(t, http.StatusOK, first.Code, "expected the first request from key A to succeed (body: %s)", first.Body.String())
 	second := doAuthedRequest(t, server.Handler(), http.MethodGet, "/v1/show", tokenA)
-	if second.Code != http.StatusTooManyRequests {
-		t.Fatalf("expected the second request from key A (over burst=1) to be rate limited, got %d (body: %s)", second.Code, second.Body.String())
-	}
+	require.Equal(t, http.StatusTooManyRequests, second.Code, "expected the second request from key A (over burst=1) to be rate limited (body: %s)", second.Body.String())
 
 	other := doAuthedRequest(t, server.Handler(), http.MethodGet, "/v1/show", tokenB)
-	if other.Code != http.StatusOK {
-		t.Fatalf("expected key B's independent bucket to allow its first request, got %d (body: %s)", other.Code, other.Body.String())
-	}
+	require.Equal(t, http.StatusOK, other.Code, "expected key B's independent bucket to allow its first request (body: %s)", other.Body.String())
 }
 
 // --- TestKeysREST --------------------------------------------------------
@@ -172,9 +147,7 @@ func TestKeysRESTMintRequiresAdminListsAndRevokes(t *testing.T) {
 	root := t.TempDir()
 	showPath := "show.golc"
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	server := api.NewServer(catalog, root, showPath)
 
 	adminToken := seedAPIKey(t, root, showPath, []show.APIKeyScope{show.APIKeyScopeAdmin}, time.Hour)
@@ -183,52 +156,34 @@ func TestKeysRESTMintRequiresAdminListsAndRevokes(t *testing.T) {
 	mintBody := map[string]any{"scopes": []string{"authoring"}, "expires_in": "1h"}
 
 	forbidden := doAuthedJSONRequest(t, server.Handler(), http.MethodPost, "/v1/keys", playbackToken, mintBody)
-	if forbidden.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 minting with a non-admin key, got %d (body: %s)", forbidden.Code, forbidden.Body.String())
-	}
+	require.Equal(t, http.StatusForbidden, forbidden.Code, "expected 403 minting with a non-admin key (body: %s)", forbidden.Body.String())
 
 	minted := doAuthedJSONRequest(t, server.Handler(), http.MethodPost, "/v1/keys", adminToken, mintBody)
-	if minted.Code < 200 || minted.Code >= 300 {
-		t.Fatalf("expected a 2xx minting with an admin key, got %d (body: %s)", minted.Code, minted.Body.String())
-	}
+	require.True(t, minted.Code >= 200 && minted.Code < 300, "expected a 2xx minting with an admin key, got %d (body: %s)", minted.Code, minted.Body.String())
 	var mintedView struct {
 		ID       string `json:"id"`
 		RawToken string `json:"raw_token"`
 	}
-	if err := json.Unmarshal(minted.Body.Bytes(), &mintedView); err != nil {
-		t.Fatalf("unmarshal mint response: %v", err)
-	}
-	if mintedView.ID == "" || mintedView.RawToken == "" {
-		t.Fatalf("expected a non-empty id and raw_token in the mint response, got: %s", minted.Body.String())
-	}
+	err = json.Unmarshal(minted.Body.Bytes(), &mintedView)
+	require.NoError(t, err, "unmarshal mint response")
+	require.NotEmpty(t, mintedView.ID, "expected a non-empty id in the mint response, got: %s", minted.Body.String())
+	require.NotEmpty(t, mintedView.RawToken, "expected a non-empty raw_token in the mint response, got: %s", minted.Body.String())
 
 	listed := doAuthedRequest(t, server.Handler(), http.MethodGet, "/v1/keys", adminToken)
-	if listed.Code != http.StatusOK {
-		t.Fatalf("expected 200 listing keys, got %d (body: %s)", listed.Code, listed.Body.String())
-	}
-	if strings.Contains(listed.Body.String(), mintedView.RawToken) {
-		t.Fatalf("expected the list response to never contain a raw token, got: %s", listed.Body.String())
-	}
+	require.Equal(t, http.StatusOK, listed.Code, "expected 200 listing keys (body: %s)", listed.Body.String())
+	require.NotContains(t, listed.Body.String(), mintedView.RawToken, "expected the list response to never contain a raw token")
 
 	revoked := doAuthedRequest(t, server.Handler(), http.MethodDelete, "/v1/keys/"+mintedView.ID, adminToken)
-	if revoked.Code != http.StatusOK {
-		t.Fatalf("expected 200 revoking a key, got %d (body: %s)", revoked.Code, revoked.Body.String())
-	}
+	require.Equal(t, http.StatusOK, revoked.Code, "expected 200 revoking a key (body: %s)", revoked.Body.String())
 
 	keys, err := show.ListAPIKeys(root, showPath)
-	if err != nil {
-		t.Fatalf("ListAPIKeys: %v", err)
-	}
+	require.NoError(t, err, "ListAPIKeys")
 	var foundMinted bool
 	for _, key := range keys {
 		if key.KeyID == mintedView.ID {
 			foundMinted = true
-			if key.RevokedAt.IsZero() {
-				t.Fatalf("expected the minted key %q to be revoked after DELETE /v1/keys/%s", key.KeyID, mintedView.ID)
-			}
+			require.False(t, key.RevokedAt.IsZero(), "expected the minted key %q to be revoked after DELETE /v1/keys/%s", key.KeyID, mintedView.ID)
 		}
 	}
-	if !foundMinted {
-		t.Fatalf("expected to find the minted key %q via ListAPIKeys", mintedView.ID)
-	}
+	require.True(t, foundMinted, "expected to find the minted key %q via ListAPIKeys", mintedView.ID)
 }

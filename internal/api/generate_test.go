@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/danielgtaylor/huma/v2"
 )
 
@@ -15,22 +18,13 @@ import (
 // against the same registered operations produce byte-identical output.
 func TestOpenAPIDeterministic(t *testing.T) {
 	first, err := renderOpenAPI()
-	if err != nil {
-		t.Fatalf("renderOpenAPI (first): %v", err)
-	}
+	require.NoError(t, err, "renderOpenAPI (first)")
 	second, err := renderOpenAPI()
-	if err != nil {
-		t.Fatalf("renderOpenAPI (second): %v", err)
-	}
-	if !bytes.Equal(first, second) {
-		t.Fatalf("expected two generations to be byte-identical, got %d bytes vs %d bytes", len(first), len(second))
-	}
-	if len(first) == 0 {
-		t.Fatal("expected non-empty generated output")
-	}
-	if first[len(first)-1] != '\n' || bytes.Contains(first, []byte("\r\n")) {
-		t.Fatalf("expected LF-only output ending with exactly one trailing newline, got %q", first[max(0, len(first)-20):])
-	}
+	require.NoError(t, err, "renderOpenAPI (second)")
+	require.Equal(t, first, second, "expected two generations to be byte-identical")
+	require.NotEmpty(t, first, "expected non-empty generated output")
+	require.True(t, first[len(first)-1] == '\n' && !bytes.Contains(first, []byte("\r\n")),
+		"expected LF-only output ending with exactly one trailing newline, got %q", first[max(0, len(first)-20):])
 }
 
 // TestOpenAPIDrift proves CheckOpenAPIDrift's own read-only, never-
@@ -41,48 +35,27 @@ func TestOpenAPIDrift(t *testing.T) {
 	root := t.TempDir()
 
 	changed, err := CheckOpenAPIDrift(root)
-	if err != nil {
-		t.Fatalf("CheckOpenAPIDrift (missing file): %v", err)
-	}
-	if len(changed) != 1 || changed[0] != openAPIOutputPath {
-		t.Fatalf("expected drift for a never-committed %s, got %v", openAPIOutputPath, changed)
-	}
-	if _, statErr := os.Stat(filepath.Join(root, filepath.FromSlash(openAPIOutputPath))); statErr == nil {
-		t.Fatal("CheckOpenAPIDrift must never write the committed file, but it now exists")
-	}
+	require.NoError(t, err, "CheckOpenAPIDrift (missing file)")
+	require.Equal(t, []string{openAPIOutputPath}, changed, "expected drift for a never-committed %s", openAPIOutputPath)
+	_, statErr := os.Stat(filepath.Join(root, filepath.FromSlash(openAPIOutputPath)))
+	require.Error(t, statErr, "CheckOpenAPIDrift must never write the committed file, but it now exists")
 
-	if err := GenerateOpenAPI(root); err != nil {
-		t.Fatalf("GenerateOpenAPI: %v", err)
-	}
+	require.NoError(t, GenerateOpenAPI(root), "GenerateOpenAPI")
 
 	changed, err = CheckOpenAPIDrift(root)
-	if err != nil {
-		t.Fatalf("CheckOpenAPIDrift (in sync): %v", err)
-	}
-	if len(changed) != 0 {
-		t.Fatalf("expected no drift immediately after GenerateOpenAPI, got %v", changed)
-	}
+	require.NoError(t, err, "CheckOpenAPIDrift (in sync)")
+	require.Empty(t, changed, "expected no drift immediately after GenerateOpenAPI")
 
 	// Corrupt the committed file and confirm drift is detected again,
 	// without CheckOpenAPIDrift silently repairing it.
 	committedPath := filepath.Join(root, filepath.FromSlash(openAPIOutputPath))
-	if err := os.WriteFile(committedPath, []byte("{}\n"), 0o644); err != nil {
-		t.Fatalf("corrupt committed file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(committedPath, []byte("{}\n"), 0o644), "corrupt committed file")
 	changed, err = CheckOpenAPIDrift(root)
-	if err != nil {
-		t.Fatalf("CheckOpenAPIDrift (drifted): %v", err)
-	}
-	if len(changed) != 1 || changed[0] != openAPIOutputPath {
-		t.Fatalf("expected drift after corrupting the committed file, got %v", changed)
-	}
+	require.NoError(t, err, "CheckOpenAPIDrift (drifted)")
+	require.Equal(t, []string{openAPIOutputPath}, changed, "expected drift after corrupting the committed file")
 	corrupted, readErr := os.ReadFile(committedPath)
-	if readErr != nil {
-		t.Fatalf("read corrupted file back: %v", readErr)
-	}
-	if string(corrupted) != "{}\n" {
-		t.Fatalf("CheckOpenAPIDrift must never rewrite the committed file even when it drifted, got %q", corrupted)
-	}
+	require.NoError(t, readErr, "read corrupted file back")
+	require.Equal(t, "{}\n", string(corrupted), "CheckOpenAPIDrift must never rewrite the committed file even when it drifted")
 }
 
 // TestOpenAPIDocumentsEveryOperation proves the generated document covers
@@ -92,12 +65,8 @@ func TestOpenAPIDrift(t *testing.T) {
 func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 	doc := buildOpenAPIDocument()
 
-	if len(operationRegistrations) == 0 {
-		t.Fatal("expected at least one self-registered operation to generate against")
-	}
-	if len(doc.Paths) == 0 {
-		t.Fatal("expected the generated document to declare at least one path")
-	}
+	require.NotEmpty(t, operationRegistrations, "expected at least one self-registered operation to generate against")
+	require.NotEmpty(t, doc.Paths, "expected the generated document to declare at least one path")
 
 	wantPaths := []string{
 		apiPathPrefix + "/config/{concern}",
@@ -108,19 +77,15 @@ func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 		apiPathPrefix + "/events",
 	}
 	for _, path := range wantPaths {
-		if _, ok := doc.Paths[path]; !ok {
-			t.Errorf("expected the generated document to declare path %q, got paths: %v", path, pathKeys(doc.Paths))
-		}
+		assert.Contains(t, doc.Paths, path, "expected the generated document to declare path %q, got paths: %v", path, pathKeys(doc.Paths))
 	}
 
 	wantErrorCodes := []string{"400", "401", "403", "412", "429"}
 	for path, item := range doc.Paths {
 		for _, op := range pathItemOperations(item) {
 			for _, code := range wantErrorCodes {
-				if _, ok := op.Responses[code]; !ok {
-					t.Errorf("expected operation %q (%s) to declare a %s response, got responses: %v",
-						op.OperationID, path, code, responseKeys(op.Responses))
-				}
+				assert.Contains(t, op.Responses, code, "expected operation %q (%s) to declare a %s response, got responses: %v",
+					op.OperationID, path, code, responseKeys(op.Responses))
 			}
 		}
 	}
@@ -130,27 +95,15 @@ func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 // self-identifying as generated (never mistaken for hand-authored input).
 func TestOpenAPIGeneratedMarker(t *testing.T) {
 	doc := buildOpenAPIDocument()
-	if doc.Extensions["x-generated"] != openAPIGeneratedMarker {
-		t.Fatalf("expected x-generated extension %q, got %v", openAPIGeneratedMarker, doc.Extensions["x-generated"])
-	}
-	if doc.Info.Description != openAPIGeneratedMarker {
-		t.Fatalf("expected Info.Description %q, got %q", openAPIGeneratedMarker, doc.Info.Description)
-	}
+	require.Equal(t, openAPIGeneratedMarker, doc.Extensions["x-generated"])
+	require.Equal(t, openAPIGeneratedMarker, doc.Info.Description)
 
 	payload, err := renderOpenAPI()
-	if err != nil {
-		t.Fatalf("renderOpenAPI: %v", err)
-	}
+	require.NoError(t, err, "renderOpenAPI")
 	var decoded map[string]any
-	if err := json.Unmarshal(payload, &decoded); err != nil {
-		t.Fatalf("expected valid JSON output: %v", err)
-	}
-	if decoded["x-generated"] != openAPIGeneratedMarker {
-		t.Fatalf("expected serialized document to carry x-generated marker, got %v", decoded["x-generated"])
-	}
-	if decoded["openapi"] == nil {
-		t.Fatal("expected a top-level \"openapi\" version field (OpenAPI 3.1 document)")
-	}
+	require.NoError(t, json.Unmarshal(payload, &decoded), "expected valid JSON output")
+	require.Equal(t, openAPIGeneratedMarker, decoded["x-generated"])
+	require.NotNil(t, decoded["openapi"], "expected a top-level \"openapi\" version field (OpenAPI 3.1 document)")
 }
 
 func pathKeys(paths map[string]*huma.PathItem) []string {

@@ -25,6 +25,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/api"
 	"github.com/lnorton89/golc/internal/routecatalog"
 	"github.com/lnorton89/golc/internal/show"
@@ -39,9 +41,7 @@ func newKeysTestServer(t *testing.T) (server *api.Server, root, showPath string)
 	root = t.TempDir()
 	showPath = filepath.Join(root, "show.golc")
 	catalog, err := routecatalog.New()
-	if err != nil {
-		t.Fatalf("routecatalog.New: %v", err)
-	}
+	require.NoError(t, err, "routecatalog.New")
 	return api.NewServer(catalog, root, showPath), root, showPath
 }
 
@@ -68,9 +68,8 @@ func decodeProblemDetail(t *testing.T, rec *httptest.ResponseRecorder) string {
 	var decoded struct {
 		Detail string `json:"detail"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &decoded); err != nil {
-		t.Fatalf("decode problem detail %q: %v", rec.Body.String(), err)
-	}
+	err := json.Unmarshal(rec.Body.Bytes(), &decoded)
+	require.NoError(t, err, "decode problem detail %q", rec.Body.String())
 	return decoded.Detail
 }
 
@@ -80,12 +79,8 @@ func decodeProblemDetail(t *testing.T, rec *httptest.ResponseRecorder) string {
 func requireAPIKeyCount(t *testing.T, root, showPath string, want int) {
 	t.Helper()
 	keys, err := show.ListAPIKeys(root, showPath)
-	if err != nil {
-		t.Fatalf("ListAPIKeys: %v", err)
-	}
-	if len(keys) != want {
-		t.Fatalf("expected exactly %d api key(s), got %d: %+v", want, len(keys), keys)
-	}
+	require.NoError(t, err, "ListAPIKeys")
+	require.Len(t, keys, want, "%+v", keys)
 }
 
 // TestMintKeyRejectsLifetimeBeyondBound proves an expires_in beyond
@@ -98,12 +93,9 @@ func TestMintKeyRejectsLifetimeBeyondBound(t *testing.T) {
 	requireAPIKeyCount(t, root, showPath, 1) // the seeded admin key itself
 
 	rec := doMintKeyRequest(t, handler, token, []string{"authoring"}, "8761h")
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
-	}
-	if detail := decodeProblemDetail(t, rec); !containsDiagnostic(detail, "GOLC_API_KEY_LIFETIME_TOO_LONG") {
-		t.Fatalf("expected GOLC_API_KEY_LIFETIME_TOO_LONG diagnostic, got %q", detail)
-	}
+	require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+	detail := decodeProblemDetail(t, rec)
+	require.True(t, containsDiagnostic(detail, "GOLC_API_KEY_LIFETIME_TOO_LONG"), "expected GOLC_API_KEY_LIFETIME_TOO_LONG diagnostic, got %q", detail)
 	requireAPIKeyCount(t, root, showPath, 1) // unchanged: nothing minted
 }
 
@@ -117,12 +109,8 @@ func TestMintKeyAcceptsLifetimeWithinBound(t *testing.T) {
 	requireAPIKeyCount(t, root, showPath, 1)
 
 	rec := doMintKeyRequest(t, handler, token, []string{"authoring"}, "720h")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-	if !containsDiagnostic(rec.Body.String(), "raw_token") {
-		t.Fatalf("expected the mint response to carry a raw_token field, got %q", rec.Body.String())
-	}
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.True(t, containsDiagnostic(rec.Body.String(), "raw_token"), "expected the mint response to carry a raw_token field, got %q", rec.Body.String())
 	requireAPIKeyCount(t, root, showPath, 2) // the seeded key plus the new mint
 }
 
@@ -136,12 +124,9 @@ func TestMintKeyRejectsCommaInScopes(t *testing.T) {
 	requireAPIKeyCount(t, root, showPath, 1)
 
 	rec := doMintKeyRequest(t, handler, token, []string{"authoring,admin"}, "720h")
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
-	}
-	if detail := decodeProblemDetail(t, rec); !containsDiagnostic(detail, "GOLC_API_LIST_VALUE_INVALID") {
-		t.Fatalf("expected GOLC_API_LIST_VALUE_INVALID diagnostic, got %q", detail)
-	}
+	require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+	detail := decodeProblemDetail(t, rec)
+	require.True(t, containsDiagnostic(detail, "GOLC_API_LIST_VALUE_INVALID"), "expected GOLC_API_LIST_VALUE_INVALID diagnostic, got %q", detail)
 	requireAPIKeyCount(t, root, showPath, 1)
 }
 
@@ -159,16 +144,10 @@ func TestMintKeyMalformedLifetimeUsesDownstreamDiagnostic(t *testing.T) {
 	requireAPIKeyCount(t, root, showPath, 1)
 
 	rec := doMintKeyRequest(t, handler, token, []string{"authoring"}, "not-a-duration")
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
-	}
+	require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 	detail := decodeProblemDetail(t, rec)
-	if !containsDiagnostic(detail, "GOLC_APIKEY_USAGE") {
-		t.Fatalf("expected the existing downstream GOLC_APIKEY_USAGE diagnostic, got %q", detail)
-	}
-	if containsDiagnostic(detail, "GOLC_API_KEY_LIFETIME_TOO_LONG") {
-		t.Fatalf("expected the boundary check NOT to intercept a malformed duration, got %q", detail)
-	}
+	require.True(t, containsDiagnostic(detail, "GOLC_APIKEY_USAGE"), "expected the existing downstream GOLC_APIKEY_USAGE diagnostic, got %q", detail)
+	require.False(t, containsDiagnostic(detail, "GOLC_API_KEY_LIFETIME_TOO_LONG"), "expected the boundary check NOT to intercept a malformed duration, got %q", detail)
 	requireAPIKeyCount(t, root, showPath, 1)
 }
 
