@@ -14,8 +14,9 @@ import (
 	"bytes"
 	"errors"
 	"os"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/strictjson"
 )
@@ -28,20 +29,18 @@ import (
 func seedRawShow(t *testing.T, root, path string, schemaVersion int, blob []byte) {
 	t.Helper()
 	db, err := openStore(root, path)
+	require.NoError(t, err, "openStore")
+	_, err = db.Exec(`UPDATE show_meta SET schema_version = ?, revision = 1, checksum = '', updated_at = '2026-01-01T00:00:00Z' WHERE id = 1`, schemaVersion)
 	if err != nil {
-		t.Fatalf("openStore: %v", err)
-	}
-	if _, err := db.Exec(`UPDATE show_meta SET schema_version = ?, revision = 1, checksum = '', updated_at = '2026-01-01T00:00:00Z' WHERE id = 1`, schemaVersion); err != nil {
 		checkpointAndClose(db)
-		t.Fatalf("seeding show_meta: %v", err)
+		require.NoError(t, err, "seeding show_meta")
 	}
-	if _, err := db.Exec(`UPDATE show_state SET blob = ? WHERE id = 1`, blob); err != nil {
+	_, err = db.Exec(`UPDATE show_state SET blob = ? WHERE id = 1`, blob)
+	if err != nil {
 		checkpointAndClose(db)
-		t.Fatalf("seeding show_state: %v", err)
+		require.NoError(t, err, "seeding show_state")
 	}
-	if err := checkpointAndClose(db); err != nil {
-		t.Fatalf("closing seeded store: %v", err)
-	}
+	require.NoError(t, checkpointAndClose(db), "closing seeded store")
 }
 
 // fixturePayload encodes buildNonTrivialState(t) with SchemaVersion
@@ -51,9 +50,7 @@ func fixturePayload(t *testing.T, version int) []byte {
 	fixture := buildNonTrivialState(t)
 	fixture.SchemaVersion = version
 	payload, err := strictjson.CanonicalEncode(fixture)
-	if err != nil {
-		t.Fatalf("CanonicalEncode: %v", err)
-	}
+	require.NoError(t, err, "CanonicalEncode")
 	return payload
 }
 
@@ -87,26 +84,14 @@ func TestMigrateAppliesRegisteredTransforms(t *testing.T) {
 	calls := registerIdentityMigration(t)
 
 	backupPath, err := Migrate(root, path)
-	if err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
-	if backupPath == "" {
-		t.Fatalf("expected a non-empty backupPath")
-	}
-	if *calls != 1 {
-		t.Fatalf("expected the registered migration to run exactly once, ran %d times", *calls)
-	}
+	require.NoError(t, err, "Migrate")
+	require.NotEmpty(t, backupPath, "expected a non-empty backupPath")
+	require.Equal(t, 1, *calls, "expected the registered migration to run exactly once")
 
 	migrated, err := Load(root, path)
-	if err != nil {
-		t.Fatalf("Load after migration: %v", err)
-	}
-	if migrated.SchemaVersion != SchemaVersion {
-		t.Fatalf("expected schema_version %d after migration, got %d", SchemaVersion, migrated.SchemaVersion)
-	}
-	if err := validate(migrated); err != nil {
-		t.Fatalf("migrated State failed validate(): %v", err)
-	}
+	require.NoError(t, err, "Load after migration")
+	require.Equal(t, SchemaVersion, migrated.SchemaVersion, "expected schema_version after migration")
+	require.NoError(t, validate(migrated), "migrated State failed validate()")
 }
 
 // TestMigrateAppliesOperatorSurfacesAdditiveMigration proves 06-01-PLAN.md
@@ -124,26 +109,14 @@ func TestMigrateAppliesOperatorSurfacesAdditiveMigration(t *testing.T) {
 	seedRawShow(t, root, path, 1, fixturePayload(t, 1))
 
 	backupPath, err := Migrate(root, path)
-	if err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
-	if backupPath == "" {
-		t.Fatalf("expected a non-empty backupPath")
-	}
+	require.NoError(t, err, "Migrate")
+	require.NotEmpty(t, backupPath, "expected a non-empty backupPath")
 
 	migrated, err := Load(root, path)
-	if err != nil {
-		t.Fatalf("Load after migration: %v", err)
-	}
-	if migrated.SchemaVersion != SchemaVersion {
-		t.Fatalf("expected schema_version %d after migration, got %d", SchemaVersion, migrated.SchemaVersion)
-	}
-	if len(migrated.OperatorSurfaces) != 0 {
-		t.Fatalf("expected a pre-field v1 blob to migrate with an empty OperatorSurfaces slice, got %+v", migrated.OperatorSurfaces)
-	}
-	if err := validate(migrated); err != nil {
-		t.Fatalf("migrated State failed validate(): %v", err)
-	}
+	require.NoError(t, err, "Load after migration")
+	require.Equal(t, SchemaVersion, migrated.SchemaVersion, "expected schema_version after migration")
+	require.Empty(t, migrated.OperatorSurfaces, "expected a pre-field v1 blob to migrate with an empty OperatorSurfaces slice, got %+v", migrated.OperatorSurfaces)
+	require.NoError(t, validate(migrated), "migrated State failed validate()")
 }
 
 // TestMigrateProducesVerifiedBackup proves Migrate's backup itself
@@ -157,13 +130,9 @@ func TestMigrateProducesVerifiedBackup(t *testing.T) {
 	registerIdentityMigration(t)
 
 	backupPath, err := Migrate(root, path)
-	if err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
+	require.NoError(t, err, "Migrate")
 
-	if err := verifyBackupReadBack(root, backupPath); err != nil {
-		t.Fatalf("backup produced by Migrate did not itself pass read-back-and-validate: %v", err)
-	}
+	require.NoError(t, verifyBackupReadBack(root, backupPath), "backup produced by Migrate did not itself pass read-back-and-validate")
 }
 
 // TestMigrateRefusesNewerFormat proves D-10: a schema_version newer than
@@ -178,26 +147,16 @@ func TestMigrateRefusesNewerFormat(t *testing.T) {
 
 	resolved := resolvePath(root, path)
 	before, err := os.ReadFile(resolved)
-	if err != nil {
-		t.Fatalf("reading fixture bytes: %v", err)
-	}
+	require.NoError(t, err, "reading fixture bytes")
 
 	_, migrateErr := Migrate(root, path)
 	var tooNew ErrSchemaTooNew
-	if !errors.As(migrateErr, &tooNew) {
-		t.Fatalf("expected ErrSchemaTooNew, got %v", migrateErr)
-	}
-	if tooNew.Found != newer || tooNew.Supported != SchemaVersion {
-		t.Fatalf("expected ErrSchemaTooNew{Found: %d, Supported: %d}, got %+v", newer, SchemaVersion, tooNew)
-	}
+	require.ErrorAs(t, migrateErr, &tooNew, "expected ErrSchemaTooNew")
+	require.Equal(t, ErrSchemaTooNew{Found: newer, Supported: SchemaVersion}, tooNew)
 
 	after, err := os.ReadFile(resolved)
-	if err != nil {
-		t.Fatalf("re-reading fixture bytes: %v", err)
-	}
-	if !bytes.Equal(before, after) {
-		t.Fatalf("Migrate rewrote a newer-than-supported file; expected byte-for-byte unchanged")
-	}
+	require.NoError(t, err, "re-reading fixture bytes")
+	require.True(t, bytes.Equal(before, after), "Migrate rewrote a newer-than-supported file; expected byte-for-byte unchanged")
 }
 
 // TestMigrateBoundsChecksVersion proves T-05-02: an out-of-range on-disk
@@ -226,19 +185,10 @@ func TestMigrateBoundsChecksVersion(t *testing.T) {
 			t.Cleanup(func() { delete(migrations, tc.version) })
 
 			_, err := Migrate(root, path)
-			if err == nil {
-				t.Fatalf("expected an error for out-of-range schema_version %d, got nil", tc.version)
-			}
-			if !strings.Contains(err.Error(), "GOLC_SHOW_STATE_INVALID") {
-				t.Fatalf("expected GOLC_SHOW_STATE_INVALID, got %v", err)
-			}
+			require.ErrorContains(t, err, "GOLC_SHOW_STATE_INVALID", "expected an error for out-of-range schema_version %d", tc.version)
 			var tooNew ErrSchemaTooNew
-			if errors.As(err, &tooNew) {
-				t.Fatalf("expected GOLC_SHOW_STATE_INVALID, not ErrSchemaTooNew, for out-of-range schema_version %d", tc.version)
-			}
-			if calls != 0 {
-				t.Fatalf("expected the out-of-range schema_version to never index the migration registry, but it was called %d times", calls)
-			}
+			require.False(t, errors.As(err, &tooNew), "expected GOLC_SHOW_STATE_INVALID, not ErrSchemaTooNew, for out-of-range schema_version %d", tc.version)
+			require.Equal(t, 0, calls, "expected the out-of-range schema_version to never index the migration registry")
 		})
 	}
 }
@@ -259,9 +209,7 @@ func TestMigrationForceKillLeavesOriginalIntact(t *testing.T) {
 
 	resolved := resolvePath(root, path)
 	before, err := os.ReadFile(resolved)
-	if err != nil {
-		t.Fatalf("reading fixture bytes before migration attempt: %v", err)
-	}
+	require.NoError(t, err, "reading fixture bytes before migration attempt")
 
 	migrations[0] = func(blob []byte) ([]byte, error) {
 		return nil, errors.New("simulated mid-migration failure")
@@ -269,43 +217,24 @@ func TestMigrationForceKillLeavesOriginalIntact(t *testing.T) {
 	t.Cleanup(func() { delete(migrations, 0) })
 
 	backupPath, migrateErr := Migrate(root, path)
-	if migrateErr == nil {
-		t.Fatalf("expected Migrate to fail when the registered migration step fails")
-	}
-	if backupPath == "" {
-		t.Fatalf("expected Migrate to still report the verified backup it produced before the failure")
-	}
+	require.Error(t, migrateErr, "expected Migrate to fail when the registered migration step fails")
+	require.NotEmpty(t, backupPath, "expected Migrate to still report the verified backup it produced before the failure")
 
 	after, err := os.ReadFile(resolved)
-	if err != nil {
-		t.Fatalf("reading fixture bytes after failed migration: %v", err)
-	}
-	if !bytes.Equal(before, after) {
-		t.Fatalf("a failed migration modified the original working file; expected it to remain untouched")
-	}
+	require.NoError(t, err, "reading fixture bytes after failed migration")
+	require.True(t, bytes.Equal(before, after), "a failed migration modified the original working file; expected it to remain untouched")
 
 	db, err := openStore(root, path)
-	if err != nil {
-		t.Fatalf("openStore on original after failed migration: %v", err)
-	}
+	require.NoError(t, err, "openStore on original after failed migration")
 	version, blob, metaErr := migrationMeta(db)
-	if closeErr := checkpointAndClose(db); closeErr != nil {
-		t.Fatalf("closing store after reading original: %v", closeErr)
-	}
-	if metaErr != nil {
-		t.Fatalf("migrationMeta after failed migration: %v", metaErr)
-	}
-	if version != 0 {
-		t.Fatalf("expected schema_version to remain 0 after failed migration, got %d", version)
-	}
-	if !bytes.Equal(blob, payload) {
-		t.Fatalf("expected show_state blob to remain the original fixture payload after failed migration")
-	}
+	closeErr := checkpointAndClose(db)
+	require.NoError(t, closeErr, "closing store after reading original")
+	require.NoError(t, metaErr, "migrationMeta after failed migration")
+	require.Equal(t, 0, version, "expected schema_version to remain 0 after failed migration")
+	require.True(t, bytes.Equal(blob, payload), "expected show_state blob to remain the original fixture payload after failed migration")
 
 	// The verified backup itself must still open and validate -- proving
 	// the backup taken before the simulated failure was genuinely usable
 	// recovery material, not just a path string.
-	if err := verifyBackupReadBack(root, backupPath); err != nil {
-		t.Fatalf("backup produced before the simulated failure did not pass read-back-and-validate: %v", err)
-	}
+	require.NoError(t, verifyBackupReadBack(root, backupPath), "backup produced before the simulated failure did not pass read-back-and-validate")
 }

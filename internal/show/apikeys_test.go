@@ -13,42 +13,30 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateAPIKey(t *testing.T) {
 	generated, err := GenerateAPIKey()
-	if err != nil {
-		t.Fatalf("GenerateAPIKey: %v", err)
-	}
+	require.NoError(t, err, "GenerateAPIKey")
 
-	if len(generated.RawToken) < 32 {
-		t.Fatalf("expected a high-entropy raw token, got %d chars: %q", len(generated.RawToken), generated.RawToken)
-	}
-	if generated.Prefix == "" || len(generated.Prefix) >= len(generated.RawToken) {
-		t.Fatalf("expected a short lookup prefix shorter than the raw token, got prefix=%q token=%q", generated.Prefix, generated.RawToken)
-	}
-	if !strings.HasPrefix(generated.RawToken, generated.Prefix) {
-		t.Fatalf("expected prefix %q to be a prefix of the raw token %q", generated.Prefix, generated.RawToken)
-	}
-	if generated.Hash == "" || generated.Hash == generated.RawToken {
-		t.Fatalf("expected a distinct hex-encoded hash, got %q", generated.Hash)
-	}
+	require.GreaterOrEqual(t, len(generated.RawToken), 32, "expected a high-entropy raw token, got %d chars: %q", len(generated.RawToken), generated.RawToken)
+	require.NotEmpty(t, generated.Prefix, "expected a short lookup prefix shorter than the raw token")
+	require.Less(t, len(generated.Prefix), len(generated.RawToken), "expected a short lookup prefix shorter than the raw token, got prefix=%q token=%q", generated.Prefix, generated.RawToken)
+	require.True(t, strings.HasPrefix(generated.RawToken, generated.Prefix), "expected prefix %q to be a prefix of the raw token %q", generated.Prefix, generated.RawToken)
+	require.NotEmpty(t, generated.Hash, "expected a distinct hex-encoded hash")
+	require.NotEqual(t, generated.RawToken, generated.Hash, "expected a distinct hex-encoded hash, got %q", generated.Hash)
 	wantHash := HashAPIKeyToken(generated.RawToken)
-	if generated.Hash != wantHash {
-		t.Fatalf("expected Hash to equal HashAPIKeyToken(RawToken): got %q want %q", generated.Hash, wantHash)
-	}
+	require.Equal(t, wantHash, generated.Hash, "expected Hash to equal HashAPIKeyToken(RawToken)")
 
 	// The stored form alone must not reveal the raw token: nothing in
 	// Prefix/Hash equals RawToken, and a second generation produces an
 	// independent, non-colliding token (crypto/rand, not a deterministic
 	// derivation from any prior call).
 	second, err := GenerateAPIKey()
-	if err != nil {
-		t.Fatalf("GenerateAPIKey (second): %v", err)
-	}
-	if second.RawToken == generated.RawToken {
-		t.Fatalf("expected two independently generated tokens to differ")
-	}
+	require.NoError(t, err, "GenerateAPIKey (second)")
+	require.NotEqual(t, generated.RawToken, second.RawToken, "expected two independently generated tokens to differ")
 }
 
 func TestAPIKeyInsertAndLookup(t *testing.T) {
@@ -56,62 +44,35 @@ func TestAPIKeyInsertAndLookup(t *testing.T) {
 	showPath := "show.golc"
 
 	generated, err := GenerateAPIKey()
-	if err != nil {
-		t.Fatalf("GenerateAPIKey: %v", err)
-	}
+	require.NoError(t, err, "GenerateAPIKey")
 	scopes := []APIKeyScope{APIKeyScopePlayback, APIKeyScopeAdmin}
 	expiresAt := time.Now().UTC().Add(24 * time.Hour)
 
 	inserted, err := InsertAPIKey(root, showPath, generated, scopes, expiresAt)
-	if err != nil {
-		t.Fatalf("InsertAPIKey: %v", err)
-	}
-	if inserted.KeyID == "" {
-		t.Fatalf("expected InsertAPIKey to assign a non-empty KeyID")
-	}
-	if inserted.Prefix != generated.Prefix {
-		t.Fatalf("expected Prefix %q, got %q", generated.Prefix, inserted.Prefix)
-	}
+	require.NoError(t, err, "InsertAPIKey")
+	require.NotEmpty(t, inserted.KeyID, "expected InsertAPIKey to assign a non-empty KeyID")
+	require.Equal(t, generated.Prefix, inserted.Prefix)
 
 	record, found, err := LookupAPIKeyByPrefix(root, showPath, generated.Prefix)
-	if err != nil {
-		t.Fatalf("LookupAPIKeyByPrefix: %v", err)
-	}
-	if !found {
-		t.Fatalf("expected LookupAPIKeyByPrefix to find the inserted key")
-	}
-	if record.KeyID != inserted.KeyID {
-		t.Fatalf("expected KeyID %q, got %q", inserted.KeyID, record.KeyID)
-	}
-	if len(record.Scopes) != 2 || record.Scopes[0] != APIKeyScopePlayback || record.Scopes[1] != APIKeyScopeAdmin {
-		t.Fatalf("expected scopes [playback admin], got %v", record.Scopes)
-	}
+	require.NoError(t, err, "LookupAPIKeyByPrefix")
+	require.True(t, found, "expected LookupAPIKeyByPrefix to find the inserted key")
+	require.Equal(t, inserted.KeyID, record.KeyID)
+	require.Equal(t, []APIKeyScope{APIKeyScopePlayback, APIKeyScopeAdmin}, record.Scopes, "expected scopes [playback admin]")
 
 	// Constant-time compare matches only the correct token.
-	if !CompareAPIKeyHash(generated.RawToken, record.Hash) {
-		t.Fatalf("expected CompareAPIKeyHash to match the correct raw token")
-	}
-	if CompareAPIKeyHash("wrong-token-entirely", record.Hash) {
-		t.Fatalf("expected CompareAPIKeyHash to reject an incorrect token")
-	}
+	require.True(t, CompareAPIKeyHash(generated.RawToken, record.Hash), "expected CompareAPIKeyHash to match the correct raw token")
+	require.False(t, CompareAPIKeyHash("wrong-token-entirely", record.Hash), "expected CompareAPIKeyHash to reject an incorrect token")
 
 	// A prefix with no matching row is reported as not found, never an
 	// error.
 	_, found, err = LookupAPIKeyByPrefix(root, showPath, "does-not-exist")
-	if err != nil {
-		t.Fatalf("LookupAPIKeyByPrefix (missing): %v", err)
-	}
-	if found {
-		t.Fatalf("expected LookupAPIKeyByPrefix to report not-found for an unknown prefix")
-	}
+	require.NoError(t, err, "LookupAPIKeyByPrefix (missing)")
+	require.False(t, found, "expected LookupAPIKeyByPrefix to report not-found for an unknown prefix")
 
 	keys, err := ListAPIKeys(root, showPath)
-	if err != nil {
-		t.Fatalf("ListAPIKeys: %v", err)
-	}
-	if len(keys) != 1 || keys[0].KeyID != inserted.KeyID {
-		t.Fatalf("expected exactly one listed key matching %q, got %+v", inserted.KeyID, keys)
-	}
+	require.NoError(t, err, "ListAPIKeys")
+	require.Len(t, keys, 1, "expected exactly one listed key matching %q, got %+v", inserted.KeyID, keys)
+	require.Equal(t, inserted.KeyID, keys[0].KeyID)
 }
 
 func TestAPIKeyExpiryAndRevocation(t *testing.T) {
@@ -120,47 +81,28 @@ func TestAPIKeyExpiryAndRevocation(t *testing.T) {
 	now := time.Now().UTC()
 
 	fresh := APIKeyRecord{APIKey: APIKey{ExpiresAt: now.Add(time.Hour)}}
-	if !IsAPIKeyValid(fresh, now) {
-		t.Fatalf("expected a fresh, non-expired, non-revoked key to be valid")
-	}
+	require.True(t, IsAPIKeyValid(fresh, now), "expected a fresh, non-expired, non-revoked key to be valid")
 
 	expired := APIKeyRecord{APIKey: APIKey{ExpiresAt: now.Add(-time.Hour)}}
-	if IsAPIKeyValid(expired, now) {
-		t.Fatalf("expected an expired key to be reported invalid")
-	}
+	require.False(t, IsAPIKeyValid(expired, now), "expected an expired key to be reported invalid")
 
 	revoked := APIKeyRecord{APIKey: APIKey{ExpiresAt: now.Add(time.Hour), RevokedAt: now.Add(-time.Minute)}}
-	if IsAPIKeyValid(revoked, now) {
-		t.Fatalf("expected a revoked key to be reported invalid")
-	}
+	require.False(t, IsAPIKeyValid(revoked, now), "expected a revoked key to be reported invalid")
 
 	// End-to-end through the real store: RevokeAPIKey marks the row
 	// revoked, and a subsequent lookup reflects that via IsAPIKeyValid.
 	generated, err := GenerateAPIKey()
-	if err != nil {
-		t.Fatalf("GenerateAPIKey: %v", err)
-	}
+	require.NoError(t, err, "GenerateAPIKey")
 	inserted, err := InsertAPIKey(root, showPath, generated, []APIKeyScope{APIKeyScopePlayback}, now.Add(time.Hour))
-	if err != nil {
-		t.Fatalf("InsertAPIKey: %v", err)
-	}
-	if err := RevokeAPIKey(root, showPath, inserted.KeyID); err != nil {
-		t.Fatalf("RevokeAPIKey: %v", err)
-	}
+	require.NoError(t, err, "InsertAPIKey")
+	require.NoError(t, RevokeAPIKey(root, showPath, inserted.KeyID), "RevokeAPIKey")
 	record, found, err := LookupAPIKeyByPrefix(root, showPath, generated.Prefix)
-	if err != nil {
-		t.Fatalf("LookupAPIKeyByPrefix: %v", err)
-	}
-	if !found {
-		t.Fatalf("expected the revoked key to still be findable by prefix")
-	}
-	if IsAPIKeyValid(record, now) {
-		t.Fatalf("expected the revoked key to be reported invalid after RevokeAPIKey")
-	}
+	require.NoError(t, err, "LookupAPIKeyByPrefix")
+	require.True(t, found, "expected the revoked key to still be findable by prefix")
+	require.False(t, IsAPIKeyValid(record, now), "expected the revoked key to be reported invalid after RevokeAPIKey")
 
 	// Revoking an unknown key id is a clean, reported error, never a
 	// silent no-op.
-	if err := RevokeAPIKey(root, showPath, "does-not-exist"); err == nil {
-		t.Fatalf("expected RevokeAPIKey to fail for an unknown key id")
-	}
+	err = RevokeAPIKey(root, showPath, "does-not-exist")
+	require.Error(t, err, "expected RevokeAPIKey to fail for an unknown key id")
 }
