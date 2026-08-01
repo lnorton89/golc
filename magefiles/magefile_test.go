@@ -14,6 +14,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/bootstrap"
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/delivery"
@@ -55,9 +58,7 @@ func installTargetTestRuntime(t *testing.T, root string, fake *fakeCommandExecut
 			return nil
 		},
 		bootstrap: func(_ context.Context, gotRoot string, options bootstrap.Options) error {
-			if options != (bootstrap.Options{}) {
-				t.Fatalf("bootstrap options = %+v", options)
-			}
+			require.Equal(t, bootstrap.Options{}, options, "bootstrap options")
 			established = append(established, "bootstrap:"+gotRoot)
 			return nil
 		},
@@ -73,15 +74,11 @@ func installTargetTestRuntime(t *testing.T, root string, fake *fakeCommandExecut
 
 func TestTargetMappingsAndProjectRoot(t *testing.T) {
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "golc.project.toml"), []byte("schema_version = 2\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(root, "golc.project.toml"), []byte("schema_version = 2\n"), 0o644))
 	fake := &fakeCommandExecutor{}
 	_, _, established := installTargetTestRuntime(t, root, fake)
 	absoluteRoot, err := filepath.Abs(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	// magefile.go's own root resolution runs filepath.EvalSymlinks after
 	// filepath.Abs, so this comparison must too -- otherwise a CI runner
 	// whose temp directory sits behind an OS-level indirection (a
@@ -111,48 +108,30 @@ func TestTargetMappingsAndProjectRoot(t *testing.T) {
 	for _, target := range targets {
 		t.Run(target.name, func(t *testing.T) {
 			fake.requests = nil
-			if err := target.call(); err != nil {
-				t.Fatalf("%s: %v", target.name, err)
-			}
-			if len(fake.requests) != 1 {
-				t.Fatalf("requests = %+v", fake.requests)
-			}
+			require.NoError(t, target.call(), target.name)
+			require.Len(t, fake.requests, 1, "requests = %+v", fake.requests)
 			request := fake.requests[0]
 			descriptor, ok := delivery.LookupMageTarget(target.name)
-			if !ok {
-				t.Fatalf("shared descriptor %q not found", target.name)
-			}
+			require.True(t, ok, "shared descriptor %q not found", target.name)
 			wantArgs := append([]string{descriptor.Route}, descriptor.Args...)
-			if got, want := strings.Join(request.Args, " "), strings.Join(wantArgs, " "); got != want {
-				t.Fatalf("invocation = %q, want shared descriptor %q", got, want)
-			}
-			if request.Root != absoluteRoot {
-				t.Fatalf("request root = %q, want %q", request.Root, absoluteRoot)
-			}
+			require.Equal(t, strings.Join(wantArgs, " "), strings.Join(request.Args, " "), "invocation, want shared descriptor")
+			require.Equal(t, absoluteRoot, request.Root, "request root")
 		})
 	}
 
-	if err := Bootstrap(context.Background()); err != nil {
-		t.Fatalf("Bootstrap: %v", err)
-	}
-	if got := (*established)[len(*established)-1]; got != "bootstrap:"+absoluteRoot {
-		t.Fatalf("bootstrap root record = %q", got)
-	}
+	require.NoError(t, Bootstrap(context.Background()), "Bootstrap")
+	require.Equal(t, "bootstrap:"+absoluteRoot, (*established)[len(*established)-1], "bootstrap root record")
 	for _, value := range *established {
 		if strings.HasPrefix(value, "bootstrap:") {
 			continue
 		}
-		if value != absoluteRoot {
-			t.Fatalf("established GOLC_PROJECT_ROOT = %q, want %q", value, absoluteRoot)
-		}
+		require.Equal(t, absoluteRoot, value, "established GOLC_PROJECT_ROOT")
 	}
 }
 
 func TestBootstrapEnvironmentOption(t *testing.T) {
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "golc.project.toml"), []byte("schema_version = 2\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(root, "golc.project.toml"), []byte("schema_version = 2\n"), 0o644))
 	previous := activeTargetRuntime
 	t.Cleanup(func() { activeTargetRuntime = previous })
 
@@ -193,29 +172,23 @@ func TestBootstrapEnvironmentOption(t *testing.T) {
 		stderr: &bytes.Buffer{},
 	}
 
-	if err := Bootstrap(context.Background()); err != nil {
-		t.Fatalf("unset Bootstrap: %v", err)
-	}
-	if len(options) != 1 || options[0] != (bootstrap.Options{}) {
-		t.Fatalf("unset options = %+v", options)
-	}
+	require.NoError(t, Bootstrap(context.Background()), "unset Bootstrap")
+	require.Len(t, options, 1, "unset options = %+v", options)
+	require.Equal(t, bootstrap.Options{}, options[0], "unset options = %+v", options)
 
 	value = delivery.BootstrapEnvironmentEnablingValue
-	if err := Bootstrap(context.Background()); err != nil {
-		t.Fatalf("enabled Bootstrap: %v", err)
-	}
-	if len(options) != 2 || !options[1].IncludeLinearSync {
-		t.Fatalf("enabled options = %+v", options)
-	}
+	require.NoError(t, Bootstrap(context.Background()), "enabled Bootstrap")
+	require.Len(t, options, 2, "enabled options = %+v", options)
+	require.True(t, options[1].IncludeLinearSync, "enabled options = %+v", options)
 
 	options = nil
 	graphCalls, runCalls, registryCalls = 0, 0, 0
-	if err := Pr(context.Background()); err != nil {
-		t.Fatalf("enabled Pr: %v", err)
-	}
-	if len(options) != 1 || !options[0].IncludeLinearSync || graphCalls != 1 || runCalls != 1 || registryCalls != 1 {
-		t.Fatalf("Pr effects options=%+v graph=%d run=%d registry=%d", options, graphCalls, runCalls, registryCalls)
-	}
+	require.NoError(t, Pr(context.Background()), "enabled Pr")
+	require.Len(t, options, 1, "Pr effects options=%+v graph=%d run=%d registry=%d", options, graphCalls, runCalls, registryCalls)
+	require.True(t, options[0].IncludeLinearSync, "Pr effects options=%+v graph=%d run=%d registry=%d", options, graphCalls, runCalls, registryCalls)
+	require.Equal(t, 1, graphCalls, "Pr effects options=%+v graph=%d run=%d registry=%d", options, graphCalls, runCalls, registryCalls)
+	require.Equal(t, 1, runCalls, "Pr effects options=%+v graph=%d run=%d registry=%d", options, graphCalls, runCalls, registryCalls)
+	require.Equal(t, 1, registryCalls, "Pr effects options=%+v graph=%d run=%d registry=%d", options, graphCalls, runCalls, registryCalls)
 
 	for _, invalid := range []string{"0", "true", " 1", "1 "} {
 		t.Run("invalid_"+strings.ReplaceAll(invalid, " ", "_"), func(t *testing.T) {
@@ -227,31 +200,26 @@ func TestBootstrapEnvironmentOption(t *testing.T) {
 				"Pr":        func() error { return Pr(context.Background()) },
 			} {
 				err := call()
-				if err == nil || !strings.Contains(err.Error(), "GOLC_MAGE_BOOTSTRAP_OPTION") {
-					t.Fatalf("%s invalid option error = %v", name, err)
-				}
+				require.ErrorContains(t, err, "GOLC_MAGE_BOOTSTRAP_OPTION", "%s invalid option error", name)
 			}
-			if len(options) != 0 || graphCalls != 0 || runCalls != 0 || registryCalls != 0 {
-				t.Fatalf("invalid option caused effects options=%+v graph=%d run=%d registry=%d", options, graphCalls, runCalls, registryCalls)
-			}
+			require.Len(t, options, 0, "invalid option caused effects options=%+v graph=%d run=%d registry=%d", options, graphCalls, runCalls, registryCalls)
+			require.Equal(t, 0, graphCalls, "invalid option caused effects options=%+v graph=%d run=%d registry=%d", options, graphCalls, runCalls, registryCalls)
+			require.Equal(t, 0, runCalls, "invalid option caused effects options=%+v graph=%d run=%d registry=%d", options, graphCalls, runCalls, registryCalls)
+			require.Equal(t, 0, registryCalls, "invalid option caused effects options=%+v graph=%d run=%d registry=%d", options, graphCalls, runCalls, registryCalls)
 		})
 	}
 }
 
 func TestTargetOutputFailureAndPRAuthority(t *testing.T) {
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "golc.project.toml"), []byte("schema_version = 2\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(root, "golc.project.toml"), []byte("schema_version = 2\n"), 0o644))
 	fake := &fakeCommandExecutor{fail: "build"}
 	stdout, stderr, _ := installTargetTestRuntime(t, root, fake)
 
-	if err := Build(); err == nil {
-		t.Fatal("non-zero route result must return an error")
-	}
-	if stdout.String() != "build\n" || stderr.String() != "stderr:build\n" {
-		t.Fatalf("output not preserved: stdout=%q stderr=%q", stdout.String(), stderr.String())
-	}
+	err := Build()
+	require.Error(t, err, "non-zero route result must return an error")
+	require.Equal(t, "build\n", stdout.String(), "output not preserved")
+	require.Equal(t, "stderr:build\n", stderr.String(), "output not preserved")
 
 	stdout.Reset()
 	stderr.Reset()
@@ -278,60 +246,39 @@ func TestTargetOutputFailureAndPRAuthority(t *testing.T) {
 		return delivery.Run(graph, execute)
 	}
 
-	err := Pr(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "03-build") {
-		t.Fatalf("Pr failure = %v, want failed configured step", err)
-	}
-	if loadCalls != 1 || runCalls != 1 {
-		t.Fatalf("LoadPRGraph/Run calls = %d/%d, want 1/1", loadCalls, runCalls)
-	}
+	err = Pr(context.Background())
+	require.ErrorContains(t, err, "03-build", "Pr failure, want failed configured step")
+	require.Equal(t, 1, loadCalls, "LoadPRGraph calls, want 1")
+	require.Equal(t, 1, runCalls, "Run calls, want 1")
 	var got []string
 	for _, request := range fake.requests {
 		got = append(got, strings.Join(request.Args, " "))
 	}
-	if joined := strings.Join(got, ","); joined != "generate --check,build" {
-		t.Fatalf("registry order = %q; test must not run after build failure", joined)
-	}
-	if !strings.Contains(stdout.String(), "generate --check") {
-		t.Fatalf("prior step output missing: %q", stdout.String())
-	}
+	require.Equal(t, "generate --check,build", strings.Join(got, ","), "registry order; test must not run after build failure")
+	require.Contains(t, stdout.String(), "generate --check", "prior step output missing")
 }
 
 func TestMagefileExportsAndImports(t *testing.T) {
 	sourcePath := filepath.Join("magefile.go")
 	parsed, err := parser.ParseFile(token.NewFileSet(), sourcePath, nil, parser.ImportsOnly)
-	if err != nil {
-		t.Fatalf("parse magefile.go: %v", err)
-	}
+	require.NoError(t, err, "parse magefile.go")
 	var imports []string
 	for _, spec := range parsed.Imports {
 		imports = append(imports, strings.Trim(spec.Path.Value, `"`))
 	}
 	for _, forbidden := range []string{"os/exec", "syscall"} {
-		for _, imported := range imports {
-			if imported == forbidden {
-				t.Fatalf("magefile.go must not import process execution package %q", forbidden)
-			}
-		}
+		require.NotContains(t, imports, forbidden, "magefile.go must not import process execution package %q", forbidden)
 	}
 	for _, required := range []string{
 		"github.com/lnorton89/golc/internal/bootstrap",
 		"github.com/lnorton89/golc/internal/command",
 		"github.com/lnorton89/golc/internal/delivery",
 	} {
-		found := false
-		for _, imported := range imports {
-			found = found || imported == required
-		}
-		if !found {
-			t.Errorf("magefile.go missing Go API import %q", required)
-		}
+		assert.Contains(t, imports, required, "magefile.go missing Go API import %q", required)
 	}
 
 	parsed, err = parser.ParseFile(token.NewFileSet(), sourcePath, nil, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var exports []string
 	for _, declaration := range parsed.Decls {
 		function, ok := declaration.(*ast.FuncDecl)
@@ -342,9 +289,7 @@ func TestMagefileExportsAndImports(t *testing.T) {
 	sort.Strings(exports)
 	want := []string{"Bootstrap", "Build", "Check", "CheckOffline", "Dev", "Generate", "GenerateCheck", "Lint", "Package", "PackageFoundation", "Pr", "Run", "Test", "TestQuick"}
 	sort.Strings(want)
-	if strings.Join(exports, ",") != strings.Join(want, ",") {
-		t.Fatalf("exported functions = %v, want %v", exports, want)
-	}
+	require.Equal(t, want, exports, "exported functions")
 
 	for _, declaration := range parsed.Decls {
 		function, ok := declaration.(*ast.FuncDecl)
@@ -367,10 +312,9 @@ func TestMagefileExportsAndImports(t *testing.T) {
 			return true
 		})
 		wantName := strings.ToLower(function.Name.Name)
-		if calls != 1 || len(literals) != 1 || literals[0] != wantName {
-			t.Fatalf(
-				"%s must delegate once to runTarget(%q) with no embedded route/argument table; calls=%d literals=%v",
-				function.Name.Name, wantName, calls, literals)
-		}
+		msg := "%s must delegate once to runTarget(%q) with no embedded route/argument table; calls=%d literals=%v"
+		require.Equal(t, 1, calls, msg, function.Name.Name, wantName, calls, literals)
+		require.Len(t, literals, 1, msg, function.Name.Name, wantName, calls, literals)
+		require.Equal(t, wantName, literals[0], msg, function.Name.Name, wantName, calls, literals)
 	}
 }

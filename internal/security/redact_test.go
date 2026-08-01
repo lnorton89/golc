@@ -25,6 +25,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/bootstrap"
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/contracts"
@@ -47,22 +49,16 @@ var _ = command.MustDeclareScope(command.ScopeRegistration{
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("os.Getwd: %v", err)
-	}
+	require.NoError(t, err, "os.Getwd")
 	return filepath.Dir(filepath.Dir(wd))
 }
 
 func TestScopeSecrets(t *testing.T) {
 	t.Run("ScanCanary finds the planted token and reports it exactly", func(t *testing.T) {
 		clean := []byte("nothing sensitive here\n")
-		if token := security.ScanCanary(clean); token != "" {
-			t.Fatalf("expected clean input to scan clean, got token %q", token)
-		}
+		require.Equal(t, "", security.ScanCanary(clean), "expected clean input to scan clean")
 		planted := []byte("prefix " + security.CanaryToken + " suffix\n")
-		if token := security.ScanCanary(planted); token != security.CanaryToken {
-			t.Fatalf("ScanCanary token = %q, want %q", token, security.CanaryToken)
-		}
+		require.Equal(t, security.CanaryToken, security.ScanCanary(planted), "ScanCanary token")
 	})
 
 	t.Run("ScanCanary rejects common secret-shaped patterns beyond the exact canary token", func(t *testing.T) {
@@ -72,9 +68,7 @@ func TestScopeSecrets(t *testing.T) {
 			"key=sk-fake12345\n",
 		}
 		for _, sample := range cases {
-			if token := security.ScanCanary([]byte(sample)); token == "" {
-				t.Fatalf("expected a secret-shaped match in %q", sample)
-			}
+			require.NotEqual(t, "", security.ScanCanary([]byte(sample)), "expected a secret-shaped match in %q", sample)
 		}
 	})
 
@@ -83,45 +77,32 @@ func TestScopeSecrets(t *testing.T) {
 			"stdout": []byte("build succeeded\n"),
 			"stderr": []byte(security.CanaryToken),
 		})
-		if len(violations) != 1 || violations[0].Source != "stderr" || violations[0].Token != security.CanaryToken {
-			t.Fatalf("ScanCanaryAll violations = %+v, want exactly one stderr violation", violations)
-		}
+		require.Len(t, violations, 1, "ScanCanaryAll violations = %+v, want exactly one stderr violation", violations)
+		require.Equal(t, "stderr", violations[0].Source, "ScanCanaryAll violations = %+v, want exactly one stderr violation", violations)
+		require.Equal(t, security.CanaryToken, violations[0].Token, "ScanCanaryAll violations = %+v, want exactly one stderr violation", violations)
 
 		clean := security.ScanCanaryAll(map[string][]byte{
 			"stdout": []byte("ok\n"),
 			"schema": []byte(`{"type":"object"}`),
 		})
-		if len(clean) != 0 {
-			t.Fatalf("expected zero violations for clean sources, got %+v", clean)
-		}
+		require.Len(t, clean, 0, "expected zero violations for clean sources, got %+v", clean)
 	})
 
 	t.Run("SetState renders only set/unset, never the underlying value", func(t *testing.T) {
-		if got := security.SetState(""); got != "<unset>" {
-			t.Fatalf("SetState(\"\") = %q, want <unset>", got)
-		}
-		if got := security.SetState("   "); got != "<unset>" {
-			t.Fatalf("SetState(whitespace) = %q, want <unset>", got)
-		}
+		require.Equal(t, "<unset>", security.SetState(""), "SetState(\"\")")
+		require.Equal(t, "<unset>", security.SetState("   "), "SetState(whitespace)")
 		secretValue := "lin_api_" + security.CanaryToken
 		got := security.SetState(secretValue)
-		if got != "<set>" {
-			t.Fatalf("SetState(non-empty) = %q, want <set>", got)
-		}
-		if strings.Contains(got, secretValue) {
-			t.Fatal("SetState must never echo the underlying value")
-		}
+		require.Equal(t, "<set>", got, "SetState(non-empty)")
+		require.NotContains(t, got, secretValue, "SetState must never echo the underlying value")
 	})
 
 	t.Run("Redact passes clean values through and replaces anything canary/pattern-matched", func(t *testing.T) {
-		if got := security.Redact("project"); got != "project" {
-			t.Fatalf("Redact(clean) = %q, want unchanged", got)
-		}
+		require.Equal(t, "project", security.Redact("project"), "Redact(clean)")
 		leaked := "Bearer " + security.CanaryToken
 		got := security.Redact(leaked)
-		if got == leaked || strings.Contains(got, security.CanaryToken) {
-			t.Fatalf("Redact must never return the original leaked bytes, got %q", got)
-		}
+		require.NotEqual(t, leaked, got, "Redact must never return the original leaked bytes, got %q", got)
+		require.NotContains(t, got, security.CanaryToken, "Redact must never return the original leaked bytes, got %q", got)
 	})
 
 	t.Run("SafeDiagnostic.String never carries a raw environment/header/config/exception object", func(t *testing.T) {
@@ -134,39 +115,25 @@ func TestScopeSecrets(t *testing.T) {
 			},
 		}
 		rendered := diagnostic.String()
-		if !strings.HasPrefix(rendered, "GOLC_TEST_DIAGNOSTIC: example failure (") {
-			t.Fatalf("unexpected SafeDiagnostic.String prefix: %q", rendered)
-		}
-		if strings.Contains(rendered, security.CanaryToken) {
-			t.Fatalf("SafeDiagnostic.String leaked the canary token: %q", rendered)
-		}
-		if strings.Index(rendered, "alpha=") > strings.Index(rendered, "zulu=") {
-			t.Fatalf("expected fields sorted by name, got %q", rendered)
-		}
+		require.True(t, strings.HasPrefix(rendered, "GOLC_TEST_DIAGNOSTIC: example failure ("), "unexpected SafeDiagnostic.String prefix: %q", rendered)
+		require.NotContains(t, rendered, security.CanaryToken, "SafeDiagnostic.String leaked the canary token: %q", rendered)
+		require.False(t, strings.Index(rendered, "alpha=") > strings.Index(rendered, "zulu="), "expected fields sorted by name, got %q", rendered)
 
 		bare := security.SafeDiagnostic{Code: "GOLC_TEST_BARE", Message: "no fields"}
-		if bare.String() != "GOLC_TEST_BARE: no fields" {
-			t.Fatalf("SafeDiagnostic with no fields = %q, want no parenthesized suffix", bare.String())
-		}
+		require.Equal(t, "GOLC_TEST_BARE: no fields", bare.String(), "SafeDiagnostic with no fields, want no parenthesized suffix")
 	})
 
 	t.Run("no fake-secret bytes in real captured command stdout/stderr", func(t *testing.T) {
 		root := repositoryRoot(t)
 		registry, err := command.NewDefaultCommandRegistry()
-		if err != nil {
-			t.Fatalf("NewDefaultCommandRegistry: %v", err)
-		}
+		require.NoError(t, err, "NewDefaultCommandRegistry")
 		result := registry.Execute(command.Request{Root: root, Args: []string{"check", "--concern", "project"}})
-		if result.ExitCode != 0 {
-			t.Fatalf("check --concern project exited %d: %s", result.ExitCode, result.Stderr)
-		}
+		require.Equal(t, 0, result.ExitCode, "check --concern project exited %d: %s", result.ExitCode, result.Stderr)
 		violations := security.ScanCanaryAll(map[string][]byte{
 			"stdout:check --concern project": result.Stdout,
 			"stderr:check --concern project": result.Stderr,
 		})
-		if len(violations) != 0 {
-			t.Fatalf("real command output leaked fake-secret bytes: %+v", violations)
-		}
+		require.Len(t, violations, 0, "real command output leaked fake-secret bytes: %+v", violations)
 	})
 
 	t.Run("no fake-secret bytes in any committed generated schema or the committed Linear map", func(t *testing.T) {
@@ -174,20 +141,15 @@ func TestScopeSecrets(t *testing.T) {
 		sources := map[string][]byte{}
 		for _, descriptor := range contracts.RegisteredSchemas() {
 			data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(descriptor.OutputPath)))
-			if err != nil {
-				t.Fatalf("read %s: %v", descriptor.OutputPath, err)
-			}
+			require.NoError(t, err, "read %s", descriptor.OutputPath)
 			sources["schema:"+descriptor.OutputPath] = data
 		}
 		mapData, err := os.ReadFile(filepath.Join(root, ".planning", "linear-map.json"))
-		if err != nil {
-			t.Fatalf("read committed linear map: %v", err)
-		}
+		require.NoError(t, err, "read committed linear map")
 		sources["map:.planning/linear-map.json"] = mapData
 
-		if violations := security.ScanCanaryAll(sources); len(violations) != 0 {
-			t.Fatalf("committed generated artifacts leaked fake-secret bytes: %+v", violations)
-		}
+		violations := security.ScanCanaryAll(sources)
+		require.Len(t, violations, 0, "committed generated artifacts leaked fake-secret bytes: %+v", violations)
 	})
 
 	t.Run("no fake-secret bytes in a synthesized Linear apply report", func(t *testing.T) {
@@ -198,12 +160,8 @@ func TestScopeSecrets(t *testing.T) {
 			},
 		}
 		encoded, err := strictjson.CanonicalEncode(report)
-		if err != nil {
-			t.Fatalf("CanonicalEncode report: %v", err)
-		}
-		if token := security.ScanCanary(encoded); token != "" {
-			t.Fatalf("synthesized report leaked token %q", token)
-		}
+		require.NoError(t, err, "CanonicalEncode report")
+		require.Equal(t, "", security.ScanCanary(encoded), "synthesized report leaked token")
 
 		leaked := apply.Report{
 			PlanID: "plan:test",
@@ -212,28 +170,20 @@ func TestScopeSecrets(t *testing.T) {
 			},
 		}
 		leakedEncoded, err := strictjson.CanonicalEncode(leaked)
-		if err != nil {
-			t.Fatalf("CanonicalEncode leaked report: %v", err)
-		}
-		if token := security.ScanCanary(leakedEncoded); token != security.CanaryToken {
-			t.Fatalf("expected ScanCanary to catch a planted token inside an encoded report, got %q", token)
-		}
+		require.NoError(t, err, "CanonicalEncode leaked report")
+		require.Equal(t, security.CanaryToken, security.ScanCanary(leakedEncoded), "expected ScanCanary to catch a planted token inside an encoded report")
 	})
 
 	t.Run("no fake-secret bytes in a synthesized foundation manifest or ZIP", func(t *testing.T) {
 		root := t.TempDir()
 		writeFoundationFixture(t, root)
 		bundle, err := delivery.BuildFoundationBundle(root)
-		if err != nil {
-			t.Fatalf("BuildFoundationBundle: %v", err)
-		}
+		require.NoError(t, err, "BuildFoundationBundle")
 		violations := security.ScanCanaryAll(map[string][]byte{
 			"manifest": bundle.ManifestBytes,
 			"zip":      bundle.ZIPBytes,
 		})
-		if len(violations) != 0 {
-			t.Fatalf("synthesized foundation bundle leaked fake-secret bytes: %+v", violations)
-		}
+		require.Len(t, violations, 0, "synthesized foundation bundle leaked fake-secret bytes: %+v", violations)
 	})
 }
 
@@ -255,11 +205,7 @@ func writeFoundationFixture(t *testing.T, root string) {
 	}
 	for relative, content := range files {
 		fullPath := filepath.Join(root, filepath.FromSlash(relative))
-		if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
-			t.Fatalf("mkdir for %s: %v", relative, err)
-		}
-		if err := os.WriteFile(fullPath, []byte(content), 0o644); err != nil {
-			t.Fatalf("write %s: %v", relative, err)
-		}
+		require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0o755), "mkdir for %s", relative)
+		require.NoError(t, os.WriteFile(fullPath, []byte(content), 0o644), "write %s", relative)
 	}
 }

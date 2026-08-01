@@ -6,14 +6,15 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/command"
 )
 
 func TestRunEstablishesResolvedProjectRootBeforeRegistryConstruction(t *testing.T) {
 	originalWorkingDirectory, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		_ = os.Chdir(originalWorkingDirectory)
 	})
@@ -39,24 +40,16 @@ func TestRunEstablishesResolvedProjectRootBeforeRegistryConstruction(t *testing.
 		t.Run(testCase.name, func(t *testing.T) {
 			root := t.TempDir()
 			previousWorkingDirectory, err := os.Getwd()
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := os.Chdir(root); err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
+			require.NoError(t, os.Chdir(root))
 			defer func() {
-				if err := os.Chdir(previousWorkingDirectory); err != nil {
-					t.Errorf("restore working directory: %v", err)
-				}
+				assert.NoError(t, os.Chdir(previousWorkingDirectory), "restore working directory")
 			}()
 			environment := testCase.environment(root)
 			if environment == "" {
-				if err := os.Unsetenv(repoRootEnvName); err != nil {
-					t.Fatal(err)
-				}
-			} else if err := os.Setenv(repoRootEnvName, environment); err != nil {
-				t.Fatal(err)
+				require.NoError(t, os.Unsetenv(repoRootEnvName))
+			} else {
+				require.NoError(t, os.Setenv(repoRootEnvName, environment))
 			}
 			t.Cleanup(func() { _ = os.Unsetenv(repoRootEnvName) })
 
@@ -65,13 +58,9 @@ func TestRunEstablishesResolvedProjectRootBeforeRegistryConstruction(t *testing.
 				observed = os.Getenv(repoRootEnvName)
 				return nil, errors.New("stop after observing environment")
 			})
-			if exitCode != 2 {
-				t.Fatalf("exit code = %d, want startup failure 2", exitCode)
-			}
+			require.Equal(t, 2, exitCode, "exit code, want startup failure 2")
 			absoluteRoot, err := filepath.Abs(root)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 			// Only the "absent environment" case routes through
 			// os.Getwd() in production (resolveProjectRoot). On macOS,
 			// Getwd() itself returns the fully symlink-resolved path
@@ -100,9 +89,7 @@ func TestRunEstablishesResolvedProjectRootBeforeRegistryConstruction(t *testing.
 					observed = resolved
 				}
 			}
-			if observed != absoluteRoot {
-				t.Fatalf("%s = %q before registry construction, want %q", repoRootEnvName, observed, absoluteRoot)
-			}
+			require.Equal(t, absoluteRoot, observed, "%s before registry construction", repoRootEnvName)
 		})
 	}
 }

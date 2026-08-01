@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 const projectStatusFrontmatter = `---
@@ -103,9 +104,8 @@ Last activity: 2026-07-24 — line ending invariant
 		"activity_source",
 		"activity_drift",
 	} {
-		if left, right := jsonPath(t, gotLF, path), jsonPath(t, gotCRLF, path); !reflect.DeepEqual(left, right) {
-			t.Fatalf("%s differs for LF and CRLF:\nLF: %#v\nCRLF: %#v", path, left, right)
-		}
+		left, right := jsonPath(t, gotLF, path), jsonPath(t, gotCRLF, path)
+		require.Equal(t, left, right, "%s differs for LF and CRLF", path)
 	}
 }
 
@@ -147,13 +147,8 @@ func TestProjectStatusRejectsInvalidCurrentPositionActivity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := callProjectStatusError(t, projectStatusFrontmatter+tt.body)
-			if err == nil {
-				t.Fatal("expected invalid Current Position activity to fail")
-			}
 			const diagnostic = ".planning/STATE.md: current position activity:"
-			if !strings.Contains(err.Error(), diagnostic) {
-				t.Fatalf("error %q does not contain stable diagnostic %q", err, diagnostic)
-			}
+			require.ErrorContains(t, err, diagnostic, "expected invalid Current Position activity to fail")
 		})
 	}
 }
@@ -161,17 +156,11 @@ func TestProjectStatusRejectsInvalidCurrentPositionActivity(t *testing.T) {
 func callProjectStatus(t *testing.T, content string) map[string]any {
 	t.Helper()
 	out, err := callProjectStatusError(t, content)
-	if err != nil {
-		t.Fatalf("handleProjectStatus() error = %v", err)
-	}
+	require.NoError(t, err, "handleProjectStatus() error")
 	data, err := json.Marshal(out)
-	if err != nil {
-		t.Fatalf("marshal project status: %v", err)
-	}
+	require.NoError(t, err, "marshal project status")
 	var decoded map[string]any
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		t.Fatalf("unmarshal project status: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(data, &decoded), "unmarshal project status")
 	return decoded
 }
 
@@ -179,12 +168,8 @@ func callProjectStatusError(t *testing.T, content string) (projectStatusOutput, 
 	t.Helper()
 	root := t.TempDir()
 	stateDir := filepath.Join(root, ".planning")
-	if err := os.MkdirAll(stateDir, 0o755); err != nil {
-		t.Fatalf("mkdir .planning: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(stateDir, "STATE.md"), []byte(content), 0o600); err != nil {
-		t.Fatalf("write STATE.md: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(stateDir, 0o755), "mkdir .planning")
+	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "STATE.md"), []byte(content), 0o600), "write STATE.md")
 	t.Setenv(repoRootEnvName, root)
 
 	_, out, err := handleProjectStatus(context.Background(), nil, projectStatusInput{})
@@ -194,9 +179,7 @@ func callProjectStatusError(t *testing.T, content string) (projectStatusOutput, 
 func assertJSONValue(t *testing.T, root map[string]any, path string, want any) {
 	t.Helper()
 	got := jsonPath(t, root, path)
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("%s = %#v, want %#v", path, got, want)
-	}
+	require.Equal(t, want, got, "%s", path)
 }
 
 func jsonPath(t *testing.T, root map[string]any, path string) any {
@@ -204,13 +187,9 @@ func jsonPath(t *testing.T, root map[string]any, path string) any {
 	var value any = root
 	for _, part := range strings.Split(path, ".") {
 		object, ok := value.(map[string]any)
-		if !ok {
-			t.Fatalf("%s: parent of %q is %T, want object", path, part, value)
-		}
+		require.True(t, ok, "%s: parent of %q is %T, want object", path, part, value)
 		value, ok = object[part]
-		if !ok {
-			t.Fatalf("%s: missing %q", path, part)
-		}
+		require.True(t, ok, "%s: missing %q", path, part)
 	}
 	return value
 }
