@@ -21,8 +21,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/fixture/ofl"
 )
@@ -72,17 +73,15 @@ func newTestFixtureLibraryService(t *testing.T) (*FixtureLibraryService, string,
 	t.Helper()
 	root := t.TempDir()
 	fixturesDir := filepath.Join(root, "my-fixtures")
-	if err := os.Mkdir(fixturesDir, 0o755); err != nil {
-		t.Fatalf("Mkdir(fixturesDir): %v", err)
-	}
+	err := os.Mkdir(fixturesDir, 0o755)
+	require.NoError(t, err, "Mkdir(fixturesDir)")
 	return NewFixtureLibraryService("", root, fixturesDir), root, fixturesDir
 }
 
 func writeLibraryTestFixture(t *testing.T, dir, name, content string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile(%s): %v", name, err)
-	}
+	err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644)
+	require.NoError(t, err, "WriteFile(%s)", name)
 }
 
 // TestFixtureLibraryServiceListLocalProjectsRowsSortedByStableKey proves
@@ -94,22 +93,12 @@ func TestFixtureLibraryServiceListLocalProjectsRowsSortedByStableKey(t *testing.
 	writeLibraryTestFixture(t, fixturesDir, "megapar.yaml", secondValidFixtureYAMLForLibraryTest)
 
 	view, err := svc.ListLocal()
-	if err != nil {
-		t.Fatalf("ListLocal: %v", err)
-	}
-	if len(view.Rows) != 2 {
-		t.Fatalf("expected 2 rows, got %d: %+v", len(view.Rows), view.Rows)
-	}
-	if view.Rows[0].StableKey >= view.Rows[1].StableKey {
-		t.Fatalf("expected rows sorted ascending by StableKey, got %q then %q", view.Rows[0].StableKey, view.Rows[1].StableKey)
-	}
+	require.NoError(t, err, "ListLocal")
+	require.Len(t, view.Rows, 2, "expected 2 rows: %+v", view.Rows)
+	require.Less(t, view.Rows[0].StableKey, view.Rows[1].StableKey, "expected rows sorted ascending by StableKey")
 	for _, row := range view.Rows {
-		if row.Source != "local" {
-			t.Fatalf("expected row source %q, got %q", "local", row.Source)
-		}
-		if row.Status != "valid" {
-			t.Fatalf("expected row status %q, got %q", "valid", row.Status)
-		}
+		require.Equal(t, "local", row.Source, "row source")
+		require.Equal(t, "valid", row.Status, "row status")
 	}
 }
 
@@ -125,19 +114,12 @@ func TestFixtureLibraryServiceListLocalProjectsModeChannelCounts(t *testing.T) {
 	writeLibraryTestFixture(t, fixturesDir, "slimpar.yaml", validFixtureYAMLForLibraryTest)
 
 	view, err := svc.ListLocal()
-	if err != nil {
-		t.Fatalf("ListLocal: %v", err)
-	}
-	if len(view.Rows) != 1 {
-		t.Fatalf("expected 1 row, got %d: %+v", len(view.Rows), view.Rows)
-	}
+	require.NoError(t, err, "ListLocal")
+	require.Len(t, view.Rows, 1, "expected 1 row: %+v", view.Rows)
 	row := view.Rows[0]
-	if len(row.Modes) != 1 || row.Modes[0] != "Standard" {
-		t.Fatalf("expected exactly one mode named Standard, got %+v", row.Modes)
-	}
-	if got := row.ModeChannelCounts["Standard"]; got != 2 {
-		t.Fatalf("expected ModeChannelCounts[%q] == 2, got %d (full map %+v)", "Standard", got, row.ModeChannelCounts)
-	}
+	require.True(t, len(row.Modes) == 1 && row.Modes[0] == "Standard", "expected exactly one mode named Standard, got %+v", row.Modes)
+	got := row.ModeChannelCounts["Standard"]
+	require.Equal(t, 2, got, "expected ModeChannelCounts[%q] (full map %+v)", "Standard", row.ModeChannelCounts)
 }
 
 // TestFixtureLibraryServiceListLocalMissingDirectoryIsEmptyNotError
@@ -151,15 +133,9 @@ func TestFixtureLibraryServiceListLocalMissingDirectoryIsEmptyNotError(t *testin
 	svc := NewFixtureLibraryService("", root, missing)
 
 	view, err := svc.ListLocal()
-	if err != nil {
-		t.Fatalf("expected a missing fixtures directory to be an empty library, not an error, got %v", err)
-	}
-	if view.Rows == nil {
-		t.Fatalf("expected a non-nil empty Rows slice, got nil")
-	}
-	if len(view.Rows) != 0 {
-		t.Fatalf("expected zero rows, got %d: %+v", len(view.Rows), view.Rows)
-	}
+	require.NoError(t, err, "expected a missing fixtures directory to be an empty library, not an error")
+	require.NotNil(t, view.Rows, "expected a non-nil empty Rows slice")
+	require.Len(t, view.Rows, 0, "expected zero rows: %+v", view.Rows)
 }
 
 // TestFixtureLibraryServiceListLocalNeverMarshalsRowsAsNull pins the
@@ -174,17 +150,11 @@ func TestFixtureLibraryServiceListLocalNeverMarshalsRowsAsNull(t *testing.T) {
 	svc := NewFixtureLibraryService("", root, missing)
 
 	view, err := svc.ListLocal()
-	if err != nil {
-		t.Fatalf("ListLocal: %v", err)
-	}
+	require.NoError(t, err, "ListLocal")
 
 	encoded, err := json.Marshal(view)
-	if err != nil {
-		t.Fatalf("json.Marshal(view): %v", err)
-	}
-	if !strings.Contains(string(encoded), `"rows":[]`) {
-		t.Fatalf("expected the JSON payload to carry \"rows\":[], got %s", encoded)
-	}
+	require.NoError(t, err, "json.Marshal(view)")
+	require.Contains(t, string(encoded), `"rows":[]`)
 }
 
 // TestFixtureLibraryServiceInspectReportsInvalidWithDiagnostics proves
@@ -198,34 +168,18 @@ func TestFixtureLibraryServiceInspectReportsInvalidWithDiagnostics(t *testing.T)
 	writeLibraryTestFixture(t, fixturesDir, "good.yaml", validFixtureYAMLForLibraryTest)
 
 	badRel, err := filepath.Rel(root, filepath.Join(fixturesDir, "bad.yaml"))
-	if err != nil {
-		t.Fatalf("filepath.Rel(bad): %v", err)
-	}
+	require.NoError(t, err, "filepath.Rel(bad)")
 	badView, err := svc.Inspect(badRel)
-	if err != nil {
-		t.Fatalf("Inspect(bad): %v", err)
-	}
-	if badView.Valid {
-		t.Fatalf("expected the empty fixture document to be invalid, got %+v", badView)
-	}
-	if len(badView.Errors) == 0 {
-		t.Fatalf("expected a non-empty Errors slice for an invalid fixture, got %+v", badView)
-	}
+	require.NoError(t, err, "Inspect(bad)")
+	require.False(t, badView.Valid, "expected the empty fixture document to be invalid, got %+v", badView)
+	require.NotEmpty(t, badView.Errors, "expected a non-empty Errors slice for an invalid fixture, got %+v", badView)
 
 	goodRel, err := filepath.Rel(root, filepath.Join(fixturesDir, "good.yaml"))
-	if err != nil {
-		t.Fatalf("filepath.Rel(good): %v", err)
-	}
+	require.NoError(t, err, "filepath.Rel(good)")
 	goodView, err := svc.Inspect(goodRel)
-	if err != nil {
-		t.Fatalf("Inspect(good): %v", err)
-	}
-	if !goodView.Valid {
-		t.Fatalf("expected a well-formed fixture to be valid, got %+v", goodView)
-	}
-	if goodView.StableKey == "" || goodView.ContentHash == "" {
-		t.Fatalf("expected a valid Inspect to carry a pinned StableKey/ContentHash, got %+v", goodView)
-	}
+	require.NoError(t, err, "Inspect(good)")
+	require.True(t, goodView.Valid, "expected a well-formed fixture to be valid, got %+v", goodView)
+	require.True(t, goodView.StableKey != "" && goodView.ContentHash != "", "expected a valid Inspect to carry a pinned StableKey/ContentHash, got %+v", goodView)
 }
 
 // TestFixtureLibraryServiceSearchOFLReportsUnreachableWithoutThrowing
@@ -242,21 +196,11 @@ func TestFixtureLibraryServiceSearchOFLReportsUnreachableWithoutThrowing(t *test
 	svc.oflIndexRef = ofl.ManufacturerIndexRef{Mirror: "http://127.0.0.1:1", AllowMirror: true}
 
 	view, err := svc.SearchOFL("acme")
-	if err != nil {
-		t.Fatalf("expected SearchOFL to never return an error, got %v", err)
-	}
-	if !view.Unreachable {
-		t.Fatalf("expected view.Unreachable to be true for a catalog this test cannot reach, got %+v", view)
-	}
-	if view.Manufacturers == nil {
-		t.Fatalf("expected a non-nil empty Manufacturers slice, got nil")
-	}
-	if len(view.Manufacturers) != 0 {
-		t.Fatalf("expected zero manufacturers for an unreachable catalog, got %d: %+v", len(view.Manufacturers), view.Manufacturers)
-	}
-	if view.Query != "acme" {
-		t.Fatalf("expected view.Query to echo the caller's query, got %q", view.Query)
-	}
+	require.NoError(t, err, "expected SearchOFL to never return an error")
+	require.True(t, view.Unreachable, "expected view.Unreachable to be true for a catalog this test cannot reach, got %+v", view)
+	require.NotNil(t, view.Manufacturers, "expected a non-nil empty Manufacturers slice")
+	require.Len(t, view.Manufacturers, 0, "expected zero manufacturers for an unreachable catalog: %+v", view.Manufacturers)
+	require.Equal(t, "acme", view.Query, "expected view.Query to echo the caller's query")
 }
 
 const searchOFLManufacturerIndexBody = `{
@@ -309,25 +253,13 @@ func TestFixtureLibraryServiceSearchOFLMatchesFixtureKeys(t *testing.T) {
 	svc := newTestFixtureLibraryServiceWithOFLCatalog(t)
 
 	view, err := svc.SearchOFL("colorband")
-	if err != nil {
-		t.Fatalf("expected SearchOFL to never return an error, got %v", err)
-	}
-	if view.Unreachable {
-		t.Fatalf("expected a reachable catalog, got %+v", view)
-	}
-	if len(view.Manufacturers) != 0 {
-		t.Fatalf("expected zero manufacturer matches for a fixture-key-only query, got %+v", view.Manufacturers)
-	}
-	if len(view.Fixtures) != 1 {
-		t.Fatalf("expected exactly one fixture match for %q, got %d: %+v", "colorband", len(view.Fixtures), view.Fixtures)
-	}
+	require.NoError(t, err, "expected SearchOFL to never return an error")
+	require.False(t, view.Unreachable, "expected a reachable catalog, got %+v", view)
+	require.Len(t, view.Manufacturers, 0, "expected zero manufacturer matches for a fixture-key-only query: %+v", view.Manufacturers)
+	require.Len(t, view.Fixtures, 1, "expected exactly one fixture match for %q: %+v", "colorband", view.Fixtures)
 	got := view.Fixtures[0]
-	if got.ManufacturerKey != "chauvet-dj" || got.FixtureKey != "colorband-pix" {
-		t.Fatalf("expected chauvet-dj/colorband-pix, got %+v", got)
-	}
-	if got.ManufacturerName != "Chauvet DJ" {
-		t.Fatalf("expected the fixture match's manufacturer name resolved from the manufacturer index, got %q", got.ManufacturerName)
-	}
+	require.True(t, got.ManufacturerKey == "chauvet-dj" && got.FixtureKey == "colorband-pix", "expected chauvet-dj/colorband-pix, got %+v", got)
+	require.Equal(t, "Chauvet DJ", got.ManufacturerName, "expected the fixture match's manufacturer name resolved from the manufacturer index")
 }
 
 // TestFixtureLibraryServiceSearchOFLManufacturerQueryOmitsFixtures proves a
@@ -339,15 +271,9 @@ func TestFixtureLibraryServiceSearchOFLManufacturerQueryOmitsFixtures(t *testing
 	svc := newTestFixtureLibraryServiceWithOFLCatalog(t)
 
 	view, err := svc.SearchOFL("chauvet")
-	if err != nil {
-		t.Fatalf("expected SearchOFL to never return an error, got %v", err)
-	}
-	if len(view.Manufacturers) != 1 || view.Manufacturers[0].Key != "chauvet-dj" {
-		t.Fatalf("expected exactly one manufacturer match (chauvet-dj), got %+v", view.Manufacturers)
-	}
-	if len(view.Fixtures) != 0 {
-		t.Fatalf("expected zero fixture matches for a manufacturer-name query, got %+v", view.Fixtures)
-	}
+	require.NoError(t, err, "expected SearchOFL to never return an error")
+	require.True(t, len(view.Manufacturers) == 1 && view.Manufacturers[0].Key == "chauvet-dj", "expected exactly one manufacturer match (chauvet-dj), got %+v", view.Manufacturers)
+	require.Len(t, view.Fixtures, 0, "expected zero fixture matches for a manufacturer-name query: %+v", view.Fixtures)
 }
 
 // TestFixtureLibraryServiceSearchOFLFixtureIndexFailureStaysReachable
@@ -360,21 +286,11 @@ func TestFixtureLibraryServiceSearchOFLFixtureIndexFailureStaysReachable(t *test
 	svc.oflFixtureIndexRef = ofl.FixtureIndexRef{Mirror: "http://127.0.0.1:1", AllowMirror: true}
 
 	view, err := svc.SearchOFL("chauvet")
-	if err != nil {
-		t.Fatalf("expected SearchOFL to never return an error, got %v", err)
-	}
-	if view.Unreachable {
-		t.Fatalf("expected a fixture-index-only failure to leave the catalog reachable, got %+v", view)
-	}
-	if len(view.Manufacturers) != 1 || view.Manufacturers[0].Key != "chauvet-dj" {
-		t.Fatalf("expected manufacturer search to still work, got %+v", view.Manufacturers)
-	}
-	if view.Fixtures == nil {
-		t.Fatalf("expected a non-nil empty Fixtures slice, got nil")
-	}
-	if len(view.Fixtures) != 0 {
-		t.Fatalf("expected zero fixtures for an unreachable fixture index, got %+v", view.Fixtures)
-	}
+	require.NoError(t, err, "expected SearchOFL to never return an error")
+	require.False(t, view.Unreachable, "expected a fixture-index-only failure to leave the catalog reachable, got %+v", view)
+	require.True(t, len(view.Manufacturers) == 1 && view.Manufacturers[0].Key == "chauvet-dj", "expected manufacturer search to still work: %+v", view.Manufacturers)
+	require.NotNil(t, view.Fixtures, "expected a non-nil empty Fixtures slice")
+	require.Len(t, view.Fixtures, 0, "expected zero fixtures for an unreachable fixture index: %+v", view.Fixtures)
 }
 
 // --- 09-06-PLAN.md Task 1 RED / Task 2 GREEN: preview-then-commit import ---
@@ -387,9 +303,8 @@ func TestFixtureLibraryServiceSearchOFLFixtureIndexFailureStaysReachable(t *test
 func oflFixtureCorpusPath(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join("..", "..", "tests", "fixtures", "ofl", "chauvet-dj_led-par-64-tri-b.json")
-	if _, err := os.Stat(path); err != nil {
-		t.Fatalf("OFL corpus fixture missing at %s: %v", path, err)
-	}
+	_, err := os.Stat(path)
+	require.NoError(t, err, "OFL corpus fixture missing at %s", path)
 	return path
 }
 
@@ -401,9 +316,7 @@ func oflFixtureCorpusPath(t *testing.T) string {
 func newMirrorServingCorpusFixture(t *testing.T) *httptest.Server {
 	t.Helper()
 	body, err := os.ReadFile(oflFixtureCorpusPath(t))
-	if err != nil {
-		t.Fatalf("reading OFL corpus fixture: %v", err)
-	}
+	require.NoError(t, err, "reading OFL corpus fixture")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/fixtures/chauvet-dj/led-par-64-tri-b.json" {
 			http.NotFound(w, r)
@@ -435,32 +348,18 @@ func TestPreviewOFLWritesNothingIntoTheLibrary(t *testing.T) {
 	svc, _, fixturesDir := newTestFixtureLibraryServiceWithMirror(t, server)
 
 	view, err := svc.PreviewOFL("chauvet-dj", "led-par-64-tri-b")
-	if err != nil {
-		t.Fatalf("PreviewOFL: %v", err)
-	}
-	if !view.Inspect.Valid {
-		t.Fatalf("expected a valid preview, got %+v", view.Inspect)
-	}
-	if view.PreviewToken == "" {
-		t.Fatalf("expected a non-empty preview token")
-	}
+	require.NoError(t, err, "PreviewOFL")
+	require.True(t, view.Inspect.Valid, "expected a valid preview, got %+v", view.Inspect)
+	require.NotEmpty(t, view.PreviewToken, "expected a non-empty preview token")
 
 	entries, err := os.ReadDir(fixturesDir)
-	if err != nil {
-		t.Fatalf("ReadDir(fixturesDir): %v", err)
-	}
-	if len(entries) != 0 {
-		t.Fatalf("expected the fixtures directory to remain empty after a preview, got %d entries", len(entries))
-	}
+	require.NoError(t, err, "ReadDir(fixturesDir)")
+	require.Len(t, entries, 0, "expected the fixtures directory to remain empty after a preview")
 
 	tokenDir := filepath.Dir(view.PreviewToken)
 	absFixturesDir, err := filepath.Abs(fixturesDir)
-	if err != nil {
-		t.Fatalf("filepath.Abs(fixturesDir): %v", err)
-	}
-	if tokenDir == absFixturesDir {
-		t.Fatalf("expected the preview token to live outside the library directory, got %q", view.PreviewToken)
-	}
+	require.NoError(t, err, "filepath.Abs(fixturesDir)")
+	require.NotEqual(t, absFixturesDir, tokenDir, "expected the preview token to live outside the library directory, got %q", view.PreviewToken)
 }
 
 // TestPreviewOFLReturnsInspectViewWithWarnings proves a candidate whose
@@ -471,22 +370,12 @@ func TestPreviewOFLReturnsInspectViewWithWarnings(t *testing.T) {
 	svc, _, _ := newTestFixtureLibraryServiceWithMirror(t, server)
 
 	view, err := svc.PreviewOFL("chauvet-dj", "led-par-64-tri-b")
-	if err != nil {
-		t.Fatalf("PreviewOFL: %v", err)
-	}
-	if !view.Inspect.Valid {
-		t.Fatalf("expected a valid preview, got %+v", view.Inspect)
-	}
-	if len(view.Inspect.Warnings) == 0 {
-		t.Fatalf("expected the chauvet-dj/led-par-64-tri-b corpus fixture to carry lossy-import warnings, got none")
-	}
+	require.NoError(t, err, "PreviewOFL")
+	require.True(t, view.Inspect.Valid, "expected a valid preview, got %+v", view.Inspect)
+	require.NotEmpty(t, view.Inspect.Warnings, "expected the chauvet-dj/led-par-64-tri-b corpus fixture to carry lossy-import warnings, got none")
 	for _, warning := range view.Inspect.Warnings {
-		if warning.Severity == "" {
-			t.Fatalf("expected every warning to carry a severity, got %+v", warning)
-		}
-		if warning.Detail == "" {
-			t.Fatalf("expected every warning to carry a detail, got %+v", warning)
-		}
+		require.NotEmpty(t, warning.Severity, "expected every warning to carry a severity, got %+v", warning)
+		require.NotEmpty(t, warning.Detail, "expected every warning to carry a detail, got %+v", warning)
 	}
 }
 
@@ -498,15 +387,9 @@ func TestPreviewOFLReturnsErrorsForInvalidCandidate(t *testing.T) {
 	svc, _, _ := newTestFixtureLibraryServiceWithMirror(t, server)
 
 	view, err := svc.PreviewOFL("chauvet-dj", "does-not-exist")
-	if err != nil {
-		t.Fatalf("expected PreviewOFL to never return an error, got %v", err)
-	}
-	if view.Inspect.Valid {
-		t.Fatalf("expected an invalid candidate for a fixture the mirror does not serve, got %+v", view.Inspect)
-	}
-	if len(view.Inspect.Errors) == 0 {
-		t.Fatalf("expected a non-empty Errors slice for an invalid candidate, got %+v", view.Inspect)
-	}
+	require.NoError(t, err, "expected PreviewOFL to never return an error")
+	require.False(t, view.Inspect.Valid, "expected an invalid candidate for a fixture the mirror does not serve, got %+v", view.Inspect)
+	require.NotEmpty(t, view.Inspect.Errors, "expected a non-empty Errors slice for an invalid candidate, got %+v", view.Inspect)
 }
 
 // TestCommitPreviewWritesTheExactPreviewedBytes proves the committed
@@ -517,30 +400,20 @@ func TestCommitPreviewWritesTheExactPreviewedBytes(t *testing.T) {
 	svc, _, fixturesDir := newTestFixtureLibraryServiceWithMirror(t, server)
 
 	view, err := svc.PreviewOFL("chauvet-dj", "led-par-64-tri-b")
-	if err != nil {
-		t.Fatalf("PreviewOFL: %v", err)
-	}
+	require.NoError(t, err, "PreviewOFL")
 	previewBytes, err := os.ReadFile(view.PreviewToken)
-	if err != nil {
-		t.Fatalf("reading previewed artifact: %v", err)
-	}
+	require.NoError(t, err, "reading previewed artifact")
 
 	result := svc.CommitPreview(view.PreviewToken, false)
-	if result.ExitCode != 0 {
-		t.Fatalf("CommitPreview: exit %d, stderr %q", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "CommitPreview: stderr %q", result.Stderr)
 
 	destPath := filepath.Join(fixturesDir, view.SuggestedFileName)
 	committedBytes, err := os.ReadFile(destPath)
-	if err != nil {
-		t.Fatalf("reading committed library file: %v", err)
-	}
-	if !bytes.Equal(previewBytes, committedBytes) {
-		t.Fatalf("expected the committed file to be byte-identical to the previewed artifact")
-	}
-	if _, err := os.Stat(view.PreviewToken); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("expected the previewed file to be moved (no longer present at the token path), got err=%v", err)
-	}
+	require.NoError(t, err, "reading committed library file")
+	require.True(t, bytes.Equal(previewBytes, committedBytes), "expected the committed file to be byte-identical to the previewed artifact")
+
+	_, err = os.Stat(view.PreviewToken)
+	require.True(t, errors.Is(err, fs.ErrNotExist), "expected the previewed file to be moved (no longer present at the token path), got err=%v", err)
 }
 
 // TestCommitPreviewRefusesExistingDestination proves a destination that
@@ -551,31 +424,20 @@ func TestCommitPreviewRefusesExistingDestination(t *testing.T) {
 	svc, _, fixturesDir := newTestFixtureLibraryServiceWithMirror(t, server)
 
 	view, err := svc.PreviewOFL("chauvet-dj", "led-par-64-tri-b")
-	if err != nil {
-		t.Fatalf("PreviewOFL: %v", err)
-	}
+	require.NoError(t, err, "PreviewOFL")
 
 	destPath := filepath.Join(fixturesDir, view.SuggestedFileName)
 	sentinel := []byte("hand-edited sentinel content")
-	if err := os.WriteFile(destPath, sentinel, 0o644); err != nil {
-		t.Fatalf("seeding existing destination: %v", err)
-	}
+	err = os.WriteFile(destPath, sentinel, 0o644)
+	require.NoError(t, err, "seeding existing destination")
 
 	result := svc.CommitPreview(view.PreviewToken, false)
-	if result.ExitCode == 0 {
-		t.Fatalf("expected CommitPreview to refuse an existing destination, got exit 0")
-	}
-	if !strings.Contains(result.Stderr, "GOLC_WAILS_FIXTURE_IMPORT_EXISTS") {
-		t.Fatalf("expected GOLC_WAILS_FIXTURE_IMPORT_EXISTS, got %q", result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected CommitPreview to refuse an existing destination")
+	require.Contains(t, result.Stderr, "GOLC_WAILS_FIXTURE_IMPORT_EXISTS")
 
 	after, err := os.ReadFile(destPath)
-	if err != nil {
-		t.Fatalf("reading destination after refused commit: %v", err)
-	}
-	if !bytes.Equal(after, sentinel) {
-		t.Fatalf("expected the existing destination to be unchanged, got %q", after)
-	}
+	require.NoError(t, err, "reading destination after refused commit")
+	require.True(t, bytes.Equal(after, sentinel), "expected the existing destination to be unchanged, got %q", after)
 }
 
 // TestCommitPreviewReplacesOnlyWithExplicitOverwrite proves the same call
@@ -585,28 +447,19 @@ func TestCommitPreviewReplacesOnlyWithExplicitOverwrite(t *testing.T) {
 	svc, _, fixturesDir := newTestFixtureLibraryServiceWithMirror(t, server)
 
 	view, err := svc.PreviewOFL("chauvet-dj", "led-par-64-tri-b")
-	if err != nil {
-		t.Fatalf("PreviewOFL: %v", err)
-	}
+	require.NoError(t, err, "PreviewOFL")
 
 	destPath := filepath.Join(fixturesDir, view.SuggestedFileName)
 	sentinel := []byte("hand-edited sentinel content")
-	if err := os.WriteFile(destPath, sentinel, 0o644); err != nil {
-		t.Fatalf("seeding existing destination: %v", err)
-	}
+	err = os.WriteFile(destPath, sentinel, 0o644)
+	require.NoError(t, err, "seeding existing destination")
 
 	result := svc.CommitPreview(view.PreviewToken, true)
-	if result.ExitCode != 0 {
-		t.Fatalf("expected an explicit overwrite to succeed, got exit %d, stderr %q", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "expected an explicit overwrite to succeed, got stderr %q", result.Stderr)
 
 	after, err := os.ReadFile(destPath)
-	if err != nil {
-		t.Fatalf("reading destination after overwrite: %v", err)
-	}
-	if bytes.Equal(after, sentinel) {
-		t.Fatalf("expected the destination to be replaced, still carries the sentinel content")
-	}
+	require.NoError(t, err, "reading destination after overwrite")
+	require.False(t, bytes.Equal(after, sentinel), "expected the destination to be replaced, still carries the sentinel content")
 }
 
 // TestCommitPreviewRejectsATokenOutsideThePreviewDirectory proves a token
@@ -616,25 +469,16 @@ func TestCommitPreviewReplacesOnlyWithExplicitOverwrite(t *testing.T) {
 func TestCommitPreviewRejectsATokenOutsideThePreviewDirectory(t *testing.T) {
 	svc, root, fixturesDir := newTestFixtureLibraryService(t)
 	outsidePath := filepath.Join(root, "outside-preview-dir.json")
-	if err := os.WriteFile(outsidePath, []byte(`{"definition":{},"provenance":{}}`), 0o644); err != nil {
-		t.Fatalf("seeding outside-preview file: %v", err)
-	}
+	err := os.WriteFile(outsidePath, []byte(`{"definition":{},"provenance":{}}`), 0o644)
+	require.NoError(t, err, "seeding outside-preview file")
 
 	result := svc.CommitPreview(outsidePath, false)
-	if result.ExitCode == 0 {
-		t.Fatalf("expected CommitPreview to reject a token outside the preview directory, got exit 0")
-	}
-	if !strings.Contains(result.Stderr, "GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN") {
-		t.Fatalf("expected GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN, got %q", result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected CommitPreview to reject a token outside the preview directory")
+	require.Contains(t, result.Stderr, "GOLC_WAILS_FIXTURE_PREVIEW_UNKNOWN")
 
 	entries, err := os.ReadDir(fixturesDir)
-	if err != nil {
-		t.Fatalf("ReadDir(fixturesDir): %v", err)
-	}
-	if len(entries) != 0 {
-		t.Fatalf("expected nothing written into the library, got %d entries", len(entries))
-	}
+	require.NoError(t, err, "ReadDir(fixturesDir)")
+	require.Len(t, entries, 0, "expected nothing written into the library")
 }
 
 // TestDiscardPreviewRemovesTheCandidate proves discarding a staged preview
@@ -644,21 +488,15 @@ func TestDiscardPreviewRemovesTheCandidate(t *testing.T) {
 	svc, _, _ := newTestFixtureLibraryServiceWithMirror(t, server)
 
 	view, err := svc.PreviewOFL("chauvet-dj", "led-par-64-tri-b")
-	if err != nil {
-		t.Fatalf("PreviewOFL: %v", err)
-	}
-	if _, err := os.Stat(view.PreviewToken); err != nil {
-		t.Fatalf("expected the preview file to exist before discarding: %v", err)
-	}
+	require.NoError(t, err, "PreviewOFL")
+	_, err = os.Stat(view.PreviewToken)
+	require.NoError(t, err, "expected the preview file to exist before discarding")
 
 	result := svc.DiscardPreview(view.PreviewToken)
-	if result.ExitCode != 0 {
-		t.Fatalf("DiscardPreview: exit %d, stderr %q", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "DiscardPreview: stderr %q", result.Stderr)
 
-	if _, err := os.Stat(view.PreviewToken); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("expected the preview path to no longer exist after discarding, got err=%v", err)
-	}
+	_, err = os.Stat(view.PreviewToken)
+	require.True(t, errors.Is(err, fs.ErrNotExist), "expected the preview path to no longer exist after discarding, got err=%v", err)
 }
 
 // --- 09-07-PLAN.md Task 1 RED / Task 2 GREEN: hand-authored YAML add ---
@@ -675,35 +513,21 @@ func TestPreviewRegistryKeepsCatalogBehaviourUnchanged(t *testing.T) {
 	svc, _, fixturesDir := newTestFixtureLibraryServiceWithMirror(t, server)
 
 	view, err := svc.PreviewOFL("chauvet-dj", "led-par-64-tri-b")
-	if err != nil {
-		t.Fatalf("PreviewOFL: %v", err)
-	}
-	if !view.Inspect.Valid {
-		t.Fatalf("expected a valid preview, got %+v", view.Inspect)
-	}
+	require.NoError(t, err, "PreviewOFL")
+	require.True(t, view.Inspect.Valid, "expected a valid preview, got %+v", view.Inspect)
 	previewBytes, err := os.ReadFile(view.PreviewToken)
-	if err != nil {
-		t.Fatalf("reading previewed artifact: %v", err)
-	}
+	require.NoError(t, err, "reading previewed artifact")
 
 	result := svc.CommitPreview(view.PreviewToken, false)
-	if result.ExitCode != 0 {
-		t.Fatalf("CommitPreview: exit %d, stderr %q", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "CommitPreview: stderr %q", result.Stderr)
 
 	destPath := filepath.Join(fixturesDir, view.SuggestedFileName)
 	committedBytes, err := os.ReadFile(destPath)
-	if err != nil {
-		t.Fatalf("reading committed library file: %v", err)
-	}
-	if !bytes.Equal(previewBytes, committedBytes) {
-		t.Fatalf("expected the committed file to be byte-identical to the previewed artifact")
-	}
+	require.NoError(t, err, "reading committed library file")
+	require.True(t, bytes.Equal(previewBytes, committedBytes), "expected the committed file to be byte-identical to the previewed artifact")
 
 	localView, err := svc.ListLocal()
-	if err != nil {
-		t.Fatalf("ListLocal: %v", err)
-	}
+	require.NoError(t, err, "ListLocal")
 	found := false
 	for _, row := range localView.Rows {
 		if row.FileName == view.SuggestedFileName {
@@ -711,9 +535,7 @@ func TestPreviewRegistryKeepsCatalogBehaviourUnchanged(t *testing.T) {
 			break
 		}
 	}
-	if !found {
-		t.Fatalf("expected the committed OFL fixture to appear in ListLocal, got %+v", localView.Rows)
-	}
+	require.True(t, found, "expected the committed OFL fixture to appear in ListLocal, got %+v", localView.Rows)
 }
 
 // TestPreviewFileStagesAValidDefinitionWithoutTouchingTheLibrary proves
@@ -725,31 +547,18 @@ func TestPreviewFileStagesAValidDefinitionWithoutTouchingTheLibrary(t *testing.T
 	svc, _, fixturesDir := newTestFixtureLibraryService(t)
 	sourceDir := t.TempDir()
 	sourcePath := filepath.Join(sourceDir, "hand-authored.yaml")
-	if err := os.WriteFile(sourcePath, []byte(validFixtureYAMLForLibraryTest), 0o644); err != nil {
-		t.Fatalf("seeding hand-authored fixture file: %v", err)
-	}
+	err := os.WriteFile(sourcePath, []byte(validFixtureYAMLForLibraryTest), 0o644)
+	require.NoError(t, err, "seeding hand-authored fixture file")
 
 	view, err := svc.PreviewFile(sourcePath)
-	if err != nil {
-		t.Fatalf("PreviewFile: %v", err)
-	}
-	if !view.Inspect.Valid {
-		t.Fatalf("expected a valid preview, got %+v", view.Inspect)
-	}
-	if view.Inspect.StableKey != "Chauvet/SlimPAR Pro" {
-		t.Fatalf("expected the pinned stable key, got %q", view.Inspect.StableKey)
-	}
-	if view.PreviewToken == "" {
-		t.Fatalf("expected a non-empty preview token")
-	}
+	require.NoError(t, err, "PreviewFile")
+	require.True(t, view.Inspect.Valid, "expected a valid preview, got %+v", view.Inspect)
+	require.Equal(t, "Chauvet/SlimPAR Pro", view.Inspect.StableKey, "expected the pinned stable key")
+	require.NotEmpty(t, view.PreviewToken, "expected a non-empty preview token")
 
 	entries, err := os.ReadDir(fixturesDir)
-	if err != nil {
-		t.Fatalf("ReadDir(fixturesDir): %v", err)
-	}
-	if len(entries) != 0 {
-		t.Fatalf("expected the fixtures directory to remain empty after a preview, got %d entries", len(entries))
-	}
+	require.NoError(t, err, "ReadDir(fixturesDir)")
+	require.Len(t, entries, 0, "expected the fixtures directory to remain empty after a preview")
 }
 
 // TestPreviewFileReportsAnUnreadablePath proves a path that cannot be read
@@ -760,18 +569,10 @@ func TestPreviewFileReportsAnUnreadablePath(t *testing.T) {
 	missing := filepath.Join(root, "does-not-exist.yaml")
 
 	view, err := svc.PreviewFile(missing)
-	if err != nil {
-		t.Fatalf("expected PreviewFile to never return an error, got %v", err)
-	}
-	if view.Inspect.Valid {
-		t.Fatalf("expected an invalid preview for an unreadable path, got %+v", view.Inspect)
-	}
-	if len(view.Inspect.Errors) == 0 {
-		t.Fatalf("expected a non-empty Errors slice for an unreadable path, got %+v", view.Inspect)
-	}
-	if view.PreviewToken != "" {
-		t.Fatalf("expected no preview token to be staged for an unreadable path, got %q", view.PreviewToken)
-	}
+	require.NoError(t, err, "expected PreviewFile to never return an error")
+	require.False(t, view.Inspect.Valid, "expected an invalid preview for an unreadable path, got %+v", view.Inspect)
+	require.NotEmpty(t, view.Inspect.Errors, "expected a non-empty Errors slice for an unreadable path, got %+v", view.Inspect)
+	require.Empty(t, view.PreviewToken, "expected no preview token to be staged for an unreadable path")
 }
 
 // TestPreviewFileReportsAnInvalidDefinition proves a malformed YAML file
@@ -781,24 +582,15 @@ func TestPreviewFileReportsAnInvalidDefinition(t *testing.T) {
 	svc, _, _ := newTestFixtureLibraryService(t)
 	sourceDir := t.TempDir()
 	sourcePath := filepath.Join(sourceDir, "bad.yaml")
-	if err := os.WriteFile(sourcePath, []byte(""), 0o644); err != nil {
-		t.Fatalf("seeding malformed fixture file: %v", err)
-	}
+	err := os.WriteFile(sourcePath, []byte(""), 0o644)
+	require.NoError(t, err, "seeding malformed fixture file")
 
 	view, err := svc.PreviewFile(sourcePath)
-	if err != nil {
-		t.Fatalf("expected PreviewFile to never return an error, got %v", err)
-	}
-	if view.Inspect.Valid {
-		t.Fatalf("expected an invalid preview for a malformed definition, got %+v", view.Inspect)
-	}
-	if len(view.Inspect.Errors) == 0 {
-		t.Fatalf("expected a non-empty Errors slice, got %+v", view.Inspect)
-	}
+	require.NoError(t, err, "expected PreviewFile to never return an error")
+	require.False(t, view.Inspect.Valid, "expected an invalid preview for a malformed definition, got %+v", view.Inspect)
+	require.NotEmpty(t, view.Inspect.Errors, "expected a non-empty Errors slice: %+v", view.Inspect)
 	for _, message := range view.Inspect.Errors {
-		if !strings.Contains(message, "GOLC_FIXTURE") {
-			t.Fatalf("expected the canonical route's own GOLC_FIXTURE_* diagnostic, got %q", message)
-		}
+		require.Contains(t, message, "GOLC_FIXTURE", "expected the canonical route's own GOLC_FIXTURE_* diagnostic")
 	}
 }
 
@@ -809,48 +601,31 @@ func TestCommitPreviewWritesTheCustomFixtureVerbatim(t *testing.T) {
 	svc, _, fixturesDir := newTestFixtureLibraryService(t)
 	sourceDir := t.TempDir()
 	sourcePath := filepath.Join(sourceDir, "hand-authored.yaml")
-	if err := os.WriteFile(sourcePath, []byte(validFixtureYAMLForLibraryTest), 0o644); err != nil {
-		t.Fatalf("seeding hand-authored fixture file: %v", err)
-	}
+	err := os.WriteFile(sourcePath, []byte(validFixtureYAMLForLibraryTest), 0o644)
+	require.NoError(t, err, "seeding hand-authored fixture file")
 
 	view, err := svc.PreviewFile(sourcePath)
-	if err != nil {
-		t.Fatalf("PreviewFile: %v", err)
-	}
-	if !view.Inspect.Valid {
-		t.Fatalf("expected a valid preview, got %+v", view.Inspect)
-	}
+	require.NoError(t, err, "PreviewFile")
+	require.True(t, view.Inspect.Valid, "expected a valid preview, got %+v", view.Inspect)
 
 	result := svc.CommitPreview(view.PreviewToken, false)
-	if result.ExitCode != 0 {
-		t.Fatalf("CommitPreview: exit %d, stderr %q", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "CommitPreview: stderr %q", result.Stderr)
 
 	destPath := filepath.Join(fixturesDir, view.SuggestedFileName)
 	committedBytes, err := os.ReadFile(destPath)
-	if err != nil {
-		t.Fatalf("reading committed library file: %v", err)
-	}
-	if string(committedBytes) != validFixtureYAMLForLibraryTest {
-		t.Fatalf("expected the committed file to be byte-identical to the operator's file, got %q", committedBytes)
-	}
+	require.NoError(t, err, "reading committed library file")
+	require.Equal(t, validFixtureYAMLForLibraryTest, string(committedBytes), "expected the committed file to be byte-identical to the operator's file")
 
 	localView, err := svc.ListLocal()
-	if err != nil {
-		t.Fatalf("ListLocal: %v", err)
-	}
+	require.NoError(t, err, "ListLocal")
 	found := false
 	for _, row := range localView.Rows {
 		if row.FileName == view.SuggestedFileName {
 			found = true
-			if row.Status != "valid" {
-				t.Fatalf("expected the newly added custom fixture to be valid, got %+v", row)
-			}
+			require.Equal(t, "valid", row.Status, "expected the newly added custom fixture to be valid, got %+v", row)
 		}
 	}
-	if !found {
-		t.Fatalf("expected the committed custom fixture to appear in ListLocal, got %+v", localView.Rows)
-	}
+	require.True(t, found, "expected the committed custom fixture to appear in ListLocal, got %+v", localView.Rows)
 }
 
 // TestCommitPreviewRefusesExistingDestinationForCustomFixtures proves the
@@ -861,49 +636,29 @@ func TestCommitPreviewRefusesExistingDestinationForCustomFixtures(t *testing.T) 
 	svc, _, fixturesDir := newTestFixtureLibraryService(t)
 	sourceDir := t.TempDir()
 	sourcePath := filepath.Join(sourceDir, "hand-authored.yaml")
-	if err := os.WriteFile(sourcePath, []byte(validFixtureYAMLForLibraryTest), 0o644); err != nil {
-		t.Fatalf("seeding hand-authored fixture file: %v", err)
-	}
+	err := os.WriteFile(sourcePath, []byte(validFixtureYAMLForLibraryTest), 0o644)
+	require.NoError(t, err, "seeding hand-authored fixture file")
 
 	view, err := svc.PreviewFile(sourcePath)
-	if err != nil {
-		t.Fatalf("PreviewFile: %v", err)
-	}
-	if !view.Inspect.Valid {
-		t.Fatalf("expected a valid preview, got %+v", view.Inspect)
-	}
+	require.NoError(t, err, "PreviewFile")
+	require.True(t, view.Inspect.Valid, "expected a valid preview, got %+v", view.Inspect)
 
 	destPath := filepath.Join(fixturesDir, view.SuggestedFileName)
 	sentinel := []byte("hand-edited sentinel content")
-	if err := os.WriteFile(destPath, sentinel, 0o644); err != nil {
-		t.Fatalf("seeding existing destination: %v", err)
-	}
+	err = os.WriteFile(destPath, sentinel, 0o644)
+	require.NoError(t, err, "seeding existing destination")
 
 	result := svc.CommitPreview(view.PreviewToken, false)
-	if result.ExitCode == 0 {
-		t.Fatalf("expected CommitPreview to refuse an existing destination, got exit 0")
-	}
-	if !strings.Contains(result.Stderr, "GOLC_WAILS_FIXTURE_IMPORT_EXISTS") {
-		t.Fatalf("expected GOLC_WAILS_FIXTURE_IMPORT_EXISTS, got %q", result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected CommitPreview to refuse an existing destination")
+	require.Contains(t, result.Stderr, "GOLC_WAILS_FIXTURE_IMPORT_EXISTS")
 
 	after, err := os.ReadFile(destPath)
-	if err != nil {
-		t.Fatalf("reading destination after refused commit: %v", err)
-	}
-	if !bytes.Equal(after, sentinel) {
-		t.Fatalf("expected the existing destination to be unchanged, got %q", after)
-	}
+	require.NoError(t, err, "reading destination after refused commit")
+	require.True(t, bytes.Equal(after, sentinel), "expected the existing destination to be unchanged, got %q", after)
 
 	overwriteResult := svc.CommitPreview(view.PreviewToken, true)
-	if overwriteResult.ExitCode != 0 {
-		t.Fatalf("expected an explicit overwrite to succeed, got exit %d, stderr %q", overwriteResult.ExitCode, overwriteResult.Stderr)
-	}
+	require.Equal(t, 0, overwriteResult.ExitCode, "expected an explicit overwrite to succeed, got stderr %q", overwriteResult.Stderr)
 	replaced, err := os.ReadFile(destPath)
-	if err != nil {
-		t.Fatalf("reading destination after overwrite: %v", err)
-	}
-	if bytes.Equal(replaced, sentinel) {
-		t.Fatalf("expected the destination to be replaced, still carries the sentinel content")
-	}
+	require.NoError(t, err, "reading destination after overwrite")
+	require.False(t, bytes.Equal(replaced, sentinel), "expected the destination to be replaced, still carries the sentinel content")
 }
