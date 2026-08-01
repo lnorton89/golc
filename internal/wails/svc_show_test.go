@@ -13,8 +13,9 @@ package wails
 import (
 	"encoding/json"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/command"
 )
@@ -35,24 +36,15 @@ func TestShowServiceSaveBumpsRevision(t *testing.T) {
 	svc, _, _ := newTestShowService(t)
 
 	before, err := svc.Inspect()
-	if err != nil {
-		t.Fatalf("Inspect before save: %v", err)
-	}
+	require.NoError(t, err, "Inspect before save")
 
-	if result := svc.Save(); result.ExitCode != 0 {
-		t.Fatalf("Save failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.Save()
+	require.Equal(t, 0, result.ExitCode, "Save failed: stderr=%s", result.Stderr)
 
 	after, err := svc.Inspect()
-	if err != nil {
-		t.Fatalf("Inspect after save: %v", err)
-	}
-	if after.Revision <= before.Revision {
-		t.Fatalf("expected Save to bump Revision beyond %d, got %d", before.Revision, after.Revision)
-	}
-	if after.ShowPath == "" {
-		t.Fatalf("expected Inspect to echo the working show path, got empty")
-	}
+	require.NoError(t, err, "Inspect after save")
+	require.Greater(t, after.Revision, before.Revision, "expected Save to bump Revision")
+	require.NotEmpty(t, after.ShowPath, "expected Inspect to echo the working show path")
 }
 
 // TestShowServiceSaveAsCopiesWithoutMutatingSource proves SaveAs writes a
@@ -61,38 +53,26 @@ func TestShowServiceSaveBumpsRevision(t *testing.T) {
 func TestShowServiceSaveAsCopiesWithoutMutatingSource(t *testing.T) {
 	svc, root, _ := newTestShowService(t)
 
-	if result := svc.Save(); result.ExitCode != 0 {
-		t.Fatalf("initial Save failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.Save()
+	require.Equal(t, 0, result.ExitCode, "initial Save failed: stderr=%s", result.Stderr)
 	before, err := svc.Inspect()
-	if err != nil {
-		t.Fatalf("Inspect before save-as: %v", err)
-	}
+	require.NoError(t, err, "Inspect before save-as")
 
 	destPath := filepath.Join(root, "copy.golc")
-	if result := svc.SaveAs(destPath); result.ExitCode != 0 {
-		t.Fatalf("SaveAs failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.SaveAs(destPath)
+	require.Equal(t, 0, result.ExitCode, "SaveAs failed: stderr=%s", result.Stderr)
 
 	after, err := svc.Inspect()
-	if err != nil {
-		t.Fatalf("Inspect after save-as: %v", err)
-	}
-	if after.Revision != before.Revision {
-		t.Fatalf("expected SaveAs to leave the source revision at %d untouched, got %d", before.Revision, after.Revision)
-	}
+	require.NoError(t, err, "Inspect after save-as")
+	require.Equal(t, before.Revision, after.Revision, "expected SaveAs to leave the source revision untouched")
 
 	copySvc := NewShowService("", root, destPath)
 	copyView, err := copySvc.Inspect()
-	if err != nil {
-		t.Fatalf("Inspect on the save-as destination: %v", err)
-	}
+	require.NoError(t, err, "Inspect on the save-as destination")
 	// show.Save always increments Revision on write (store.go's own doc
 	// comment), including the write SaveAs performs at destPath -- so the
 	// copy lands one revision beyond the source it was loaded from.
-	if copyView.Revision != before.Revision+1 {
-		t.Fatalf("expected the copy's revision to be the source's %d plus one, got %d", before.Revision, copyView.Revision)
-	}
+	require.Equal(t, before.Revision+1, copyView.Revision, "expected the copy's revision to be the source's plus one")
 }
 
 // TestShowServiceInspectProjectsPoolsAndDeployments proves Inspect's
@@ -103,49 +83,32 @@ func TestShowServiceInspectProjectsPoolsAndDeployments(t *testing.T) {
 	svc, root, showPath := newTestShowService(t)
 
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
-	if result := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash", "--show", showPath}}); result.ExitCode != 0 {
-		t.Fatalf("pool create failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := registry.Execute(command.Request{Root: root, Args: []string{"deployment", "create", "Main Rig", "--show", showPath}}); result.ExitCode != 0 {
-		t.Fatalf("deployment create failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry")
+	result := registry.Execute(command.Request{Root: root, Args: []string{"pool", "create", "Wash", "--show", showPath}})
+	require.Equal(t, 0, result.ExitCode, "pool create failed: stderr=%s", result.Stderr)
+	result = registry.Execute(command.Request{Root: root, Args: []string{"deployment", "create", "Main Rig", "--show", showPath}})
+	require.Equal(t, 0, result.ExitCode, "deployment create failed: stderr=%s", result.Stderr)
 
 	view, err := svc.Inspect()
-	if err != nil {
-		t.Fatalf("Inspect: %v", err)
-	}
-	if len(view.Pools) != 1 || view.Pools[0].Name != "Wash" {
-		t.Fatalf("expected exactly one pool named Wash, got %+v", view.Pools)
-	}
-	if len(view.Deployments) != 1 || view.Deployments[0].Name != "Main Rig" {
-		t.Fatalf("expected exactly one deployment named Main Rig, got %+v", view.Deployments)
-	}
+	require.NoError(t, err, "Inspect")
+	require.Len(t, view.Pools, 1, "expected exactly one pool named Wash, got %+v", view.Pools)
+	require.Equal(t, "Wash", view.Pools[0].Name)
+	require.Len(t, view.Deployments, 1, "expected exactly one deployment named Main Rig, got %+v", view.Deployments)
+	require.Equal(t, "Main Rig", view.Deployments[0].Name)
 }
 
 // TestShowServiceDiagnoseHealthyFile proves Diagnose reports a freshly
 // saved show as structurally healthy with no file-level issues.
 func TestShowServiceDiagnoseHealthyFile(t *testing.T) {
 	svc, _, _ := newTestShowService(t)
-	if result := svc.Save(); result.ExitCode != 0 {
-		t.Fatalf("Save failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.Save()
+	require.Equal(t, 0, result.ExitCode, "Save failed: stderr=%s", result.Stderr)
 
 	report, err := svc.Diagnose()
-	if err != nil {
-		t.Fatalf("Diagnose: %v", err)
-	}
-	if !report.StructuralOK {
-		t.Fatalf("expected a freshly saved show to be structurally OK, got %+v", report)
-	}
-	if len(report.FileLevelIssues) != 0 {
-		t.Fatalf("expected no file-level issues on a healthy file, got %v", report.FileLevelIssues)
-	}
-	if report.MigrationRequired {
-		t.Fatalf("expected a freshly saved show to need no migration, got %+v", report)
-	}
+	require.NoError(t, err, "Diagnose")
+	require.True(t, report.StructuralOK, "expected a freshly saved show to be structurally OK, got %+v", report)
+	require.Empty(t, report.FileLevelIssues, "expected no file-level issues on a healthy file")
+	require.False(t, report.MigrationRequired, "expected a freshly saved show to need no migration, got %+v", report)
 }
 
 // TestShowServiceDiagnosticReportNeverOmitsOrNullsFileLevelIssues proves
@@ -169,56 +132,36 @@ func TestShowServiceDiagnoseHealthyFile(t *testing.T) {
 // place this contract can actually be pinned.
 func TestShowServiceDiagnosticReportNeverOmitsOrNullsFileLevelIssues(t *testing.T) {
 	svc, _, _ := newTestShowService(t)
-	if result := svc.Save(); result.ExitCode != 0 {
-		t.Fatalf("Save failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.Save()
+	require.Equal(t, 0, result.ExitCode, "Save failed: stderr=%s", result.Stderr)
 
 	report, err := svc.Diagnose()
-	if err != nil {
-		t.Fatalf("Diagnose: %v", err)
-	}
+	require.NoError(t, err, "Diagnose")
 
 	encoded, err := json.Marshal(report)
-	if err != nil {
-		t.Fatalf("json.Marshal(report): %v", err)
-	}
+	require.NoError(t, err, "json.Marshal(report)")
 
 	var decoded map[string]interface{}
-	if err := json.Unmarshal(encoded, &decoded); err != nil {
-		t.Fatalf("json.Unmarshal: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(encoded, &decoded), "json.Unmarshal")
 
 	raw, present := decoded["fileLevelIssues"]
-	if !present {
-		t.Fatalf("expected the JSON payload to carry a \"fileLevelIssues\" key even on a healthy show, got %s", encoded)
-	}
-	if raw == nil {
-		t.Fatalf("expected \"fileLevelIssues\" to be a JSON array, got JSON null: %s", encoded)
-	}
+	require.True(t, present, "expected the JSON payload to carry a \"fileLevelIssues\" key even on a healthy show, got %s", encoded)
+	require.NotNil(t, raw, "expected \"fileLevelIssues\" to be a JSON array, got JSON null: %s", encoded)
 	issues, ok := raw.([]interface{})
-	if !ok {
-		t.Fatalf("expected \"fileLevelIssues\" to decode as a JSON array, got %T: %s", raw, encoded)
-	}
-	if len(issues) != 0 {
-		t.Fatalf("expected zero file-level issues on a healthy show, got %v", issues)
-	}
+	require.True(t, ok, "expected \"fileLevelIssues\" to decode as a JSON array, got %T: %s", raw, encoded)
+	require.Empty(t, issues, "expected zero file-level issues on a healthy show")
 }
 
 // TestShowServiceRecoveryDetectEmptyOnCleanShow proves a cleanly saved show
 // (no interrupted session) offers zero recovery points.
 func TestShowServiceRecoveryDetectEmptyOnCleanShow(t *testing.T) {
 	svc, _, _ := newTestShowService(t)
-	if result := svc.Save(); result.ExitCode != 0 {
-		t.Fatalf("Save failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.Save()
+	require.Equal(t, 0, result.ExitCode, "Save failed: stderr=%s", result.Stderr)
 
 	points, err := svc.DetectRecoveryPoints()
-	if err != nil {
-		t.Fatalf("DetectRecoveryPoints: %v", err)
-	}
-	if len(points) != 0 {
-		t.Fatalf("expected zero offered recovery points on a cleanly saved show, got %+v", points)
-	}
+	require.NoError(t, err, "DetectRecoveryPoints")
+	require.Empty(t, points, "expected zero offered recovery points on a cleanly saved show")
 }
 
 // TestShowServiceAcceptRecoveryPointRejectsUnknownID proves AcceptRecoveryPoint
@@ -226,17 +169,12 @@ func TestShowServiceRecoveryDetectEmptyOnCleanShow(t *testing.T) {
 // rather than silently succeeding or panicking.
 func TestShowServiceAcceptRecoveryPointRejectsUnknownID(t *testing.T) {
 	svc, _, _ := newTestShowService(t)
-	if result := svc.Save(); result.ExitCode != 0 {
-		t.Fatalf("Save failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.Save()
+	require.Equal(t, 0, result.ExitCode, "Save failed: stderr=%s", result.Stderr)
 
-	result := svc.AcceptRecoveryPoint(999)
-	if result.ExitCode == 0 {
-		t.Fatalf("expected accepting an unknown recovery point id to fail, got %+v", result)
-	}
-	if !strings.Contains(result.Stderr, "GOLC_SHOW_RECOVERY_NOT_FOUND") {
-		t.Fatalf("expected GOLC_SHOW_RECOVERY_NOT_FOUND, got %q", result.Stderr)
-	}
+	result = svc.AcceptRecoveryPoint(999)
+	require.NotEqual(t, 0, result.ExitCode, "expected accepting an unknown recovery point id to fail, got %+v", result)
+	require.Contains(t, result.Stderr, "GOLC_SHOW_RECOVERY_NOT_FOUND")
 }
 
 // TestShowServiceDiscardRecoveryPointsNoOpOnCleanShow proves discarding when
@@ -244,12 +182,9 @@ func TestShowServiceAcceptRecoveryPointRejectsUnknownID(t *testing.T) {
 // own "delete matching rows, zero rows is not an error" contract).
 func TestShowServiceDiscardRecoveryPointsNoOpOnCleanShow(t *testing.T) {
 	svc, _, _ := newTestShowService(t)
-	if result := svc.Save(); result.ExitCode != 0 {
-		t.Fatalf("Save failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.Save()
+	require.Equal(t, 0, result.ExitCode, "Save failed: stderr=%s", result.Stderr)
 
-	result := svc.DiscardRecoveryPoints()
-	if result.ExitCode != 0 {
-		t.Fatalf("expected discarding on a clean show to no-op successfully, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.DiscardRecoveryPoints()
+	require.Equal(t, 0, result.ExitCode, "expected discarding on a clean show to no-op successfully, stderr=%s", result.Stderr)
 }

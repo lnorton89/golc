@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/script"
 )
@@ -54,9 +55,7 @@ func findScriptSummary(views []ScriptSummaryView, name string) *ScriptSummaryVie
 func skipUnlessDenoProvisionedForWailsTest(t *testing.T) string {
 	t.Helper()
 	root, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatalf("resolve project root: %v", err)
-	}
+	require.NoError(t, err, "resolve project root")
 	if _, err := script.ResolveDenoExecutable(root); err != nil {
 		t.Skipf("Deno toolchain not provisioned under %s (%v); run 'mage Bootstrap' first", root, err)
 	}
@@ -91,34 +90,19 @@ func TestScriptServiceListScriptsEmptyAndPopulated(t *testing.T) {
 	svc, _, _ := newTestScriptService(t)
 
 	empty, err := svc.ListScripts()
-	if err != nil {
-		t.Fatalf("ListScripts (empty show): %v", err)
-	}
-	if len(empty) != 0 {
-		t.Fatalf("expected an empty projection for a fresh show, got %+v", empty)
-	}
+	require.NoError(t, err, "ListScripts (empty show)")
+	require.Empty(t, empty, "expected an empty projection for a fresh show, got %+v", empty)
 
-	if result := svc.CreateScript("Chase Cycler"); result.ExitCode != 0 {
-		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateScript("Chase Cycler")
+	require.Equal(t, 0, result.ExitCode, "CreateScript failed: stderr=%s", result.Stderr)
 
 	views, err := svc.ListScripts()
-	if err != nil {
-		t.Fatalf("ListScripts: %v", err)
-	}
+	require.NoError(t, err, "ListScripts")
 	view := findScriptSummary(views, "Chase Cycler")
-	if view == nil {
-		t.Fatalf("expected script %q in ListScripts, got %+v", "Chase Cycler", views)
-	}
-	if view.LastRunStatus != "never_run" {
-		t.Fatalf("expected a freshly created script's LastRunStatus to be never_run, got %q", view.LastRunStatus)
-	}
-	if view.Scope != "playback" {
-		t.Fatalf("expected a freshly created script's Scope to default to playback, got %q", view.Scope)
-	}
-	if view.Preset != "quick-action" {
-		t.Fatalf("expected a freshly created script's Preset to default to quick-action, got %q", view.Preset)
-	}
+	require.NotNil(t, view, "expected script %q in ListScripts, got %+v", "Chase Cycler", views)
+	require.Equal(t, "never_run", view.LastRunStatus, "expected a freshly created script's LastRunStatus to be never_run")
+	require.Equal(t, "playback", view.Scope, "expected a freshly created script's Scope to default to playback")
+	require.Equal(t, "quick-action", view.Preset, "expected a freshly created script's Preset to default to quick-action")
 }
 
 // TestScriptServiceListScriptsMissingShow proves ListScripts surfaces an
@@ -126,9 +110,8 @@ func TestScriptServiceListScriptsEmptyAndPopulated(t *testing.T) {
 // makes show.Load fail).
 func TestScriptServiceListScriptsMissingShow(t *testing.T) {
 	svc := NewScriptService("", string([]byte{0}), filepath.Join(string([]byte{0}), "show.json"))
-	if _, err := svc.ListScripts(); err == nil {
-		t.Fatal("expected ListScripts to return an error for an unreadable show")
-	}
+	_, err := svc.ListScripts()
+	require.Error(t, err, "expected ListScripts to return an error for an unreadable show")
 }
 
 // TestScriptServiceGetScriptIncludesSource proves GetScript returns a
@@ -136,20 +119,13 @@ func TestScriptServiceListScriptsMissingShow(t *testing.T) {
 func TestScriptServiceGetScriptIncludesSource(t *testing.T) {
 	svc, _, _ := newTestScriptService(t)
 
-	if result := svc.CreateScript("Chase Cycler"); result.ExitCode != 0 {
-		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateScript("Chase Cycler")
+	require.Equal(t, 0, result.ExitCode, "CreateScript failed: stderr=%s", result.Stderr)
 
 	detail, err := svc.GetScript("Chase Cycler")
-	if err != nil {
-		t.Fatalf("GetScript: %v", err)
-	}
-	if detail.Name != "Chase Cycler" {
-		t.Fatalf("expected Name=%q, got %q", "Chase Cycler", detail.Name)
-	}
-	if detail.Source != "" {
-		t.Fatalf("expected a freshly created script's Source to be empty, got %q", detail.Source)
-	}
+	require.NoError(t, err, "GetScript")
+	require.Equal(t, "Chase Cycler", detail.Name)
+	require.Empty(t, detail.Source, "expected a freshly created script's Source to be empty")
 }
 
 // TestScriptServiceCreateScriptRejectsDuplicateName proves CreateScript
@@ -159,17 +135,11 @@ func TestScriptServiceCreateScriptRejectsDuplicateName(t *testing.T) {
 	svc, _, _ := newTestScriptService(t)
 
 	first := svc.CreateScript("Chase Cycler")
-	if first.ExitCode != 0 {
-		t.Fatalf("CreateScript failed: exit=%d stderr=%s", first.ExitCode, first.Stderr)
-	}
+	require.Equal(t, 0, first.ExitCode, "CreateScript failed: stderr=%s", first.Stderr)
 
 	duplicate := svc.CreateScript("Chase Cycler")
-	if duplicate.ExitCode == 0 {
-		t.Fatal("expected a duplicate script name to be rejected")
-	}
-	if !strings.Contains(duplicate.Stderr, "GOLC_SCRIPT_NAME_DUPLICATE") {
-		t.Fatalf("expected GOLC_SCRIPT_NAME_DUPLICATE in stderr, got %q", duplicate.Stderr)
-	}
+	require.NotEqual(t, 0, duplicate.ExitCode, "expected a duplicate script name to be rejected")
+	require.Contains(t, duplicate.Stderr, "GOLC_SCRIPT_NAME_DUPLICATE")
 }
 
 // TestScriptServiceSaveScriptSourceRoundTrips proves SaveScriptSource
@@ -178,22 +148,16 @@ func TestScriptServiceCreateScriptRejectsDuplicateName(t *testing.T) {
 func TestScriptServiceSaveScriptSourceRoundTrips(t *testing.T) {
 	svc, _, _ := newTestScriptService(t)
 
-	if result := svc.CreateScript("Chase Cycler"); result.ExitCode != 0 {
-		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateScript("Chase Cycler")
+	require.Equal(t, 0, result.ExitCode, "CreateScript failed: stderr=%s", result.Stderr)
 
 	source := "export function run() {\n  console.log(\"hi\");\n}\n\n"
-	if result := svc.SaveScriptSource("Chase Cycler", source); result.ExitCode != 0 {
-		t.Fatalf("SaveScriptSource failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.SaveScriptSource("Chase Cycler", source)
+	require.Equal(t, 0, result.ExitCode, "SaveScriptSource failed: stderr=%s", result.Stderr)
 
 	detail, err := svc.GetScript("Chase Cycler")
-	if err != nil {
-		t.Fatalf("GetScript: %v", err)
-	}
-	if detail.Source != source {
-		t.Fatalf("expected source to round-trip verbatim, got %q want %q", detail.Source, source)
-	}
+	require.NoError(t, err, "GetScript")
+	require.Equal(t, source, detail.Source, "expected source to round-trip verbatim")
 }
 
 // TestScriptServiceSaveScriptSourceRejectsOversized proves SaveScriptSource
@@ -202,26 +166,17 @@ func TestScriptServiceSaveScriptSourceRoundTrips(t *testing.T) {
 func TestScriptServiceSaveScriptSourceRejectsOversized(t *testing.T) {
 	svc, _, _ := newTestScriptService(t)
 
-	if result := svc.CreateScript("Chase Cycler"); result.ExitCode != 0 {
-		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateScript("Chase Cycler")
+	require.Equal(t, 0, result.ExitCode, "CreateScript failed: stderr=%s", result.Stderr)
 
 	oversized := strings.Repeat("a", (1<<20)+1)
-	result := svc.SaveScriptSource("Chase Cycler", oversized)
-	if result.ExitCode == 0 {
-		t.Fatal("expected an oversized source to be rejected")
-	}
-	if !strings.Contains(result.Stderr, "GOLC_SCRIPT_SOURCE_TOO_LARGE") {
-		t.Fatalf("expected GOLC_SCRIPT_SOURCE_TOO_LARGE in stderr, got %q", result.Stderr)
-	}
+	result = svc.SaveScriptSource("Chase Cycler", oversized)
+	require.NotEqual(t, 0, result.ExitCode, "expected an oversized source to be rejected")
+	require.Contains(t, result.Stderr, "GOLC_SCRIPT_SOURCE_TOO_LARGE")
 
 	detail, err := svc.GetScript("Chase Cycler")
-	if err != nil {
-		t.Fatalf("GetScript: %v", err)
-	}
-	if detail.Source != "" {
-		t.Fatalf("expected the rejected oversized source to never persist, got source of length %d", len(detail.Source))
-	}
+	require.NoError(t, err, "GetScript")
+	require.Empty(t, detail.Source, "expected the rejected oversized source to never persist")
 }
 
 // TestScriptServiceDeleteScriptRemovesFromList proves DeleteScript removes
@@ -229,27 +184,18 @@ func TestScriptServiceSaveScriptSourceRejectsOversized(t *testing.T) {
 func TestScriptServiceDeleteScriptRemovesFromList(t *testing.T) {
 	svc, _, _ := newTestScriptService(t)
 
-	if result := svc.CreateScript("Chase Cycler"); result.ExitCode != 0 {
-		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := svc.CreateScript("Blackout Fade"); result.ExitCode != 0 {
-		t.Fatalf("CreateScript(Blackout Fade) failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateScript("Chase Cycler")
+	require.Equal(t, 0, result.ExitCode, "CreateScript failed: stderr=%s", result.Stderr)
+	result = svc.CreateScript("Blackout Fade")
+	require.Equal(t, 0, result.ExitCode, "CreateScript(Blackout Fade) failed: stderr=%s", result.Stderr)
 
-	if result := svc.DeleteScript("Chase Cycler"); result.ExitCode != 0 {
-		t.Fatalf("DeleteScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.DeleteScript("Chase Cycler")
+	require.Equal(t, 0, result.ExitCode, "DeleteScript failed: stderr=%s", result.Stderr)
 
 	views, err := svc.ListScripts()
-	if err != nil {
-		t.Fatalf("ListScripts: %v", err)
-	}
-	if findScriptSummary(views, "Chase Cycler") != nil {
-		t.Fatalf("expected Chase Cycler to be removed, got %+v", views)
-	}
-	if findScriptSummary(views, "Blackout Fade") == nil {
-		t.Fatalf("expected Blackout Fade to remain, got %+v", views)
-	}
+	require.NoError(t, err, "ListScripts")
+	require.Nil(t, findScriptSummary(views, "Chase Cycler"), "expected Chase Cycler to be removed, got %+v", views)
+	require.NotNil(t, findScriptSummary(views, "Blackout Fade"), "expected Blackout Fade to remain, got %+v", views)
 }
 
 // TestScriptServiceSetScriptProfileForwardsOnlySuppliedFields proves
@@ -259,52 +205,31 @@ func TestScriptServiceDeleteScriptRemovesFromList(t *testing.T) {
 func TestScriptServiceSetScriptProfileForwardsOnlySuppliedFields(t *testing.T) {
 	svc, _, _ := newTestScriptService(t)
 
-	if result := svc.CreateScript("Chase Cycler"); result.ExitCode != 0 {
-		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateScript("Chase Cycler")
+	require.Equal(t, 0, result.ExitCode, "CreateScript failed: stderr=%s", result.Stderr)
 
 	// Set scope+preset first.
-	if result := svc.SetScriptProfile("Chase Cycler", "authoring", "advanced", 45, 0, 0, 0); result.ExitCode != 0 {
-		t.Fatalf("SetScriptProfile failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.SetScriptProfile("Chase Cycler", "authoring", "advanced", 45, 0, 0, 0)
+	require.Equal(t, 0, result.ExitCode, "SetScriptProfile failed: stderr=%s", result.Stderr)
 
 	afterFirst, err := svc.GetScript("Chase Cycler")
-	if err != nil {
-		t.Fatalf("GetScript: %v", err)
-	}
-	if afterFirst.Scope != "authoring" {
-		t.Fatalf("expected Scope=authoring, got %q", afterFirst.Scope)
-	}
-	if afterFirst.Preset != "advanced" {
-		t.Fatalf("expected Preset=advanced, got %q", afterFirst.Preset)
-	}
-	if afterFirst.DeadlineSeconds != 45 {
-		t.Fatalf("expected DeadlineSeconds=45, got %d", afterFirst.DeadlineSeconds)
-	}
+	require.NoError(t, err, "GetScript")
+	require.Equal(t, "authoring", afterFirst.Scope)
+	require.Equal(t, "advanced", afterFirst.Preset)
+	require.Equal(t, 45, afterFirst.DeadlineSeconds)
 
 	// A second call touching only RatePerSecond must leave Scope/Preset/
 	// DeadlineSeconds untouched (zero/empty values here must NOT be
 	// forwarded as flags).
-	if result := svc.SetScriptProfile("Chase Cycler", "", "", 0, 10, 0, 0); result.ExitCode != 0 {
-		t.Fatalf("SetScriptProfile (second call) failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.SetScriptProfile("Chase Cycler", "", "", 0, 10, 0, 0)
+	require.Equal(t, 0, result.ExitCode, "SetScriptProfile (second call) failed: stderr=%s", result.Stderr)
 
 	afterSecond, err := svc.GetScript("Chase Cycler")
-	if err != nil {
-		t.Fatalf("GetScript: %v", err)
-	}
-	if afterSecond.Scope != "authoring" {
-		t.Fatalf("expected Scope to remain authoring, got %q", afterSecond.Scope)
-	}
-	if afterSecond.Preset != "advanced" {
-		t.Fatalf("expected Preset to remain advanced, got %q", afterSecond.Preset)
-	}
-	if afterSecond.DeadlineSeconds != 45 {
-		t.Fatalf("expected DeadlineSeconds to remain 45, got %d", afterSecond.DeadlineSeconds)
-	}
-	if afterSecond.RatePerSecond != 10 {
-		t.Fatalf("expected RatePerSecond=10, got %d", afterSecond.RatePerSecond)
-	}
+	require.NoError(t, err, "GetScript")
+	require.Equal(t, "authoring", afterSecond.Scope, "expected Scope to remain authoring")
+	require.Equal(t, "advanced", afterSecond.Preset, "expected Preset to remain advanced")
+	require.Equal(t, 45, afterSecond.DeadlineSeconds, "expected DeadlineSeconds to remain 45")
+	require.Equal(t, 10, afterSecond.RatePerSecond)
 }
 
 // TestScriptEventStreamForwardsPublishedEventsToEmit covers 08-08-PLAN.md
@@ -343,9 +268,7 @@ func TestScriptEventStreamForwardsPublishedEventsToEmit(t *testing.T) {
 	defer svc.StopScriptEventStream()
 
 	runID, err := uuid.NewV7()
-	if err != nil {
-		t.Fatalf("uuid.NewV7: %v", err)
-	}
+	require.NoError(t, err, "uuid.NewV7")
 	script.PublishScriptEvent(script.ScriptEvent{
 		Kind: script.ScriptEventLog, RunID: runID, ScriptName: "Chase", Message: "hello",
 	})
@@ -370,9 +293,9 @@ func TestScriptEventStreamForwardsPublishedEventsToEmit(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	if len(pushed) != 1 || pushed[0].Message != "hello" || pushed[0].ScriptName != "Chase" {
-		t.Fatalf("expected exactly one forwarded event carrying the published payload, got %+v", pushed)
-	}
+	require.Len(t, pushed, 1, "expected exactly one forwarded event carrying the published payload, got %+v", pushed)
+	require.Equal(t, "hello", pushed[0].Message)
+	require.Equal(t, "Chase", pushed[0].ScriptName)
 }
 
 // TestStopScriptEventStreamBeforeStartIsNoop proves StopScriptEventStream
@@ -391,17 +314,11 @@ func TestStopScriptEventStreamBeforeStartIsNoop(t *testing.T) {
 // name (no Deno install required).
 func TestScriptServiceRunScriptMissingReturnsError(t *testing.T) {
 	svc, _, _ := newTestScriptService(t)
-	if result := svc.CreateScript("Other"); result.ExitCode != 0 {
-		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateScript("Other")
+	require.Equal(t, 0, result.ExitCode, "CreateScript failed: stderr=%s", result.Stderr)
 
 	_, err := svc.RunScript("Missing")
-	if err == nil {
-		t.Fatal("expected RunScript to return an error for a missing script")
-	}
-	if !strings.Contains(err.Error(), "GOLC_SCRIPT_NOT_FOUND") {
-		t.Fatalf("expected GOLC_SCRIPT_NOT_FOUND, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_SCRIPT_NOT_FOUND", "expected RunScript to return an error for a missing script")
 }
 
 // TestScriptServiceRunScriptSucceeds proves RunScript decodes a successful
@@ -412,32 +329,22 @@ func TestScriptServiceRunScriptSucceeds(t *testing.T) {
 	root := skipUnlessDenoProvisionedForWailsTest(t)
 	svc := newDenoGatedScriptService(t, root)
 
-	if result := svc.CreateScript("Chase"); result.ExitCode != 0 {
-		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateScript("Chase")
+	require.Equal(t, 0, result.ExitCode, "CreateScript failed: stderr=%s", result.Stderr)
 	source := "console.log(\"running Chase\");\n" +
 		"const result = await golc.show.inspect({});\n" +
 		"console.log(\"inspected: \" + JSON.stringify(result));\n"
-	if result := svc.SaveScriptSource("Chase", source); result.ExitCode != 0 {
-		t.Fatalf("SaveScriptSource failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.SaveScriptSource("Chase", source)
+	require.Equal(t, 0, result.ExitCode, "SaveScriptSource failed: stderr=%s", result.Stderr)
 
 	outcome, err := svc.RunScript("Chase")
-	if err != nil {
-		t.Fatalf("RunScript: %v", err)
-	}
-	if outcome.RunID == "" {
-		t.Fatal("expected a non-empty RunID")
-	}
-	if outcome.Status != "succeeded" {
-		t.Fatalf("expected status succeeded, got %q (reason: %s)", outcome.Status, outcome.Reason)
-	}
-	if len(outcome.Outcomes) != 1 || !outcome.Outcomes[0].Ok || outcome.Outcomes[0].Route != "show inspect" {
-		t.Fatalf("expected exactly one successful 'show inspect' outcome, got %+v", outcome.Outcomes)
-	}
-	if len(outcome.Logs) == 0 {
-		t.Fatal("expected at least one captured log line")
-	}
+	require.NoError(t, err, "RunScript")
+	require.NotEmpty(t, outcome.RunID, "expected a non-empty RunID")
+	require.Equal(t, "succeeded", outcome.Status, "expected status succeeded (reason: %s)", outcome.Reason)
+	require.Len(t, outcome.Outcomes, 1, "expected exactly one successful 'show inspect' outcome, got %+v", outcome.Outcomes)
+	require.True(t, outcome.Outcomes[0].Ok, "expected exactly one successful 'show inspect' outcome, got %+v", outcome.Outcomes)
+	require.Equal(t, "show inspect", outcome.Outcomes[0].Route, "expected exactly one successful 'show inspect' outcome, got %+v", outcome.Outcomes)
+	require.NotEmpty(t, outcome.Logs, "expected at least one captured log line")
 }
 
 // TestScriptServiceRunScriptCrashDerivesStackFrames proves a crashing
@@ -448,26 +355,16 @@ func TestScriptServiceRunScriptCrashDerivesStackFrames(t *testing.T) {
 	root := skipUnlessDenoProvisionedForWailsTest(t)
 	svc := newDenoGatedScriptService(t, root)
 
-	if result := svc.CreateScript("Broken"); result.ExitCode != 0 {
-		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := svc.SaveScriptSource("Broken", "throw new Error(\"deliberate failure\");\n"); result.ExitCode != 0 {
-		t.Fatalf("SaveScriptSource failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateScript("Broken")
+	require.Equal(t, 0, result.ExitCode, "CreateScript failed: stderr=%s", result.Stderr)
+	result = svc.SaveScriptSource("Broken", "throw new Error(\"deliberate failure\");\n")
+	require.Equal(t, 0, result.ExitCode, "SaveScriptSource failed: stderr=%s", result.Stderr)
 
 	outcome, err := svc.RunScript("Broken")
-	if err != nil {
-		t.Fatalf("RunScript: %v", err)
-	}
-	if outcome.Status != "failed" {
-		t.Fatalf("expected status failed, got %q", outcome.Status)
-	}
-	if !strings.Contains(outcome.Reason, "deliberate failure") {
-		t.Fatalf("expected the reason to include the thrown error message, got %q", outcome.Reason)
-	}
-	if len(outcome.StackFrames) == 0 {
-		t.Fatalf("expected at least one derived stack-trace line for a crash, got none (reason: %q)", outcome.Reason)
-	}
+	require.NoError(t, err, "RunScript")
+	require.Equal(t, "failed", outcome.Status)
+	require.Contains(t, outcome.Reason, "deliberate failure", "expected the reason to include the thrown error message")
+	require.NotEmpty(t, outcome.StackFrames, "expected at least one derived stack-trace line for a crash, got none (reason: %q)", outcome.Reason)
 }
 
 // TestScriptServiceDebugScriptInvalidBreakpointReturnsError proves
@@ -476,20 +373,13 @@ func TestScriptServiceRunScriptCrashDerivesStackFrames(t *testing.T) {
 // (no Deno install required).
 func TestScriptServiceDebugScriptInvalidBreakpointReturnsError(t *testing.T) {
 	svc, _, _ := newTestScriptService(t)
-	if result := svc.CreateScript("OneLine"); result.ExitCode != 0 {
-		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := svc.SaveScriptSource("OneLine", "const x = 1;"); result.ExitCode != 0 {
-		t.Fatalf("SaveScriptSource failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateScript("OneLine")
+	require.Equal(t, 0, result.ExitCode, "CreateScript failed: stderr=%s", result.Stderr)
+	result = svc.SaveScriptSource("OneLine", "const x = 1;")
+	require.Equal(t, 0, result.ExitCode, "SaveScriptSource failed: stderr=%s", result.Stderr)
 
 	_, err := svc.DebugScript("OneLine", []int{999})
-	if err == nil {
-		t.Fatal("expected DebugScript to return an error for an out-of-range breakpoint")
-	}
-	if !strings.Contains(err.Error(), "GOLC_SCRIPT_BREAKPOINT_INVALID") {
-		t.Fatalf("expected GOLC_SCRIPT_BREAKPOINT_INVALID, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_SCRIPT_BREAKPOINT_INVALID", "expected DebugScript to return an error for an out-of-range breakpoint")
 }
 
 // TestScriptServiceDebugScriptSucceeds proves DebugScript forwards
@@ -499,23 +389,15 @@ func TestScriptServiceDebugScriptSucceeds(t *testing.T) {
 	root := skipUnlessDenoProvisionedForWailsTest(t)
 	svc := newDenoGatedScriptService(t, root)
 
-	if result := svc.CreateScript("DebugMe"); result.ExitCode != 0 {
-		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := svc.SaveScriptSource("DebugMe", "const x = 1;\nconst y = 2;\n"); result.ExitCode != 0 {
-		t.Fatalf("SaveScriptSource failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateScript("DebugMe")
+	require.Equal(t, 0, result.ExitCode, "CreateScript failed: stderr=%s", result.Stderr)
+	result = svc.SaveScriptSource("DebugMe", "const x = 1;\nconst y = 2;\n")
+	require.Equal(t, 0, result.ExitCode, "SaveScriptSource failed: stderr=%s", result.Stderr)
 
 	outcome, err := svc.DebugScript("DebugMe", []int{1})
-	if err != nil {
-		t.Fatalf("DebugScript: %v", err)
-	}
-	if outcome.RunID == "" {
-		t.Fatal("expected a non-empty RunID")
-	}
-	if outcome.Status != "succeeded" {
-		t.Fatalf("expected status succeeded, got %q (reason: %s)", outcome.Status, outcome.Reason)
-	}
+	require.NoError(t, err, "DebugScript")
+	require.NotEmpty(t, outcome.RunID, "expected a non-empty RunID")
+	require.Equal(t, "succeeded", outcome.Status, "expected status succeeded (reason: %s)", outcome.Reason)
 }
 
 // TestScriptServiceStopScriptNoActiveRunReturnsResult proves StopScript
@@ -523,17 +405,12 @@ func TestScriptServiceDebugScriptSucceeds(t *testing.T) {
 // when the named script has no active run (no Deno install required).
 func TestScriptServiceStopScriptNoActiveRunReturnsResult(t *testing.T) {
 	svc, _, _ := newTestScriptService(t)
-	if result := svc.CreateScript("Chase"); result.ExitCode != 0 {
-		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateScript("Chase")
+	require.Equal(t, 0, result.ExitCode, "CreateScript failed: stderr=%s", result.Stderr)
 
-	result := svc.StopScript("Chase")
-	if result.ExitCode != 1 {
-		t.Fatalf("expected ExitCode 1 for no active run, got %d stdout=%s stderr=%s", result.ExitCode, result.Stdout, result.Stderr)
-	}
-	if !strings.Contains(result.Stderr, "GOLC_SCRIPT_NO_ACTIVE_RUN") {
-		t.Fatalf("expected GOLC_SCRIPT_NO_ACTIVE_RUN, got stderr=%s", result.Stderr)
-	}
+	result = svc.StopScript("Chase")
+	require.Equal(t, 1, result.ExitCode, "expected ExitCode 1 for no active run, stdout=%s stderr=%s", result.Stdout, result.Stderr)
+	require.Contains(t, result.Stderr, "GOLC_SCRIPT_NO_ACTIVE_RUN")
 }
 
 // TestScriptServiceValidateScriptDecodesForbiddenImportDiagnostic proves
@@ -542,26 +419,16 @@ func TestScriptServiceStopScriptNoActiveRunReturnsResult(t *testing.T) {
 // full type-check) never requires a Deno install.
 func TestScriptServiceValidateScriptDecodesForbiddenImportDiagnostic(t *testing.T) {
 	svc, _, _ := newTestScriptService(t)
-	if result := svc.CreateScript("Imports"); result.ExitCode != 0 {
-		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := svc.SaveScriptSource("Imports", "import \"foo\";\n"); result.ExitCode != 0 {
-		t.Fatalf("SaveScriptSource failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateScript("Imports")
+	require.Equal(t, 0, result.ExitCode, "CreateScript failed: stderr=%s", result.Stderr)
+	result = svc.SaveScriptSource("Imports", "import \"foo\";\n")
+	require.Equal(t, 0, result.ExitCode, "SaveScriptSource failed: stderr=%s", result.Stderr)
 
 	validation, err := svc.ValidateScript("Imports")
-	if err != nil {
-		t.Fatalf("ValidateScript: %v", err)
-	}
-	if validation.Valid {
-		t.Fatal("expected a script with a forbidden import to be invalid")
-	}
-	if len(validation.Diagnostics) == 0 {
-		t.Fatal("expected at least one diagnostic")
-	}
-	if validation.Diagnostics[0].Code != "GOLC_SCRIPT_IMPORT_FORBIDDEN" {
-		t.Fatalf("expected GOLC_SCRIPT_IMPORT_FORBIDDEN, got %q", validation.Diagnostics[0].Code)
-	}
+	require.NoError(t, err, "ValidateScript")
+	require.False(t, validation.Valid, "expected a script with a forbidden import to be invalid")
+	require.NotEmpty(t, validation.Diagnostics, "expected at least one diagnostic")
+	require.Equal(t, "GOLC_SCRIPT_IMPORT_FORBIDDEN", validation.Diagnostics[0].Code)
 }
 
 // TestScriptServiceValidateScriptMissingReturnsError proves ValidateScript
@@ -569,17 +436,11 @@ func TestScriptServiceValidateScriptDecodesForbiddenImportDiagnostic(t *testing.
 // name (no Deno install required).
 func TestScriptServiceValidateScriptMissingReturnsError(t *testing.T) {
 	svc, _, _ := newTestScriptService(t)
-	if result := svc.CreateScript("Other"); result.ExitCode != 0 {
-		t.Fatalf("CreateScript failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := svc.CreateScript("Other")
+	require.Equal(t, 0, result.ExitCode, "CreateScript failed: stderr=%s", result.Stderr)
 
 	_, err := svc.ValidateScript("Missing")
-	if err == nil {
-		t.Fatal("expected ValidateScript to return an error for a missing script")
-	}
-	if !strings.Contains(err.Error(), "GOLC_SCRIPT_NOT_FOUND") {
-		t.Fatalf("expected GOLC_SCRIPT_NOT_FOUND, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_SCRIPT_NOT_FOUND", "expected ValidateScript to return an error for a missing script")
 }
 
 // TestScriptServiceControlRoutesNoActiveDebugReturnsResult proves every
@@ -597,12 +458,8 @@ func TestScriptServiceControlRoutesNoActiveDebugReturnsResult(t *testing.T) {
 	}
 	for name, control := range controls {
 		result := control()
-		if result.ExitCode != 1 {
-			t.Fatalf("%s: expected ExitCode 1, got %d stdout=%s stderr=%s", name, result.ExitCode, result.Stdout, result.Stderr)
-		}
-		if !strings.Contains(result.Stderr, "GOLC_SCRIPT_NO_ACTIVE_DEBUG") {
-			t.Fatalf("%s: expected GOLC_SCRIPT_NO_ACTIVE_DEBUG, got stderr=%s", name, result.Stderr)
-		}
+		require.Equal(t, 1, result.ExitCode, "%s: expected ExitCode 1, stdout=%s stderr=%s", name, result.Stdout, result.Stderr)
+		require.Contains(t, result.Stderr, "GOLC_SCRIPT_NO_ACTIVE_DEBUG", "%s", name)
 	}
 }
 
@@ -615,21 +472,13 @@ func TestScriptServiceGetSDKTypeDefinitionsReadsCommittedFile(t *testing.T) {
 	svc, root, _ := newTestScriptService(t)
 
 	typesDir := filepath.Join(root, "internal", "scriptsdk", "generated")
-	if err := os.MkdirAll(typesDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(typesDir, 0o755), "MkdirAll")
 	want := "declare namespace golc {\n  function ping(): Promise<void>;\n}\n"
-	if err := os.WriteFile(filepath.Join(typesDir, "golc.d.ts"), []byte(want), 0o644); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(typesDir, "golc.d.ts"), []byte(want), 0o644), "WriteFile")
 
 	got, err := svc.GetSDKTypeDefinitions()
-	if err != nil {
-		t.Fatalf("GetSDKTypeDefinitions: %v", err)
-	}
-	if got != want {
-		t.Fatalf("expected golc.d.ts contents to round-trip verbatim, got %q want %q", got, want)
-	}
+	require.NoError(t, err, "GetSDKTypeDefinitions")
+	require.Equal(t, want, got, "expected golc.d.ts contents to round-trip verbatim")
 }
 
 // TestScriptServiceGetSDKTypeDefinitionsMissingReturnsError proves a root
@@ -639,10 +488,5 @@ func TestScriptServiceGetSDKTypeDefinitionsMissingReturnsError(t *testing.T) {
 	svc, _, _ := newTestScriptService(t)
 
 	_, err := svc.GetSDKTypeDefinitions()
-	if err == nil {
-		t.Fatal("expected GetSDKTypeDefinitions to return an error when golc.d.ts is absent")
-	}
-	if !strings.Contains(err.Error(), "GOLC_SCRIPTSDK_TYPES_MISSING") {
-		t.Fatalf("expected GOLC_SCRIPTSDK_TYPES_MISSING, got %v", err)
-	}
+	require.ErrorContains(t, err, "GOLC_SCRIPTSDK_TYPES_MISSING", "expected GetSDKTypeDefinitions to return an error when golc.d.ts is absent")
 }
