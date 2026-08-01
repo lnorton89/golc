@@ -28,7 +28,7 @@
 //     internal state (touched-attribute buffers, per-surface MIDI
 //     mappings) is treated as authoring-sensitive, not merely a query.
 //   - "admin": api-key lifecycle, every artnet safety/configure/target/
-//     master route (live output topology and emergency controls), and
+//     master/desk route (live output topology and emergency controls), and
 //     "show export" (a full unredacted document dump).
 //
 // Coverage discipline: SCRP-02's operative edge -- flagged in this plan's
@@ -328,6 +328,27 @@ type ArtnetMasterSetParams struct {
 	Pipe  string  `json:"pipe,omitempty"`
 }
 
+// ArtnetDeskSetParams: "artnet desk set --instance <uuid> --attr
+// <capability>=<value> [--pipe <name>]".
+type ArtnetDeskSetParams struct {
+	Instance string `json:"instance"`
+	Attr     string `json:"attr"`
+	Pipe     string `json:"pipe,omitempty"`
+}
+
+// ArtnetDeskClearParams: "artnet desk clear --instance <uuid> [--attr
+// <capability>] [--pipe <name>]".
+type ArtnetDeskClearParams struct {
+	Instance string `json:"instance"`
+	Attr     string `json:"attr,omitempty"`
+	Pipe     string `json:"pipe,omitempty"`
+}
+
+// ArtnetDeskClearAllParams: "artnet desk clear-all [--pipe <name>]".
+type ArtnetDeskClearAllParams struct {
+	Pipe string `json:"pipe,omitempty"`
+}
+
 // FixtureFileParams is the "<file>"-only shape shared by "fixture validate"
 // and "fixture inspect".
 type FixtureFileParams struct {
@@ -502,6 +523,9 @@ var sdkMethodTable = []sdkEntry{
 	{"artnet target enable", "artnet.target.enable", "Re-enable output to one configured unicast target without stopping the rig.", show.APIKeyScopeAdmin, ArtnetTargetParams{}, AckResult{}},
 	{"artnet target disable", "artnet.target.disable", "Take one configured unicast target offline without stopping the rig.", show.APIKeyScopeAdmin, ArtnetTargetParams{}, AckResult{}},
 	{"artnet master set", "artnet.master.set", "Set the grand master or one group's master level.", show.APIKeyScopeAdmin, ArtnetMasterSetParams{}, AckResult{}},
+	{"artnet desk set", "artnet.desk.set", "Live-write one manual desk override onto an instance's capability.", show.APIKeyScopeAdmin, ArtnetDeskSetParams{}, AckResult{}},
+	{"artnet desk clear", "artnet.desk.clear", "Release one manual desk override (or every override on an instance).", show.APIKeyScopeAdmin, ArtnetDeskClearParams{}, AckResult{}},
+	{"artnet desk clear-all", "artnet.desk.clearAll", "Release every manual desk override across every instance at once.", show.APIKeyScopeAdmin, ArtnetDeskClearAllParams{}, AckResult{}},
 	{"artnet safety blackout", "artnet.safety.blackout", "Drive every configured universe's output to zero on the next Art-Net tick.", show.APIKeyScopeAdmin, ArtnetSafetyParams{}, AckResult{}},
 	{"artnet safety stop-all", "artnet.safety.stopAll", "Drive every configured universe's output to the safe/zero state.", show.APIKeyScopeAdmin, ArtnetSafetyParams{}, AckResult{}},
 	{"artnet safety revoke-automation", "artnet.safety.revokeAutomation", "Block any command carrying a non-manual source tag and freeze the current look.", show.APIKeyScopeAdmin, ArtnetSafetyParams{}, AckResult{}},

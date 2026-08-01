@@ -82,6 +82,11 @@ function __golcCall(method: string, params: unknown): Promise<any> {
   },
   artnet: {
     configure: (params: any): Promise<any> => __golcCall("artnet configure", params),
+    desk: {
+      clear: (params: any): Promise<any> => __golcCall("artnet desk clear", params),
+      clearAll: (params: any): Promise<any> => __golcCall("artnet desk clear-all", params),
+      set: (params: any): Promise<any> => __golcCall("artnet desk set", params)
+    },
     discover: (params: any): Promise<any> => __golcCall("artnet discover", params),
     interfaces: {
       list: (params: any): Promise<any> => __golcCall("artnet interface list", params)

@@ -95,7 +95,8 @@ func buildExcludedRoutes() map[string]string {
 	addAll(reasonDaemonLifecycle, "artnet serve")
 	addAll(reasonLocalProcessLaunch, "run", "dev")
 	addAll(reasonArtnetFutureWork,
-		"artnet configure", "artnet discover", "artnet interface list",
+		"artnet configure", "artnet desk clear", "artnet desk clear-all", "artnet desk set",
+		"artnet discover", "artnet interface list",
 		"artnet master set", "artnet safety blackout", "artnet safety revoke-automation",
 		"artnet safety stop-all", "artnet status", "artnet target disable", "artnet target enable",
 	)
