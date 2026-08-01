@@ -23,6 +23,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/show"
@@ -44,13 +46,9 @@ func newTestPlaybackService(t *testing.T) (*PlaybackService, string, string) {
 func execRegistry(t *testing.T, root string, args ...string) command.Result {
 	t.Helper()
 	registry, err := command.NewDefaultCommandRegistry()
-	if err != nil {
-		t.Fatalf("NewDefaultCommandRegistry: %v", err)
-	}
+	require.NoError(t, err, "NewDefaultCommandRegistry")
 	result := registry.Execute(command.Request{Root: root, Args: args})
-	if result.ExitCode != 0 {
-		t.Fatalf("seed command %v failed: exit=%d stderr=%s", args, result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "seed command %v failed: stderr=%s", args, result.Stderr)
 	return result
 }
 
@@ -69,9 +67,7 @@ func TestPlaybackServiceEnumeratesEveryPlaybackAction(t *testing.T) {
 	}
 
 	for _, name := range want {
-		if !got[name] {
-			t.Fatalf("expected PlaybackService to bind method %q for the enumerated playback action set (PLAY-01/02); it is missing", name)
-		}
+		require.True(t, got[name], "expected PlaybackService to bind method %q for the enumerated playback action set (PLAY-01/02); it is missing", name)
 	}
 }
 
@@ -83,20 +79,16 @@ func TestPlaybackServiceSwitchScene(t *testing.T) {
 	execRegistry(t, root, "scene", "create", "Chorus", "--bars", "4", "--show", showPath)
 
 	result := svc.SwitchScene("Chorus")
-	if result.ExitCode != 0 {
-		t.Fatalf("SwitchScene failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "SwitchScene failed: stderr=%s", result.Stderr)
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load")
 	for _, sc := range state.Scenes {
-		if sc.Name == "Chorus" && !sc.Active {
-			t.Fatalf("expected Chorus to be active after SwitchScene, got Active=%v", sc.Active)
+		if sc.Name == "Chorus" {
+			require.True(t, sc.Active, "expected Chorus to be active after SwitchScene")
 		}
-		if sc.Name == "Verse" && sc.Active {
-			t.Fatalf("expected Verse to be inactive after switching to Chorus, got Active=%v", sc.Active)
+		if sc.Name == "Verse" {
+			require.False(t, sc.Active, "expected Verse to be inactive after switching to Chorus")
 		}
 	}
 }
@@ -108,12 +100,8 @@ func TestPlaybackServiceSwitchSceneUnknownSceneReturnsDiagnosticNotPanic(t *test
 	svc, _, _ := newTestPlaybackService(t)
 
 	result := svc.SwitchScene("DoesNotExist")
-	if result.ExitCode == 0 {
-		t.Fatal("expected a non-zero exit for an unknown scene name")
-	}
-	if !strings.Contains(result.Stderr, "GOLC_PLAYBACK_SWITCH_UNKNOWN_SCENE") {
-		t.Fatalf("expected GOLC_PLAYBACK_SWITCH_UNKNOWN_SCENE in stderr, got %q", result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected a non-zero exit for an unknown scene name")
+	require.Contains(t, result.Stderr, "GOLC_PLAYBACK_SWITCH_UNKNOWN_SCENE")
 }
 
 // TestPlaybackServiceSetLayerEnabledPreservesRefAcrossToggle proves
@@ -127,51 +115,31 @@ func TestPlaybackServiceSetLayerEnabledPreservesRefAcrossToggle(t *testing.T) {
 	execRegistry(t, root, "theme", "create", "Warm", "--show", showPath)
 
 	seeded, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load (seed): %v", err)
-	}
-	if len(seeded.Themes) != 1 {
-		t.Fatalf("expected exactly one seeded theme, got %d", len(seeded.Themes))
-	}
+	require.NoError(t, err, "show.Load (seed)")
+	require.Len(t, seeded.Themes, 1, "expected exactly one seeded theme")
 	themeID := seeded.Themes[0].ID
 
 	execRegistry(t, root, "scene", "layer", "set", "Verse", "--kind", "color_theme", "--ref", themeID.String(), "--show", showPath)
 
 	// Disable the layer through the binding under test.
 	disableResult := svc.SetLayerEnabled("Verse", "color_theme", false)
-	if disableResult.ExitCode != 0 {
-		t.Fatalf("SetLayerEnabled(disable) failed: exit=%d stderr=%s", disableResult.ExitCode, disableResult.Stderr)
-	}
+	require.Equal(t, 0, disableResult.ExitCode, "SetLayerEnabled(disable) failed: stderr=%s", disableResult.Stderr)
 
 	afterDisable, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load (after disable): %v", err)
-	}
+	require.NoError(t, err, "show.Load (after disable)")
 	layer := findLayer(t, afterDisable, "Verse", "color_theme")
-	if layer.Enabled {
-		t.Fatal("expected the layer to be disabled")
-	}
-	if layer.Ref != themeID {
-		t.Fatalf("expected Ref to be preserved across disable, got %v want %v", layer.Ref, themeID)
-	}
+	require.False(t, layer.Enabled, "expected the layer to be disabled")
+	require.Equal(t, themeID, layer.Ref, "expected Ref to be preserved across disable")
 
 	// Re-enable through the binding under test.
 	enableResult := svc.SetLayerEnabled("Verse", "color_theme", true)
-	if enableResult.ExitCode != 0 {
-		t.Fatalf("SetLayerEnabled(enable) failed: exit=%d stderr=%s", enableResult.ExitCode, enableResult.Stderr)
-	}
+	require.Equal(t, 0, enableResult.ExitCode, "SetLayerEnabled(enable) failed: stderr=%s", enableResult.Stderr)
 
 	afterEnable, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load (after enable): %v", err)
-	}
+	require.NoError(t, err, "show.Load (after enable)")
 	layer = findLayer(t, afterEnable, "Verse", "color_theme")
-	if !layer.Enabled {
-		t.Fatal("expected the layer to be enabled")
-	}
-	if layer.Ref != themeID {
-		t.Fatalf("expected Ref to be preserved across re-enable, got %v want %v", layer.Ref, themeID)
-	}
+	require.True(t, layer.Enabled, "expected the layer to be enabled")
+	require.Equal(t, themeID, layer.Ref, "expected Ref to be preserved across re-enable")
 }
 
 // TestPlaybackServiceSwitchSceneRejectsWhenActiveSurfaceDoesNotAssignScene
@@ -185,28 +153,20 @@ func TestPlaybackServiceSwitchSceneRejectsWhenActiveSurfaceDoesNotAssignScene(t 
 	execRegistry(t, root, "scene", "create", "Chorus", "--bars", "4", "--show", showPath)
 
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if result := surfaceSvc.CreateSurface("Operator A"); result.ExitCode != 0 {
-		t.Fatalf("CreateSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := svc.SetActiveSurface("Operator A"); result.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := surfaceSvc.CreateSurface("Operator A")
+	require.Equal(t, 0, result.ExitCode, "CreateSurface failed: stderr=%s", result.Stderr)
+	result = svc.SetActiveSurface("Operator A")
+	require.Equal(t, 0, result.ExitCode, "SetActiveSurface failed: stderr=%s", result.Stderr)
 
-	result := svc.SwitchScene("Chorus")
-	if result.ExitCode == 0 {
-		t.Fatal("expected SwitchScene to be rejected when the active surface has no matching SceneRef assigned")
-	}
-	if !strings.Contains(result.Stderr, "GOLC_OPERATORSURFACE_LOCKED") {
-		t.Fatalf("expected GOLC_OPERATORSURFACE_LOCKED in stderr, got %q", result.Stderr)
-	}
+	result = svc.SwitchScene("Chorus")
+	require.NotEqual(t, 0, result.ExitCode, "expected SwitchScene to be rejected when the active surface has no matching SceneRef assigned")
+	require.Contains(t, result.Stderr, "GOLC_OPERATORSURFACE_LOCKED")
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load")
 	for _, sc := range state.Scenes {
-		if sc.Name == "Chorus" && sc.Active {
-			t.Fatal("expected Chorus to remain inactive after a rejected SwitchScene")
+		if sc.Name == "Chorus" {
+			require.False(t, sc.Active, "expected Chorus to remain inactive after a rejected SwitchScene")
 		}
 	}
 }
@@ -220,28 +180,21 @@ func TestPlaybackServiceSwitchSceneDispatchesWhenActiveSurfaceAssignsScene(t *te
 	execRegistry(t, root, "scene", "create", "Chorus", "--bars", "4", "--show", showPath)
 
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if result := surfaceSvc.CreateSurface("Operator A"); result.ExitCode != 0 {
-		t.Fatalf("CreateSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := surfaceSvc.AssignItem("Operator A", ControlRefInput{Kind: "scene", Scene: "Chorus"}); result.ExitCode != 0 {
-		t.Fatalf("AssignItem failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := svc.SetActiveSurface("Operator A"); result.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := surfaceSvc.CreateSurface("Operator A")
+	require.Equal(t, 0, result.ExitCode, "CreateSurface failed: stderr=%s", result.Stderr)
+	result = surfaceSvc.AssignItem("Operator A", ControlRefInput{Kind: "scene", Scene: "Chorus"})
+	require.Equal(t, 0, result.ExitCode, "AssignItem failed: stderr=%s", result.Stderr)
+	result = svc.SetActiveSurface("Operator A")
+	require.Equal(t, 0, result.ExitCode, "SetActiveSurface failed: stderr=%s", result.Stderr)
 
-	result := svc.SwitchScene("Chorus")
-	if result.ExitCode != 0 {
-		t.Fatalf("expected SwitchScene to dispatch once Chorus is assigned, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.SwitchScene("Chorus")
+	require.Equal(t, 0, result.ExitCode, "expected SwitchScene to dispatch once Chorus is assigned, got stderr=%s", result.Stderr)
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
+	require.NoError(t, err, "show.Load")
 	for _, sc := range state.Scenes {
-		if sc.Name == "Chorus" && !sc.Active {
-			t.Fatal("expected Chorus to be active after an authorized SwitchScene")
+		if sc.Name == "Chorus" {
+			require.True(t, sc.Active, "expected Chorus to be active after an authorized SwitchScene")
 		}
 	}
 }
@@ -255,20 +208,15 @@ func TestPlaybackServiceSetActiveSurfaceEmptyClearsRestriction(t *testing.T) {
 	execRegistry(t, root, "scene", "create", "Verse", "--bars", "4", "--show", showPath)
 
 	surfaceSvc := NewSurfaceService("", root, showPath)
-	if result := surfaceSvc.CreateSurface("Operator A"); result.ExitCode != 0 {
-		t.Fatalf("CreateSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := svc.SetActiveSurface("Operator A"); result.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if result := svc.SetActiveSurface(""); result.ExitCode != 0 {
-		t.Fatalf("SetActiveSurface(\"\") failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result := surfaceSvc.CreateSurface("Operator A")
+	require.Equal(t, 0, result.ExitCode, "CreateSurface failed: stderr=%s", result.Stderr)
+	result = svc.SetActiveSurface("Operator A")
+	require.Equal(t, 0, result.ExitCode, "SetActiveSurface failed: stderr=%s", result.Stderr)
+	result = svc.SetActiveSurface("")
+	require.Equal(t, 0, result.ExitCode, "SetActiveSurface(\"\") failed: stderr=%s", result.Stderr)
 
-	result := svc.SwitchScene("Verse")
-	if result.ExitCode != 0 {
-		t.Fatalf("expected SwitchScene to dispatch after the active surface was cleared, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	result = svc.SwitchScene("Verse")
+	require.Equal(t, 0, result.ExitCode, "expected SwitchScene to dispatch after the active surface was cleared, got stderr=%s", result.Stderr)
 }
 
 // TestPlaybackServiceSetLayerEnabledPropagatesPreReadFailure proves WR-01's
@@ -282,18 +230,12 @@ func TestPlaybackServiceSetActiveSurfaceEmptyClearsRestriction(t *testing.T) {
 func TestPlaybackServiceSetLayerEnabledPropagatesPreReadFailure(t *testing.T) {
 	root := t.TempDir()
 	showPath := filepath.Join(t.TempDir(), "not-a-file.golc")
-	if err := os.Mkdir(showPath, 0o755); err != nil {
-		t.Fatalf("failed to seed a directory at showPath: %v", err)
-	}
+	require.NoError(t, os.Mkdir(showPath, 0o755), "failed to seed a directory at showPath")
 	svc := NewPlaybackService("", showPath, root)
 
 	result := svc.SetLayerEnabled("Verse", "color_theme", false)
-	if result.ExitCode == 0 {
-		t.Fatal("expected SetLayerEnabled to fail when the pre-read show.Load cannot open the store")
-	}
-	if result.Stderr == "" {
-		t.Fatal("expected a non-empty diagnostic when the pre-read fails")
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected SetLayerEnabled to fail when the pre-read show.Load cannot open the store")
+	require.NotEmpty(t, result.Stderr, "expected a non-empty diagnostic when the pre-read fails")
 }
 
 func findLayer(t *testing.T, state show.State, sceneName, kind string) scene.Layer {
@@ -319,12 +261,8 @@ func TestPlaybackServiceSetLayerEnabledUnknownSceneReturnsDiagnosticNotPanic(t *
 	svc, _, _ := newTestPlaybackService(t)
 
 	result := svc.SetLayerEnabled("DoesNotExist", "color_theme", false)
-	if result.ExitCode == 0 {
-		t.Fatal("expected a non-zero exit for an unknown scene name")
-	}
-	if !strings.Contains(result.Stderr, "GOLC_SCENE_NOT_FOUND") {
-		t.Fatalf("expected GOLC_SCENE_NOT_FOUND in stderr, got %q", result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected a non-zero exit for an unknown scene name")
+	require.Contains(t, result.Stderr, "GOLC_SCENE_NOT_FOUND")
 }
 
 // TestPlaybackServiceSetBPM proves SetBPM issues "playback bpm set <bpm>
@@ -333,17 +271,11 @@ func TestPlaybackServiceSetBPM(t *testing.T) {
 	svc, root, showPath := newTestPlaybackService(t)
 
 	result := svc.SetBPM(128)
-	if result.ExitCode != 0 {
-		t.Fatalf("SetBPM failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "SetBPM failed: stderr=%s", result.Stderr)
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
-	if state.Tempo.BPM != 128 {
-		t.Fatalf("expected Tempo.BPM=128, got %v", state.Tempo.BPM)
-	}
+	require.NoError(t, err, "show.Load")
+	require.EqualValues(t, 128, state.Tempo.BPM, "expected Tempo.BPM=128, got %v", state.Tempo.BPM)
 }
 
 // TestPlaybackServiceSetBPMInvalidValueReturnsDiagnosticNotPanic proves a
@@ -359,12 +291,8 @@ func TestPlaybackServiceSetBPMInvalidValueReturnsDiagnosticNotPanic(t *testing.T
 	svc, _, _ := newTestPlaybackService(t)
 
 	result := svc.SetBPM(0)
-	if result.ExitCode == 0 {
-		t.Fatal("expected a non-zero exit for a non-positive BPM")
-	}
-	if !strings.Contains(result.Stderr, "GOLC_PLAYBACK_BPM_INVALID") {
-		t.Fatalf("expected GOLC_PLAYBACK_BPM_INVALID in stderr, got %q", result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected a non-zero exit for a non-positive BPM")
+	require.Contains(t, result.Stderr, "GOLC_PLAYBACK_BPM_INVALID")
 }
 
 // TestPlaybackServiceTapTempo proves TapTempo issues "playback bpm tap
@@ -379,17 +307,11 @@ func TestPlaybackServiceTapTempo(t *testing.T) {
 		"2026-01-01T00:00:00.5Z",
 		"2026-01-01T00:00:01Z",
 	})
-	if result.ExitCode != 0 {
-		t.Fatalf("TapTempo failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "TapTempo failed: stderr=%s", result.Stderr)
 
 	state, err := show.Load(root, showPath)
-	if err != nil {
-		t.Fatalf("show.Load: %v", err)
-	}
-	if diff := state.Tempo.BPM - 120.0; diff < -1e-6 || diff > 1e-6 {
-		t.Fatalf("expected Tempo.BPM=120 from tap tempo, got %v", state.Tempo.BPM)
-	}
+	require.NoError(t, err, "show.Load")
+	require.InDelta(t, 120.0, state.Tempo.BPM, 1e-6, "expected Tempo.BPM=120 from tap tempo")
 }
 
 // TestPlaybackServiceTapTempoFewerThanTwoTapsReturnsDiagnosticNotPanic
@@ -399,12 +321,8 @@ func TestPlaybackServiceTapTempoFewerThanTwoTapsReturnsDiagnosticNotPanic(t *tes
 	svc, _, _ := newTestPlaybackService(t)
 
 	result := svc.TapTempo([]string{"2026-01-01T00:00:00Z"})
-	if result.ExitCode == 0 {
-		t.Fatal("expected a non-zero exit for fewer than two taps")
-	}
-	if !strings.Contains(result.Stderr, "GOLC_PLAYBACK_TAP_INVALID") {
-		t.Fatalf("expected GOLC_PLAYBACK_TAP_INVALID in stderr, got %q", result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected a non-zero exit for fewer than two taps")
+	require.Contains(t, result.Stderr, "GOLC_PLAYBACK_TAP_INVALID")
 }
 
 // TestPlaybackServiceEvaluate proves Evaluate issues "playback evaluate
@@ -417,16 +335,10 @@ func TestPlaybackServiceEvaluate(t *testing.T) {
 	execRegistry(t, root, "scene", "activate", "Verse", "--show", showPath)
 
 	result := svc.Evaluate(0)
-	if result.ExitCode != 0 {
-		t.Fatalf("Evaluate failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
-	if strings.TrimSpace(result.Stdout) == "" {
-		t.Fatal("expected a non-empty JSON payload from Evaluate")
-	}
+	require.Equal(t, 0, result.ExitCode, "Evaluate failed: stderr=%s", result.Stderr)
+	require.NotEmpty(t, strings.TrimSpace(result.Stdout), "expected a non-empty JSON payload from Evaluate")
 	var decoded map[string]interface{}
-	if err := json.Unmarshal([]byte(result.Stdout), &decoded); err != nil {
-		t.Fatalf("expected valid JSON from Evaluate, got error: %v (stdout=%s)", err, result.Stdout)
-	}
+	require.NoError(t, json.Unmarshal([]byte(result.Stdout), &decoded), "expected valid JSON from Evaluate (stdout=%s)", result.Stdout)
 }
 
 // TestPlaybackServiceEvaluateNoActiveSceneReturnsDiagnosticNotPanic proves
@@ -437,12 +349,8 @@ func TestPlaybackServiceEvaluateNoActiveSceneReturnsDiagnosticNotPanic(t *testin
 	execRegistry(t, root, "playback", "bpm", "set", "120", "--show", showPath)
 
 	result := svc.Evaluate(0)
-	if result.ExitCode == 0 {
-		t.Fatal("expected a non-zero exit with no active scene")
-	}
-	if !strings.Contains(result.Stderr, "GOLC_PLAYBACK_NO_ACTIVE_SCENE") {
-		t.Fatalf("expected GOLC_PLAYBACK_NO_ACTIVE_SCENE in stderr, got %q", result.Stderr)
-	}
+	require.NotEqual(t, 0, result.ExitCode, "expected a non-zero exit with no active scene")
+	require.Contains(t, result.Stderr, "GOLC_PLAYBACK_NO_ACTIVE_SCENE")
 }
 
 // TestPlaybackServiceGetState proves GetState's JSON-safe projection
@@ -455,23 +363,15 @@ func TestPlaybackServiceGetState(t *testing.T) {
 	execRegistry(t, root, "scene", "activate", "Verse", "--show", showPath)
 
 	result := svc.GetState()
-	if result.ExitCode != 0 {
-		t.Fatalf("GetState failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "GetState failed: stderr=%s", result.Stderr)
 
 	var decoded playbackStateSummary
-	if err := json.Unmarshal([]byte(result.Stdout), &decoded); err != nil {
-		t.Fatalf("failed to decode GetState payload: %v (stdout=%s)", err, result.Stdout)
-	}
-	if decoded.BPM != 110 {
-		t.Fatalf("expected BPM=110, got %v", decoded.BPM)
-	}
-	if len(decoded.Scenes) != 1 || decoded.Scenes[0].Name != "Verse" || !decoded.Scenes[0].Active {
-		t.Fatalf("expected exactly one active scene named Verse, got %+v", decoded.Scenes)
-	}
-	if len(decoded.Scenes[0].Layers) != 4 {
-		t.Fatalf("expected 4 fixed layer slots, got %d", len(decoded.Scenes[0].Layers))
-	}
+	require.NoError(t, json.Unmarshal([]byte(result.Stdout), &decoded), "failed to decode GetState payload (stdout=%s)", result.Stdout)
+	require.EqualValues(t, 110, decoded.BPM, "expected BPM=110")
+	require.Len(t, decoded.Scenes, 1, "expected exactly one active scene named Verse, got %+v", decoded.Scenes)
+	require.Equal(t, "Verse", decoded.Scenes[0].Name, "expected exactly one active scene named Verse, got %+v", decoded.Scenes)
+	require.True(t, decoded.Scenes[0].Active, "expected exactly one active scene named Verse, got %+v", decoded.Scenes)
+	require.Len(t, decoded.Scenes[0].Layers, 4, "expected 4 fixed layer slots")
 }
 
 // TestPlaybackServiceGetStateEmptyShowScenesIsArrayNotNull proves a
@@ -490,24 +390,14 @@ func TestPlaybackServiceGetStateEmptyShowScenesIsArrayNotNull(t *testing.T) {
 	svc, _, _ := newTestPlaybackService(t)
 
 	result := svc.GetState()
-	if result.ExitCode != 0 {
-		t.Fatalf("GetState failed: exit=%d stderr=%s", result.ExitCode, result.Stderr)
-	}
+	require.Equal(t, 0, result.ExitCode, "GetState failed: stderr=%s", result.Stderr)
 
 	var raw struct {
 		Scenes json.RawMessage `json:"scenes"`
 	}
-	if err := json.Unmarshal([]byte(result.Stdout), &raw); err != nil {
-		t.Fatalf("failed to decode GetState payload: %v (stdout=%s)", err, result.Stdout)
-	}
-	if strings.TrimSpace(string(raw.Scenes)) == "null" {
-		t.Fatalf("GetState rendered scenes as the literal JSON null instead of an empty array: %s", result.Stdout)
-	}
+	require.NoError(t, json.Unmarshal([]byte(result.Stdout), &raw), "failed to decode GetState payload (stdout=%s)", result.Stdout)
+	require.NotEqual(t, "null", strings.TrimSpace(string(raw.Scenes)), "GetState rendered scenes as the literal JSON null instead of an empty array: %s", result.Stdout)
 	var scenes []sceneSummary
-	if err := json.Unmarshal(raw.Scenes, &scenes); err != nil {
-		t.Fatalf("scenes field did not decode as a JSON array: %v (raw=%s)", err, raw.Scenes)
-	}
-	if len(scenes) != 0 {
-		t.Fatalf("expected zero scenes on a fresh show, got %d", len(scenes))
-	}
+	require.NoError(t, json.Unmarshal(raw.Scenes, &scenes), "scenes field did not decode as a JSON array (raw=%s)", raw.Scenes)
+	require.Empty(t, scenes, "expected zero scenes on a fresh show")
 }
