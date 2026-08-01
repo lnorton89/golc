@@ -309,7 +309,7 @@ func TestHotkeyKeydownForwardsDirectlyToDaemon(t *testing.T) {
 		want := []string{"--on", "true", "--source", "manual"}
 		require.Equal(t, want, request.Args, "forwarded args")
 	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for the hotkey Keydown callback to dial+forward the daemon route")
+		require.Fail(t, "timed out waiting for the hotkey Keydown callback to dial+forward the daemon route")
 	}
 }
 
@@ -350,7 +350,7 @@ func TestHotkeyKeydownReleasesWhenAlreadyActive(t *testing.T) {
 		want := []string{"--on", "false", "--source", "manual"}
 		require.Equal(t, want, request.Args, "forwarded args")
 	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for the hotkey Keydown callback to dial+forward the daemon route")
+		require.Fail(t, "timed out waiting for the hotkey Keydown callback to dial+forward the daemon route")
 	}
 }
 
@@ -557,7 +557,7 @@ func TestRelaunchWithShowIsNotReentrant(t *testing.T) {
 	select {
 	case <-started:
 	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for the first relaunch's spawn to start")
+		require.Fail(t, "timed out waiting for the first relaunch's spawn to start")
 	}
 
 	second := app.RelaunchWithShow(filepath.Join(t.TempDir(), "another.golc"))
@@ -570,7 +570,7 @@ func TestRelaunchWithShowIsNotReentrant(t *testing.T) {
 	case first := <-resultCh:
 		require.Equal(t, 0, first.ExitCode, "expected the first relaunch to succeed, got stderr=%s", first.Stderr)
 	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for the first relaunch to finish")
+		require.Fail(t, "timed out waiting for the first relaunch to finish")
 	}
 	require.Equal(t, int32(1), atomic.LoadInt32(&spawnCalls), "expected exactly one spawn call in total")
 	require.Equal(t, int32(1), atomic.LoadInt32(&quitCalls), "expected exactly one quit call from the first (successful) relaunch")
@@ -736,7 +736,7 @@ func TestSelectInterfaceIsNotReentrant(t *testing.T) {
 	select {
 	case <-started:
 	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for the first switch's spawn to start")
+		require.Fail(t, "timed out waiting for the first switch's spawn to start")
 	}
 
 	second := app.SelectInterface(6, "nic-b")
@@ -747,7 +747,7 @@ func TestSelectInterfaceIsNotReentrant(t *testing.T) {
 	select {
 	case <-resultCh:
 	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for the first switch to finish")
+		require.Fail(t, "timed out waiting for the first switch to finish")
 	}
 }
 
