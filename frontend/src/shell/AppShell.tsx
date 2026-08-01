@@ -48,10 +48,13 @@ import CommandRail from "./CommandRail";
 import ContextualInspector from "./ContextualInspector";
 import WorkspaceRouter from "./WorkspaceRouter";
 import HelpOverlay from "./HelpOverlay";
+import QuickSwitcher from "./QuickSwitcher";
 import ConfirmModal from "../components/primitives/ConfirmModal/ConfirmModal";
 import { InspectorPortalProvider } from "./InspectorSlot";
 import { PlaybackSnapshotProvider } from "./PlaybackSnapshotContext";
 import { useGlobalKeyboardWorkflow } from "./useGlobalKeyboardWorkflow";
+import { useResizablePanel } from "../hooks/useResizablePanel";
+import ResizeHandle from "../components/primitives/ResizeHandle/ResizeHandle";
 import { DEFAULT_DESTINATION, type DestinationId } from "./navigation";
 import { GuidedFirstShowProvider, useGuidedFirstShow } from "../workspaces/show/GuidedFirstShow/GuidedFirstShowContext";
 import GuidedFirstShow from "../workspaces/show/GuidedFirstShow/GuidedFirstShow";
@@ -116,8 +119,28 @@ function ShellBody() {
   // size even after the thing driving it genuinely changed). Fed by
   // ContextualInspector.tsx's own MutationObserver on the portal target.
   const [inspectorHasContent, setInspectorHasContent] = useState(false);
-  const { helpOpen, closeHelp } = useGlobalKeyboardWorkflow();
-  const appShellStyle = { "--inspector-width": inspectorHasContent ? "258px" : "0px" } as CSSProperties;
+  const { helpOpen, closeHelp, quickSwitcherOpen, closeQuickSwitcher } = useGlobalKeyboardWorkflow({
+    activeDestination,
+    onNavigate: setActiveDestination,
+  });
+  // Rail and inspector widths are each user-resizable (drag the handle on
+  // their shared boundary with .main) and persisted independently across
+  // reloads -- see useResizablePanel's own doc comment. The inspector's
+  // 0px-collapsed-when-empty behavior is unchanged; only its expanded
+  // width is now the user's own last-dragged value instead of a hardcoded
+  // 258px.
+  const rail = useResizablePanel({ min: 160, max: 360, defaultSize: 186, storageKey: "golc.railWidth", edge: "end" });
+  const inspector = useResizablePanel({
+    min: 220,
+    max: 480,
+    defaultSize: 258,
+    storageKey: "golc.inspectorWidth",
+    edge: "start",
+  });
+  const appShellStyle = {
+    "--rail-width": `${rail.size}px`,
+    "--inspector-width": inspectorHasContent ? `${inspector.size}px` : "0px",
+  } as CSSProperties;
 
   return (
     <div className={styles.appShell} style={appShellStyle}>
@@ -130,6 +153,13 @@ function ShellBody() {
       <GuidedFirstShowProvider activeDestination={activeDestination} onNavigate={setActiveDestination}>
         <div className={styles.rail}>
           <GuardedCommandRail active={activeDestination} />
+          <ResizeHandle
+            edge="end"
+            label="Resize navigation rail"
+            isResizing={rail.isResizing}
+            onPointerDown={rail.handlePointerDown}
+            onDoubleClick={rail.resetSize}
+          />
         </div>
         <main className={styles.main}>
           <InspectorPortalProvider container={inspectorContainer}>
@@ -138,9 +168,19 @@ function ShellBody() {
         </main>
       </GuidedFirstShowProvider>
       <div className={styles.inspector}>
+        {inspectorHasContent && (
+          <ResizeHandle
+            edge="start"
+            label="Resize inspector panel"
+            isResizing={inspector.isResizing}
+            onPointerDown={inspector.handlePointerDown}
+            onDoubleClick={inspector.resetSize}
+          />
+        )}
         <ContextualInspector onContainerReady={setInspectorContainer} onHasContentChange={setInspectorHasContent} />
       </div>
       <HelpOverlay open={helpOpen} onClose={closeHelp} />
+      <QuickSwitcher open={quickSwitcherOpen} onClose={closeQuickSwitcher} onNavigate={setActiveDestination} />
     </div>
   );
 }

@@ -24,7 +24,7 @@
 // visually fights the poll it itself caused; releasing the override drops
 // back to trusting the poll.
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { RotateCcw, Sun, TriangleAlert, Zap } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, Minus, RotateCcw, Sun, TriangleAlert, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import {
@@ -255,15 +255,37 @@ function MetaBadge({ label, value, kind }: { label: string; value: string; kind:
   );
 }
 
-/** UniverseRow renders one universe's fixture-group cards and owns that
- * universe's own vertically-resizable height (useResizablePanel, keyed per
- * universe number so Universe 1 and Universe 2 each remember their own
- * dragged height independently). Pulled out as its own component -- not
- * inlined in Desk's own universes.entries().map -- because a hook can't be
- * called a variable number of times inside a single component's render
- * (the universe count can change between renders); a subcomponent
- * instantiated once per map entry is the only way each row gets its own
- * independent hook instance. */
+/** UNIVERSE_HEIGHT_PRESETS are the three quick-set heights the header's
+ * icon-only button group offers (Compact/Normal/Large -- label is the
+ * button's aria-label/title only, never rendered as visible text). Normal
+ * matches this row's pre-resizable-feature natural height almost exactly
+ * (a 120px fader track plus its own fixed chrome, see .faderInput's own
+ * doc comment in Desk.module.css), so a fresh Desk looks unchanged from
+ * before this feature existed until a user actually reaches for a preset
+ * or the drag handle. */
+const UNIVERSE_HEIGHT_PRESETS: { label: string; value: number; icon: LucideIcon }[] = [
+  { label: "Compact", value: 210, icon: ChevronsDownUp },
+  { label: "Normal", value: 260, icon: Minus },
+  { label: "Large", value: 340, icon: ChevronsUpDown },
+];
+
+/** HeightPreset is a Compact/Normal/Large button click passed down from
+ * Desk to every UniverseRow -- version increments on every click (even a
+ * repeat of the same value) so each row's own apply-effect (below) always
+ * fires exactly once per click, distinct from a plain controlled value
+ * that could get re-applied on unrelated re-renders. */
+interface HeightPreset {
+  value: number;
+  version: number;
+}
+
+/** UniverseRow renders one universe's fixture-group cards at its OWN
+ * independently resizable height (own useResizablePanel, keyed per
+ * universe number) -- dragging this row's handle only ever resizes this
+ * row. `preset`, when it changes, is the one exception: Desk's Compact/
+ * Normal/Large buttons apply the same height to every row at once by
+ * bumping `preset.version`, after which each row goes back to being
+ * independently draggable again until the next preset click. */
 function UniverseRow({
   universe,
   universeInstances,
@@ -272,6 +294,7 @@ function UniverseRow({
   universeValues,
   onFaderChange,
   onFaderClear,
+  preset,
 }: {
   universe: number;
   universeInstances: DeskInstance[];
@@ -280,15 +303,26 @@ function UniverseRow({
   universeValues: DeskUniverseValuesView[];
   onFaderChange: (channel: DeskChannel, instanceId: string, value: number) => void;
   onFaderClear: (channel: DeskChannel, instanceId: string) => void;
+  preset: HeightPreset | null;
 }) {
   const heightPanel = useResizablePanel({
-    min: 140,
-    max: 640,
-    defaultSize: 240,
+    min: 190,
+    max: 500,
+    defaultSize: UNIVERSE_HEIGHT_PRESETS[1].value,
     storageKey: `golc.deskUniverseHeight.${universe}`,
     edge: "end",
     axis: "vertical",
   });
+  const { setSize } = heightPanel;
+
+  useEffect(() => {
+    if (preset) setSize(preset.value);
+    // Deliberately keyed on preset.version, not preset.value: a second
+    // click of the SAME preset (e.g. re-asserting Normal after this row
+    // was dragged away from it) must still re-apply, which a value-only
+    // dependency would miss since the value wouldn't have changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preset?.version]);
 
   return (
     <div className={styles.universeRow} style={{ "--universe-height": `${heightPanel.size}px` } as CSSProperties}>
@@ -359,6 +393,12 @@ export default function Desk() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reachable, setReachable] = useState(true);
+  // heightPreset is the last Compact/Normal/Large button click, threaded
+  // down to every UniverseRow (see HeightPreset's own doc comment on why
+  // each row applies it via a version-keyed effect rather than treating it
+  // as an ongoing controlled value) -- null until the user's first click,
+  // since each row otherwise owns its own independent height.
+  const [heightPreset, setHeightPreset] = useState<HeightPreset | null>(null);
 
   const loadLayout = useCallback(async (): Promise<void> => {
     try {
@@ -465,15 +505,38 @@ export default function Desk() {
               {universes.size === 1 ? "" : "s"}
               {overrideCount > 0 ? ` · ${overrideCount} channel${overrideCount === 1 ? "" : "s"} overridden` : ""}
             </p>
-            <button
-              type="button"
-              className={styles.secondaryButton}
-              onClick={handleClearAll}
-              disabled={overrideCount === 0}
-            >
-              <RotateCcw size={13} aria-hidden="true" />
-              Release All
-            </button>
+            <div className={styles.headerActions}>
+              {universes.size > 0 && (
+                <div className={styles.heightPresetGroup} role="group" aria-label="Universe panel height">
+                  {UNIVERSE_HEIGHT_PRESETS.map((preset) => {
+                    const Icon = preset.icon;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        title={preset.label}
+                        aria-label={preset.label}
+                        className={styles.heightPresetButton}
+                        onClick={() =>
+                          setHeightPreset((current) => ({ value: preset.value, version: (current?.version ?? 0) + 1 }))
+                        }
+                      >
+                        <Icon size={14} aria-hidden="true" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={handleClearAll}
+                disabled={overrideCount === 0}
+              >
+                <RotateCcw size={13} aria-hidden="true" />
+                Release All
+              </button>
+            </div>
           </div>
 
           {presentIconTypes.size > 0 && (
@@ -509,6 +572,7 @@ export default function Desk() {
                   universeValues={universeValues}
                   onFaderChange={handleFaderChange}
                   onFaderClear={handleFaderClear}
+                  preset={heightPreset}
                 />
               ))}
             </div>

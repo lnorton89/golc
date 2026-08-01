@@ -89,5 +89,12 @@ export function useResizablePanel({ min, max, defaultSize, storageKey, edge, axi
 
   const resetSize = useCallback(() => setSize(defaultSize), [defaultSize]);
 
-  return { size, isResizing, handlePointerDown, resetSize };
+  // setClampedSize is the imperative escape hatch drag alone doesn't cover
+  // -- e.g. a row of "Compact / Normal / Large" preset buttons jumping
+  // straight to a specific value rather than the user dragging there by
+  // hand. Clamps exactly like the drag path so a preset can never punch
+  // past this panel's own min/max.
+  const setClampedSize = useCallback((next: number) => setSize(clamp(next, min, max)), [min, max]);
+
+  return { size, isResizing, handlePointerDown, resetSize, setSize: setClampedSize };
 }

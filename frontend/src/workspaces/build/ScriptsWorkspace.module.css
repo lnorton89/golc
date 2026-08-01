@@ -33,7 +33,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: var(--library-width, 240px) minmax(0, 1fr);
   gap: var(--space-xl);
 }
 
@@ -43,6 +43,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+  /* position:relative anchoring for the ResizeHandle overlay rendered
+     alongside the script list -- see ResizeHandle.module.css's own doc
+     comment on why an overlay handle beats a dedicated grid track. */
+  position: relative;
 }
 
 .list {

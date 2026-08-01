@@ -39,7 +39,7 @@
 // selection change (D-13). The only way a new run starts is an explicit
 // user click on Run/Debug, or "Run Again" re-opening the launch dialog
 // (never relaunching directly) so the profile is always reviewed (D-07).
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { FileCode2, Plus, X, Check, Save, Trash2, ShieldCheck, Play, Bug, Square } from "lucide-react";
 
 import {
@@ -77,6 +77,8 @@ import ScriptEditor from "../../components/Scripts/ScriptEditor";
 import ScriptRunDialog, { type ScriptDialogProfile as ScriptProfileFields, type ScriptLaunchMode } from "../../components/Scripts/ScriptRunDialog";
 import ScriptDebugPanel, { type ScriptPanelStatus } from "../../components/Scripts/ScriptDebugPanel";
 import { useInspectorSlot } from "../../shell/InspectorSlot";
+import { useResizablePanel } from "../../hooks/useResizablePanel";
+import ResizeHandle from "../../components/primitives/ResizeHandle/ResizeHandle";
 import styles from "./ScriptsWorkspace.module.css";
 
 // ScriptPanelState is one script's accumulated live-run view (08-10-PLAN.md
@@ -253,6 +255,13 @@ export default function ScriptsWorkspace() {
   // actually paused (see currentExecutionLine below), so the two never
   // fight over the same highlight.
   const [selectedFrameLine, setSelectedFrameLine] = useState<number | null>(null);
+  const libraryPanel = useResizablePanel({
+    min: 180,
+    max: 440,
+    defaultSize: 240,
+    storageKey: "golc.scriptsLibraryWidth",
+    edge: "end",
+  });
 
   // Fetches golc.d.ts once for the component's whole lifetime (D-15):
   // ScriptEditor registers it as Monaco's TypeScript extra lib, giving
@@ -674,9 +683,16 @@ export default function ScriptsWorkspace() {
             {newScriptForm}
           </Panel>
         ) : (
-          <div className={styles.layout}>
+          <div className={styles.layout} style={{ "--library-width": `${libraryPanel.size}px` } as CSSProperties}>
             <div className={styles.library}>
               {newScriptForm}
+              <ResizeHandle
+                edge="end"
+                label="Resize script list"
+                isResizing={libraryPanel.isResizing}
+                onPointerDown={libraryPanel.handlePointerDown}
+                onDoubleClick={libraryPanel.resetSize}
+              />
               <ScrollRegion>
                 {loading ? (
                   <ul className={styles.list} aria-label="Script list">
