@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // writeFrontendFixture writes a minimal but realistic frontend/ directory
@@ -22,12 +24,8 @@ func writeFrontendFixture(t *testing.T, frontendDir string) {
 	}
 	for relative, content := range files {
 		path := filepath.Join(frontendDir, relative)
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 	}
 }
 
@@ -37,43 +35,23 @@ func TestFrontendSourceDigestIsDeterministicAndExcludesNodeModules(t *testing.T)
 	writeFrontendFixture(t, frontendDir)
 
 	first, err := FrontendSourceDigest(frontendDir)
-	if err != nil {
-		t.Fatalf("FrontendSourceDigest: %v", err)
-	}
+	require.NoError(t, err, "FrontendSourceDigest")
 	second, err := FrontendSourceDigest(frontendDir)
-	if err != nil {
-		t.Fatalf("FrontendSourceDigest: %v", err)
-	}
-	if first != second {
-		t.Fatalf("digest not deterministic: %q vs %q", first, second)
-	}
+	require.NoError(t, err, "FrontendSourceDigest")
+	require.Equal(t, second, first, "digest not deterministic")
 
 	nodeModulesFile := filepath.Join(frontendDir, "node_modules", "some-pkg", "index.js")
-	if err := os.MkdirAll(filepath.Dir(nodeModulesFile), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(nodeModulesFile, []byte("module.exports = {};\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Dir(nodeModulesFile), 0o755))
+	require.NoError(t, os.WriteFile(nodeModulesFile, []byte("module.exports = {};\n"), 0o644))
 	afterNodeModules, err := FrontendSourceDigest(frontendDir)
-	if err != nil {
-		t.Fatalf("FrontendSourceDigest: %v", err)
-	}
-	if afterNodeModules != first {
-		t.Fatalf("node_modules changed the digest: %q vs %q", afterNodeModules, first)
-	}
+	require.NoError(t, err, "FrontendSourceDigest")
+	require.Equal(t, first, afterNodeModules, "node_modules changed the digest")
 
 	appPath := filepath.Join(frontendDir, "src", "App.tsx")
-	if err := os.WriteFile(appPath, []byte("export const App = () => 'changed';\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(appPath, []byte("export const App = () => 'changed';\n"), 0o644))
 	afterSourceEdit, err := FrontendSourceDigest(frontendDir)
-	if err != nil {
-		t.Fatalf("FrontendSourceDigest: %v", err)
-	}
-	if afterSourceEdit == first {
-		t.Fatal("source edit did not change the digest")
-	}
+	require.NoError(t, err, "FrontendSourceDigest")
+	require.NotEqual(t, first, afterSourceEdit, "source edit did not change the digest")
 }
 
 func TestFrontendDistFreshTracksManifestAndSource(t *testing.T) {
@@ -83,63 +61,33 @@ func TestFrontendDistFreshTracksManifestAndSource(t *testing.T) {
 	distIndexPath := filepath.Join(root, "cmd", "golc-desktop", "frontend", "dist", "index.html")
 
 	fresh, err := FrontendDistFresh(frontendDir, distIndexPath)
-	if err != nil {
-		t.Fatalf("FrontendDistFresh: %v", err)
-	}
-	if fresh {
-		t.Fatal("expected stale: no manifest and no dist yet")
-	}
+	require.NoError(t, err, "FrontendDistFresh")
+	require.False(t, fresh, "expected stale: no manifest and no dist yet")
 
-	if err := os.MkdirAll(filepath.Dir(distIndexPath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(distIndexPath, []byte("<html></html>\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := WriteFrontendBuildManifest(frontendDir); err != nil {
-		t.Fatalf("WriteFrontendBuildManifest: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Dir(distIndexPath), 0o755))
+	require.NoError(t, os.WriteFile(distIndexPath, []byte("<html></html>\n"), 0o644))
+	require.NoError(t, WriteFrontendBuildManifest(frontendDir), "WriteFrontendBuildManifest")
 
 	fresh, err = FrontendDistFresh(frontendDir, distIndexPath)
-	if err != nil {
-		t.Fatalf("FrontendDistFresh: %v", err)
-	}
-	if !fresh {
-		t.Fatal("expected fresh immediately after WriteFrontendBuildManifest")
-	}
+	require.NoError(t, err, "FrontendDistFresh")
+	require.True(t, fresh, "expected fresh immediately after WriteFrontendBuildManifest")
 
 	appPath := filepath.Join(frontendDir, "src", "App.tsx")
-	if err := os.WriteFile(appPath, []byte("export const App = () => 'changed';\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(appPath, []byte("export const App = () => 'changed';\n"), 0o644))
 	fresh, err = FrontendDistFresh(frontendDir, distIndexPath)
-	if err != nil {
-		t.Fatalf("FrontendDistFresh: %v", err)
-	}
-	if fresh {
-		t.Fatal("expected stale after a source-only edit (dependencies unchanged)")
-	}
+	require.NoError(t, err, "FrontendDistFresh")
+	require.False(t, fresh, "expected stale after a source-only edit (dependencies unchanged)")
 
 	// Revert, then confirm a schema-v1-shaped manifest (no source_sha256) is
 	// treated as stale rather than accidentally decoded as "matches" -- this
 	// is what forces one rebuild on every pre-existing checkout after the
 	// schema bump, instead of silently trusting an old-shape manifest.
-	if err := os.WriteFile(appPath, []byte("export const App = () => null;\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := WriteFrontendBuildManifest(frontendDir); err != nil {
-		t.Fatalf("WriteFrontendBuildManifest: %v", err)
-	}
+	require.NoError(t, os.WriteFile(appPath, []byte("export const App = () => null;\n"), 0o644))
+	require.NoError(t, WriteFrontendBuildManifest(frontendDir), "WriteFrontendBuildManifest")
 	staleManifest := `{"schema_version":1,"package_json_sha256":"x","package_lock_sha256":"y"}` + "\n"
 	manifestPath := filepath.Join(frontendDir, "node_modules", frontendBuildManifestName)
-	if err := os.WriteFile(manifestPath, []byte(staleManifest), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(manifestPath, []byte(staleManifest), 0o644))
 	fresh, err = FrontendDistFresh(frontendDir, distIndexPath)
-	if err != nil {
-		t.Fatalf("FrontendDistFresh: %v", err)
-	}
-	if fresh {
-		t.Fatal("expected stale for a schema-v1-shaped manifest")
-	}
+	require.NoError(t, err, "FrontendDistFresh")
+	require.False(t, fresh, "expected stale for a schema-v1-shaped manifest")
 }
