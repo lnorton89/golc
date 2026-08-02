@@ -96,7 +96,7 @@
 }
 
 .resultSelected {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  background: color-mix(in srgb, var(--accent-5) 14%, transparent);
 }
 
 .resultIcon {

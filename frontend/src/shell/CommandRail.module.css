@@ -89,16 +89,16 @@
 }
 
 .itemActive .itemIcon {
-  color: var(--accent);
+  color: var(--accent-5);
 }
 
 .item:hover {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: color-mix(in srgb, var(--accent-5) 8%, transparent);
 }
 
 .itemActive {
-  border-left-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-left-color: var(--accent-5);
+  background: color-mix(in srgb, var(--accent-5) 14%, transparent);
   color: var(--ink);
   font-weight: 600;
 }
@@ -112,5 +112,99 @@
    consistent regardless of which item currently has keyboard focus. */
 .item:focus-visible {
   outline: none;
+  border-left-color: var(--accent-5);
+}
+
+/* Rainbow only: each nav group's category title, and each item's hover/
+   active/focus color, cycle through the 5 role hues by position instead
+   of the single --accent-5 every rule above uses uniformly for the whole
+   rail. No group here exceeds 5 items (Build, the largest), so cycling by
+   position never repeats a hue within one group. Every other palette
+   keeps the flat --muted labels / --accent-5 item accent from the rules
+   above, since accent-2..5 alias back to --accent for them and none of
+   these selectors match outside data-theme-name="rainbow". */
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .group:nth-of-type(1) .groupLabel {
+  color: var(--accent);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .group:nth-of-type(2) .groupLabel {
+  color: var(--accent-2);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .group:nth-of-type(3) .groupLabel {
+  color: var(--accent-3);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .group:nth-of-type(4) .groupLabel {
+  color: var(--accent-4);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .group:nth-of-type(5) .groupLabel {
+  color: var(--accent-5);
+}
+
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(1):hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(1).itemActive {
   border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(1).itemActive .itemIcon {
+  color: var(--accent);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(1):focus-visible {
+  border-left-color: var(--accent);
+}
+
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(2):hover {
+  background: color-mix(in srgb, var(--accent-2) 8%, transparent);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(2).itemActive {
+  border-left-color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 14%, transparent);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(2).itemActive .itemIcon {
+  color: var(--accent-2);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(2):focus-visible {
+  border-left-color: var(--accent-2);
+}
+
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(3):hover {
+  background: color-mix(in srgb, var(--accent-3) 8%, transparent);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(3).itemActive {
+  border-left-color: var(--accent-3);
+  background: color-mix(in srgb, var(--accent-3) 14%, transparent);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(3).itemActive .itemIcon {
+  color: var(--accent-3);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(3):focus-visible {
+  border-left-color: var(--accent-3);
+}
+
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(4):hover {
+  background: color-mix(in srgb, var(--accent-4) 8%, transparent);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(4).itemActive {
+  border-left-color: var(--accent-4);
+  background: color-mix(in srgb, var(--accent-4) 14%, transparent);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(4).itemActive .itemIcon {
+  color: var(--accent-4);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(4):focus-visible {
+  border-left-color: var(--accent-4);
+}
+
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(5):hover {
+  background: color-mix(in srgb, var(--accent-5) 8%, transparent);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(5).itemActive {
+  border-left-color: var(--accent-5);
+  background: color-mix(in srgb, var(--accent-5) 14%, transparent);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(5).itemActive .itemIcon {
+  color: var(--accent-5);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(5):focus-visible {
+  border-left-color: var(--accent-5);
 }

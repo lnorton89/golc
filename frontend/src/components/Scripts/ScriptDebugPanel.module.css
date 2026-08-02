@@ -120,7 +120,7 @@
   border: none;
   background: none;
   padding: 0;
-  color: var(--accent);
+  color: var(--accent-5);
   font-family: "Archivo", system-ui, sans-serif;
   font-size: var(--text-sm);
   font-weight: 600;

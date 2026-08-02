@@ -95,15 +95,15 @@
 }
 
 .sceneRow.selected {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  background: color-mix(in srgb, var(--accent-2) 14%, transparent);
 }
 
 .sceneRow.selected:hover {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  background: color-mix(in srgb, var(--accent-2) 20%, transparent);
 }
 
 .sceneRow:hover:not(.selected) {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: color-mix(in srgb, var(--accent-2) 8%, transparent);
 }
 
 .renameRow {
@@ -141,7 +141,7 @@
 }
 
 .iconButton:hover {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: color-mix(in srgb, var(--accent-2) 12%, transparent);
   color: var(--ink);
 }
 
@@ -151,6 +151,6 @@
 }
 
 .iconButton:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-2);
   outline-offset: 1px;
 }

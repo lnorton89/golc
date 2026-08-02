@@ -101,9 +101,21 @@
 }
 
 .sourceButtonActive {
+  border-color: var(--accent-3);
+  background: var(--accent-3);
+  color: var(--page);
+}
+
+/* Rainbow only: the two source-toggle buttons get their own hue by
+   position instead of both sharing --accent-3. Every other palette keeps
+   the flat --accent-3 from the rule above. */
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .sourceButtonActive:nth-of-type(1) {
   border-color: var(--accent);
   background: var(--accent);
-  color: var(--page);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .sourceButtonActive:nth-of-type(2) {
+  border-color: var(--accent-2);
+  background: var(--accent-2);
 }
 
 .searchInput {
@@ -120,7 +132,7 @@
 }
 
 .searchInput:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-3);
   outline-offset: -2px;
 }
 

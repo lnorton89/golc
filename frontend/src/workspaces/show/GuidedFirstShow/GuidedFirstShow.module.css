@@ -30,8 +30,8 @@
 }
 
 .guided-flow {
-  --color-primary: var(--accent);
-  --color-primary-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --color-primary: var(--accent-5);
+  --color-primary-soft: color-mix(in srgb, var(--accent-5) 12%, transparent);
   height: 100%;
   display: grid;
   grid-template-columns: 210px minmax(0, 1fr);
@@ -79,7 +79,7 @@
 }
 
 .guide-step:hover {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: color-mix(in srgb, var(--accent-5) 8%, transparent);
 }
 
 .guide-step[aria-current="step"] {
