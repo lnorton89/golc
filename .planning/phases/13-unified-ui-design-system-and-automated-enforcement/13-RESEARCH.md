@@ -541,22 +541,21 @@ Repository integration:
 | A9 | Static DS010 and DS005/DS006 should use the pragmatic checks described, with held-out fixtures defining false-positive boundaries. | DS001–DS010 strategy | Overbroad name checks can reject valid domain controls; underbroad checks can permit visual reinvention. |
 | A10 | The warning signs, per-task/per-wave sampling commands, and “no missing dependency after approval” assessment are planning defaults rather than already-proven implementation facts. | Pitfalls / Environment / Validation | Planner must adjust timings and commands if Wave 0 measurements or package approval differ. |
 
-## Open Questions
+## RESOLVED Planning Questions
 
-1. **Native Dialog acceptance**
-   - What we know: the current code has several custom overlays and the UI-SPEC requires one focus-managed Dialog/ConfirmDialog contract. [VERIFIED: codebase; UI-SPEC]
-   - What's unclear: exact WebView2 focus restoration/keyboard behavior for the project’s supported runtime build. [ASSUMED]
-   - Recommendation: prototype the wrapper in Wave 0 and test open, initial safe focus, Tab containment, Escape, backdrop, nested portal content, and return focus before migrating all dialogs. [ASSUMED]
+1. **Native Dialog acceptance — RESOLVED**
+   - The stable public `Dialog`/`ConfirmDialog` API is implemented before caller migration. Native `<dialog>` is only the provisional private foundation.
+   - Plan 13-06 is a blocking predecessor of every broad migration. It runs the same open, safe initial focus, Tab/Shift+Tab containment, Escape, backdrop-policy, nested-portal, return-focus, and safety-availability assertions first in real Chromium and then against the packaged Windows application through a WebView2 CDP endpoint.
+   - Packaged WebView2 evidence is required in-phase. If native behavior fails, the private foundation is replaced by one tested custom focus manager behind the unchanged public API and both proofs are rerun before migration proceeds. No dialog qualification remains a follow-on. [RESOLVED: plans 13-05, 13-06]
 
-2. **Reviewed screenshot tolerance**
-   - What we know: Playwright supports global threshold/max-diff controls and waits for stable consecutive screenshots. [CITED: https://playwright.dev/docs/test-snapshots]
-   - What's unclear: the smallest noise-free threshold on the Windows CI image. [ASSUMED]
-   - Recommendation: capture the full matrix three times on the target CI image, diff repeats, select the smallest global tolerance, and record the evidence in the plan/PR. [ASSUMED]
+2. **Reviewed screenshot tolerance — RESOLVED**
+   - Plan 13-17 captures a bounded deterministic calibration set three times on the canonical Windows Chromium environment before accepting canonical baselines.
+   - It computes pairwise diffs, rejects noise above the UI-SPEC ceiling, records the measurements, and selects the smallest stable global tolerance. The full visual matrix must consume that single value; per-test thresholds and undocumented defaults are rejected. [RESOLVED: plan 13-17]
 
-3. **Exception count**
-   - What we know: specialized surfaces need narrow geometry/vendor exceptions, while D-11 forbids an ignored debt baseline. [VERIFIED: UI-SPEC]
-   - What's unclear: the final count after repeated values become sizing tokens. [VERIFIED: not yet implemented]
-   - Recommendation: require each migration plan to state starting/ending exception counts and reject broad file exceptions. [ASSUMED]
+3. **Exception count — RESOLVED**
+   - `exceptions.json` begins with zero records in Plan 13-01. There is no initial debt baseline and broad, directory, spacing, safety, theme, or shared-control exceptions are ineligible.
+   - Parallel migration slices may emit separately validated exact proposal records. Plan 13-19 is the single final-manifest owner: it admits only evidence-backed singular specialized constructs, rejects stale/zero-match/multi-match records, records the resulting count, and removes the proposal directory.
+   - The final narrow count is therefore evidence-driven rather than selected in advance. [RESOLVED: plans 13-01, 13-02, 13-08 through 13-16, 13-19]
 
 ## Environment Availability
 
