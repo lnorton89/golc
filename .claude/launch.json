@@ -24,6 +24,18 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "frontend", "run", "dev", "--", "--port", "4789", "--strictPort"],
       "port": 4789
+    },
+    {
+      "name": "golc-desktop-frontend-dev-3",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev", "--", "--port", "4790", "--strictPort"],
+      "port": 4790
+    },
+    {
+      "name": "golc-desktop-frontend-dev-4",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev", "--", "--port", "4791", "--strictPort"],
+      "port": 4791
     }
   ]
 }
