@@ -47,6 +47,17 @@
           "howItWorks": "Reads and writes the desktop build's persisted preferences; changes take effect immediately and are confirmed back from the same store they were written to.",
           "actions": ["Review application settings", "Change available preferences", "Confirm persisted values"],
           "screenshot": "/desktop-views/show-settings.png"
+        },
+        {
+          "id": "show-notes",
+          "slug": "show-notes",
+          "navLabel": "Notes",
+          "title": "Notes",
+          "purpose": "Create, edit, and organize free-form rich-text notes saved inside the current show.",
+          "howItWorks": "Lists notes saved inside the current show and opens the selected note's body in a formatting toolbar editor -- bold, italic, underline, strikethrough, headings, bullet and numbered lists, task checklists, blockquotes, inline code and code blocks, links, and undo/redo -- saving changes back into the same show document every other workspace reads from.",
+          "actions": ["Create a note", "Edit a note's rich-text body", "Rename or delete a note"],
+          "concepts": ["Show state"],
+          "screenshot": "/desktop-views/show-notes.png"
         }
       ]
     },

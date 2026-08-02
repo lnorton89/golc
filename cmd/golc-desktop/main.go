@@ -90,6 +90,7 @@ func main() {
 	programmingService := golcwails.NewProgrammingService(cfg.PipeName, cfg.ProjectRoot, cfg.ShowPath)
 	showService := golcwails.NewShowService(cfg.PipeName, cfg.ProjectRoot, cfg.ShowPath)
 	scriptService := golcwails.NewScriptService(cfg.PipeName, cfg.ProjectRoot, cfg.ShowPath)
+	notesService := golcwails.NewNotesService(cfg.PipeName, cfg.ProjectRoot, cfg.ShowPath)
 	fixtureLibraryService := golcwails.NewFixtureLibraryService(cfg.PipeName, cfg.ProjectRoot, cfg.FixturesDir)
 	deskService := golcwails.NewDeskService(cfg.PipeName, cfg.ProjectRoot)
 
@@ -171,6 +172,7 @@ func main() {
 			programmingService,
 			showService,
 			scriptService,
+			notesService,
 			fixtureLibraryService,
 			deskService,
 		},

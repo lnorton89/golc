@@ -590,6 +590,35 @@ interface ScriptServiceBinding {
   GetSDKTypeDefinitions(): Promise<string>;
 }
 
+/** NoteSummaryView mirrors internal/wails.NoteSummaryView's JSON shape
+ * exactly: one note's identity, title, and last-updated time -- the
+ * library-row projection (Body omitted). */
+export interface NoteSummaryView {
+  id: string;
+  title: string;
+  updatedAt?: string;
+}
+
+/** NoteDetailView mirrors internal/wails.NoteDetailView's JSON shape
+ * exactly: NoteSummaryView's fields plus body (the note's full WYSIWYG
+ * HTML) and createdAt. */
+export interface NoteDetailView extends NoteSummaryView {
+  body: string;
+  createdAt?: string;
+}
+
+/** NotesServiceBinding mirrors internal/wails/svc_notes.go's bound methods
+ * field-for-field: every method forwards to the existing "note *" command
+ * routes -- CreateNote/SaveNote/DeleteNote are mutations, ListNotes/GetNote
+ * are read-only projections. */
+interface NotesServiceBinding {
+  ListNotes(): Promise<NoteSummaryView[]>;
+  GetNote(name: string): Promise<NoteDetailView>;
+  CreateNote(name: string): Promise<WailsResult>;
+  SaveNote(name: string, title: string, body: string): Promise<WailsResult>;
+  DeleteNote(name: string): Promise<WailsResult>;
+}
+
 /** ShowServiceBinding mirrors internal/wails/svc_show.go's bound methods
  * field-for-field: Save/SaveAs forward to the existing "show save"/"show
  * save-as" command routes; Inspect/Diagnose/DetectRecoveryPoints are
@@ -841,6 +870,7 @@ declare global {
         ProgrammingService?: ProgrammingServiceBinding;
         ShowService?: ShowServiceBinding;
         ScriptService?: ScriptServiceBinding;
+        NotesService?: NotesServiceBinding;
         FixtureLibraryService?: FixtureLibraryServiceBinding;
         DeskService?: DeskServiceBinding;
         App?: AppBinding;
@@ -2223,6 +2253,81 @@ export function onScriptEvent(
     const event = data[0] as ScriptEventView | undefined;
     if (event) callback(event);
   });
+}
+
+function notesService(): NotesServiceBinding | undefined {
+  return window.go?.wails?.NotesService;
+}
+
+/** offlineNoteList mirrors offlineScriptList's identical "never blank"
+ * fallback contract: a missing bridge renders the same explicit empty
+ * projection as a genuinely empty show, never undefined/null. */
+export function offlineNoteList(): NoteSummaryView[] {
+  return [];
+}
+
+/** listNotes calls the bound NotesService.ListNotes, returning
+ * offlineNoteList() when the bridge is unavailable or the call itself
+ * rejects -- never throws (mirrors listScripts' identical contract).
+ * NotesWorkspace.tsx separately detects a missing bridge to render its own
+ * inline "can't reach the show host" copy alongside the resulting empty
+ * state. */
+export async function listNotes(): Promise<NoteSummaryView[]> {
+  const svc = notesService();
+  if (!svc) return offlineNoteList();
+  try {
+    return await svc.ListNotes();
+  } catch {
+    return offlineNoteList();
+  }
+}
+
+/** offlineNoteDetail is GetNote's explicit, non-throwing fallback when the
+ * bridge is unavailable -- mirrors offlineScriptDetail's identical "never
+ * blank" contract. */
+function offlineNoteDetail(name: string): NoteDetailView {
+  return { id: "", title: name, body: "" };
+}
+
+/** getNote calls the bound NotesService.GetNote, returning
+ * offlineNoteDetail(name) when the bridge is unavailable or the call
+ * itself rejects -- never throws. */
+export async function getNote(name: string): Promise<NoteDetailView> {
+  const svc = notesService();
+  if (!svc) return offlineNoteDetail(name);
+  try {
+    return await svc.GetNote(name);
+  } catch {
+    return offlineNoteDetail(name);
+  }
+}
+
+/** createNote calls the bound NotesService.CreateNote (create a named,
+ * empty note via "note create"). */
+export async function createNote(name: string): Promise<WailsResult> {
+  const svc = notesService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.CreateNote(name);
+}
+
+/** saveNote calls the bound NotesService.SaveNote (persist title and body
+ * verbatim, in one call, via "note edit --title --body-file"). */
+export async function saveNote(
+  name: string,
+  title: string,
+  body: string,
+): Promise<WailsResult> {
+  const svc = notesService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.SaveNote(name, title, body);
+}
+
+/** deleteNote calls the bound NotesService.DeleteNote (removes the named
+ * note via "note delete"). */
+export async function deleteNote(name: string): Promise<WailsResult> {
+  const svc = notesService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.DeleteNote(name);
 }
 
 /** windowMinimise calls the Wails runtime's WindowMinimise (TitleBar.tsx's
