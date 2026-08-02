@@ -51,6 +51,18 @@
   flex-shrink: 0;
 }
 
+/* aria-disabled, not the native disabled attribute -- a genuinely disabled
+   button suppresses its own title tooltip in Chromium/WebView2 (disabled
+   elements don't receive the hover events a tooltip needs), which would
+   silently swallow this button's own "why can't I click this" explanation
+   exactly when an operator goes looking for it (mirrors Desk.module.css's
+   .faderClearButton and friends). MidiLearnToggle.tsx's own onClick is
+   already a no-op when disabled -- this only affects the visual. */
+.toggle[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 @media (max-width: 700px) {
   .toggle {
     padding: 0 6px;

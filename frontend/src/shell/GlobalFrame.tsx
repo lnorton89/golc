@@ -16,7 +16,12 @@
 // position within the same always-mounted header. MidiLearnToggle sits
 // immediately after it: the global MIDI Learn on/off switch, visually
 // grouped with the safety cluster but a plain reversible toggle rather
-// than a hold-to-confirm control.
+// than a hold-to-confirm control -- it needs `active` (the current
+// destination) to know whether the destination it's about to switch to
+// even has anything MIDI-learnable (today, only Desk faders), so
+// AppShell.tsx passes its own activeDestination straight through here
+// rather than duplicating that state (nav selection deliberately isn't in
+// useGolcStore -- see AppShell.tsx's own doc comment on why).
 //
 // AppLogStream mounts here for the identical reason LiveStatusBar does: it
 // is the store's sole writer of the `appLog` slice, and most "app:log"
@@ -28,9 +33,14 @@ import TempoControls from "../components/TempoControls/TempoControls";
 import SafetyCluster from "../components/SafetyCluster/SafetyCluster";
 import MidiLearnToggle from "../components/MidiLearnToggle/MidiLearnToggle";
 import AppLogStream from "./AppLogStream";
+import type { DestinationId } from "./navigation";
 import styles from "./GlobalFrame.module.css";
 
-export default function GlobalFrame() {
+interface GlobalFrameProps {
+  activeDestination: DestinationId;
+}
+
+export default function GlobalFrame({ activeDestination }: GlobalFrameProps) {
   return (
     <header className={styles.frame}>
       <AppLogStream />
@@ -40,7 +50,7 @@ export default function GlobalFrame() {
       <TempoControls />
       <div className={styles.safetyDivider} aria-hidden="true" />
       <SafetyCluster />
-      <MidiLearnToggle />
+      <MidiLearnToggle activeDestination={activeDestination} />
     </header>
   );
 }
