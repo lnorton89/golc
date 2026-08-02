@@ -20,4 +20,15 @@ describe("Toolbar", () => {
     const { container } = render(<Toolbar title="Art-Net" />);
     expect(container.querySelectorAll("button").length).toBe(0);
   });
+
+  it("renders no info tooltip when none is given", () => {
+    const { container } = render(<Toolbar title="Art-Net" />);
+    expect(container.querySelectorAll("button").length).toBe(0);
+  });
+
+  it("renders an info tooltip trigger when info is given, without changing the heading's accessible name", () => {
+    render(<Toolbar title="Art-Net" info="Configures the Art-Net output path." />);
+    expect(screen.getByRole("heading", { name: "Art-Net" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "How Art-Net works" })).toBeInTheDocument();
+  });
 });

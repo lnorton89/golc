@@ -1,0 +1,55 @@
+.wrapper {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--muted);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color var(--motion-tap), color var(--motion-tap);
+}
+
+.trigger:hover,
+.trigger:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  outline: none;
+}
+
+/* Portaled into document.body (InfoTooltip.tsx) -- position: fixed with
+   top/left set inline from the trigger's real getBoundingClientRect().
+   Flat/paper brand (index.css): border + background separation only, no
+   box-shadow -- matches every other panel in this app. */
+.tooltip {
+  position: fixed;
+  z-index: 1000;
+  transform: translateY(-50%);
+  max-width: 80vw;
+  padding: var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text2);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-xs);
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  pointer-events: none;
+}

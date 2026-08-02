@@ -32,6 +32,7 @@ import {
   type RecoveryPointView,
 } from "../../lib/wailsBridge";
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
+import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
 import Panel from "../../components/primitives/Panel/Panel";
 import PanelHeader from "../../components/primitives/PanelHeader/PanelHeader";
 import Button from "../../components/primitives/Button/Button";
@@ -127,7 +128,7 @@ export default function SaveRecoveryWorkspace() {
 
   return (
     <div className={styles.workspace}>
-      <Toolbar title="Save & Recovery" icon={SaveIcon} />
+      <Toolbar title="Save & Recovery" icon={SaveIcon} info={HOW_IT_WORKS_BY_ID["show-save-recovery"]} />
       <div className={styles.canvas}>
         {loading ? (
           <p className={styles.loading}>Loading save & recovery…</p>
@@ -144,7 +145,11 @@ export default function SaveRecoveryWorkspace() {
 
             <div className={styles.layout}>
               <Panel>
-                <PanelHeader label="Save" icon={SaveIcon} />
+                <PanelHeader
+                  label="Save"
+                  icon={SaveIcon}
+                  info="Saves the open show to its own file, or saves a copy to a different path."
+                />
                 <div className={styles.saveRow}>
                   <Button variant="primary" icon={SaveIcon} disabled={saving} onClick={() => void handleSave()}>
                     {saving ? "Saving…" : "Save"}
@@ -172,6 +177,7 @@ export default function SaveRecoveryWorkspace() {
                 <PanelHeader
                   label={`Recovery Points (${points.length})`}
                   icon={History}
+                  info="Lists crash/recovery snapshots the desktop app retained for this show, so you can restore from one instead of losing unsaved work."
                   action={
                     points.length > 0 ? (
                       <Button

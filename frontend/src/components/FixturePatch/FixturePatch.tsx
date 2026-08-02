@@ -66,6 +66,7 @@ import {
   type FixtureLibraryRowView,
   type PatchView,
 } from "../../lib/wailsBridge";
+import InfoTooltip from "../primitives/InfoTooltip/InfoTooltip";
 import styles from "./FixturePatch.module.css";
 
 // ---------------------------------------------------------------------------
@@ -455,7 +456,13 @@ export default function FixturePatch() {
 
           {/* Pools */}
           <div className={styles.subsection}>
-            <h3 className={styles.subsectionHeading}>Pools</h3>
+            <div className={styles.subsectionHeadingRow}>
+              <h3 className={styles.subsectionHeading}>Pools</h3>
+              <InfoTooltip
+                label="About Pools"
+                text="Groups patched fixture instances into named pools by required capability, so Scenes & Looks can target a pool instead of individual fixtures."
+              />
+            </div>
             <div className={styles.createRow}>
               <input
                 className={styles.createInput}
@@ -812,7 +819,13 @@ export default function FixturePatch() {
 
           {/* Deployments */}
           <div className={styles.subsection}>
-            <h3 className={styles.subsectionHeading}>Deployments</h3>
+            <div className={styles.subsectionHeadingRow}>
+              <h3 className={styles.subsectionHeading}>Deployments</h3>
+              <InfoTooltip
+                label="About Deployments"
+                text="Groups pools into a deployment — the active set of patched instances actually driven on stage — and lets you activate a different one."
+              />
+            </div>
             <div className={styles.createRow}>
               <input
                 className={styles.createInput}

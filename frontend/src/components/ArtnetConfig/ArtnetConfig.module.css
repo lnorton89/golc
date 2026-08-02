@@ -36,6 +36,12 @@
   padding-top: var(--space-md);
 }
 
+.subsectionHeadingRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
 .subsectionHeading {
   margin: 0;
   font-size: 16px;

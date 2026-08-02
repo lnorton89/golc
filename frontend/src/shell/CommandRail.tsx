@@ -15,6 +15,7 @@
 // confirm dialog.
 import { NAV_GROUPS, type DestinationId } from "./navigation";
 import { DESTINATION_ICONS } from "./destinationIcons";
+import InfoTooltip from "../components/primitives/InfoTooltip/InfoTooltip";
 import styles from "./CommandRail.module.css";
 
 interface CommandRailProps {
@@ -31,7 +32,10 @@ export default function CommandRail({ active, onSelect, dimmed = false }: Comman
     >
       {NAV_GROUPS.map((group) => (
         <div key={group.label} className={styles.group}>
-          <span className={styles.groupLabel}>{group.label}</span>
+          <div className={styles.groupHeader}>
+            <span className={styles.groupLabel}>{group.label}</span>
+            <InfoTooltip label={`About the ${group.label} section`} text={group.description} />
+          </div>
           {group.destinations.map((destination) => {
             const isActive = destination.id === active;
             const Icon = DESTINATION_ICONS[destination.id];

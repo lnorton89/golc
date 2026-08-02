@@ -166,7 +166,11 @@ export default function LookBrowser({
 
   return (
     <div className={styles.browser}>
-      <PanelHeader label="Looks" icon={Sparkles} />
+      <PanelHeader
+        label="Looks"
+        icon={Sparkles}
+        info="Lists every theme, chase, motion preset, and base-look preset in the show, and lets you create a new one of each kind."
+      />
 
       <p className={styles.countSummary}>
         {looksTotal === 0
@@ -489,6 +493,7 @@ export default function LookBrowser({
       <PanelHeader
         label="Blend Presets"
         icon={Palette}
+        info="Lists reusable blend presets that control how multiple active layers combine, and lets you create a new one."
         action={
           <Button variant={activeForm === "blend" ? "primary" : "secondary"} icon={Plus} onClick={() => toggle("blend")}>
             Blend

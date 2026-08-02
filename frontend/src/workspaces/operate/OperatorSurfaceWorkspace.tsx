@@ -8,13 +8,14 @@
 import { SlidersHorizontal } from "lucide-react";
 
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
+import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
 import OperatorSurface from "../../components/OperatorSurface/OperatorSurface";
 import styles from "../workspace.module.css";
 
 export default function OperatorSurfaceWorkspace() {
   return (
     <div className={styles.workspace}>
-      <Toolbar title="Operator Surface" icon={SlidersHorizontal} />
+      <Toolbar title="Operator Surface" icon={SlidersHorizontal} info={HOW_IT_WORKS_BY_ID["operate-operator-surface"]} />
       <div className={styles.canvas}>
         <OperatorSurface />
       </div>

@@ -68,6 +68,7 @@ import {
 } from "../../lib/wailsBridge";
 
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
+import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
 import Panel from "../../components/primitives/Panel/Panel";
 import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion";
 import ListRow from "../../components/primitives/ListRow/ListRow";
@@ -662,7 +663,7 @@ export default function ScriptsWorkspace() {
   return (
     <div className={styles.workspace}>
       {inspectorPortal}
-      <Toolbar title="Scripts" icon={FileCode2} action={toolbarActions} />
+      <Toolbar title="Scripts" icon={FileCode2} info={HOW_IT_WORKS_BY_ID["build-scripts"]} action={toolbarActions} />
       <div className={styles.canvas}>
         {error ? <p className={styles.errorText}>{error}</p> : null}
 

@@ -125,12 +125,15 @@ func TestDesktopViewsCatalog(t *testing.T) {
       "navLabel": "Overview copy",
       "title": "Overview copy",
       "purpose": "Duplicate fixture.",
+      "howItWorks": "Duplicate fixture.",
       "actions": ["Inspect"],
       "screenshot": "/desktop-views/show-overview-copy.png"
     }]
   }]`, "GOLC_DOCGEN_DESKTOP_DUPLICATE"},
 		{"invalid screenshot", `"/desktop-views/show-overview.png"`, `"../escape.png"`, "GOLC_DOCGEN_DESKTOP_SCREENSHOT"},
 		{"empty purpose", `"Review the open show and enter the guided workflow."`, `""`, "GOLC_DOCGEN_DESKTOP_REQUIRED"},
+		{"empty howItWorks", `"Reads the currently open show's state directly from the application."`, `""`, "GOLC_DOCGEN_DESKTOP_REQUIRED"},
+		{"empty group description", `"description": "Everything about the open show."`, `"description": ""`, "GOLC_DOCGEN_DESKTOP_REQUIRED"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -163,6 +166,8 @@ func TestDesktopViewsCatalogOnboarding(t *testing.T) {
 		{"onboarding id must use the guide- prefix, not its label", `"id": "guide-fixtures"`, `"id": "guided-setup-fixtures"`, "GOLC_DOCGEN_DESKTOP_REFERENCE"},
 		{"onboarding screenshot must match its id", `"/desktop-views/guide-fixtures.png"`, `"/desktop-views/guided-setup-fixtures.png"`, "GOLC_DOCGEN_DESKTOP_SCREENSHOT"},
 		{"onboarding view still requires content", `"Get at least one fixture ready."`, `""`, "GOLC_DOCGEN_DESKTOP_REQUIRED"},
+		{"onboarding view still requires howItWorks", `"Replaces the workspace canvas with a guided stage."`, `""`, "GOLC_DOCGEN_DESKTOP_REQUIRED"},
+		{"onboarding group still requires description", `"description": "An optional guided walkthrough for a brand-new show."`, `"description": ""`, "GOLC_DOCGEN_DESKTOP_REQUIRED"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -179,12 +184,14 @@ func validDesktopCatalogWithOnboarding() []byte {
   "schemaVersion": 1,
   "groups": [{
     "label": "Show",
+    "description": "Everything about the open show.",
     "views": [{
       "id": "show-overview",
       "slug": "overview",
       "navLabel": "Overview",
       "title": "Show overview",
       "purpose": "Review the open show and enter the guided workflow.",
+      "howItWorks": "Reads the currently open show's state directly from the application.",
       "actions": ["Start Guided First Show"],
       "concepts": ["Show state"],
       "operatingNotes": ["Uses deterministic fallback data in browser previews."],
@@ -193,12 +200,14 @@ func validDesktopCatalogWithOnboarding() []byte {
   }],
   "onboarding": {
     "label": "Guided Setup",
+    "description": "An optional guided walkthrough for a brand-new show.",
     "views": [{
       "id": "guide-fixtures",
       "slug": "guide-fixtures",
       "navLabel": "Fixtures",
       "title": "Guided Setup: Fixtures",
       "purpose": "Get at least one fixture ready.",
+      "howItWorks": "Replaces the workspace canvas with a guided stage.",
       "actions": ["Continue to the Fixture Library"],
       "screenshot": "/desktop-views/guide-fixtures.png"
     }]
@@ -211,12 +220,14 @@ func validDesktopCatalog() []byte {
   "schemaVersion": 1,
   "groups": [{
     "label": "Show",
+    "description": "Everything about the open show.",
     "views": [{
       "id": "show-overview",
       "slug": "overview",
       "navLabel": "Overview",
       "title": "Show overview",
       "purpose": "Review the open show and enter the guided workflow.",
+      "howItWorks": "Reads the currently open show's state directly from the application.",
       "actions": ["Start Guided First Show"],
       "concepts": ["Show state"],
       "operatingNotes": ["Uses deterministic fallback data in browser previews."],

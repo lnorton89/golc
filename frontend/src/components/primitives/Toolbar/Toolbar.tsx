@@ -13,23 +13,33 @@
 // nav item and its workspace read as the same destination. It renders
 // outside the <h2>, so the heading's accessible name (asserted verbatim by
 // AppShell.navigation.test.tsx against each nav label) is unaffected.
+//
+// `info` (optional) renders an InfoTooltip -- also outside the <h2>, same
+// reasoning -- showing this destination's own howItWorks copy
+// (shell/navigation.ts's HOW_IT_WORKS_BY_ID, sourced from
+// desktopViews.json). Omitted entirely by callers that pass no `info`, so
+// existing Toolbar.test.tsx's "renders no buttons without an action"
+// assertion is unaffected.
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 
+import InfoTooltip from "../InfoTooltip/InfoTooltip";
 import styles from "./Toolbar.module.css";
 
 interface ToolbarProps {
   title: string;
   icon?: LucideIcon;
+  info?: string;
   action?: ReactNode;
 }
 
-export default function Toolbar({ title, icon: Icon, action }: ToolbarProps) {
+export default function Toolbar({ title, icon: Icon, info, action }: ToolbarProps) {
   return (
     <div className={styles.toolbar}>
       <span className={styles.titleGroup}>
         {Icon ? <Icon size={16} className={styles.icon} aria-hidden="true" /> : null}
         <h2 className={styles.title}>{title}</h2>
+        {info ? <InfoTooltip label={`How ${title} works`} text={info} /> : null}
       </span>
       {action ? <div className={styles.action}>{action}</div> : null}
     </div>

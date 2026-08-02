@@ -19,6 +19,7 @@ import {
   relaunchWithShow,
 } from "../../lib/wailsBridge";
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
+import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
 import Panel from "../../components/primitives/Panel/Panel";
 import PanelHeader from "../../components/primitives/PanelHeader/PanelHeader";
 import Button from "../../components/primitives/Button/Button";
@@ -88,7 +89,7 @@ export default function ShowsWorkspace() {
 
   return (
     <div className={styles.workspace}>
-      <Toolbar title="Shows" icon={FolderOpen} />
+      <Toolbar title="Shows" icon={FolderOpen} info={HOW_IT_WORKS_BY_ID["show-shows"]} />
       <div className={styles.canvas}>
         {loading ? (
           <p className={styles.loading}>Loading show…</p>
@@ -100,7 +101,11 @@ export default function ShowsWorkspace() {
             ) : null}
             <div className={styles.layout}>
               <Panel>
-                <PanelHeader label="Current Show" icon={FolderOpen} />
+                <PanelHeader
+                  label="Current Show"
+                  icon={FolderOpen}
+                  info="Shows the path of whichever show file is open, or lets you open or create one if none is."
+                />
                 <div className={styles.currentShow}>
                   {showPath ? (
                     <span className={styles.path} title={showPath}>

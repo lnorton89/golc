@@ -30,6 +30,7 @@ import { useGolcStore } from "../../store/store";
 import { onMidiFeedback, type MidiFeedback } from "../../lib/wailsBridge";
 import MidiLearn from "./MidiLearn";
 import SoftTakeoverSlider from "./SoftTakeoverSlider";
+import InfoTooltip from "../primitives/InfoTooltip/InfoTooltip";
 import styles from "./MidiPanel.module.css";
 
 // ---------------------------------------------------------------------------
@@ -273,7 +274,13 @@ export default function MidiPanel() {
           {selectedSurface && (
             <>
               <div>
-                <h3 className={styles.sectionHeading}>Assigned controls</h3>
+                <div className={styles.sectionHeadingRow}>
+                  <h3 className={styles.sectionHeading}>Assigned controls</h3>
+                  <InfoTooltip
+                    label="About Assigned controls"
+                    text="Lists the show controls assigned to the selected operator surface that can be mapped to a physical MIDI control."
+                  />
+                </div>
                 {assignedControls.length === 0 ? (
                   <p className={styles.emptyBody}>
                     No controls are assigned to this surface yet — assign one from the
@@ -300,7 +307,13 @@ export default function MidiPanel() {
               </div>
 
               <div className={styles.mappingSection}>
-                <h3 className={styles.sectionHeading}>MIDI mappings</h3>
+                <div className={styles.sectionHeadingRow}>
+                  <h3 className={styles.sectionHeading}>MIDI mappings</h3>
+                  <InfoTooltip
+                    label="About MIDI mappings"
+                    text="Lists every control currently mapped to an incoming MIDI message, and its live soft-takeover state."
+                  />
+                </div>
                 {mappings.length === 0 ? (
                   <div className={styles.emptyState}>
                     <p className={styles.emptyHeading}>

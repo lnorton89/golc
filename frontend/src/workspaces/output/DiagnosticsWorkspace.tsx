@@ -18,6 +18,7 @@ import {
   type DiagnosticReportView,
 } from "../../lib/wailsBridge";
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
+import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
 import Panel from "../../components/primitives/Panel/Panel";
 import PanelHeader from "../../components/primitives/PanelHeader/PanelHeader";
 import Button from "../../components/primitives/Button/Button";
@@ -53,7 +54,7 @@ export default function DiagnosticsWorkspace() {
 
   return (
     <div className={styles.workspace}>
-      <Toolbar title="Diagnostics" icon={Activity} />
+      <Toolbar title="Diagnostics" icon={Activity} info={HOW_IT_WORKS_BY_ID["output-diagnostics"]} />
       <div className={styles.canvas}>
         {loading ? (
           <p className={styles.loading}>Running diagnostics…</p>
@@ -64,6 +65,7 @@ export default function DiagnosticsWorkspace() {
               <PanelHeader
                 label="Integrity Check"
                 icon={ListChecks}
+                info="Runs the same combined file-level and structural health check 'show diagnose' runs from the command line, and lets you re-run it on demand."
                 action={
                   <Button variant="secondary" icon={RefreshCw} onClick={() => void handleRerun()}>
                     Re-run
