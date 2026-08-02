@@ -549,13 +549,13 @@ Repository integration:
    - Packaged WebView2 evidence is required in-phase. If native behavior fails, the private foundation is replaced by one tested custom focus manager behind the unchanged public API and both proofs are rerun before migration proceeds. No dialog qualification remains a follow-on. [RESOLVED: plans 13-05, 13-06]
 
 2. **Reviewed screenshot tolerance — RESOLVED**
-   - Plan 13-17 captures a bounded deterministic calibration set three times on the canonical Windows Chromium environment before accepting canonical baselines.
-   - It computes pairwise diffs, rejects noise above the UI-SPEC ceiling, records the measurements, and selects the smallest stable global tolerance. The full visual matrix must consume that single value; per-test thresholds and undocumented defaults are rejected. [RESOLVED: plan 13-17]
+   - Plan 13-17 captures a bounded deterministic calibration set three times on the canonical Windows Chromium environment before Plans 13-32 through 13-34 accept any canonical baselines.
+   - It computes pairwise diffs, rejects noise above the UI-SPEC ceiling, records the measurements, and selects the smallest stable global tolerance. All three bounded visual groups consume that single value; per-test thresholds and undocumented defaults are rejected. [RESOLVED: plans 13-17, 13-32 through 13-34]
 
 3. **Exception count — RESOLVED**
-   - `exceptions.json` begins with zero records in Plan 13-01. There is no initial debt baseline and broad, directory, spacing, safety, theme, or shared-control exceptions are ineligible.
+   - `exceptions.json` begins with zero records in Plan 13-21 after Plan 13-01's independently approved package install. There is no initial debt baseline and broad, directory, spacing, safety, theme, or shared-control exceptions are ineligible.
    - Parallel migration slices may emit separately validated exact proposal records. Plan 13-19 is the single final-manifest owner: it admits only evidence-backed singular specialized constructs, rejects stale/zero-match/multi-match records, records the resulting count, and removes the proposal directory.
-   - The final narrow count is therefore evidence-driven rather than selected in advance. [RESOLVED: plans 13-01, 13-02, 13-08 through 13-16, 13-19]
+   - The final narrow count is therefore evidence-driven rather than selected in advance. [RESOLVED: plans 13-02, 13-08 through 13-16, 13-19, 13-21, 13-24 through 13-29, 13-40]
 
 ## Environment Availability
 
