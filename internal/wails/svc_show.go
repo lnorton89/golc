@@ -33,7 +33,16 @@
 package wails
 
 import (
+	"encoding/base64"
+	"errors"
 	"fmt"
+	"mime"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/google/uuid"
 
 	"github.com/lnorton89/golc/internal/command"
 	"github.com/lnorton89/golc/internal/show"
@@ -248,4 +257,108 @@ func (s *ShowService) DiscardRecoveryPoints() Result {
 		return Result{ExitCode: 1, Stderr: err.Error()}
 	}
 	return Result{Stdout: "GOLC_SHOW_RECOVERY_DISCARDED: offered recovery point(s) removed\n"}
+}
+
+// maxUploadedImageBytes bounds UploadImage: generous enough for even a
+// sizable animated GIF (this feature's own explicit "support most images
+// including animated gif" requirement), small enough that one oversized
+// pick can't balloon the .golc file or the IPC round-trip carrying it back
+// as a base64 data URI without a limit at all.
+const maxUploadedImageBytes = 20 * 1024 * 1024 // 20 MiB
+
+// AssetUploadView is UploadImage's return shape: the newly stored asset's
+// own id (what FixtureStyle.backgroundImageAssetID persists) plus a
+// ready-to-use data: URI, so the calling modal can preview the image
+// immediately without a separate GetImageDataURI round trip for the exact
+// bytes it just uploaded.
+type AssetUploadView struct {
+	ID      string `json:"id"`
+	DataURI string `json:"dataUri"`
+}
+
+// detectImageMimeType resolves path's own MIME type primarily by file
+// extension (Go's standard mime.TypeByExtension table already covers
+// every format imageFileFilter offers, .svg included -- content-sniffing
+// alone would not, since net/http.DetectContentType has no XML/SVG
+// signature) with content-sniffing as the fallback for a recognized
+// extension mime.TypeByExtension doesn't have registered on this OS.
+func detectImageMimeType(path string, data []byte) string {
+	if byExt := mime.TypeByExtension(filepath.Ext(path)); byExt != "" {
+		return byExt
+	}
+	sniffLen := len(data)
+	if sniffLen > 512 {
+		sniffLen = 512
+	}
+	return http.DetectContentType(data[:sniffLen])
+}
+
+// UploadImage reads path's own bytes (a path this same operator just chose
+// via App.PickImageFile's native dialog -- FixtureStyleModal.tsx's own
+// "Choose Image" button flow) and stores them as a new show.SaveAsset row,
+// keyed by a freshly generated uuid.NewV7() id. Refuses anything over
+// maxUploadedImageBytes or whose detected MIME type is not image/* --
+// this boundary validates rather than trusting the caller, the same
+// discipline LaunchEasterEggExecutable's own doc comment describes for a
+// frontend-reachable IPC method fed an operator-chosen path.
+func (s *ShowService) UploadImage(path string) (AssetUploadView, error) {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return AssetUploadView{}, errors.New("GOLC_WAILS_ASSET_PATH_EMPTY: an image path is required")
+	}
+	info, statErr := os.Stat(trimmed)
+	if statErr != nil || info.IsDir() {
+		return AssetUploadView{}, fmt.Errorf("GOLC_WAILS_ASSET_PATH_NOT_FOUND: %q", trimmed)
+	}
+	if info.Size() > maxUploadedImageBytes {
+		return AssetUploadView{}, fmt.Errorf(
+			"GOLC_WAILS_ASSET_TOO_LARGE: %q is %d bytes, over the %d byte limit", trimmed, info.Size(), int64(maxUploadedImageBytes))
+	}
+
+	data, readErr := os.ReadFile(trimmed)
+	if readErr != nil {
+		return AssetUploadView{}, fmt.Errorf("GOLC_WAILS_ASSET_READ_FAILED: %v", readErr)
+	}
+	mimeType := detectImageMimeType(trimmed, data)
+	if !strings.HasPrefix(mimeType, "image/") {
+		return AssetUploadView{}, fmt.Errorf("GOLC_WAILS_ASSET_TYPE_REJECTED: %q looks like %q, not an image", trimmed, mimeType)
+	}
+
+	id, idErr := uuid.NewV7()
+	if idErr != nil {
+		return AssetUploadView{}, fmt.Errorf("GOLC_WAILS_ASSET_ID_FAILED: %v", idErr)
+	}
+	if err := show.SaveAsset(s.root, s.showPath, id.String(), mimeType, filepath.Base(trimmed), data); err != nil {
+		return AssetUploadView{}, err
+	}
+
+	return AssetUploadView{
+		ID:      id.String(),
+		DataURI: "data:" + mimeType + ";base64," + base64.StdEncoding.EncodeToString(data),
+	}, nil
+}
+
+// GetImageDataURI reads id back (show.LoadAsset) and returns it as a
+// ready-to-use data: URI -- the Desk workspace's own read path for a
+// fixture card whose backgroundImageAssetID it did not just itself
+// upload this session (e.g. a show opened fresh, or a second card
+// referencing an asset the first card's own upload already created).
+func (s *ShowService) GetImageDataURI(id string) (string, error) {
+	mimeType, data, err := show.LoadAsset(s.root, s.showPath, id)
+	if err != nil {
+		return "", err
+	}
+	return "data:" + mimeType + ";base64," + base64.StdEncoding.EncodeToString(data), nil
+}
+
+// DeleteImage removes id (show.DeleteAsset, already a no-op rather than an
+// error for an id that does not exist) -- the fixture-style modal's own
+// "Clear the background image" reset button calls this once it has
+// confirmed the operator is dropping that asset for good, not just
+// clearing the modal's own in-progress form state.
+func (s *ShowService) DeleteImage(id string) Result {
+	if err := show.DeleteAsset(s.root, s.showPath, id); err != nil {
+		return Result{ExitCode: 1, Stderr: err.Error()}
+	}
+	return Result{Stdout: fmt.Sprintf("GOLC_SHOW_ASSET_DELETED: %s\n", id)}
 }

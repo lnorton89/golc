@@ -12,6 +12,13 @@
 // cleanly at the door with GOLC_SHOW_NOT_GOLC_FORMAT, not a confusing "no
 // such table" error two layers deeper).
 //
+// A sixth table, assets, was added later (2026-08; see this file's own
+// doc comment on it below, and .planning/phases/05-durable-shows-and-
+// recovery/05-CONTEXT.md's D-14) to hold user-supplied binary attachments
+// (currently: a Desk fixture card's own background image) -- read that
+// table's own doc comment before assuming this file's original "five
+// small tables" framing above is still literally exhaustive.
+//
 // Every show-mutating CLI invocation is its own short-lived process
 // (Load -> mutate -> Save -> exit); each opens a fresh connection to the
 // same .golc file. In WAL mode this means -wal/-shm sidecar files are
@@ -87,6 +94,54 @@ CREATE TABLE IF NOT EXISTS audit_log (
   outcome            TEXT    NOT NULL,
   status_code        INTEGER NOT NULL,
   redacted_details   TEXT    NOT NULL
+);
+
+-- assets: DELIBERATE, DOCUMENTED EXCEPTION to CONTEXT D-03's own framing
+-- ("SQLite provides transactional/durable file semantics here, it does
+-- not become a relational data model for show entities"). Read this
+-- comment in full before touching this table or extending the exception
+-- it documents.
+--
+-- Added 2026-08 to back the Desk workspace's per-fixture-card background-
+-- image upload (frontend/src/components/Desk/FixtureStyleModal.tsx):
+-- raw uploaded file bytes (id/mime_type/file_name/data/created_at), keyed
+-- by a caller-generated uuid.NewV7() id that the JSON show_state blob
+-- references by string (a FixtureStyle.backgroundImageAssetID field),
+-- the same way a foreign key would in a normalized schema.
+--
+-- Why this does NOT contradict D-03's "not a relational model for show
+-- ENTITIES" despite being a new table: D-03 is about pools/deployments/
+-- groups/scenes -- the show's own domain data, which must stay inside
+-- the single canonically-encoded, checksummed, whole-document-validated
+-- show_state blob (decodeAndValidate in store.go) so validate()'s
+-- whole-document invariant checking keeps covering it. An uploaded
+-- image is opaque binary data with no domain invariants to validate --
+-- closer in kind to recovery_points' own blob column (already a
+-- separate table storing binary payloads outside show_state, D-05) than
+-- to a pool or a scene. Splitting it out keeps show_state small and fast
+-- to decode/checksum/diff regardless of how many or how large a show's
+-- attached images get, exactly the concern D-05 already weighed for
+-- recovery_points.
+--
+-- What IS a real, accepted departure from prior practice: this is the
+-- first binary/asset storage of any kind in GOLC (internal/show/assets.go's
+-- own doc comment covers the Go-side read/write API), and the first
+-- table added to this schema without going through this project's normal
+-- phase-context decision process ahead of time -- it was added directly
+-- by a coding-agent session at the user's explicit request AFTER being
+-- shown this exact locked-schema framing and confirming anyway. Recorded
+-- as .planning/phases/05-durable-shows-and-recovery/05-CONTEXT.md's own
+-- D-14 for exactly this reason: so a future agent reading that file's
+-- D-01-D-13 (all from the original 2026-07-23 phase discussion) does not
+-- mistake this table for something that discussion actually considered
+-- and rejected, and does not need to rediscover this reasoning from
+-- scratch before deciding whether a SECOND such exception is warranted.
+CREATE TABLE IF NOT EXISTS assets (
+  id         TEXT    PRIMARY KEY,
+  mime_type  TEXT    NOT NULL,
+  file_name  TEXT    NOT NULL,
+  data       BLOB    NOT NULL,
+  created_at TEXT    NOT NULL
 );
 `
 
