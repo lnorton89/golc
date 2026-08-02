@@ -578,6 +578,17 @@ Plans:
 
 - [ ] TBD (run /gsd-plan-phase 12 to break down)
 
+### Phase 13: Unified UI design system and automated enforcement
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 12
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 13 to break down)
+
 ---
 *Roadmap created: 2026-07-17*
 *v1.0 (Phases 1-8) shipped 2026-07-27 — see `.planning/MILESTONES.md`. Phase Details below remain complete for every phase (not collapsed) so `internal/trace/catalog` can keep resolving every phase directory under `.planning/phases/`.*
