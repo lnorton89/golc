@@ -7,12 +7,12 @@ wave_0_complete: false
 created: 2026-08-02
 revised: 2026-08-02
 plan_count: 40
-task_count: 70
+task_count: 71
 ---
 
 # Phase 13 — Validation Strategy
 
-> Exact execution contract for the revised 40-plan, 70-task graph. Commands below are normalized from each PLAN task and are pending until semantic evidence validates. The external-mutation authority row runs read-only preflight and remains a blocking checkpoint.
+> Exact execution contract for the revised 40-plan, 71-task graph. Commands below are normalized from each PLAN task and are pending until semantic evidence validates. The external-mutation authority row runs read-only preflight and remains a blocking checkpoint.
 
 ## Test Infrastructure
 
@@ -99,7 +99,8 @@ The validator parses every `13-NN-PLAN.md`, derives task position, decodes XML e
 - `13-18-02` W10 — `go test ./internal/delivery ./magefiles -run 'DesignSystem|MageTarget' -count=1 && mage -l`
 - `13-18-03` W10 — `mage CheckOffline && git diff --check -- .github/workflows/design-system.yml`
 - `13-35-01` W12 — `git rev-parse HEAD && gh auth status && gh workflow view design-system.yml` — read-only preflight; the blocking checkpoint separately records approved trigger mechanism, exact SHA/ref/repository, or denial.
-- `13-35-02` W12 — `gh run view $env:GOLC_PHASE13_RUN_ID --json databaseId,url,workflowName,event,headSha,headBranch,status,conclusion,createdAt,updatedAt,jobs && gh api repos/{owner}/{repo}/actions/runs/$env:GOLC_PHASE13_RUN_ID/artifacts && cd frontend && npm run validate:phase13-evidence -- --evidence ../.planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/windows-ci-run.json`
+- `13-35-02` W12 — `gh run list --workflow design-system.yml --commit $env:GOLC_PHASE13_APPROVED_SHA --limit 1 --json databaseId,url,event,headSha,headBranch,status,conclusion,createdAt`
+- `13-35-03` W12 — `gh run view $env:GOLC_PHASE13_RUN_ID --json databaseId,url,workflowName,event,headSha,headBranch,status,conclusion,createdAt,updatedAt,jobs && gh api repos/{owner}/{repo}/actions/runs/$env:GOLC_PHASE13_RUN_ID/artifacts && cd frontend && npm run validate:phase13-evidence -- --evidence ../.planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/windows-ci-run.json`
 - `13-19-01` W12 — `cd frontend && npx vitest run scripts/design-system/check.test.ts && node scripts/design-system/check.mjs`
 - `13-37-01` W13 — `cd frontend && npx vitest run src/design-system/design-system.contract.test.ts --testNamePattern="ConfirmModal removal" && node scripts/design-system/check.mjs --rule DS007`
 - `13-36-01` W14 — `cd frontend && npx vitest run src/design-system && node scripts/design-system/check.mjs --rule DS007`
@@ -194,7 +195,7 @@ Deferred ideas: none. No source item is missing.
 
 ## Sign-Off Gate
 
-- [ ] All 70 tasks and automated commands match PLAN-derived normalized strings/hashes and the authority checkpoint has an explicit outcome.
+- [ ] All 71 tasks and automated commands match PLAN-derived normalized strings/hashes and the authority checkpoint has an explicit outcome.
 - [ ] All D-01 through D-14 and UI-SPEC contracts are covered.
 - [ ] Every Wave 0 artifact exists and passes semantic validation.
 - [ ] Packaged WebView2 proof matches its executable build hash.
