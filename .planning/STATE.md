@@ -66,6 +66,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent roadmap constrain
 
 ### Roadmap Evolution
 
+- Phase 13 added: Unified UI design system and automated enforcement
 - Phase 11 added: Telemetry, Usage Statistics, and Auto Crash Submission Pipeline — users can opt into anonymized usage/telemetry collection and crashes are automatically captured and submitted for diagnosis without blocking playback or requiring manual repro steps.
 - 2026-07-27: Phase 9 inserted (Front-Door UI Completion — Fixture Library workspace, show open/new/switch, Guided First Show onboarding), per `.planning/POST-PHASE-8-PLAN.md` section 2 (owner decisions 2026-07-25). Former Phase 9 (Provider-Neutral AI and Bounded Autonomy) renumbered to Phase 10, former Phase 10 (Windows Release Qualification) to Phase 11, former Phase 11 (Telemetry) to Phase 12. Inserted as a plain integer, not GSD's default decimal (`8.1`), because `internal/trace/catalog` only resolves two-digit integer phase directories/headings.
 
