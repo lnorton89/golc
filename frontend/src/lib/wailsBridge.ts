@@ -605,6 +605,24 @@ interface ShowServiceBinding {
   DetectRecoveryPoints(): Promise<RecoveryPointView[]>;
   AcceptRecoveryPoint(id: number): Promise<WailsResult>;
   DiscardRecoveryPoints(): Promise<WailsResult>;
+  /** UploadImage/GetImageDataURI/DeleteImage back the Desk workspace's
+   * per-fixture-card background-image upload (FixtureStyleModal.tsx):
+   * the uploaded file's bytes are stored in the show's own .golc SQLite
+   * file (internal/show/assets.go's own doc comment covers why), keyed
+   * by a generated id every FixtureStyle.backgroundImageAssetID
+   * persists. */
+  UploadImage(path: string): Promise<AssetUploadView>;
+  GetImageDataURI(id: string): Promise<string>;
+  DeleteImage(id: string): Promise<WailsResult>;
+}
+
+/** AssetUploadView mirrors internal/wails.AssetUploadView's JSON shape
+ * exactly -- UploadImage's own return shape, a ready-to-use data: URI
+ * alongside the id that now stores it, so a caller can preview the exact
+ * bytes it just uploaded without a separate GetImageDataURI round trip. */
+export interface AssetUploadView {
+  id: string;
+  dataUri: string;
 }
 
 /** AppBinding mirrors internal/wails.App's bound show-picker/relaunch/
@@ -626,6 +644,12 @@ interface AppBinding {
   RelaunchWithShow(showPath: string): Promise<WailsResult>;
   SelectInterface(index: number, name: string): Promise<WailsResult>;
   PickFixtureFile(): Promise<string>;
+  /** PickImageFile opens a native "Choose Image" file picker filtered to
+   * common raster/vector formats (animated GIF included) -- the Desk
+   * workspace's fixture-card FixtureStyleModal's own "Choose Image"
+   * button. Returns the chosen path (never the file's bytes); pass that
+   * path straight to uploadImage to actually read and persist it. */
+  PickImageFile(): Promise<string>;
   OpenExternalURL(url: string): Promise<void>;
 }
 
@@ -1634,6 +1658,54 @@ export async function discardRecoveryPoints(): Promise<WailsResult> {
   return svc.DiscardRecoveryPoints();
 }
 
+/** uploadImage calls the bound ShowService.UploadImage, reading path's own
+ * bytes (a path pickImageFile's own native dialog just returned) and
+ * storing them as a new asset in the show's own .golc file. Returns null
+ * -- never throws -- when the bridge is unavailable or the call itself
+ * rejects (an oversized file, an unrecognized type, an unreadable path):
+ * FixtureStyleModal.tsx checks for null itself to show its own inline
+ * "couldn't upload that image" message, rather than this wrapper silently
+ * degrading to some fake success value the caller could mistake for a
+ * real upload. */
+export async function uploadImage(path: string): Promise<AssetUploadView | null> {
+  const svc = showService();
+  if (!svc) return null;
+  try {
+    return await svc.UploadImage(path);
+  } catch {
+    return null;
+  }
+}
+
+/** getImageDataURI calls the bound ShowService.GetImageDataURI, reading a
+ * previously uploaded asset's bytes back as a ready-to-use data: URI --
+ * the Desk workspace's own read path for a fixture card whose
+ * backgroundImageAssetID it did not just itself upload this session.
+ * Returns "" -- never throws -- when the bridge is unavailable, the call
+ * itself rejects, or the asset no longer exists; an empty string reads
+ * identically to "background-image: none" whichever way the caller
+ * consumes it. */
+export async function getImageDataURI(id: string): Promise<string> {
+  const svc = showService();
+  if (!svc) return "";
+  try {
+    return await svc.GetImageDataURI(id);
+  } catch {
+    return "";
+  }
+}
+
+/** deleteImage calls the bound ShowService.DeleteImage -- the fixture-
+ * style modal's own "Clear the background image" reset button, once it
+ * has confirmed the operator is dropping that asset for good. Deleting an
+ * asset that no longer exists is success, not an error (show.DeleteAsset's
+ * own doc comment). */
+export async function deleteImage(id: string): Promise<WailsResult> {
+  const svc = showService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.DeleteImage(id);
+}
+
 function appBinding(): AppBinding | undefined {
   return window.go?.wails?.App;
 }
@@ -1704,6 +1776,20 @@ export async function pickFixtureFile(): Promise<string> {
   if (!app) return "";
   try {
     return await app.PickFixtureFile();
+  } catch {
+    return "";
+  }
+}
+
+/** pickImageFile calls the bound App.PickImageFile: opens a native
+ * "Choose Image" file picker filtered to common raster/vector image
+ * formats (animated GIF included). Mirrors pickFixtureFile's identical
+ * "empty string, never a throw" cancellation/absent-bridge contract. */
+export async function pickImageFile(): Promise<string> {
+  const app = appBinding();
+  if (!app) return "";
+  try {
+    return await app.PickImageFile();
   } catch {
     return "";
   }

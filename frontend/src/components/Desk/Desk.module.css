@@ -108,18 +108,66 @@
 }
 
 .heightPresetButton:hover {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent-4);
+  background: color-mix(in srgb, var(--accent-4) 12%, transparent);
 }
 
 .heightPresetButtonActive {
   color: var(--page);
-  background: var(--accent);
+  background: var(--accent-4);
 }
 
 .heightPresetButtonActive:hover {
   color: var(--page);
+  background: var(--accent-4);
+}
+
+/* Rainbow only: each button in these fixed 3-4 button preset groups
+   (Compact/Normal/Large, plus Fit in the width group) cycles through a
+   different role hue by position instead of the single --accent-4 the
+   rules above use uniformly. Both groups reuse this same class pair, and
+   each is its own flex row, so :nth-of-type(N) here means "the Nth preset
+   button in whichever group it's in" for both groups at once. Every other
+   palette keeps the flat --accent-4 from the rules above, since
+   accent-2..4 alias back to --accent for them. */
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .heightPresetButton:nth-of-type(1):hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .heightPresetButtonActive:nth-of-type(1),
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .heightPresetButtonActive:nth-of-type(1):hover {
+  color: var(--page);
   background: var(--accent);
+}
+
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .heightPresetButton:nth-of-type(2):hover {
+  color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 12%, transparent);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .heightPresetButtonActive:nth-of-type(2),
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .heightPresetButtonActive:nth-of-type(2):hover {
+  color: var(--page);
+  background: var(--accent-2);
+}
+
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .heightPresetButton:nth-of-type(3):hover {
+  color: var(--accent-3);
+  background: color-mix(in srgb, var(--accent-3) 12%, transparent);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .heightPresetButtonActive:nth-of-type(3),
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .heightPresetButtonActive:nth-of-type(3):hover {
+  color: var(--page);
+  background: var(--accent-3);
+}
+
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .heightPresetButton:nth-of-type(4):hover {
+  color: var(--accent-4);
+  background: color-mix(in srgb, var(--accent-4) 12%, transparent);
+}
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .heightPresetButtonActive:nth-of-type(4),
+:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .heightPresetButtonActive:nth-of-type(4):hover {
+  color: var(--page);
+  background: var(--accent-4);
 }
 
 .secondaryButton {
@@ -127,17 +175,17 @@
   align-items: center;
   gap: var(--space-xs);
   padding: var(--space-xs) var(--space-sm);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--accent-4);
   border-radius: 4px;
   background: transparent;
-  color: var(--accent);
+  color: var(--accent-4);
   font-family: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
 .secondaryButton:hover:not(:disabled) {
-  background: var(--accent);
+  background: var(--accent-4);
   color: #fff;
 }
 
@@ -307,7 +355,12 @@
 .fixtureName {
   font-weight: 600;
   font-size: 12px;
-  color: var(--ink);
+  /* --card-font-color is set only when this card's own pencil-icon
+     FixtureStyleModal has a custom font color saved (Desk.tsx's own
+     fixtureCardInlineStyle) -- every other text element below that reads
+     it follows this same var(...,default) fallback pattern, so an
+     un-customized card renders with its usual colors exactly as before. */
+  color: var(--card-font-color, var(--ink));
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -326,16 +379,47 @@
      fill whatever's left over (still capped at 200px), truncating via its
      own ellipsis handling instead of pushing badges down. min-width is a
      floor so an extremely narrow card never squashes the name to
-     nothing. */
+     nothing -- kept small (not the 30px it started at): a narrower card
+     (fewer channels, e.g. a 3-channel fixture next to 5-channel ones in
+     the same universe) has a smaller --card-fader-width cap to begin
+     with, and a 30px floor left too little of that cap for the badge,
+     wrapping it to its own line even though a shorter truncated name
+     would have let it stay put. */
   flex: 1 1 0%;
-  min-width: 30px;
+  min-width: 16px;
 }
 
 .badgeRow {
   display: flex;
+  align-items: center;
   flex: 0 0 auto;
   flex-wrap: wrap;
   gap: 3px;
+}
+
+/* fixtureEditButton opens this card's own pencil-icon FixtureStyleModal
+   (background color/font color/background image) -- deliberately small
+   and muted by default so it doesn't compete with the Address badge next
+   to it, only stepping up in contrast on hover/focus the same way
+   .faderClearButton already does elsewhere in this feature. */
+.fixtureEditButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.fixtureEditButton:hover {
+  border-color: var(--line);
+  color: var(--accent);
 }
 
 /* MetaBadge pill (mirrors ProjectFixtures.tsx's own badge/badgeMode/
@@ -362,13 +446,13 @@
 }
 
 .badgeMode {
-  background: color-mix(in srgb, var(--accent) 10%, var(--page));
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+  background: color-mix(in srgb, var(--accent-4) 10%, var(--page));
+  border-color: color-mix(in srgb, var(--accent-4) 30%, var(--line));
 }
 
 .badgeAddress {
-  background: color-mix(in srgb, var(--accent) 26%, var(--page));
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+  background: color-mix(in srgb, var(--accent-4) 26%, var(--page));
+  border-color: color-mix(in srgb, var(--accent-4) 50%, var(--line));
 }
 
 /* font-size scales down with --fader-width same as .badge's own padding
@@ -475,8 +559,17 @@
      genuine, undiminished padding around the glyphs themselves. ch is
      itself relative to this rule's own font-size, so it still scales
      down at a narrower column the same way the font-size clamp() below
-     already does. */
-  width: calc(3ch + 20px);
+     already does. min() with --fader-width is the actual overflow fix:
+     the font-size clamp() below has its own floor (8px), but the padding
+     figure above is a FIXED px amount that doesn't shrink with it -- at a
+     narrow enough column, "3ch + 20px" alone exceeds --fader-width, and
+     since .fader centers each value badge independently within its own
+     column, an oversized badge doesn't just clip -- it visibly overlaps
+     its neighbors on both sides. Capping to whichever is smaller
+     guarantees this badge never exceeds its own column, even if that
+     means its padding degrades below the ideal figure at extreme Compact
+     widths. */
+  width: min(var(--fader-width, 34px), calc(3ch + 20px));
   padding: 5px 9px;
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
@@ -490,7 +583,8 @@
   font-size: clamp(8px, calc(var(--fader-width, 34px) * 0.3), 10px);
   font-weight: 600;
   line-height: 1;
-  color: var(--ink);
+  /* See .fixtureName's own doc comment on --card-font-color. */
+  color: var(--card-font-color, var(--ink));
 }
 
 /* faderTrackRow wraps the slider alone -- position:relative purely as an
@@ -676,16 +770,16 @@
   width: var(--fader-track-width, 24px);
   height: 10px;
   border-radius: 2px;
-  background: var(--accent);
-  border: 1px solid color-mix(in srgb, black 30%, var(--accent));
+  background: var(--accent-4);
+  border: 1px solid color-mix(in srgb, black 30%, var(--accent-4));
 }
 
 .faderInput::-moz-range-thumb {
   width: var(--fader-track-width, 24px);
   height: 10px;
   border-radius: 2px;
-  background: var(--accent);
-  border: 1px solid color-mix(in srgb, black 30%, var(--accent));
+  background: var(--accent-4);
+  border: 1px solid color-mix(in srgb, black 30%, var(--accent-4));
 }
 
 .faderInputOverridden::-webkit-slider-thumb {
@@ -730,7 +824,8 @@
 .faderLabelText {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text);
+  /* See .fixtureName's own doc comment on --card-font-color. */
+  color: var(--card-font-color, var(--text));
   text-align: center;
   max-width: var(--fader-width, 34px);
   overflow: hidden;
@@ -761,9 +856,20 @@
   white-space: nowrap;
 }
 
+/* white-space:nowrap + overflow:hidden are load-bearing, not decorative:
+   without them, a 2-digit channel number ("Ch 10") could wrap onto a
+   second line at a narrow column, and since this rule's own height was a
+   fixed 12px with nothing clipping the overflow, that second line spilled
+   straight down into .faderClearButton below it instead of just getting
+   cut off. max-width matches the column's own width so this never
+   overflows sideways into a neighboring fader either. */
 .faderSublabel {
   height: 12px;
   line-height: 12px;
+  max-width: var(--fader-width, 34px);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;
   color: var(--muted);
@@ -784,8 +890,8 @@
 }
 
 .faderClearButton:hover:not([aria-disabled="true"]) {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-4);
+  color: var(--accent-4);
 }
 
 /* aria-disabled, not the native disabled attribute: a genuinely disabled

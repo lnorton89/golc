@@ -641,6 +641,38 @@ func (a *App) PickFixtureFile() (string, error) {
 	})
 }
 
+// imageFileFilter is the filter PickImageFile applies -- every raster
+// format Wails' underlying WebView2/Chromium engine already knows how to
+// decode and render (a CSS background-image never needs a codec GOLC
+// would have to ship itself), animated GIF included: a data: URI built
+// from these exact bytes (ShowService.UploadImage/GetImageDataURI) plays
+// the same as any other <img>/background-image src, no special-casing
+// needed anywhere else in this path.
+var imageFileFilter = wailsruntime.FileFilter{
+	DisplayName: "Image (*.png, *.jpg, *.jpeg, *.gif, *.webp, *.bmp, *.svg)",
+	Pattern:     "*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp;*.svg",
+}
+
+// PickImageFile opens a native "Choose Image" file-picker dialog filtered
+// to common raster/vector image formats, returning the chosen path -- or
+// an empty string and a nil error when the operator cancels (mirrors
+// PickFixtureFile's identical cancellation contract). The Desk workspace's
+// fixture-card FixtureStyleModal calls this, then hands the returned path
+// to ShowService.UploadImage to actually read and persist the file's
+// bytes -- this method itself never touches the file's contents, only
+// asks the OS which one the operator picked (mirrors every other Pick*
+// method in this file).
+func (a *App) PickImageFile() (string, error) {
+	ctx, ok := a.runtimeContext()
+	if !ok {
+		return "", errors.New("GOLC_WAILS_RUNTIME_CONTEXT_UNAVAILABLE: OnStartup has not run yet")
+	}
+	return wailsruntime.OpenFileDialog(ctx, wailsruntime.OpenDialogOptions{
+		Title:   "Choose Image",
+		Filters: []wailsruntime.FileFilter{imageFileFilter},
+	})
+}
+
 // httpURLPrefixes bounds OpenExternalURL to the schemes a system browser
 // launch is meant for -- rejecting anything else (file://, custom schemes)
 // since url ultimately reaches an OS-level "open this" call.

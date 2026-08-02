@@ -1,0 +1,184 @@
+/* Mirrors ConfirmModal.module.css's own backdrop/dialog/title/actions
+   tokens exactly (same shell pattern, different body content) so this
+   reads as the same dialog system, not a new one. */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--ink) 45%, transparent);
+  animation: backdropFadeIn var(--motion-settle);
+}
+
+.dialog {
+  /* Bumped from 360px: the image preview thumbnail + Choose Image button
+     row needs a bit more breathing room than the plain color/text fields
+     this dialog started with. */
+  width: min(400px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  animation: dialogPopIn var(--motion-settle);
+}
+
+@keyframes backdropFadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialogPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+}
+
+.title {
+  margin: 0;
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.subtitle {
+  margin: 0 0 var(--space-xs);
+  font-size: var(--text-sm);
+  color: var(--text2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fieldRow {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-xs);
+}
+
+.fieldRow > label {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Icon-only reset-to-default button, one per field -- mirrors Desk's own
+   Fader clear-button convention (icon + title + aria-disabled when
+   inert), not a shared cross-app primitive (Field's own field/label
+   isn't paired with a reset action anywhere else in this codebase). */
+.resetButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.resetButton:hover:not([aria-disabled="true"]) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.resetButton[aria-disabled="true"] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+/* Background-image section: label + preview/buttons row + optional error
+   text, standing apart from the plain Field rows above since it's a
+   file-upload flow (pickImageFile + uploadImage), not a single input. */
+.imageSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.imageSectionLabel {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.imagePreviewRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* Fixed square thumbnail -- object-fit:cover here is purely about
+   cropping the PREVIEW neatly regardless of the source image's own
+   aspect ratio; it has no bearing on backgroundSize (the actual fit/fill
+   setting saved onto the card itself, chosen separately below). Animated
+   GIFs play normally in an <img>, same as any other src. */
+.imagePreview {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--page);
+}
+
+.imagePreviewEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--page);
+  color: var(--muted);
+  font-size: var(--text-2xs);
+  text-align: center;
+}
+
+.imageButtons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.uploadError {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--status-revoked);
+}
+
+.select {
+  height: 32px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--page);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--text-sm);
+}

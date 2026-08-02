@@ -31,6 +31,7 @@ import {
   ChevronsUpDown,
   Minus,
   MoveHorizontal,
+  Pencil,
   RotateCcw,
   Sun,
   TriangleAlert,
@@ -43,6 +44,7 @@ import {
   clearDeskAttribute,
   errorMessage,
   fetchDeskUniverseValues,
+  getImageDataURI,
   listLocalFixtures,
   listPatch,
   setDeskAttribute,
@@ -53,6 +55,7 @@ import {
   type PatchView,
 } from "../../lib/wailsBridge";
 import Fader from "./Fader";
+import FixtureStyleModal, { BACKGROUND_SIZE_CSS_VALUE, type FixtureStyle } from "./FixtureStyleModal";
 import { useResizablePanel } from "../../hooks/useResizablePanel";
 import ResizeHandle from "../primitives/ResizeHandle/ResizeHandle";
 import styles from "./Desk.module.css";
@@ -369,6 +372,16 @@ const FADER_ROW_GAP_PX = 4;
  * kicks in. */
 const DETAILED_MIN_FADER_WIDTH = 60;
 
+/** COMPACT_SUBLABEL_MAX_FADER_WIDTH is the --fader-width threshold at or
+ * below which a fader's sublabel drops its "Ch " prefix, showing just the
+ * bare address number -- Compact (26) and Normal (34) both sit at or
+ * under this, Large (60) and above don't. A narrow column has the least
+ * room to spare and the most channels squeezed into it, so this is where
+ * "Ch 10" is most likely to need truncating in the first place (see
+ * .faderSublabel's own nowrap/ellipsis in Desk.module.css, which still
+ * applies as a last-resort fallback either way). */
+const COMPACT_SUBLABEL_MAX_FADER_WIDTH = 40;
+
 /** SCALE_RESERVED_WIDTH is how many extra px of a detailed fader column's
  * own --fader-width go to the value-scale column (its ticks/gap) rather
  * than the slider track itself -- baked into --fader-track-width below so
@@ -438,6 +451,106 @@ function computeFitFaderWidth(fixtureScroll: HTMLElement): number | null {
   return Math.max(FADER_WIDTH_MIN, Math.min(FADER_WIDTH_MAX, Math.floor(rawWidth)));
 }
 
+const HEIGHT_PRESET_STORAGE_KEY = "golc.deskHeightPreset";
+const WIDTH_PRESET_STORAGE_KEY = "golc.deskWidthPreset";
+
+/** readStoredHeightPreset/readStoredWidthPreset restore which preset
+ * button should show active after a remount (navigating to a different
+ * workspace and back unmounts Desk entirely, losing heightPreset/
+ * widthPreset's own in-memory state even though each row's actual size
+ * already survives via useResizablePanel's own localStorage read) --
+ * version always restores as 0, since a restored preset is never meant to
+ * MOVE anything on mount, only to determine which button looks pressed;
+ * each UniverseRow's own reapply effect below skips its very first
+ * invocation for exactly this reason (see its own doc comment), so a
+ * restored non-null preset never overwrites a row a user had manually
+ * dragged away from it before the last navigation. */
+function readStoredHeightPreset(): HeightPreset | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(HEIGHT_PRESET_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && "value" in parsed && typeof parsed.value === "number") {
+      return { value: parsed.value, version: 0 };
+    }
+  } catch {
+    // Malformed/foreign localStorage value -- fall through to null below,
+    // same "never let a bad stored value break the feature" contract
+    // useResizablePanel's own readStoredSize already follows.
+  }
+  return null;
+}
+
+function readStoredWidthPreset(): WidthPreset | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(WIDTH_PRESET_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && "mode" in parsed) {
+      if (parsed.mode === "fit") return { mode: "fit", version: 0 };
+      if (parsed.mode === "fixed" && "value" in parsed && typeof parsed.value === "number") {
+        return { mode: "fixed", value: parsed.value, version: 0 };
+      }
+    }
+  } catch {
+    // See readStoredHeightPreset's own doc comment.
+  }
+  return null;
+}
+
+const FIXTURE_STYLES_STORAGE_KEY = "golc.deskFixtureStyles";
+
+/** readStoredFixtureStyles/writeStoredFixtureStyles persist every
+ * fixture's own style customization as one JSON object keyed by patch
+ * instance ID (stable across a reload of the same deployment -- listPatch
+ * always returns the same persisted instance IDs, see this file's own
+ * doc comment on where instance identity comes from), rather than one
+ * localStorage key per fixture -- a show can have many dozens of
+ * patched instances, and per-key sprawl would make clearing/inspecting
+ * this feature's own storage footprint needlessly awkward. */
+function readStoredFixtureStyles(): Record<string, FixtureStyle> {
+  if (typeof window === "undefined") return {};
+  const raw = window.localStorage.getItem(FIXTURE_STYLES_STORAGE_KEY);
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") return parsed as Record<string, FixtureStyle>;
+  } catch {
+    // See readStoredHeightPreset's own doc comment.
+  }
+  return {};
+}
+
+function writeStoredFixtureStyles(styles: Record<string, FixtureStyle>): void {
+  window.localStorage.setItem(FIXTURE_STYLES_STORAGE_KEY, JSON.stringify(styles));
+}
+
+/** fixtureCardInlineStyle turns one fixture's own FixtureStyle into the
+ * inline style props .fixtureGroup actually renders -- undefined fields
+ * are simply omitted rather than set to some empty-string/none value, so
+ * the CSS module's own default background/color/image rules keep
+ * applying exactly as if this card had no customization at all.
+ * imageDataURI is the style's own backgroundImageAssetID already resolved
+ * through Desk's own imageDataUriCache -- this function never fetches
+ * anything itself, undefined here just means "not resolved yet" (or no
+ * image set at all), rendering identically to no customization either
+ * way until the cache catches up. */
+function fixtureCardInlineStyle(style: FixtureStyle | undefined, imageDataURI: string | undefined): CSSProperties {
+  if (!style) return {};
+  const result: CSSProperties & { "--card-font-color"?: string } = {};
+  if (style.backgroundColor) result.backgroundColor = style.backgroundColor;
+  if (style.fontColor) result["--card-font-color"] = style.fontColor;
+  if (imageDataURI) {
+    result.backgroundImage = `url(${JSON.stringify(imageDataURI)})`;
+    result.backgroundSize = BACKGROUND_SIZE_CSS_VALUE[style.backgroundSize ?? "cover"];
+    result.backgroundPosition = "center";
+    result.backgroundRepeat = "no-repeat";
+  }
+  return result;
+}
+
 /** UniverseRow renders one universe's fixture-group cards at its OWN
  * independently resizable height (own useResizablePanel, keyed per
  * universe number) -- dragging this row's handle only ever resizes this
@@ -456,6 +569,9 @@ function UniverseRow({
   onFaderClear,
   preset,
   widthPreset,
+  fixtureStyles,
+  imageDataUriCache,
+  onEditFixture,
 }: {
   universe: number;
   universeInstances: DeskInstance[];
@@ -467,6 +583,9 @@ function UniverseRow({
   onFaderClear: (channel: DeskChannel, instanceId: string) => void;
   preset: HeightPreset | null;
   widthPreset: WidthPreset | null;
+  fixtureStyles: Record<string, FixtureStyle>;
+  imageDataUriCache: Record<string, string>;
+  onEditFixture: (instanceId: string) => void;
 }) {
   const heightPanel = useResizablePanel({
     min: 190,
@@ -489,7 +608,26 @@ function UniverseRow({
   const { setSize: setWidthSize, isResizing: isWidthResizing, handlePointerDown: handleWidthPointerDown, resetSize: resetWidthSize } = widthPanel;
   const fixtureScrollRef = useRef<HTMLDivElement>(null);
 
+  // skipHeightPresetEffect/skipWidthPresetEffect swallow each effect
+  // below's own very first run (component mount), before flipping false
+  // for every run after that -- Desk.tsx now restores heightPreset/
+  // widthPreset from localStorage so their OWN button keeps showing
+  // active across a navigate-away-and-back remount (see
+  // readStoredHeightPreset's own doc comment), but that restored preset
+  // must never actually MOVE this row: each row's own useResizablePanel
+  // already restored its own correct size from ITS OWN storage key on
+  // this exact same mount, and a row a user had manually dragged away
+  // from the last-clicked preset needs to STAY there across a remount,
+  // not silently snap back to it. A real click (any run after mount)
+  // still re-applies normally.
+  const skipHeightPresetEffect = useRef(true);
+  const skipWidthPresetEffect = useRef(true);
+
   useEffect(() => {
+    if (skipHeightPresetEffect.current) {
+      skipHeightPresetEffect.current = false;
+      return;
+    }
     if (preset) setSize(preset.value);
     // Deliberately keyed on preset.version, not preset.value: a second
     // click of the SAME preset (e.g. re-asserting Normal after this row
@@ -499,6 +637,10 @@ function UniverseRow({
   }, [preset?.version]);
 
   useEffect(() => {
+    if (skipWidthPresetEffect.current) {
+      skipWidthPresetEffect.current = false;
+      return;
+    }
     if (!widthPreset) return;
     if (widthPreset.mode === "fixed") {
       setWidthSize(widthPreset.value);
@@ -523,6 +665,7 @@ function UniverseRow({
   // separate state of its own to fall out of sync.
   const detailed = widthPanel.size >= DETAILED_MIN_FADER_WIDTH;
   const trackWidth = widthPanel.size - 10 - (detailed ? SCALE_RESERVED_WIDTH : 0);
+  const compactSublabel = widthPanel.size <= COMPACT_SUBLABEL_MAX_FADER_WIDTH;
 
   return (
     <div
@@ -562,18 +705,31 @@ function UniverseRow({
             instance.channels.length > 0
               ? instance.channels.length * widthPanel.size + (instance.channels.length - 1) * FADER_ROW_GAP_PX
               : null;
+          const cardFixtureStyle = fixtureStyles[instance.id];
+          const cardImageDataURI = cardFixtureStyle?.backgroundImageAssetID
+            ? imageDataUriCache[cardFixtureStyle.backgroundImageAssetID]
+            : undefined;
+          const cardStyle: CSSProperties = {
+            ...(cardFaderWidth !== null ? ({ "--card-fader-width": `${cardFaderWidth}px` } as CSSProperties) : {}),
+            ...fixtureCardInlineStyle(cardFixtureStyle, cardImageDataURI),
+          };
           return (
-            <div
-              key={instance.id}
-              className={styles.fixtureGroup}
-              style={cardFaderWidth !== null ? ({ "--card-fader-width": `${cardFaderWidth}px` } as CSSProperties) : undefined}
-            >
+            <div key={instance.id} className={styles.fixtureGroup} style={cardStyle}>
               <div className={styles.fixtureHeader}>
                 <span className={styles.fixtureName} title={instance.displayName}>
                   {instance.displayName}
                 </span>
                 <span className={styles.badgeRow}>
                   <MetaBadge label="Address" kind="address" value={String(instance.address)} />
+                  <button
+                    type="button"
+                    className={styles.fixtureEditButton}
+                    onClick={() => onEditFixture(instance.id)}
+                    title={`Customize ${instance.displayName}`}
+                    aria-label={`Customize ${instance.displayName}`}
+                  >
+                    <Pencil size={11} aria-hidden="true" />
+                  </button>
                 </span>
               </div>
               {instance.channels.length === 0 ? (
@@ -593,7 +749,7 @@ function UniverseRow({
                         detailed={detailed}
                         swatch={channel.swatch}
                         icon={channel.icon}
-                        sublabel={`Ch ${channel.address}`}
+                        sublabel={compactSublabel ? String(channel.address) : `Ch ${channel.address}`}
                         value={value}
                         overridden={overridden}
                         touched={touchedKeys.has(channel.key)}
@@ -645,13 +801,68 @@ export default function Desk() {
   // heightPreset is the last Compact/Normal/Large button click, threaded
   // down to every UniverseRow (see HeightPreset's own doc comment on why
   // each row applies it via a version-keyed effect rather than treating it
-  // as an ongoing controlled value) -- null until the user's first click,
-  // since each row otherwise owns its own independent height.
-  const [heightPreset, setHeightPreset] = useState<HeightPreset | null>(null);
+  // as an ongoing controlled value) -- restored from localStorage on mount
+  // (readStoredHeightPreset) so the button's own active/pressed state
+  // survives navigating away from Desk and back, not just null until the
+  // user's first click of THIS particular mount.
+  const [heightPreset, setHeightPreset] = useState<HeightPreset | null>(readStoredHeightPreset);
   // widthPreset is heightPreset's horizontal counterpart -- see WidthPreset's
   // own doc comment for why its "fit" mode carries no value the way a
   // Compact/Normal/Large click does.
-  const [widthPreset, setWidthPreset] = useState<WidthPreset | null>(null);
+  const [widthPreset, setWidthPreset] = useState<WidthPreset | null>(readStoredWidthPreset);
+
+  useEffect(() => {
+    if (!heightPreset) return;
+    window.localStorage.setItem(HEIGHT_PRESET_STORAGE_KEY, JSON.stringify({ value: heightPreset.value }));
+  }, [heightPreset]);
+
+  useEffect(() => {
+    if (!widthPreset) return;
+    window.localStorage.setItem(
+      WIDTH_PRESET_STORAGE_KEY,
+      JSON.stringify(widthPreset.mode === "fit" ? { mode: "fit" } : { mode: "fixed", value: widthPreset.value }),
+    );
+  }, [widthPreset]);
+
+  // fixtureStyles is every fixture's own pencil-icon customization, keyed
+  // by patch instance ID -- restored from localStorage on mount
+  // (readStoredFixtureStyles) the same way heightPreset/widthPreset are,
+  // so a card's custom look survives navigating away from Desk and back.
+  const [fixtureStyles, setFixtureStyles] = useState<Record<string, FixtureStyle>>(readStoredFixtureStyles);
+  // editingInstanceId is which fixture's modal is currently open (null =
+  // none) -- a single piece of Desk-level state rather than one per row,
+  // since only one edit modal can ever be open at a time regardless of
+  // which universe/card it belongs to.
+  const [editingInstanceId, setEditingInstanceId] = useState<string | null>(null);
+  // imageDataUriCache resolves every FixtureStyle.backgroundImageAssetID
+  // currently in use to its own data: URI (getImageDataURI), keyed by
+  // asset id -- fetched at most once per asset per session (the effect
+  // below only ever fetches an id not already a key here, even if
+  // multiple cards happen to share the same asset), never persisted
+  // itself (fixtureStyles' own localStorage entry is just the id; the
+  // actual bytes live only in the show's own .golc file and this
+  // in-memory cache).
+  const [imageDataUriCache, setImageDataUriCache] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const assetIDs = new Set<string>();
+    for (const style of Object.values(fixtureStyles)) {
+      if (style.backgroundImageAssetID) assetIDs.add(style.backgroundImageAssetID);
+    }
+    for (const id of assetIDs) {
+      if (id in imageDataUriCache) continue;
+      void getImageDataURI(id).then((dataURI) => {
+        if (!dataURI) return;
+        setImageDataUriCache((prev) => (id in prev ? prev : { ...prev, [id]: dataURI }));
+      });
+    }
+    // Deliberately omits imageDataUriCache from the dependency array: this
+    // effect's own setImageDataUriCache calls would otherwise re-trigger
+    // it on every resolved fetch, and the `id in imageDataUriCache` guard
+    // above already does the real "already resolved, skip" check against
+    // its current value at call time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixtureStyles]);
 
   const loadLayout = useCallback(async (): Promise<void> => {
     try {
@@ -742,7 +953,25 @@ export default function Desk() {
     });
   };
 
+  const handleFixtureStyleSave = (instanceId: string, style: FixtureStyle, previewDataURI: string | undefined) => {
+    setFixtureStyles((prev) => {
+      const next = { ...prev, [instanceId]: style };
+      writeStoredFixtureStyles(next);
+      return next;
+    });
+    // Seeds the cache directly from the upload's own response when
+    // available, rather than letting the resolution effect above re-fetch
+    // an asset that was just successfully uploaded moments ago -- purely
+    // an optimization (the effect's own fetch would resolve to the exact
+    // same value), never load-bearing for correctness.
+    if (style.backgroundImageAssetID && previewDataURI) {
+      setImageDataUriCache((prev) => ({ ...prev, [style.backgroundImageAssetID as string]: previewDataURI }));
+    }
+    setEditingInstanceId(null);
+  };
+
   const overrideCount = Object.keys(overrides).length;
+  const editingInstance = editingInstanceId ? instances.find((instance) => instance.id === editingInstanceId) : null;
 
   return (
     <section className={styles.panel} aria-label="Desk" aria-busy={loading}>
@@ -890,11 +1119,27 @@ export default function Desk() {
                   onFaderClear={handleFaderClear}
                   preset={heightPreset}
                   widthPreset={widthPreset}
+                  fixtureStyles={fixtureStyles}
+                  imageDataUriCache={imageDataUriCache}
+                  onEditFixture={setEditingInstanceId}
                 />
               ))}
             </div>
           )}
         </>
+      )}
+      {editingInstance && (
+        <FixtureStyleModal
+          fixtureName={editingInstance.displayName}
+          initialStyle={fixtureStyles[editingInstance.id] ?? {}}
+          initialImageDataURI={
+            fixtureStyles[editingInstance.id]?.backgroundImageAssetID
+              ? imageDataUriCache[fixtureStyles[editingInstance.id].backgroundImageAssetID as string]
+              : undefined
+          }
+          onSave={(style, previewDataURI) => handleFixtureStyleSave(editingInstance.id, style, previewDataURI)}
+          onClose={() => setEditingInstanceId(null)}
+        />
       )}
     </section>
   );
