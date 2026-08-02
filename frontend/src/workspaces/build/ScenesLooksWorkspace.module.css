@@ -85,9 +85,9 @@
   gap: var(--space-xs);
   height: 28px;
   padding: 0 var(--space-sm);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--accent-2);
   border-radius: var(--radius-sm);
-  background: var(--accent);
+  background: var(--accent-2);
   color: var(--page);
   font-family: "Archivo", system-ui, sans-serif;
   font-size: var(--text-sm);

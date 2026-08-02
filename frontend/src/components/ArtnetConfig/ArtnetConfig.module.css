@@ -134,7 +134,7 @@
   padding: var(--space-sm) var(--space-md);
   border: none;
   border-radius: 4px;
-  background: var(--accent);
+  background: var(--accent-4);
   color: #fff;
   font-family: inherit;
   font-weight: 600;
@@ -142,7 +142,7 @@
 }
 
 .primaryButton:hover {
-  background: var(--accent-dp);
+  background: var(--accent-4-dp);
 }
 
 .primaryButton:disabled {
@@ -155,17 +155,17 @@
   align-items: center;
   gap: var(--space-xs);
   padding: var(--space-xs) var(--space-sm);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--accent-4);
   border-radius: 4px;
   background: transparent;
-  color: var(--accent);
+  color: var(--accent-4);
   font-family: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
 .secondaryButton:hover {
-  background: var(--accent);
+  background: var(--accent-4);
   color: #fff;
 }
 
@@ -328,10 +328,10 @@
   gap: 4px;
   flex-shrink: 0;
   padding: 2px var(--space-xs);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--accent-4);
   border-radius: 4px;
   background: transparent;
-  color: var(--accent);
+  color: var(--accent-4);
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -339,7 +339,7 @@
 }
 
 .interfaceSelectButton:hover {
-  background: var(--accent);
+  background: var(--accent-4);
   color: #fff;
 }
 

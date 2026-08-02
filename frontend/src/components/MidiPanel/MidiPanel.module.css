@@ -124,17 +124,17 @@
   gap: var(--space-xs);
   min-height: 44px;
   padding: var(--space-xs) var(--space-md);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--accent-4);
   border-radius: 4px;
   background: transparent;
-  color: var(--accent);
+  color: var(--accent-4);
   font-family: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
 .learnButton:hover {
-  background: var(--accent);
+  background: var(--accent-4);
   color: #fff;
 }
 
@@ -143,9 +143,9 @@
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-xs) var(--space-sm);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--accent-4);
   border-radius: 4px;
-  background: var(--accent);
+  background: var(--accent-4);
   color: #fff;
   font-size: 14px;
 }
@@ -326,7 +326,7 @@
   top: -3px;
   bottom: -3px;
   width: 2px;
-  background: var(--accent);
+  background: var(--accent-4);
 }
 
 .takeoverRow {

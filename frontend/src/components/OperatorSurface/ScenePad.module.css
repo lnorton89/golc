@@ -19,9 +19,9 @@
 }
 
 .pad[aria-current="true"] {
-  background: color-mix(in srgb, var(--accent) 32%, var(--panel));
-  border-color: var(--accent);
-  box-shadow: inset 0 3px var(--accent);
+  background: color-mix(in srgb, var(--accent-2) 32%, var(--panel));
+  border-color: var(--accent-2);
+  box-shadow: inset 0 3px var(--accent-2);
 }
 
 .pad[aria-disabled="true"] {

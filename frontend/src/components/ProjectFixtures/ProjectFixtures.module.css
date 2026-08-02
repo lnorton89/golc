@@ -161,7 +161,7 @@
      --panel fill above, so a transparent-mixed hover would let whatever
      sits behind the stepper (the row's own --page/hover background)
      show through and look washed out instead of a clean panel tint. */
-  background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+  background: color-mix(in srgb, var(--accent-3) 16%, var(--panel));
   color: var(--ink);
 }
 
@@ -176,7 +176,7 @@
   padding: var(--space-sm) var(--space-md);
   border: none;
   border-radius: 4px;
-  background: var(--accent);
+  background: var(--accent-3);
   color: #fff;
   font-family: inherit;
   font-weight: 600;
@@ -184,7 +184,7 @@
 }
 
 .primaryButton:hover {
-  background: var(--accent-dp);
+  background: var(--accent-3-dp);
 }
 
 .primaryButton:disabled {
@@ -197,17 +197,17 @@
   align-items: center;
   gap: var(--space-xs);
   padding: var(--space-xs) var(--space-sm);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--accent-3);
   border-radius: 4px;
   background: transparent;
-  color: var(--accent);
+  color: var(--accent-3);
   font-family: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
 .secondaryButton:hover {
-  background: var(--accent);
+  background: var(--accent-3);
   color: #fff;
 }
 
@@ -365,18 +365,18 @@
 }
 
 .badgeMode {
-  background: color-mix(in srgb, var(--accent) 10%, var(--page));
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+  background: color-mix(in srgb, var(--accent-3) 10%, var(--page));
+  border-color: color-mix(in srgb, var(--accent-3) 30%, var(--line));
 }
 
 .badgeUniverse {
-  background: color-mix(in srgb, var(--accent) 18%, var(--page));
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--accent-3) 18%, var(--page));
+  border-color: color-mix(in srgb, var(--accent-3) 40%, var(--line));
 }
 
 .badgeAddress {
-  background: color-mix(in srgb, var(--accent) 26%, var(--page));
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+  background: color-mix(in srgb, var(--accent-3) 26%, var(--page));
+  border-color: color-mix(in srgb, var(--accent-3) 50%, var(--line));
 }
 
 .badgeDeployment {
@@ -448,7 +448,7 @@
 }
 
 .dialog:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-3);
   outline-offset: -2px;
 }
 
@@ -502,7 +502,7 @@
   flex-direction: column;
   gap: var(--space-xs);
   padding: var(--space-sm);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--accent-3);
   border-radius: 4px;
   background: var(--page);
 }

@@ -41,7 +41,7 @@
   width: 64px;
   height: 28px;
   padding: 0 18px 0 var(--space-xs);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--accent-4);
   border-radius: var(--radius-sm);
   background: var(--page);
   color: var(--ink);
@@ -87,7 +87,7 @@
 }
 
 .bpmSpinnerButton:hover {
-  background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+  background: color-mix(in srgb, var(--accent-4) 16%, var(--panel));
   color: var(--ink);
 }
 

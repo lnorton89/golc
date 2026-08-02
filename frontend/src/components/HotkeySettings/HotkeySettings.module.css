@@ -44,7 +44,7 @@
 }
 
 .row:hover {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: color-mix(in srgb, var(--accent-5) 8%, transparent);
 }
 
 .description {
@@ -89,18 +89,18 @@
 }
 
 .keyButton:hover {
-  border-color: var(--accent);
+  border-color: var(--accent-5);
 }
 
 .keyButton:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-5);
   outline-offset: -2px;
 }
 
 .recording {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, var(--page));
-  color: var(--accent);
+  border-color: var(--accent-5);
+  background: color-mix(in srgb, var(--accent-5) 12%, var(--page));
+  color: var(--accent-5);
 }
 
 .resetButton {
@@ -120,7 +120,7 @@
 
 .resetButton:hover:not(:disabled) {
   color: var(--ink);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: color-mix(in srgb, var(--accent-5) 8%, transparent);
 }
 
 .resetButton:disabled {

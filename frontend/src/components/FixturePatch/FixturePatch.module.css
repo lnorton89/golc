@@ -93,7 +93,7 @@
   padding: var(--space-sm) var(--space-md);
   border: none;
   border-radius: 4px;
-  background: var(--accent);
+  background: var(--accent-3);
   color: #fff;
   font-family: inherit;
   font-weight: 600;
@@ -101,7 +101,7 @@
 }
 
 .primaryButton:hover {
-  background: var(--accent-dp);
+  background: var(--accent-3-dp);
 }
 
 .primaryButton:disabled {
@@ -114,17 +114,17 @@
   align-items: center;
   gap: var(--space-xs);
   padding: var(--space-xs) var(--space-sm);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--accent-3);
   border-radius: 4px;
   background: transparent;
-  color: var(--accent);
+  color: var(--accent-3);
   font-family: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
 .secondaryButton:hover {
-  background: var(--accent);
+  background: var(--accent-3);
   color: #fff;
 }
 
@@ -261,7 +261,7 @@
   flex-direction: column;
   gap: var(--space-xs);
   padding: var(--space-sm);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--accent-3);
   border-radius: 4px;
   background: var(--page);
 }

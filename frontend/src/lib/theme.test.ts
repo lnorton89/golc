@@ -1,16 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { applyTheme, getStoredTheme, setStoredTheme } from "./theme";
+import {
+  applyTheme,
+  applyThemeName,
+  getStoredTheme,
+  getStoredThemeName,
+  setStoredTheme,
+  setStoredThemeName,
+} from "./theme";
 
 describe("theme", () => {
   beforeEach(() => {
     window.localStorage.clear();
     document.documentElement.removeAttribute("data-theme");
+    document.documentElement.removeAttribute("data-theme-name");
   });
 
   afterEach(() => {
     window.localStorage.clear();
     document.documentElement.removeAttribute("data-theme");
+    document.documentElement.removeAttribute("data-theme-name");
   });
 
   it("defaults to system when nothing is stored", () => {
@@ -43,5 +52,56 @@ describe("theme", () => {
     applyTheme("dark");
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
     expect(getStoredTheme()).toBe("system");
+  });
+
+  it("defaults to the default palette when nothing is stored", () => {
+    expect(getStoredThemeName()).toBe("default");
+  });
+
+  it("ignores a corrupt/unknown stored palette and falls back to default", () => {
+    window.localStorage.setItem("golc-theme-name", "commodore64");
+    expect(getStoredThemeName()).toBe("default");
+  });
+
+  it("persists an explicit palette choice and reflects it on re-read", () => {
+    setStoredThemeName("gruvbox");
+    expect(getStoredThemeName()).toBe("gruvbox");
+    expect(document.documentElement.getAttribute("data-theme-name")).toBe("gruvbox");
+
+    setStoredThemeName("tokyo");
+    expect(getStoredThemeName()).toBe("tokyo");
+    expect(document.documentElement.getAttribute("data-theme-name")).toBe("tokyo");
+  });
+
+  it("accepts every added palette id", () => {
+    const names: Array<Parameters<typeof setStoredThemeName>[0]> = [
+      "dracula",
+      "nord",
+      "catppuccin",
+      "solarized",
+      "one-dark",
+      "rose-pine",
+      "everforest",
+      "rainbow",
+      "acid",
+    ];
+    for (const name of names) {
+      setStoredThemeName(name);
+      expect(getStoredThemeName()).toBe(name);
+      expect(document.documentElement.getAttribute("data-theme-name")).toBe(name);
+    }
+  });
+
+  it("clears the stored palette and the data-theme-name attribute when set back to default", () => {
+    setStoredThemeName("gruvbox");
+    setStoredThemeName("default");
+    expect(getStoredThemeName()).toBe("default");
+    expect(document.documentElement.hasAttribute("data-theme-name")).toBe(false);
+  });
+
+  it("applyThemeName alone does not persist -- a later getStoredThemeName call is unaffected", () => {
+    applyThemeName("tokyo");
+    expect(document.documentElement.getAttribute("data-theme-name")).toBe("tokyo");
+    expect(getStoredThemeName()).toBe("default");
   });
 });
