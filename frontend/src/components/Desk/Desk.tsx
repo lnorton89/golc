@@ -32,9 +32,11 @@ import {
   Minus,
   MoveHorizontal,
   Pencil,
+  Radio,
   RotateCcw,
   Sun,
   TriangleAlert,
+  X,
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -42,6 +44,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   clearAllDeskOverrides,
   clearDeskAttribute,
+  clearDeskInstance,
   errorMessage,
   fetchDeskUniverseValues,
   getImageDataURI,
@@ -561,6 +564,8 @@ function UniverseRow({
   onCancelMidiLearn,
   onRemapMidiLearn,
   onClearMidiMapping,
+  onReleaseInstance,
+  onReleaseUniverse,
 }: {
   universe: number;
   universeInstances: DeskInstance[];
@@ -584,6 +589,8 @@ function UniverseRow({
   onCancelMidiLearn: () => void;
   onRemapMidiLearn: (channel: DeskChannel, instanceId: string, mappingId: string) => void;
   onClearMidiMapping: (mappingId: string) => void;
+  onReleaseInstance: (instanceId: string) => void;
+  onReleaseUniverse: (universe: number, instanceIds: string[]) => void;
 }) {
   const heightPanel = useResizablePanel({
     min: 190,
@@ -665,6 +672,14 @@ function UniverseRow({
   const trackWidth = widthPanel.size - 10 - (detailed ? SCALE_RESERVED_WIDTH : 0);
   const compactSublabel = widthPanel.size <= COMPACT_SUBLABEL_MAX_FADER_WIDTH;
 
+  // universeHasOverride gates the universe-level Release button
+  // (aria-disabled + no-op when nothing on this whole row is overridden) --
+  // any instance whose own overrides prefix-matches this instance's own
+  // channel-key format (DeskChannel.key's `${instanceId}::${capabilityType}`).
+  const universeHasOverride = universeInstances.some((instance) =>
+    Object.keys(overrides).some((key) => key.startsWith(`${instance.id}::`)),
+  );
+
   return (
     <div
       className={styles.universeRow}
@@ -682,6 +697,20 @@ function UniverseRow({
           {universeInstances.length} fixture{universeInstances.length === 1 ? "" : "s"}
           {range ? ` · Ch ${range[0]}–${range[1]}` : ""}
         </span>
+        <button
+          type="button"
+          className={styles.universeReleaseButton}
+          onClick={
+            universeHasOverride
+              ? () => onReleaseUniverse(universe, universeInstances.map((instance) => instance.id))
+              : undefined
+          }
+          aria-disabled={!universeHasOverride}
+          title={universeHasOverride ? `Release every override in Universe ${universe}` : "No overrides to release"}
+          aria-label={`Release every override in Universe ${universe}`}
+        >
+          <X size={11} aria-hidden="true" />
+        </button>
       </div>
       <div className={styles.fixtureScroll} ref={fixtureScrollRef}>
         {universeInstances.map((instance) => {
@@ -711,6 +740,7 @@ function UniverseRow({
             ...(cardFaderWidth !== null ? ({ "--card-fader-width": `${cardFaderWidth}px` } as CSSProperties) : {}),
             ...fixtureCardInlineStyle(cardFixtureStyle, cardImageDataURI),
           };
+          const instanceHasOverride = Object.keys(overrides).some((key) => key.startsWith(`${instance.id}::`));
           return (
             <div key={instance.id} className={styles.fixtureGroup} style={cardStyle}>
               <div className={styles.fixtureHeader}>
@@ -727,6 +757,20 @@ function UniverseRow({
                     aria-label={`Customize ${instance.displayName}`}
                   >
                     <Pencil size={11} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.fixtureReleaseButton}
+                    onClick={instanceHasOverride ? () => onReleaseInstance(instance.id) : undefined}
+                    aria-disabled={!instanceHasOverride}
+                    title={
+                      instanceHasOverride
+                        ? `Release every override on ${instance.displayName}`
+                        : `${instance.displayName} has no overrides to release`
+                    }
+                    aria-label={`Release every override on ${instance.displayName}`}
+                  >
+                    <X size={11} aria-hidden="true" />
                   </button>
                 </span>
               </div>
@@ -820,6 +864,7 @@ export default function Desk() {
   const [midiCaptureStatus, setMidiCaptureStatus] = useState<MidiLearnStatus | undefined>(undefined);
   const [midiCaptureMessage, setMidiCaptureMessage] = useState<string | null>(null);
   const midiLearnMode = useGolcStore((state) => state.midiLearnMode);
+  const setMidiLearnMode = useGolcStore((state) => state.setMidiLearnMode);
   // heightPreset is the last Compact/Normal/Large button click, threaded
   // down to every UniverseRow (see HeightPreset's own doc comment on why
   // each row applies it via a version-keyed effect rather than treating it
@@ -1004,6 +1049,58 @@ export default function Desk() {
     setMidiCaptureMessage(null);
   };
 
+  // Turning the global MIDI Learn toggle off must always abandon any
+  // in-flight capture, not just hide it: without this, midiCapturing/
+  // midiCaptureStatus stayed set across the toggle (nothing else ever
+  // cleared them), so re-enabling learn mode found that same channel
+  // still wired up as "the one currently capturing" against a backend
+  // session that itself was never told to stop either -- StartDeskLearn's
+  // own learnCaptureTimeout would eventually abandon it server-side, but
+  // in the meantime the channel was stuck unresponsive to a fresh click.
+  // This mirrors handleCancelMidiLearn's own body rather than calling it
+  // directly, so this effect only depends on midiLearnMode itself.
+  useEffect(() => {
+    if (midiLearnMode) return;
+    setMidiCapturing((prev) => {
+      if (prev) {
+        void deskMidiService()
+          ?.CancelLearn()
+          .catch(() => {
+            // See handleCancelMidiLearn's own doc comment.
+          });
+      }
+      return null;
+    });
+    setMidiCaptureStatus(undefined);
+    setMidiCaptureMessage(null);
+  }, [midiLearnMode]);
+
+  // Escape is the keyboard-only "back out of this" affordance the
+  // faderLearnBanner below advertises: while a specific channel is
+  // listening, the first Escape only cancels THAT capture (mirrors
+  // clicking the same fader again -- MidiLearn.tsx's own Cancel
+  // affordance never exits its whole feature either, just the one
+  // in-flight session); with nothing capturing, Escape exits MIDI Learn
+  // mode entirely, same as clicking MidiLearnToggle off. Registered on
+  // window rather than a specific element since a highlighted fader's own
+  // hit area is never guaranteed to hold focus (e.g. right after a click
+  // resolves and the DOM node it was on is replaced).
+  useEffect(() => {
+    if (!midiLearnMode) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      if (midiCapturing) {
+        handleCancelMidiLearn();
+        return;
+      }
+      setMidiLearnMode(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [midiLearnMode, midiCapturing]);
+
   const handleRemapMidiLearn = (channel: DeskChannel, instanceId: string, mappingId: string) => {
     const svc = deskMidiService();
     if (!svc || midiCapturing) return;
@@ -1067,6 +1164,52 @@ export default function Desk() {
     });
   };
 
+  // handleReleaseInstance/handleReleaseUniverse are handleFaderClear's own
+  // coarser-grained counterparts (per-fixture, per-universe) rather than
+  // per-channel: both drop the matching keys from the SAME overrides/
+  // touchedKeys state handleFaderChange/handleFaderClear/handleClearAll
+  // already own, so a released fixture's/universe's faders immediately
+  // fall back to the live polled value (liveByteAt) exactly like a
+  // per-channel release already does -- there is only one local
+  // override-tracking mechanism in this component, never a second one for
+  // these coarser actions.
+  const releaseLocalOverridesFor = (instanceIds: Set<string>) => {
+    setOverrides((prev) => {
+      const next = { ...prev };
+      for (const key of Object.keys(next)) {
+        if (instanceIds.has(key.split("::")[0])) delete next[key];
+      }
+      return next;
+    });
+    setTouchedKeys((prev) => {
+      const next = new Set(prev);
+      for (const key of next) {
+        if (instanceIds.has(key.split("::")[0])) next.delete(key);
+      }
+      return next;
+    });
+  };
+
+  const handleReleaseInstance = (instanceId: string) => {
+    releaseLocalOverridesFor(new Set([instanceId]));
+    void clearDeskInstance(instanceId).then((result) => {
+      if (result.exitCode !== 0) setError(result.stderr || "Failed to release fixture overrides");
+    });
+  };
+
+  const handleReleaseUniverse = (universe: number, instanceIds: string[]) => {
+    releaseLocalOverridesFor(new Set(instanceIds));
+    // No dedicated "artnet desk clear --universe" daemon route exists
+    // (only per-instance and global-clear-all) -- releasing a universe is
+    // this component's own composition of the same per-instance
+    // clearDeskInstance call ClearAll's UI already uses elsewhere, one
+    // call per instance in the row.
+    void Promise.all(instanceIds.map((id) => clearDeskInstance(id))).then((results) => {
+      const failed = results.find((result) => result.exitCode !== 0);
+      if (failed) setError(failed.stderr || `Failed to release Universe ${universe} overrides`);
+    });
+  };
+
   const handleClearAll = () => {
     setOverrides({});
     void clearAllDeskOverrides().then((result) => {
@@ -1111,6 +1254,15 @@ export default function Desk() {
                 again.
               </p>
             </div>
+          )}
+
+          {midiLearnMode && (
+            <p className={styles.midiLearnBanner} role="status">
+              <Radio size={14} aria-hidden="true" />
+              {midiCapturing
+                ? "Listening for MIDI input… move a control on your device, or press Esc to cancel."
+                : "MIDI Learn is on — click a highlighted fader to map it. Press Esc to exit."}
+            </p>
           )}
 
           <div className={styles.headerRow}>
@@ -1252,6 +1404,8 @@ export default function Desk() {
                   onCancelMidiLearn={handleCancelMidiLearn}
                   onRemapMidiLearn={handleRemapMidiLearn}
                   onClearMidiMapping={handleClearMidiMapping}
+                  onReleaseInstance={handleReleaseInstance}
+                  onReleaseUniverse={handleReleaseUniverse}
                 />
               ))}
             </div>

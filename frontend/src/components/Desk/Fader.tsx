@@ -158,8 +158,25 @@ export default function Fader({
   // without disturbing the vertical value/track/label/sublabel alignment
   // .faderTrackRow's own centering already guarantees.
   const detailShiftClass = detailed ? styles.faderDetailShift : "";
+  const isAttention = midiLearnStatus === "conflict" || midiLearnStatus === "timeout" || midiLearnStatus === "error";
+  // learnHighlightClass rings the WHOLE fader (never covers its content --
+  // the user's own correction to an earlier version of this feature, which
+  // hid the value/track/label under an opaque overlay) so a click anywhere
+  // on a highlighted fader is unambiguous: "this is a MIDI-learn target,"
+  // never "this fader is temporarily replaced by a learn control." Three
+  // distinct rings: the default "click to (re)map" invite, a pulsing ring
+  // while this exact channel is the one Desk.tsx is currently capturing,
+  // and an attention ring (conflict/timeout/error) so a failed attempt is
+  // visible without needing space for inline text.
+  const learnHighlightClass = !midiLearnMode
+    ? ""
+    : midiLearnStatus === "listening"
+      ? styles.faderLearnListening
+      : isAttention
+        ? styles.faderLearnAttention
+        : styles.faderLearnTarget;
   return (
-    <div className={styles.fader}>
+    <div className={`${styles.fader} ${learnHighlightClass}`}>
       <span className={`${styles.faderValue} ${detailShiftClass}`}>{value}</span>
       <div className={`${styles.faderTrackRow} ${detailShiftClass}`}>
         {detailed && (
@@ -213,58 +230,74 @@ export default function Fader({
       >
         <X size={11} aria-hidden="true" />
       </button>
-      {midiLearnMode ? (
-        <div className={styles.faderLearnOverlay}>
-          {midiLearnStatus === "listening" ? (
-            <>
-              <span className={styles.faderLearnListening} role="status" aria-live="polite">
-                Listening…
-              </span>
-              <button type="button" className={styles.faderLearnActionButton} onClick={onMidiCancel}>
-                Cancel
-              </button>
-            </>
-          ) : midiMapped ? (
-            <div className={styles.faderLearnActions}>
-              <button
-                type="button"
-                className={styles.faderLearnActionButton}
-                onClick={onMidiRemap}
-                aria-label={`Remap MIDI control for ${label}`}
-              >
-                Remap
-              </button>
-              <button
-                type="button"
-                className={`${styles.faderLearnActionButton} ${styles.faderLearnClearButton}`}
-                onClick={onMidiClear}
-                aria-label={`Clear MIDI mapping for ${label}`}
-              >
-                Clear
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className={styles.faderLearnButton}
-              onClick={onMidiLearnClick}
-              aria-label={`Learn MIDI mapping for ${label}`}
-            >
-              Learn
-            </button>
-          )}
-          {midiLearnMessage && (midiLearnStatus === "conflict" || midiLearnStatus === "timeout" || midiLearnStatus === "error") && (
-            <p className={styles.faderLearnMessage} role="alert">
+      {midiLearnMode && (
+        <>
+          {/* faderLearnHitArea is transparent -- no background, no border,
+              nothing painted over the fader's own content -- it exists
+              only to intercept the click a native range-input drag would
+              otherwise consume, and to give the whole card one unambiguous
+              click target. Its own outline (learnHighlightClass above) is
+              what conveys "clickable," not this element. Listening ->
+              click cancels; already mapped -> click remaps; otherwise ->
+              click learns. */}
+          <button
+            type="button"
+            className={styles.faderLearnHitArea}
+            onClick={midiLearnStatus === "listening" ? onMidiCancel : midiMapped ? onMidiRemap : onMidiLearnClick}
+            aria-label={
+              midiLearnStatus === "listening"
+                ? `Cancel MIDI learn for ${label}`
+                : midiMapped
+                  ? `Remap MIDI control for ${label}`
+                  : `Learn MIDI mapping for ${label}`
+            }
+            title={
+              isAttention && midiLearnMessage
+                ? midiLearnMessage
+                : midiLearnStatus === "listening"
+                  ? "Listening for MIDI input… click to cancel"
+                  : midiMapped
+                    ? "Click to remap"
+                    : "Click to learn"
+            }
+          />
+          {isAttention && midiLearnMessage && (
+            <span className={styles.faderLearnSrOnly} role="alert">
               {midiLearnMessage}
-            </p>
+            </span>
           )}
-        </div>
-      ) : (
-        midiMapped && (
-          <span className={styles.faderLearnBadge} title={`${label} is MIDI-mapped`} aria-hidden="true">
-            <Radio size={9} />
-          </span>
-        )
+        </>
+      )}
+      {midiMapped && (
+        <span
+          className={`${styles.faderLearnBadge} ${midiLearnMode ? styles.faderLearnBadgeClickable : ""}`}
+          role={midiLearnMode ? "button" : undefined}
+          tabIndex={midiLearnMode ? 0 : undefined}
+          aria-hidden={midiLearnMode ? undefined : true}
+          aria-label={midiLearnMode ? `Clear MIDI mapping for ${label}` : undefined}
+          title={midiLearnMode ? `Clear MIDI mapping for ${label}` : `${label} is MIDI-mapped`}
+          onClick={
+            midiLearnMode
+              ? (event) => {
+                  event.stopPropagation();
+                  onMidiClear?.();
+                }
+              : undefined
+          }
+          onKeyDown={
+            midiLearnMode
+              ? (event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onMidiClear?.();
+                  }
+                }
+              : undefined
+          }
+        >
+          <Radio size={9} />
+        </span>
       )}
     </div>
   );

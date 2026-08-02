@@ -59,6 +59,27 @@
   font-size: 14px;
 }
 
+/* midiLearnBanner is the always-visible (never a hover-only tooltip)
+   advertisement that MIDI Learn is on and how to work it, including the
+   Esc-to-cancel/exit keyboard affordance -- Fader.tsx's own highlighted
+   ring/hit-area has no room to spell any of this out itself. Its own copy
+   swaps to the in-flight capture's own instructions the moment a specific
+   channel starts listening (mirrors MidiLearn.tsx's identical
+   listening-state copy swap). */
+.midiLearnBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--accent-5);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent-5) 12%, var(--page) 88%);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .headerRow {
   display: flex;
   align-items: center;
@@ -270,6 +291,39 @@
   gap: var(--space-sm);
 }
 
+/* universeReleaseButton releases every manual override on every instance
+   in this one universe -- mirrors .fixtureEditButton's small/muted-until-
+   interacted sizing (18px, transparent by default), but colored like
+   .faderClearButton's own X (this is that same "revert to programmed
+   output" action, just scoped to a whole universe instead of one channel),
+   and aria-disabled (not the native attribute -- see .faderClearButton's
+   own doc comment on why: disabled would suppress its hover tooltip). */
+.universeReleaseButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin-left: auto;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.universeReleaseButton:hover:not([aria-disabled="true"]) {
+  border-color: var(--accent-4);
+  color: var(--accent-4);
+}
+
+.universeReleaseButton[aria-disabled="true"] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .universeHeading {
   margin: 0;
   font-size: 16px;
@@ -420,6 +474,36 @@
 .fixtureEditButton:hover {
   border-color: var(--line);
   color: var(--accent);
+}
+
+/* fixtureReleaseButton releases every manual override on this one fixture
+   instance at once -- same small/muted-by-default sizing as
+   .fixtureEditButton right next to it, aria-disabled (not native
+   `disabled`, same rationale as .faderClearButton) when this instance
+   currently carries no override to release. */
+.fixtureReleaseButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.fixtureReleaseButton:hover:not([aria-disabled="true"]) {
+  border-color: var(--line);
+  color: var(--accent-4);
+}
+
+.fixtureReleaseButton[aria-disabled="true"] {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 /* MetaBadge pill (mirrors ProjectFixtures.tsx's own badge/badgeMode/
@@ -910,93 +994,113 @@
 }
 
 /* MIDI Learn (global toggle, MidiLearnToggle.tsx / store.ts midiLearnMode)
-   -- .faderLearnOverlay covers the whole fader card while learn mode is on,
-   intercepting the click that would otherwise reach .faderInput (dragging a
-   fader mid-learn-mode would be a confusing double meaning for the same
-   gesture). Sits above every other child of .fader via z-index; .fader
-   itself is already position:relative (see above) so this anchors to the
-   card's own box, not the page. */
-.faderLearnOverlay {
+   -- the fader's own content (value/track/label/sublabel) stays fully
+   visible while learn mode is on; a slow-pulsing BACKGROUND tint behind
+   that content is what conveys "this is a MIDI-learn target," never a
+   border/outline (an earlier version used one -- reads as a cheap dashed
+   marquee at this card's small size, not a real design element) and never
+   an opaque overlay painted over the content either.
+   .faderLearnHitArea is the actual click target: fully transparent, sized
+   to the whole card (inset:0), sitting above .faderInput so a click in
+   learn mode never doubles as a drag, but it paints nothing of its own --
+   the pulsing background lives on .fader itself, one layer further back,
+   so the hit area never has to fight it for visibility. */
+
+.faderLearnTarget {
+  border-radius: var(--radius-sm);
+  animation: faderLearnTargetPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes faderLearnTargetPulse {
+  0%,
+  100% {
+    background-color: color-mix(in srgb, var(--accent-5) 4%, transparent);
+  }
+  50% {
+    background-color: color-mix(in srgb, var(--accent-5) 16%, transparent);
+  }
+}
+
+/* Solid (not pulsing) fill for the one channel Desk.tsx is currently
+   capturing (mirrors MidiLearn.tsx's "Listening for MIDI input…" state) --
+   a DIFFERENT, lighter color from .faderLearnTarget's own idle pulse
+   (--status-armed, the same gold this MIDI feature already uses for
+   "armed"/live elsewhere -- SoftTakeoverSlider.tsx, MidiPanel.module.css's
+   armedChipOn), constant rather than animated, so the single in-flight
+   channel reads as visually distinct from every other still-just-
+   clickable fader at a glance, with nothing moving to distract from the
+   moment an operator is actually reaching for their MIDI device. */
+.faderLearnListening {
+  border-radius: var(--radius-sm);
+  /* Mixed toward white, not var(--page): this app's dark theme's own
+     --page is itself dark, so an earlier version of this rule (mixed
+     toward --page) produced a MUTED/darker tint on a dark card instead of
+     the intended lighter one -- genuinely light regardless of which theme
+     is active requires mixing toward an actual light color, not "the
+     current background, slightly tinted." */
+  background-color: color-mix(in srgb, var(--status-armed, #c8a24b) 55%, white 45%);
+}
+
+/* Conflict/timeout/error pulse -- the failure message itself is exposed via
+   the hit area's own `title` tooltip and an sr-only live region
+   (.faderLearnSrOnly) rather than inline text, since a narrow fader column
+   has no space to show it without covering content again. */
+.faderLearnAttention {
+  border-radius: var(--radius-sm);
+  animation: faderLearnAttentionPulse 0.8s ease-in-out infinite;
+}
+
+@keyframes faderLearnAttentionPulse {
+  0%,
+  100% {
+    background-color: color-mix(in srgb, var(--status-revoked, #e23a2e) 10%, transparent);
+  }
+  50% {
+    background-color: color-mix(in srgb, var(--status-revoked, #e23a2e) 34%, transparent);
+  }
+}
+
+/* A native <button>'s own default focus outline would otherwise render
+   right on top of the pulsing background above -- outline:none removes
+   it, and the box-shadow-based focus-visible ring below (a distinct visual
+   layer from both outline and background-color) keeps this element
+   keyboard-focusable without fighting the pulse for visibility. */
+.faderLearnHitArea {
   position: absolute;
   inset: 0;
   z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.faderLearnHitArea:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent-5);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--accent-5) 16%, var(--page) 84%);
-  border: 1px dashed var(--accent-5);
-  text-align: center;
 }
 
-.faderLearnButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3px 6px;
-  border: 1px solid var(--accent-5);
-  border-radius: 3px;
-  background: var(--accent-5);
-  color: var(--page);
-  font-size: 10px;
-  font-weight: 600;
-  cursor: pointer;
+.faderLearnSrOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
   white-space: nowrap;
-}
-
-.faderLearnActions {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  width: 100%;
-}
-
-.faderLearnActionButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3px 4px;
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  background: var(--page);
-  color: var(--ink);
-  font-size: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.faderLearnActionButton:hover {
-  border-color: var(--accent-5);
-  color: var(--accent-5);
-}
-
-.faderLearnClearButton:hover {
-  border-color: var(--status-blackout, #b91c1c);
-  color: var(--status-blackout, #b91c1c);
-}
-
-.faderLearnListening {
-  font-size: 9px;
-  font-weight: 600;
-  color: var(--ink);
-  line-height: 1.3;
-}
-
-.faderLearnMessage {
-  font-size: 9px;
-  line-height: 1.3;
-  color: var(--status-blackout, #b91c1c);
-  word-break: break-word;
+  border: 0;
 }
 
 /* .faderLearnBadge is the always-visible "this channel is MIDI-mapped"
-   indicator (outside learn mode, when this Fader has a mapping) -- small,
-   corner-anchored, pointer-events:none so it never intercepts the normal
-   fader drag it sits on top of. */
+   indicator -- small, corner-anchored. Outside learn mode it is purely
+   decorative (pointer-events:none, sits on top of the fader it describes
+   without ever intercepting its drag); while learn mode is on it becomes
+   its own click target (above .faderLearnHitArea via z-index) so clicking
+   the badge itself clears the mapping, distinct from clicking anywhere
+   else on the highlighted card (which remaps instead, via
+   .faderLearnHitArea). */
 .faderLearnBadge {
   position: absolute;
   top: 2px;
@@ -1011,4 +1115,20 @@
   background: var(--accent-5);
   color: var(--page);
   pointer-events: none;
+}
+
+.faderLearnBadgeClickable {
+  z-index: 3;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.faderLearnBadgeClickable:hover,
+.faderLearnBadgeClickable:focus-visible {
+  background: var(--status-revoked, #e23a2e);
+}
+
+.faderLearnBadgeClickable:focus-visible {
+  outline: 2px solid var(--status-revoked, #e23a2e);
+  outline-offset: 2px;
 }

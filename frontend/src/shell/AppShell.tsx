@@ -148,7 +148,7 @@ function ShellBody() {
         <TitleBar />
       </div>
       <div className={styles.header}>
-        <GlobalFrame />
+        <GlobalFrame activeDestination={activeDestination} />
       </div>
       <GuidedFirstShowProvider activeDestination={activeDestination} onNavigate={setActiveDestination}>
         <div className={styles.rail}>

@@ -10,7 +10,7 @@ describe("GlobalFrame", () => {
   it("composes the live status bar and tempo controls together", () => {
     render(
       <PlaybackSnapshotProvider>
-        <GlobalFrame />
+        <GlobalFrame activeDestination="show-overview" />
       </PlaybackSnapshotProvider>,
     );
 
