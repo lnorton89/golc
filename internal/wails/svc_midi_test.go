@@ -22,6 +22,7 @@ import (
 	"math"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -29,11 +30,15 @@ import (
 	gomidi "gitlab.com/gomidi/midi/v2"
 	"gitlab.com/gomidi/midi/v2/drivers/testdrv"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/lnorton89/golc/internal/artnet/ipc"
+	"github.com/lnorton89/golc/internal/deployment"
+	"github.com/lnorton89/golc/internal/deskmidi"
 	"github.com/lnorton89/golc/internal/midi"
 	"github.com/lnorton89/golc/internal/operatorsurface"
+	"github.com/lnorton89/golc/internal/pool"
 	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/show"
 )
@@ -1080,4 +1085,255 @@ func TestMidiServiceDispatchDeletedTargetIsSilentNoOp(t *testing.T) {
 	err = out.Send(gomidi.NoteOn(1, 61, 100).Bytes())
 	require.NoError(t, err, "Send")
 	waitForSceneActive(t, root, showPath, "Alive")
+}
+
+// seedDeskInstance builds and saves a minimal ShowState with one pool
+// (one member) and one deployment with an Instance patched to that member,
+// returning the Instance's ID as a string (deskmidi.Mapping's own
+// InstanceID addressing) -- mirrors svc_programming_test.go's identical
+// seedProgrammingInstance fixture (unexported to that file, so this file
+// keeps its own copy).
+func seedDeskInstance(t *testing.T, root, showPath string) string {
+	t.Helper()
+
+	p, err := pool.NewPool("Wash Pool", nil)
+	require.NoError(t, err, "pool.NewPool")
+	member, err := pool.NewPoolMember("acme/par64", "sha256:11111111")
+	require.NoError(t, err, "pool.NewPoolMember")
+	p.Members = append(p.Members, member)
+
+	d, err := deployment.NewDeployment("Venue A")
+	require.NoError(t, err, "deployment.NewDeployment")
+	instanceID, err := uuid.NewV7()
+	require.NoError(t, err, "uuid.NewV7")
+	d.Instances = append(d.Instances, deployment.Instance{
+		ID: instanceID, PoolID: p.ID, PoolMemberID: member.ID, Mode: "Standard", Universe: 1, Address: 1,
+	})
+
+	state := show.State{Pools: []pool.Pool{p}, Deployments: []deployment.Deployment{d}}
+	require.NoError(t, show.Save(root, showPath, state), "show.Save (seed)")
+	return instanceID.String()
+}
+
+// startDeskLearnAndSend runs StartDeskLearn(instanceID, capability) in the
+// background, waits for its capture window to open, sends msg through out,
+// and returns StartDeskLearn's result (or fails the test on timeout) --
+// mirrors startLearnAndSend's identical shape for the surface system.
+func startDeskLearnAndSend(t *testing.T, svc *MidiService, instanceID, capability string, out testdrvOut, msg gomidi.Message) Result {
+	t.Helper()
+	resultCh := make(chan Result, 1)
+	go func() {
+		resultCh <- svc.StartDeskLearn(instanceID, capability)
+	}()
+	waitForLearningActive(t, svc)
+
+	err := out.Send(msg.Bytes())
+	require.NoError(t, err, "Send")
+
+	select {
+	case result := <-resultCh:
+		return result
+	case <-time.After(3 * time.Second):
+		require.Fail(t, "timed out waiting for StartDeskLearn to return")
+		return Result{}
+	}
+}
+
+// assertDeskSetForward asserts got is an "artnet desk set" Request carrying
+// --instance wantInstance, --attr wantCapability=wantValue, and --source
+// manual -- mirrors assertMasterSetForward's identical shape.
+func assertDeskSetForward(t *testing.T, got ipc.Request, wantInstance, wantCapability string, wantValue float64) {
+	t.Helper()
+	require.Equal(t, "artnet desk set", got.Route, "forwarded route")
+
+	idx := -1
+	for i, a := range got.Args {
+		if a == "--instance" {
+			idx = i
+			break
+		}
+	}
+	require.True(t, idx != -1 && idx+1 < len(got.Args), "expected --instance in forwarded args, got %v", got.Args)
+	require.Equal(t, wantInstance, got.Args[idx+1], "forwarded --instance")
+
+	idx = -1
+	for i, a := range got.Args {
+		if a == "--attr" {
+			idx = i
+			break
+		}
+	}
+	require.True(t, idx != -1 && idx+1 < len(got.Args), "expected --attr in forwarded args, got %v", got.Args)
+	attr := got.Args[idx+1]
+	prefix := wantCapability + "="
+	require.True(t, strings.HasPrefix(attr, prefix), "forwarded --attr = %q, want prefix %q", attr, prefix)
+	gotValue, err := strconv.ParseFloat(strings.TrimPrefix(attr, prefix), 64)
+	require.NoError(t, err, "--attr value %q is not a valid number", attr)
+	require.LessOrEqual(t, math.Abs(gotValue-wantValue), 1e-6, "forwarded --attr value = %v, want %v", gotValue, wantValue)
+
+	found := false
+	for i := 0; i < len(got.Args)-1; i++ {
+		if got.Args[i] == "--source" && got.Args[i+1] == "manual" {
+			found = true
+		}
+	}
+	require.True(t, found, "expected --source manual in forwarded args, got %v", got.Args)
+}
+
+// TestMidiServiceStartDeskLearnPersistsMapping proves a full desk-learn
+// round-trip: StartDeskLearn blocks until a matching MIDI message arrives,
+// then persists the mapping (deskmidi.AddMapping -> show.Save) reflected by
+// ListDeskMappings -- entirely without any Operator Surface involved,
+// unlike TestMidiServiceStartLearnPersistsMapping's surface-scoped
+// counterpart.
+func TestMidiServiceStartDeskLearnPersistsMapping(t *testing.T) {
+	svc, root, showPath, out := newMidiTestFixture(t, "test-desk-learn-persists")
+	instanceID := seedDeskInstance(t, root, showPath)
+
+	result := startDeskLearnAndSend(t, svc, instanceID, "intensity", out, gomidi.ControlChange(2, 74, 100))
+	require.Equal(t, 0, result.ExitCode, "StartDeskLearn: stderr=%s", result.Stderr)
+
+	views, err := svc.ListDeskMappings()
+	require.NoError(t, err, "ListDeskMappings")
+	require.Len(t, views, 1, "expected exactly one desk mapping")
+	require.Equal(t, 2, views[0].Channel)
+	require.Equal(t, "control_change", views[0].Kind)
+	require.Equal(t, 74, views[0].Number)
+	require.Equal(t, instanceID, views[0].InstanceID)
+	require.Equal(t, "intensity", views[0].Capability)
+
+	state, err := show.Load(root, showPath)
+	require.NoError(t, err, "show.Load")
+	require.Len(t, state.DeskMidiMappings, 1, "expected the mapping to be persisted in show.State")
+}
+
+// TestMidiServiceStartDeskLearnRejectsConflict proves D-06's desk-mapping
+// counterpart: a candidate colliding with an already-mapped (channel, kind,
+// number) tuple is rejected outright, leaving the prior mapping untouched.
+func TestMidiServiceStartDeskLearnRejectsConflict(t *testing.T) {
+	svc, root, showPath, out := newMidiTestFixture(t, "test-desk-learn-conflict")
+	instanceID := seedDeskInstance(t, root, showPath)
+
+	first := startDeskLearnAndSend(t, svc, instanceID, "intensity", out, gomidi.ControlChange(1, 20, 64))
+	require.Equal(t, 0, first.ExitCode, "first StartDeskLearn: stderr=%s", first.Stderr)
+
+	second := startDeskLearnAndSend(t, svc, instanceID, "pan", out, gomidi.ControlChange(1, 20, 64))
+	require.NotEqual(t, 0, second.ExitCode, "expected a colliding (channel, kind, number) tuple to be rejected")
+	require.Contains(t, second.Stderr, "GOLC_DESKMIDI_MAPPING_CONFLICT")
+
+	views, err := svc.ListDeskMappings()
+	require.NoError(t, err, "ListDeskMappings")
+	require.Len(t, views, 1, "expected the prior mapping to be left untouched")
+	require.Equal(t, "intensity", views[0].Capability)
+}
+
+// TestMidiServiceDispatchDeskFaderForwardsOnlyAfterCrossing proves a desk
+// mapping's ControlChange takeover behaves identically to a surface master
+// mapping's own cross-to-catch contract (TestMidiServiceDispatchMasterCcForwardsOnlyAfterCrossing),
+// but dispatched to "artnet desk set" instead of "artnet master set", and
+// entirely without any Operator Surface. This test seeds DeskMidiMappings
+// directly (mirroring the master-cc test's own direct
+// operatorsurface.AddMidiMapping+show.Save seeding) rather than going
+// through StartDeskLearn, so it must call svc.refreshDeskMappings itself
+// afterward -- the production-only equivalent of SetActiveSurface's own
+// disk-refresh role, since StartDeskLearn/RemoveDeskMapping are the only
+// production callers that keep the live dispatch cache in sync with disk.
+func TestMidiServiceDispatchDeskFaderForwardsOnlyAfterCrossing(t *testing.T) {
+	svc, root, showPath, out := newMidiTestFixture(t, "test-dispatch-desk-cc")
+	instanceID := seedDeskInstance(t, root, showPath)
+
+	state, err := show.Load(root, showPath)
+	require.NoError(t, err, "show.Load")
+	updated, err := deskmidi.AddMapping(state.DeskMidiMappings, deskmidi.Mapping{
+		Channel: 1, Kind: deskmidi.ControlChange, Number: 7, InstanceID: instanceID, Capability: "intensity",
+	})
+	require.NoError(t, err, "deskmidi.AddMapping")
+	state.DeskMidiMappings = updated
+	require.NoError(t, show.Save(root, showPath, state), "show.Save")
+	svc.refreshDeskMappings(state)
+
+	capture := &dispatchCapture{}
+	svc.dial = capture.dial
+
+	// Below the 0.5 default ghost/target: not yet crossed, must forward
+	// nothing.
+	err = out.Send(gomidi.ControlChange(1, 7, 20).Bytes())
+	require.NoError(t, err, "Send")
+	time.Sleep(50 * time.Millisecond)
+	require.Equal(t, 0, capture.count(), "expected zero forwards before crossing: %+v", capture.all())
+
+	// Cross the marker: exactly one forward with the crossed value.
+	err = out.Send(gomidi.ControlChange(1, 7, 100).Bytes())
+	require.NoError(t, err, "Send")
+	waitForDispatchCount(t, capture, 1)
+	requests := capture.all()
+	require.Len(t, requests, 1, "expected exactly one forward after crossing: %+v", requests)
+	assertDeskSetForward(t, requests[0], instanceID, "intensity", float64(100)/127)
+
+	// Continues forwarding on every subsequent armed message (continuous,
+	// same as a surface master mapping).
+	err = out.Send(gomidi.ControlChange(1, 7, 110).Bytes())
+	require.NoError(t, err, "Send")
+	waitForDispatchCount(t, capture, 2)
+}
+
+// TestMidiServiceDispatchDeskFaderNoteTogglesFullAndZero proves a Note-kind
+// desk mapping dispatches the full level on press and zero on release, with
+// no arming delay (D-12), mirroring dispatchMasterSet's own Note handling
+// for a surface master mapping.
+func TestMidiServiceDispatchDeskFaderNoteTogglesFullAndZero(t *testing.T) {
+	svc, root, showPath, out := newMidiTestFixture(t, "test-dispatch-desk-note")
+	instanceID := seedDeskInstance(t, root, showPath)
+
+	state, err := show.Load(root, showPath)
+	require.NoError(t, err, "show.Load")
+	updated, err := deskmidi.AddMapping(state.DeskMidiMappings, deskmidi.Mapping{
+		Channel: 1, Kind: deskmidi.Note, Number: 40, InstanceID: instanceID, Capability: "strobe",
+	})
+	require.NoError(t, err, "deskmidi.AddMapping")
+	state.DeskMidiMappings = updated
+	require.NoError(t, show.Save(root, showPath, state), "show.Save")
+	svc.refreshDeskMappings(state)
+
+	capture := &dispatchCapture{}
+	svc.dial = capture.dial
+
+	err = out.Send(gomidi.NoteOn(1, 40, 100).Bytes())
+	require.NoError(t, err, "Send (note-on)")
+	waitForDispatchCount(t, capture, 1)
+	assertDeskSetForward(t, capture.all()[0], instanceID, "strobe", 1)
+
+	err = out.Send(gomidi.NoteOff(1, 40).Bytes())
+	require.NoError(t, err, "Send (note-off)")
+	waitForDispatchCount(t, capture, 2)
+	assertDeskSetForward(t, capture.all()[1], instanceID, "strobe", 0)
+}
+
+// TestMidiServiceRemoveDeskMappingIsIdempotent proves RemoveDeskMapping
+// deletes an existing mapping and is a no-op (not an error) on a repeat
+// call or an unknown ID, mirroring RemoveMapping's identical contract.
+func TestMidiServiceRemoveDeskMappingIsIdempotent(t *testing.T) {
+	svc, root, showPath, out := newMidiTestFixture(t, "test-desk-remove-idempotent")
+	instanceID := seedDeskInstance(t, root, showPath)
+
+	result := startDeskLearnAndSend(t, svc, instanceID, "intensity", out, gomidi.ControlChange(1, 30, 64))
+	require.Equal(t, 0, result.ExitCode, "StartDeskLearn: stderr=%s", result.Stderr)
+
+	views, err := svc.ListDeskMappings()
+	require.NoError(t, err, "ListDeskMappings")
+	require.Len(t, views, 1)
+	id := views[0].ID
+
+	r := svc.RemoveDeskMapping(id)
+	require.Equal(t, 0, r.ExitCode, "RemoveDeskMapping: stderr=%s", r.Stderr)
+	views, err = svc.ListDeskMappings()
+	require.NoError(t, err, "ListDeskMappings")
+	require.Empty(t, views)
+
+	// Removing again (already gone) and removing an unrelated unknown ID are
+	// both idempotent no-ops, never an error.
+	r = svc.RemoveDeskMapping(id)
+	require.Equal(t, 0, r.ExitCode, "RemoveDeskMapping (repeat): stderr=%s", r.Stderr)
+	r = svc.RemoveDeskMapping(uuid.Nil.String())
+	require.Equal(t, 0, r.ExitCode, "RemoveDeskMapping (unknown): stderr=%s", r.Stderr)
 }

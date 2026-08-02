@@ -54,11 +54,62 @@ import {
   type PatchPoolView,
   type PatchView,
 } from "../../lib/wailsBridge";
-import Fader from "./Fader";
+import Fader, { type MidiLearnStatus } from "./Fader";
 import FixtureStyleModal, { BACKGROUND_SIZE_CSS_VALUE, type FixtureStyle } from "./FixtureStyleModal";
+import { capabilityDetailLabel, capabilityLabel, resolveDisplayName } from "./deskLabels";
 import { useResizablePanel } from "../../hooks/useResizablePanel";
 import ResizeHandle from "../primitives/ResizeHandle/ResizeHandle";
+import { useGolcStore } from "../../store/store";
 import styles from "./Desk.module.css";
+
+// ---------------------------------------------------------------------------
+// MIDI Learn (global toggle, MidiLearnToggle.tsx / store.ts midiLearnMode) --
+// direct fader<->MIDI mappings, independent of Operator Surfaces entirely
+// (internal/deskmidi's own doc comment). Types mirror
+// internal/wails.DeskMidiMappingView's JSON shape field-for-field, and the
+// binding is cast locally off window.go.wails.MidiService, mirroring
+// MidiPanel.tsx/MidiLearn.tsx's own established "each feature file owns its
+// own minimal binding cast" convention rather than centralizing this in
+// wailsBridge.ts.
+// ---------------------------------------------------------------------------
+
+interface DeskMidiMappingView {
+  id: string;
+  channel: number;
+  kind: "note" | "control_change";
+  number: number;
+  instanceId: string;
+  capability: string;
+}
+
+interface DeskGoResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}
+
+interface DeskMidiServiceBinding {
+  StartDeskLearn(instanceId: string, capability: string): Promise<DeskGoResult>;
+  CancelLearn(): Promise<DeskGoResult>;
+  RemoveDeskMapping(mappingId: string): Promise<DeskGoResult>;
+  ListDeskMappings(): Promise<DeskMidiMappingView[]>;
+}
+
+function deskMidiService(): DeskMidiServiceBinding | undefined {
+  return window.go?.wails?.MidiService as unknown as DeskMidiServiceBinding | undefined;
+}
+
+/** deskChannelKey matches DeskChannel.key's own `${instanceId}::${capabilityType}`
+ * format (buildInstances below) -- the shared identity a desk MIDI mapping
+ * and its on-screen Fader are joined on. */
+function deskChannelKey(instanceId: string, capability: string): string {
+  return `${instanceId}::${capability}`;
+}
+
+const MIDI_LEARN_CONFLICT_PREFIX = "GOLC_DESKMIDI_MAPPING_CONFLICT:";
+const MIDI_LEARN_TIMEOUT_MARKER = "GOLC_MIDI_LEARN_TIMEOUT";
+// Mirrors MidiLearn.tsx's own 06-UI-SPEC.md timeout copy.
+const MIDI_LEARN_TIMEOUT_COPY = "No MIDI input received. Try again.";
 
 // pollIntervalMs mirrors artnetWatchInterval's own independent, human-
 // readable-but-live cadence (internal/command/artnet.go) -- fast enough to
@@ -66,25 +117,6 @@ import styles from "./Desk.module.css";
 // tick (svc_safety.go's own doc comment on why status polling deliberately
 // stays well below the 40Hz worker tick).
 const pollIntervalMs = 500;
-
-function fixtureDisplayName(row: FixtureLibraryRowView): string {
-  const name = `${row.manufacturer} ${row.model}`.trim();
-  return name !== "" ? name : row.stableKey;
-}
-
-function resolveDisplayName(
-  pool: PatchPoolView | undefined,
-  memberId: string,
-  libraryRows: FixtureLibraryRowView[],
-): string {
-  if (pool?.name) return pool.name;
-  const member = pool?.members.find((candidate) => candidate.id === memberId);
-  if (!member) return "Unknown fixture";
-  const row =
-    libraryRows.find((candidate) => candidate.stableKey === member.fixtureStableKey) ??
-    libraryRows.find((candidate) => candidate.contentHash === member.fixtureContentHash);
-  return row ? fixtureDisplayName(row) : member.fixtureStableKey || member.fixtureContentHash;
-}
 
 function resolveChannels(
   pool: PatchPoolView | undefined,
@@ -100,63 +132,11 @@ function resolveChannels(
   return row?.modeChannels[mode] ?? [];
 }
 
-/** shortColorLabels renders the four RGBW color-mixing capability types
- * (fixture.CapabilityColorRed/Green/Blue/White) as the single-letter labels
- * a lighting desk conventionally uses for them ("R"/"G"/"B"/"W") rather
- * than the verbose "Color Red" a generic word-split would produce --
- * distinct from the discrete wheel/gel "color" capability, which keeps its
- * full "Color" label since it has no such convention. */
-const shortColorLabels: Record<string, string> = {
-  color_red: "R",
-  color_green: "G",
-  color_blue: "B",
-  color_white: "W",
-};
-
-/** capabilityLabel renders a fixture.CapabilityType wire value ("pan") as a
- * human label ("Pan") -- the fader's own label, since no per-channel
- * free-text label exists anywhere in the fixture model (fixture.ChannelSlot
- * only ever carries Type + Occurrence). RGBW color-mixing types render as
- * their short single-letter form instead (see shortColorLabels). */
-function capabilityLabel(capabilityType: string): string {
-  const short = shortColorLabels[capabilityType];
-  if (short) return short;
-  return capabilityWord(capabilityType);
-}
-
-function capabilityWord(capabilityType: string): string {
-  return capabilityType
-    .split("_")
-    .filter(Boolean)
-    .map((word) => word[0].toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
-/** fullColorLabels is shortColorLabels' un-abbreviated counterpart ("Red"
- * rather than "R") -- used only by capabilityDetailLabel below, once a
- * fader column has room to show it. Plain "Red"/"Green"/"Blue"/"White"
- * rather than capabilityWord's own "Color Red" (which the swatch dot next
- * to it already makes redundant -- the dot IS the "this is a color
- * channel" cue). */
-const fullColorLabels: Record<string, string> = {
-  color_red: "Red",
-  color_green: "Green",
-  color_blue: "Blue",
-  color_white: "White",
-};
-
-/** capabilityDetailLabel is the un-abbreviated name shown alongside a
- * fader's swatch/icon once its column is wide enough (Desk's `detailed`
- * threshold, computed from the row's own current --fader-width rather than
- * tied to any specific preset) -- "Red" instead of just a red dot,
- * "Intensity" instead of just a sun glyph. Capability types that already
- * render as plain text (no swatch/icon) have nothing to add here, so this
- * is only ever consulted for the swatch/icon branch. */
-function capabilityDetailLabel(capabilityType: string): string {
-  return fullColorLabels[capabilityType] ?? capabilityWord(capabilityType);
-}
-
-/** capabilityIcons swaps a text label for a compact glyph on the two
+/** capabilityLabel/capabilityDetailLabel now live in deskLabels.ts
+ * (imported above), reused as-is by MidiPanel.tsx's own "Desk mappings"
+ * section -- see that file's doc comment for why.
+ *
+ * capabilityIcons swaps a text label for a compact glyph on the two
  * capability types whose full word ("Intensity", "Strobe") is the widest
  * offender against Desk's per-fader column width -- DeskKey below renders
  * the icon -> label legend so an icon is never shown unexplained,
@@ -572,6 +552,15 @@ function UniverseRow({
   fixtureStyles,
   imageDataUriCache,
   onEditFixture,
+  midiLearnMode,
+  midiMappingIdByKey,
+  midiCapturingKey,
+  midiCaptureStatus,
+  midiCaptureMessage,
+  onStartMidiLearn,
+  onCancelMidiLearn,
+  onRemapMidiLearn,
+  onClearMidiMapping,
 }: {
   universe: number;
   universeInstances: DeskInstance[];
@@ -586,6 +575,15 @@ function UniverseRow({
   fixtureStyles: Record<string, FixtureStyle>;
   imageDataUriCache: Record<string, string>;
   onEditFixture: (instanceId: string) => void;
+  midiLearnMode: boolean;
+  midiMappingIdByKey: Map<string, string>;
+  midiCapturingKey: string | null;
+  midiCaptureStatus: MidiLearnStatus | undefined;
+  midiCaptureMessage: string | null;
+  onStartMidiLearn: (channel: DeskChannel, instanceId: string) => void;
+  onCancelMidiLearn: () => void;
+  onRemapMidiLearn: (channel: DeskChannel, instanceId: string, mappingId: string) => void;
+  onClearMidiMapping: (mappingId: string) => void;
 }) {
   const heightPanel = useResizablePanel({
     min: 190,
@@ -741,6 +739,8 @@ function UniverseRow({
                     const value = overridden
                       ? overrides[channel.key]
                       : liveByteAt(universeValues, instance.universe, channel.address);
+                    const mappingId = midiMappingIdByKey.get(channel.key);
+                    const isCapturing = midiCapturingKey === channel.key;
                     return (
                       <Fader
                         key={channel.key}
@@ -755,6 +755,14 @@ function UniverseRow({
                         touched={touchedKeys.has(channel.key)}
                         onChange={(next) => onFaderChange(channel, instance.id, next)}
                         onClear={() => onFaderClear(channel, instance.id)}
+                        midiMapped={mappingId !== undefined}
+                        midiLearnMode={midiLearnMode}
+                        midiLearnStatus={isCapturing ? midiCaptureStatus : undefined}
+                        midiLearnMessage={isCapturing ? midiCaptureMessage : undefined}
+                        onMidiLearnClick={() => onStartMidiLearn(channel, instance.id)}
+                        onMidiCancel={onCancelMidiLearn}
+                        onMidiRemap={mappingId ? () => onRemapMidiLearn(channel, instance.id, mappingId) : undefined}
+                        onMidiClear={mappingId ? () => onClearMidiMapping(mappingId) : undefined}
                       />
                     );
                   })}
@@ -798,6 +806,20 @@ export default function Desk() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reachable, setReachable] = useState(true);
+  // MIDI Learn (global toggle, MidiLearnToggle.tsx / store.ts midiLearnMode)
+  // -- deskMappings mirrors ListDeskMappings' current result, refreshed on
+  // mount and after every learn/remap/clear; midiCapturing is which single
+  // channel is currently in-flight (mirrors the backend's own s.learning
+  // mutual exclusion -- only one channel can be capturing at a time), with
+  // its own status/message mirroring MidiLearn.tsx's identical
+  // idle|listening|conflict|timeout|error machine.
+  const [deskMappings, setDeskMappings] = useState<DeskMidiMappingView[]>([]);
+  const [midiCapturing, setMidiCapturing] = useState<{ key: string; instanceId: string; capability: string } | null>(
+    null,
+  );
+  const [midiCaptureStatus, setMidiCaptureStatus] = useState<MidiLearnStatus | undefined>(undefined);
+  const [midiCaptureMessage, setMidiCaptureMessage] = useState<string | null>(null);
+  const midiLearnMode = useGolcStore((state) => state.midiLearnMode);
   // heightPreset is the last Compact/Normal/Large button click, threaded
   // down to every UniverseRow (see HeightPreset's own doc comment on why
   // each row applies it via a version-keyed effect rather than treating it
@@ -903,6 +925,105 @@ export default function Desk() {
 
   const instances = useMemo(() => (patch ? buildInstances(patch, library) : []), [patch, library]);
   const universes = useMemo(() => groupByUniverse(instances), [instances]);
+
+  const refreshDeskMappings = useCallback(async (): Promise<void> => {
+    const svc = deskMidiService();
+    if (!svc) return;
+    try {
+      setDeskMappings(await svc.ListDeskMappings());
+    } catch {
+      // A failed refresh leaves the previous mapping list in place rather
+      // than clearing it -- MidiPanel.tsx's own error-surfacing convention
+      // applies there; Desk.tsx's own badges/overlay simply keep showing
+      // the last-known state until the next successful refresh.
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshDeskMappings();
+  }, [refreshDeskMappings]);
+
+  // midiMappingIdByKey joins deskMappings against DeskChannel.key's own
+  // `${instanceId}::${capabilityType}` identity (deskChannelKey mirrors
+  // that format exactly) -- the lookup UniverseRow/Fader use to know
+  // whether a given fader is mapped, and to which mapping ID a Remap/Clear
+  // click should act on.
+  const midiMappingIdByKey = useMemo(() => {
+    const byKey = new Map<string, string>();
+    for (const mapping of deskMappings) {
+      byKey.set(deskChannelKey(mapping.instanceId, mapping.capability), mapping.id);
+    }
+    return byKey;
+  }, [deskMappings]);
+
+  const handleStartMidiLearn = (channel: DeskChannel, instanceId: string) => {
+    // Mirrors the backend's own single-capture-at-a-time contract
+    // (s.learning): a click while another channel is already listening is
+    // a no-op rather than silently cancelling the in-flight one.
+    if (midiCapturing) return;
+    const svc = deskMidiService();
+    if (!svc) return;
+    const key = channel.key;
+    setMidiCapturing({ key, instanceId, capability: channel.capabilityType });
+    setMidiCaptureStatus("listening");
+    setMidiCaptureMessage(null);
+    void svc.StartDeskLearn(instanceId, channel.capabilityType).then((result) => {
+      if (result.exitCode === 0) {
+        setMidiCapturing(null);
+        setMidiCaptureStatus(undefined);
+        setMidiCaptureMessage(null);
+        void refreshDeskMappings();
+        return;
+      }
+      if (result.stderr.includes(MIDI_LEARN_CONFLICT_PREFIX)) {
+        setMidiCaptureStatus("conflict");
+        setMidiCaptureMessage(result.stderr.replace(MIDI_LEARN_CONFLICT_PREFIX, "").trim());
+        return;
+      }
+      if (result.stderr.includes(MIDI_LEARN_TIMEOUT_MARKER)) {
+        setMidiCaptureStatus("timeout");
+        setMidiCaptureMessage(MIDI_LEARN_TIMEOUT_COPY);
+        return;
+      }
+      setMidiCaptureStatus("error");
+      setMidiCaptureMessage(result.stderr.trim() || "Learn failed");
+    });
+  };
+
+  const handleCancelMidiLearn = () => {
+    const svc = deskMidiService();
+    if (svc) {
+      void svc.CancelLearn().catch(() => {
+        // CancelLearn failing (e.g. the session already finished on its
+        // own) is not itself worth surfacing -- mirrors MidiLearn.tsx's
+        // identical tolerance.
+      });
+    }
+    setMidiCapturing(null);
+    setMidiCaptureStatus(undefined);
+    setMidiCaptureMessage(null);
+  };
+
+  const handleRemapMidiLearn = (channel: DeskChannel, instanceId: string, mappingId: string) => {
+    const svc = deskMidiService();
+    if (!svc || midiCapturing) return;
+    // Remap = clear the existing mapping, then immediately start a fresh
+    // capture for the same channel -- presented as one action so an
+    // operator never has to separately find this channel's row in the
+    // MIDI Mapping workspace just to free up its old Note/CC first.
+    void svc.RemoveDeskMapping(mappingId).then(() => {
+      void refreshDeskMappings();
+      handleStartMidiLearn(channel, instanceId);
+    });
+  };
+
+  const handleClearMidiMapping = (mappingId: string) => {
+    const svc = deskMidiService();
+    if (!svc) return;
+    void svc.RemoveDeskMapping(mappingId).then(() => {
+      void refreshDeskMappings();
+    });
+  };
 
   // presentIconTypes drives DeskKey's legend: only the icon-labeled
   // capability types actually in view render an entry, so the key never
@@ -1122,6 +1243,15 @@ export default function Desk() {
                   fixtureStyles={fixtureStyles}
                   imageDataUriCache={imageDataUriCache}
                   onEditFixture={setEditingInstanceId}
+                  midiLearnMode={midiLearnMode}
+                  midiMappingIdByKey={midiMappingIdByKey}
+                  midiCapturingKey={midiCapturing?.key ?? null}
+                  midiCaptureStatus={midiCaptureStatus}
+                  midiCaptureMessage={midiCaptureMessage}
+                  onStartMidiLearn={handleStartMidiLearn}
+                  onCancelMidiLearn={handleCancelMidiLearn}
+                  onRemapMidiLearn={handleRemapMidiLearn}
+                  onClearMidiMapping={handleClearMidiMapping}
                 />
               ))}
             </div>

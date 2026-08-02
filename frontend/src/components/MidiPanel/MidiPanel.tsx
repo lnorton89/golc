@@ -30,6 +30,7 @@ import { useGolcStore } from "../../store/store";
 import { onMidiFeedback, type MidiFeedback } from "../../lib/wailsBridge";
 import MidiLearn from "./MidiLearn";
 import SoftTakeoverSlider from "./SoftTakeoverSlider";
+import DeskMappingsSection from "./DeskMappingsSection";
 import InfoTooltip from "../primitives/InfoTooltip/InfoTooltip";
 import styles from "./MidiPanel.module.css";
 
@@ -130,7 +131,11 @@ function controlKey(control: ControlRefInput): string {
   }
 }
 
-function mappingTechnical(mapping: MidiMappingView): string {
+// mappingTechnical's parameter is the narrow shape both MidiMappingView and
+// DeskMappingsSection.tsx's own DeskMidiMappingView satisfy structurally --
+// there is only one Note/CC/channel formatting implementation, reused by
+// both the surface mapping list and the Desk mapping list below.
+function mappingTechnical(mapping: { kind: MidiMessageKind; number: number; channel: number }): string {
   const kindLabel = mapping.kind === "note" ? "Note" : "CC";
   return `${kindLabel} ${mapping.number} · ch ${mapping.channel}`;
 }
@@ -270,6 +275,8 @@ export default function MidiPanel() {
           </label>
 
           {error && <p className={styles.errorText}>{error}</p>}
+
+          <DeskMappingsSection />
 
           {selectedSurface && (
             <>
