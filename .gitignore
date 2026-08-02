@@ -36,6 +36,11 @@
 *.dll
 *.so
 *.dylib
+/golc-desktop
+/golc-mcp
+/golc-project
+/mock-golc-demo
+/mock-golc-show-seed
 
 # Go test binaries and profiling/coverage output.
 *.test
