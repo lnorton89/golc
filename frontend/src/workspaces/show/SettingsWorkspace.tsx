@@ -21,6 +21,7 @@ import {
 import { getStoredTheme, setStoredTheme, type ThemePreference } from "../../lib/theme";
 import { openExternalURL } from "../../lib/wailsBridge";
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
+import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
 import Panel from "../../components/primitives/Panel/Panel";
 import PanelHeader from "../../components/primitives/PanelHeader/PanelHeader";
 import Button from "../../components/primitives/Button/Button";
@@ -281,11 +282,15 @@ export default function SettingsWorkspace() {
 
   return (
     <div className={styles.workspace}>
-      <Toolbar title="Settings" icon={SettingsIcon} />
+      <Toolbar title="Settings" icon={SettingsIcon} info={HOW_IT_WORKS_BY_ID["show-settings"]} />
       <ScrollRegion className={styles.canvas}>
         <div className={styles.layout}>
           <Panel className={styles.appearancePanel}>
-            <PanelHeader label="Appearance" icon={Palette} />
+            <PanelHeader
+              label="Appearance"
+              icon={Palette}
+              info="Switches the desktop app between light, dark, and system theme."
+            />
             <div className={styles.themeRow} role="group" aria-label="Theme">
               {THEME_OPTIONS.map((option) => (
                 <Button
@@ -302,12 +307,12 @@ export default function SettingsWorkspace() {
           </Panel>
 
           <Panel className={styles.hotkeysPanel}>
-            <PanelHeader label="Hotkeys" icon={Keyboard} />
+            <PanelHeader label="Hotkeys" icon={Keyboard} info="Lists every keyboard shortcut currently bound in the app." />
             <HotkeySettings />
           </Panel>
 
           <Panel className={styles.aboutPanel}>
-            <PanelHeader label="About" icon={Info} />
+            <PanelHeader label="About" icon={Info} info="Shows the installed GOLC build version and project credits." />
             <div className={styles.about}>
               <div className={styles.aboutHeading}>
                 <span className={styles.aboutTitle}>GOLC — Go Lighting Control</span>

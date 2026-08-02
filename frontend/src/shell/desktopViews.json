@@ -3,6 +3,7 @@
   "groups": [
     {
       "label": "Show",
+      "description": "The workspaces you return to constantly: which show is open, how it's saved, and how the application itself is configured.",
       "views": [
         {
           "id": "show-overview",
@@ -10,6 +11,7 @@
           "navLabel": "Overview",
           "title": "Show overview",
           "purpose": "Review the open show, its programming totals, and the next useful authoring or operating step.",
+          "howItWorks": "Reads the currently open show's state directly from the application, tallies what's been programmed so far, and surfaces the single next useful step, including a one-click entry into the guided onboarding flow if the show hasn't been set up yet.",
           "actions": ["Start Guided First Show", "Open a recent workspace", "Review show status and totals"],
           "concepts": ["Show state", "Guided First Show"],
           "operatingNotes": ["Start Guide is the repeatable entry point for the guided first-show workflow."],
@@ -21,6 +23,7 @@
           "navLabel": "Shows",
           "title": "Shows",
           "purpose": "Create, open, and switch the show database used by the desktop application.",
+          "howItWorks": "Lists shows from the local show database and lets you create or open one; switching here swaps the entire application's active state, the same state every other workspace reads from.",
           "actions": ["Create a show", "Open an existing show", "Switch among recent shows"],
           "operatingNotes": ["Show changes use the same application state shown in the header and overview."],
           "screenshot": "/desktop-views/show-shows.png"
@@ -31,6 +34,7 @@
           "navLabel": "Save & Recovery",
           "title": "Save and recovery",
           "purpose": "Inspect save state and use the available recovery controls for the current show.",
+          "howItWorks": "Shows whether the open show has unsaved changes, exposes the save action, and surfaces whatever crash/recovery data the desktop app has retained for it.",
           "actions": ["Review current save status", "Save the show", "Inspect available recovery information"],
           "screenshot": "/desktop-views/show-save-recovery.png"
         },
@@ -40,6 +44,7 @@
           "navLabel": "Settings",
           "title": "Settings",
           "purpose": "Configure application preferences exposed by the current desktop build.",
+          "howItWorks": "Reads and writes the desktop build's persisted preferences; changes take effect immediately and are confirmed back from the same store they were written to.",
           "actions": ["Review application settings", "Change available preferences", "Confirm persisted values"],
           "screenshot": "/desktop-views/show-settings.png"
         }
@@ -47,6 +52,7 @@
     },
     {
       "label": "Build",
+      "description": "Where a show gets authored: fixtures come in from the library, get patched to universes and addresses, get organized into scenes and looks, and can be extended with automation scripts.",
       "views": [
         {
           "id": "build-fixture-library",
@@ -54,6 +60,7 @@
           "navLabel": "Fixture Library",
           "title": "Fixture library",
           "purpose": "Browse, import, and manage validated fixture definitions before adding fixtures to a show.",
+          "howItWorks": "Searches the canonical, validated fixture-definition catalog, including definitions imported from the Open Fixture Library project, and lets you inspect a definition's channel and mode details before it's ever added to a show.",
           "actions": ["Search fixture definitions", "Import a fixture definition", "Inspect validation details"],
           "concepts": ["Canonical fixture definitions", "Open Fixture Library import"],
           "screenshot": "/desktop-views/build-fixture-library.png"
@@ -64,6 +71,7 @@
           "navLabel": "Patch & Pools",
           "title": "Patch and pools",
           "purpose": "Patch fixture instances to universes and addresses, then organize them into reusable pools.",
+          "howItWorks": "Assigns fixture instances to DMX universes and addresses, previews the structural impact of a change before it's committed, and groups patched fixtures into reusable pools.",
           "actions": ["Add and address fixtures", "Build fixture pools", "Preview structural changes before commit"],
           "concepts": ["Patch", "Fixture pool", "Impact preview"],
           "screenshot": "/desktop-views/build-patch-pools.png"
@@ -74,6 +82,7 @@
           "navLabel": "Project Fixtures",
           "title": "Project fixtures",
           "purpose": "Browse the fixtures already added to the show and add new ones from the fixture library, with automatic or manual universe/address assignment.",
+          "howItWorks": "Lists every fixture already added to the show alongside the library used to add more, and can assign a starting universe/address for a whole batch automatically or let you place each one manually.",
           "actions": ["Browse fixtures added to the project", "Add fixtures from the library", "Assign a starting universe/address for a batch"],
           "concepts": ["Patch", "Fixture pool", "Deployment"],
           "screenshot": "/desktop-views/build-project-fixtures.png"
@@ -84,6 +93,7 @@
           "navLabel": "Scenes & Looks",
           "title": "Scenes and looks",
           "purpose": "Program reusable looks and tempo-aware scenes from the fixtures and pools in the show.",
+          "howItWorks": "Builds reusable looks from patched fixtures, then arranges looks into tempo-aware scenes with configurable transition timing, the programming layer everything in Operate and Perform plays back.",
           "actions": ["Create and select scenes", "Edit look attributes", "Configure scene timing and transitions"],
           "concepts": ["Look", "Scene", "Transition"],
           "screenshot": "/desktop-views/build-scenes-looks.png"
@@ -94,6 +104,7 @@
           "navLabel": "Scripts",
           "title": "Scripts",
           "purpose": "Author, validate, run, debug, and stop show automation scripts from one workspace.",
+          "howItWorks": "Provides one workspace to write, validate, save, run, debug, and stop show-automation scripts written in TypeScript, all of which call into the show through the same command boundary as manual operator actions.",
           "actions": ["Create and edit a script", "Validate and save source", "Run, debug, or stop a script"],
           "concepts": ["TypeScript automation", "Command boundary"],
           "operatingNotes": ["Script controls remain separate from deterministic playback timing."],
@@ -103,6 +114,7 @@
     },
     {
       "label": "Operate",
+      "description": "Turns a programmed show into something someone else can run: a simplified operator surface for playback, and MIDI mappings that let physical controllers drive the same show actions.",
       "views": [
         {
           "id": "operate-operator-surface",
@@ -110,6 +122,7 @@
           "navLabel": "Operator Surface",
           "title": "Operator surface",
           "purpose": "Arrange and use the reduced control surface handed to an operator for reliable show playback.",
+          "howItWorks": "Lets you arrange a reduced set of scenes and controls into a surface an operator can use for playback, then shows which live control assignments are currently active on it.",
           "actions": ["Select an operator surface", "Launch assigned scenes and controls", "Review active assignments"],
           "concepts": ["Operator surface", "Live control assignment"],
           "screenshot": "/desktop-views/operate-operator-surface.png"
@@ -120,6 +133,7 @@
           "navLabel": "MIDI Mapping",
           "title": "MIDI mapping",
           "purpose": "Connect incoming MIDI controls to supported show actions and inspect takeover behavior.",
+          "howItWorks": "Detects connected MIDI devices, lets you learn a mapping by moving a physical control, and displays each mapping's soft-takeover state so a control only engages once it matches the live value.",
           "actions": ["Review MIDI devices", "Learn control mappings", "Inspect mapping and soft-takeover state"],
           "concepts": ["MIDI learn", "Soft takeover"],
           "screenshot": "/desktop-views/operate-midi-mapping.png"
@@ -128,6 +142,7 @@
     },
     {
       "label": "Perform",
+      "description": "Direct, manual access to every patched fixture's live DMX output for the moments a fader beats a scene.",
       "views": [
         {
           "id": "perform-desk",
@@ -135,6 +150,7 @@
           "navLabel": "Desk",
           "title": "Desk",
           "purpose": "Visualize and manually override every patched fixture's live DMX channels, one fader per channel, grouped by universe.",
+          "howItWorks": "Renders one fader per DMX channel across every patched universe from live output; moving a fader creates a manual override that stays in effect, independent of whichever scene is active, until released, always passing through Blackout/Stop-All/master scaling first.",
           "actions": ["Review live per-channel output", "Override a channel with a fader", "Release an override back to programmed output"],
           "concepts": ["Universe", "Manual override", "Live output"],
           "operatingNotes": ["A desk override always feeds through Blackout/Stop-All/master scaling, and takes effect independent of whether a scene is active."],
@@ -144,6 +160,7 @@
     },
     {
       "label": "Output",
+      "description": "Where programmed and manual control finally leaves the application: Art-Net configuration and live diagnostics for the network path that reaches fixtures.",
       "views": [
         {
           "id": "output-artnet",
@@ -151,6 +168,7 @@
           "navLabel": "Art-Net",
           "title": "Art-Net output",
           "purpose": "Configure and observe the Art-Net output path used to send DMX universes on the network.",
+          "howItWorks": "Configures which network interface and Art-Net settings the application uses to send DMX, and reports live state for every universe currently being sent.",
           "actions": ["Select the output interface", "Configure Art-Net output", "Review universe output state"],
           "concepts": ["Art-Net", "Universe", "Network interface"],
           "screenshot": "/desktop-views/output-artnet.png"
@@ -161,6 +179,7 @@
           "navLabel": "Diagnostics",
           "title": "Output diagnostics",
           "purpose": "Inspect output health and frame information without placing timing authority in the UI.",
+          "howItWorks": "Surfaces frame timing and per-universe health pulled from the Go output loop for troubleshooting; it's read-only telemetry, so the output loop itself stays authoritative over timing.",
           "actions": ["Review output status", "Inspect frame and universe diagnostics", "Identify reported output problems"],
           "concepts": ["Frame health", "Output telemetry"],
           "operatingNotes": ["Displayed telemetry is observational; the Go output loop remains authoritative."],
@@ -171,6 +190,7 @@
   ],
   "onboarding": {
     "label": "Guided Setup",
+    "description": "An optional, five-stage walkthrough -- fixtures, patch, program, assign, verify -- that takes a brand-new show from empty to ready-to-perform without leaving normal navigation behind.",
     "views": [
       {
         "id": "guide-fixtures",
@@ -178,6 +198,7 @@
         "navLabel": "Fixtures",
         "title": "Guided Setup: Fixtures",
         "purpose": "Add the first fixtures for a new show, as stage one of the optional Guided First Show onboarding flow.",
+        "howItWorks": "Replaces the workspace canvas with a guided stage that pulls live evidence from the Fixture Library, so adding your first fixtures happens without leaving the guide; the header, rail, and inspector all stay mounted underneath.",
         "actions": ["Review live fixture-library evidence", "Continue to the Fixture Library", "Exit to normal navigation at any time"],
         "concepts": ["Guided First Show", "Stage evidence"],
         "operatingNotes": ["The guide replaces only the workspace canvas; the header, rail, and inspector stay mounted, and the rail visibly dims while guiding."],
@@ -189,6 +210,7 @@
         "navLabel": "Patch",
         "title": "Guided Setup: Patch",
         "purpose": "Patch newly added fixtures into an active deployment before programming a scene.",
+        "howItWorks": "Walks through patching the fixtures you just added into an active deployment; the guide previews the patch, but it stays a preview until you review and apply it in the real Patch & Pools workspace.",
         "actions": ["Review live patch evidence", "Continue to Patch & Pools", "Exit to normal navigation at any time"],
         "concepts": ["Guided First Show", "Patch", "Impact preview"],
         "operatingNotes": ["Patch changes stay preview-only until reviewed and applied in the Patch & Pools workspace itself."],
@@ -200,6 +222,7 @@
         "navLabel": "Program",
         "title": "Guided Setup: Program",
         "purpose": "Program at least one scene before assigning it to an operator surface.",
+        "howItWorks": "Confirms at least one scene exists before letting you continue, pulling live evidence from the Scenes & Looks workspace so you can see programming happen in place.",
         "actions": ["Review live programming evidence", "Continue to Scenes & Looks", "Exit to normal navigation at any time"],
         "concepts": ["Guided First Show", "Scene readiness"],
         "screenshot": "/desktop-views/guide-program.png"
@@ -210,6 +233,7 @@
         "navLabel": "Assign",
         "title": "Guided Setup: Assign",
         "purpose": "Create an operator surface so someone else can play the show back.",
+        "howItWorks": "Confirms an operator surface has been created so the show can be handed off for playback, pulling live evidence from the Operator Surface workspace.",
         "actions": ["Review live operator-surface evidence", "Continue to Operator Surface", "Exit to normal navigation at any time"],
         "concepts": ["Guided First Show", "Operator surface"],
         "screenshot": "/desktop-views/guide-assign.png"
@@ -220,6 +244,7 @@
         "navLabel": "Verify",
         "title": "Guided Setup: Verify",
         "purpose": "Review the blockers, warnings, and evidence gathered from every stage before performing.",
+        "howItWorks": "Rolls up every blocker and warning gathered across the four prior stages into one readiness check; Perform is disabled only while a blocker remains, but every workspace stays fully editable the whole time.",
         "actions": ["Review the readiness rollup", "Resolve any outstanding blocker", "Perform once every blocker clears"],
         "concepts": ["Guided First Show", "Readiness rollup"],
         "operatingNotes": ["Perform is the only control anywhere in the guide that a blocker disables; every stage and every other workspace stays fully editable regardless."],

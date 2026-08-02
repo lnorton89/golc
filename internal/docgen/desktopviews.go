@@ -33,16 +33,26 @@ type DesktopViewsCatalog struct {
 }
 
 type DesktopViewGroup struct {
-	Label string        `json:"label"`
-	Views []DesktopView `json:"views"`
+	Label string `json:"label"`
+	// Description is the section-level summary shown behind the docs
+	// site's hover info icon next to a group heading (e.g. "Build"):
+	// what the group of destinations is for, one level up from any
+	// single view's own Purpose/HowItWorks.
+	Description string        `json:"description"`
+	Views       []DesktopView `json:"views"`
 }
 
 type DesktopView struct {
-	ID             string   `json:"id"`
-	Slug           string   `json:"slug"`
-	NavLabel       string   `json:"navLabel"`
-	Title          string   `json:"title"`
-	Purpose        string   `json:"purpose"`
+	ID       string `json:"id"`
+	Slug     string `json:"slug"`
+	NavLabel string `json:"navLabel"`
+	Title    string `json:"title"`
+	Purpose  string `json:"purpose"`
+	// HowItWorks is the mechanism-level explanation shown behind the
+	// docs site's hover info icon next to this destination: how the
+	// workspace actually behaves, distinct from Purpose (why it
+	// exists) and OperatingNotes (a specific caveat).
+	HowItWorks     string   `json:"howItWorks"`
 	Actions        []string `json:"actions"`
 	Concepts       []string `json:"concepts,omitempty"`
 	OperatingNotes []string `json:"operatingNotes,omitempty"`
@@ -118,14 +128,15 @@ func validateDesktopViews(catalog DesktopViewsCatalog) error {
 // id/slug/screenshot uniqueness against the shared maps every group (real
 // nav group or the singleton Onboarding group) accumulates into.
 func validateDesktopGroup(group DesktopViewGroup, location, idPrefix string, ids, slugs, screenshots map[string]bool) error {
-	if strings.TrimSpace(group.Label) == "" || len(group.Views) == 0 {
-		return fmt.Errorf("GOLC_DOCGEN_DESKTOP_REQUIRED: %s needs label and views", location)
+	if strings.TrimSpace(group.Label) == "" || strings.TrimSpace(group.Description) == "" || len(group.Views) == 0 {
+		return fmt.Errorf("GOLC_DOCGEN_DESKTOP_REQUIRED: %s needs label, description, and views", location)
 	}
 	for viewIndex, view := range group.Views {
 		viewLocation := fmt.Sprintf("%s.views[%d]", location, viewIndex)
 		if strings.TrimSpace(view.ID) == "" || strings.TrimSpace(view.Slug) == "" ||
 			strings.TrimSpace(view.NavLabel) == "" || strings.TrimSpace(view.Title) == "" ||
-			strings.TrimSpace(view.Purpose) == "" || len(view.Actions) == 0 {
+			strings.TrimSpace(view.Purpose) == "" || strings.TrimSpace(view.HowItWorks) == "" ||
+			len(view.Actions) == 0 {
 			return fmt.Errorf("GOLC_DOCGEN_DESKTOP_REQUIRED: %s has empty required content", viewLocation)
 		}
 		for actionIndex, action := range view.Actions {

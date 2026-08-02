@@ -43,6 +43,7 @@ import {
 } from "../../lib/wailsBridge";
 
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
+import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
 import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion";
 import SceneList from "../../components/SceneProgramming/SceneList";
 import LayerRow, { LAYER_KINDS, type LayerKind } from "../../components/SceneProgramming/LayerRow";
@@ -365,7 +366,7 @@ export default function ScenesLooksWorkspace() {
   return (
     <div className={styles.workspace}>
       {inspectorPortal}
-      <Toolbar title="Scenes & Looks" icon={Layers} />
+      <Toolbar title="Scenes & Looks" icon={Layers} info={HOW_IT_WORKS_BY_ID["build-scenes-looks"]} />
       <div className={styles.canvas}>
         {loading ? (
           <p className={styles.loading}>Loading scene programming…</p>

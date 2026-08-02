@@ -77,6 +77,7 @@ import {
   type OflSearchView,
 } from "../../lib/wailsBridge";
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
+import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
 import Panel from "../../components/primitives/Panel/Panel";
 import PanelHeader from "../../components/primitives/PanelHeader/PanelHeader";
 import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion";
@@ -455,7 +456,7 @@ export default function FixtureLibraryWorkspace() {
 
   return (
     <div className={styles.workspace}>
-      <Toolbar title="Fixture Library" icon={Lightbulb} />
+      <Toolbar title="Fixture Library" icon={Lightbulb} info={HOW_IT_WORKS_BY_ID["build-fixture-library"]} />
       <div className={styles.canvas}>
         {loading ? (
           <p className={styles.loading}>Loading fixture library…</p>
@@ -504,6 +505,7 @@ export default function FixtureLibraryWorkspace() {
                   <PanelHeader
                     label={`Fixture Library (${countLabel})`}
                     icon={Lightbulb}
+                    info="Lists every fixture definition already saved to your local library, with its validation status."
                     action={
                       <Button
                         variant="secondary"
@@ -550,7 +552,11 @@ export default function FixtureLibraryWorkspace() {
                 </Panel>
               ) : (
                 <Panel>
-                  <PanelHeader label="Open Fixture Library" icon={Lightbulb} />
+                  <PanelHeader
+                    label="Open Fixture Library"
+                    icon={Lightbulb}
+                    info="Searches the community Open Fixture Library catalog by manufacturer or fixture name so you can import a definition into your own library."
+                  />
                   <ScrollRegion>
                     {trimmedQuery === "" ? (
                       <EmptyState icon={Lightbulb}>
@@ -614,7 +620,14 @@ export default function FixtureLibraryWorkspace() {
 
               {source === "local" ? (
                 <Panel className={styles.inspectPanel}>
-                  <PanelHeader label={addingCustomFixture ? "Add Custom Fixture" : "Inspect"} />
+                  <PanelHeader
+                    label={addingCustomFixture ? "Add Custom Fixture" : "Inspect"}
+                    info={
+                      addingCustomFixture
+                        ? "Validates a hand-authored YAML fixture file from disk before adding it to your library."
+                        : "Shows the selected fixture definition's identity, schema, and any validation errors or warnings."
+                    }
+                  />
                   {addingCustomFixture ? (
                     <div className={styles.candidateBody}>
                       <Field
@@ -689,7 +702,14 @@ export default function FixtureLibraryWorkspace() {
                 </Panel>
               ) : (
                 <Panel className={styles.inspectPanel}>
-                  <PanelHeader label={selectedManufacturer ? "Import Candidate" : "About this search"} />
+                  <PanelHeader
+                    label={selectedManufacturer ? "Import Candidate" : "About this search"}
+                    info={
+                      selectedManufacturer
+                        ? "Lets you enter the fixture key for the selected manufacturer and preview it before adding."
+                        : "Explains what the Open Fixture Library search matches, and how selecting a fixture or manufacturer differs."
+                    }
+                  />
                   {!selectedManufacturer ? (
                     <p className={styles.catalogScopeNote}>
                       This search matches Open Fixture Library manufacturer names and fixture keys. Selecting a

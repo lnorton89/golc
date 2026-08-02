@@ -31,6 +31,7 @@ import {
   type ShowInspectView,
 } from "../../lib/wailsBridge";
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
+import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
 import Panel from "../../components/primitives/Panel/Panel";
 import PanelHeader from "../../components/primitives/PanelHeader/PanelHeader";
 import Button from "../../components/primitives/Button/Button";
@@ -89,7 +90,7 @@ export default function OverviewWorkspace() {
 
   return (
     <div className={styles.workspace}>
-      <Toolbar title="Overview" icon={LayoutDashboard} />
+      <Toolbar title="Overview" icon={LayoutDashboard} info={HOW_IT_WORKS_BY_ID["show-overview"]} />
       <div className={styles.canvas}>
         {loading ? (
           <p className={styles.loading}>Loading show overview…</p>
@@ -100,6 +101,7 @@ export default function OverviewWorkspace() {
               <Panel className={styles.identityPanel}>
                 <PanelHeader
                   label="Show"
+                  info="Shows the open show's file path, schema/revision, and structural health, with a Diagnose action that re-runs the same integrity check without leaving Overview."
                   action={
                     <Button
                       variant="secondary"
@@ -138,7 +140,10 @@ export default function OverviewWorkspace() {
               </Panel>
 
               <Panel>
-                <PanelHeader label={`Pools (${view.pools.length})`} />
+                <PanelHeader
+                  label={`Pools (${view.pools.length})`}
+                  info="Lists every fixture pool in the show and how many instances belong to each; selecting one jumps to Patch & Pools."
+                />
                 <ScrollRegion>
                   {view.pools.length === 0 ? (
                     <EmptyState icon={Package}>No fixture pools yet.</EmptyState>
@@ -160,7 +165,10 @@ export default function OverviewWorkspace() {
               </Panel>
 
               <Panel>
-                <PanelHeader label={`Deployments (${view.deployments.length})`} />
+                <PanelHeader
+                  label={`Deployments (${view.deployments.length})`}
+                  info="Lists every deployment (an active grouping of patched instances) in the show; selecting one jumps to Patch & Pools."
+                />
                 <ScrollRegion>
                   {view.deployments.length === 0 ? (
                     <EmptyState icon={Boxes}>No deployments yet.</EmptyState>

@@ -49,6 +49,7 @@ import {
   type ArtnetStatusView,
   type ArtnetTargetView,
 } from "../../lib/wailsBridge";
+import InfoTooltip from "../primitives/InfoTooltip/InfoTooltip";
 import styles from "./ArtnetConfig.module.css";
 
 interface TargetDraft {
@@ -255,7 +256,13 @@ export default function ArtnetConfig() {
 
           {/* Interfaces */}
           <div className={styles.subsection}>
-            <h3 className={styles.subsectionHeading}>Network Interfaces</h3>
+            <div className={styles.subsectionHeadingRow}>
+              <h3 className={styles.subsectionHeading}>Network Interfaces</h3>
+              <InfoTooltip
+                label="About Network Interfaces"
+                text="Lists the network interfaces the Art-Net output can bind to, and lets you pin which one it uses."
+              />
+            </div>
             {interfaces.length === 0 ? (
               <div className={styles.emptyState}>
                 <p className={styles.emptyHeading}>
@@ -317,7 +324,13 @@ export default function ArtnetConfig() {
               universe can be configured without stepping through a shared
               form one at a time. */}
           <div className={styles.subsection}>
-            <h3 className={styles.subsectionHeading}>Universe Targets</h3>
+            <div className={styles.subsectionHeadingRow}>
+              <h3 className={styles.subsectionHeading}>Universe Targets</h3>
+              <InfoTooltip
+                label="About Universe Targets"
+                text="Lists the DMX universes currently configured to send over Art-Net and their live output state."
+              />
+            </div>
 
             {patchedUniverses.length > 0 && (
               <p className={styles.countSummary}>
