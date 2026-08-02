@@ -57,6 +57,15 @@
   font-size: var(--text-sm);
 }
 
+/* Below the width the 220px floor above was chosen for, let the field
+   shrink further instead of forcing a horizontal overflow -- .saveRow
+   already wraps it onto its own line first. */
+@media (max-width: 480px) {
+  .destInput {
+    min-width: 0;
+  }
+}
+
 .migrationNote {
   margin: 0 var(--space-md) var(--space-sm);
   color: var(--status-armed);

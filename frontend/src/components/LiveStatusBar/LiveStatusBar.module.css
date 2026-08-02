@@ -22,6 +22,11 @@
   align-items: baseline;
   gap: var(--space-xs);
   min-width: 0;
+  /* Without this, squeezing .field below fieldLabel's own flex-shrink:0
+     width (extreme narrow widths, header-merge pass) let the label's
+     un-shrunk text visually spill out of its own box and overlap the next
+     field instead of just clipping inside its own, now-tiny box. */
+  overflow: hidden;
 }
 
 .fieldLabel {

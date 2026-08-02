@@ -72,3 +72,22 @@
   position: relative;
   z-index: 1;
 }
+
+/* Below this width the three full labels (esp. "Stop / Release All") no
+   longer fit GlobalFrame's fixed 52px header alongside TempoControls and
+   LiveStatusBar, and clip past the window edge under the header's own
+   overflow:hidden -- genuinely unreachable, not just visually tight
+   (D-13 violation; see .planning/debug/260801-header-narrow-width-overflow.md).
+   Collapsing to icon-only frees enough width to keep every control on
+   screen; each button's aria-label (SafetyCluster.tsx) keeps the same
+   accessible name regardless, and the visible label reappears unchanged
+   above this breakpoint. */
+@media (max-width: 700px) {
+  .control {
+    padding: 0 6px;
+  }
+
+  .label {
+    display: none;
+  }
+}

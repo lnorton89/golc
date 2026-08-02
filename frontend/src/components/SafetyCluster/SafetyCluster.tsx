@@ -128,6 +128,7 @@ function HoldButton({
       style={style}
       data-active={active || undefined}
       aria-pressed={active}
+      aria-label={label}
       onPointerDown={handlePointerDown}
       onPointerUp={cancelHold}
       onPointerLeave={cancelHold}

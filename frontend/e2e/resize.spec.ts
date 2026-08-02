@@ -80,26 +80,45 @@ async function dragSeparator(page: Page, label: string): Promise<{ x: number; y:
   return point;
 }
 
-// Below ~900px width, the shell as a whole has never been verified: while
-// building this suite, GlobalFrame's header (TempoControls/SafetyCluster
-// clipping past the viewport under its own `overflow: hidden`;
-// LiveStatusBar's own text overlapping itself), InfoTooltip's inline "i"
-// trigger, GuidedFirstShow's own footer nav, and individual workspaces'
-// own toolbar controls (Shows' "New Show…", Scenes & Looks' Evaluate row)
-// each independently ran out of room in different, unrelated ways. This is
-// a genuine, real gap, but a proper fix is a broad narrow-width design
-// decision across the whole shell (icon-only controls, wrapping, a drawer,
-// or per-workspace toolbar collapse), not a mechanical CSS correction --
-// documented, not fixed, in
+// Below 640px width, a handful of individual, narrow-specific controls
+// still run out of room -- fixed by GlobalFrame header icon-only collapse,
+// LiveStatusBar field clipping, and generalized wrapping/truncation
+// everywhere else *except* these few remaining spots, each requiring its
+// own real narrow-width redesign decision (BarTimelinePanel's Evaluate
+// button next to a 160px-min-width resizable SceneList column leaves no
+// room below 640px; Overview's own summary-panel grid genuinely collapses
+// at 320x240's combined height+width extreme) rather than a mechanical
+// fix. Documented with full reproduction evidence in
 // .planning/debug/260801-header-narrow-width-overflow.md.
 // HEADER_MIN_SUPPORTED_WIDTH matches responsive.spec.ts's own long-standing
-// NARROW=900 convention -- the width every existing suite already assumed
-// as the practical floor. Below it, this suite still exercises every
-// destination/overlay and still asserts the one contract that matters most
-// (D-13: the safety cluster stays available) but does not assert zero
-// control overflow, since that is the documented, currently-true state
-// rather than a suite gap to paper over.
-const HEADER_MIN_SUPPORTED_WIDTH = 900;
+// NARROW=900 convention did *not* need to move -- the shell is now fully
+// clean down to 640px, verified by this exact sweep. Below 640px, this
+// suite still exercises every destination/overlay and still asserts the
+// one contract that matters most (D-13: the safety cluster stays
+// available) at every size, but filters exactly the known, still-open
+// offenders below out of the strict overflow assertion so any *new* or
+// *different* regression still fails loudly.
+const HEADER_MIN_SUPPORTED_WIDTH = 640;
+
+// KNOWN_SUB_640PX_OFFENDERS: { destination -> offender-label patterns still
+// open below 640px }, matched by label content only (never the reported
+// pixel amount, which is expected to shift harmlessly with unrelated
+// layout changes).
+const KNOWN_SUB_640PX_OFFENDERS: Record<string, RegExp> = {
+  Settings: /^"(Match System|Reset .+ to default)":/,
+  "Fixture Library": /^"Add Custom Fixture…":/,
+  "Patch & Pools": /^"Create Deployment":/,
+  "Scenes & Looks": /^"(New|Evaluate|Evaluate position \(bar\.beatfraction\))":/,
+  "Operator Surface": /^"New operator surface name":/,
+  Desk: /^"Release All":/,
+};
+
+function filterKnownSub640pxOffenders(offenders: string[], width: number, destination?: string): string[] {
+  if (width >= HEADER_MIN_SUPPORTED_WIDTH) return offenders;
+  const pattern = destination ? KNOWN_SUB_640PX_OFFENDERS[destination] : undefined;
+  if (!pattern) return offenders;
+  return offenders.filter((offender) => !pattern.test(offender));
+}
 
 async function expectNoOverflowWithinSupportedWidth(page: Page, width: number, context: string): Promise<void> {
   if (width < HEADER_MIN_SUPPORTED_WIDTH) return;
@@ -129,11 +148,17 @@ test.describe("Test 1: tiling-WM aspect-ratio sweep", () => {
         await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
         await settle(page);
 
-        await expectNoOverflowWithinSupportedWidth(page, size.width, `${label} at ${size.width}x${size.height}`);
-        // expectTopBarTextToBeReadable's own known sub-900px overlap
-        // (LiveStatusBar's Scene/Layers/Bar/live-status text) is the same
-        // documented, out-of-scope gap as the offenders filtered above --
-        // see .planning/debug/260801-header-narrow-width-overflow.md.
+        const offenders = filterKnownSub640pxOffenders(await findOverflowingControls(page), size.width, label);
+        expect(offenders, `${label} at ${size.width}x${size.height}`).toEqual([]);
+        // expectTopBarTextToBeReadable is geometry-only (raw
+        // getBoundingClientRect, blind to ancestor overflow:hidden
+        // clipping -- same reason findOverflowingControls' own offenders
+        // are filtered above). LiveStatusBar.module.css's .field now
+        // clips its own content instead of letting it visually spill into
+        // the next field, which is what a real user sees, but the two
+        // elements' raw layout boxes still geometrically overlap below
+        // 640px, so this geometry check stays scoped to the verified
+        // floor like every other assertion here.
         if (size.width >= HEADER_MIN_SUPPORTED_WIDTH) {
           await expectTopBarTextToBeReadable(page);
         }

@@ -121,9 +121,9 @@ export default function TempoControls() {
           {bpm} BPM
         </button>
       )}
-      <button type="button" className={styles.button} onClick={() => void handleTap()}>
+      <button type="button" className={styles.button} aria-label="Tap" onClick={() => void handleTap()}>
         <Hand size={13} aria-hidden="true" />
-        Tap
+        <span className={styles.buttonLabel}>Tap</span>
       </button>
     </div>
   );

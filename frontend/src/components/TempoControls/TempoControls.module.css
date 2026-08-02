@@ -114,3 +114,17 @@
 .button:hover {
   border-color: var(--muted);
 }
+
+/* Mirrors SafetyCluster.module.css's own breakpoint and rationale: below
+   this width GlobalFrame's header no longer fits every full label, so Tap
+   collapses to icon-only (aria-label keeps its accessible name) to help
+   keep SafetyCluster's controls on screen. */
+@media (max-width: 700px) {
+  .button {
+    padding: 0 6px;
+  }
+
+  .buttonLabel {
+    display: none;
+  }
+}
