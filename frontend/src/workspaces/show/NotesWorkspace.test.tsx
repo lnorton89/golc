@@ -128,7 +128,7 @@ describe("NotesWorkspace", () => {
     await waitFor(() => expect(screen.getByLabelText("Note title")).toHaveValue("Load-In Checklist"));
   });
 
-  it("saves an edited title and body", async () => {
+  it("autosaves an edited title after a debounce, with no Save button anywhere", async () => {
     const svc = notesService();
     svc.ListNotes.mockResolvedValue([summary("id-1", "Load-In Checklist")]);
     svc.GetNote.mockResolvedValue({ id: "id-1", title: "Load-In Checklist", body: "<p>Bring gaff tape.</p>" });
@@ -136,8 +136,39 @@ describe("NotesWorkspace", () => {
     render(<NotesWorkspace />);
     await waitFor(() => expect(screen.getByLabelText("Note title")).toHaveValue("Load-In Checklist"));
 
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+
     fireEvent.change(screen.getByLabelText("Note title"), { target: { value: "Load-In & Strike Checklist" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(screen.getByText("Unsaved changes")).toBeInTheDocument());
+    await waitFor(
+      () =>
+        expect(svc.SaveNote).toHaveBeenCalledWith(
+          "Load-In Checklist",
+          "Load-In & Strike Checklist",
+          "<p>Bring gaff tape.</p>",
+        ),
+      { timeout: 2000 },
+    );
+    await waitFor(() => expect(screen.getByText("Saved")).toBeInTheDocument());
+  });
+
+  it("flushes a pending autosave immediately when switching to a different note", async () => {
+    const svc = notesService();
+    svc.ListNotes.mockResolvedValue([summary("id-1", "Load-In Checklist"), summary("id-2", "Strike Notes")]);
+    svc.GetNote.mockImplementation((name: string) =>
+      Promise.resolve(
+        name === "Load-In Checklist"
+          ? { id: "id-1", title: "Load-In Checklist", body: "<p>Bring gaff tape.</p>" }
+          : { id: "id-2", title: "Strike Notes", body: "" },
+      ),
+    );
+
+    render(<NotesWorkspace />);
+    await waitFor(() => expect(screen.getByLabelText("Note title")).toHaveValue("Load-In Checklist"));
+
+    fireEvent.change(screen.getByLabelText("Note title"), { target: { value: "Load-In & Strike Checklist" } });
+    fireEvent.click(screen.getByRole("button", { name: "Strike Notes" }));
 
     await waitFor(() =>
       expect(svc.SaveNote).toHaveBeenCalledWith(
@@ -146,6 +177,7 @@ describe("NotesWorkspace", () => {
         "<p>Bring gaff tape.</p>",
       ),
     );
+    await waitFor(() => expect(screen.getByLabelText("Note title")).toHaveValue("Strike Notes"));
   });
 
   it("deletes a note through the confirmation dialog", async () => {
