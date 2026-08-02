@@ -580,14 +580,25 @@ Plans:
 
 ### Phase 13: Unified UI design system and automated enforcement
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Every reachable desktop surface uses one documented Paper/Ink design system whose semantic tokens, typed components, accessibility states, theme parity, safety invariants, and exceptions are mechanically enforced with zero unregistered drift.
+**Requirements**: D-01 through D-14 and the approved Phase 13 UI-SPEC acceptance contract
 **Depends on:** Phase 12
-**Plans:** 0 plans
+**Plans:** 12 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 13 to break down)
+- [ ] 13-01-PLAN.md — Inert token/component/runtime-geometry/exception authority, exact parser-pin approval, and deterministic generated CSS/TS (wave 1)
+- [ ] 13-02-PLAN.md — DS001–DS010 deterministic checker, fixtures, and pinned npm/Mage policy route (wave 2)
+- [ ] 13-03-PLAN.md — Action, field, status, tab, and shared state primitive contracts (wave 2)
+- [ ] 13-04-PLAN.md — Structural/dialog primitives, product patterns, public inventory/barrel/guide, and gallery (wave 3)
+- [ ] 13-05-PLAN.md — Theme, global CSS, shell, overlays, inspector, and shared workspace migration (wave 4)
+- [ ] 13-06-PLAN.md — Front-door and Guided First Show migration with exact 8px spacing normalization (wave 4)
+- [ ] 13-07-PLAN.md — Fixture Library, Patch & Pools, and Project Fixtures migration (wave 4)
+- [ ] 13-08-PLAN.md — Scenes & Looks, Art-Net, and diagnostics migration (wave 4)
+- [ ] 13-09-PLAN.md — Notes/Tiptap and Scripts/Monaco adjacent-control migration (wave 4)
+- [ ] 13-10-PLAN.md — Desk, Operator Surface, MIDI, live status, tempo, and independent safety migration (wave 4)
+- [ ] 13-11-PLAN.md — Deterministic Windows visual/a11y/geometry matrix and CI artifacts (wave 5)
+- [ ] 13-12-PLAN.md — Final zero-drift, export/doc/theme parity, full acceptance, and validation evidence (wave 6)
 
 ---
 *Roadmap created: 2026-07-17*
