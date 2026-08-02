@@ -32,12 +32,14 @@
 
 .createRow {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-sm);
   align-items: center;
 }
 
 .createInput {
   flex: 1;
+  min-width: 120px;
   padding: var(--space-sm);
   border: 1px solid var(--line);
   border-radius: 4px;

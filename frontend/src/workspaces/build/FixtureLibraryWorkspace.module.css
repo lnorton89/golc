@@ -82,6 +82,7 @@
    the accent as the selected treatment. */
 .sourceToggle {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-xs);
 }
 
@@ -95,6 +96,7 @@
   color: var(--ink);
   font-family: "Archivo", system-ui, sans-serif;
   font-size: var(--text-sm);
+  white-space: nowrap;
   cursor: pointer;
 }
 

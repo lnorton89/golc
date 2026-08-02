@@ -77,6 +77,15 @@
   font-size: 14px;
 }
 
+/* Below the width the 160px floor above was chosen for, let the field
+   shrink further instead of forcing a horizontal overflow -- .createRow
+   already wraps each field onto its own line first. */
+@media (max-width: 480px) {
+  .createInput {
+    min-width: 0;
+  }
+}
+
 .primaryButton {
   display: inline-flex;
   align-items: center;
