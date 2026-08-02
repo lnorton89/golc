@@ -13,12 +13,12 @@
 // actually have anything MIDI-learnable today (only Desk's faders) -- this
 // button is mounted unconditionally in GlobalFrame (same as SafetyCluster),
 // so without this check it would sit there invitingly clickable on every
-// other workspace with nothing for it to do. A route not in this set only
-// blocks turning learn mode ON from there, not off: if it's already on
-// (e.g. the operator turned it on while on Desk, then navigated away
-// without exiting first), the toggle stays clickable so there is always a
-// way back out from wherever they end up, never a state only reachable by
-// returning to Desk first.
+// other workspace with nothing for it to do. Navigating away from a
+// supported destination while learn mode is on turns it back off
+// automatically (the effect below) -- there is no "still on, but nothing
+// to map" state to strand an operator in, so `disabled` here only ever
+// needs to gate turning it ON.
+import { useEffect } from "react";
 import { Radio } from "lucide-react";
 
 import { useGolcStore } from "../../store/store";
@@ -36,7 +36,21 @@ export default function MidiLearnToggle({ activeDestination }: MidiLearnTogglePr
   const setMidiLearnMode = useGolcStore((state) => state.setMidiLearnMode);
 
   const supportedHere = MIDI_LEARN_SUPPORTED_DESTINATIONS.has(activeDestination);
-  const disabled = !supportedHere && !midiLearnMode;
+
+  // Leaving Desk (or any future MIDI-learnable view) while learn mode is
+  // on turns it off -- WorkspaceRouter unmounts Desk.tsx itself on
+  // navigate-away regardless (its own doc comment: "a plain switch, not
+  // keep-mounted-hidden"), so its highlighted faders are already gone the
+  // instant this fires; this just keeps the global toggle's own on/off
+  // state truthful to that, rather than leaving it silently "on" for a
+  // view with nothing left to highlight.
+  useEffect(() => {
+    if (!supportedHere && midiLearnMode) {
+      setMidiLearnMode(false);
+    }
+  }, [supportedHere, midiLearnMode, setMidiLearnMode]);
+
+  const disabled = !supportedHere;
 
   return (
     <button
