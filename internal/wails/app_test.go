@@ -128,6 +128,116 @@ func TestAppStartupSkipsSpawnWhenDaemonAlreadyReachable(t *testing.T) {
 	require.False(t, app.DaemonUnreachable(), "expected DaemonUnreachable() to stay false when Dial already succeeds")
 }
 
+// TestAppStartupQueuesAppLogForReachableDaemon proves ensureDaemon's
+// already-reachable path (the same one
+// TestAppStartupSkipsSpawnWhenDaemonAlreadyReachable exercises) also queues
+// an AppLogView onto App's own EventPusher under "app:log" -- the
+// Diagnostics workspace's live log panel -- not just the stderr log.Printf
+// line, proving logEvent's dual-funnel contract end to end through a real
+// OnStartup call.
+func TestAppStartupQueuesAppLogForReachableDaemon(t *testing.T) {
+	pipeName := testWailsPipeName(t)
+	app := NewApp(Config{PipeName: pipeName})
+	app.hotkeys.factory = func(mods []hotkey.Modifier, key hotkey.Key) registerer {
+		return &fakeRegisterer{}
+	}
+	app.dial = func(name string) (net.Conn, error) {
+		return fakeConn{}, nil
+	}
+
+	var mu sync.Mutex
+	var pushed []AppLogView
+	app.events.emit = func(_ context.Context, eventName string, data ...interface{}) {
+		if eventName != "app:log" {
+			return
+		}
+		if view, ok := data[0].(AppLogView); ok {
+			mu.Lock()
+			pushed = append(pushed, view)
+			mu.Unlock()
+		}
+	}
+
+	app.OnStartup(context.Background())
+	defer app.OnShutdown(context.Background())
+	app.events.flush(context.Background())
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.NotEmpty(t, pushed, "expected at least one app:log line from a real OnStartup call")
+	found := false
+	for _, view := range pushed {
+		if view.Source == "daemon" && view.Level == "info" && strings.Contains(view.Message, "GOLC_WAILS_DAEMON_REACHABLE") {
+			found = true
+		}
+	}
+	require.True(t, found, "expected a daemon-reachable info line among pushed app:log entries: %+v", pushed)
+}
+
+// TestAppStartupRecentAppLogsSurvivesRegardlessOfEventPusherTiming proves
+// the actual regression this backlog exists to fix: RecentAppLogs()
+// returns the daemon-reachable line from a real OnStartup call WITHOUT
+// ever flushing App's own EventPusher -- i.e. even if a frontend
+// subscriber registered its "app:log" EventsOn listener too late to catch
+// the live push (events.go's flush ticker can fire and emit before the
+// webview has finished loading/mounting React), the line is still
+// retrievable via this ordinary request/response call.
+func TestAppStartupRecentAppLogsSurvivesRegardlessOfEventPusherTiming(t *testing.T) {
+	pipeName := testWailsPipeName(t)
+	app := NewApp(Config{PipeName: pipeName})
+	app.hotkeys.factory = func(mods []hotkey.Modifier, key hotkey.Key) registerer {
+		return &fakeRegisterer{}
+	}
+	app.dial = func(name string) (net.Conn, error) {
+		return fakeConn{}, nil
+	}
+
+	app.OnStartup(context.Background())
+	defer app.OnShutdown(context.Background())
+
+	// Deliberately never call app.events.flush -- this proves RecentAppLogs
+	// does not depend on the EventPusher's own emit loop at all.
+	recent := app.RecentAppLogs()
+	require.NotEmpty(t, recent, "expected RecentAppLogs to return at least one line from a real OnStartup call")
+	found := false
+	for _, view := range recent {
+		if view.Source == "daemon" && view.Level == "info" && strings.Contains(view.Message, "GOLC_WAILS_DAEMON_REACHABLE") {
+			found = true
+		}
+	}
+	require.True(t, found, "expected a daemon-reachable info line among RecentAppLogs, got %+v", recent)
+}
+
+// TestAppLogEventExportedWrapperQueuesAppLog proves LogEvent (the exported
+// form main.go's OnStartup closure calls for MIDI lifecycle lines) reaches
+// the identical "app:log" funnel logEvent's own internal call sites use.
+func TestAppLogEventExportedWrapperQueuesAppLog(t *testing.T) {
+	app := NewApp(Config{PipeName: testWailsPipeName(t)})
+
+	var mu sync.Mutex
+	var pushed []AppLogView
+	app.events.emit = func(_ context.Context, eventName string, data ...interface{}) {
+		if eventName != "app:log" {
+			return
+		}
+		if view, ok := data[0].(AppLogView); ok {
+			mu.Lock()
+			pushed = append(pushed, view)
+			mu.Unlock()
+		}
+	}
+
+	app.LogEvent("warn", "midi", "GOLC_WAILS_MIDI_DRIVER_UNAVAILABLE: no ports available")
+	app.events.flush(context.Background())
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Len(t, pushed, 1, "expected exactly one queued app:log line: %+v", pushed)
+	require.Equal(t, "warn", pushed[0].Level)
+	require.Equal(t, "midi", pushed[0].Source)
+	require.Equal(t, "GOLC_WAILS_MIDI_DRIVER_UNAVAILABLE: no ports available", pushed[0].Message)
+}
+
 // TestResolveDaemonExecutableDefaultIncludesPlatformKey proves the unset-
 // DaemonExecutable default path resolves through bootstrap.PlatformExecutablePath
 // (i.e. includes the runtime.GOOS-runtime.GOARCH platform key between the

@@ -39,6 +39,14 @@ const eventsTickInterval = 25 * time.Millisecond
 // so the frontend can resync instead of silently missing lines.
 const maxStagedScriptEvents = 256
 
+// maxStagedAppLogs bounds EventPusher.appLogs -- the identical T-08-36
+// overflow discipline applied to app-wide (non-script) diagnostic log
+// lines produced by App.logEvent (app.go): a burst of more than this many
+// distinct lines staged within one eventsTickInterval window drops the
+// OLDEST staged lines and increments pendingAppLogGap, rather than growing
+// the staging slice without bound.
+const maxStagedAppLogs = 256
+
 // ScriptEventView is the JSON-safe Wails projection of script.ScriptEvent
 // (08-08-PLAN.md Task 3): every field a plain string/number/bool, per this
 // package's own convention (see Result's doc comment) so Wails' TypeScript
@@ -64,6 +72,27 @@ type ScriptEventView struct {
 	Status     string `json:"status,omitempty"`
 	Reason     string `json:"reason,omitempty"`
 	GapCount   int    `json:"gapCount,omitempty"`
+}
+
+// AppLogView is the JSON-safe Wails projection of one app-wide diagnostic
+// log line: the Diagnostics workspace's live "Application Log" panel
+// renders a stream of these, pushed under the "app:log" event name.
+// App.logEvent (app.go) is this event's only producer -- daemon-
+// supervision, hotkey-registration, and MIDI-driver lifecycle lines that
+// previously only reached the process's own stderr via log.Printf now also
+// reach the frontend this way, categorized by Source (e.g. "daemon",
+// "hotkeys", "midi") so the panel can offer a per-source toggle, and by
+// Level ("info"/"warn"/"error") for a per-level toggle. A gap entry
+// (Level=="gap") carries only GapCount, mirroring ScriptEventView's
+// "script.gap" convention -- the synthetic overflow signal flush emits
+// ahead of the surviving staged lines it precedes.
+type AppLogView struct {
+	Seq      int64  `json:"seq"`
+	Level    string `json:"level"`
+	Source   string `json:"source,omitempty"`
+	Message  string `json:"message,omitempty"`
+	At       string `json:"at,omitempty"`
+	GapCount int    `json:"gapCount,omitempty"`
 }
 
 // emitFunc abstracts runtime.EventsEmit so tests never need a real Wails
@@ -110,8 +139,19 @@ type EventPusher struct {
 	// carrying this count ahead of the surviving staged events, then
 	// resets it to zero.
 	pendingScriptEventGap int
-	cancel                context.CancelFunc
-	done                  chan struct{}
+	// appLogs stages every distinct App.logEvent call within one tick as an
+	// ORDERED SLICE (mirrors scriptEvents, above, for the identical reason:
+	// a burst of app-wide diagnostic lines -- e.g. several hotkey-
+	// registration failures in the same tick -- must all survive to the
+	// Diagnostics workspace's log panel, never coalesce down to the last
+	// one).
+	appLogs []AppLogView
+	// pendingAppLogGap mirrors pendingScriptEventGap: counts lines dropped
+	// from appLogs by QueueAppLog's overflow path (maxStagedAppLogs) since
+	// the last flush.
+	pendingAppLogGap int
+	cancel           context.CancelFunc
+	done             chan struct{}
 }
 
 // NewEventPusher constructs an idle EventPusher; call Start to begin the
@@ -171,6 +211,24 @@ func (p *EventPusher) QueueScriptEvent(view ScriptEventView) {
 	p.scriptEvents = append(p.scriptEvents, view)
 }
 
+// QueueAppLog stages view as one more entry in this tick's ordered appLogs
+// slice -- App.logEvent (app.go) calls this once per app-wide diagnostic
+// log line, so N distinct lines staged within one tick survive to flush as
+// N entries, in Seq order (mirrors QueueScriptEvent's identical never-
+// coalesce discipline, above). When the staging bound (maxStagedAppLogs)
+// is already reached, the OLDEST staged line is dropped and
+// pendingAppLogGap increments, rather than growing the slice without
+// bound.
+func (p *EventPusher) QueueAppLog(view AppLogView) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(p.appLogs) >= maxStagedAppLogs {
+		p.appLogs = p.appLogs[1:]
+		p.pendingAppLogGap++
+	}
+	p.appLogs = append(p.appLogs, view)
+}
+
 func (p *EventPusher) queue(eventName string, snapshot interface{}) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -221,6 +279,10 @@ func (p *EventPusher) flush(ctx context.Context) {
 	p.scriptEvents = nil
 	gapCount := p.pendingScriptEventGap
 	p.pendingScriptEventGap = 0
+	pendingAppLogs := p.appLogs
+	p.appLogs = nil
+	appLogGapCount := p.pendingAppLogGap
+	p.pendingAppLogGap = 0
 	emit := p.emit
 	p.mu.Unlock()
 
@@ -248,6 +310,20 @@ func (p *EventPusher) flush(ctx context.Context) {
 	}
 	for _, view := range pendingScriptEvents {
 		emit(ctx, "script:event", view)
+	}
+	// Every staged AppLogView is emitted individually under "app:log", in
+	// QueueAppLog's own staging order -- mirrors the pendingScriptEvents
+	// loop directly above, for the identical reason (a burst of app-wide
+	// diagnostic lines must all reach the Diagnostics workspace's log
+	// panel, never coalesce to the last one). A non-zero gap count is
+	// emitted first, as one synthetic gap AppLogView, so a consumer
+	// processing events in emit order learns about the drop before the
+	// surviving lines it precedes.
+	if appLogGapCount > 0 {
+		emit(ctx, "app:log", AppLogView{Level: "gap", GapCount: appLogGapCount})
+	}
+	for _, view := range pendingAppLogs {
+		emit(ctx, "app:log", view)
 	}
 }
 

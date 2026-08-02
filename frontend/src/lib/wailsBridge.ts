@@ -447,6 +447,24 @@ export interface RecoveryPointView {
   revision: number;
 }
 
+/** AppLogView mirrors internal/wails.AppLogView's JSON shape exactly: one
+ * app-wide (non-script) diagnostic log line -- daemon-supervision, hotkey-
+ * registration, and MIDI-driver lifecycle lines pushed under the "app:log"
+ * EventsEmit name (App.logEvent, internal/wails/app.go). level is "info" |
+ * "warn" | "error", or "gap" for the synthetic overflow signal (carrying
+ * only gapCount) events.go's flush emits ahead of any lines dropped by its
+ * staging-buffer bound -- mirrors ScriptEventView's identical "script.gap"
+ * convention. The Diagnostics workspace's "Application Log" panel
+ * (AppLogPanel.tsx) is this view's only consumer. */
+export interface AppLogView {
+  seq: number;
+  level: string;
+  source?: string;
+  message?: string;
+  at?: string;
+  gapCount?: number;
+}
+
 /** ScriptSummaryView mirrors internal/wails.ScriptSummaryView's JSON shape
  * exactly (08-04-PLAN.md, SCRP-01/D-16): one script's identity, last-run
  * status, and flattened capability-profile summary -- the D-16 library-row
@@ -680,6 +698,14 @@ interface AppBinding {
    * path straight to uploadImage to actually read and persist it. */
   PickImageFile(): Promise<string>;
   OpenExternalURL(url: string): Promise<void>;
+  /** RecentAppLogs returns the most recently retained "app:log" lines
+   * (internal/wails.App.RecentAppLogs, bounded server-side) -- independent
+   * of the live "app:log" push, since that push is fire-and-forget and
+   * most lines fire during App.OnStartup, often before a frontend listener
+   * has registered. AppLogStream.tsx calls this once on mount, before
+   * subscribing to the live push, to seed the Diagnostics workspace's log
+   * panel with whatever already happened. */
+  RecentAppLogs(): Promise<AppLogView[]>;
 }
 
 /** FixtureLibraryRowView mirrors internal/wails.FixtureLibraryRowView's
@@ -1842,6 +1868,24 @@ export async function openExternalURL(url: string): Promise<void> {
   }
 }
 
+/** fetchRecentAppLogs calls the bound App.RecentAppLogs -- the
+ * request/response backlog counterpart to onAppLog's live push (see
+ * AppLogView's own doc comment for why both exist: most "app:log" lines
+ * fire during App.OnStartup, often before a frontend listener has
+ * registered, and a push that fires with nobody listening is gone for
+ * good). An absent bridge or a rejected call both degrade to an explicit
+ * empty array, never a thrown exception -- AppLogStream.tsx calls this
+ * once on mount to seed the store before subscribing to the live push. */
+export async function fetchRecentAppLogs(): Promise<AppLogView[]> {
+  const app = appBinding();
+  if (!app) return [];
+  try {
+    return await app.RecentAppLogs();
+  } catch {
+    return [];
+  }
+}
+
 function fixtureLibraryService(): FixtureLibraryServiceBinding | undefined {
   return window.go?.wails?.FixtureLibraryService;
 }
@@ -2251,6 +2295,23 @@ export function onScriptEvent(
   if (!runtime) return () => {};
   return runtime.EventsOn("script:event", (...data: unknown[]) => {
     const event = data[0] as ScriptEventView | undefined;
+    if (event) callback(event);
+  });
+}
+
+/** onAppLog subscribes to the Go host's "app:log" EventsEmit push
+ * (internal/wails/events.go's QueueAppLog, fed by App.logEvent/LogEvent),
+ * invoking callback with each pushed AppLogView. Mirrors onScriptEvent's
+ * identical "every distinct staged line survives to its own EventsEmit
+ * call, in Seq order, never coalesced" contract. Returns an unsubscribe
+ * function; a missing bridge returns a no-op unsubscribe rather than
+ * throwing -- mirrors onStatusUpdate/onScriptEvent's identical undefined-
+ * runtime guard. */
+export function onAppLog(callback: (event: AppLogView) => void): () => void {
+  const runtime = window.runtime;
+  if (!runtime) return () => {};
+  return runtime.EventsOn("app:log", (...data: unknown[]) => {
+    const event = data[0] as AppLogView | undefined;
     if (event) callback(event);
   });
 }
