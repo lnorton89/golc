@@ -863,6 +863,15 @@ export default function Desk() {
   );
   const [midiCaptureStatus, setMidiCaptureStatus] = useState<MidiLearnStatus | undefined>(undefined);
   const [midiCaptureMessage, setMidiCaptureMessage] = useState<string | null>(null);
+  // capturingKeyRef mirrors midiCapturing.key but as a ref, not state:
+  // handleStartMidiLearn reads it synchronously inside a StartDeskLearn
+  // .then() callback to tell whether THAT specific call is still the
+  // active one, or was since superseded by switching to a different
+  // channel (or cancelled) -- state alone can't answer that inside an
+  // already-scheduled callback closure without risking a stale response
+  // (e.g. a cancelled channel's own conflict/timeout error arriving late
+  // and stomping the NEW channel's fresh "listening" status).
+  const capturingKeyRef = useRef<string | null>(null);
   const midiLearnMode = useGolcStore((state) => state.midiLearnMode);
   const setMidiLearnMode = useGolcStore((state) => state.setMidiLearnMode);
   // heightPreset is the last Compact/Normal/Large button click, threaded
@@ -1001,19 +1010,25 @@ export default function Desk() {
     return byKey;
   }, [deskMappings]);
 
-  const handleStartMidiLearn = (channel: DeskChannel, instanceId: string) => {
-    // Mirrors the backend's own single-capture-at-a-time contract
-    // (s.learning): a click while another channel is already listening is
-    // a no-op rather than silently cancelling the in-flight one.
-    if (midiCapturing) return;
+  // beginMidiCapture is handleStartMidiLearn's own worker: mints a fresh
+  // StartDeskLearn call for channel, guarding its eventual resolution
+  // against having been superseded in the meantime (capturingKeyRef.current
+  // no longer matching key -- the operator clicked a different fader, or
+  // cancelled, before this one's own backend session ever produced a
+  // result) by simply dropping that stale response on the floor rather
+  // than letting it overwrite whatever's now current.
+  const beginMidiCapture = (channel: DeskChannel, instanceId: string) => {
     const svc = deskMidiService();
     if (!svc) return;
     const key = channel.key;
+    capturingKeyRef.current = key;
     setMidiCapturing({ key, instanceId, capability: channel.capabilityType });
     setMidiCaptureStatus("listening");
     setMidiCaptureMessage(null);
     void svc.StartDeskLearn(instanceId, channel.capabilityType).then((result) => {
+      if (capturingKeyRef.current !== key) return;
       if (result.exitCode === 0) {
+        capturingKeyRef.current = null;
         setMidiCapturing(null);
         setMidiCaptureStatus(undefined);
         setMidiCaptureMessage(null);
@@ -1035,6 +1050,29 @@ export default function Desk() {
     });
   };
 
+  const handleStartMidiLearn = (channel: DeskChannel, instanceId: string) => {
+    const svc = deskMidiService();
+    if (!svc) return;
+    // Clicking a DIFFERENT fader while one is already listening switches
+    // the capture target -- an operator who clicked the wrong one doesn't
+    // have to reach for Cancel first. The backend's own s.learning mutual
+    // exclusion clears synchronously inside CancelLearn (svc_midi.go), so
+    // by the time this promise resolves it's already safe to open a new
+    // capture window; .finally (not .then) starts the new one whether or
+    // not the old cancel itself succeeded, mirroring handleCancelMidiLearn's
+    // own "a failed cancel isn't worth surfacing" tolerance.
+    if (midiCapturing && midiCapturing.key !== channel.key) {
+      capturingKeyRef.current = null;
+      void svc
+        .CancelLearn()
+        .catch(() => {})
+        .finally(() => beginMidiCapture(channel, instanceId));
+      return;
+    }
+    if (midiCapturing) return;
+    beginMidiCapture(channel, instanceId);
+  };
+
   const handleCancelMidiLearn = () => {
     const svc = deskMidiService();
     if (svc) {
@@ -1044,6 +1082,7 @@ export default function Desk() {
         // identical tolerance.
       });
     }
+    capturingKeyRef.current = null;
     setMidiCapturing(null);
     setMidiCaptureStatus(undefined);
     setMidiCaptureMessage(null);
@@ -1061,6 +1100,7 @@ export default function Desk() {
   // directly, so this effect only depends on midiLearnMode itself.
   useEffect(() => {
     if (midiLearnMode) return;
+    capturingKeyRef.current = null;
     setMidiCapturing((prev) => {
       if (prev) {
         void deskMidiService()
@@ -1103,11 +1143,15 @@ export default function Desk() {
 
   const handleRemapMidiLearn = (channel: DeskChannel, instanceId: string, mappingId: string) => {
     const svc = deskMidiService();
-    if (!svc || midiCapturing) return;
+    if (!svc) return;
     // Remap = clear the existing mapping, then immediately start a fresh
     // capture for the same channel -- presented as one action so an
     // operator never has to separately find this channel's row in the
     // MIDI Mapping workspace just to free up its old Note/CC first.
+    // handleStartMidiLearn itself already decides whether this needs to
+    // switch away from a different in-flight capture first (the operator
+    // clicked the wrong fader and is now remapping the right one instead)
+    // -- no separate guard needed here.
     void svc.RemoveDeskMapping(mappingId).then(() => {
       void refreshDeskMappings();
       handleStartMidiLearn(channel, instanceId);

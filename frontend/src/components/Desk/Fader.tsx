@@ -7,6 +7,7 @@
 // design-system component. value is always the raw 0-255 DMX byte the
 // parent already resolved (either the live polled value or a locally
 // tracked override) -- Fader itself never normalizes or interprets it.
+import { useMemo, type CSSProperties } from "react";
 import { Radio, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -17,6 +18,13 @@ import styles from "./Desk.module.css";
  * itself (Desk.tsx only ever passes a status while this channel is the one
  * actively capturing; otherwise midiLearnStatus is left undefined). */
 export type MidiLearnStatus = "listening" | "conflict" | "timeout" | "error";
+
+/** PULSE_DURATION_MS must match .faderLearnTargetPulse's own
+ * animation-duration in Desk.module.css exactly -- used here only to
+ * compute each fader's own negative animation-delay (see
+ * learnPulseDelayMs below), never applied as a CSS value directly (the
+ * CSS file owns that). */
+const PULSE_DURATION_MS = 2400;
 
 /** MAJOR_SCALE_TICKS are the numbered quarter/half/full reference points a
  * detailed fader's value scale shows next to its track -- a plain
@@ -159,15 +167,18 @@ export default function Fader({
   // .faderTrackRow's own centering already guarantees.
   const detailShiftClass = detailed ? styles.faderDetailShift : "";
   const isAttention = midiLearnStatus === "conflict" || midiLearnStatus === "timeout" || midiLearnStatus === "error";
-  // learnHighlightClass rings the WHOLE fader (never covers its content --
-  // the user's own correction to an earlier version of this feature, which
-  // hid the value/track/label under an opaque overlay) so a click anywhere
-  // on a highlighted fader is unambiguous: "this is a MIDI-learn target,"
-  // never "this fader is temporarily replaced by a learn control." Three
-  // distinct rings: the default "click to (re)map" invite, a pulsing ring
-  // while this exact channel is the one Desk.tsx is currently capturing,
-  // and an attention ring (conflict/timeout/error) so a failed attempt is
-  // visible without needing space for inline text.
+  // learnHighlightClass lightens the WHOLE fader's own background (never
+  // covers its content -- the user's own correction to an earlier version
+  // of this feature, which hid the value/track/label under an opaque
+  // overlay) so a click anywhere on a highlighted fader is unambiguous:
+  // "this is a MIDI-learn target," never "this fader is temporarily
+  // replaced by a learn control." Every still-unselected target pulses
+  // (an invite to click); the one channel Desk.tsx is currently capturing,
+  // or one whose last attempt just failed (conflict/timeout/error), goes
+  // static instead -- kept as separate CSS class names for that
+  // distinction even though listening/attention currently render
+  // identically, so a future visual difference between the two has
+  // somewhere to go without touching this selection logic again.
   const learnHighlightClass = !midiLearnMode
     ? ""
     : midiLearnStatus === "listening"
@@ -175,8 +186,26 @@ export default function Fader({
       : isAttention
         ? styles.faderLearnAttention
         : styles.faderLearnTarget;
+  const isPulsing = learnHighlightClass === styles.faderLearnTarget;
+  // learnPulseDelayMs phase-locks this fader's own pulse to every other
+  // pulsing fader's, regardless of when THIS particular one last started
+  // animating: a plain CSS animation restarts from 0% every time an
+  // element re-gains it (e.g. this fader was the one being learned, went
+  // static, and just returned to "target" because a different fader was
+  // clicked instead) -- left alone, that fader would visibly desync from
+  // its neighbors, which had been pulsing continuously the whole time.
+  // Computing a NEGATIVE delay equal to "how far into the shared
+  // PULSE_DURATION_MS cycle the wall clock currently is" makes the
+  // browser render the animation as if it had already been running that
+  // long, landing it back in phase with every other fader instantly
+  // instead of visibly restarting at 0%. Recomputed only when isPulsing
+  // itself flips (useMemo's dep), not on every unrelated re-render, so an
+  // unrelated prop change (a live DMX value tick, for instance) never
+  // nudges an already-synced fader's phase.
+  const learnPulseDelayMs = useMemo(() => -(Date.now() % PULSE_DURATION_MS), [isPulsing]);
+  const faderStyle: CSSProperties | undefined = isPulsing ? { animationDelay: `${learnPulseDelayMs}ms` } : undefined;
   return (
-    <div className={`${styles.fader} ${learnHighlightClass}`}>
+    <div className={`${styles.fader} ${learnHighlightClass}`} style={faderStyle}>
       <span className={`${styles.faderValue} ${detailShiftClass}`}>{value}</span>
       <div className={`${styles.faderTrackRow} ${detailShiftClass}`}>
         {detailed && (

@@ -995,17 +995,29 @@
 
 /* MIDI Learn (global toggle, MidiLearnToggle.tsx / store.ts midiLearnMode)
    -- the fader's own content (value/track/label/sublabel) stays fully
-   visible while learn mode is on; a slow-pulsing BACKGROUND tint behind
-   that content is what conveys "this is a MIDI-learn target," never a
-   border/outline (an earlier version used one -- reads as a cheap dashed
-   marquee at this card's small size, not a real design element) and never
-   an opaque overlay painted over the content either.
+   visible while learn mode is on; a plain, colorless white overlay behind
+   that content is what conveys "this is a MIDI-learn target" -- the same
+   background the card always had, just lighter, never a different hue
+   (earlier versions tried an accent-tinted pulse, then a gold/red color
+   swap per state -- both read as arbitrary color changes rather than
+   "this got lighter"). White is used rather than any theme token
+   specifically because it lightens correctly regardless of theme (a light
+   theme's own --panel is already pale, a dark theme's is not -- see the
+   removed color-mix-toward---page version's own postmortem) and never
+   introduces a hue the surrounding card didn't already have.
    .faderLearnHitArea is the actual click target: fully transparent, sized
    to the whole card (inset:0), sitting above .faderInput so a click in
    learn mode never doubles as a drag, but it paints nothing of its own --
-   the pulsing background lives on .fader itself, one layer further back,
-   so the hit area never has to fight it for visibility. */
+   the overlay lives on .fader itself, one layer further back, so the hit
+   area never has to fight it for visibility. */
 
+/* Every still-unselected, clickable target keeps a slow, subtle pulse --
+   an invite to click, not yet committed to anything -- while the one
+   channel actually being learned (.faderLearnListening below) goes fully
+   static instead: pulsing THAT one specifically read as a flashing
+   distraction at the exact moment an operator is reaching for their MIDI
+   device, and a class swap onto a still-animating element restarted the
+   animation mid-cycle, producing a visible flash on every click. */
 .faderLearnTarget {
   border-radius: var(--radius-sm);
   animation: faderLearnTargetPulse 2.4s ease-in-out infinite;
@@ -1014,50 +1026,27 @@
 @keyframes faderLearnTargetPulse {
   0%,
   100% {
-    background-color: color-mix(in srgb, var(--accent-5) 4%, transparent);
+    background-color: rgba(255, 255, 255, 0.03);
   }
   50% {
-    background-color: color-mix(in srgb, var(--accent-5) 16%, transparent);
+    background-color: rgba(255, 255, 255, 0.1);
   }
 }
 
-/* Solid (not pulsing) fill for the one channel Desk.tsx is currently
-   capturing (mirrors MidiLearn.tsx's "Listening for MIDI input…" state) --
-   a DIFFERENT, lighter color from .faderLearnTarget's own idle pulse
-   (--status-armed, the same gold this MIDI feature already uses for
-   "armed"/live elsewhere -- SoftTakeoverSlider.tsx, MidiPanel.module.css's
-   armedChipOn), constant rather than animated, so the single in-flight
-   channel reads as visually distinct from every other still-just-
-   clickable fader at a glance, with nothing moving to distract from the
-   moment an operator is actually reaching for their MIDI device. */
-.faderLearnListening {
-  border-radius: var(--radius-sm);
-  /* Mixed toward white, not var(--page): this app's dark theme's own
-     --page is itself dark, so an earlier version of this rule (mixed
-     toward --page) produced a MUTED/darker tint on a dark card instead of
-     the intended lighter one -- genuinely light regardless of which theme
-     is active requires mixing toward an actual light color, not "the
-     current background, slightly tinted." */
-  background-color: color-mix(in srgb, var(--status-armed, #c8a24b) 55%, white 45%);
-}
-
-/* Conflict/timeout/error pulse -- the failure message itself is exposed via
-   the hit area's own `title` tooltip and an sr-only live region
-   (.faderLearnSrOnly) rather than inline text, since a narrow fader column
-   has no space to show it without covering content again. */
+/* The one channel Desk.tsx is currently capturing (mirrors MidiLearn.tsx's
+   "Listening for MIDI input…" state), and also a conflict/timeout/error
+   result (the failure message itself is exposed via the hit area's own
+   `title` tooltip and an sr-only live region, .faderLearnSrOnly, rather
+   than a distinct color -- a narrow fader column has no space to show it
+   inline without covering content again, and a red flash read as more
+   alarming than an ordinary "try again" deserves). Static, not pulsing --
+   see .faderLearnTarget's own doc comment above for why -- just a
+   stronger, constant step of the same white-overlay language, distinct
+   enough to tell apart from every still-pulsing target at a glance. */
+.faderLearnListening,
 .faderLearnAttention {
   border-radius: var(--radius-sm);
-  animation: faderLearnAttentionPulse 0.8s ease-in-out infinite;
-}
-
-@keyframes faderLearnAttentionPulse {
-  0%,
-  100% {
-    background-color: color-mix(in srgb, var(--status-revoked, #e23a2e) 10%, transparent);
-  }
-  50% {
-    background-color: color-mix(in srgb, var(--status-revoked, #e23a2e) 34%, transparent);
-  }
+  background-color: rgba(255, 255, 255, 0.18);
 }
 
 /* A native <button>'s own default focus outline would otherwise render
