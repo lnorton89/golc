@@ -2,8 +2,15 @@ import { create } from "zustand";
 
 import {
   offlineStatusSnapshot,
+  type AppLogView,
   type StatusSnapshot,
 } from "../lib/wailsBridge";
+
+// maxAppLogEntries bounds the appLog slice -- distinct from (and much
+// larger than) events.go's own maxStagedAppLogs, which only bounds one
+// ~25ms flush tick's staging buffer. The oldest entries are dropped first
+// so a long-running session's log history never grows without bound.
+const maxAppLogEntries = 500;
 
 // store.ts is the Zustand cache of Go-pushed snapshots (06-RESEARCH.md
 // Recommended Project Structure: "store/ -- Zustand: cache of Go-pushed
@@ -55,6 +62,32 @@ export interface GolcStoreState {
    * re-fetches from SurfaceService itself on every bump. */
   surfaceListVersion: number;
   bumpSurfaceListVersion: () => void;
+  /** The accumulated "app:log" stream (internal/wails/events.go's
+   * QueueAppLog, fed by App.logEvent/LogEvent) -- daemon-supervision,
+   * hotkey-registration, and MIDI-driver lifecycle lines. Written by
+   * AppLogStream.tsx (shell/, mounted unconditionally inside GlobalFrame,
+   * mirroring LiveStatusBar's identical "always-mounted sole writer"
+   * role): most of these lines fire during App.OnStartup, within the
+   * first moments of the window opening, well before an operator has
+   * necessarily navigated to the Diagnostics workspace -- if the
+   * subscription lived in DiagnosticsWorkspace.tsx itself (as it
+   * originally did) instead of here, every line pushed before that first
+   * visit would already be gone (EventsEmit is fire-and-forget, never
+   * replayed) and the workspace's log panel would appear permanently
+   * empty. Bounded to maxAppLogEntries, oldest dropped first. */
+  appLog: AppLogView[];
+  appendAppLog: (event: AppLogView) => void;
+  /** seedAppLog merges App.RecentAppLogs' backlog (fetchRecentAppLogs,
+   * wailsBridge.ts) into appLog -- AppLogStream.tsx calls this once on
+   * mount, covering "app:log" lines that fired (most do, during
+   * App.OnStartup) before its own live subscription registered. Entries
+   * already present (by seq -- a live push that arrived in the brief
+   * window between subscribing and this backlog fetch resolving) are not
+   * duplicated; the merged result is re-sorted by seq, since the backlog
+   * and any already-live-received entries are not guaranteed to arrive in
+   * a single already-ordered batch. */
+  seedAppLog: (events: AppLogView[]) => void;
+  clearAppLog: () => void;
 }
 
 export const useGolcStore = create<GolcStoreState>((set) => ({
@@ -64,4 +97,24 @@ export const useGolcStore = create<GolcStoreState>((set) => ({
   setStatus: (status) => set({ status }),
   surfaceListVersion: 0,
   bumpSurfaceListVersion: () => set((state) => ({ surfaceListVersion: state.surfaceListVersion + 1 })),
+  appLog: [],
+  appendAppLog: (event) =>
+    set((state) => {
+      const next = [...state.appLog, event];
+      return { appLog: next.length > maxAppLogEntries ? next.slice(next.length - maxAppLogEntries) : next };
+    }),
+  seedAppLog: (events) =>
+    set((state) => {
+      // A "gap" entry (level "gap") never comes from RecentAppLogs -- only
+      // ever synthesized live by events.go's flush on overflow -- but the
+      // exclusion is kept here too, defensively, so a future backlog
+      // source could never collide with a live-received gap's seq (always
+      // 0, unset).
+      const seen = new Set(state.appLog.filter((e) => e.level !== "gap").map((e) => e.seq));
+      const fresh = events.filter((e) => e.level === "gap" || !seen.has(e.seq));
+      if (fresh.length === 0) return {};
+      const merged = [...fresh, ...state.appLog].sort((a, b) => a.seq - b.seq);
+      return { appLog: merged.length > maxAppLogEntries ? merged.slice(merged.length - maxAppLogEntries) : merged };
+    }),
+  clearAppLog: () => set({ appLog: [] }),
 }));

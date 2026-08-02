@@ -208,7 +208,16 @@ type App struct {
 	daemonUnreachable bool
 	hotkeyFailures    []HotkeyFailure
 	relaunching       bool
+	logSeq            int64
+	recentAppLogs     []AppLogView
 }
+
+// maxRecentAppLogs bounds App.recentAppLogs (RecentAppLogs' own backing
+// store) -- oldest lines dropped first, independent of (and much smaller
+// than) the frontend's own client-side maxAppLogEntries bound, since this
+// is only ever meant to cover the startup backlog a late subscriber missed,
+// not a full session's history.
+const maxRecentAppLogs = 200
 
 // NewApp constructs an App from cfg, filling DialRetries/DialRetryDelay
 // defaults when unset and wiring the production ipc.Dial/defaultSpawn/
@@ -254,7 +263,7 @@ func (a *App) OnStartup(ctx context.Context) {
 	a.hotkeyFailures = failures
 	a.mu.Unlock()
 	for _, f := range failures {
-		log.Printf("GOLC_WAILS_HOTKEY_REGISTER_FAILED: control=%s error=%s", f.Control, f.Error)
+		a.logEvent("warn", "hotkeys", "GOLC_WAILS_HOTKEY_REGISTER_FAILED: control=%s error=%s", f.Control, f.Error)
 	}
 
 	a.events.Start(ctx)
@@ -268,6 +277,73 @@ func (a *App) OnShutdown(ctx context.Context) {
 	a.events.Stop()
 	a.hotkeys.UnregisterAll()
 	a.stopSupervisedDaemon()
+}
+
+// logEvent is the single funnel every app-wide (non-script) diagnostic line
+// in this package passes through: it writes message to the process's own
+// stderr via log.Printf, exactly preserving the GOLC_WAILS_* diagnostic-code
+// text every existing call site already produced, retains the built
+// AppLogView on this App (recentAppLogs, bounded to maxRecentAppLogs --
+// RecentAppLogs' own backing store), and queues that same view onto this
+// App's own EventPusher under the "app:log" event name (events.go's
+// QueueAppLog) -- the Diagnostics workspace's live "Application Log" panel.
+// level is one of "info"/"warn"/"error"; source categorizes the line for
+// that panel's per-source toggle (e.g. "daemon", "hotkeys", "midi").
+//
+// Retaining every line (not just queuing it for the live push) matters
+// because most app:log lines fire during App.OnStartup, within the first
+// moments the window opens -- often before the frontend's own
+// EventsOn("app:log") subscription has even registered, since Wails'
+// EventsEmit is fire-and-forget and never replayed to a late listener (the
+// exact regression a purely push-based "app:log" stream reproduced: an
+// operator opening Diagnostics saw "No log activity yet." even though
+// lines had already fired). RecentAppLogs gives the frontend a normal
+// request/response call -- which, unlike a push, can never be "too late"
+// -- to fetch that backlog on mount, mirroring HotkeyFailures'/
+// DaemonUnreachable's identical "state that may have already resolved
+// before the frontend asked" pattern.
+func (a *App) logEvent(level, source, format string, args ...interface{}) {
+	message := fmt.Sprintf(format, args...)
+	log.Printf("%s", message)
+
+	a.mu.Lock()
+	a.logSeq++
+	view := AppLogView{
+		Seq:     a.logSeq,
+		Level:   level,
+		Source:  source,
+		Message: message,
+		At:      time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	a.recentAppLogs = append(a.recentAppLogs, view)
+	if len(a.recentAppLogs) > maxRecentAppLogs {
+		a.recentAppLogs = a.recentAppLogs[len(a.recentAppLogs)-maxRecentAppLogs:]
+	}
+	a.mu.Unlock()
+
+	a.events.QueueAppLog(view)
+}
+
+// RecentAppLogs returns the most recently retained app-wide diagnostic log
+// lines (bounded to maxRecentAppLogs), independent of the live "app:log"
+// push -- see logEvent's own doc comment for why this exists. AppLogStream
+// (frontend/src/shell/AppLogStream.tsx) calls this once on mount, before
+// subscribing to the live push, to seed the Diagnostics workspace's log
+// panel with whatever already happened.
+func (a *App) RecentAppLogs() []AppLogView {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]AppLogView(nil), a.recentAppLogs...)
+}
+
+// LogEvent is logEvent's exported form, for app-wide diagnostic lines
+// produced outside this package (cmd/golc-desktop/main.go's own OnStartup
+// closure, e.g. MIDI driver attach/orphan-cleanup outcomes) -- the identical
+// funnel this package's own call sites use via the unexported wrapper, so
+// every app-wide diagnostic line reaches the Diagnostics workspace's log
+// panel through exactly one path regardless of which package produced it.
+func (a *App) LogEvent(level, source, message string) {
+	a.logEvent(level, source, "%s", message)
 }
 
 // stopSupervisedDaemon terminates the supervised artnet-daemon child process
@@ -302,12 +378,13 @@ func (a *App) ensureDaemon(ctx context.Context) {
 
 	if conn, err := a.dial(pipeName); err == nil {
 		_ = conn.Close()
+		a.logEvent("info", "daemon", "GOLC_WAILS_DAEMON_REACHABLE: daemon already reachable on %s", pipeName)
 		return
 	}
 
 	cmd, stderr, err := a.spawn(ctx, a.cfg)
 	if err != nil {
-		log.Printf("GOLC_WAILS_DAEMON_SPAWN_FAILED: %v", err)
+		a.logEvent("error", "daemon", "GOLC_WAILS_DAEMON_SPAWN_FAILED: %v", err)
 		a.mu.Lock()
 		a.daemonUnreachable = true
 		a.mu.Unlock()
@@ -323,6 +400,7 @@ func (a *App) ensureDaemon(ctx context.Context) {
 		time.Sleep(a.cfg.DialRetryDelay)
 		if conn, dialErr := a.dial(pipeName); dialErr == nil {
 			_ = conn.Close()
+			a.logEvent("info", "daemon", "GOLC_WAILS_DAEMON_REACHABLE: supervised daemon reachable on %s", pipeName)
 			return
 		}
 	}
@@ -330,7 +408,7 @@ func (a *App) ensureDaemon(ctx context.Context) {
 	a.mu.Lock()
 	a.daemonUnreachable = true
 	a.mu.Unlock()
-	log.Printf("GOLC_WAILS_DAEMON_UNREACHABLE: daemon spawned but never became reachable on %s after %d retries%s",
+	a.logEvent("error", "daemon", "GOLC_WAILS_DAEMON_UNREACHABLE: daemon spawned but never became reachable on %s after %d retries%s",
 		pipeName, a.cfg.DialRetries, daemonStderrDetail(stderr))
 }
 

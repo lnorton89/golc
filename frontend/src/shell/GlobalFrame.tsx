@@ -14,14 +14,22 @@
 // workspace, independent of daemon reachability" contract is unaffected:
 // SafetyCluster still mounts unconditionally, just at a new screen
 // position within the same always-mounted header.
+//
+// AppLogStream mounts here for the identical reason LiveStatusBar does: it
+// is the store's sole writer of the `appLog` slice, and most "app:log"
+// lines fire during App.OnStartup -- before any workspace navigation --
+// so its subscription must start as early and unconditionally as
+// LiveStatusBar's own. It renders nothing (see its own doc comment).
 import LiveStatusBar from "../components/LiveStatusBar/LiveStatusBar";
 import TempoControls from "../components/TempoControls/TempoControls";
 import SafetyCluster from "../components/SafetyCluster/SafetyCluster";
+import AppLogStream from "./AppLogStream";
 import styles from "./GlobalFrame.module.css";
 
 export default function GlobalFrame() {
   return (
     <header className={styles.frame}>
+      <AppLogStream />
       <div className={styles.statusSlot}>
         <LiveStatusBar />
       </div>

@@ -218,3 +218,78 @@ func TestQueueScriptEventNoOverflowEmitsNoGapEvent(t *testing.T) {
 	require.Len(t, pushed, 1, "expected exactly 1 pushed event: %+v", pushed)
 	require.NotEqual(t, "script.gap", pushed[0].Kind, "expected no gap event when the staging bound was never exceeded")
 }
+
+// TestQueueAppLogStagesFiveDistinctLinesAndEmitsAllInSeqOrder mirrors
+// TestQueueScriptEventStagesFiveDistinctEventsAndEmitsAllInSeqOrder exactly,
+// for the "app:log" stream App.logEvent (app.go) feeds: N distinct lines
+// staged within one tick must all survive to their own EventsEmit call, in
+// Seq order -- never coalesced down to the latest one.
+func TestQueueAppLogStagesFiveDistinctLinesAndEmitsAllInSeqOrder(t *testing.T) {
+	p := NewEventPusher()
+
+	var mu sync.Mutex
+	var pushed []AppLogView
+	p.emit = func(_ context.Context, eventName string, data ...interface{}) {
+		if eventName != "app:log" {
+			return
+		}
+		if view, ok := data[0].(AppLogView); ok {
+			mu.Lock()
+			pushed = append(pushed, view)
+			mu.Unlock()
+		}
+	}
+
+	for i := int64(1); i <= 5; i++ {
+		p.QueueAppLog(AppLogView{Seq: i, Level: "info", Source: "daemon", Message: "line"})
+	}
+
+	p.flush(context.Background())
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Len(t, pushed, 5, "expected exactly 5 emit calls for 5 staged distinct lines: %+v", pushed)
+	for i, view := range pushed {
+		wantSeq := int64(i + 1)
+		require.Equal(t, wantSeq, view.Seq, "pushed[%d].Seq (Seq order)", i)
+	}
+}
+
+// TestQueueAppLogOverflowEmitsGapEventBeforeSurvivingLines mirrors
+// TestQueueScriptEventOverflowEmitsGapEventBeforeSurvivingEvents: staging
+// more than maxStagedAppLogs distinct lines within one tick drops the
+// oldest and emits exactly one synthetic gap AppLogView (Level=="gap")
+// ahead of the surviving lines, carrying the dropped count.
+func TestQueueAppLogOverflowEmitsGapEventBeforeSurvivingLines(t *testing.T) {
+	p := NewEventPusher()
+
+	var mu sync.Mutex
+	var pushed []AppLogView
+	p.emit = func(_ context.Context, eventName string, data ...interface{}) {
+		if eventName != "app:log" {
+			return
+		}
+		if view, ok := data[0].(AppLogView); ok {
+			mu.Lock()
+			pushed = append(pushed, view)
+			mu.Unlock()
+		}
+	}
+
+	overflowBy := 3
+	for i := 0; i < maxStagedAppLogs+overflowBy; i++ {
+		p.QueueAppLog(AppLogView{Seq: int64(i + 1), Level: "info"})
+	}
+
+	p.flush(context.Background())
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Len(t, pushed, maxStagedAppLogs+1, "expected %d entries (1 gap event + %d surviving)", maxStagedAppLogs+1, maxStagedAppLogs)
+	require.True(t, pushed[0].Level == "gap" && pushed[0].GapCount == overflowBy, "expected the first pushed entry to be a gap event carrying GapCount=%d, got %+v", overflowBy, pushed[0])
+	for i := 1; i < len(pushed); i++ {
+		require.NotEqual(t, "gap", pushed[i].Level, "expected exactly one gap event, found a second at index %d: %+v", i, pushed[i])
+	}
+	firstSurvivingSeq := pushed[1].Seq
+	require.Equal(t, int64(overflowBy+1), firstSurvivingSeq, "expected the first surviving line's Seq (oldest %d dropped)", overflowBy)
+}

@@ -11,7 +11,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -143,13 +142,15 @@ func main() {
 			// sweep clears exactly that stale hold before attaching, every
 			// launch, with no manual process-killing required.
 			for _, killErr := range midi.KillOrphanedMidicatProcesses() {
-				log.Printf("GOLC_WAILS_MIDI_ORPHAN_CLEANUP_FAILED: %v", killErr)
+				app.LogEvent("warn", "midi", fmt.Sprintf("GOLC_WAILS_MIDI_ORPHAN_CLEANUP_FAILED: %v", killErr))
 			}
 			midiService.StartFeedback(ctx)
 			if driver, driverErr := midi.OpenFirstAvailable(); driverErr != nil {
-				log.Printf("GOLC_WAILS_MIDI_DRIVER_UNAVAILABLE: %v", driverErr)
+				app.LogEvent("warn", "midi", fmt.Sprintf("GOLC_WAILS_MIDI_DRIVER_UNAVAILABLE: %v", driverErr))
 			} else if attachErr := midiService.AttachDriver(driver); attachErr != nil {
-				log.Printf("GOLC_WAILS_MIDI_DRIVER_UNAVAILABLE: %v", attachErr)
+				app.LogEvent("warn", "midi", fmt.Sprintf("GOLC_WAILS_MIDI_DRIVER_UNAVAILABLE: %v", attachErr))
+			} else {
+				app.LogEvent("info", "midi", "GOLC_WAILS_MIDI_DRIVER_ATTACHED: MIDI driver attached")
 			}
 		},
 		OnShutdown: func(ctx context.Context) {

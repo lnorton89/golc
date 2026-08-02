@@ -8,15 +8,24 @@
 // Overview's inline chip (a secondary action alongside pool/deployment
 // browsing), this workspace's whole job is the diagnostic report, so it
 // runs automatically on mount rather than waiting for a manual click.
+//
+// This workspace also renders the "Application Log" panel (AppLogPanel.tsx),
+// reading accumulated app-wide log lines from the shared store's `appLog`
+// slice (useGolcStore, store.ts) rather than subscribing to the Go host's
+// "app:log" push itself: AppLogStream.tsx (shell/, mounted unconditionally
+// inside GlobalFrame) is that push's sole subscriber/writer, started as
+// soon as the app shell mounts -- well before an operator has necessarily
+// navigated here. Most "app:log" lines fire during App.OnStartup, within
+// the first moments the window opens; a subscription scoped to this
+// workspace's own mount lifetime (as it originally was) would miss every
+// line pushed before the first visit, since Wails' EventsEmit is fire-and-
+// forget and never replayed to a late listener -- see AppLogStream.tsx's
+// own doc comment.
 import { useCallback, useEffect, useState } from "react";
 import { Activity, RefreshCw, ListChecks } from "lucide-react";
 
-import {
-  diagnoseShow,
-  errorMessage,
-  offlineDiagnosticReport,
-  type DiagnosticReportView,
-} from "../../lib/wailsBridge";
+import { diagnoseShow, errorMessage, offlineDiagnosticReport, type DiagnosticReportView } from "../../lib/wailsBridge";
+import { useGolcStore } from "../../store/store";
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
 import Panel from "../../components/primitives/Panel/Panel";
@@ -24,12 +33,15 @@ import PanelHeader from "../../components/primitives/PanelHeader/PanelHeader";
 import Button from "../../components/primitives/Button/Button";
 import Chip from "../../components/primitives/Chip/Chip";
 import EmptyState from "../../components/primitives/EmptyState/EmptyState";
+import AppLogPanel from "../../components/Diagnostics/AppLogPanel";
 import styles from "./DiagnosticsWorkspace.module.css";
 
 export default function DiagnosticsWorkspace() {
   const [report, setReport] = useState<DiagnosticReportView>(offlineDiagnosticReport());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const logEvents = useGolcStore((state) => state.appLog);
+  const clearAppLog = useGolcStore((state) => state.clearAppLog);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -103,6 +115,8 @@ export default function DiagnosticsWorkspace() {
                 </ul>
               )}
             </Panel>
+
+            <AppLogPanel events={logEvents} onClear={clearAppLog} />
           </>
         )}
       </div>
