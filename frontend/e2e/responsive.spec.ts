@@ -14,22 +14,14 @@
 // instance of either failure mode (not just a regression of these two)
 // gets caught too, without needing to know in advance which component
 // broke.
-import { test, expect, type Page } from "@playwright/test";
+//
+// Destinations are the catalog's own NAV_LABELS (e2e/helpers.ts), not a
+// second hand-maintained list -- the previous hardcoded twelve-label list
+// had drifted stale against desktopViews.json's fourteen (missing Project
+// Fixtures and Desk), silently skipping both from this sweep.
+import { test, expect } from "@playwright/test";
 
-const DESTINATIONS = [
-  "Overview",
-  "Shows",
-  "Save & Recovery",
-  "Settings",
-  "Fixture Library",
-  "Patch & Pools",
-  "Scenes & Looks",
-  "Scripts",
-  "Operator Surface",
-  "MIDI Mapping",
-  "Art-Net",
-  "Diagnostics",
-];
+import { NAV_LABELS, settle, findOverflowingControls } from "./helpers";
 
 // NARROW is below GuidedFirstShow's stageSection min-width (460px) plus
 // its rail/gaps/evidence-aside, and below ScriptsWorkspace's 7-button
@@ -40,53 +32,18 @@ const DESTINATIONS = [
 // check).
 const WIDTHS = [900, 1280] as const;
 
-// settle waits out AppShell.module.css's own `--motion-settle` transition
-// (the inspector column's width, which several workspaces below trigger
-// by portaling content into it) before measuring layout -- a fixed short
-// wait, not the usual Playwright anti-pattern, because there's no better
-// signal to poll for: the geometry itself is what's still animating.
-async function settle(page: Page): Promise<void> {
-  await page.waitForTimeout(250);
-}
-
-// findOverflowingButtons returns one description string per <button> that
-// exhibits either failure mode above; an empty array means everything on
-// screen fits its own box and the viewport. Elements with zero size are
-// skipped (display:none/detached, e.g. a hidden dialog's own buttons).
-async function findOverflowingButtons(page: Page): Promise<string[]> {
-  return page.evaluate(() => {
-    const offenders: string[] = [];
-    const viewportWidth = window.innerWidth;
-    for (const button of Array.from(document.querySelectorAll("button"))) {
-      const rect = button.getBoundingClientRect();
-      if (rect.width === 0 && rect.height === 0) continue;
-      const label = button.textContent?.trim() || button.getAttribute("aria-label") || "(unlabeled button)";
-      if (button.scrollHeight - button.clientHeight > 1) {
-        offenders.push(`"${label}": content (${button.scrollHeight}px) taller than its own box (${button.clientHeight}px) -- label wrapped and got cut off`);
-      }
-      if (rect.right > viewportWidth + 1) {
-        offenders.push(`"${label}": right edge (${Math.round(rect.right)}px) past the viewport (${viewportWidth}px)`);
-      }
-      if (rect.left < -1) {
-        offenders.push(`"${label}": left edge (${Math.round(rect.left)}px) pushed off-screen`);
-      }
-    }
-    return offenders;
-  });
-}
-
-test.describe("responsive layout: no button overflows its box or the window", () => {
+test.describe("responsive layout: no control overflows its box or the window", () => {
   for (const width of WIDTHS) {
     test(`every workspace at ${width}px width`, async ({ page }) => {
       await page.setViewportSize({ width, height: 720 });
       await page.goto("/");
 
-      for (const label of DESTINATIONS) {
+      for (const label of NAV_LABELS) {
         await page.getByRole("button", { name: label, exact: true }).click();
         await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
         await settle(page);
 
-        const offenders = await findOverflowingButtons(page);
+        const offenders = await findOverflowingControls(page);
         expect(offenders, `${label} at ${width}px`).toEqual([]);
       }
     });
@@ -99,7 +56,7 @@ test.describe("responsive layout: no button overflows its box or the window", ()
 
     await expect(page.getByRole("navigation", { name: "First show steps" })).toBeVisible();
     await settle(page);
-    const offenders = await findOverflowingButtons(page);
+    const offenders = await findOverflowingControls(page);
     expect(offenders).toEqual([]);
   });
 
@@ -120,7 +77,7 @@ test.describe("responsive layout: no button overflows its box or the window", ()
     for (const label of ["New Script", "Save", "Delete Script", "Validate", "Run", "Debug", "Stop Script"]) {
       await expect(toolbarButtons.filter({ hasText: label })).toBeVisible();
     }
-    const offenders = await findOverflowingButtons(page);
+    const offenders = await findOverflowingControls(page);
     expect(offenders).toEqual([]);
   });
 });
