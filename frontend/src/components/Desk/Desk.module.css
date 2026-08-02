@@ -78,10 +78,12 @@
   gap: var(--space-sm);
 }
 
-/* Icon-only Compact/Normal/Large universe-height presets (Desk.tsx's own
-   UNIVERSE_HEIGHT_PRESETS) -- grouped as one bordered cluster, top-right of
-   the header next to Release All, so there's no visible text label eating
-   space up here; each button's own aria-label/title carries the name. */
+/* Icon-only Compact/Normal/Large preset button groups -- shared by both
+   Desk.tsx's UNIVERSE_HEIGHT_PRESETS (row height) and FIXTURE_WIDTH_PRESETS
+   (fader column width, plus its extra Fit button), grouped as bordered
+   clusters top-right of the header next to Release All, so there's no
+   visible text label eating space up here; each button's own aria-label/
+   title carries the name. */
 .heightPresetGroup {
   display: flex;
   align-items: center;
@@ -204,7 +206,12 @@
      own slider track in lockstep, so a taller row actually gives a
      longer, finer-grained fader rather than just leaving blank space below
      a fixed-size one. position:relative anchors the handle's own absolute
-     overlay. */
+     overlay. --fader-width is this row's own independent horizontal
+     counterpart (own useResizablePanel keyed per universe, same as height)
+     -- .fader/.faderInput/its thumb/.faderLabelText all read it, so a wider
+     value grows every fader column in this row (and, via a Fit preset
+     click, can be computed to exactly fill the row's width with no
+     horizontal scrollbar). */
   height: var(--universe-height, 260px);
   position: relative;
 }
@@ -246,16 +253,55 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  padding: 6px var(--space-xs);
+  /* Bumped from the original 6px/--space-xs(4px) -- content was sitting
+     flush against the card's own border with barely any breathing room
+     around it, especially noticeable now that the card centers its
+     content (.fixtureHeader/.faderRow) rather than just stacking it.
+     Horizontal bumped again past --space-sm(8px) to 12px: measured
+     pixel-exact symmetric at 8px (identical left/right gap down to the
+     px, confirmed against every fader column and the header), so the
+     "left edge feels tight" read wasn't an asymmetry bug -- the first
+     fader's own saturated red swatch just carries more visual weight
+     than the last one's muted strobe icon at the same physical distance.
+     More room on both sides addresses that directly rather than
+     mismatching the two sides to compensate for one. */
+  padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--page);
 }
 
+/* fixtureHeader puts the name and its Mode/Address badges on one line
+   whenever they fit -- flex-wrap is the fallback for whenever they don't
+   (a long fixture name pushing the badges past the card's own width):
+   the badges (never allowed to shrink, see .badgeRow below) drop to their
+   own line underneath instead of squeezing or overflowing. max-width is
+   load-bearing, not decorative: Desk.tsx's own --card-fader-width (a per-
+   card estimate of this card's fader-row width) caps this BEFORE the
+   browser ever considers wrapping it, so a long name+badges combo can't
+   silently stretch the whole card wider than its own sliders need --
+   without this cap, a flex column's auto-width sizing considers every
+   child's own unwrapped preferred width, header included, which
+   defeats Compact/Normal/Fit's entire point of keeping cards no wider
+   than their channel count needs. Falls back to fixtureName's own 200px
+   cap on the rare instance with no resolved channel layout (where
+   --card-fader-width is deliberately left unset, see Desk.tsx). */
 .fixtureHeader {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  /* space-between pushes .badgeRow flush against this header's own right
+     edge -- .fixtureName's own flex-grow (below) already consumes most
+     leftover space up to its own 200px cap, but whenever that cap leaves
+     genuine room to spare (a wide card, a short name), flex-grow alone
+     can't touch it (nothing left to grow); space-between is what claims
+     that remainder for the gap instead of leaving badgeRow stranded
+     short of the actual right edge. */
+  justify-content: space-between;
+  column-gap: 6px;
+  row-gap: 3px;
+  max-width: var(--card-fader-width, 200px);
 }
 
 .fixtureName {
@@ -266,10 +312,28 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* flex:1 1 0%, not 0 1 auto: with flex-wrap, an item's OWN preferred/
+     max-content size (this name's own text width, up to its 200px cap)
+     is what the browser checks when deciding whether the NEXT item
+     (.badgeRow) still fits on the same line -- at 0 1 auto, this name
+     always claims its own full preferred width first (since nothing
+     precedes it), regularly leaving badgeRow no room at all and wrapping
+     it to its own line even when the combined name+badges would happily
+     fit if the name just truncated a little sooner. A 0% flex-basis
+     instead makes this name's own wrap-line contribution effectively
+     zero, so badgeRow (flex:0 0 auto below, protected at its own natural
+     size) gets first claim on the line's width; this name then grows to
+     fill whatever's left over (still capped at 200px), truncating via its
+     own ellipsis handling instead of pushing badges down. min-width is a
+     floor so an extremely narrow card never squashes the name to
+     nothing. */
+  flex: 1 1 0%;
+  min-width: 30px;
 }
 
 .badgeRow {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   gap: 3px;
 }
@@ -278,11 +342,19 @@
    badgeAddress/badgeLabel/badgeValue convention -- see MetaBadge's doc
    comment in Desk.tsx for why this is duplicated rather than imported). */
 
+/* Padding scales down with the row's own --fader-width (Desk.tsx's
+   per-row horizontal preset/resize) so a Compact/Normal-width row's
+   badges take up less horizontal room -- more likely to still fit next
+   to the fixture name on one line (.fixtureHeader's own wrap fallback)
+   instead of routinely pushing it to wrap even at ordinary name lengths.
+   clamp()'s own ceiling is the original fixed 6px, so a wide/Large/Fit
+   row never grows badges past their original size, only ever shrinks
+   them at narrower ones. */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 1px 6px;
+  padding: 1px clamp(3px, calc(var(--fader-width, 34px) * 0.1), 6px);
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   background: var(--panel);
@@ -299,8 +371,13 @@
   border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
 }
 
+/* font-size scales down with --fader-width same as .badge's own padding
+   above -- padding alone wasn't enough to meaningfully shrink a badge's
+   own footprint, since the LABEL/VALUE TEXT is what actually dominates
+   its width. Ceiling is the original fixed --text-2xs (9px), so a wide
+   row never grows this past its original size. */
 .badgeLabel {
-  font-size: var(--text-2xs);
+  font-size: clamp(7px, calc(var(--fader-width, 34px) * 0.22), 9px);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -309,7 +386,9 @@
 
 .badgeValue {
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-xs);
+  /* Ceiling is the original fixed --text-xs (11px) -- see .badgeLabel's
+     own doc comment above. */
+  font-size: clamp(8px, calc(var(--fader-width, 34px) * 0.28), 11px);
   color: var(--text2);
 }
 
@@ -346,7 +425,13 @@
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  width: 34px;
+  /* Set by .universeRow's own --fader-width custom property (Desk.tsx's
+     per-row horizontal resize/width-preset feature, mirroring
+     --universe-height's identical cascade for the vertical dimension) --
+     .faderInput/its thumb below derive their own width from this same
+     value so a wider column actually gives a wider slider track, not just
+     extra empty padding around an unchanged one. */
+  width: var(--fader-width, 34px);
   min-height: 0;
 }
 
@@ -356,13 +441,166 @@
    never drifting a few pixels off its neighbors because one column's
    content happened to be visually taller or shorter than another's. */
 
+/* box-sizing:border-box is load-bearing, not decorative: this codebase
+   has no global box-sizing reset (content-box is the default everywhere),
+   so this rule's own border would otherwise add 2px on top of its
+   declared height, breaking the row-for-row alignment every fader in a
+   faderRow otherwise shares (see the comment block below). */
 .faderValue {
-  height: 14px;
-  line-height: 14px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* This is the first thing in the column, sitting right under
+     .fixtureHeader above it (only .fixtureGroup's own --space-xs gap
+     between them) -- margin-top gives it its own breathing room from the
+     header, distinct from the value/track/label/sublabel rows' own
+     internal --space-xs rhythm below it. */
+  margin-top: 4px;
+  /* Real vertical padding now too (was 14px tall with 0 vertical padding
+     -- the pill's own top/bottom edges sat flush against the glyph's own
+     line box, which read as no padding at all no matter how generous the
+     horizontal figure got). */
+  height: 20px;
+  /* calc(3ch + chrome), not a bare 3ch: box-sizing:border-box makes a bare
+     `width` figure include padding+border IN that figure, which would
+     otherwise eat into the 3 characters' worth of glyph room this is
+     trying to guarantee -- "255" would overflow/clip inside its own pill
+     the moment padding+border ate enough of a bare 3ch box. Explicitly
+     adding the padding (9px each side, 18px total) and border (1px each
+     side, 2px total) back on top of 3ch is what actually fixes this
+     badge's own width to exactly three digits' worth regardless of the
+     live value's current digit count ("0" vs "255") -- it never visibly
+     resizes/jitters as a fader's value changes -- while still leaving
+     genuine, undiminished padding around the glyphs themselves. ch is
+     itself relative to this rule's own font-size, so it still scales
+     down at a narrower column the same way the font-size clamp() below
+     already does. */
+  width: calc(3ch + 20px);
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 11px;
+  /* Scales down with --fader-width (same reasoning as .badge's own
+     clamp() above) -- at this pill's full/original size, a Compact-width
+     column would make the fixed width above overflow it. Ceiling is
+     the original fixed 10px, so a wide row never grows this past its
+     original size. */
+  font-size: clamp(8px, calc(var(--fader-width, 34px) * 0.3), 10px);
   font-weight: 600;
+  line-height: 1;
   color: var(--ink);
+}
+
+/* faderTrackRow wraps the slider alone -- position:relative purely as an
+   anchor for .faderScale's own absolute overlay below, not a layout
+   container for it: the scale is deliberately NOT a normal flex sibling
+   here, so it never consumes any of this row's own width. That's what
+   keeps the actual track horizontally centered on the exact same axis as
+   every other row in this column (.faderValue's badge above, the label/
+   sublabel/clear-button below) -- a detailed fader's scale hangs off to
+   the left as an annotation instead of shifting the track itself off that
+   shared centerline the way including it as a layout sibling would.
+   Takes over .faderInput's own former flex:1/min-height:40px (below it
+   used to grow directly inside .fader's own column) since that growth
+   now needs to apply to this row as a whole. */
+.faderTrackRow {
+  position: relative;
+  flex: 1;
+  min-height: 40px;
+  /* Breathing room above/below the track itself, between it and the
+     value readout/label row it's sandwiched between -- margin, not
+     padding, since nothing (background, border) needs to extend into
+     this space, just empty room. */
+  margin: 6px 0;
+}
+
+/* faderDetailShift (Fader.tsx, only when `detailed`) nudges .faderValue
+   and .faderTrackRow right by half of .faderScale's own 24px width --
+   the scale hangs off the track's left edge and pulls this top group's
+   own visual footprint (badge+track+scale together) left of center;
+   shifting by half the scale's width re-centers that combined footprint
+   without touching the label/sublabel/clear-button row below, which has
+   no scale to compensate for and stays exactly where .faderTrackRow's
+   own centering (see its doc comment above) already puts it. */
+.faderDetailShift {
+  transform: translateX(12px);
+}
+
+/* faderScale is the 0-255 value-scale ruler beside a detailed fader's
+   track -- purely a fixed reference (not tied to this fader's own live
+   value), so aria-hidden in Fader.tsx; the input's own aria-label already
+   carries the live value for assistive tech. right:100% is what hangs it
+   immediately to the LEFT of .faderTrackRow's own box with zero gap (an
+   absolutely positioned element's right edge lands exactly at its
+   container's left edge there) -- each tick's own line
+   (.faderScaleTickLine below) then butts directly against the track's own
+   edge, reading as pointing at it rather than floating beside it, while
+   never affecting .faderTrackRow's own width/centering the way a normal
+   flex sibling would (see .faderTrackRow's own doc comment for why that
+   matters). top/bottom:0 matches its own height to the track's, and
+   anchors every tick's own top-offset percentage (Fader.tsx's
+   scaleTickTop) against that same height. Fixed (not content-driven)
+   width, since its own children are all position:absolute below and so
+   contribute nothing to an intrinsic size -- kept comfortably under
+   Desk.tsx's own SCALE_RESERVED_WIDTH budget (already reserved out of
+   --fader-track-width) so it never crowds the track next to it. */
+.faderScale {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 100%;
+  width: 24px;
+}
+
+/* faderScaleMajorTick is one numbered ruler line (255/192/128/64/0) --
+   its number plus a long, thick, clearly-colored tick LINE flush against
+   the track's own edge (faderTrackRow's own zero gap is what makes "flush
+   against" literal here) so it visibly points at this value's position on
+   the track beside it, not just floats near it. Positioned via its own
+   inline top (scaleTickTop) and vertically centered on that point. */
+.faderScaleMajorTick {
+  position: absolute;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  transform: translateY(-50%);
+}
+
+.faderScaleTickNumber {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 8px;
+  line-height: 1;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.faderScaleTickLine {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 2px;
+  background: var(--text2);
+}
+
+/* faderScaleMinorTick is one unlabeled in-between gradation mark
+   (MINOR_SCALE_TICKS in Fader.tsx) -- shorter and thinner than a major
+   tick's own line so the numbered ticks still read as the primary
+   reference points and these just fill in finer detail between them, the
+   way a physical ruler's minor gradations do. var(--muted), not the even
+   fainter var(--line): --line sits only ~1 step darker than --page (this
+   card's own background) in the light theme, which at a 1px line height
+   is not enough contrast to actually read as a mark at all rather than
+   just vanishing into the background. Also flush against the track's own
+   edge, just a shorter reach than a major tick's line. */
+.faderScaleMinorTick {
+  position: absolute;
+  right: 0;
+  width: 4px;
+  height: 1px;
+  background: var(--muted);
+  transform: translateY(-50%);
 }
 
 /* A fully custom-styled vertical fader: writing-mode rotates a normal
@@ -386,13 +624,28 @@
   writing-mode: vertical-lr;
   direction: rtl;
   -moz-orient: vertical;
-  width: 24px;
-  /* Grows/shrinks with the universe row's own resized height (see
-     .universeRow's own doc comment for the full stretch cascade) --
-     min-height is a literal floor so even the Compact preset never
-     squeezes the track down to something too short to grab or read. */
-  flex: 1;
-  min-height: 40px;
+  /* Tracks .universeRow's own --fader-track-width (--fader-width minus its
+     10px label/value side margin, minus the value-scale's own reserved
+     width when `detailed` -- both folded together once in Desk.tsx rather
+     than juggled across two separate calc()s here) -- the thumb width
+     rules below reference this exact same custom property so the thumb
+     keeps exactly filling the input's width at any resized column width
+     (see this rule's own original doc comment below on why the thumb must
+     exactly match). */
+  width: var(--fader-track-width, 24px);
+  /* Explicit height:100%/display:block, not flex stretch: .faderTrackRow
+     is no longer a flex container (see its own doc comment on why -- this
+     input is its sole normal-flow child now, .faderScale hangs off it via
+     position:absolute instead), so this input's own height needs its own
+     rule to still fill that row's height (a plain <input> defaults to
+     inline-block with a content-based height, not its container's). */
+  display: block;
+  height: 100%;
+  /* Zeroed explicitly: range inputs get a small default margin from the
+     UA stylesheet, which would otherwise reopen the exact gap
+     .faderScale's own right:100% positioning is meant to close between
+     this track and a detailed fader's scale/tick lines beside it. */
+  margin: 0;
   background: linear-gradient(
     to right,
     transparent calc(50% - 2px),
@@ -420,7 +673,7 @@
 .faderInput::-webkit-slider-thumb,
 .faderInputOverridden::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 24px;
+  width: var(--fader-track-width, 24px);
   height: 10px;
   border-radius: 2px;
   background: var(--accent);
@@ -428,7 +681,7 @@
 }
 
 .faderInput::-moz-range-thumb {
-  width: 24px;
+  width: var(--fader-track-width, 24px);
   height: 10px;
   border-radius: 2px;
   background: var(--accent);
@@ -445,10 +698,31 @@
   border-color: color-mix(in srgb, black 30%, var(--status-live));
 }
 
+/* faderInputUntouched dims the thumb for a channel that has never been
+   manually grabbed this session (Fader.tsx's own `touched` prop) -- a
+   solid light grey, not the accent blue at reduced opacity: a translucent
+   blue still reads as "blue, just faint" (and blends with whatever's
+   behind it), where the whole point here is a color an operator reads as
+   "neutral/untouched" at a glance, distinct from every other state this
+   thumb can be in (blue = touched, green = overridden). Applied alongside
+   .faderInput (not instead of it), so every other .faderInput rule --
+   width, gradient track line, etc -- still applies unchanged; only the
+   thumb's own color/border differ. */
+.faderInputUntouched::-webkit-slider-thumb {
+  background: var(--muted);
+  border-color: color-mix(in srgb, black 30%, var(--muted));
+}
+
+.faderInputUntouched::-moz-range-thumb {
+  background: var(--muted);
+  border-color: color-mix(in srgb, black 30%, var(--muted));
+}
+
 .faderLabelSlot {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   height: 16px;
   color: var(--text);
 }
@@ -458,7 +732,7 @@
   font-weight: 600;
   color: var(--text);
   text-align: center;
-  max-width: 34px;
+  max-width: var(--fader-width, 34px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -469,6 +743,22 @@
   height: 12px;
   border-radius: 50%;
   border: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+/* faderLabelDetail is the un-abbreviated name shown next to a swatch/icon
+   once `detailed` is true (Fader.tsx) -- secondary in weight/size to
+   .faderLabelText's own text-only rendering, since a swatch/icon already
+   carries the primary visual cue and this is just filling in what it
+   means. Own max-width leaves room for the swatch/icon already in this
+   row rather than reusing .faderLabelText's full-column max-width. */
+.faderLabelDetail {
+  font-size: 10px;
+  color: var(--muted);
+  max-width: calc(var(--fader-width, 34px) - 18px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .faderSublabel {
@@ -493,12 +783,19 @@
   cursor: pointer;
 }
 
-.faderClearButton:hover:not(:disabled) {
+.faderClearButton:hover:not([aria-disabled="true"]) {
   border-color: var(--accent);
   color: var(--accent);
 }
 
-.faderClearButton:disabled {
+/* aria-disabled, not the native disabled attribute: a genuinely disabled
+   button suppresses its own title tooltip in Chromium/WebView2 (disabled
+   elements don't receive the hover events a tooltip needs), which would
+   silently swallow this button's own "why can't I click this" hover text
+   exactly when a user goes looking for it. aria-disabled keeps the button
+   hoverable/focusable while Fader.tsx's own onClick still no-ops the
+   click itself when not overridden. */
+.faderClearButton[aria-disabled="true"] {
   opacity: 0.35;
   cursor: not-allowed;
 }

@@ -158,6 +158,18 @@ func runDev(request Request) Result {
 	environment = prependPathDirectory(environment, filepath.Dir(node.Executable))
 	environment = prependPathDirectory(environment, filepath.Dir(goExecutable))
 	environment = prependPathDirectory(environment, layout.GoBin)
+	// The dev build's WebView2 instance persists its own on-disk HTTP/code
+	// cache across process restarts (%APPDATA%\golc-desktop-dev.exe\
+	// EBWebView\Default\Cache, independent of Vite's own dev server and its
+	// HMR websocket) -- observed live: a stale cached response kept
+	// rendering after several full `mage dev` restarts, since restarting
+	// the process does not touch that on-disk profile. Chromium's
+	// --disable-http-cache flag, passed through WebView2's own documented
+	// WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS environment variable, keeps the
+	// dev build's WebView2 instance from ever caching a response to begin
+	// with, so this can't recur; production builds are unaffected since
+	// this route (and this env var) only ever wraps `wails dev`.
+	environment = append(environment, "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--disable-http-cache")
 
 	// -m (SkipModTidy) is required, not optional: without it, `wails dev`
 	// unconditionally runs `go mod tidy` before every bindings-generation
