@@ -7,12 +7,12 @@ wave_0_complete: false
 created: 2026-08-02
 revised: 2026-08-02
 plan_count: 40
-task_count: 71
+task_count: 73
 ---
 
 # Phase 13 — Validation Strategy
 
-> Exact execution contract for the revised 40-plan, 71-task graph. Commands below are normalized from each PLAN task and are pending until semantic evidence validates. The external-mutation authority row runs read-only preflight and remains a blocking checkpoint.
+> Exact execution contract for the revised 40-plan, 73-task graph. Commands below are normalized from each PLAN task and are pending until semantic evidence validates. The external-mutation authority row runs read-only preflight and remains a blocking checkpoint.
 
 ## Test Infrastructure
 
@@ -41,7 +41,8 @@ The validator parses every `13-NN-PLAN.md`, derives task position, decodes XML e
 - `13-03-02` W3 — `cd frontend && npx vitest run src/components/primitives/Field src/components/primitives/Chip`
 - `13-04-01` W3 — `cd frontend && npx vitest run src/components/primitives/Tabs`
 - `13-04-02` W3 — `cd frontend && npx vitest run src/components/primitives/EmptyState src/components/primitives/LoadingState src/components/primitives/ErrorState`
-- `13-05-01` W4 — `cd frontend && npx vitest run src/components/primitives/Panel src/components/primitives/PanelHeader src/components/primitives/Toolbar src/components/primitives/ListRow`
+- `13-05-01` W4 — `cd frontend && npx vitest run src/components/primitives/Panel src/components/primitives/PanelHeader`
+- `13-05-02` W4 — `cd frontend && npx vitest run src/components/primitives/Toolbar src/components/primitives/ListRow`
 - `13-22-01` W4 — `cd frontend && npx vitest run src/components/primitives/Dialog src/components/primitives/ConfirmDialog`
 - `13-23-01` W4 — `cd frontend && npx vitest run src/components/primitives/ScrollRegion src/components/primitives/InfoTooltip`
 - `13-23-02` W4 — `cd frontend && npx vitest run src/components/primitives/ResizeHandle`
@@ -53,14 +54,15 @@ The validator parses every `13-NN-PLAN.md`, derives task position, decodes XML e
 ### Wave 7 migrations
 
 - `13-08-01` W7 — `cd frontend && npx vitest run src/lib/theme.test.ts src/App.smoke.test.tsx && node scripts/design-system/check.mjs --paths src/index.css,src/lib/theme.ts,src/App.tsx`
-- `13-09-01` W7 — `cd frontend && npx vitest run src/workspaces/show/OverviewWorkspace.test.tsx src/workspaces/show/ShowsWorkspace.test.tsx src/workspaces/show/SaveRecoveryWorkspace.test.tsx src/workspaces/show/SettingsWorkspace.test.tsx && node scripts/design-system/check.mjs --paths src/workspaces/show/OverviewWorkspace.tsx,src/workspaces/show/OverviewWorkspace.module.css,src/workspaces/show/ShowsWorkspace.tsx,src/workspaces/show/ShowsWorkspace.module.css,src/workspaces/show/SaveRecoveryWorkspace.tsx,src/workspaces/show/SaveRecoveryWorkspace.module.css,src/workspaces/show/SettingsWorkspace.tsx,src/workspaces/show/SettingsWorkspace.module.css`
+- `13-09-01` W7 — `cd frontend && npx vitest run src/workspaces/show/OverviewWorkspace.test.tsx src/workspaces/show/ShowsWorkspace.test.tsx && node scripts/design-system/check.mjs --paths src/workspaces/show/OverviewWorkspace.tsx,src/workspaces/show/OverviewWorkspace.module.css,src/workspaces/show/ShowsWorkspace.tsx,src/workspaces/show/ShowsWorkspace.module.css`
+- `13-09-02` W7 — `cd frontend && npx vitest run src/workspaces/show/SaveRecoveryWorkspace.test.tsx src/workspaces/show/SettingsWorkspace.test.tsx && node scripts/design-system/check.mjs --paths src/workspaces/show/SaveRecoveryWorkspace.tsx,src/workspaces/show/SaveRecoveryWorkspace.module.css,src/workspaces/show/SettingsWorkspace.tsx,src/workspaces/show/SettingsWorkspace.module.css`
 - `13-10-01` W7 — `cd frontend && npx vitest run src/workspaces/build/FixtureLibraryWorkspace.test.tsx && node scripts/design-system/check.mjs --paths src/workspaces/build/FixtureLibraryWorkspace.tsx,src/workspaces/build/FixtureLibraryWorkspace.module.css`
 - `13-10-02` W7 — `cd frontend && npx vitest run src/components/FixturePatch src/components/ProjectFixtures && node scripts/design-system/check.mjs --paths src/workspaces/build/PatchPoolsWorkspace.tsx,src/workspaces/build/ProjectFixturesWorkspace.tsx,src/components/FixturePatch,src/components/ProjectFixtures --proposal design-system/exception-proposals/fixtures.json`
 - `13-11-01` W7 — `cd frontend && npx vitest run src/workspaces/build/ScenesLooksWorkspace.test.tsx src/components/SceneProgramming/SceneList.test.tsx src/components/SceneProgramming/LookBrowser.test.tsx && node scripts/design-system/check.mjs --paths src/workspaces/build/ScenesLooksWorkspace.tsx,src/workspaces/build/ScenesLooksWorkspace.module.css,src/components/SceneProgramming/SceneList.tsx,src/components/SceneProgramming/SceneList.module.css,src/components/SceneProgramming/LookBrowser.tsx,src/components/SceneProgramming/LookBrowser.module.css`
 - `13-40-01` W7 — `cd frontend && npx vitest run src/components/SceneProgramming/BarTimelinePanel.test.tsx src/components/SceneProgramming/LayerRow.test.tsx && node scripts/design-system/check.mjs --paths src/components/SceneProgramming/BarTimelinePanel.tsx,src/components/SceneProgramming/BarTimelinePanel.module.css,src/components/SceneProgramming/LayerRow.tsx,src/components/SceneProgramming/LayerRow.module.css`
 - `13-12-01` W7 — `cd frontend && npx vitest run src/workspaces/show/NotesWorkspace.test.tsx src/components/Notes && node scripts/design-system/check.mjs --paths src/workspaces/show/NotesWorkspace.tsx,src/workspaces/show/NotesWorkspace.module.css,src/components/Notes`
 - `13-13-01` W7 — `cd frontend && npx vitest run src/components/Desk src/workspaces/perform/DeskWorkspace.test.tsx`
-- `13-13-02` W7 — `cd frontend && node scripts/design-system/check.mjs --paths src/workspaces/perform/DeskWorkspace.tsx,src/workspaces/perform/DeskWorkspace.module.css,src/components/Desk --proposal design-system/exception-proposals/desk.json && cd .. && git diff --exit-code -- internal/deskmidi`
+- `13-13-02` W7 — `cd frontend && node scripts/design-system/check.mjs --paths src/workspaces/perform/DeskWorkspace.tsx,src/workspaces/perform/DeskWorkspace.module.css,src/components/Desk --proposal design-system/exception-proposals/desk.json`
 - `13-14-01` W7 — `cd frontend && npx vitest run src/components/OperatorSurface/OperatorSurface.activeSurface.test.tsx src/workspaces/operate/OperatorSurfaceWorkspace.test.tsx && node scripts/design-system/check.mjs --paths src/workspaces/operate/OperatorSurfaceWorkspace.tsx,src/workspaces/operate/OperatorSurfaceWorkspace.module.css,src/components/OperatorSurface/OperatorSurface.tsx,src/components/OperatorSurface/OperatorSurface.module.css,src/components/OperatorSurface/AssignmentToggle.tsx,src/components/OperatorSurface/SurfaceList.tsx`
 - `13-14-02` W7 — `cd frontend && npx vitest run src/components/OperatorSurface/Launcher.test.tsx src/components/OperatorSurface/ScenePad.test.tsx && node scripts/design-system/check.mjs --paths src/components/OperatorSurface/Launcher.tsx,src/components/OperatorSurface/Launcher.module.css,src/components/OperatorSurface/ScenePad.tsx,src/components/OperatorSurface/ScenePad.module.css`
 - `13-15-01` W7 — `cd frontend && npx vitest run src/components/SafetyCluster && node scripts/design-system/check.mjs --paths src/components/SafetyCluster --proposal design-system/exception-proposals/safety-live.json`
@@ -75,7 +77,7 @@ The validator parses every `13-NN-PLAN.md`, derives task position, decodes XML e
 - `13-26-02` W7 — `cd frontend && npx vitest run src/components/Diagnostics src/workspaces/output/DiagnosticsWorkspace.test.tsx && node scripts/design-system/check.mjs --paths src/workspaces/output/DiagnosticsWorkspace.tsx,src/workspaces/output/DiagnosticsWorkspace.module.css,src/components/Diagnostics --proposal design-system/exception-proposals/output.json`
 - `13-27-01` W7 — `cd frontend && npx vitest run src/workspaces/build/ScriptsWorkspace.test.tsx src/components/Scripts/ScriptRunDialog.test.tsx && node scripts/design-system/check.mjs --paths src/workspaces/build/ScriptsWorkspace.tsx,src/workspaces/build/ScriptsWorkspace.module.css,src/components/Scripts/ScriptRunDialog.tsx,src/components/Scripts/ScriptRunDialog.module.css`
 - `13-27-02` W7 — `cd frontend && npx vitest run src/components/Scripts/monacoTheme.test.ts src/components/Scripts/ScriptDebugPanel.test.tsx src/components/Scripts/ScriptEditor.test.tsx && node scripts/design-system/check.mjs --paths src/components/Scripts/monacoTheme.ts,src/components/Scripts/ScriptDebugPanel.tsx,src/components/Scripts/ScriptDebugPanel.module.css,src/components/Scripts/ScriptEditor.tsx,src/components/Scripts/ScriptEditor.module.css --proposal design-system/exception-proposals/editors.json`
-- `13-28-01` W7 — `cd frontend && npx vitest run src/components/MidiPanel src/components/MidiLearnToggle src/workspaces/operate/MidiMappingWorkspace.test.tsx && node scripts/design-system/check.mjs --paths src/workspaces/operate/MidiMappingWorkspace.tsx,src/workspaces/operate/MidiMappingWorkspace.module.css,src/components/MidiPanel,src/components/MidiLearnToggle --proposal design-system/exception-proposals/operator-midi.json && cd .. && git diff --exit-code -- internal/deskmidi`
+- `13-28-01` W7 — `cd frontend && npx vitest run src/components/MidiPanel src/components/MidiLearnToggle src/workspaces/operate/MidiMappingWorkspace.test.tsx && node scripts/design-system/check.mjs --paths src/workspaces/operate/MidiMappingWorkspace.tsx,src/workspaces/operate/MidiMappingWorkspace.module.css,src/components/MidiPanel,src/components/MidiLearnToggle --proposal design-system/exception-proposals/operator-midi.json`
 - `13-29-01` W7 — `cd frontend && npx vitest run src/components/HotkeySettings src/components/KeyboardShortcuts src/workspaces/ComingSoon.test.tsx && node scripts/design-system/check.mjs --paths src/components/HotkeySettings,src/components/KeyboardShortcuts,src/workspaces/workspace.module.css,src/workspaces/ComingSoon.tsx,src/workspaces/ComingSoon.module.css --proposal design-system/exception-proposals/shell-overlays.json`
 
 ### Waves 8–17
@@ -92,7 +94,7 @@ The validator parses every `13-NN-PLAN.md`, derives task position, decodes XML e
 - `13-33-01` W9 — `cd frontend && npx playwright test e2e/design-system.visual-authoring.spec.ts --grep "Scenes & Looks" --project=chromium --workers=1`
 - `13-33-02` W9 — `cd frontend && npx playwright test e2e/design-system.visual-authoring.spec.ts --grep "Fixture Library / Patch & Pools" --project=chromium --workers=1`
 - `13-33-03` W9 — `cd frontend && npx playwright test e2e/design-system.visual-authoring.spec.ts --grep "Guided First Show" --project=chromium --workers=1`
-- `13-34-01` W9 — `cd frontend && npx playwright test e2e/design-system.visual-live-editors.spec.ts --grep "Desk / Operator Surface" --project=chromium --workers=1 && cd .. && git diff --exit-code -- internal/deskmidi`
+- `13-34-01` W9 — `cd frontend && npx playwright test e2e/design-system.visual-live-editors.spec.ts --grep "Desk / Operator Surface" --project=chromium --workers=1`
 - `13-34-02` W9 — `cd frontend && npx playwright test e2e/design-system.visual-live-editors.spec.ts --grep "MIDI Mapping" --project=chromium --workers=1`
 - `13-34-03` W9 — `cd frontend && npx playwright test e2e/design-system.visual-live-editors.spec.ts --grep "Scripts / Notes" --project=chromium --workers=1`
 - `13-18-01` W10 — `go test ./internal/command -run DesignSystem -count=1`
@@ -106,7 +108,7 @@ The validator parses every `13-NN-PLAN.md`, derives task position, decodes XML e
 - `13-36-01` W14 — `cd frontend && npx vitest run src/design-system && node scripts/design-system/check.mjs --rule DS007`
 - `13-20-01` W11 — `cd frontend && npx vitest run scripts/design-system/validate-phase13-evidence.test.ts`
 - `13-20-02` W11 — `cd frontend && npx vitest run scripts/design-system/validate-phase13-evidence.test.ts --testNamePattern="mutation|false sign-off|semantic"`
-- `13-38-01` W16 — `cd frontend && npm run build && npm test && npm run test:e2e && npm run test:e2e:design-system && cd .. && mage GenerateCheck && mage CheckOffline && mage Build && mage TestQuick && git diff --exit-code -- internal/deskmidi && git diff --cached --quiet -- site && cd frontend && npm run validate:phase13-evidence -- --evidence ../.planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/phase-acceptance.json`
+- `13-38-01` W16 — `cd frontend && npm run build && npm test && npm run test:e2e && npm run test:e2e:design-system && cd .. && mage GenerateCheck && mage CheckOffline && mage Build && mage TestQuick && git diff --cached --quiet -- site && cd frontend && npm run validate:phase13-evidence -- --evidence ../.planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/phase-acceptance.json`
 - `13-39-01` W17 — `cd frontend && npm run validate:phase13-evidence && cd .. && node C:/Users/Lawrence/.codex/gsd-core/bin/gsd-tools.cjs query verify.plan-structure .planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-39-PLAN.md && git diff --check -- .planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-VALIDATION.md`
 
 ## Four Separately Named UI Backstops
@@ -195,7 +197,7 @@ Deferred ideas: none. No source item is missing.
 
 ## Sign-Off Gate
 
-- [ ] All 71 tasks and automated commands match PLAN-derived normalized strings/hashes and the authority checkpoint has an explicit outcome.
+- [ ] All 73 tasks and automated commands match PLAN-derived normalized strings/hashes and the authority checkpoint has an explicit outcome.
 - [ ] All D-01 through D-14 and UI-SPEC contracts are covered.
 - [ ] Every Wave 0 artifact exists and passes semantic validation.
 - [ ] Packaged WebView2 proof matches its executable build hash.
@@ -205,7 +207,7 @@ Deferred ideas: none. No source item is missing.
 - [ ] Final exception authority contains no broad, spacing, safety, stale, zero-match, or multi-match record.
 - [ ] ConfirmModal directory/import/export/inventory/docs/aliases/compatibility are absent.
 - [ ] Required Windows run matches the approved SHA and all downloaded artifacts pass schema/hash/build checks.
-- [ ] Complete local acceptance passes at the same SHA while `internal/deskmidi/` and unrelated `site` work remain untouched.
+- [ ] Complete local acceptance passes at the same SHA while executor work remains inside declared ownership and unrelated `site` work remains untouched.
 - [ ] `wave_0_complete: true`, `nyquist_compliant: true`, and approval are set only after `validate:phase13-evidence` passes.
 
 **Approval:** pending
