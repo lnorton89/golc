@@ -16,13 +16,13 @@ This phase turns GOLC's existing Paper/Ink visual direction, token seed, and sma
 ### Visual Direction and Scope
 - **D-01:** Preserve the approved GOLC Paper/Ink console language and existing theme choices. This is a unification phase, not a rebrand.
 - **D-02:** Migrate every currently reachable desktop workspace, shell surface, dialog, editor-adjacent control, and reusable component in this phase. Do not leave a permanent split between "new-system" and legacy UI.
-- **D-03:** Keep the dense, instrument-like desktop character: compact operational controls, bounded scroll regions, restrained motion, visible focus, and persistent operator safety controls.
+- **D-03:** Keep the dense, instrument-like desktop character: compact operational controls, bounded scroll regions, restrained motion, visible focus, and persistent operator safety controls. Phase 13 standardizes spacing on the 4px grid; it supersedes Phase 9 D-11's inherited 7px Guided First Show grid gap with 8px. The 210px rail width remains a sizing value, not a spacing token.
 
 ### Token and Component Contract
 - **D-04:** Components consume semantic design tokens for surfaces, text, borders, actions, statuses, typography, spacing, radii, sizing, focus, and motion. Raw palette values remain confined to the theme/token definitions.
 - **D-05:** Shared visual behavior belongs in typed React primitives and patterns. Feature CSS Modules may own feature layout and exceptional domain visualization, but may not reinvent common buttons, fields, panels, dialogs, rows, badges, tabs, toolbars, empty/loading/error states, or focus behavior.
 - **D-06:** Theme variants must implement the same semantic contract. Feature code cannot branch on a theme name or read theme-specific palette values directly.
-- **D-07:** Any necessary exception is declared in a small audited exception manifest with file, rule, rationale, and review condition. Inline suppression without a recorded exception is not allowed.
+- **D-07:** Any necessary exception is declared in a small audited exception manifest with file, rule, rationale, and review condition. Inline suppression without a recorded exception is not allowed, and exceptions cannot bypass the 4px spacing grid.
 
 ### Agent Guidance and Enforcement
 - **D-08:** Ship a concise design-system guide with component selection rules, token vocabulary, examples, anti-patterns, and a new-component checklist so coding agents have an authoritative path instead of guessing.

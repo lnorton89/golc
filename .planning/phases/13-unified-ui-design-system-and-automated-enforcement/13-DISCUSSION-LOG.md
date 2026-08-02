@@ -69,7 +69,7 @@
 | No exceptions | Force all domain visuals into generic primitives | |
 
 **User's choice:** Auto-selected an audited exception manifest.
-**Notes:** This preserves intentional locked values such as the approved onboarding grid while keeping drift visible.
+**Notes:** Exceptions preserve genuinely domain-specific values while keeping drift visible; the legacy 7px onboarding gap is deliberately normalized to 8px under this phase's full-app migration.
 
 ---
 
