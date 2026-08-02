@@ -56,6 +56,35 @@
   padding: var(--space-xs) var(--space-sm);
 }
 
+.groupToggle {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: var(--space-xs);
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+}
+
+.groupChevron {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.groupToggle:hover .groupLabel,
+.groupToggle:hover .groupChevron {
+  color: var(--text);
+}
+
+.groupToggle:focus-visible {
+  outline: 2px solid var(--accent-5);
+  outline-offset: 2px;
+}
+
 .groupLabel {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: var(--text-2xs);
@@ -63,6 +92,13 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
+  transition: color var(--motion-tap);
+}
+
+.groupItems {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .item {
