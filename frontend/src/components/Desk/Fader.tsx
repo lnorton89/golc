@@ -7,10 +7,16 @@
 // design-system component. value is always the raw 0-255 DMX byte the
 // parent already resolved (either the live polled value or a locally
 // tracked override) -- Fader itself never normalizes or interprets it.
-import { X } from "lucide-react";
+import { Radio, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import styles from "./Desk.module.css";
+
+/** MidiLearnStatus mirrors MidiLearn.tsx's own status machine
+ * (idle|listening|conflict|timeout|error) -- "idle" never reaches Fader
+ * itself (Desk.tsx only ever passes a status while this channel is the one
+ * actively capturing; otherwise midiLearnStatus is left undefined). */
+export type MidiLearnStatus = "listening" | "conflict" | "timeout" | "error";
 
 /** MAJOR_SCALE_TICKS are the numbered quarter/half/full reference points a
  * detailed fader's value scale shows next to its track -- a plain
@@ -95,6 +101,25 @@ interface FaderProps {
   touched: boolean;
   onChange: (value: number) => void;
   onClear: () => void;
+  /** midiMapped, when true, shows the always-visible "this channel is
+   * MIDI-mapped" corner badge (outside learn mode too) -- Desk.tsx derives
+   * this from whether ListDeskMappings has an entry for this channel's own
+   * key. */
+  midiMapped?: boolean;
+  /** midiLearnMode mirrors store.ts's global toggle (MidiLearnToggle.tsx)
+   * -- while true, this Fader renders the learn/remap/clear overlay
+   * instead of letting a click reach the native range input. */
+  midiLearnMode?: boolean;
+  /** midiLearnStatus is only ever set while THIS channel is the one
+   * Desk.tsx is currently capturing (its own single-capture-at-a-time
+   * state, mirroring the backend's own s.learning mutual exclusion) --
+   * undefined for every other fader even while midiLearnMode is true. */
+  midiLearnStatus?: MidiLearnStatus;
+  midiLearnMessage?: string | null;
+  onMidiLearnClick?: () => void;
+  onMidiRemap?: () => void;
+  onMidiClear?: () => void;
+  onMidiCancel?: () => void;
 }
 
 export default function Fader({
@@ -109,6 +134,14 @@ export default function Fader({
   touched,
   onChange,
   onClear,
+  midiMapped,
+  midiLearnMode,
+  midiLearnStatus,
+  midiLearnMessage,
+  onMidiLearnClick,
+  onMidiRemap,
+  onMidiClear,
+  onMidiCancel,
 }: FaderProps) {
   const inputClassName = overridden
     ? styles.faderInputOverridden
@@ -180,6 +213,59 @@ export default function Fader({
       >
         <X size={11} aria-hidden="true" />
       </button>
+      {midiLearnMode ? (
+        <div className={styles.faderLearnOverlay}>
+          {midiLearnStatus === "listening" ? (
+            <>
+              <span className={styles.faderLearnListening} role="status" aria-live="polite">
+                Listening…
+              </span>
+              <button type="button" className={styles.faderLearnActionButton} onClick={onMidiCancel}>
+                Cancel
+              </button>
+            </>
+          ) : midiMapped ? (
+            <div className={styles.faderLearnActions}>
+              <button
+                type="button"
+                className={styles.faderLearnActionButton}
+                onClick={onMidiRemap}
+                aria-label={`Remap MIDI control for ${label}`}
+              >
+                Remap
+              </button>
+              <button
+                type="button"
+                className={`${styles.faderLearnActionButton} ${styles.faderLearnClearButton}`}
+                onClick={onMidiClear}
+                aria-label={`Clear MIDI mapping for ${label}`}
+              >
+                Clear
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className={styles.faderLearnButton}
+              onClick={onMidiLearnClick}
+              aria-label={`Learn MIDI mapping for ${label}`}
+            >
+              Learn
+            </button>
+          )}
+          {midiLearnMessage && (midiLearnStatus === "conflict" || midiLearnStatus === "timeout" || midiLearnStatus === "error") && (
+            <p className={styles.faderLearnMessage} role="alert">
+              {midiLearnMessage}
+            </p>
+          )}
+        </div>
+      ) : (
+        midiMapped && (
+          <span className={styles.faderLearnBadge} title={`${label} is MIDI-mapped`} aria-hidden="true">
+            <Radio size={9} />
+          </span>
+        )
+      )}
     </div>
   );
 }

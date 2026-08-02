@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 
 	"github.com/lnorton89/golc/internal/deployment"
+	"github.com/lnorton89/golc/internal/deskmidi"
 	"github.com/lnorton89/golc/internal/operatorsurface"
 	"github.com/lnorton89/golc/internal/pool"
 	"github.com/lnorton89/golc/internal/programming"
@@ -33,7 +34,10 @@ import (
 // decodes cleanly into a nil/empty Scripts slice -- purely additive,
 // backward-compatible, no migration transform required. The Notes field
 // (notes.go) is added the same additive way for the same reason: also
-// optional/omitempty, no migration transform required.
+// optional/omitempty, no migration transform required. The DeskMidiMappings
+// field (internal/deskmidi) is added the same additive way too: a
+// show-global set of direct fader<->MIDI mappings, independent of
+// OperatorSurfaces' own per-surface mapping sets.
 const SchemaVersion = 2
 
 // State is the ShowState container: a working, JSON-persisted document
@@ -59,6 +63,7 @@ type State struct {
 	OperatorSurfaces []operatorsurface.Surface    `json:"operator_surfaces,omitempty"`
 	Scripts          []Script                     `json:"scripts,omitempty"`
 	Notes            []Note                       `json:"notes,omitempty"`
+	DeskMidiMappings []deskmidi.Mapping           `json:"desk_midi_mappings,omitempty"`
 }
 
 // Tempo is the show-wide musical tempo (SCEN-02/SCEN-03): a single BPM
@@ -112,8 +117,11 @@ func resolvePath(root, path string) string {
 // (PROG-06, D-04), are re-checked here too. Every operator surface's
 // unique name and every SceneRef/LayerRef/GroupMaster ref resolving to an
 // existing scene/layer-slot/group (PLAY-03, CONTEXT threat T-06-02) is
-// checked last -- the single validate() entry point every new object type
-// extends rather than a parallel path.
+// checked next, followed by Scripts/Notes' own name/title-uniqueness
+// checks, and finally every DeskMidiMapping's (channel, kind, number)
+// uniqueness and patch-instance referential integrity (internal/deskmidi)
+// -- the single validate() entry point every new object type extends
+// rather than a parallel path.
 func validate(s State) error {
 	for _, p := range s.Pools {
 		if err := pool.Validate(p); err != nil {
@@ -213,6 +221,9 @@ func validate(s State) error {
 		}
 	}
 	if err := ValidateNoteUniqueTitles(s.Notes); err != nil {
+		return err
+	}
+	if err := deskmidi.Validate(s.DeskMidiMappings, s.Deployments); err != nil {
 		return err
 	}
 	return nil

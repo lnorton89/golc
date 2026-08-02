@@ -505,6 +505,9 @@
 /* Fader primitive */
 
 .fader {
+  /* position:relative anchors .faderLearnOverlay/.faderLearnBadge below --
+     both are position:absolute against this element's own box. */
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -904,4 +907,108 @@
 .faderClearButton[aria-disabled="true"] {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+/* MIDI Learn (global toggle, MidiLearnToggle.tsx / store.ts midiLearnMode)
+   -- .faderLearnOverlay covers the whole fader card while learn mode is on,
+   intercepting the click that would otherwise reach .faderInput (dragging a
+   fader mid-learn-mode would be a confusing double meaning for the same
+   gesture). Sits above every other child of .fader via z-index; .fader
+   itself is already position:relative (see above) so this anchors to the
+   card's own box, not the page. */
+.faderLearnOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent-5) 16%, var(--page) 84%);
+  border: 1px dashed var(--accent-5);
+  text-align: center;
+}
+
+.faderLearnButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 6px;
+  border: 1px solid var(--accent-5);
+  border-radius: 3px;
+  background: var(--accent-5);
+  color: var(--page);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.faderLearnActions {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+}
+
+.faderLearnActionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 4px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--page);
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.faderLearnActionButton:hover {
+  border-color: var(--accent-5);
+  color: var(--accent-5);
+}
+
+.faderLearnClearButton:hover {
+  border-color: var(--status-blackout, #b91c1c);
+  color: var(--status-blackout, #b91c1c);
+}
+
+.faderLearnListening {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+.faderLearnMessage {
+  font-size: 9px;
+  line-height: 1.3;
+  color: var(--status-blackout, #b91c1c);
+  word-break: break-word;
+}
+
+/* .faderLearnBadge is the always-visible "this channel is MIDI-mapped"
+   indicator (outside learn mode, when this Fader has a mapping) -- small,
+   corner-anchored, pointer-events:none so it never intercepts the normal
+   fader drag it sits on top of. */
+.faderLearnBadge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-5);
+  color: var(--page);
+  pointer-events: none;
 }

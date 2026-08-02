@@ -44,6 +44,7 @@ import (
 
 	"github.com/lnorton89/golc/internal/artnet/ipc"
 	"github.com/lnorton89/golc/internal/command"
+	"github.com/lnorton89/golc/internal/deskmidi"
 	"github.com/lnorton89/golc/internal/midi"
 	"github.com/lnorton89/golc/internal/operatorsurface"
 	"github.com/lnorton89/golc/internal/pool"
@@ -80,8 +81,14 @@ type learnSession struct {
 // on-screen slider even while not armed), AppValue is the fixed ghost/
 // target marker while unarmed or the tracked controlling value once armed
 // (D-10), and Armed reports whether the crossing has occurred (D-11) --
-// always true for a Note/button mapping (D-12: no arming delay).
+// always true for a Note/button mapping (D-12: no arming delay). Scope
+// distinguishes which independent mapping system produced this feedback
+// ("surface" for an operatorsurface.MidiMapping, SurfaceName populated; or
+// "desk" for a deskmidi.Mapping, SurfaceName always "") -- MidiPanel.tsx and
+// Desk.tsx each subscribe to the same "midi:feedback" push and filter by
+// Scope rather than needing two separate event names.
 type MidiFeedback struct {
+	Scope       string  `json:"scope"`
 	SurfaceName string  `json:"surfaceName"`
 	MappingID   string  `json:"mappingId"`
 	Kind        string  `json:"kind"`
@@ -110,6 +117,19 @@ type MidiService struct {
 	activeSurface  string
 	activeMappings []operatorsurface.MidiMapping
 	takeovers      map[string]*midi.TakeoverState
+
+	// deskMappings/deskMappingsLoaded cache show.State.DeskMidiMappings for
+	// dispatchToDeskMappings -- unlike activeMappings, this cache is never
+	// gated by an "active surface" style selection: desk mappings dispatch
+	// unconditionally the moment a driver is attached (StartDeskLearn/
+	// RemoveDeskMapping bypass Operator Surfaces entirely, see
+	// internal/deskmidi's own doc comment). Populated eagerly by
+	// AttachDriver and refreshed after every successful mutation;
+	// ensureDeskMappingsLoaded is a defensive lazy-load fallback in case
+	// that initial load raced with a StartDeskLearn call or failed
+	// transiently.
+	deskMappings       []deskmidi.Mapping
+	deskMappingsLoaded bool
 }
 
 // NewMidiService constructs a MidiService targeting pipeName (reserved for
@@ -158,6 +178,7 @@ func (s *MidiService) AttachDriver(d *midi.Driver) error {
 	s.mu.Lock()
 	s.driver = d
 	s.mu.Unlock()
+	s.ensureDeskMappingsLoaded()
 	go s.dispatchLoop(events)
 	return nil
 }
@@ -186,9 +207,15 @@ func (s *MidiService) dispatchLoop(events <-chan midi.Event) {
 // route forwards evt to an in-progress learn session's capture channel
 // (non-blocking -- a session only ever consumes its first match, per
 // midi.CaptureCandidate's own single-receive contract) if one is active,
-// or otherwise arbitrates it against the active surface's mappings.
-// Routing to a learn session takes priority: while capturing, incoming
-// messages are never simultaneously treated as live playback input.
+// or otherwise arbitrates it against BOTH independent mapping systems: the
+// active operator surface's mappings and the show-global desk mappings
+// (internal/deskmidi). These two systems have independent (channel, kind,
+// number) conflict namespaces (StartLearn only checks the target surface's
+// own set; StartDeskLearn only checks DeskMidiMappings), so a single
+// physical control can in principle be learned into both at once -- an
+// accepted v1 edge case, not cross-checked here. Routing to a learn session
+// takes priority: while capturing, incoming messages are never
+// simultaneously treated as live playback input.
 func (s *MidiService) route(evt midi.Event) {
 	s.mu.Lock()
 	session := s.learning
@@ -203,6 +230,7 @@ func (s *MidiService) route(evt midi.Event) {
 	}
 
 	s.dispatchToActiveSurface(evt)
+	s.dispatchToDeskMappings(evt)
 }
 
 // dispatchToActiveSurface matches evt against the active surface's cached
@@ -248,7 +276,66 @@ func (s *MidiService) dispatchToActiveSurface(evt midi.Event) {
 	}
 
 	s.dispatchMapping(mapping, armed, edge, controlValue, evt.Value)
-	s.emitMidiFeedback(surfaceName, mapping, armed, controlValue, evt.Value)
+	s.emitMidiFeedback("surface", surfaceName, mapping.ID.String(), string(mapping.Kind), armed, controlValue, evt.Value)
+}
+
+// dispatchToDeskMappings matches evt against the cached desk mapping set
+// (deskMappings, refreshed by StartDeskLearn/RemoveDeskMapping/
+// ensureDeskMappingsLoaded) -- independent of any operator surface
+// selection, always live once a driver is attached. A desk mapping always
+// behaves like a continuous "master" control (dispatchMapping's own
+// ControlMaster case): a ControlChange runs cross-to-catch soft takeover
+// (D-09..D-11) and dispatches "artnet desk set" on every armed message; a
+// Note dispatches the full/zero level on every press/release (D-12, no
+// arming delay -- mirrors dispatchMasterSet's Note handling). Dispatch
+// dials the daemon directly via dialFn (mirrors dispatchMasterSet/
+// dispatchSafetyTrigger's own "bypass the CLI route's text-argument
+// validation layer" rationale -- controlValue here is already a typed,
+// validated float from the takeover state machine, never raw user text),
+// rather than going through s.execute()'s command-registry/CLI-arg-parse
+// round trip DeskService.SetAttribute itself uses for a UI-driven drag. A
+// message matching no desk mapping is silently dropped, same as
+// dispatchToActiveSurface's identical convention.
+func (s *MidiService) dispatchToDeskMappings(evt midi.Event) {
+	s.ensureDeskMappingsLoaded()
+
+	s.mu.Lock()
+	mappings := s.deskMappings
+	s.mu.Unlock()
+
+	mapping, found := findDeskMapping(mappings, evt.Key)
+	if !found {
+		return
+	}
+
+	var armed bool
+	var controlValue float64
+
+	if mapping.Kind == deskmidi.Note {
+		armed = true
+		if evt.Value > 0 {
+			controlValue = 1
+		} else {
+			controlValue = 0
+		}
+	} else {
+		state := s.takeoverStateFor(mapping.ID)
+		armed, controlValue = state.Update(evt.Value)
+	}
+
+	s.emitMidiFeedback("desk", "", mapping.ID.String(), string(mapping.Kind), armed, controlValue, evt.Value)
+
+	if !armed {
+		return
+	}
+	rawLevel := strconv.FormatFloat(controlValue, 'f', -1, 64)
+	result := s.dialFn()(s.pipeName, ipc.Request{
+		Route: "artnet desk set",
+		Args:  []string{"--instance", mapping.InstanceID, "--attr", mapping.Capability + "=" + rawLevel, "--source", "manual"},
+	})
+	if result.ExitCode != 0 {
+		log.Printf("GOLC_WAILS_MIDI_DESK_DISPATCH_FAILED: instance=%s capability=%s: %s", mapping.InstanceID, mapping.Capability, result.Stderr)
+	}
 }
 
 // dispatchMapping executes the command implied by mapping's Target once
@@ -533,12 +620,15 @@ func (s *MidiService) takeoverStateFor(mappingID uuid.UUID) *midi.TakeoverState 
 }
 
 // emitMidiFeedback stages a MidiFeedback snapshot for the next throttled
-// "midi:feedback" push (events.go).
-func (s *MidiService) emitMidiFeedback(surfaceName string, mapping operatorsurface.MidiMapping, armed bool, appValue, physical float64) {
+// "midi:feedback" push (events.go). scope is "surface" or "desk"
+// (MidiFeedback.Scope's own doc comment); surfaceName is always "" for a
+// "desk" scope push.
+func (s *MidiService) emitMidiFeedback(scope, surfaceName, mappingID, kind string, armed bool, appValue, physical float64) {
 	s.events.QueueMidiFeedback(MidiFeedback{
+		Scope:       scope,
 		SurfaceName: surfaceName,
-		MappingID:   mapping.ID.String(),
-		Kind:        string(mapping.Kind),
+		MappingID:   mappingID,
+		Kind:        kind,
 		Armed:       armed,
 		AppValue:    appValue,
 		Physical:    physical,
@@ -722,6 +812,91 @@ func (s *MidiService) CancelLearn() Result {
 	return Result{Stdout: "GOLC_MIDI_LEARN_CANCELLED\n"}
 }
 
+// StartDeskLearn opens a bounded capture window (mirrors StartLearn's
+// learnCaptureTimeout/learnSession/CaptureCandidate skeleton exactly) for a
+// Desk fader identified by instanceID/capability -- unlike StartLearn, this
+// never touches Operator Surfaces at all: no command.Authorize call, no
+// surface lookup, no per-surface assignment requirement (internal/deskmidi's
+// own doc comment). The candidate is conflict-checked against
+// state.DeskMidiMappings only (deskmidi.AddMapping, its own independent
+// namespace from any surface's mappings) and, on success, persisted via the
+// identical Load -> mutate -> Save discipline every other mutator in this
+// file follows, then refreshes s.deskMappings so live dispatch reflects it
+// immediately. CancelLearn (shared with StartLearn) aborts an in-progress
+// call the same way.
+func (s *MidiService) StartDeskLearn(instanceID, capability string) Result {
+	s.mu.Lock()
+	if s.driver == nil {
+		s.mu.Unlock()
+		return Result{ExitCode: 1, Stderr: "GOLC_MIDI_DRIVER_UNAVAILABLE: no MIDI input device is attached\n"}
+	}
+	if s.learning != nil {
+		s.mu.Unlock()
+		return Result{ExitCode: 1, Stderr: "GOLC_MIDI_LEARN_ALREADY_ACTIVE: a learn capture session is already in progress\n"}
+	}
+	s.mu.Unlock()
+
+	if strings.TrimSpace(instanceID) == "" || strings.TrimSpace(capability) == "" {
+		return Result{ExitCode: 2, Stderr: "GOLC_DESKMIDI_TARGET_INVALID: instance id and capability are required\n"}
+	}
+
+	session := &learnSession{next: make(chan midi.ControlKey, 1), cancel: make(chan struct{})}
+	s.mu.Lock()
+	s.learning = session
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		if s.learning == session {
+			s.learning = nil
+		}
+		s.mu.Unlock()
+	}()
+
+	timer := time.NewTimer(learnCaptureTimeout)
+	defer timer.Stop()
+	combinedTimeout := make(chan struct{})
+	stopCombine := make(chan struct{})
+	defer close(stopCombine)
+	go func() {
+		select {
+		case <-timer.C:
+			close(combinedTimeout)
+		case <-session.cancel:
+			close(combinedTimeout)
+		case <-stopCombine:
+		}
+	}()
+
+	key, err := midi.CaptureCandidate(session.next, combinedTimeout)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: err.Error() + "\n"}
+	}
+
+	state, err := show.Load(s.root, s.showPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: err.Error()}
+	}
+
+	updated, err := deskmidi.AddMapping(state.DeskMidiMappings, deskmidi.Mapping{
+		Channel:    key.Channel,
+		Kind:       toDeskMidiKind(key.Kind),
+		Number:     key.Number,
+		InstanceID: instanceID,
+		Capability: capability,
+	})
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: err.Error() + "\n"}
+	}
+
+	state.DeskMidiMappings = updated
+	if err := show.Save(s.root, s.showPath, state); err != nil {
+		return Result{ExitCode: 1, Stderr: err.Error()}
+	}
+	s.refreshDeskMappings(state)
+
+	return Result{Stdout: fmt.Sprintf("GOLC_DESKMIDI_LEARNED: channel=%d kind=%s number=%d\n", key.Channel, key.Kind, key.Number)}
+}
+
 // RemoveMapping deletes the mapping identified by mappingID from
 // surfaceName (the frontend's own "Remove Mapping" confirm copy gates the
 // call). Removing an unknown ID is an idempotent no-op
@@ -753,6 +928,35 @@ func (s *MidiService) RemoveMapping(surfaceName, mappingID string) Result {
 	s.mu.Unlock()
 
 	return Result{Stdout: fmt.Sprintf("GOLC_MIDI_MAPPING_REMOVED: %s\n", mappingID)}
+}
+
+// RemoveDeskMapping deletes the desk mapping identified by mappingID
+// (Desk.tsx's/MidiPanel.tsx's own "Remove"/"Clear" confirm copy gates the
+// call, mirroring RemoveMapping's identical convention). Removing an
+// unknown ID is an idempotent no-op (deskmidi.RemoveMapping's own
+// discipline).
+func (s *MidiService) RemoveDeskMapping(mappingID string) Result {
+	id, err := uuid.Parse(mappingID)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: fmt.Sprintf("GOLC_DESKMIDI_MAPPING_ID_INVALID: %q is not a valid mapping id\n", mappingID)}
+	}
+
+	state, err := show.Load(s.root, s.showPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: err.Error()}
+	}
+
+	state.DeskMidiMappings = deskmidi.RemoveMapping(state.DeskMidiMappings, id)
+	if err := show.Save(s.root, s.showPath, state); err != nil {
+		return Result{ExitCode: 1, Stderr: err.Error()}
+	}
+	s.refreshDeskMappings(state)
+
+	s.mu.Lock()
+	delete(s.takeovers, id.String())
+	s.mu.Unlock()
+
+	return Result{Stdout: fmt.Sprintf("GOLC_DESKMIDI_MAPPING_REMOVED: %s\n", mappingID)}
 }
 
 // ListMappings returns surfaceName's current MIDI mapping rows (06-UI-SPEC.md
@@ -793,6 +997,71 @@ func (s *MidiService) ListMappings(surfaceName string) ([]MidiMappingView, error
 		})
 	}
 	return views, nil
+}
+
+// DeskMidiMappingView is one show-global desk mapping row, projected for
+// Desk.tsx/MidiPanel.tsx's own "Desk mappings" section. Unlike
+// MidiMappingView, this carries no server-computed Label: InstanceID/
+// Capability are returned verbatim, since the frontend already has the
+// patch+fixture-library label-resolution logic Desk.tsx built (reused
+// rather than duplicated server-side, see PLAN.md item 3).
+type DeskMidiMappingView struct {
+	ID         string `json:"id"`
+	Channel    int    `json:"channel"`
+	Kind       string `json:"kind"`
+	Number     int    `json:"number"`
+	InstanceID string `json:"instanceId"`
+	Capability string `json:"capability"`
+}
+
+// ListDeskMappings returns every current desk mapping for Desk.tsx/
+// MidiPanel.tsx's own fetch-on-mount (and post-learn/remove refresh).
+func (s *MidiService) ListDeskMappings() ([]DeskMidiMappingView, error) {
+	state, err := show.Load(s.root, s.showPath)
+	if err != nil {
+		return nil, err
+	}
+	views := make([]DeskMidiMappingView, 0, len(state.DeskMidiMappings))
+	for _, m := range state.DeskMidiMappings {
+		views = append(views, DeskMidiMappingView{
+			ID:         m.ID.String(),
+			Channel:    m.Channel,
+			Kind:       string(m.Kind),
+			Number:     m.Number,
+			InstanceID: m.InstanceID,
+			Capability: m.Capability,
+		})
+	}
+	return views, nil
+}
+
+// ensureDeskMappingsLoaded lazily loads deskMappings if AttachDriver's own
+// eager load hasn't completed yet (or failed transiently) -- a defensive
+// fallback so dispatchToDeskMappings never dispatches against a stale nil
+// cache just because it ran before AttachDriver's own load finished.
+func (s *MidiService) ensureDeskMappingsLoaded() {
+	s.mu.Lock()
+	loaded := s.deskMappingsLoaded
+	s.mu.Unlock()
+	if loaded {
+		return
+	}
+	state, err := show.Load(s.root, s.showPath)
+	if err != nil {
+		return
+	}
+	s.refreshDeskMappings(state)
+}
+
+// refreshDeskMappings re-caches deskMappings from a just-Loaded/Saved
+// state -- StartDeskLearn/RemoveDeskMapping call this after a successful
+// mutation so live dispatch immediately reflects the change, mirroring
+// refreshActiveSurfaceMappings' identical role for the surface system.
+func (s *MidiService) refreshDeskMappings(state show.State) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.deskMappings = append([]deskmidi.Mapping(nil), state.DeskMidiMappings...)
+	s.deskMappingsLoaded = true
 }
 
 // controlRefInputOf projects an operatorsurface.ControlRef back into the
@@ -909,6 +1178,36 @@ func toOperatorSurfaceKind(k midi.MessageKind) operatorsurface.MidiMessageKind {
 // live midi.MessageKind counterpart.
 func toMidiKind(k operatorsurface.MidiMessageKind) midi.MessageKind {
 	if k == operatorsurface.ControlChange {
+		return midi.ControlChange
+	}
+	return midi.Note
+}
+
+// findDeskMapping returns the mapping in mappings whose (Channel, Kind,
+// Number) tuple matches key -- deskmidi's own counterpart to findMapping.
+func findDeskMapping(mappings []deskmidi.Mapping, key midi.ControlKey) (deskmidi.Mapping, bool) {
+	for _, m := range mappings {
+		if m.Channel == key.Channel && toMidiKindDesk(m.Kind) == key.Kind && m.Number == key.Number {
+			return m, true
+		}
+	}
+	return deskmidi.Mapping{}, false
+}
+
+// toDeskMidiKind converts a live midi.MessageKind into its persisted
+// deskmidi.MidiMessageKind counterpart -- deskmidi's own counterpart to
+// toOperatorSurfaceKind.
+func toDeskMidiKind(k midi.MessageKind) deskmidi.MidiMessageKind {
+	if k == midi.ControlChange {
+		return deskmidi.ControlChange
+	}
+	return deskmidi.Note
+}
+
+// toMidiKindDesk converts a persisted deskmidi.MidiMessageKind into its live
+// midi.MessageKind counterpart -- deskmidi's own counterpart to toMidiKind.
+func toMidiKindDesk(k deskmidi.MidiMessageKind) midi.MessageKind {
+	if k == deskmidi.ControlChange {
 		return midi.ControlChange
 	}
 	return midi.Note

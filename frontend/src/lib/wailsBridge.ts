@@ -96,8 +96,14 @@ interface SurfaceServiceBinding {
  * armed), AppValue is the fixed ghost/target marker while unarmed or the
  * tracked controlling value once armed, and Armed reports whether the
  * cross-to-catch crossing has occurred -- always true for a Note/button
- * mapping (D-12: no arming delay). */
+ * mapping (D-12: no arming delay). scope distinguishes which independent
+ * mapping system produced this feedback: "surface" (an Operator Surface
+ * control, surfaceName populated, consumed by MidiPanel.tsx) or "desk" (a
+ * direct Desk fader mapping, surfaceName always "", consumed by Desk.tsx) --
+ * both push under the same "midi:feedback" event, so each subscriber
+ * filters by scope rather than needing two separate event names. */
 export interface MidiFeedback {
+  scope: "surface" | "desk";
   surfaceName: string;
   mappingId: string;
   kind: string;

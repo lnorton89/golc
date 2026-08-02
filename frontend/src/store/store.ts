@@ -88,6 +88,17 @@ export interface GolcStoreState {
    * a single already-ordered batch. */
   seedAppLog: (events: AppLogView[]) => void;
   clearAppLog: () => void;
+  /** midiLearnMode is the global MIDI Learn toggle's own on/off state
+   * (MidiLearnToggle.tsx, rendered in GlobalFrame.tsx next to
+   * SafetyCluster) -- a deliberate exception to this store's "cache of
+   * Go-pushed snapshots" rule (see file doc comment above): it is pure
+   * client-side UI state, never pushed by the Go host, needed here only
+   * because the toggle button and Desk.tsx (which reacts to it by
+   * highlighting every fader) sit far apart in the component tree.
+   * Mirrors surfaceListVersion's own precedent of a pragmatic
+   * non-conforming field in this store. */
+  midiLearnMode: boolean;
+  setMidiLearnMode: (active: boolean) => void;
 }
 
 export const useGolcStore = create<GolcStoreState>((set) => ({
@@ -117,4 +128,6 @@ export const useGolcStore = create<GolcStoreState>((set) => ({
       return { appLog: merged.length > maxAppLogEntries ? merged.slice(merged.length - maxAppLogEntries) : merged };
     }),
   clearAppLog: () => set({ appLog: [] }),
+  midiLearnMode: false,
+  setMidiLearnMode: (active) => set({ midiLearnMode: active }),
 }));

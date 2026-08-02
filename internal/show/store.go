@@ -26,6 +26,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/lnorton89/golc/internal/deskmidi"
 	"github.com/lnorton89/golc/internal/scene"
 	"github.com/lnorton89/golc/internal/strictjson"
 )
@@ -286,6 +287,11 @@ func Save(root, path string, s State) (err error) {
 	// much later, at playback-resolution time, with
 	// GOLC_SELECTION_DANGLING_REFERENCE.
 	s.Scenes = scene.ScrubDanglingSelections(s.Scenes, s.Pools, s.Groups, s.Deployments)
+	// Mirrors the scene-selection scrub immediately above, for the same
+	// reason: a deployment/instance delete could otherwise silently persist
+	// a DeskMidiMapping whose InstanceID no longer resolves to anything,
+	// permanently failing deskmidi.Validate on every subsequent Save.
+	s.DeskMidiMappings = deskmidi.ScrubDangling(s.DeskMidiMappings, s.Deployments)
 
 	if err := validate(s); err != nil {
 		return fmt.Errorf("GOLC_SHOW_STATE_INVALID: %v", err)

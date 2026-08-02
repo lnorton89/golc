@@ -13,7 +13,10 @@
 // stacked chrome rows. D-13's "visible and interactive on every
 // workspace, independent of daemon reachability" contract is unaffected:
 // SafetyCluster still mounts unconditionally, just at a new screen
-// position within the same always-mounted header.
+// position within the same always-mounted header. MidiLearnToggle sits
+// immediately after it: the global MIDI Learn on/off switch, visually
+// grouped with the safety cluster but a plain reversible toggle rather
+// than a hold-to-confirm control.
 //
 // AppLogStream mounts here for the identical reason LiveStatusBar does: it
 // is the store's sole writer of the `appLog` slice, and most "app:log"
@@ -23,6 +26,7 @@
 import LiveStatusBar from "../components/LiveStatusBar/LiveStatusBar";
 import TempoControls from "../components/TempoControls/TempoControls";
 import SafetyCluster from "../components/SafetyCluster/SafetyCluster";
+import MidiLearnToggle from "../components/MidiLearnToggle/MidiLearnToggle";
 import AppLogStream from "./AppLogStream";
 import styles from "./GlobalFrame.module.css";
 
@@ -36,6 +40,7 @@ export default function GlobalFrame() {
       <TempoControls />
       <div className={styles.safetyDivider} aria-hidden="true" />
       <SafetyCluster />
+      <MidiLearnToggle />
     </header>
   );
 }
