@@ -106,6 +106,7 @@ None yet.
 | 260729-j3o | Add the Desktop Views page beneath a Docs dropdown in the primary site navigation, with responsive and accessible behavior | 2026-07-29 | ac2b570e | Complete | [260729-j3o-add-the-desktop-views-page-beneath-a-doc](./quick/260729-j3o-add-the-desktop-views-page-beneath-a-doc/) |
 | 260729-luj | Regenerate the complete Desktop Views screenshot documentation from the current GUI source, add a maintainable site-local npm regeneration command, visually verify all generated images, commit and push in submodule order, explicitly deploy to Netlify, and verify production | 2026-07-29 | 1a000325 | Verified | [260729-luj-regenerate-the-complete-desktop-views-sc](./quick/260729-luj-regenerate-the-complete-desktop-views-sc/) |
 | 260729-nfn | Separate the Desktop Views screenshot stage from the selected-view detail in light and dark themes, preserve responsive and lightbox behavior, and deploy production | 2026-07-29 | 8566feb7 | Needs Review | [260729-nfn-make-the-desktop-views-screenshot-stage-](./quick/260729-nfn-make-the-desktop-views-screenshot-stage-/) |
+| 260801-qrz | Add an aggressive Playwright window-resize responsiveness suite via a shared e2e harness; fixed a genuine input box-sizing overflow bug; documented a sub-900px shell-wide overflow gap as out of scope | 2026-08-02 | 40235f5a | Complete | [260801-qrz-aggressive-playwright-resize-testing](./quick/260801-qrz-aggressive-playwright-resize-testing/) |
 
 ## Deferred Items
 
