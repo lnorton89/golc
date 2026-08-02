@@ -31,7 +31,9 @@ import (
 // further: Scripts is also optional/omitempty, so an existing show saved
 // by an older build (with no "scripts" key in its blob at all) still
 // decodes cleanly into a nil/empty Scripts slice -- purely additive,
-// backward-compatible, no migration transform required.
+// backward-compatible, no migration transform required. The Notes field
+// (notes.go) is added the same additive way for the same reason: also
+// optional/omitempty, no migration transform required.
 const SchemaVersion = 2
 
 // State is the ShowState container: a working, JSON-persisted document
@@ -56,6 +58,7 @@ type State struct {
 	Tempo            Tempo                        `json:"tempo"`
 	OperatorSurfaces []operatorsurface.Surface    `json:"operator_surfaces,omitempty"`
 	Scripts          []Script                     `json:"scripts,omitempty"`
+	Notes            []Note                       `json:"notes,omitempty"`
 }
 
 // Tempo is the show-wide musical tempo (SCEN-02/SCEN-03): a single BPM
@@ -202,6 +205,14 @@ func validate(s State) error {
 		}
 	}
 	if err := ValidateScriptUniqueNames(s.Scripts); err != nil {
+		return err
+	}
+	for _, n := range s.Notes {
+		if err := ValidateNote(n); err != nil {
+			return err
+		}
+	}
+	if err := ValidateNoteUniqueTitles(s.Notes); err != nil {
 		return err
 	}
 	return nil

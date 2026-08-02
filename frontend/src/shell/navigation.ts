@@ -11,6 +11,7 @@ export type DestinationId =
   | "show-shows"
   | "show-save-recovery"
   | "show-settings"
+  | "show-notes"
   | "build-fixture-library"
   | "build-patch-pools"
   | "build-project-fixtures"

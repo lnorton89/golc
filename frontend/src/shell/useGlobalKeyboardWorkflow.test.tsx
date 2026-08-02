@@ -136,7 +136,7 @@ describe("useGlobalKeyboardWorkflow", () => {
     expect(screen.getByTestId("active-destination")).toHaveTextContent("show-overview");
 
     fireEvent.keyDown(window, { key: "ArrowUp", altKey: true });
-    expect(screen.getByTestId("active-destination")).toHaveTextContent("show-settings");
+    expect(screen.getByTestId("active-destination")).toHaveTextContent("show-notes");
   });
 
   it("jumps to the next nav group's first destination on Ctrl+Alt+ArrowDown", () => {

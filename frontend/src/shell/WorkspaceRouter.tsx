@@ -10,6 +10,7 @@ import OverviewWorkspace from "../workspaces/show/OverviewWorkspace";
 import ShowsWorkspace from "../workspaces/show/ShowsWorkspace";
 import SaveRecoveryWorkspace from "../workspaces/show/SaveRecoveryWorkspace";
 import SettingsWorkspace from "../workspaces/show/SettingsWorkspace";
+import NotesWorkspace from "../workspaces/show/NotesWorkspace";
 import FixtureLibraryWorkspace from "../workspaces/build/FixtureLibraryWorkspace";
 import PatchPoolsWorkspace from "../workspaces/build/PatchPoolsWorkspace";
 import ProjectFixturesWorkspace from "../workspaces/build/ProjectFixturesWorkspace";
@@ -35,6 +36,8 @@ export default function WorkspaceRouter({ active }: WorkspaceRouterProps) {
       return <SaveRecoveryWorkspace />;
     case "show-settings":
       return <SettingsWorkspace />;
+    case "show-notes":
+      return <NotesWorkspace />;
     case "build-fixture-library":
       return <FixtureLibraryWorkspace />;
     case "build-patch-pools":

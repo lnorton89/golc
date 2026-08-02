@@ -1,0 +1,207 @@
+.editor {
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.toolbar {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+
+.toolbarButton {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--motion-tap), border-color var(--motion-tap), color var(--motion-tap);
+}
+
+.toolbarButton:hover:not(:disabled) {
+  border-color: var(--line);
+}
+
+.toolbarButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.toolbarButton.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--page);
+}
+
+.toolbarButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.toolbarDivider {
+  width: 1px;
+  height: 20px;
+  margin: 0 var(--space-xs);
+  background: var(--line);
+}
+
+.linkPrompt {
+  box-sizing: border-box;
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.linkInput {
+  box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+}
+
+.linkApply {
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--page);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.surface {
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+
+.statusText {
+  margin: 0;
+  color: var(--muted);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-sm);
+}
+
+/* .prose is applied to Tiptap's own contenteditable root (editorProps.
+   attributes.class) -- every rule below targets plain elements Tiptap
+   itself renders (h1/ul/li[data-type=taskItem]/blockquote/pre/code/a),
+   never a CSS Modules class, since Tiptap controls that markup directly. */
+.prose {
+  box-sizing: border-box;
+  min-height: 240px;
+  padding: var(--space-md);
+  color: var(--ink);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-base);
+  line-height: 1.6;
+  outline: none;
+}
+
+.prose p {
+  margin: 0 0 var(--space-sm);
+}
+
+.prose h1,
+.prose h2,
+.prose h3 {
+  margin: var(--space-md) 0 var(--space-sm);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.prose h1 {
+  font-size: var(--text-xl);
+}
+
+.prose h2 {
+  font-size: var(--text-lg);
+}
+
+.prose h3 {
+  font-size: var(--text-base);
+}
+
+.prose ul,
+.prose ol {
+  margin: 0 0 var(--space-sm);
+  padding-left: 1.5em;
+}
+
+.prose ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.prose ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xs);
+}
+
+.prose ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  margin-top: 0.2em;
+}
+
+.prose blockquote {
+  margin: 0 0 var(--space-sm);
+  padding-left: var(--space-md);
+  border-left: 3px solid var(--line);
+  color: var(--muted);
+}
+
+.prose code {
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-sm);
+  background: var(--page);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.9em;
+}
+
+.prose pre {
+  margin: 0 0 var(--space-sm);
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--page);
+  overflow-x: auto;
+}
+
+.prose pre code {
+  padding: 0;
+  background: none;
+}
+
+.prose a {
+  color: var(--accent);
+}
