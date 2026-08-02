@@ -40,12 +40,12 @@
   user-select: none;
   touch-action: none;
   -webkit-user-select: none;
-  box-shadow: 0 0 0 0 var(--control-color, var(--accent));
+  box-shadow: 0 0 0 0 var(--control-color, var(--accent-5));
   transition: box-shadow var(--motion-settle);
 }
 
 .control[data-active] {
-  box-shadow: 0 0 0 2px var(--control-color, var(--accent));
+  box-shadow: 0 0 0 2px var(--control-color, var(--accent-5));
 }
 
 .controlIcon {
@@ -55,7 +55,7 @@
 }
 
 .control:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-5);
   outline-offset: 2px;
 }
 

@@ -18,7 +18,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { getStoredTheme, setStoredTheme, type ThemePreference } from "../../lib/theme";
+import {
+  getStoredTheme,
+  getStoredThemeName,
+  setStoredTheme,
+  setStoredThemeName,
+  type ThemeName,
+  type ThemePreference,
+} from "../../lib/theme";
 import { openExternalURL } from "../../lib/wailsBridge";
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
@@ -35,6 +42,25 @@ const THEME_OPTIONS: Array<{ id: ThemePreference; label: string; icon: LucideIco
   { id: "dark", label: "Dark", icon: Moon },
 ];
 
+// Swatch is a decorative preview only (this palette's accent color in its
+// dark variant) -- it does not track the active light/dark mode, since the
+// point is to let the operator tell the palettes apart at a glance
+// regardless of which mode they're currently in.
+const THEME_NAME_OPTIONS: Array<{ id: ThemeName; label: string; swatch: string }> = [
+  { id: "default", label: "Default", swatch: "#1b44d9" },
+  { id: "gruvbox", label: "Gruvbox", swatch: "#fe8019" },
+  { id: "tokyo", label: "Tokyo Night", swatch: "#7aa2f7" },
+  { id: "dracula", label: "Dracula", swatch: "#bd93f9" },
+  { id: "nord", label: "Nord", swatch: "#88c0d0" },
+  { id: "catppuccin", label: "Catppuccin", swatch: "#cba6f7" },
+  { id: "solarized", label: "Solarized", swatch: "#268bd2" },
+  { id: "one-dark", label: "One Dark", swatch: "#61afef" },
+  { id: "rose-pine", label: "Rosé Pine", swatch: "#c4a7e7" },
+  { id: "everforest", label: "Everforest", swatch: "#a7c080" },
+  { id: "rainbow", label: "Rainbow", swatch: "#ff2d95" },
+  { id: "acid", label: "Acid", swatch: "#c4fd3f" },
+];
+
 interface Credit {
   name: string;
   version: string;
@@ -42,6 +68,10 @@ interface Credit {
   /** What the library itself is/does, in general -- its own README's
    * one-liner, not GOLC-specific. */
   description: string;
+  /** The library's own longer self-description (its README/repo "About"
+   * blurb, paraphrased but faithful to their wording) -- shown on row
+   * expand, alongside `usage` below. */
+  longDescription: string;
   /** How GOLC itself uses this dependency -- verified against actual
    * import sites (e.g. `grep -rl` for the module path under internal/,
    * or the frontend equivalent) rather than assumed from the package's
@@ -65,6 +95,8 @@ const BACKEND_CREDITS: Credit[] = [
     version: "2.13.0",
     license: "MIT",
     description: "Go + web-frontend desktop application framework",
+    longDescription:
+      "Lets you build desktop applications using Go and web technologies -- wrapping Go code and a web frontend into a single native binary, so Go developers can ship polished desktop apps without a separate server.",
     usage: "Desktop shell: window, native dialogs, OS bridge",
     url: "https://pkg.go.dev/github.com/wailsapp/wails/v2",
   },
@@ -73,6 +105,8 @@ const BACKEND_CREDITS: Credit[] = [
     version: "5.3.1",
     license: "MIT",
     description: "Lightweight HTTP router",
+    longDescription:
+      "A lightweight, idiomatic, and composable router for building Go HTTP services, built on Go's standard context package to handle request cancellation and scoped values across handler chains. The core router is under 1,000 lines.",
     usage: "Routes the external /v1 control API",
     url: "https://pkg.go.dev/github.com/go-chi/chi/v5",
   },
@@ -81,6 +115,8 @@ const BACKEND_CREDITS: Credit[] = [
     version: "2.39.0",
     license: "MIT",
     description: "REST API framework with OpenAPI generation",
+    longDescription:
+      "A modern, simple, fast, and flexible micro framework for building HTTP REST/RPC APIs in Go, backed by OpenAPI 3.1 and JSON Schema, designed for incremental adoption with automatically generated docs.",
     usage: "The /v1 API's request handling and OpenAPI contract",
     url: "https://pkg.go.dev/github.com/danielgtaylor/huma/v2",
   },
@@ -89,6 +125,8 @@ const BACKEND_CREDITS: Credit[] = [
     version: "2.3.24",
     license: "MIT",
     description: "MIDI I/O and driver bindings",
+    longDescription:
+      "Helps with reading and writing MIDI messages in Go -- constructing, categorizing, and sending/receiving MIDI data through auto-registering, cross-platform drivers, plus an smf subpackage for Standard MIDI Files.",
     usage: "MIDI Note/CC learn and controller I/O",
     url: "https://pkg.go.dev/gitlab.com/gomidi/midi/v2",
   },
@@ -97,6 +135,8 @@ const BACKEND_CREDITS: Credit[] = [
     version: "0.6.2",
     license: "MIT",
     description: "Windows named pipes and other Win32 I/O primitives",
+    longDescription:
+      "A Microsoft library of utilities for efficiently performing Win32 IO operations in Go, focused on named pipes and other file handles. It uses IO completion ports so blocking operations don't tie up system threads.",
     usage: "Named-pipe IPC to the supervised Art-Net daemon",
     url: "https://pkg.go.dev/github.com/Microsoft/go-winio",
   },
@@ -105,6 +145,8 @@ const BACKEND_CREDITS: Credit[] = [
     version: "0.35.0",
     license: "MIT",
     description: "Chrome DevTools Protocol client",
+    longDescription:
+      "Type-safe, auto-generated Go bindings for the Chrome DevTools Protocol, built for Chrome/Chromium but compatible with any target implementing the protocol. High-level browser automation is explicitly not a goal -- the focus is a better CDP developer experience.",
     usage: "Drives the Scripts workspace's step debugger",
     url: "https://pkg.go.dev/github.com/mafredri/cdp",
   },
@@ -113,6 +155,8 @@ const BACKEND_CREDITS: Credit[] = [
     version: "0.6.1",
     license: "MIT",
     description: "Cross-platform global hotkey registration",
+    longDescription:
+      "A cross-platform Go package providing the basic facility to register a system-level global hotkey shortcut, notifying an application when a user triggers it even without window focus. Supports macOS, Linux (X11), and Windows.",
     usage: "Registers the OS-level safety-cluster hotkeys",
     url: "https://pkg.go.dev/golang.design/x/hotkey",
   },
@@ -121,6 +165,8 @@ const BACKEND_CREDITS: Credit[] = [
     version: "0.14.0",
     license: "MIT",
     description: "Go struct to JSON Schema reflection",
+    longDescription:
+      "Generates JSON Schemas from Go types via reflection, supporting interfaces, maps, slices, and validation keywords like minLength/pattern/format plus string and numeric enums, targeting JSON Schema Draft 2020-12.",
     usage: "Reflects Go types into the /v1 API's OpenAPI schema",
     url: "https://pkg.go.dev/github.com/invopop/jsonschema",
   },
@@ -129,6 +175,8 @@ const BACKEND_CREDITS: Credit[] = [
     version: "1.6.0",
     license: "MIT",
     description: "TOML encoding and decoding",
+    longDescription:
+      "TOML stands for Tom's Obvious, Minimal Language; this package provides a reflection interface similar to the standard library's json and xml packages for encoding and decoding TOML.",
     usage: "Reads and writes GOLC's TOML config files",
     url: "https://pkg.go.dev/github.com/BurntSushi/toml",
   },
@@ -137,6 +185,8 @@ const BACKEND_CREDITS: Credit[] = [
     version: "1.6.0",
     license: "BSD-3-Clause",
     description: "UUID generation and parsing",
+    longDescription:
+      "Generates and inspects UUIDs based on RFC 9562 and DCE 1.1 (Authentication and Security Services), representing UUIDs as 16-byte arrays rather than byte slices.",
     usage: "IDs for pools, deployments, scenes, surfaces",
     url: "https://pkg.go.dev/github.com/google/uuid",
   },
@@ -145,6 +195,8 @@ const BACKEND_CREDITS: Credit[] = [
     version: "0.46.0, 0.15.0",
     license: "BSD-3-Clause",
     description: "Extended Go standard library packages",
+    longDescription:
+      "x/sys is a Go sub-repository of supplemental packages for low-level OS interaction -- unix and windows primitives, CPU feature detection, and Windows registry/service access. x/time is its companion for supplementary time packages, currently shipping the rate limiter package.",
     usage: "Per-key API rate limiting; Windows registry/pipe access",
     url: "https://pkg.go.dev/golang.org/x",
   },
@@ -153,6 +205,8 @@ const BACKEND_CREDITS: Credit[] = [
     version: "1.54.0",
     license: "BSD-3-Clause",
     description: "cgo-free SQLite driver",
+    longDescription:
+      "A CGo-free, pure-Go port of SQLite -- an in-process implementation of a self-contained, serverless, zero-configuration, transactional SQL database engine that needs no C compiler or cgo toolchain to build or run.",
     usage: "Durable show storage and recovery points",
     url: "https://pkg.go.dev/modernc.org/sqlite",
   },
@@ -161,6 +215,8 @@ const BACKEND_CREDITS: Credit[] = [
     version: "4.0.0-rc.6",
     license: "Apache-2.0",
     description: "YAML encoding and decoding",
+    longDescription:
+      "Enables Go programs to comfortably encode and decode YAML values. It originated at Canonical as part of the Juju project and is a pure Go implementation built on the design of the libyaml C library.",
     usage: "Decodes hand-authored and OFL fixture YAML files",
     url: "https://pkg.go.dev/go.yaml.in/yaml/v4",
   },
@@ -172,6 +228,8 @@ const FRONTEND_CREDITS: Credit[] = [
     version: "19.2.7",
     license: "MIT",
     description: "UI component library",
+    longDescription:
+      "A JavaScript library for building user interfaces. It's declarative, component-based, and \"Learn Once, Write Anywhere\" -- React makes no assumptions about the rest of your technology stack.",
     usage: "Renders every workspace and shell surface",
     url: "https://www.npmjs.com/package/react",
   },
@@ -180,6 +238,8 @@ const FRONTEND_CREDITS: Credit[] = [
     version: "5.0.14",
     license: "MIT",
     description: "Client-side state management",
+    longDescription:
+      "A small, fast, and scalable \"barebones\" state-management solution for React using simplified Flux principles, with a comfortable hooks-based API that isn't boilerplate-heavy or opinionated.",
     usage: "Caches Go-pushed live status (playback, safety)",
     url: "https://www.npmjs.com/package/zustand",
   },
@@ -188,6 +248,8 @@ const FRONTEND_CREDITS: Credit[] = [
     version: "0.55.1",
     license: "MIT",
     description: "Code editor component",
+    longDescription:
+      "The code editor that powers VS Code, packaged as a browser-based editor component. It's built directly from VS Code's source, so it shares much of VS Code's editing feature set.",
     usage: "Powers the Scripts workspace's code editor",
     url: "https://www.npmjs.com/package/monaco-editor",
   },
@@ -196,6 +258,8 @@ const FRONTEND_CREDITS: Credit[] = [
     version: "1.27.0",
     license: "ISC",
     description: "Icon set",
+    longDescription:
+      "An open-source icon library providing 1,600+ vector icons for digital and non-digital projects, billed as a \"beautiful & consistent icon toolkit made by the community.\" It started as a community-driven fork of Feather Icons.",
     usage: "Icon set used across the whole shell",
     url: "https://www.npmjs.com/package/lucide-react",
   },
@@ -204,6 +268,8 @@ const FRONTEND_CREDITS: Credit[] = [
     version: "5.3.0",
     license: "OFL-1.1",
     description: "Interface typeface",
+    longDescription:
+      "A grotesque sans-serif typeface family with roots in late-19th-century American type design, originally created for highlights and headlines and optimized for print and digital use across 200+ languages. It became a variable font in 2021.",
     usage: "Interface typeface used throughout the shell",
     url: "https://www.npmjs.com/package/@fontsource/archivo",
   },
@@ -212,6 +278,8 @@ const FRONTEND_CREDITS: Credit[] = [
     version: "5.3.0",
     license: "OFL-1.1",
     description: "Monospace typeface",
+    longDescription:
+      "A free and open-source typeface engineered specifically for programming: it maximizes lowercase letter height while keeping standard character width, includes code-specific ligatures, and ships in multiple weights with matching italics.",
     usage: "Monospace typeface for IDs, code, and meta text",
     url: "https://www.npmjs.com/package/@fontsource/jetbrains-mono",
   },
@@ -238,13 +306,20 @@ function CreditRow({ credit, expanded, onToggle }: CreditRowProps) {
         <span className={styles.creditName}>{credit.name}</span>
         <span className={styles.creditDescription}>{credit.description}</span>
         <span className={styles.creditMeta}>
-          {credit.license} · v{credit.version}
+          <span className={styles.creditLicense}>{credit.license}</span>
+          <span className={styles.creditSep} aria-hidden="true">
+            ·
+          </span>
+          <span className={styles.creditVersion}>v{credit.version}</span>
         </span>
       </button>
 
       {expanded ? (
         <div className={styles.creditDetail}>
-          <p className={styles.creditUsage}>{credit.usage}</p>
+          <p className={styles.creditLongDescription}>{credit.longDescription}</p>
+          <p className={styles.creditUsage}>
+            <span className={styles.creditUsageLabel}>In GOLC:</span> {credit.usage}
+          </p>
           <button
             type="button"
             className={styles.creditLink}
@@ -261,11 +336,18 @@ function CreditRow({ credit, expanded, onToggle }: CreditRowProps) {
 
 export default function SettingsWorkspace() {
   const [theme, setTheme] = useState<ThemePreference>(() => getStoredTheme());
+  const [themeName, setThemeName] = useState<ThemeName>(() => getStoredThemeName());
   const [expandedCredits, setExpandedCredits] = useState<Set<string>>(() => new Set());
+  const [creditsExpanded, setCreditsExpanded] = useState(false);
 
   const handleSelect = (next: ThemePreference) => {
     setStoredTheme(next);
     setTheme(next);
+  };
+
+  const handleSelectThemeName = (next: ThemeName) => {
+    setStoredThemeName(next);
+    setThemeName(next);
   };
 
   const toggleCredit = (key: string) => {
@@ -289,9 +371,10 @@ export default function SettingsWorkspace() {
             <PanelHeader
               label="Appearance"
               icon={Palette}
-              info="Switches the desktop app between light, dark, and system theme."
+              info="Switches the desktop app between light, dark, and system mode, and picks the color palette."
             />
-            <div className={styles.themeRow} role="group" aria-label="Theme">
+            <span className={styles.groupLabel}>Mode</span>
+            <div className={styles.themeRow} role="group" aria-label="Mode">
               {THEME_OPTIONS.map((option) => (
                 <Button
                   key={option.id}
@@ -304,6 +387,24 @@ export default function SettingsWorkspace() {
                 </Button>
               ))}
             </div>
+            <span className={styles.groupLabel}>Theme</span>
+            <div className={styles.themeRow} role="group" aria-label="Theme">
+              {THEME_NAME_OPTIONS.map((option) => (
+                <Button
+                  key={option.id}
+                  variant={themeName === option.id ? "primary" : "secondary"}
+                  aria-pressed={themeName === option.id}
+                  onClick={() => handleSelectThemeName(option.id)}
+                >
+                  <span
+                    className={styles.swatch}
+                    style={{ background: option.swatch }}
+                    aria-hidden="true"
+                  />
+                  {option.label}
+                </Button>
+              ))}
+            </div>
           </Panel>
 
           <Panel className={styles.hotkeysPanel}>
@@ -312,48 +413,73 @@ export default function SettingsWorkspace() {
           </Panel>
 
           <Panel className={styles.aboutPanel}>
-            <PanelHeader label="About" icon={Info} info="Shows the installed GOLC build version and project credits." />
+            <PanelHeader
+              label="About"
+              icon={Info}
+              info="Shows the GOLC version, the Go toolchain it's built with, a short description of the app, and license credits for the open-source libraries it depends on."
+            />
             <div className={styles.about}>
               <div className={styles.aboutHeading}>
                 <span className={styles.aboutTitle}>GOLC — Go Lighting Control</span>
-                <span className={styles.aboutMeta}>v1.0 · github.com/lnorton89/golc</span>
+                <span className={styles.aboutMeta}>v1.0 · Go 1.26.5 · github.com/lnorton89/golc</span>
               </div>
+              <p className={styles.aboutDescription}>
+                A modern lighting-control application for club/DJ operators running small live
+                shows, built in Go with a Wails desktop interface.
+              </p>
 
-              <div className={styles.creditsColumns}>
-                <div className={styles.creditsColumn}>
-                  <span className={styles.creditsLabel}>Open Source — Backend</span>
-                  <ul className={styles.creditsList} aria-label="Backend open source credits">
-                    {BACKEND_CREDITS.map((credit) => {
-                      const key = `backend-${credit.name}`;
-                      return (
-                        <CreditRow
-                          key={key}
-                          credit={credit}
-                          expanded={expandedCredits.has(key)}
-                          onToggle={() => toggleCredit(key)}
-                        />
-                      );
-                    })}
-                  </ul>
-                </div>
+              <button
+                type="button"
+                className={styles.creditsToggle}
+                aria-expanded={creditsExpanded}
+                aria-controls="settings-about-credits"
+                onClick={() => setCreditsExpanded((current) => !current)}
+              >
+                {creditsExpanded ? (
+                  <ChevronDown size={14} className={styles.creditsToggleChevron} aria-hidden="true" />
+                ) : (
+                  <ChevronRight size={14} className={styles.creditsToggleChevron} aria-hidden="true" />
+                )}
+                Open Source Libraries
+              </button>
 
-                <div className={styles.creditsColumn}>
-                  <span className={styles.creditsLabel}>Open Source — Frontend</span>
-                  <ul className={styles.creditsList} aria-label="Frontend open source credits">
-                    {FRONTEND_CREDITS.map((credit) => {
-                      const key = `frontend-${credit.name}`;
-                      return (
-                        <CreditRow
-                          key={key}
-                          credit={credit}
-                          expanded={expandedCredits.has(key)}
-                          onToggle={() => toggleCredit(key)}
-                        />
-                      );
-                    })}
-                  </ul>
+              {creditsExpanded ? (
+                <div className={styles.creditsColumns} id="settings-about-credits">
+                  <div className={styles.creditsColumn}>
+                    <span className={styles.creditsLabel}>Backend</span>
+                    <ul className={styles.creditsList} aria-label="Backend open source credits">
+                      {BACKEND_CREDITS.map((credit) => {
+                        const key = `backend-${credit.name}`;
+                        return (
+                          <CreditRow
+                            key={key}
+                            credit={credit}
+                            expanded={expandedCredits.has(key)}
+                            onToggle={() => toggleCredit(key)}
+                          />
+                        );
+                      })}
+                    </ul>
+                  </div>
+
+                  <div className={styles.creditsColumn}>
+                    <span className={styles.creditsLabel}>Frontend</span>
+                    <ul className={styles.creditsList} aria-label="Frontend open source credits">
+                      {FRONTEND_CREDITS.map((credit) => {
+                        const key = `frontend-${credit.name}`;
+                        return (
+                          <CreditRow
+                            key={key}
+                            credit={credit}
+                            expanded={expandedCredits.has(key)}
+                            onToggle={() => toggleCredit(key)}
+                          />
+                        );
+                      })}
+                    </ul>
+                  </div>
                 </div>
-              </div>
+              ) : null}
             </div>
           </Panel>
         </div>
