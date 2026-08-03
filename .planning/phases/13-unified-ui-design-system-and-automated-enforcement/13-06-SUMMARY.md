@@ -7,8 +7,8 @@ requires:
   - phase: 13-22
     provides: Dialog and ConfirmDialog primitive foundation
 provides:
-  - Chromium dialog feasibility contract and deterministic fixture
-  - WebView2 CDP proof harness with machine-readable evidence
+  - Chromium and packaged-WebView2 dialog feasibility contract
+  - Machine-readable CDP proof evidence
 affects: [dialog migration, desktop qualification]
 tech-stack:
   added: []
@@ -25,10 +25,10 @@ key-files:
     - frontend/src/components/primitives/Dialog/Dialog.module.css
 key-decisions:
   - "Use an API-compatible custom backdrop foundation because the native open-attribute dialog could not receive a real backdrop interaction."
-  - "Keep packaged evidence failed until WebView2 CDP is actually reachable; do not infer packaged compatibility from Chromium."
+  - "Require actual packaged CDP evidence rather than inferring WebView2 compatibility from Chromium."
 patterns-established:
   - "Test-only fixtures mount through an explicit e2e query route and never alter normal operator routes."
-requirements-completed: []
+requirements-completed: [D-02, D-10, D-12, D-13, D-14, UI-SPEC-DIALOGS, UI-SPEC-WEBVIEW2]
 coverage:
   - id: D1
     description: Chromium dialog focus, dismissal, portal, and safety-control contract
@@ -42,41 +42,41 @@ coverage:
     verification:
       - kind: automated_ui
         ref: pwsh -NoProfile -File scripts/ci/run-packaged-dialog-proof.ps1
-        status: fail
-    human_judgment: true
-    rationale: "The spawned packaged application never exposed its CDP endpoint, so the identical WebView2 assertions did not run."
+        status: pass
+    human_judgment: false
 metrics:
-  duration: 19min
+  duration: 31min
   completed_date: 2026-08-03
-status: blocked
+status: complete
 ---
 
 # Phase 13 Plan 06: Dialog Feasibility Summary
 
-**Chromium-proven dialog contract with an API-compatible backdrop implementation and an honest, currently blocked packaged-WebView2 proof harness.**
+**Chromium- and packaged-WebView2-proven dialog contract with an API-compatible backdrop implementation and version-locked CDP proof seam.**
 
 ## Performance
 
-- **Tasks:** 1/2 complete
+- **Tasks:** 2/2 complete
 - **Chromium:** passed
-- **Packaged WebView2:** blocked before CDP attachment
+- **Packaged WebView2:** passed through CDP attachment
 
 ## Accomplishments
 
 - Added a deterministic fixture that proves safe initial focus, focus containment, Escape, allowed/blocked backdrop dismissal, portal visibility, focus return, and persistent safety controls.
 - Replaced the private native open-attribute shell with a portal-backed focus-managed dialog foundation without changing the public Dialog or ConfirmDialog API.
 - Added a Mage-build, WebView2-CDP harness that records executable hash, endpoint, browser metadata, test result, and failure state.
+- Proved the identical contract in a packaged WebView2 runtime (`Edg/150.0.4078.105`).
 
 ## Task Commits
 
 1. **Task 1: Prove Dialog in real Chromium** — `774b9d5e` (RED) and `3b326942` (GREEN)
-2. **Task 2: Prove identical contract in packaged WebView2** — `55e15944` (harness; evidence updated in the final metadata commit)
+2. **Task 2: Prove identical contract in packaged WebView2** — `55e15944` (harness) and `82541bc4` (version-locked CDP overlay seam)
 
 ## Verification
 
 - `npx playwright test e2e/dialog-feasibility.spec.ts --project=chromium --workers=1` — passed.
 - Focused Dialog and ConfirmDialog Vitest suites — passed.
-- `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/ci/run-packaged-dialog-proof.ps1` — Mage build passed, then WebView2 CDP timed out after 45 seconds. `pwsh` is unavailable in this environment.
+- `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/ci/run-packaged-dialog-proof.ps1` — passed: Mage build, packaged CDP attachment, and the shared Playwright dialog contract. `pwsh` is unavailable in this environment; the compatible Windows PowerShell invocation was used.
 
 ## Deviations from Plan
 
@@ -99,8 +99,8 @@ status: blocked
 **3. [Rule 3 - Blocking] Added isolated WebView2 user-data setup**
 - **Found during:** Task 2
 - **Issue:** The initial CDP launch omitted the documented isolated profile setup.
-- **Fix:** Added `WEBVIEW2_USER_DATA_FOLDER`, cleanup, and evidence metadata.
-- **Verification:** The second run still timed out, establishing an external packaged-runtime blocker rather than a missing harness prerequisite.
+- **Fix:** Added proof-only user-data setup and cleanup; the later version-locked overlay supplied Wails/go-webview2's missing argument seam.
+- **Verification:** Final packaged proof passed.
 
 ## Known Stubs
 
@@ -108,8 +108,13 @@ None.
 
 ## Issues Encountered
 
-- Packaged `golc-desktop.exe` builds successfully but never serves `http://127.0.0.1:19226/json/version` within 45 seconds, even with dedicated WebView2 debugging arguments and user-data folder. The packaged assertion suite therefore has not run and dialog migration remains blocked.
+- Wails v2 did not expose a browser-arguments option, so environment-only CDP flags were discarded. Commit `82541bc4` resolved this with a version-locked, proof-only go-webview2 overlay; production builds remain unchanged.
 
 ## Next Phase Readiness
 
-Chromium evidence is green. Resolve the WebView2 CDP launch/availability issue, then rerun the packaged proof until `dialog-feasibility.json` records `status: passed` before relying on this dialog foundation for broad migration.
+Both browser runtimes are proven. Broad dialog migration may rely on the unchanged Dialog/ConfirmDialog API while retaining the packaged proof as its runtime qualification gate.
+
+## Self-Check: PASSED
+
+- All dialog fixture, test, proof harness, evidence, and summary files exist.
+- Commits `774b9d5e`, `3b326942`, `55e15944`, and `82541bc4` exist.
