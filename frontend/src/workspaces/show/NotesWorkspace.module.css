@@ -1,18 +1,9 @@
-.workspace {
-  box-sizing: border-box;
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
 .canvas {
   box-sizing: border-box;
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding: var(--space-md);
+  padding: var(--ds-spacing-space4);
   display: flex;
   flex-direction: column;
 }
@@ -20,23 +11,22 @@
 .toolbarActions {
   display: flex;
   flex-wrap: wrap;
-  row-gap: var(--space-xs);
-  gap: var(--space-sm);
+  row-gap: var(--ds-spacing-space1);
+  gap: var(--ds-spacing-space2);
 }
 
-.errorText {
-  margin: 0 0 var(--space-sm);
-  color: var(--status-revoked);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+.feedback {
+  margin: var(--ds-spacing-space2);
+  color: var(--ds-status-revoked);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
 }
 
 .layout {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: var(--library-width, 240px) minmax(0, 1fr);
-  gap: var(--space-xl);
+  gap: var(--ds-spacing-space8);
 }
 
 .library {
@@ -45,7 +35,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
   position: relative;
 }
 
@@ -55,35 +45,21 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
-.loadingRow {
-  padding: var(--space-sm);
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+.noteListItem {
+  padding: var(--ds-spacing-space2);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
   opacity: 0.6;
 }
 
 .createForm {
   box-sizing: border-box;
   display: flex;
-  gap: var(--space-xs);
-}
-
-.createInput {
-  box-sizing: border-box;
-  flex: 1;
-  min-width: 0;
-  height: 32px;
-  padding: 0 var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--panel);
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  gap: var(--ds-spacing-space1);
 }
 
 .editorColumn {
@@ -92,73 +68,32 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
 .editorHeaderRow {
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
-.titleInput {
-  box-sizing: border-box;
+.editorHeaderRow > :first-child {
   flex: 1;
   min-width: 0;
-  height: 40px;
-  padding: 0 var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--panel);
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-xl);
-  font-weight: 600;
 }
 
 .saveStatus {
   flex-shrink: 0;
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-xs);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-compact);
   white-space: nowrap;
 }
 
 .statusText {
   margin: 0;
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-}
-
-.emptySelection {
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-}
-
-.emptyState {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  max-width: 480px;
-  padding: var(--space-lg);
-}
-
-.emptyHeading {
-  display: block;
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-xl);
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.emptyBody {
-  display: block;
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-base);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
 }

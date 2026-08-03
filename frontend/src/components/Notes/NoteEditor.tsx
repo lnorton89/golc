@@ -30,6 +30,8 @@
 // mount, so switching notes never re-fetches anything).
 import { useEffect, useRef, useState } from "react";
 import type { Editor as TiptapEditor } from "@tiptap/core";
+
+import { Button, Field, IconButton } from "../../design-system";
 import {
   Bold,
   Italic,
@@ -275,59 +277,48 @@ export default function NoteEditor({ value, onChange, readOnly, ariaLabel }: Not
 
   return (
     <div className={styles.editor}>
-      <div className={styles.toolbar} role="toolbar" aria-label="Formatting">
+      <div className={styles.formatting} role="toolbar" aria-label="Formatting">
         {TOOLBAR_ITEMS.map(({ key, label, icon: Icon, isActive, run }) => (
-          <button
+          <IconButton
             key={key}
-            type="button"
-            className={editor && isActive(editor) ? `${styles.toolbarButton} ${styles.active}` : styles.toolbarButton}
-            aria-label={label}
+            icon={Icon}
+            label={label}
+            variant={editor && isActive(editor) ? "primary" : "neutral"}
             aria-pressed={editor ? isActive(editor) : false}
             disabled={!editor}
             onClick={() => editor && run(editor)}
-          >
-            <Icon size={14} aria-hidden="true" />
-          </button>
+          />
         ))}
-        <button
-          type="button"
-          className={editor?.isActive("link") ? `${styles.toolbarButton} ${styles.active}` : styles.toolbarButton}
-          aria-label="Link"
+        <IconButton
+          icon={LinkIcon}
+          label="Link"
+          variant={editor?.isActive("link") ? "primary" : "neutral"}
           aria-pressed={editor ? editor.isActive("link") : false}
           disabled={!editor}
           onClick={handleLinkClick}
-        >
-          <LinkIcon size={14} aria-hidden="true" />
-        </button>
-        <span className={styles.toolbarDivider} aria-hidden="true" />
-        <button
-          type="button"
-          className={styles.toolbarButton}
-          aria-label="Undo"
+        />
+        <span className={styles.formattingDivider} aria-hidden="true" />
+        <IconButton
+          icon={Undo2}
+          label="Undo"
           disabled={!editor || !editor.can().undo()}
           onClick={() => editor?.chain().focus().undo().run()}
-        >
-          <Undo2 size={14} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className={styles.toolbarButton}
-          aria-label="Redo"
+        />
+        <IconButton
+          icon={Redo2}
+          label="Redo"
           disabled={!editor || !editor.can().redo()}
           onClick={() => editor?.chain().focus().redo().run()}
-        >
-          <Redo2 size={14} aria-hidden="true" />
-        </button>
+        />
       </div>
 
       {linkPromptOpen ? (
         <div className={styles.linkPrompt}>
-          <input
-            className={styles.linkInput}
+          <Field
+            label="Link URL"
             type="text"
             value={linkUrl}
             placeholder="https://…"
-            aria-label="Link URL"
             autoFocus
             onChange={(event) => setLinkUrl(event.target.value)}
             onKeyDown={(event) => {
@@ -335,9 +326,7 @@ export default function NoteEditor({ value, onChange, readOnly, ariaLabel }: Not
               if (event.key === "Escape") setLinkPromptOpen(false);
             }}
           />
-          <button type="button" className={styles.linkApply} onClick={applyLink}>
-            Apply
-          </button>
+          <Button variant="primary" onClick={applyLink}>Apply</Button>
         </div>
       ) : null}
 
