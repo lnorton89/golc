@@ -11,10 +11,12 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-medium);
   overflow: hidden;
-  background: var(--panel);
+  background: var(--ds-surface-panel);
 }
 
 .container {
@@ -23,39 +25,54 @@
   min-height: 0;
 }
 
+/* .placeholder needs no z-index of its own: it is position:absolute while
+   .container is a plain static-positioned sibling, and a positioned box
+   already paints above non-positioned content in the same stacking context
+   regardless of DOM order (CSS2.1 Appendix E) -- an explicit z-index here
+   was redundant, not a genuine layering requirement. */
 .placeholder {
   position: absolute;
   inset: 0;
-  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--panel);
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  background: var(--ds-surface-panel);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
 }
 
 /* breakpointGlyph (08-12-PLAN.md Task 1, D-01): a single filled dot in
-   --status-revoked -- the conventional red-dot-for-breakpoint across every
-   mainstream debugger, spatially separate from any terminated/crashed
-   status chip. Rendered identically regardless of breakpoint count (no
-   count-dependent variant, per 08-UI-SPEC.md's zero-one-many contract). */
+   --ds-status-revoked -- the conventional red-dot-for-breakpoint across
+   every mainstream debugger, spatially separate from any terminated/
+   crashed status chip. Rendered identically regardless of breakpoint count
+   (no count-dependent variant, per 08-UI-SPEC.md's zero-one-many
+   contract). Centers its ::before dot via flex alignment rather than a
+   hand-tuned margin offset, so it stays centered in Monaco's own
+   glyph-margin cell regardless of the exact line height. */
+.breakpointGlyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .breakpointGlyph::before {
   content: "";
   display: block;
   width: 8px;
   height: 8px;
-  margin: 6px auto 0;
-  border-radius: 50%;
-  background-color: var(--status-revoked);
+  /* var(--ds-radii-pill) (999px) clamps to a perfect circle on this fixed
+     8x8px box, identically to border-radius:50%, while staying a real
+     declared token. */
+  border-radius: var(--ds-radii-pill);
+  background-color: var(--ds-status-revoked);
 }
 
 /* currentExecutionLine (08-12-PLAN.md Task 1, D-01): a subtle whole-line
-   background in --status-armed marking the paused current-execution line --
-   compact and non-decorative, consistent with the console direction
-   (.planning/sketches/SKILL.md). */
+   background in --ds-status-armed marking the paused current-execution
+   line -- compact and non-decorative, consistent with the console
+   direction (.planning/sketches/SKILL.md). */
 .currentExecutionLine {
-  background-color: var(--status-armed);
+  background-color: var(--ds-status-armed);
   opacity: 0.18;
 }
