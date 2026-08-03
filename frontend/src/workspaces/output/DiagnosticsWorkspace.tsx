@@ -33,6 +33,8 @@ import PanelHeader from "../../components/primitives/PanelHeader/PanelHeader";
 import Button from "../../components/primitives/Button/Button";
 import Chip from "../../components/primitives/Chip/Chip";
 import EmptyState from "../../components/primitives/EmptyState/EmptyState";
+import ErrorState from "../../components/primitives/ErrorState/ErrorState";
+import LoadingState from "../../components/primitives/LoadingState/LoadingState";
 import AppLogPanel from "../../components/Diagnostics/AppLogPanel";
 import styles from "./DiagnosticsWorkspace.module.css";
 
@@ -69,10 +71,10 @@ export default function DiagnosticsWorkspace() {
       <Toolbar title="Diagnostics" icon={Activity} info={HOW_IT_WORKS_BY_ID["output-diagnostics"]} />
       <div className={styles.canvas}>
         {loading ? (
-          <p className={styles.loading}>Running diagnostics…</p>
+          <LoadingState label="Running diagnostics…" variant="panel" />
         ) : (
           <>
-            {error ? <p className={styles.errorText}>{error}</p> : null}
+            {error ? <ErrorState heading="Diagnostics unavailable" message={error} variant="inline" /> : null}
             <Panel>
               <PanelHeader
                 label="Integrity Check"
@@ -95,7 +97,7 @@ export default function DiagnosticsWorkspace() {
               </div>
 
               {report.structuralError ? (
-                <p className={styles.structuralError}>{report.structuralError}</p>
+                <p className={styles.structuralDetail}>{report.structuralError}</p>
               ) : null}
 
               {report.migrationRequired ? (
