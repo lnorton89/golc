@@ -1,0 +1,1524 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-03T19:54:06.416Z",
+  "buildSha": "840469ac0278818d025f52699b22d4a174d0d32d",
+  "environment": {
+    "platform": "win32",
+    "widths": [
+      900,
+      1280
+    ],
+    "height": 720
+  },
+  "families": [
+    "vertical-faders",
+    "scene-timelines",
+    "artnet-diagnostic-meters",
+    "monaco",
+    "tiptap",
+    "resize-extremes"
+  ],
+  "cases": [
+    {
+      "family": "vertical-faders",
+      "width": 900,
+      "resizeState": "default",
+      "description": "Desk universe rows and per-channel vertical fader inputs",
+      "measurements": [
+        {
+          "rowRect": {
+            "top": 262.5,
+            "left": 192,
+            "right": 868,
+            "bottom": 522.5,
+            "width": 676,
+            "height": 260
+          },
+          "setHeight": 260,
+          "setFaderWidth": 34,
+          "setFaderTrackWidth": 24,
+          "expectedRowHeight": 260,
+          "scrollRect": {
+            "top": 303.5,
+            "left": 201,
+            "right": 859,
+            "bottom": 513.5,
+            "width": 658,
+            "height": 210
+          },
+          "scrollOverflowsX": false,
+          "inputCount": 8,
+          "inputRects": [
+            {
+              "top": 376.5,
+              "left": 215,
+              "right": 239,
+              "bottom": 438.5,
+              "width": 24,
+              "height": 62
+            },
+            {
+              "top": 376.5,
+              "left": 253,
+              "right": 277,
+              "bottom": 438.5,
+              "width": 24,
+              "height": 62
+            },
+            {
+              "top": 376.5,
+              "left": 291,
+              "right": 315,
+              "bottom": 438.5,
+              "width": 24,
+              "height": 62
+            },
+            {
+              "top": 376.5,
+              "left": 329,
+              "right": 353,
+              "bottom": 438.5,
+              "width": 24,
+              "height": 62
+            },
+            {
+              "top": 376.5,
+              "left": 385,
+              "right": 409,
+              "bottom": 438.5,
+              "width": 24,
+              "height": 62
+            },
+            {
+              "top": 376.5,
+              "left": 423,
+              "right": 447,
+              "bottom": 438.5,
+              "width": 24,
+              "height": 62
+            },
+            {
+              "top": 376.5,
+              "left": 461,
+              "right": 485,
+              "bottom": 438.5,
+              "width": 24,
+              "height": 62
+            },
+            {
+              "top": 376.5,
+              "left": 499,
+              "right": 523,
+              "bottom": 438.5,
+              "width": 24,
+              "height": 62
+            }
+          ],
+          "clearButtonRects": [
+            {
+              "top": 482.5,
+              "left": 218,
+              "right": 236,
+              "bottom": 500.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 482.5,
+              "left": 256,
+              "right": 274,
+              "bottom": 500.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 482.5,
+              "left": 294,
+              "right": 312,
+              "bottom": 500.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 482.5,
+              "left": 332,
+              "right": 350,
+              "bottom": 500.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 482.5,
+              "left": 388,
+              "right": 406,
+              "bottom": 500.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 482.5,
+              "left": 426,
+              "right": 444,
+              "bottom": 500.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 482.5,
+              "left": 464,
+              "right": 482,
+              "bottom": 500.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 482.5,
+              "left": 502,
+              "right": 520,
+              "bottom": 500.5,
+              "width": 18,
+              "height": 18
+            }
+          ]
+        }
+      ],
+      "expectations": {
+        "rowHeightTolerancePx": 2,
+        "faderTrackWidthTolerancePx": 2
+      },
+      "passed": true
+    },
+    {
+      "family": "vertical-faders",
+      "width": 1280,
+      "resizeState": "default",
+      "description": "Desk universe rows and per-channel vertical fader inputs",
+      "measurements": [
+        {
+          "rowRect": {
+            "top": 262.5,
+            "left": 218,
+            "right": 1248,
+            "bottom": 522.5,
+            "width": 1030,
+            "height": 260
+          },
+          "setHeight": 260,
+          "setFaderWidth": 34,
+          "setFaderTrackWidth": 24,
+          "expectedRowHeight": 260,
+          "scrollRect": {
+            "top": 303.5,
+            "left": 227,
+            "right": 1239,
+            "bottom": 513.5,
+            "width": 1012,
+            "height": 210
+          },
+          "scrollOverflowsX": false,
+          "inputCount": 8,
+          "inputRects": [
+            {
+              "top": 376.5,
+              "left": 241,
+              "right": 265,
+              "bottom": 438.5,
+              "width": 24,
+              "height": 62
+            },
+            {
+              "top": 376.5,
+              "left": 279,
+              "right": 303,
+              "bottom": 438.5,
+              "width": 24,
+              "height": 62
+            },
+            {
+              "top": 376.5,
+              "left": 317,
+              "right": 341,
+              "bottom": 438.5,
+              "width": 24,
+              "height": 62
+            },
+            {
+              "top": 376.5,
+              "left": 355,
+              "right": 379,
+              "bottom": 438.5,
+              "width": 24,
+              "height": 62
+            },
+            {
+              "top": 376.5,
+              "left": 411,
+              "right": 435,
+              "bottom": 438.5,
+              "width": 24,
+              "height": 62
+            },
+            {
+              "top": 376.5,
+              "left": 449,
+              "right": 473,
+              "bottom": 438.5,
+              "width": 24,
+              "height": 62
+            },
+            {
+              "top": 376.5,
+              "left": 487,
+              "right": 511,
+              "bottom": 438.5,
+              "width": 24,
+              "height": 62
+            },
+            {
+              "top": 376.5,
+              "left": 525,
+              "right": 549,
+              "bottom": 438.5,
+              "width": 24,
+              "height": 62
+            }
+          ],
+          "clearButtonRects": [
+            {
+              "top": 482.5,
+              "left": 244,
+              "right": 262,
+              "bottom": 500.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 482.5,
+              "left": 282,
+              "right": 300,
+              "bottom": 500.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 482.5,
+              "left": 320,
+              "right": 338,
+              "bottom": 500.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 482.5,
+              "left": 358,
+              "right": 376,
+              "bottom": 500.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 482.5,
+              "left": 414,
+              "right": 432,
+              "bottom": 500.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 482.5,
+              "left": 452,
+              "right": 470,
+              "bottom": 500.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 482.5,
+              "left": 490,
+              "right": 508,
+              "bottom": 500.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 482.5,
+              "left": 528,
+              "right": 546,
+              "bottom": 500.5,
+              "width": 18,
+              "height": 18
+            }
+          ]
+        }
+      ],
+      "expectations": {
+        "rowHeightTolerancePx": 2,
+        "faderTrackWidthTolerancePx": 2
+      },
+      "passed": true
+    },
+    {
+      "family": "scene-timelines",
+      "width": 900,
+      "resizeState": "default",
+      "description": "Scenes & Looks scene-list column and BarTimelinePanel bottom evaluation/timeline panel",
+      "measurements": {
+        "layoutRect": {
+          "top": 172,
+          "left": 176,
+          "right": 884,
+          "bottom": 602,
+          "width": 708,
+          "height": 430
+        },
+        "sceneListColumnRect": {
+          "top": 172,
+          "left": 176,
+          "right": 381,
+          "bottom": 602,
+          "width": 205,
+          "height": 430
+        },
+        "mainColumnRect": {
+          "top": 172,
+          "left": 397,
+          "right": 884,
+          "bottom": 602,
+          "width": 487,
+          "height": 430
+        },
+        "timelineRect": {
+          "top": 472,
+          "left": 397,
+          "right": 884,
+          "bottom": 602,
+          "width": 487,
+          "height": 130
+        },
+        "setSceneListWidth": 205
+      },
+      "expectations": {
+        "fixedTimelineRowHeightPx": 130
+      },
+      "passed": true
+    },
+    {
+      "family": "scene-timelines",
+      "width": 1280,
+      "resizeState": "default",
+      "description": "Scenes & Looks scene-list column and BarTimelinePanel bottom evaluation/timeline panel",
+      "measurements": {
+        "layoutRect": {
+          "top": 172,
+          "left": 202,
+          "right": 1006,
+          "bottom": 602,
+          "width": 804,
+          "height": 430
+        },
+        "sceneListColumnRect": {
+          "top": 172,
+          "left": 202,
+          "right": 407,
+          "bottom": 602,
+          "width": 205,
+          "height": 430
+        },
+        "mainColumnRect": {
+          "top": 172,
+          "left": 423,
+          "right": 1006,
+          "bottom": 602,
+          "width": 583,
+          "height": 430
+        },
+        "timelineRect": {
+          "top": 472,
+          "left": 423,
+          "right": 1006,
+          "bottom": 602,
+          "width": 583,
+          "height": 130
+        },
+        "setSceneListWidth": 205
+      },
+      "expectations": {
+        "fixedTimelineRowHeightPx": 130
+      },
+      "passed": true
+    },
+    {
+      "family": "artnet-diagnostic-meters",
+      "width": 900,
+      "resizeState": "default",
+      "description": "Art-Net universe target list",
+      "measurements": {
+        "boundedRect": {
+          "top": 393,
+          "left": 192,
+          "right": 868,
+          "bottom": 534.5,
+          "width": 676,
+          "height": 141.5
+        },
+        "boundedHeight": 141.5,
+        "overflowsInternally": false
+      },
+      "expectations": {
+        "maxHeightPx": 320
+      },
+      "passed": true
+    },
+    {
+      "family": "artnet-diagnostic-meters",
+      "width": 900,
+      "resizeState": "default",
+      "description": "Diagnostics application log stream",
+      "measurements": {
+        "boundedRect": {
+          "top": 413.375,
+          "left": 192,
+          "right": 868,
+          "bottom": 672,
+          "width": 676,
+          "height": 258.625
+        },
+        "boundedHeight": 258.625,
+        "overflowsInternally": true
+      },
+      "expectations": {
+        "maxHeightPx": 320
+      },
+      "passed": true
+    },
+    {
+      "family": "artnet-diagnostic-meters",
+      "width": 1280,
+      "resizeState": "default",
+      "description": "Art-Net universe target list",
+      "measurements": {
+        "boundedRect": {
+          "top": 393,
+          "left": 218,
+          "right": 1248,
+          "bottom": 520.5,
+          "width": 1030,
+          "height": 127.5
+        },
+        "boundedHeight": 127.5,
+        "overflowsInternally": false
+      },
+      "expectations": {
+        "maxHeightPx": 320
+      },
+      "passed": true
+    },
+    {
+      "family": "artnet-diagnostic-meters",
+      "width": 1280,
+      "resizeState": "default",
+      "description": "Diagnostics application log stream",
+      "measurements": {
+        "boundedRect": {
+          "top": 425.671875,
+          "left": 218,
+          "right": 1248,
+          "bottom": 672,
+          "width": 1030,
+          "height": 246.328125
+        },
+        "boundedHeight": 246.328125,
+        "overflowsInternally": true
+      },
+      "expectations": {
+        "maxHeightPx": 320
+      },
+      "passed": true
+    },
+    {
+      "family": "monaco",
+      "width": 900,
+      "resizeState": "default",
+      "description": "Scripts workspace real Monaco editor instance",
+      "measurements": {
+        "wrapperRect": {
+          "top": 274,
+          "left": 440,
+          "right": 884,
+          "bottom": 604,
+          "width": 444,
+          "height": 330
+        },
+        "containerRect": {
+          "top": 275,
+          "left": 441,
+          "right": 883,
+          "bottom": 603,
+          "width": 442,
+          "height": 328
+        },
+        "monacoRect": {
+          "top": 275,
+          "left": 441,
+          "right": 883,
+          "bottom": 603,
+          "width": 442,
+          "height": 328
+        }
+      },
+      "expectations": {
+        "typedMarkerVisible": true
+      },
+      "passed": true
+    },
+    {
+      "family": "monaco",
+      "width": 1280,
+      "resizeState": "default",
+      "description": "Scripts workspace real Monaco editor instance",
+      "measurements": {
+        "wrapperRect": {
+          "top": 234,
+          "left": 466,
+          "right": 1006,
+          "bottom": 604,
+          "width": 540,
+          "height": 370
+        },
+        "containerRect": {
+          "top": 235,
+          "left": 467,
+          "right": 1005,
+          "bottom": 603,
+          "width": 538,
+          "height": 368
+        },
+        "monacoRect": {
+          "top": 235,
+          "left": 467,
+          "right": 1005,
+          "bottom": 603,
+          "width": 538,
+          "height": 368
+        }
+      },
+      "expectations": {
+        "typedMarkerVisible": true
+      },
+      "passed": true
+    },
+    {
+      "family": "tiptap",
+      "width": 900,
+      "resizeState": "default",
+      "description": "Notes workspace real Tiptap editor instance",
+      "measurements": {
+        "surfaceRect": {
+          "top": 348.65771484375,
+          "left": 448,
+          "right": 884,
+          "bottom": 588.65771484375,
+          "width": 436,
+          "height": 240
+        },
+        "proseRect": {
+          "top": 348.65771484375,
+          "left": 448,
+          "right": 884,
+          "bottom": 588.65771484375,
+          "width": 436,
+          "height": 240
+        }
+      },
+      "expectations": {
+        "typedMarkerVisible": true
+      },
+      "passed": true
+    },
+    {
+      "family": "tiptap",
+      "width": 1280,
+      "resizeState": "default",
+      "description": "Notes workspace real Tiptap editor instance",
+      "measurements": {
+        "surfaceRect": {
+          "top": 300.80059814453125,
+          "left": 474,
+          "right": 1264,
+          "bottom": 540.8006591796875,
+          "width": 790,
+          "height": 240.00006103515625
+        },
+        "proseRect": {
+          "top": 300.80059814453125,
+          "left": 474,
+          "right": 1264,
+          "bottom": 540.8006591796875,
+          "width": 790,
+          "height": 240.00006103515625
+        }
+      },
+      "expectations": {
+        "typedMarkerVisible": true
+      },
+      "passed": true
+    },
+    {
+      "family": "vertical-faders",
+      "width": 900,
+      "resizeState": "min",
+      "description": "Desk universe rows and per-channel vertical fader inputs",
+      "measurements": [
+        {
+          "rowRect": {
+            "top": 262.5,
+            "left": 192,
+            "right": 868,
+            "bottom": 452.5,
+            "width": 676,
+            "height": 190
+          },
+          "setHeight": 190,
+          "setFaderWidth": 18,
+          "setFaderTrackWidth": 8,
+          "expectedRowHeight": 190,
+          "scrollRect": {
+            "top": 303.5,
+            "left": 201,
+            "right": 859,
+            "bottom": 443.5,
+            "width": 658,
+            "height": 140
+          },
+          "scrollOverflowsX": false,
+          "inputCount": 8,
+          "inputRects": [
+            {
+              "top": 395,
+              "left": 215,
+              "right": 223,
+              "bottom": 435,
+              "width": 8,
+              "height": 40
+            },
+            {
+              "top": 395,
+              "left": 237,
+              "right": 245,
+              "bottom": 435,
+              "width": 8,
+              "height": 40
+            },
+            {
+              "top": 395,
+              "left": 259,
+              "right": 267,
+              "bottom": 435,
+              "width": 8,
+              "height": 40
+            },
+            {
+              "top": 395,
+              "left": 281,
+              "right": 289,
+              "bottom": 435,
+              "width": 8,
+              "height": 40
+            },
+            {
+              "top": 395,
+              "left": 321,
+              "right": 329,
+              "bottom": 435,
+              "width": 8,
+              "height": 40
+            },
+            {
+              "top": 395,
+              "left": 343,
+              "right": 351,
+              "bottom": 435,
+              "width": 8,
+              "height": 40
+            },
+            {
+              "top": 395,
+              "left": 365,
+              "right": 373,
+              "bottom": 435,
+              "width": 8,
+              "height": 40
+            },
+            {
+              "top": 395,
+              "left": 387,
+              "right": 395,
+              "bottom": 435,
+              "width": 8,
+              "height": 40
+            }
+          ],
+          "clearButtonRects": [
+            {
+              "top": 465,
+              "left": 210,
+              "right": 228,
+              "bottom": 478,
+              "width": 18,
+              "height": 13
+            },
+            {
+              "top": 463,
+              "left": 232,
+              "right": 250,
+              "bottom": 476,
+              "width": 18,
+              "height": 13
+            },
+            {
+              "top": 463,
+              "left": 254,
+              "right": 272,
+              "bottom": 476,
+              "width": 18,
+              "height": 13
+            },
+            {
+              "top": 463,
+              "left": 276,
+              "right": 294,
+              "bottom": 476,
+              "width": 18,
+              "height": 13
+            },
+            {
+              "top": 465,
+              "left": 316,
+              "right": 334,
+              "bottom": 478,
+              "width": 18,
+              "height": 13
+            },
+            {
+              "top": 463,
+              "left": 338,
+              "right": 356,
+              "bottom": 476,
+              "width": 18,
+              "height": 13
+            },
+            {
+              "top": 463,
+              "left": 360,
+              "right": 378,
+              "bottom": 476,
+              "width": 18,
+              "height": 13
+            },
+            {
+              "top": 463,
+              "left": 382,
+              "right": 400,
+              "bottom": 476,
+              "width": 18,
+              "height": 13
+            }
+          ]
+        }
+      ],
+      "expectations": {
+        "rowHeightTolerancePx": 2,
+        "faderTrackWidthTolerancePx": 2
+      },
+      "passed": true
+    },
+    {
+      "family": "vertical-faders",
+      "width": 900,
+      "resizeState": "max",
+      "description": "Desk universe rows and per-channel vertical fader inputs",
+      "measurements": [
+        {
+          "rowRect": {
+            "top": 262.5,
+            "left": 192,
+            "right": 868,
+            "bottom": 762.5,
+            "width": 676,
+            "height": 500
+          },
+          "setHeight": 500,
+          "setFaderWidth": 96,
+          "setFaderTrackWidth": 58,
+          "expectedRowHeight": 500,
+          "scrollRect": {
+            "top": 303.5,
+            "left": 201,
+            "right": 859,
+            "bottom": 753.5,
+            "width": 658,
+            "height": 450
+          },
+          "scrollOverflowsX": true,
+          "inputCount": 8,
+          "inputRects": [
+            {
+              "top": 376.5,
+              "left": 241,
+              "right": 299,
+              "bottom": 678.5,
+              "width": 58,
+              "height": 302
+            },
+            {
+              "top": 376.5,
+              "left": 341,
+              "right": 399,
+              "bottom": 678.5,
+              "width": 58,
+              "height": 302
+            },
+            {
+              "top": 376.5,
+              "left": 441,
+              "right": 499,
+              "bottom": 678.5,
+              "width": 58,
+              "height": 302
+            },
+            {
+              "top": 376.5,
+              "left": 541,
+              "right": 599,
+              "bottom": 678.5,
+              "width": 58,
+              "height": 302
+            },
+            {
+              "top": 376.5,
+              "left": 659,
+              "right": 717,
+              "bottom": 678.5,
+              "width": 58,
+              "height": 302
+            },
+            {
+              "top": 376.5,
+              "left": 759,
+              "right": 817,
+              "bottom": 678.5,
+              "width": 58,
+              "height": 302
+            },
+            {
+              "top": 376.5,
+              "left": 859,
+              "right": 917,
+              "bottom": 678.5,
+              "width": 58,
+              "height": 302
+            },
+            {
+              "top": 376.5,
+              "left": 959,
+              "right": 1017,
+              "bottom": 678.5,
+              "width": 58,
+              "height": 302
+            }
+          ],
+          "clearButtonRects": [
+            {
+              "top": 722.5,
+              "left": 249,
+              "right": 267,
+              "bottom": 740.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 722.5,
+              "left": 349,
+              "right": 367,
+              "bottom": 740.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 722.5,
+              "left": 449,
+              "right": 467,
+              "bottom": 740.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 722.5,
+              "left": 549,
+              "right": 567,
+              "bottom": 740.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 722.5,
+              "left": 667,
+              "right": 685,
+              "bottom": 740.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 722.5,
+              "left": 767,
+              "right": 785,
+              "bottom": 740.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 722.5,
+              "left": 867,
+              "right": 885,
+              "bottom": 740.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 722.5,
+              "left": 967,
+              "right": 985,
+              "bottom": 740.5,
+              "width": 18,
+              "height": 18
+            }
+          ]
+        }
+      ],
+      "expectations": {
+        "rowHeightTolerancePx": 2,
+        "faderTrackWidthTolerancePx": 2
+      },
+      "passed": true
+    },
+    {
+      "family": "vertical-faders",
+      "width": 1280,
+      "resizeState": "min",
+      "description": "Desk universe rows and per-channel vertical fader inputs",
+      "measurements": [
+        {
+          "rowRect": {
+            "top": 262.5,
+            "left": 218,
+            "right": 1248,
+            "bottom": 452.5,
+            "width": 1030,
+            "height": 190
+          },
+          "setHeight": 190,
+          "setFaderWidth": 18,
+          "setFaderTrackWidth": 8,
+          "expectedRowHeight": 190,
+          "scrollRect": {
+            "top": 303.5,
+            "left": 227,
+            "right": 1239,
+            "bottom": 443.5,
+            "width": 1012,
+            "height": 140
+          },
+          "scrollOverflowsX": false,
+          "inputCount": 8,
+          "inputRects": [
+            {
+              "top": 395,
+              "left": 241,
+              "right": 249,
+              "bottom": 435,
+              "width": 8,
+              "height": 40
+            },
+            {
+              "top": 395,
+              "left": 263,
+              "right": 271,
+              "bottom": 435,
+              "width": 8,
+              "height": 40
+            },
+            {
+              "top": 395,
+              "left": 285,
+              "right": 293,
+              "bottom": 435,
+              "width": 8,
+              "height": 40
+            },
+            {
+              "top": 395,
+              "left": 307,
+              "right": 315,
+              "bottom": 435,
+              "width": 8,
+              "height": 40
+            },
+            {
+              "top": 395,
+              "left": 347,
+              "right": 355,
+              "bottom": 435,
+              "width": 8,
+              "height": 40
+            },
+            {
+              "top": 395,
+              "left": 369,
+              "right": 377,
+              "bottom": 435,
+              "width": 8,
+              "height": 40
+            },
+            {
+              "top": 395,
+              "left": 391,
+              "right": 399,
+              "bottom": 435,
+              "width": 8,
+              "height": 40
+            },
+            {
+              "top": 395,
+              "left": 413,
+              "right": 421,
+              "bottom": 435,
+              "width": 8,
+              "height": 40
+            }
+          ],
+          "clearButtonRects": [
+            {
+              "top": 465,
+              "left": 236,
+              "right": 254,
+              "bottom": 478,
+              "width": 18,
+              "height": 13
+            },
+            {
+              "top": 463,
+              "left": 258,
+              "right": 276,
+              "bottom": 476,
+              "width": 18,
+              "height": 13
+            },
+            {
+              "top": 463,
+              "left": 280,
+              "right": 298,
+              "bottom": 476,
+              "width": 18,
+              "height": 13
+            },
+            {
+              "top": 463,
+              "left": 302,
+              "right": 320,
+              "bottom": 476,
+              "width": 18,
+              "height": 13
+            },
+            {
+              "top": 465,
+              "left": 342,
+              "right": 360,
+              "bottom": 478,
+              "width": 18,
+              "height": 13
+            },
+            {
+              "top": 463,
+              "left": 364,
+              "right": 382,
+              "bottom": 476,
+              "width": 18,
+              "height": 13
+            },
+            {
+              "top": 463,
+              "left": 386,
+              "right": 404,
+              "bottom": 476,
+              "width": 18,
+              "height": 13
+            },
+            {
+              "top": 463,
+              "left": 408,
+              "right": 426,
+              "bottom": 476,
+              "width": 18,
+              "height": 13
+            }
+          ]
+        }
+      ],
+      "expectations": {
+        "rowHeightTolerancePx": 2,
+        "faderTrackWidthTolerancePx": 2
+      },
+      "passed": true
+    },
+    {
+      "family": "vertical-faders",
+      "width": 1280,
+      "resizeState": "max",
+      "description": "Desk universe rows and per-channel vertical fader inputs",
+      "measurements": [
+        {
+          "rowRect": {
+            "top": 262.5,
+            "left": 218,
+            "right": 1248,
+            "bottom": 762.5,
+            "width": 1030,
+            "height": 500
+          },
+          "setHeight": 500,
+          "setFaderWidth": 96,
+          "setFaderTrackWidth": 58,
+          "expectedRowHeight": 500,
+          "scrollRect": {
+            "top": 303.5,
+            "left": 227,
+            "right": 1239,
+            "bottom": 753.5,
+            "width": 1012,
+            "height": 450
+          },
+          "scrollOverflowsX": false,
+          "inputCount": 8,
+          "inputRects": [
+            {
+              "top": 376.5,
+              "left": 267,
+              "right": 325,
+              "bottom": 678.5,
+              "width": 58,
+              "height": 302
+            },
+            {
+              "top": 376.5,
+              "left": 367,
+              "right": 425,
+              "bottom": 678.5,
+              "width": 58,
+              "height": 302
+            },
+            {
+              "top": 376.5,
+              "left": 467,
+              "right": 525,
+              "bottom": 678.5,
+              "width": 58,
+              "height": 302
+            },
+            {
+              "top": 376.5,
+              "left": 567,
+              "right": 625,
+              "bottom": 678.5,
+              "width": 58,
+              "height": 302
+            },
+            {
+              "top": 376.5,
+              "left": 685,
+              "right": 743,
+              "bottom": 678.5,
+              "width": 58,
+              "height": 302
+            },
+            {
+              "top": 376.5,
+              "left": 785,
+              "right": 843,
+              "bottom": 678.5,
+              "width": 58,
+              "height": 302
+            },
+            {
+              "top": 376.5,
+              "left": 885,
+              "right": 943,
+              "bottom": 678.5,
+              "width": 58,
+              "height": 302
+            },
+            {
+              "top": 376.5,
+              "left": 985,
+              "right": 1043,
+              "bottom": 678.5,
+              "width": 58,
+              "height": 302
+            }
+          ],
+          "clearButtonRects": [
+            {
+              "top": 722.5,
+              "left": 275,
+              "right": 293,
+              "bottom": 740.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 722.5,
+              "left": 375,
+              "right": 393,
+              "bottom": 740.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 722.5,
+              "left": 475,
+              "right": 493,
+              "bottom": 740.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 722.5,
+              "left": 575,
+              "right": 593,
+              "bottom": 740.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 722.5,
+              "left": 693,
+              "right": 711,
+              "bottom": 740.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 722.5,
+              "left": 793,
+              "right": 811,
+              "bottom": 740.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 722.5,
+              "left": 893,
+              "right": 911,
+              "bottom": 740.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "top": 722.5,
+              "left": 993,
+              "right": 1011,
+              "bottom": 740.5,
+              "width": 18,
+              "height": 18
+            }
+          ]
+        }
+      ],
+      "expectations": {
+        "rowHeightTolerancePx": 2,
+        "faderTrackWidthTolerancePx": 2
+      },
+      "passed": true
+    },
+    {
+      "family": "scene-timelines",
+      "width": 900,
+      "resizeState": "min",
+      "description": "Scenes & Looks scene-list column and BarTimelinePanel bottom evaluation/timeline panel",
+      "measurements": {
+        "layoutRect": {
+          "top": 172,
+          "left": 176,
+          "right": 884,
+          "bottom": 602,
+          "width": 708,
+          "height": 430
+        },
+        "sceneListColumnRect": {
+          "top": 172,
+          "left": 176,
+          "right": 336,
+          "bottom": 602,
+          "width": 160,
+          "height": 430
+        },
+        "mainColumnRect": {
+          "top": 172,
+          "left": 352,
+          "right": 884,
+          "bottom": 602,
+          "width": 532,
+          "height": 430
+        },
+        "timelineRect": {
+          "top": 472,
+          "left": 352,
+          "right": 884,
+          "bottom": 602,
+          "width": 532,
+          "height": 130
+        },
+        "setSceneListWidth": 160
+      },
+      "expectations": {
+        "fixedTimelineRowHeightPx": 130
+      },
+      "passed": true
+    },
+    {
+      "family": "scene-timelines",
+      "width": 900,
+      "resizeState": "max",
+      "description": "Scenes & Looks scene-list column and BarTimelinePanel bottom evaluation/timeline panel",
+      "measurements": {
+        "layoutRect": {
+          "top": 172,
+          "left": 176,
+          "right": 884,
+          "bottom": 602,
+          "width": 708,
+          "height": 430
+        },
+        "sceneListColumnRect": {
+          "top": 172,
+          "left": 176,
+          "right": 576,
+          "bottom": 602,
+          "width": 400,
+          "height": 430
+        },
+        "mainColumnRect": {
+          "top": 172,
+          "left": 592,
+          "right": 884,
+          "bottom": 602,
+          "width": 292,
+          "height": 430
+        },
+        "timelineRect": {
+          "top": 472,
+          "left": 592,
+          "right": 884,
+          "bottom": 602,
+          "width": 292,
+          "height": 130
+        },
+        "setSceneListWidth": 400
+      },
+      "expectations": {
+        "fixedTimelineRowHeightPx": 130
+      },
+      "passed": true
+    },
+    {
+      "family": "scene-timelines",
+      "width": 1280,
+      "resizeState": "min",
+      "description": "Scenes & Looks scene-list column and BarTimelinePanel bottom evaluation/timeline panel",
+      "measurements": {
+        "layoutRect": {
+          "top": 172,
+          "left": 202,
+          "right": 1006,
+          "bottom": 602,
+          "width": 804,
+          "height": 430
+        },
+        "sceneListColumnRect": {
+          "top": 172,
+          "left": 202,
+          "right": 362,
+          "bottom": 602,
+          "width": 160,
+          "height": 430
+        },
+        "mainColumnRect": {
+          "top": 172,
+          "left": 378,
+          "right": 1006,
+          "bottom": 602,
+          "width": 628,
+          "height": 430
+        },
+        "timelineRect": {
+          "top": 472,
+          "left": 378,
+          "right": 1006,
+          "bottom": 602,
+          "width": 628,
+          "height": 130
+        },
+        "setSceneListWidth": 160
+      },
+      "expectations": {
+        "fixedTimelineRowHeightPx": 130
+      },
+      "passed": true
+    },
+    {
+      "family": "scene-timelines",
+      "width": 1280,
+      "resizeState": "max",
+      "description": "Scenes & Looks scene-list column and BarTimelinePanel bottom evaluation/timeline panel",
+      "measurements": {
+        "layoutRect": {
+          "top": 172,
+          "left": 202,
+          "right": 1006,
+          "bottom": 602,
+          "width": 804,
+          "height": 430
+        },
+        "sceneListColumnRect": {
+          "top": 172,
+          "left": 202,
+          "right": 602,
+          "bottom": 602,
+          "width": 400,
+          "height": 430
+        },
+        "mainColumnRect": {
+          "top": 172,
+          "left": 618,
+          "right": 1006,
+          "bottom": 602,
+          "width": 388,
+          "height": 430
+        },
+        "timelineRect": {
+          "top": 472,
+          "left": 618,
+          "right": 1006,
+          "bottom": 602,
+          "width": 388,
+          "height": 130
+        },
+        "setSceneListWidth": 400
+      },
+      "expectations": {
+        "fixedTimelineRowHeightPx": 130
+      },
+      "passed": true
+    }
+  ],
+  "allCasesPassed": true
+}
