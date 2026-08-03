@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkFiles } from "./check.mjs";
+import { checkDesignSystem, checkFiles } from "./check.mjs";
 
 const roots: string[] = [];
 
@@ -51,5 +51,29 @@ describe("DS001-DS010 policy boundaries", () => {
     const second = await checkFiles(root, ["src/missing.tsx", "src/Feature.module.css"]);
     expect(first.diagnostics).toEqual(second.diagnostics);
     expect(first.diagnostics.every((diagnostic) => diagnostic.rule === "DS000" || diagnostic.path.startsWith("src/"))).toBe(true);
+  });
+
+  it("uses the same engine for scoped and full source enumeration", async () => {
+    const root = await fixture({
+      "src/Feature.module.css": ".panel { color: #fff; }",
+      "src/Feature.tsx": "export const Feature = () => <button className='button'>Go</button>;",
+    });
+    const scoped = await checkDesignSystem(root, { paths: ["src/Feature.module.css", "src/Feature.tsx"] });
+    const whole = await checkDesignSystem(root, { wholeSource: true });
+    expect(whole.diagnostics).toEqual(scoped.diagnostics);
+  });
+
+  it.each([
+    ["accepts one exact exception", ".panel { color: #fff; }", "#fff", []],
+    ["rejects a stale exception", ".panel { color: #fff; }", "#000", ["stale exception"]],
+    ["rejects a broad exception", ".panel { color: #fff; color: #fff; }", "#fff", ["broad exception"]],
+    ["never accepts a spacing exception", ".panel { padding: 7px; }", "padding: 7px", ["spacing exception"]],
+  ])("%s", async (_name, css, match, messages) => {
+    const root = await fixture({
+      "src/Feature.module.css": css,
+      "design-system/exceptions.json": JSON.stringify({ schemaVersion: 1, records: [{ path: "src/Feature.module.css", rule: "DS001", match, rationale: "domain coordinate", source: "test", owner: "test", reviewCondition: "next review" }] }),
+    });
+    const result = await checkFiles(root, ["src/Feature.module.css"]);
+    expect(messages.length === 0 ? result.diagnostics : result.diagnostics.filter((diagnostic) => messages.includes(diagnostic.message))).toHaveLength(messages.length);
   });
 });
