@@ -11,6 +11,7 @@ import { useMemo, type CSSProperties } from "react";
 import { Radio, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import FaderLearnHitArea from "./FaderLearnHitArea";
 import styles from "./Desk.module.css";
 
 /** MidiLearnStatus mirrors MidiLearn.tsx's own status machine
@@ -250,6 +251,14 @@ export default function Fader({
       <span className={styles.faderSublabel} title={sublabel}>
         {sublabel}
       </span>
+      {/* A raw <button>, not IconButton: this control is fixed at 18x18px
+          regardless of the current --fader-width (unlike IconButton, whose
+          smallest size is 32px and whose icon is fixed at 20px -- both
+          would overflow a column resized down toward FADER_WIDTH_MIN=18px,
+          colliding with the adjacent fader). Registered as an exact,
+          narrow domain-geometry exception (design-system/exception-
+          proposals/desk.json) rather than forced onto a primitive whose
+          size contract cannot fit this column. */}
       <button
         type="button"
         className={styles.faderClearButton}
@@ -260,42 +269,16 @@ export default function Fader({
         <X size={11} aria-hidden="true" />
       </button>
       {midiLearnMode && (
-        <>
-          {/* faderLearnHitArea is transparent -- no background, no border,
-              nothing painted over the fader's own content -- it exists
-              only to intercept the click a native range-input drag would
-              otherwise consume, and to give the whole card one unambiguous
-              click target. Its own outline (learnHighlightClass above) is
-              what conveys "clickable," not this element. Listening ->
-              click cancels; already mapped -> click remaps; otherwise ->
-              click learns. */}
-          <button
-            type="button"
-            className={styles.faderLearnHitArea}
-            onClick={midiLearnStatus === "listening" ? onMidiCancel : midiMapped ? onMidiRemap : onMidiLearnClick}
-            aria-label={
-              midiLearnStatus === "listening"
-                ? `Cancel MIDI learn for ${label}`
-                : midiMapped
-                  ? `Remap MIDI control for ${label}`
-                  : `Learn MIDI mapping for ${label}`
-            }
-            title={
-              isAttention && midiLearnMessage
-                ? midiLearnMessage
-                : midiLearnStatus === "listening"
-                  ? "Listening for MIDI input… click to cancel"
-                  : midiMapped
-                    ? "Click to remap"
-                    : "Click to learn"
-            }
-          />
-          {isAttention && midiLearnMessage && (
-            <span className={styles.faderLearnSrOnly} role="alert">
-              {midiLearnMessage}
-            </span>
-          )}
-        </>
+        <FaderLearnHitArea
+          label={label}
+          listening={midiLearnStatus === "listening"}
+          mapped={Boolean(midiMapped)}
+          attention={isAttention}
+          message={midiLearnMessage}
+          onLearn={onMidiLearnClick}
+          onRemap={onMidiRemap}
+          onCancel={onMidiCancel}
+        />
       )}
       {midiMapped && (
         <span

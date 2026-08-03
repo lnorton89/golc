@@ -1,5 +1,6 @@
 /* Theme faces and semantic tokens are generated from the reviewed manifest. */
 @import "./design-system/tokens.generated.css";
+@import "./design-system/utilities.css";
 
 *,
 *::before,

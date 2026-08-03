@@ -5,7 +5,12 @@ import type { LucideIcon } from "lucide-react";
 import styles from "./IconButton.module.css";
 
 export type IconButtonVariant = "neutral" | "primary" | "destructive";
-export type IconButtonSize = "default" | "target";
+/** "compact" (28px button, 16px icon) is for a small cluster of icon
+ * buttons inside an already-dense row (a card header, a toolbar group)
+ * where "default"'s 32px would force more line-wrapping than the row's
+ * own layout intends -- not a substitute for "target" wherever a control
+ * is the primary/sole way to reach an action under pressure. */
+export type IconButtonSize = "compact" | "default" | "target";
 /** "native" (default) disables via the real `disabled` attribute, same as
  * every other button in the app. "soft" is an opt-in for the rare case
  * where the button must stay hoverable/focusable/tabbable while inert --
@@ -33,6 +38,7 @@ const VARIANT_CLASS: Record<IconButtonVariant, string> = {
 };
 
 const SIZE_CLASS: Record<IconButtonSize, string> = {
+  compact: styles.compact,
   default: styles.default,
   target: styles.target,
 };

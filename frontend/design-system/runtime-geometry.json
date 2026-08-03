@@ -2,6 +2,8 @@
   "schemaVersion": 1,
   "properties": [
     { "name": "--ds-guided-first-show-stage-rail", "type": "length", "minimum": "160px", "maximum": "320px", "fallback": "210px", "settingSite": "guided-first-show", "reviewCondition": "guided-first-show resize implementation" },
-    { "name": "--ds-scenelist-width", "type": "length", "minimum": "160px", "maximum": "400px", "fallback": "205px", "settingSite": "scenes-looks-workspace", "reviewCondition": "scenes & looks scene-list panel resize implementation" }
+    { "name": "--ds-scenelist-width", "type": "length", "minimum": "160px", "maximum": "400px", "fallback": "205px", "settingSite": "scenes-looks-workspace", "reviewCondition": "scenes & looks scene-list panel resize implementation" },
+    { "name": "--ds-universe-height", "type": "length", "minimum": "190px", "maximum": "500px", "fallback": "260px", "settingSite": "desk-workspace", "reviewCondition": "Desk universe row resize implementation" },
+    { "name": "--ds-fader-width", "type": "length", "minimum": "18px", "maximum": "96px", "fallback": "34px", "settingSite": "desk-workspace", "reviewCondition": "Desk fader column resize implementation" }
   ]
 }
