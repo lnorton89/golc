@@ -42,17 +42,9 @@ import {
   type NoteSummaryView,
 } from "../../lib/wailsBridge";
 
-import Toolbar from "../../components/primitives/Toolbar/Toolbar";
-import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
-import Panel from "../../components/primitives/Panel/Panel";
-import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion";
-import ListRow from "../../components/primitives/ListRow/ListRow";
-import EmptyState from "../../components/primitives/EmptyState/EmptyState";
-import Button from "../../components/primitives/Button/Button";
-import ConfirmModal from "../../components/primitives/ConfirmModal/ConfirmModal";
+import { Button, ConfirmModal, EmptyState, Field, ListRow, Panel, ResizeHandle, ScrollRegion, WorkspaceFrame } from "../../design-system";
 import NoteEditor from "../../components/Notes/NoteEditor";
 import { useResizablePanel } from "../../hooks/useResizablePanel";
-import ResizeHandle from "../../components/primitives/ResizeHandle/ResizeHandle";
 import styles from "./NotesWorkspace.module.css";
 
 // HOST_UNREACHABLE_MESSAGE mirrors ScriptsWorkspace.tsx's identical "can't
@@ -350,12 +342,11 @@ export default function NotesWorkspace() {
 
   const newNoteForm = creating ? (
     <div className={styles.createForm}>
-      <input
-        className={styles.createInput}
+      <Field
+        label="New note title"
         type="text"
         value={newTitle}
         placeholder="Note title"
-        aria-label="New note title"
         onChange={(event) => setNewTitle(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
@@ -381,26 +372,21 @@ export default function NotesWorkspace() {
   );
 
   return (
-    <div className={styles.workspace}>
-      <Toolbar title="Notes" icon={NotebookPen} info={HOW_IT_WORKS_BY_ID["show-notes"]} action={toolbarActions} />
+    <WorkspaceFrame title="Notes" action={toolbarActions}>
       <div className={styles.canvas}>
-        {error ? <p className={styles.errorText}>{error}</p> : null}
+        {error ? <p className={styles.feedback}>{error}</p> : null}
 
         {!loading && notes.length === 0 ? (
-          <Panel className={styles.emptyState}>
-            <EmptyState icon={NotebookPen}>
-              <span className={styles.emptyHeading}>No notes yet</span>
-              <span className={styles.emptyBody}>Create a note to keep free-form, formatted text alongside this show.</span>
-            </EmptyState>
-            {creating ? null : (
-              <Button variant="primary" icon={Plus} onClick={() => setCreating(true)}>
-                New Note
-              </Button>
-            )}
-            {newNoteForm}
+          <Panel>
+            <EmptyState
+              icon={NotebookPen}
+              heading="No notes yet"
+              body="Create a note to keep free-form, formatted text alongside this show."
+              action={creating ? newNoteForm : <Button variant="primary" icon={Plus} onClick={() => setCreating(true)}>New Note</Button>}
+            />
           </Panel>
         ) : (
-          <div className={styles.layout} style={{ "--library-width": `${libraryPanel.size}px` } as CSSProperties}>
+          <div className={styles.layout} style={{ gridTemplateColumns: `${libraryPanel.size}px minmax(0, 1fr)` } as CSSProperties}>
             <div className={styles.library}>
               {newNoteForm}
               <ResizeHandle
@@ -413,7 +399,7 @@ export default function NotesWorkspace() {
               <ScrollRegion>
                 {loading ? (
                   <ul className={styles.list} aria-label="Note list">
-                    <li className={styles.loadingRow}>Loading notes…</li>
+                    <li className={styles.noteListItem}>Loading notes…</li>
                   </ul>
                 ) : (
                   <ul className={styles.list} aria-label="Note list">
@@ -436,11 +422,10 @@ export default function NotesWorkspace() {
               {selectedNote ? (
                 <>
                   <div className={styles.editorHeaderRow}>
-                    <input
-                      className={styles.titleInput}
+                    <Field
+                      label="Note title"
                       type="text"
                       value={title}
-                      aria-label="Note title"
                       onChange={(event) => handleTitleChange(event.target.value)}
                     />
                     {saveStatusLabel(saveStatus) ? (
@@ -459,7 +444,7 @@ export default function NotesWorkspace() {
                   )}
                 </>
               ) : (
-                <p className={styles.emptySelection}>Select a note to view and edit it.</p>
+                <p className={styles.statusText}>Select a note to view and edit it.</p>
               )}
             </div>
           </div>
@@ -475,6 +460,6 @@ export default function NotesWorkspace() {
           onCancel={() => setConfirmingDelete(false)}
         />
       ) : null}
-    </div>
+    </WorkspaceFrame>
   );
 }
