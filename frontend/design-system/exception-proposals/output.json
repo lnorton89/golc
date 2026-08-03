@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "id": "applogpanel-filter-pill-button",
+      "path": "src/components/Diagnostics/AppLogPanel.tsx",
+      "rule": "DS005",
+      "match": "button",
+      "rationale": "The per-level/per-source filter toggle is an outlined pill with an active/inactive visual state and an aria-pressed toggle contract -- Button/IconButton have no pill-shaped toggle variant, and this is the only raw native control in this file (the rest of the tree uses Panel/PanelHeader/Button/ScrollRegion/EmptyState).",
+      "source": "AppLogPanel.tsx:120",
+      "owner": "phase-13-26",
+      "reviewCondition": "a shared toggle-pill primitive is added to the design system",
+      "verification": "npx vitest run src/components/Diagnostics"
+    }
+  ]
+}

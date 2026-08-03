@@ -1,89 +1,71 @@
 /*
  * ArtnetConfig.module.css is the single CSS Module for the Art-Net
- * configuration feature (06-11-PLAN.md Task 2/3): network interfaces,
- * the add-target form, and the configured-target list all read from this
- * one file. Reads the GOLC brand tokens (frontend/src/index.css custom
- * properties) rather than repeating hex values (06-UI-SPEC.md Design
- * System) -- mirrors FixturePatch.module.css's class-naming and token
- * usage exactly so this feature reads as the same visual system, not a
- * new one.
+ * configuration feature (06-11-PLAN.md Task 2/3, migrated to the shared
+ * design system in 13-26): network interfaces, the add-target form, and
+ * the configured-target list all read from this one file. Layout and
+ * domain-specific rhythm only -- shared control/state chrome comes from
+ * the design-system primitives (Panel, Button, Chip, Field, EmptyState,
+ * ErrorState, LoadingState, InfoTooltip) this component consumes, reading
+ * generated --ds-* tokens rather than repeating hex values or the removed
+ * legacy custom properties.
  */
 
-.panel {
+.content {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-  padding: var(--space-lg);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--text);
-  font-family: "Archivo", system-ui, sans-serif;
+  gap: var(--ds-spacing-space4);
 }
 
 .sectionHeading {
   margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--ink);
+  font-size: var(--ds-typography-font-size-heading);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  color: var(--ds-text-primary);
 }
 
 .subsection {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  border-top: 1px solid var(--line);
-  padding-top: var(--space-md);
+  gap: var(--ds-spacing-space2);
+  border-top-width: 1px;
+  border-top-style: solid;
+  border-top-color: var(--ds-border-default);
+  padding-top: var(--ds-spacing-space4);
 }
 
 .subsectionHeadingRow {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
 .subsectionHeading {
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.skeleton {
-  padding: var(--space-md);
-  border-radius: 4px;
-  background: var(--line);
-  color: var(--muted);
-  opacity: 0.6;
+  font-size: var(--ds-typography-font-size-body);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  color: var(--ds-text-primary);
 }
 
 /* Daemon-unreachable panel (D-13/06-UI-SPEC.md): explicit, never a blank
-   status -- uses the `offline` status color exactly. */
+   status -- uses the Chip primitive's own `offline` tone exactly. */
 
 .offlinePanel {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--status-offline);
-  border-radius: 4px;
-  background: var(--page);
-}
-
-.offlineChip {
-  padding: 2px var(--space-sm);
-  border-radius: 4px;
-  background: var(--status-offline);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  text-transform: uppercase;
+  gap: var(--ds-spacing-space2);
+  padding-block: var(--ds-spacing-space2);
+  padding-inline: var(--ds-spacing-space4);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-status-offline);
+  border-radius: var(--ds-radii-small);
+  background: var(--ds-surface-canvas);
 }
 
 .offlineText {
   margin: 0;
-  font-size: 14px;
-  color: var(--text);
+  font-size: var(--ds-typography-font-size-body);
+  color: var(--ds-text-secondary);
 }
 
 /* Add-target form */
@@ -91,118 +73,35 @@
 .createRow {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
-  align-items: center;
+  gap: var(--ds-spacing-space2);
+  align-items: flex-end;
 }
 
 .createInput {
   flex: 1;
   min-width: 160px;
-  padding: var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--page);
-  color: var(--ink);
-  font-family: inherit;
-  font-size: 14px;
 }
 
 .createInputNarrow {
   width: 128px;
-  padding: var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--page);
-  color: var(--ink);
-  font-family: inherit;
-  font-size: 14px;
+}
+
+/* Below the width the 160px floor above was chosen for, let fields shrink
+   further instead of forcing a horizontal overflow -- .createRow already
+   wraps each field onto its own line first. */
+@media (max-width: 480px) {
+  .createInput {
+    min-width: 0;
+  }
 }
 
 .checkboxLabel {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  color: var(--text);
+  gap: var(--ds-spacing-space1);
+  font-size: var(--ds-typography-font-size-body);
+  color: var(--ds-text-secondary);
   white-space: nowrap;
-}
-
-.primaryButton {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-md);
-  border: none;
-  border-radius: 4px;
-  background: var(--accent-4);
-  color: #fff;
-  font-family: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.primaryButton:hover {
-  background: var(--accent-4-dp);
-}
-
-.primaryButton:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.secondaryButton {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-sm);
-  border: 1px solid var(--accent-4);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--accent-4);
-  font-family: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.secondaryButton:hover {
-  background: var(--accent-4);
-  color: #fff;
-}
-
-.secondaryButton:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Empty states (zero-one-many backstop) */
-
-.emptyState {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-lg) var(--space-md);
-}
-
-.emptyHeading {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.emptyBody {
-  margin: 0;
-  font-size: 16px;
-  color: var(--text);
-}
-
-.countSummary {
-  margin: 0;
-  font-size: 14px;
-  color: var(--muted);
 }
 
 /* Fixed-height scroll panel (overflow backstop): interface/target lists
@@ -217,23 +116,25 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
 .row {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--page);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space2);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
+  background: var(--ds-surface-canvas);
 }
 
 .rowHeader {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
 .rowName {
@@ -242,23 +143,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.pinnedChip {
-  flex-shrink: 0;
-  padding: 2px var(--space-sm);
-  border-radius: 4px;
-  background: var(--status-live);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--ds-typography-font-weight-semibold);
+  color: var(--ds-text-primary);
 }
 
 /* Compact single-line interface rows (denser than the target-list cards
    below: one line per interface -- status dot, name, addresses, then
-   either a Pinned chip or a small Use button). */
+   either an "In use" chip or a small Use button). */
 
 .interfaceList {
   list-style: none;
@@ -266,17 +157,22 @@
   padding: 0;
   max-height: 320px;
   overflow-y: auto;
-  border: 1px solid var(--line);
-  border-radius: 4px;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
 }
 
 .interfaceRow {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: 4px var(--space-sm);
-  border-bottom: 1px solid var(--line);
-  background: var(--page);
+  gap: var(--ds-spacing-space2);
+  padding-block: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space2);
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
+  border-bottom-color: var(--ds-border-default);
+  background: var(--ds-surface-canvas);
 }
 
 .interfaceRow:last-child {
@@ -287,16 +183,16 @@
 .interfaceStatusDown {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--ds-radii-pill);
   flex-shrink: 0;
 }
 
 .interfaceStatusUp {
-  background: var(--status-live);
+  background: var(--ds-status-live);
 }
 
 .interfaceStatusDown {
-  background: var(--status-offline);
+  background: var(--ds-status-offline);
 }
 
 .interfaceName {
@@ -306,9 +202,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--ink);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  font-size: var(--ds-typography-font-size-compact);
+  color: var(--ds-text-primary);
 }
 
 .interfaceAddrs {
@@ -317,66 +213,19 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 12px;
-  color: var(--muted);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  color: var(--ds-text-muted);
 }
 
-.interfaceSelectButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  padding: 2px var(--space-xs);
-  border: 1px solid var(--accent-4);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--accent-4);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.interfaceSelectButton:hover {
-  background: var(--accent-4);
-  color: #fff;
-}
-
-.interfaceSelectButton:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.enabledChip {
-  padding: 2px var(--space-sm);
-  border-radius: 4px;
-  background: var(--status-frame-lock);
-  color: #17181c;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.disabledChip {
-  padding: 2px var(--space-sm);
-  border-radius: 4px;
-  background: var(--status-offline);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
+.countSummary {
+  margin: 0;
+  font-size: var(--ds-typography-font-size-body);
+  color: var(--ds-text-muted);
 }
 
 .technical {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 14px;
-  color: var(--muted);
-}
-
-.errorText {
-  margin: 0;
-  padding: var(--space-sm);
-  border-radius: 4px;
-  background: var(--status-revoked);
-  color: #fff;
-  font-size: 14px;
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-body);
+  color: var(--ds-text-muted);
 }
