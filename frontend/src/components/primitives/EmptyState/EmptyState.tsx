@@ -1,10 +1,6 @@
-// EmptyState is the shared "nothing here yet" row: a muted icon (defaults
-// to Inbox) plus a message, replacing the many near-identical
-// `<p className={styles.emptyState}>...</p>` paragraphs that were
-// duplicated per-workspace before the icon/polish pass. Deliberately no
-// "create" call-to-action baked in -- callers that want one already render
-// their own create button elsewhere (PanelHeader's action slot, a
-// dedicated toolbar), so this stays a pure, reusable message row.
+// EmptyState is a projection-only composition for a bounded empty region.
+// The legacy children form remains supported so existing workspace messages
+// can migrate independently; new callers provide a heading/body/action.
 import type { ReactNode } from "react";
 import { Inbox, type LucideIcon } from "lucide-react";
 
@@ -12,14 +8,30 @@ import styles from "./EmptyState.module.css";
 
 interface EmptyStateProps {
   icon?: LucideIcon;
-  children: ReactNode;
+  children?: ReactNode;
+  heading?: string;
+  body?: ReactNode;
+  action?: ReactNode;
 }
 
-export default function EmptyState({ icon: Icon = Inbox, children }: EmptyStateProps) {
+export default function EmptyState({ icon: Icon = Inbox, children, heading, body, action }: EmptyStateProps) {
+  if (!heading) {
+    return (
+      <p className={styles.legacy}>
+        <Icon size={14} className={styles.icon} aria-hidden="true" />
+        {children}
+      </p>
+    );
+  }
+
   return (
-    <p className={styles.emptyState}>
-      <Icon size={14} className={styles.icon} aria-hidden="true" />
-      {children}
-    </p>
+    <section className={styles.emptyState}>
+      <Icon size={20} className={styles.icon} aria-hidden="true" />
+      <div className={styles.copy}>
+        <h2 className={styles.heading}>{heading}</h2>
+        {body ? <p className={styles.body}>{body}</p> : null}
+        {action ? <div className={styles.action}>{action}</div> : null}
+      </div>
+    </section>
   );
 }
