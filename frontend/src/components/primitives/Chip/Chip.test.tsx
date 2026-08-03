@@ -26,4 +26,11 @@ describe("Chip", () => {
       cleanup();
     },
   );
+
+  it("exposes status semantics in addition to its color treatment", () => {
+    render(<Chip tone="offline">Offline</Chip>);
+    const status = screen.getByRole("status", { name: "Offline" });
+    expect(status).toHaveAttribute("data-status", "offline");
+    expect(status).toHaveTextContent("Offline");
+  });
 });

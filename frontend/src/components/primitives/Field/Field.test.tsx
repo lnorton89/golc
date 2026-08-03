@@ -31,4 +31,22 @@ describe("Field", () => {
     // The default input must not also render alongside custom children.
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
+
+  it("connects the label, description, and error to its default input", () => {
+    render(
+      <Field label="Scene name" description="Shown on the operator surface." error="A scene name is required." value="" onChange={() => {}} />,
+    );
+
+    const input = screen.getByRole("textbox", { name: "Scene name" });
+    expect(input).toHaveAccessibleDescription("Shown on the operator surface. A scene name is required.");
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("A scene name is required.")).toHaveAttribute("role", "alert");
+  });
+
+  it("forwards required and disabled semantics to the field control", () => {
+    render(<Field label="Universe" required disabled value="1" onChange={() => {}} />);
+    const input = screen.getByRole("textbox", { name: /universe/i });
+    expect(input).toBeRequired();
+    expect(input).toBeDisabled();
+  });
 });
