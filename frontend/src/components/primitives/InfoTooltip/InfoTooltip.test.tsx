@@ -28,7 +28,10 @@ describe("InfoTooltip", () => {
     const trigger = screen.getByRole("button", { name: "How Overview works" });
 
     fireEvent.focus(trigger);
-    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    const tooltip = screen.getByRole("tooltip");
+    expect(tooltip).toBeInTheDocument();
+    expect(trigger).toHaveAttribute("aria-describedby", tooltip.id);
+    expect(trigger).toHaveAttribute("title", "Reads the currently open show's state.");
 
     fireEvent.blur(trigger);
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();

@@ -16,4 +16,16 @@ describe("ScrollRegion", () => {
     const div = screen.getByText("content");
     expect(div.className).toContain("custom");
   });
+
+  it("keeps scrolling bounded to the requested axis and makes named regions reachable", () => {
+    render(
+      <ScrollRegion aria-label="Fixture list" direction="vertical">
+        content
+      </ScrollRegion>,
+    );
+
+    const region = screen.getByRole("region", { name: "Fixture list" });
+    expect(region).toHaveAttribute("tabindex", "0");
+    expect(region).toHaveAttribute("data-scroll-direction", "vertical");
+  });
 });
