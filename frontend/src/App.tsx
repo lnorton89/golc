@@ -15,6 +15,7 @@ import ErrorBoundary from "./shell/ErrorBoundary";
 import DialogFeasibility from "./design-system/fixtures/DialogFeasibility";
 import DesignSystemGallery from "./design-system/fixtures/DesignSystemGallery";
 import EmergencyFallbackFixture from "./design-system/fixtures/EmergencyFallbackFixture";
+import DeskOperatorFixture from "./design-system/fixtures/DeskOperatorFixture";
 
 // Keep the test-only fixture route independent from the normal shell bundle.
 // It still inherits index.css's generated semantic theme contract, while the
@@ -43,6 +44,15 @@ export default function App() {
   // AppShell/Suspense ever mounting.
   if (globalThis.location.search === "?e2e=emergency-fallback") {
     return <EmergencyFallbackFixture />;
+  }
+
+  // Plan 13-34's Desk/Operator Surface baseline matrix needs a combined,
+  // browser-reachable bounded state UI-SPEC's Required reference matrix
+  // describes as one row -- no single existing navigable destination
+  // renders both halves of it on one screen. Mirrors the three seams
+  // above exactly rather than inventing a second routing mechanism.
+  if (globalThis.location.search === "?e2e=desk-operator") {
+    return <DeskOperatorFixture />;
   }
 
   return (
