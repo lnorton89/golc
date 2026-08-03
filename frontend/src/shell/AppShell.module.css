@@ -1,7 +1,7 @@
 .appShell {
   height: 100vh;
   display: grid;
-  /* Inspector's own track width comes from --inspector-width, an inline
+  /* Inspector's own track width comes from --ds-inspector-width, an inline
      custom property AppShell.tsx sets directly (0px/258px) rather than a
      second class/rule toggling grid-template-columns. Two earlier
      approaches both got stuck at the track's original computed size even
@@ -17,9 +17,26 @@
      ambiguity: there's exactly one grid-template-columns declaration
      ever, inline style always wins for resolving the variable, and the
      transition below animates its resolved value exactly like any other
-     transitionable property. */
-  grid-template-columns: var(--rail-width, 186px) minmax(0, 1fr) var(--inspector-width, 0px);
-  transition: grid-template-columns var(--motion-settle);
+     transitionable property.
+
+     --ds-rail-width/--ds-inspector-width are per-instance runtime values
+     (the user's own last-dragged resize state, or 0px when the inspector
+     is empty), not semantic theme tokens -- registered in
+     design-system/runtime-geometry.json (min/max/fallback) rather than
+     tokens.json, matching Desk's --ds-fader-width/--ds-universe-height
+     precedent. AppShell.tsx always sets both unconditionally, so the CSS
+     side never needs its own var(..., fallback) -- a CSS-side fallback
+     is itself a DS003 violation the checker cannot except (13-13's Desk
+     migration hit and documented the identical pattern). */
+  grid-template-columns: var(--ds-rail-width) minmax(0, 1fr) var(--ds-inspector-width);
+  /* transition/transition-property split: DS001 requires "transition"'s
+     value be a single bare var(--ds-*) -- it cannot also carry a raw
+     property-name literal ("grid-template-columns"), so the property to
+     animate is expressed via the untracked transition-property longhand
+     instead (see TitleBar/GlobalFrame/CommandRail for the same split
+     applied to their own transition/animation declarations). */
+  transition: var(--ds-motion-settle);
+  transition-property: grid-template-columns;
   /* SafetyCluster now lives inline in the 52px header (GlobalFrame.tsx,
      header-merge pass) instead of its own dedicated grid row -- D-13
      still requires it stay visible and interactive on every workspace,
@@ -30,8 +47,8 @@
     "header header header"
     "rail main inspector";
   overflow: hidden;
-  background: var(--page);
-  color: var(--ink);
+  background: var(--ds-surface-canvas);
+  color: var(--ds-text-primary);
 }
 
 .titleBar {
@@ -59,21 +76,32 @@
    stays flush top-to-bottom (only requested for "the rest of content").
    .main deliberately has no left/right margin of its own -- every
    workspace supplies its own edge spacing (e.g. most workspaces' own
-   .canvas { padding: var(--space-md) }), and giving .main a blanket
-   margin here would double up with whichever ones already do (see
-   GuidedFirstShow.module.css's .overlay for the one workspace that
+   .canvas { padding: var(--ds-spacing-space4) }), and giving .main a
+   blanket margin here would double up with whichever ones already do
+   (see GuidedFirstShow.module.css's .overlay for the one workspace that
    didn't and needed its own scoped fix instead). */
 .main {
   grid-area: main;
   min-width: 0;
   min-height: 0;
-  margin-top: var(--space-md);
-  margin-bottom: var(--space-md);
+  margin-top: var(--ds-spacing-space4);
+  margin-bottom: var(--ds-spacing-space4);
   overflow: hidden;
 }
 
+/* The workspace-enter fade+settle micro-motion cannot be expressed as a
+   single bare var(--ds-*) "animation" declaration -- unlike "transition",
+   "animation" requires an actual keyframe-name reference (there is no
+   token for "workspaceEnter"), and DS001 only exempts the exact form
+   var(--ds-*) or calc(var(--ds-*)...). Splitting the shorthand into
+   "animation: var(--ds-motion-settle)" (sets duration+easing from the
+   token, resets name to its initial "none") followed by a separate
+   "animation-name: workspaceEnter" (an untracked longhand DS001 never
+   checks) reproduces the exact original animation with zero behavior
+   change, using only the real token for timing. */
 .main > * {
-  animation: workspaceEnter var(--motion-settle);
+  animation: var(--ds-motion-settle);
+  animation-name: workspaceEnter;
 }
 
 @keyframes workspaceEnter {
@@ -86,9 +114,9 @@
 .inspector {
   grid-area: inspector;
   min-height: 0;
-  margin-top: var(--space-md);
-  margin-bottom: var(--space-md);
-  margin-right: var(--space-md);
+  margin-top: var(--ds-spacing-space4);
+  margin-bottom: var(--ds-spacing-space4);
+  margin-right: var(--ds-spacing-space4);
   width: 100%;
   overflow: hidden;
   /* position:relative anchoring for the ResizeHandle overlay AppShell.tsx
@@ -107,7 +135,7 @@
        than 160px is still honored, only a wider one gets capped -- keeps
        "the rail stays reachable at compact widths" without discarding a
        deliberately-smaller resize choice. */
-    grid-template-columns: min(var(--rail-width, 186px), 160px) minmax(0, 1fr) 0;
+    grid-template-columns: min(var(--ds-rail-width), 160px) minmax(0, 1fr) 0;
   }
 
   .inspector {

@@ -138,8 +138,8 @@ function ShellBody() {
     edge: "start",
   });
   const appShellStyle = {
-    "--rail-width": `${rail.size}px`,
-    "--inspector-width": inspectorHasContent ? `${inspector.size}px` : "0px",
+    "--ds-rail-width": `${rail.size}px`,
+    "--ds-inspector-width": inspectorHasContent ? `${inspector.size}px` : "0px",
   } as CSSProperties;
 
   return (

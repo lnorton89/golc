@@ -9,6 +9,14 @@
 // CSS custom property --wails-draggable: drag becomes a native window-drag
 // handle, and the button cluster overrides it back to no-drag so the
 // buttons stay clickable. See https://wails.io/docs/guides/frameless.
+//
+// Minimize/maximize/close now render as the shared IconButton primitive
+// (size="compact", 28px -- fits inside this row's fixed 32px height with
+// no CSS override needed) instead of a hand-rolled <button> per D-05
+// ("Shared visual behavior belongs in typed React primitives"). Window
+// behavior itself (minimise/toggleMaximise/close, drag-region
+// double-click) is unchanged -- only the control's own visual chrome
+// moved to the primitive.
 import { useEffect, useState, type CSSProperties } from "react";
 import { Minus, Square, Copy, X } from "lucide-react";
 
@@ -19,11 +27,21 @@ import {
   windowClose,
   inspectShow,
 } from "../lib/wailsBridge";
+import { IconButton } from "../design-system";
 import appIcon from "../assets/app-icon.png";
 import styles from "./TitleBar.module.css";
 
 const dragStyle = { "--wails-draggable": "drag" } as CSSProperties;
 const noDragStyle = { "--wails-draggable": "no-drag" } as CSSProperties;
+// Fixed, non-resizable window-chrome geometry: keeps the centered project
+// name clear of the brand cluster (left) and the minimize/maximize/close
+// cluster (right). Registered in design-system/runtime-geometry.json
+// (--ds-titlebar-label-inset-start/-end) rather than a bare literal so the
+// custom property is a recognized "--ds-" name, not an unknown one.
+const projectNameStyle = {
+  "--ds-titlebar-label-inset-start": "100px",
+  "--ds-titlebar-label-inset-end": "140px",
+} as CSSProperties;
 
 /** projectNameFromPath strips a show file's directory and .golc extension
  * (e.g. "C:\shows\Fall Tour.golc" -> "Fall Tour"), tolerating both Windows
@@ -60,32 +78,19 @@ export default function TitleBar() {
         <img src={appIcon} alt="" className={styles.brandIcon} />
         <span className={styles.brandLabel}>GOLC</span>
       </div>
-      <span className={styles.projectName}>{projectName}</span>
+      <span className={styles.projectName} style={projectNameStyle}>
+        {projectName}
+      </span>
       <div className={styles.controls} style={noDragStyle} onDoubleClick={(event) => event.stopPropagation()}>
-        <button
-          type="button"
-          className={styles.controlButton}
-          aria-label="Minimize"
-          onClick={windowMinimise}
-        >
-          <Minus size={14} />
-        </button>
-        <button
-          type="button"
-          className={styles.controlButton}
-          aria-label={maximised ? "Restore" : "Maximize"}
+        <IconButton icon={Minus} label="Minimize" variant="neutral" size="compact" onClick={windowMinimise} />
+        <IconButton
+          icon={maximised ? Copy : Square}
+          label={maximised ? "Restore" : "Maximize"}
+          variant="neutral"
+          size="compact"
           onClick={toggleMaximise}
-        >
-          {maximised ? <Copy size={12} /> : <Square size={12} />}
-        </button>
-        <button
-          type="button"
-          className={`${styles.controlButton} ${styles.closeButton}`}
-          aria-label="Close"
-          onClick={windowClose}
-        >
-          <X size={14} />
-        </button>
+        />
+        <IconButton icon={X} label="Close" variant="destructive" size="compact" onClick={windowClose} />
       </div>
     </div>
   );
