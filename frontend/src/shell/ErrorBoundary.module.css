@@ -30,7 +30,14 @@
   margin: 0;
   font-size: var(--ds-typography-font-size-heading);
   font-weight: var(--ds-typography-font-weight-semibold);
-  color: #e23a2e;
+  /* #e54e43 (not the canonical --ds-status-revoked #e23a2e) is a minimal,
+     hue-preserving lightening measured to clear WCAG AA 4.5:1 against this
+     file's own #131419 background literal -- #e23a2e itself only reaches
+     4.27:1 here (Plan 13-30's emergency-fallback contrast backstop found
+     this). This is this file's own independent, token-free literal (see
+     this file's header comment), not the shared brand token used
+     elsewhere, so the fix is scoped to this fallback screen only. */
+  color: #e54e43;
 }
 
 .body {
@@ -69,7 +76,10 @@
   border-color: var(--ds-status-revoked);
   border-radius: var(--ds-radii-small);
   background: transparent;
-  color: rgb(226, 58, 46);
+  /* Same minimal, hue-preserving contrast correction as .title above
+     (rgb(229, 78, 67), not the canonical rgb(226, 58, 46) revoked red) --
+     see that rule's comment for the measured rationale. */
+  color: rgb(229, 78, 67);
   font-family: var(--ds-typography-font-family-ui);
   font-size: var(--ds-typography-font-size-body);
   font-weight: var(--ds-typography-font-weight-semibold);
