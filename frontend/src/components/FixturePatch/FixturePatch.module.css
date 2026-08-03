@@ -1,29 +1,22 @@
 /*
  * FixturePatch.module.css is the single CSS Module for the fixture-patch
  * feature (06-10-PLAN.md Task 2/3): pools, deployments, the add-fixture
- * form, and the impact-preview panel all read from this one file. Reads
- * the GOLC brand tokens (frontend/src/index.css custom properties) rather
- * than repeating hex values (06-UI-SPEC.md Design System) -- mirrors
- * OperatorSurface.module.css's class-naming and token usage exactly so
- * this feature reads as the same visual system, not a new one.
+ * form, and the impact-preview panel all read from this one file. Layout
+ * and domain-specific rhythm only -- shared control/state chrome comes
+ * from the design-system primitives (Button, Field, EmptyState,
+ * LoadingState, ErrorState, ImpactReview, Chip) this component consumes.
  */
 
-.panel {
+.content {
   display: flex;
   flex-direction: column;
   gap: var(--ds-spacing-space4);
-  padding: var(--ds-spacing-space6);
-  background: var(--ds-surface-panel);
-  border: 1px solid var(--ds-border-default);
-  border-radius: 4px;
-  color: var(--ds-text-secondary);
-  font-family: "Archivo", system-ui, sans-serif;
 }
 
 .sectionHeading {
   margin: 0;
-  font-size: 20px;
-  font-weight: 600;
+  font-size: var(--ds-typography-font-size-heading);
+  font-weight: var(--ds-typography-font-weight-semibold);
   color: var(--ds-text-primary);
 }
 
@@ -31,7 +24,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--ds-spacing-space2);
-  border-top: 1px solid var(--ds-border-default);
+  border-top-width: 1px;
+  border-top-style: solid;
+  border-top-color: var(--ds-border-default);
   padding-top: var(--ds-spacing-space4);
 }
 
@@ -43,17 +38,9 @@
 
 .subsectionHeading {
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: var(--ds-typography-font-size-body);
+  font-weight: var(--ds-typography-font-weight-semibold);
   color: var(--ds-text-primary);
-}
-
-.skeleton {
-  padding: var(--ds-spacing-space4);
-  border-radius: 4px;
-  background: var(--ds-border-default);
-  color: var(--ds-text-muted);
-  opacity: 0.6;
 }
 
 /* Create forms (pool / deployment) */
@@ -62,19 +49,12 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--ds-spacing-space2);
-  align-items: center;
+  align-items: flex-end;
 }
 
 .createInput {
   flex: 1;
   min-width: 160px;
-  padding: var(--ds-spacing-space2);
-  border: 1px solid var(--ds-border-default);
-  border-radius: 4px;
-  background: var(--ds-surface-canvas);
-  color: var(--ds-text-primary);
-  font-family: inherit;
-  font-size: 14px;
 }
 
 /* Below the width the 160px floor above was chosen for, let the field
@@ -86,76 +66,9 @@
   }
 }
 
-.primaryButton {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--ds-spacing-space1);
-  padding: var(--ds-spacing-space2) var(--ds-spacing-space4);
-  border: none;
-  border-radius: 4px;
-  background: var(--ds-action-primary);
-  color: #fff;
-  font-family: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.primaryButton:hover {
-  background: var(--ds-action-primary-hover);
-}
-
-.primaryButton:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.secondaryButton {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--ds-spacing-space1);
-  padding: var(--ds-spacing-space1) var(--ds-spacing-space2);
-  border: 1px solid var(--ds-action-primary);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--ds-action-primary);
-  font-family: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.secondaryButton:hover {
-  background: var(--ds-action-primary);
-  color: #fff;
-}
-
-/* Empty states (zero-one-many backstop) */
-
-.emptyState {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ds-spacing-space1);
-  padding: var(--ds-spacing-space6) var(--ds-spacing-space4);
-}
-
-.emptyHeading {
-  display: flex;
-  align-items: center;
-  gap: var(--ds-spacing-space1);
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--ds-text-primary);
-}
-
-.emptyBody {
-  margin: 0;
-  font-size: 16px;
-  color: var(--ds-text-secondary);
-}
-
 .countSummary {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--ds-typography-font-size-body);
   color: var(--ds-text-muted);
 }
 
@@ -179,14 +92,16 @@
   flex-direction: column;
   gap: var(--ds-spacing-space1);
   padding: var(--ds-spacing-space2);
-  border: 1px solid var(--ds-border-default);
-  border-radius: 4px;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
   background: var(--ds-surface-canvas);
 }
 
 .rowHeader {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--ds-spacing-space2);
 }
 
@@ -196,22 +111,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
+  font-weight: var(--ds-typography-font-weight-semibold);
   color: var(--ds-text-primary);
 }
 
 .rowCounts {
-  font-size: 14px;
+  font-size: var(--ds-typography-font-size-body);
   color: var(--ds-text-muted);
-}
-
-.activeChip {
-  padding: 2px var(--ds-spacing-space2);
-  border-radius: 4px;
-  background: var(--ds-status-live);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
 }
 
 .memberList {
@@ -222,21 +128,23 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--ds-spacing-space1);
 }
 
 .memberRow {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: var(--ds-spacing-space2);
-  padding: 2px var(--ds-spacing-space1);
-  font-size: 14px;
+  padding-block: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space1);
+  font-size: var(--ds-typography-font-size-body);
   color: var(--ds-text-secondary);
 }
 
 .technical {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 14px;
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-body);
   color: var(--ds-text-muted);
 }
 
@@ -247,29 +155,10 @@
   flex-direction: column;
   gap: var(--ds-spacing-space2);
   padding: var(--ds-spacing-space2);
-  border: 1px dashed var(--ds-border-default);
-  border-radius: 4px;
-}
-
-.formActions {
-  display: flex;
-  gap: var(--ds-spacing-space2);
-}
-
-.previewPanel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ds-spacing-space1);
-  padding: var(--ds-spacing-space2);
-  border: 1px solid var(--ds-action-primary);
-  border-radius: 4px;
-  background: var(--ds-surface-canvas);
-}
-
-.previewHeading {
-  margin: 0;
-  font-weight: 600;
-  color: var(--ds-text-primary);
+  border-width: 1px;
+  border-style: dashed;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
 }
 
 .previewList {
@@ -280,30 +169,16 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-}
-
-.previewRow {
-  font-size: 14px;
-  color: var(--ds-text-secondary);
+  gap: var(--ds-spacing-space1);
 }
 
 .previewWarning {
-  font-size: 14px;
+  font-size: var(--ds-typography-font-size-body);
   color: var(--ds-status-armed);
 }
 
-.previewError {
-  font-size: 14px;
+.previewBlocker {
+  font-size: var(--ds-typography-font-size-body);
   color: var(--ds-status-revoked);
-  font-weight: 600;
-}
-
-.errorText {
-  margin: 0;
-  padding: var(--ds-spacing-space2);
-  border-radius: 4px;
-  background: var(--ds-status-revoked);
-  color: #fff;
-  font-size: 14px;
+  font-weight: var(--ds-typography-font-weight-semibold);
 }

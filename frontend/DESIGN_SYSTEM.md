@@ -8,6 +8,7 @@ The GOLC UI is a dense Paper/Ink operator console. Import reusable UI only from 
 - Use semantic `--ds-*` tokens only: surfaces, text, borders, actions, statuses, typography, spacing, radii, sizing, focus, motion, and stacking. Raw palette values belong solely to approved theme/token files.
 - Use `DataList` for zero/one/many plus busy/error states, `ImpactReview` for preview-before-commit effects, `GuidedFlow` for ordered onboarding, and `SafetyAction` only as presentation around an independently-owned safety command.
 - Use `Button` or `IconButton`; do not restyle native controls to duplicate a primitive. Every interactive primitive retains hover, active, disabled, loading, and `:focus-visible` semantics.
+- Use `Field` for a labeled text/number/select control; use `NumberStepper` instead of `Field` only when a compact pointer +/-1 nudge affordance is needed alongside typing and native keyboard stepping.
 
 ## Product boundaries (D-01 through D-14)
 
@@ -59,6 +60,7 @@ Do not use raw colors, local token namespaces, theme-name conditionals, custom `
 | ListRow | primitive | `src/components/primitives/ListRow/ListRow.tsx` | `src/components/primitives/ListRow/ListRow.test.tsx` |
 | LoadingState | primitive | `src/components/primitives/LoadingState/LoadingState.tsx` | `src/components/primitives/LoadingState/LoadingState.test.tsx` |
 | MidiPickup | pattern | `src/design-system/patterns/index.tsx` | `src/design-system/fixtures/DesignSystemGallery.test.tsx` |
+| NumberStepper | primitive | `src/components/primitives/NumberStepper/NumberStepper.tsx` | `src/components/primitives/NumberStepper/NumberStepper.test.tsx` |
 | Panel | primitive | `src/components/primitives/Panel/Panel.tsx` | `src/components/primitives/Panel/Panel.test.tsx` |
 | PanelHeader | primitive | `src/components/primitives/PanelHeader/PanelHeader.tsx` | `src/components/primitives/PanelHeader/PanelHeader.test.tsx` |
 | ResizeHandle | primitive | `src/components/primitives/ResizeHandle/ResizeHandle.tsx` | `src/components/primitives/ResizeHandle/ResizeHandle.test.tsx` |
@@ -73,7 +75,7 @@ Do not use raw colors, local token namespaces, theme-name conditionals, custom `
 
 ### Component anchors
 
-The inventory anchors are stable selection markers: #button #chip #confirmdialog #confirmmodal #datalist #dialog #emptystate #errorstate #field #formactions #guidedflow #iconbutton #impactreview #infotooltip #launchermasters #listrow #loadingstate #midipickup #panel #panelheader #resizehandle #safetyaction #scenestack #scrollregion #splitpane #tabs #toolbar #workspaceframe.
+The inventory anchors are stable selection markers: #button #chip #confirmdialog #confirmmodal #datalist #dialog #emptystate #errorstate #field #formactions #guidedflow #iconbutton #impactreview #infotooltip #launchermasters #listrow #loadingstate #midipickup #numberstepper #panel #panelheader #resizehandle #safetyaction #scenestack #scrollregion #splitpane #tabs #toolbar #workspaceframe.
 
 ## Commands
 

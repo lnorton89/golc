@@ -11,6 +11,7 @@ export { default as IconButton } from "../components/primitives/IconButton/IconB
 export { default as InfoTooltip } from "../components/primitives/InfoTooltip/InfoTooltip";
 export { default as ListRow } from "../components/primitives/ListRow/ListRow";
 export { default as LoadingState } from "../components/primitives/LoadingState/LoadingState";
+export { default as NumberStepper } from "../components/primitives/NumberStepper/NumberStepper";
 export { default as Panel } from "../components/primitives/Panel/Panel";
 export { default as PanelHeader } from "../components/primitives/PanelHeader/PanelHeader";
 export { default as ResizeHandle } from "../components/primitives/ResizeHandle/ResizeHandle";
