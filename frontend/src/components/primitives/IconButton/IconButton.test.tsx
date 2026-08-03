@@ -31,4 +31,21 @@ describe("IconButton", () => {
   it("rejects an empty accessible label", () => {
     expect(() => render(<IconButton label="" icon={Save} />)).toThrow("accessible label");
   });
+
+  it("defaults disabled to the native attribute", () => {
+    render(<IconButton label="Save show" icon={Save} disabled />);
+    const button = screen.getByRole("button", { name: "Save show" });
+    expect(button).toBeDisabled();
+    expect(button).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("soft-disables without the native attribute, staying hoverable/focusable", () => {
+    const onClick = vi.fn();
+    render(<IconButton label="Release" icon={Save} disabled disabledBehavior="soft" onClick={onClick} />);
+    const button = screen.getByRole("button", { name: "Release" });
+    expect(button).not.toBeDisabled();
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    button.focus();
+    expect(button).toHaveFocus();
+  });
 });
