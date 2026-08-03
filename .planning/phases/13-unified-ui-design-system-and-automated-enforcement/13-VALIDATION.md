@@ -6,13 +6,13 @@ nyquist_compliant: false
 wave_0_complete: false
 created: 2026-08-02
 revised: 2026-08-02
-plan_count: 40
-task_count: 75
+plan_count: 41
+task_count: 77
 ---
 
 # Phase 13 — Validation Strategy
 
-> Exact execution contract for the revised 40-plan, 75-task graph. Commands below are normalized from each PLAN task and are pending until semantic evidence validates. The external-mutation authority row runs read-only preflight and remains a blocking checkpoint.
+> Exact execution contract for the revised 41-plan, 77-task graph. Commands below are normalized from each PLAN task and are pending until semantic evidence validates. The external-mutation authority row runs read-only preflight and remains a blocking checkpoint.
 
 ## Test Infrastructure
 
@@ -23,7 +23,7 @@ task_count: 75
 | Quick loop | `cd frontend && npm run check:design-system && npm run test:design-system` |
 | Full local loop | Plan 13-38 Task 1 exact command |
 | Evidence validator | `cd frontend && npm run validate:phase13-evidence` |
-| Windows evidence | Immutable GitHub Actions run id/URL + exact head SHA + downloaded artifact ids/hashes/schemas |
+| Windows evidence | Immutable GitHub Actions run id/URL + CI-proven implementation SHA/tree hash + evidence/planning descendant ancestry/allowlist + downloaded artifact ids/hashes/schemas |
 
 ## Plan-Derived Command Contract
 
@@ -65,7 +65,7 @@ The validator parses every `13-NN-PLAN.md`, derives task position, decodes XML e
 - `13-13-02` W7 — `cd frontend && node scripts/design-system/check.mjs --paths src/workspaces/perform/DeskWorkspace.tsx,src/workspaces/perform/DeskWorkspace.module.css,src/components/Desk --proposal design-system/exception-proposals/desk.json`
 - `13-14-01` W7 — `cd frontend && npx vitest run src/components/OperatorSurface/OperatorSurface.activeSurface.test.tsx src/workspaces/operate/OperatorSurfaceWorkspace.test.tsx && node scripts/design-system/check.mjs --paths src/workspaces/operate/OperatorSurfaceWorkspace.tsx,src/workspaces/operate/OperatorSurfaceWorkspace.module.css,src/components/OperatorSurface/OperatorSurface.tsx,src/components/OperatorSurface/OperatorSurface.module.css,src/components/OperatorSurface/AssignmentToggle.tsx,src/components/OperatorSurface/SurfaceList.tsx`
 - `13-14-02` W7 — `cd frontend && npx vitest run src/components/OperatorSurface/Launcher.test.tsx src/components/OperatorSurface/ScenePad.test.tsx && node scripts/design-system/check.mjs --paths src/components/OperatorSurface/Launcher.tsx,src/components/OperatorSurface/Launcher.module.css,src/components/OperatorSurface/ScenePad.tsx,src/components/OperatorSurface/ScenePad.module.css`
-- `13-15-01` W7 — `cd frontend && npx vitest run src/components/SafetyCluster && node scripts/design-system/check.mjs --paths src/components/SafetyCluster --proposal design-system/exception-proposals/safety-live.json`
+- `13-15-01` W7 — `cd frontend && npx vitest run src/components/SafetyCluster/SafetyCluster.test.tsx && npx playwright test e2e/safety-action-hold.spec.ts --project=chromium --workers=1 && node scripts/design-system/check.mjs --paths src/components/SafetyCluster --proposal design-system/exception-proposals/safety-live.json`
 - `13-15-02` W7 — `cd frontend && npx vitest run src/components/LiveStatusBar src/components/TempoControls && node scripts/design-system/check.mjs --paths src/components/LiveStatusBar,src/components/TempoControls`
 - `13-16-01` W7 — `cd frontend && npx vitest run src/shell/ContextualInspector.test.tsx src/shell/HelpOverlay.test.tsx && node scripts/design-system/check.mjs --paths src/shell/ContextualInspector.tsx,src/shell/ContextualInspector.module.css,src/shell/InspectorSlot.tsx,src/shell/HelpOverlay.tsx,src/shell/HelpOverlay.module.css`
 - `13-16-02` W7 — `cd frontend && npx vitest run src/shell/QuickSwitcher.test.tsx src/shell/ErrorBoundary.test.tsx && node scripts/design-system/check.mjs --paths src/shell/QuickSwitcher.tsx,src/shell/QuickSwitcher.module.css,src/shell/ErrorBoundary.tsx,src/shell/ErrorBoundary.module.css,src/shell/AppLogStream.tsx`
@@ -99,21 +99,23 @@ The validator parses every `13-NN-PLAN.md`, derives task position, decodes XML e
 - `13-34-01` W9 — `cd frontend && npx playwright test e2e/design-system.visual-live-editors.spec.ts --grep "Desk / Operator Surface" --project=chromium --workers=1`
 - `13-34-02` W9 — `cd frontend && npx playwright test e2e/design-system.visual-live-editors.spec.ts --grep "MIDI Mapping" --project=chromium --workers=1`
 - `13-34-03` W9 — `cd frontend && npx playwright test e2e/design-system.visual-live-editors.spec.ts --grep "Scripts / Notes" --project=chromium --workers=1`
+- `13-41-01` W9 — `cd frontend && npx playwright test e2e/design-system.text-zoom.spec.ts --project=chromium --workers=1`
+- `13-41-02` W9 — `cd frontend && npx playwright test e2e/design-system.offline-safety.spec.ts --project=chromium --workers=1`
 - `13-18-01` W10 — `go test ./internal/command -run DesignSystem -count=1`
 - `13-18-02` W10 — `go test ./internal/delivery ./magefiles -run 'DesignSystem|MageTarget' -count=1 && mage -l`
 - `13-18-03` W10 — `mage CheckOffline && git diff --check -- .github/workflows/design-system.yml`
-- `13-35-01` W12 — `git rev-parse HEAD && gh auth status && gh workflow view design-system.yml` — read-only preflight; the blocking checkpoint separately records approved trigger mechanism, exact SHA/ref/repository, or denial.
-- `13-35-02` W12 — `gh run list --workflow design-system.yml --commit $env:GOLC_PHASE13_APPROVED_SHA --limit 1 --json databaseId,url,event,headSha,headBranch,status,conclusion,createdAt`
-- `13-35-03` W12 — `gh run view $env:GOLC_PHASE13_RUN_ID --json databaseId,url,workflowName,event,headSha,headBranch,status,conclusion,createdAt,updatedAt,jobs && gh api repos/{owner}/{repo}/actions/runs/$env:GOLC_PHASE13_RUN_ID/artifacts && cd frontend && npm run validate:phase13-evidence -- --evidence ../.planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/windows-ci-run.json`
 - `13-19-01` W12 — `cd frontend && npx vitest run scripts/design-system/check.test.ts && node scripts/design-system/check.mjs`
 - `13-37-01` W13 — `cd frontend && npx vitest run src/design-system/design-system.contract.test.ts --testNamePattern="ConfirmModal removal" && node scripts/design-system/check.mjs --rule DS007`
 - `13-36-01` W14 — `cd frontend && npx vitest run src/design-system && node scripts/design-system/check.mjs --rule DS007`
+- `13-35-01` W15 — `git rev-parse HEAD && gh auth status && gh workflow view design-system.yml` — read-only preflight; the blocking checkpoint separately records approved trigger mechanism, exact immutable implementation SHA/tree hash/ref/repository, or denial.
+- `13-35-02` W15 — `gh run list --workflow design-system.yml --commit $env:GOLC_PHASE13_APPROVED_SHA --limit 1 --json databaseId,url,event,headSha,headBranch,status,conclusion,createdAt`
+- `13-35-03` W15 — `gh run view $env:GOLC_PHASE13_RUN_ID --json databaseId,url,workflowName,event,headSha,headBranch,status,conclusion,createdAt,updatedAt,jobs && gh api repos/{owner}/{repo}/actions/runs/$env:GOLC_PHASE13_RUN_ID/artifacts && cd frontend && npm run validate:phase13-evidence -- --evidence ../.planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/windows-ci-run.json`
 - `13-20-01` W11 — `cd frontend && npx vitest run scripts/design-system/validate-phase13-evidence.test.ts`
-- `13-20-02` W11 — `cd frontend && npx vitest run scripts/design-system/validate-phase13-evidence.test.ts --testNamePattern="mutation|false sign-off|semantic"`
+- `13-20-02` W11 — `cd frontend && npx vitest run scripts/design-system/validate-phase13-evidence.test.ts --testNamePattern="mutation|false sign-off|semantic|implementation tree|zoom|offline safety"`
 - `13-38-01` W16 — `cd frontend && npm run build && npm test && npm run test:e2e && npm run test:e2e:design-system && cd .. && mage GenerateCheck && mage CheckOffline && mage Build && mage TestQuick && git diff --cached --quiet -- site && cd frontend && npm run validate:phase13-evidence -- --evidence ../.planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/phase-acceptance.json`
 - `13-39-01` W17 — `cd frontend && npm run validate:phase13-evidence && cd .. && node C:/Users/Lawrence/.codex/gsd-core/bin/gsd-tools.cjs query verify.plan-structure .planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-39-PLAN.md && git diff --check -- .planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-VALIDATION.md`
 
-## Four Separately Named UI Backstops
+## Six Separately Named UI Backstops
 
 | Backstop ID | Task | Executable assertion | Semantic evidence schema | Status |
 |---|---|---|---|---|
@@ -121,6 +123,8 @@ The validator parses every `13-NN-PLAN.md`, derives task position, decodes XML e
 | `error-boundary-before-theme-css` | 13-30-02 | Block generated token CSS, force ErrorBoundary, assert token-independent readable recovery at 900/1280 | `evidence/error-boundary-fallback.json`: blocked asset, computed colors/contrast, role/name/focus/recovery, boxes, SHA/runtime | pending |
 | `specialized-geometry-900-1280` | 13-31-01 | Exact fader/timeline/meter/Monaco/Tiptap/min-max resize rectangles, owners, targets, visibility at both widths | `evidence/specialized-geometry.json`: family, viewport, resize state, measured/expected rectangles, overflow owner, safety/navigation result | pending |
 | `expanded-copy-2x-reflow` | 13-31-02 | Prove grapheme ratio ≥2.0 and reflow without clipping/overlap/body overflow/focus or safety loss | `evidence/expanded-copy.json`: canonical/expanded counts and ratio, line/box/overflow/focus/safety results by theme/width | pending |
+| `text-zoom-200-900x720` | 13-41-01 | Apply actual 200% browser text zoom at 900x720; assert root/body overflow metrics plus navigation/live-truth/active-task/safety visibility or recorded keyboard reachability | `evidence/text-zoom-200.json`: viewport, requested/computed zoom, root/body client/scroll widths, locator roles/names/boxes/visibility, focus order, scroll owners, hit tests, SHA/runtime, assertions | pending |
+| `provider-daemon-offline-safety` | 13-41-02 | Project provider-offline and daemon-offline states; keyboard-operate Blackout/Revoke through independent local paths; preserve explicit Go-owned playback/output truth | `evidence/offline-safety.json`: state inputs, projected copy, control boxes/focus order, activation/path/counts, before/after playback-output truth, SHA/runtime, assertions | pending |
 
 ## Visual Baseline Artifact Contract
 
@@ -145,6 +149,9 @@ Every completed automated row requires:
 - calibration evidence with three capture identities, all pairwise diff operands/results, ceiling, computed smallest-stable threshold, selected threshold, and arithmetic recomputation;
 - mask audit with every rectangle, reason, screenshot, protected locator rectangles, intersection calculation, and zero protected intersections;
 - Windows evidence with approval record, trigger mechanism, immutable run id/URL, workflow path, event, head SHA/ref, attempt, conclusion, job ids, artifact ids/names/hashes, embedded SHA/build identity, and validated result schemas.
+- CI implementation identity with `ciProvenImplementationSha`, sorted non-planning path/mode/blob manifest and SHA-256, `observedDescendantSha`, ancestry result, exact changed paths, sole `.planning/**` allowlist, descendant manifest/hash, and equality result; any frontend/runtime/workflow/dependency/build/configuration change after the proven SHA fails.
+- Text-zoom evidence with exact 900x720 viewport, requested/computed 200% text zoom, root/body client and scroll widths, required semantic locators, visibility/boxes, ordered keyboard focus traversal, scroll owners, overlay hit tests, and operation results.
+- Provider/daemon-offline evidence with named state inputs, explicit Go-owned playback/output truth, projected connectivity text, Blackout/Revoke role/name/box/focus/action results, independent local path identities, dispatch counts, and proof that connectivity loss did not synthesize a stopped claim.
 
 Missing files, malformed/duplicate fields, Markdown-only claims, existence-only artifacts, stale SHA/build identity, wrong successful command, or unparseable semantic contents fail closed.
 
@@ -157,7 +164,7 @@ Missing files, malformed/duplicate fields, Markdown-only claims, existence-only 
 - [ ] Typed primitives/patterns, one public inventory/barrel/guide, and deterministic gallery.
 - [ ] Chromium and packaged-WebView2 Dialog proof.
 - [ ] Three-capture calibration and one bounded tolerance.
-- [ ] Four separately named backstop evidence objects.
+- [ ] Six separately named backstop evidence objects.
 - [ ] 36 explicit Paper/Ink Windows baselines across nine surfaces with semantic/mask audits.
 - [ ] Pinned package/registry/Mage routes and required Windows workflow.
 - [ ] Immutable successful Windows run evidence matching the approved commit.
@@ -167,17 +174,17 @@ Missing files, malformed/duplicate fields, Markdown-only claims, existence-only 
 
 | Source | Item | Plans | Status |
 |---|---|---|---|
-| GOAL | One documented Paper/Ink system with zero unregistered drift across every reachable desktop surface | 01–40 | COVERED |
-| REQ | D-01 through D-14 and approved UI-SPEC | 01–40 | COVERED |
+| GOAL | One documented Paper/Ink system with zero unregistered drift across every reachable desktop surface | 01–41 | COVERED |
+| REQ | D-01 through D-14 and approved UI-SPEC | 01–41 | COVERED |
 | RESEARCH | Package legitimacy separated from inert manifest/generation authority | 01,21 | COVERED |
 | RESEARCH | DS001–DS010 and deterministic diagnostics | 02,19–20 | COVERED |
 | RESEARCH | Typed primitives, patterns, gallery, guide, parity | 03–07,22–23,36–37 | COVERED |
 | RESEARCH | Complete migration: theme/shell/front door/guide/fixtures/scenes/output/editors/Desk/Operator/MIDI/safety/overlays/shared chrome | 08–16,24–29,40 | COVERED |
 | RESEARCH | Chromium and packaged WebView2 dialog feasibility | 06,22 | COVERED |
 | RESEARCH | Three-capture tolerance before baselines | 17 | COVERED |
-| RESEARCH | Four UI backstops | 30–31 | COVERED |
+| RESEARCH | Six UI backstops, including 200% text zoom and provider/daemon-offline safety | 30–31,41 | COVERED |
 | RESEARCH | Nine-surface light/dark 900/1280 matrix | 32–34 | COVERED |
-| RESEARCH | Required Windows workflow and immutable observed artifacts | 18,35 | COVERED |
+| RESEARCH | Required Windows workflow, immutable implementation SHA/tree identity, and observed artifacts | 18,20,35,38–39 | COVERED |
 | RESEARCH | Exact exception merge, ConfirmModal removal, final parity | 19,37,36 | COVERED |
 | RESEARCH | Fake-sign-off-resistant validation, acceptance, final sign-off | 20,38–39 | COVERED |
 | CONTEXT | D-01 Paper/Ink | 08,17,30,32–34,36 | COVERED |
@@ -192,24 +199,25 @@ Missing files, malformed/duplicate fields, Markdown-only claims, existence-only 
 | CONTEXT | D-10 layered static/unit/a11y/visual verification | 02–07,17–20,22–23,30–39 | COVERED |
 | CONTEXT | D-11 green enforcement/no ignored baseline | 01–02,08–39 | COVERED |
 | CONTEXT | D-12 interaction/accessibility/non-color semantics | 02–39 | COVERED |
-| CONTEXT | D-13 persistent independent safety | 06,13–18,24,28,30–35,38–39 | COVERED |
+| CONTEXT | D-13 persistent independent safety | 06,13–18,24,28,30–35,38–39,41 | COVERED |
 | CONTEXT | D-14 projection-only React | 03–16,22–31,34,38–39 | COVERED |
 
 Deferred ideas: none. No source item is missing.
 
 ## Sign-Off Gate
 
-- [ ] All 75 tasks and automated commands match PLAN-derived normalized strings/hashes and the authority checkpoint has an explicit outcome.
+- [ ] All 77 tasks and automated commands match PLAN-derived normalized strings/hashes and the authority checkpoint has an explicit outcome.
 - [ ] All D-01 through D-14 and UI-SPEC contracts are covered.
 - [ ] Every Wave 0 artifact exists and passes semantic validation.
 - [ ] Packaged WebView2 proof matches its executable build hash.
 - [ ] Calibration arithmetic recomputes the selected threshold before all 36 baselines.
-- [ ] All four separately named backstops pass.
+- [ ] All six separately named backstops pass, including exact 200% text zoom and both offline safety projections.
 - [ ] Mask audit contains zero protected intersections.
 - [ ] Final exception authority contains no broad, spacing, safety, stale, zero-match, or multi-match record.
 - [ ] ConfirmModal directory/import/export/inventory/docs/aliases/compatibility are absent.
-- [ ] Required Windows run matches the approved SHA and all downloaded artifacts pass schema/hash/build checks.
-- [ ] Complete local acceptance passes at the same SHA while executor work remains inside declared ownership and unrelated `site` work remains untouched.
+- [ ] Required Windows run matches the approved immutable implementation SHA/tree hash and all downloaded artifacts pass schema/hash/build checks.
+- [ ] Any later evidence/planning commit descends from the CI-proven SHA, changes only `.planning/**`, and has an identical non-planning path/mode/blob manifest/hash; any frontend/runtime/workflow/dependency/build/configuration change is rejected.
+- [ ] Complete local acceptance passes against the identical CI-proven implementation tree while executor work remains inside declared ownership and unrelated `site` work remains untouched.
 - [ ] `wave_0_complete: true`, `nyquist_compliant: true`, and approval are set only after `validate:phase13-evidence` passes.
 
 **Approval:** pending
