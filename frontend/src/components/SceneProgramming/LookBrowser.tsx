@@ -365,7 +365,7 @@ export default function LookBrowser({
               ) : (
                 <li key={`theme-${look.id}`} className={styles.lookRow}>
                   <span className={styles.lookKind}>Theme</span>
-                  <span title={look.name}>{look.name}</span>
+                  <span className={styles.lookName} title={look.name}>{look.name}</span>
                   <span className={styles.rowActions}>
                     <Button variant="secondary" icon={Pencil} onClick={() => handleStartRename("theme", look)} aria-label={`Rename ${look.name}`} />
                     <Button variant="destructive" icon={Trash2} onClick={() => handleDelete("theme", look.name, "theme")} aria-label={`Delete ${look.name}`} />
@@ -406,7 +406,7 @@ export default function LookBrowser({
               ) : (
                 <li key={`chase-${chase.id}`} className={styles.lookRow}>
                   <span className={styles.lookKind}>Chase</span>
-                  <span title={chase.name}>{chase.name}</span>
+                  <span className={styles.lookName} title={chase.name}>{chase.name}</span>
                   <span className={styles.rowActions}>
                     <Button variant="secondary" icon={Pencil} onClick={() => handleStartEditChase(chase)} aria-label={`Edit ${chase.name}`} />
                     <Button variant="destructive" icon={Trash2} onClick={() => handleDeleteChase(chase.name)} aria-label={`Delete ${chase.name}`} />
@@ -434,7 +434,7 @@ export default function LookBrowser({
               ) : (
                 <li key={`motion-${look.id}`} className={styles.lookRow}>
                   <span className={styles.lookKind}>Motion</span>
-                  <span title={look.name}>{look.name}</span>
+                  <span className={styles.lookName} title={look.name}>{look.name}</span>
                   <span className={styles.rowActions}>
                     <Button variant="secondary" icon={Pencil} onClick={() => handleStartRename("motion", look)} aria-label={`Rename ${look.name}`} />
                     <Button variant="destructive" icon={Trash2} onClick={() => handleDelete("motion", look.name, "motion preset")} aria-label={`Delete ${look.name}`} />
@@ -462,7 +462,7 @@ export default function LookBrowser({
               ) : (
                 <li key={`preset-${preset.id}`} className={styles.lookRow}>
                   <span className={styles.lookKind}>Preset ({preset.kind})</span>
-                  <span title={preset.name}>{preset.name}</span>
+                  <span className={styles.lookName} title={preset.name}>{preset.name}</span>
                   <span className={styles.rowActions}>
                     <Button variant="secondary" icon={Pencil} onClick={() => handleStartRename("preset", preset)} aria-label={`Rename ${preset.name}`} />
                     <Button variant="destructive" icon={Trash2} onClick={() => handleDelete("preset", preset.name, "preset")} aria-label={`Delete ${preset.name}`} />
@@ -555,7 +555,7 @@ export default function LookBrowser({
               </li>
             ) : (
               <li key={blend.id} className={styles.lookRow}>
-                <span title={blend.name}>{blend.name}</span>
+                <span className={styles.lookName} title={blend.name}>{blend.name}</span>
                 <span className={styles.rowActions}>
                   <Button variant="secondary" icon={Pencil} onClick={() => handleStartRename("blend", blend)} aria-label={`Rename ${blend.name}`} />
                   <Button variant="destructive" icon={Trash2} onClick={() => handleDelete("blend", blend.name, "blend preset")} aria-label={`Delete ${blend.name}`} />

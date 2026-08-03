@@ -1,6 +1,18 @@
 .workspaceFrame { display: flex; min-block-size: 0; flex: 1; flex-direction: column; gap: var(--ds-spacing-space4); }
 .splitPane { display: grid; min-block-size: 0; flex: 1; gap: var(--ds-spacing-space4); grid-template-columns: minmax(0, 1fr) minmax(12rem, 0.75fr); }
-.dataList, .sceneStack, .masterList, .guidedFlow, .impactReview { display: grid; gap: var(--ds-spacing-space2); }
+.dataList, .masterList, .guidedFlow, .impactReview { display: grid; gap: var(--ds-spacing-space2); }
+/* .sceneStack split out from the shared rule above (13-33 Task 1): a plain
+   `display: grid` with no `grid-template-columns` creates a single
+   implicit "auto" column with no minmax(0, ...) floor, so its automatic
+   minimum width defaults to the widest ListRow child's own min-content
+   size -- for a scene with a long name this silently defeats ListRow's
+   own .label ellipsis truncation (the row's width: 100% simply equals
+   that already-un-truncated min-content width, so there's nothing left
+   to truncate). minmax(0, 1fr) forces the single column to respect its
+   container's width instead. Scoped to .sceneStack alone, not the shared
+   rule, since DataList/LauncherMasters/GuidedFlow/ImpactReview were not
+   independently verified against this same fix. */
+.sceneStack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--ds-spacing-space2); }
 .formActions { display: flex; flex-wrap: wrap; gap: var(--ds-spacing-space2); justify-content: flex-end; }
 .impactSummary, .midiPickup { color: var(--ds-text-secondary); font: var(--ds-typography-body); }
 .guidedStep { display: flex; align-items: start; gap: var(--ds-spacing-space2); }

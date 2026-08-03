@@ -34,12 +34,30 @@
 }
 
 .sceneHeader {
+  /* min-width: 0 is required for the identical reason as .sceneName below:
+     .sceneHeader is itself a grid item of .mainColumn's own grid (the
+     "auto" row), so without this it inherits the same implicit
+     min-width: auto blowout one level up, independent of .sceneName's own
+     fix -- both were needed together to actually let the long scene name
+     ellipsis-truncate instead of overlapping the row beneath it. */
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--ds-spacing-space2);
 }
 
 .sceneName {
+  /* min-width: 0 is required, not decorative: as a flex item inside
+     .sceneHeader, this span's automatic minimum width otherwise defaults
+     to its own unwrapped (white-space: nowrap) content size, which
+     silently defeats overflow/text-overflow/white-space below for any
+     scene name too long to fit -- the flex item simply never shrinks
+     past its intrinsic content width, so a long name renders at full
+     width and visually overlaps the LIVE chip and the layer row beneath
+     it instead of eliding (13-33 Task 1's own long-scene-name backstop
+     caught this live: a real 120+ character scene name overlapped
+     everything below the header before this was added). */
+  min-width: 0;
   font-family: var(--ds-typography-font-family-ui);
   font-size: var(--ds-typography-font-size-heading);
   font-weight: var(--ds-typography-font-weight-semibold);
