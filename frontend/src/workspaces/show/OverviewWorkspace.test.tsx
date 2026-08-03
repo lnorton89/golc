@@ -106,6 +106,7 @@ describe("OverviewWorkspace", () => {
   it("loads and displays the show's identity, pools, and deployments", async () => {
     renderOverview();
     await waitFor(() => expect(screen.getByText("C:\\shows\\demo.golc")).toBeInTheDocument());
+    expect(screen.getByRole("region", { name: "Overview workspace" })).toBeInTheDocument();
     expect(screen.getByText("Schema 3 · Revision 7")).toBeInTheDocument();
     expect(screen.getByText("Wash")).toBeInTheDocument();
     expect(screen.getByText("Main Rig")).toBeInTheDocument();
