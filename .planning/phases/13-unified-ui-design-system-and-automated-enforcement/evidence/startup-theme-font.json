@@ -1,0 +1,2285 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-03T19:09:09.433Z",
+  "buildSha": "0d74921618e63ad5e86d12e8ab273e7315a1f1bd",
+  "environment": {
+    "platform": "win32",
+    "browserName": "chromium",
+    "browserVersion": "151.0.7922.34",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "wcagAaNormalTextMinimum": 4.5,
+  "themes": [
+    {
+      "theme": "light",
+      "preSettleSampleCountAtFirstRead": 72,
+      "fontsReadyAtMs": 0.40000000037252903,
+      "totalSamples": 93,
+      "mountedSamples": 41,
+      "themeSequence": [
+        {
+          "frameIndex": 0,
+          "elapsedMs": 2.2,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 1,
+          "elapsedMs": 9.6,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 2,
+          "elapsedMs": 26.1,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 3,
+          "elapsedMs": 43.6,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 4,
+          "elapsedMs": 59.7,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 5,
+          "elapsedMs": 76.7,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 6,
+          "elapsedMs": 93,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 7,
+          "elapsedMs": 110.2,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 8,
+          "elapsedMs": 126.4,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 9,
+          "elapsedMs": 143.6,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 10,
+          "elapsedMs": 160.4,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 11,
+          "elapsedMs": 176.5,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 12,
+          "elapsedMs": 193.1,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 13,
+          "elapsedMs": 210.3,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 14,
+          "elapsedMs": 226.6,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 15,
+          "elapsedMs": 243.4,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 16,
+          "elapsedMs": 259.7,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 17,
+          "elapsedMs": 276.2,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 18,
+          "elapsedMs": 292.6,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 19,
+          "elapsedMs": 309.9,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 20,
+          "elapsedMs": 326.2,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 21,
+          "elapsedMs": 342.8,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 22,
+          "elapsedMs": 360.6,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 23,
+          "elapsedMs": 376.4,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 24,
+          "elapsedMs": 444.8,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 25,
+          "elapsedMs": 453.5,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 26,
+          "elapsedMs": 460.8,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 27,
+          "elapsedMs": 476.2,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 28,
+          "elapsedMs": 492.9,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 29,
+          "elapsedMs": 509.4,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 30,
+          "elapsedMs": 526.7,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 31,
+          "elapsedMs": 542.6,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 32,
+          "elapsedMs": 560,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 33,
+          "elapsedMs": 576.3,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 34,
+          "elapsedMs": 593.2,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 35,
+          "elapsedMs": 609.6,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 36,
+          "elapsedMs": 627.5,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 37,
+          "elapsedMs": 642.8,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 38,
+          "elapsedMs": 660.1,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 39,
+          "elapsedMs": 676.1,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 40,
+          "elapsedMs": 693.3,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 41,
+          "elapsedMs": 709.8,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 42,
+          "elapsedMs": 726.8,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 43,
+          "elapsedMs": 743.2,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 44,
+          "elapsedMs": 759.8,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 45,
+          "elapsedMs": 776.2,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 46,
+          "elapsedMs": 794.4,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 47,
+          "elapsedMs": 810,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 48,
+          "elapsedMs": 826,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 49,
+          "elapsedMs": 843.4,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 50,
+          "elapsedMs": 860.3,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 51,
+          "elapsedMs": 878.6,
+          "documentThemeAttr": "light",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 52,
+          "elapsedMs": 978,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 53,
+          "elapsedMs": 1006.1,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 54,
+          "elapsedMs": 1010.6,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 55,
+          "elapsedMs": 1012.7,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 56,
+          "elapsedMs": 1027.3,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 57,
+          "elapsedMs": 1043.1,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 58,
+          "elapsedMs": 1060.2,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 59,
+          "elapsedMs": 1076.7,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 60,
+          "elapsedMs": 1094.6,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 61,
+          "elapsedMs": 1109.7,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 62,
+          "elapsedMs": 1126.7,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 63,
+          "elapsedMs": 1142.9,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 64,
+          "elapsedMs": 1159.8,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 65,
+          "elapsedMs": 1176.7,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 66,
+          "elapsedMs": 1193.5,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 67,
+          "elapsedMs": 1209.3,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 68,
+          "elapsedMs": 1227.4,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 69,
+          "elapsedMs": 1242.9,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 70,
+          "elapsedMs": 1260.1,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 71,
+          "elapsedMs": 1276.5,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 72,
+          "elapsedMs": 1293.5,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 73,
+          "elapsedMs": 1312.9,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 74,
+          "elapsedMs": 1326.4,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 75,
+          "elapsedMs": 1343.5,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 76,
+          "elapsedMs": 1359.5,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 77,
+          "elapsedMs": 1377.5,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 78,
+          "elapsedMs": 1392.8,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 79,
+          "elapsedMs": 1410.3,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 80,
+          "elapsedMs": 1426.6,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 81,
+          "elapsedMs": 1442.9,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 82,
+          "elapsedMs": 1460,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 83,
+          "elapsedMs": 1476.7,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 84,
+          "elapsedMs": 1492.8,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 85,
+          "elapsedMs": 1510.2,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 86,
+          "elapsedMs": 1526.5,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 87,
+          "elapsedMs": 1543.1,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 88,
+          "elapsedMs": 1560.3,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 89,
+          "elapsedMs": 1577.7,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 90,
+          "elapsedMs": 1594.1,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 91,
+          "elapsedMs": 1611.2,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 92,
+          "elapsedMs": 1626.8,
+          "documentThemeAttr": "light",
+          "rootMounted": true
+        }
+      ],
+      "fontSequence": [
+        {
+          "frameIndex": 0,
+          "elapsedMs": 2.2,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 1,
+          "elapsedMs": 9.6,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 2,
+          "elapsedMs": 26.1,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 3,
+          "elapsedMs": 43.6,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 4,
+          "elapsedMs": 59.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 5,
+          "elapsedMs": 76.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 6,
+          "elapsedMs": 93,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 7,
+          "elapsedMs": 110.2,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 8,
+          "elapsedMs": 126.4,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 9,
+          "elapsedMs": 143.6,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 10,
+          "elapsedMs": 160.4,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 11,
+          "elapsedMs": 176.5,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 12,
+          "elapsedMs": 193.1,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 13,
+          "elapsedMs": 210.3,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 14,
+          "elapsedMs": 226.6,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 15,
+          "elapsedMs": 243.4,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 16,
+          "elapsedMs": 259.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 17,
+          "elapsedMs": 276.2,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 18,
+          "elapsedMs": 292.6,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 19,
+          "elapsedMs": 309.9,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 20,
+          "elapsedMs": 326.2,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 21,
+          "elapsedMs": 342.8,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 22,
+          "elapsedMs": 360.6,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 23,
+          "elapsedMs": 376.4,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 24,
+          "elapsedMs": 444.8,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 25,
+          "elapsedMs": 453.5,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 26,
+          "elapsedMs": 460.8,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 27,
+          "elapsedMs": 476.2,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 28,
+          "elapsedMs": 492.9,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 29,
+          "elapsedMs": 509.4,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 30,
+          "elapsedMs": 526.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 31,
+          "elapsedMs": 542.6,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 32,
+          "elapsedMs": 560,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 33,
+          "elapsedMs": 576.3,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 34,
+          "elapsedMs": 593.2,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 35,
+          "elapsedMs": 609.6,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 36,
+          "elapsedMs": 627.5,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 37,
+          "elapsedMs": 642.8,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 38,
+          "elapsedMs": 660.1,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 39,
+          "elapsedMs": 676.1,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 40,
+          "elapsedMs": 693.3,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 41,
+          "elapsedMs": 709.8,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 42,
+          "elapsedMs": 726.8,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 43,
+          "elapsedMs": 743.2,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 44,
+          "elapsedMs": 759.8,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 45,
+          "elapsedMs": 776.2,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 46,
+          "elapsedMs": 794.4,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 47,
+          "elapsedMs": 810,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 48,
+          "elapsedMs": 826,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 49,
+          "elapsedMs": 843.4,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 50,
+          "elapsedMs": 860.3,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 51,
+          "elapsedMs": 878.6,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 52,
+          "elapsedMs": 978,
+          "fontsStatus": "loading",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 53,
+          "elapsedMs": 1006.1,
+          "fontsStatus": "loading",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 54,
+          "elapsedMs": 1010.6,
+          "fontsStatus": "loading",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 55,
+          "elapsedMs": 1012.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 56,
+          "elapsedMs": 1027.3,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 57,
+          "elapsedMs": 1043.1,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 58,
+          "elapsedMs": 1060.2,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 59,
+          "elapsedMs": 1076.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 60,
+          "elapsedMs": 1094.6,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 61,
+          "elapsedMs": 1109.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 62,
+          "elapsedMs": 1126.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 63,
+          "elapsedMs": 1142.9,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 64,
+          "elapsedMs": 1159.8,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 65,
+          "elapsedMs": 1176.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 66,
+          "elapsedMs": 1193.5,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 67,
+          "elapsedMs": 1209.3,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 68,
+          "elapsedMs": 1227.4,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 69,
+          "elapsedMs": 1242.9,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 70,
+          "elapsedMs": 1260.1,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 71,
+          "elapsedMs": 1276.5,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 72,
+          "elapsedMs": 1293.5,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 73,
+          "elapsedMs": 1312.9,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 74,
+          "elapsedMs": 1326.4,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 75,
+          "elapsedMs": 1343.5,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 76,
+          "elapsedMs": 1359.5,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 77,
+          "elapsedMs": 1377.5,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 78,
+          "elapsedMs": 1392.8,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 79,
+          "elapsedMs": 1410.3,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 80,
+          "elapsedMs": 1426.6,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 81,
+          "elapsedMs": 1442.9,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 82,
+          "elapsedMs": 1460,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 83,
+          "elapsedMs": 1476.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 84,
+          "elapsedMs": 1492.8,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 85,
+          "elapsedMs": 1510.2,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 86,
+          "elapsedMs": 1526.5,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 87,
+          "elapsedMs": 1543.1,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 88,
+          "elapsedMs": 1560.3,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 89,
+          "elapsedMs": 1577.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 90,
+          "elapsedMs": 1594.1,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 91,
+          "elapsedMs": 1611.2,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 92,
+          "elapsedMs": 1626.8,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        }
+      ],
+      "contrastFindings": [
+        {
+          "frameIndex": 52,
+          "elapsedMs": 978,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 53,
+          "elapsedMs": 1006.1,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 54,
+          "elapsedMs": 1010.6,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 55,
+          "elapsedMs": 1012.7,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 56,
+          "elapsedMs": 1027.3,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 57,
+          "elapsedMs": 1043.1,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 58,
+          "elapsedMs": 1060.2,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 59,
+          "elapsedMs": 1076.7,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 60,
+          "elapsedMs": 1094.6,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 61,
+          "elapsedMs": 1109.7,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 62,
+          "elapsedMs": 1126.7,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 63,
+          "elapsedMs": 1142.9,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 64,
+          "elapsedMs": 1159.8,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 65,
+          "elapsedMs": 1176.7,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 66,
+          "elapsedMs": 1193.5,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 67,
+          "elapsedMs": 1209.3,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 68,
+          "elapsedMs": 1227.4,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 69,
+          "elapsedMs": 1242.9,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 70,
+          "elapsedMs": 1260.1,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 71,
+          "elapsedMs": 1276.5,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 72,
+          "elapsedMs": 1293.5,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 73,
+          "elapsedMs": 1312.9,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 74,
+          "elapsedMs": 1326.4,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 75,
+          "elapsedMs": 1343.5,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 76,
+          "elapsedMs": 1359.5,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 77,
+          "elapsedMs": 1377.5,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 78,
+          "elapsedMs": 1392.8,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 79,
+          "elapsedMs": 1410.3,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 80,
+          "elapsedMs": 1426.6,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 81,
+          "elapsedMs": 1442.9,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 82,
+          "elapsedMs": 1460,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 83,
+          "elapsedMs": 1476.7,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 84,
+          "elapsedMs": 1492.8,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 85,
+          "elapsedMs": 1510.2,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 86,
+          "elapsedMs": 1526.5,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 87,
+          "elapsedMs": 1543.1,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 88,
+          "elapsedMs": 1560.3,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 89,
+          "elapsedMs": 1577.7,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 90,
+          "elapsedMs": 1594.1,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 91,
+          "elapsedMs": 1611.2,
+          "ratio": 13.48,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 92,
+          "elapsedMs": 1626.8,
+          "ratio": 13.48,
+          "meetsFloor": true
+        }
+      ],
+      "assertions": {
+        "neverTransparentBackground": true,
+        "neverWrongThemeFrame": true,
+        "neverMissingSafetyLabelsWhenPresent": true,
+        "allSampledFramesMeetContrastFloor": true,
+        "finalFontFamilyIncludesArchivo": true,
+        "finalMonoFontAvailable": true,
+        "finalThemeAttrMatchesPersistedTheme": true
+      }
+    },
+    {
+      "theme": "dark",
+      "preSettleSampleCountAtFirstRead": 29,
+      "fontsReadyAtMs": 0.5,
+      "totalSamples": 49,
+      "mountedSamples": 22,
+      "themeSequence": [
+        {
+          "frameIndex": 0,
+          "elapsedMs": 3.9,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 1,
+          "elapsedMs": 11.3,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 2,
+          "elapsedMs": 27.8,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 3,
+          "elapsedMs": 45.5,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 4,
+          "elapsedMs": 60.5,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 5,
+          "elapsedMs": 77.9,
+          "documentThemeAttr": null,
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 6,
+          "elapsedMs": 151.2,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 7,
+          "elapsedMs": 164,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 8,
+          "elapsedMs": 173.7,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 9,
+          "elapsedMs": 177.7,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 10,
+          "elapsedMs": 194.3,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 11,
+          "elapsedMs": 212.4,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 12,
+          "elapsedMs": 227.9,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 13,
+          "elapsedMs": 244.4,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 14,
+          "elapsedMs": 260.7,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 15,
+          "elapsedMs": 282.7,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 16,
+          "elapsedMs": 294.8,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 17,
+          "elapsedMs": 311.1,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 18,
+          "elapsedMs": 327.3,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 19,
+          "elapsedMs": 343.9,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 20,
+          "elapsedMs": 361.1,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 21,
+          "elapsedMs": 377.5,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 22,
+          "elapsedMs": 394.5,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 23,
+          "elapsedMs": 411.1,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 24,
+          "elapsedMs": 427.6,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 25,
+          "elapsedMs": 443.7,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 26,
+          "elapsedMs": 461.2,
+          "documentThemeAttr": "dark",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 27,
+          "elapsedMs": 550.9,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 28,
+          "elapsedMs": 563.9,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 29,
+          "elapsedMs": 578.7,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 30,
+          "elapsedMs": 599.3,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 31,
+          "elapsedMs": 611.1,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 32,
+          "elapsedMs": 628.3,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 33,
+          "elapsedMs": 644.1,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 34,
+          "elapsedMs": 661.9,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 35,
+          "elapsedMs": 677.9,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 36,
+          "elapsedMs": 694.2,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 37,
+          "elapsedMs": 711.3,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 38,
+          "elapsedMs": 728,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 39,
+          "elapsedMs": 744.9,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 40,
+          "elapsedMs": 761,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 41,
+          "elapsedMs": 778.3,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 42,
+          "elapsedMs": 793.9,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 43,
+          "elapsedMs": 810.6,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 44,
+          "elapsedMs": 827.7,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 45,
+          "elapsedMs": 846.7,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 46,
+          "elapsedMs": 860.9,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 47,
+          "elapsedMs": 878.8,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 48,
+          "elapsedMs": 894.3,
+          "documentThemeAttr": "dark",
+          "rootMounted": true
+        }
+      ],
+      "fontSequence": [
+        {
+          "frameIndex": 0,
+          "elapsedMs": 3.9,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 1,
+          "elapsedMs": 11.3,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 2,
+          "elapsedMs": 27.8,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 3,
+          "elapsedMs": 45.5,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 4,
+          "elapsedMs": 60.5,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 5,
+          "elapsedMs": 77.9,
+          "fontsStatus": "loaded",
+          "fontFamily": "\"Times New Roman\"",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 6,
+          "elapsedMs": 151.2,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 7,
+          "elapsedMs": 164,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 8,
+          "elapsedMs": 173.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 9,
+          "elapsedMs": 177.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 10,
+          "elapsedMs": 194.3,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 11,
+          "elapsedMs": 212.4,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 12,
+          "elapsedMs": 227.9,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 13,
+          "elapsedMs": 244.4,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 14,
+          "elapsedMs": 260.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 15,
+          "elapsedMs": 282.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 16,
+          "elapsedMs": 294.8,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 17,
+          "elapsedMs": 311.1,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 18,
+          "elapsedMs": 327.3,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 19,
+          "elapsedMs": 343.9,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 20,
+          "elapsedMs": 361.1,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 21,
+          "elapsedMs": 377.5,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 22,
+          "elapsedMs": 394.5,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 23,
+          "elapsedMs": 411.1,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 24,
+          "elapsedMs": 427.6,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 25,
+          "elapsedMs": 443.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 26,
+          "elapsedMs": 461.2,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": false
+        },
+        {
+          "frameIndex": 27,
+          "elapsedMs": 550.9,
+          "fontsStatus": "loading",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 28,
+          "elapsedMs": 563.9,
+          "fontsStatus": "loading",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 29,
+          "elapsedMs": 578.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 30,
+          "elapsedMs": 599.3,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 31,
+          "elapsedMs": 611.1,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 32,
+          "elapsedMs": 628.3,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 33,
+          "elapsedMs": 644.1,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 34,
+          "elapsedMs": 661.9,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 35,
+          "elapsedMs": 677.9,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 36,
+          "elapsedMs": 694.2,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 37,
+          "elapsedMs": 711.3,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 38,
+          "elapsedMs": 728,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 39,
+          "elapsedMs": 744.9,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 40,
+          "elapsedMs": 761,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 41,
+          "elapsedMs": 778.3,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 42,
+          "elapsedMs": 793.9,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 43,
+          "elapsedMs": 810.6,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 44,
+          "elapsedMs": 827.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 45,
+          "elapsedMs": 846.7,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 46,
+          "elapsedMs": 860.9,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 47,
+          "elapsedMs": 878.8,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        },
+        {
+          "frameIndex": 48,
+          "elapsedMs": 894.3,
+          "fontsStatus": "loaded",
+          "fontFamily": "Archivo, sans-serif",
+          "rootMounted": true
+        }
+      ],
+      "contrastFindings": [
+        {
+          "frameIndex": 27,
+          "elapsedMs": 550.9,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 28,
+          "elapsedMs": 563.9,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 29,
+          "elapsedMs": 578.7,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 30,
+          "elapsedMs": 599.3,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 31,
+          "elapsedMs": 611.1,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 32,
+          "elapsedMs": 628.3,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 33,
+          "elapsedMs": 644.1,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 34,
+          "elapsedMs": 661.9,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 35,
+          "elapsedMs": 677.9,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 36,
+          "elapsedMs": 694.2,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 37,
+          "elapsedMs": 711.3,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 38,
+          "elapsedMs": 728,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 39,
+          "elapsedMs": 744.9,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 40,
+          "elapsedMs": 761,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 41,
+          "elapsedMs": 778.3,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 42,
+          "elapsedMs": 793.9,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 43,
+          "elapsedMs": 810.6,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 44,
+          "elapsedMs": 827.7,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 45,
+          "elapsedMs": 846.7,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 46,
+          "elapsedMs": 860.9,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 47,
+          "elapsedMs": 878.8,
+          "ratio": 15.28,
+          "meetsFloor": true
+        },
+        {
+          "frameIndex": 48,
+          "elapsedMs": 894.3,
+          "ratio": 15.28,
+          "meetsFloor": true
+        }
+      ],
+      "assertions": {
+        "neverTransparentBackground": true,
+        "neverWrongThemeFrame": true,
+        "neverMissingSafetyLabelsWhenPresent": true,
+        "allSampledFramesMeetContrastFloor": true,
+        "finalFontFamilyIncludesArchivo": true,
+        "finalMonoFontAvailable": true,
+        "finalThemeAttrMatchesPersistedTheme": true
+      }
+    }
+  ]
+}
