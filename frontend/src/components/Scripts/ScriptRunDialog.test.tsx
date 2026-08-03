@@ -56,7 +56,7 @@ describe("ScriptRunDialog", () => {
     expect(screen.getByRole("button", { name: /^Start Debugging Chase Cycler$/ })).toBeInTheDocument();
   });
 
-  it("carries role=dialog and aria-modal=true, and moves focus into the dialog on open", () => {
+  it("carries role=dialog and aria-modal=true, and moves focus onto the Cancel action on open", () => {
     render(
       <ScriptRunDialog
         mode="run"
@@ -69,7 +69,11 @@ describe("ScriptRunDialog", () => {
 
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveAttribute("aria-modal", "true");
-    expect(dialog).toHaveFocus();
+    // 13-27-PLAN.md Task 1 migrated this dialog onto the shared Dialog
+    // primitive, which focuses the "least-destructive action" on open
+    // (Dialog.tsx's own doc comment, same convention as ConfirmDialog.tsx) --
+    // Cancel, not the dialog surface itself.
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
   });
 
   it("pre-selects the saved capability scope and resource preset, never blank", () => {
@@ -153,7 +157,11 @@ describe("ScriptRunDialog", () => {
     const onCancel = vi.fn();
     render(<ScriptRunDialog mode="run" scriptName="Chase" profile={profile()} onSubmit={onSubmit} onCancel={onCancel} />);
 
-    fireEvent.keyDown(document, { key: "Escape" });
+    // 13-27-PLAN.md Task 1: the shared Dialog primitive's Escape handler is
+    // a React onKeyDown on the dialog element itself (Dialog.tsx), not a
+    // document-level listener -- dispatch on the dialog role element,
+    // mirroring Dialog.test.tsx's own convention.
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
 
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onSubmit).not.toHaveBeenCalled();
@@ -164,8 +172,9 @@ describe("ScriptRunDialog", () => {
     const onCancel = vi.fn();
     render(<ScriptRunDialog mode="run" scriptName="Chase" profile={profile()} onSubmit={onSubmit} onCancel={onCancel} />);
 
-    const backdrop = screen.getByRole("dialog").parentElement as HTMLElement;
-    fireEvent.click(backdrop);
+    // Dialog.tsx's backdrop closes on mousedown (not click) -- mirrors
+    // Dialog.test.tsx's own convention.
+    fireEvent.mouseDown(screen.getByTestId("dialog-backdrop"));
 
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onSubmit).not.toHaveBeenCalled();

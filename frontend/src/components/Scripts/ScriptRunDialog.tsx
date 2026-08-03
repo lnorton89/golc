@@ -1,12 +1,16 @@
 // ScriptRunDialog is the Run/Debug launch dialog (08-10-PLAN.md Task 2,
 // D-07/D-09): a user reviews and edits the exact capability scope,
 // resource-limit preset, and (under Advanced) the four raw numeric limits
-// a run will use before launch. Follows HelpOverlay.tsx's exact backdrop +
-// dialog pattern (08-UI-SPEC.md's explicit correction of 06-UI-SPEC.md's
-// stale Radix reference: backdrop click and Escape close the dialog,
-// focus moves onto it on open, and it carries the standard dialog/modal
-// ARIA attributes) -- no Radix, no icon library, plain HTML controls
-// under CSS Modules.
+// a run will use before launch.
+//
+// 13-27-PLAN.md Task 1 migrates this component onto the packaged-proven
+// Dialog primitive (focus trap, Escape, backdrop click, focus return, ARIA
+// wiring) in place of its own hand-rolled backdrop + dialog markup --
+// mirroring FixtureStyleModal.tsx's identical Dialog/Field adoption.
+// Initial focus now lands on the Cancel button (Dialog's own
+// "least-destructive action" convention, same as ConfirmDialog.tsx), not
+// the dialog surface itself -- a deviation from the original
+// dialogRef.current?.focus() behavior, documented in this plan's SUMMARY.
 //
 // This component only ever calls one callback, onSubmit(profile, mode):
 // the caller (ScriptsWorkspace.tsx, 08-10-PLAN.md Task 3) is responsible
@@ -16,12 +20,11 @@
 // calls the profile-save callback with the edited values and then the
 // launch callback" is satisfied by the caller's own onSubmit
 // implementation, not by two separate props here.
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { X, Play, Bug } from "lucide-react";
 
 import { errorMessage } from "../../lib/wailsBridge";
-import Field from "../primitives/Field/Field";
-import Button from "../primitives/Button/Button";
+import { Button, Dialog, Field } from "../../design-system";
 import styles from "./ScriptRunDialog.module.css";
 
 export type ScriptLaunchMode = "run" | "debug";
@@ -70,7 +73,7 @@ const PRESET_OPTIONS: Array<{ value: string; label: string }> = [
 const ADVANCED_PRESET_VALUE = "advanced";
 
 export default function ScriptRunDialog({ mode, scriptName, profile, onSubmit, onCancel }: ScriptRunDialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   const [scope, setScope] = useState(profile.scope);
   const [preset, setPreset] = useState(profile.preset);
@@ -81,42 +84,10 @@ export default function ScriptRunDialog({ mode, scriptName, profile, onSubmit, o
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Focus moves into the dialog on open (08-UI-SPEC.md's Modal/dialog
-  // pattern) -- mirrors HelpOverlay.tsx's closeButtonRef.current?.focus()
-  // exactly, focusing the dialog surface itself (tabIndex={-1} below)
-  // rather than a specific control, since this dialog has several equally
-  // reasonable first-focus candidates.
-  useEffect(() => {
-    dialogRef.current?.focus();
-  }, []);
-
-  // Escape closes without launching -- disabled while a submit is in
-  // flight, mirroring the Cancel button and backdrop click below: "the
-  // dialog does not close" while submitting (08-10-PLAN.md Task 2's own
-  // <behavior> bullet).
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !submitting) {
-        onCancel();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onCancel, submitting]);
-
-  // The dialog title/CTA text always uses the mode's own static label;
-  // aria-label (below) stays fixed to this same static label so a screen
-  // reader's announced accessible name never churns between "Run" and
-  // "Launching…" mid-submit -- only the button's visible text switches.
+  // The dialog title/CTA text always uses the mode's own static label.
   const title = mode === "run" ? `Run ${scriptName}` : `Debug ${scriptName}`;
   const submitLabel = mode === "run" ? "Run" : "Start Debugging";
   const submitAriaLabel = `${submitLabel} ${scriptName}`;
-
-  const handleBackdropClick = () => {
-    if (!submitting) {
-      onCancel();
-    }
-  };
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -133,121 +104,102 @@ export default function ScriptRunDialog({ mode, scriptName, profile, onSubmit, o
   };
 
   return (
-    <div className={styles.backdrop} onClick={handleBackdropClick}>
-      <div
-        ref={dialogRef}
-        className={styles.dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        tabIndex={-1}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <form className={styles.form} onSubmit={handleSubmit}>
-          <div className={styles.header}>
-            <span className={styles.title}>
-              {mode === "run" ? <Play size={16} aria-hidden="true" /> : <Bug size={16} aria-hidden="true" />}
-              {title}
-            </span>
-          </div>
+    <Dialog
+      open
+      title={
+        <span className={styles.titleRow}>
+          {mode === "run" ? <Play size={16} aria-hidden="true" /> : <Bug size={16} aria-hidden="true" />}
+          {title}
+        </span>
+      }
+      onClose={onCancel}
+      initialFocusRef={cancelRef}
+      closeOnEscape={!submitting}
+      closeOnBackdrop={!submitting}
+    >
+      <form className={styles.form} onSubmit={handleSubmit}>
+        <Field label="Capability scope">
+          <select value={scope} disabled={submitting} onChange={(event) => setScope(event.target.value)}>
+            {SCOPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </Field>
 
-          <div className={styles.body}>
-            <label className={styles.selectField}>
-              <span className={styles.selectLabel}>Capability scope</span>
-              <select
-                className={styles.select}
-                value={scope}
-                disabled={submitting}
-                onChange={(event) => setScope(event.target.value)}
-              >
-                {SCOPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+        <Field label="Resource limits">
+          <select value={preset} disabled={submitting} onChange={(event) => setPreset(event.target.value)}>
+            {PRESET_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </Field>
 
-            <label className={styles.selectField}>
-              <span className={styles.selectLabel}>Resource limits</span>
-              <select
-                className={styles.select}
-                value={preset}
-                disabled={submitting}
-                onChange={(event) => setPreset(event.target.value)}
-              >
-                {PRESET_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {preset === ADVANCED_PRESET_VALUE ? (
-              <div className={styles.advancedGrid}>
-                <Field
-                  label="Deadline (seconds)"
-                  type="number"
-                  min={1}
-                  max={86400}
-                  step={1}
-                  value={deadlineSeconds}
-                  disabled={submitting}
-                  onChange={(event) => setDeadlineSeconds(Number(event.target.value))}
-                />
-                <Field
-                  label="Rate limit (calls/sec)"
-                  type="number"
-                  min={1}
-                  max={1000}
-                  step={1}
-                  value={ratePerSecond}
-                  disabled={submitting}
-                  onChange={(event) => setRatePerSecond(Number(event.target.value))}
-                />
-                <Field
-                  label="Memory limit (MB)"
-                  type="number"
-                  min={1}
-                  max={8192}
-                  step={1}
-                  value={memoryLimitMB}
-                  disabled={submitting}
-                  onChange={(event) => setMemoryLimitMB(Number(event.target.value))}
-                />
-                <Field
-                  label="CPU cap (%)"
-                  type="number"
-                  min={1}
-                  max={100}
-                  step={1}
-                  value={cpuCapPercent}
-                  disabled={submitting}
-                  onChange={(event) => setCpuCapPercent(Number(event.target.value))}
-                />
-              </div>
-            ) : null}
-
-            {error ? <p className={styles.errorText}>{error}</p> : null}
-          </div>
-
-          <div className={styles.actions}>
-            <Button type="button" variant="secondary" icon={X} onClick={onCancel} disabled={submitting}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              icon={mode === "run" ? Play : Bug}
+        {preset === ADVANCED_PRESET_VALUE ? (
+          <div className={styles.advancedGrid}>
+            <Field
+              label="Deadline (seconds)"
+              type="number"
+              min={1}
+              max={86400}
+              step={1}
+              value={deadlineSeconds}
               disabled={submitting}
-              aria-label={submitAriaLabel}
-            >
-              {submitting ? "Launching…" : submitLabel}
-            </Button>
+              onChange={(event) => setDeadlineSeconds(Number(event.target.value))}
+            />
+            <Field
+              label="Rate limit (calls/sec)"
+              type="number"
+              min={1}
+              max={1000}
+              step={1}
+              value={ratePerSecond}
+              disabled={submitting}
+              onChange={(event) => setRatePerSecond(Number(event.target.value))}
+            />
+            <Field
+              label="Memory limit (MB)"
+              type="number"
+              min={1}
+              max={8192}
+              step={1}
+              value={memoryLimitMB}
+              disabled={submitting}
+              onChange={(event) => setMemoryLimitMB(Number(event.target.value))}
+            />
+            <Field
+              label="CPU cap (%)"
+              type="number"
+              min={1}
+              max={100}
+              step={1}
+              value={cpuCapPercent}
+              disabled={submitting}
+              onChange={(event) => setCpuCapPercent(Number(event.target.value))}
+            />
           </div>
-        </form>
-      </div>
-    </div>
+        ) : null}
+
+        {error ? <p className={styles.submitIssue}>{error}</p> : null}
+
+        <div className={styles.actions}>
+          <Button ref={cancelRef} type="button" variant="secondary" icon={X} onClick={onCancel} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            icon={mode === "run" ? Play : Bug}
+            disabled={submitting}
+            aria-label={submitAriaLabel}
+          >
+            {submitting ? "Launching…" : submitLabel}
+          </Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }

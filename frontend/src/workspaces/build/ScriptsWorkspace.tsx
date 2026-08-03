@@ -67,19 +67,14 @@ import {
   type WailsResult,
 } from "../../lib/wailsBridge";
 
-import Toolbar from "../../components/primitives/Toolbar/Toolbar";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
-import Panel from "../../components/primitives/Panel/Panel";
-import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion";
-import ListRow from "../../components/primitives/ListRow/ListRow";
-import Chip, { type ChipTone } from "../../components/primitives/Chip/Chip";
-import Button from "../../components/primitives/Button/Button";
+import { Button, Chip, EmptyState, Field, FormActions, ListRow, ResizeHandle, ScrollRegion, Toolbar } from "../../design-system";
+import type { ChipTone } from "../../components/primitives/Chip/Chip";
 import ScriptEditor from "../../components/Scripts/ScriptEditor";
 import ScriptRunDialog, { type ScriptDialogProfile as ScriptProfileFields, type ScriptLaunchMode } from "../../components/Scripts/ScriptRunDialog";
 import ScriptDebugPanel, { type ScriptPanelStatus } from "../../components/Scripts/ScriptDebugPanel";
 import { useInspectorSlot } from "../../shell/InspectorSlot";
 import { useResizablePanel } from "../../hooks/useResizablePanel";
-import ResizeHandle from "../../components/primitives/ResizeHandle/ResizeHandle";
 import styles from "./ScriptsWorkspace.module.css";
 
 // ScriptPanelState is one script's accumulated live-run view (08-10-PLAN.md
@@ -596,18 +591,17 @@ export default function ScriptsWorkspace() {
         <span className={styles.inspectorValue}>{selectedScript.preset}</span>
       </div>
     ) : (
-      <p className={styles.inspectorEmpty}>Select a script to see its capability profile.</p>
+      <p className={styles.inspectorPlaceholder}>Select a script to see its capability profile.</p>
     ),
   );
 
   const newScriptForm = creating ? (
     <div className={styles.createForm}>
-      <input
-        className={styles.createInput}
+      <Field
+        label="New script name"
         type="text"
         value={newName}
         placeholder="Script name"
-        aria-label="New script name"
         onChange={(event) => setNewName(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
@@ -615,9 +609,11 @@ export default function ScriptsWorkspace() {
           }
         }}
       />
-      <Button variant="primary" icon={Check} onClick={handleCreate}>
-        Create
-      </Button>
+      <FormActions>
+        <Button variant="primary" icon={Check} onClick={handleCreate}>
+          Create
+        </Button>
+      </FormActions>
     </div>
   ) : null;
 
@@ -665,26 +661,25 @@ export default function ScriptsWorkspace() {
       {inspectorPortal}
       <Toolbar title="Scripts" icon={FileCode2} info={HOW_IT_WORKS_BY_ID["build-scripts"]} action={toolbarActions} />
       <div className={styles.canvas}>
-        {error ? <p className={styles.errorText}>{error}</p> : null}
+        {error ? <p className={styles.feedback}>{error}</p> : null}
 
         {!loading && scripts.length === 0 ? (
-          <Panel className={styles.emptyState}>
-            <h3 className={styles.emptyHeading}>
-              <FileCode2 size={20} aria-hidden="true" />
-              No scripts yet
-            </h3>
-            <p className={styles.emptyBody}>
-              {"Create a script to automate GOLC through the typed SDK. Scripts run in an isolated process and can't touch playback or Art-Net directly."}
-            </p>
-            {creating ? null : (
-              <Button variant="primary" icon={Plus} onClick={() => setCreating(true)}>
-                New Script
-              </Button>
-            )}
-            {newScriptForm}
-          </Panel>
+          <EmptyState
+            icon={FileCode2}
+            heading="No scripts yet"
+            body="Create a script to automate GOLC through the typed SDK. Scripts run in an isolated process and can't touch playback or Art-Net directly."
+            action={
+              creating ? (
+                newScriptForm
+              ) : (
+                <Button variant="primary" icon={Plus} onClick={() => setCreating(true)}>
+                  New Script
+                </Button>
+              )
+            }
+          />
         ) : (
-          <div className={styles.layout} style={{ "--library-width": `${libraryPanel.size}px` } as CSSProperties}>
+          <div className={styles.layout} style={{ "--ds-scriptslist-width": `${libraryPanel.size}px` } as CSSProperties}>
             <div className={styles.library}>
               {newScriptForm}
               <ResizeHandle
@@ -697,7 +692,7 @@ export default function ScriptsWorkspace() {
               <ScrollRegion>
                 {loading ? (
                   <ul className={styles.list} aria-label="Script list">
-                    <li className={styles.loadingRow}>Loading scripts…</li>
+                    <li className={styles.pendingRow}>Loading scripts…</li>
                   </ul>
                 ) : (
                   <ul className={styles.list} aria-label="Script list">
@@ -750,7 +745,7 @@ export default function ScriptsWorkspace() {
                   ) : null}
 
                   {validation && !validation.valid ? (
-                    <p className={styles.validationError}>
+                    <p className={styles.validationFeedback}>
                       {`This script has ${validation.diagnostics.length} error(s). Fix them before running.`}
                     </p>
                   ) : null}
@@ -791,7 +786,7 @@ export default function ScriptsWorkspace() {
                   />
                 </>
               ) : (
-                <p className={styles.emptySelection}>Select a script to view and edit its source.</p>
+                <p className={styles.noSelectionMessage}>Select a script to view and edit its source.</p>
               )}
             </div>
           </div>
