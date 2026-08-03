@@ -20,18 +20,20 @@
 // dispatchLoop) arbitrates incoming MIDI against the surface currently
 // being viewed.
 //
-// This Wave 4 plan replaces this file's contents; App.tsx's mount point
-// for <MidiPanel /> is never changed.
+// Phase 13 Plan 28 migrated this component onto shared design-system
+// primitives (Panel/PanelHeader/Field/ListRow/EmptyState/ErrorState/
+// LoadingState/Chip/IconButton) -- every Wails call, state transition, and
+// dispatch path above is unchanged.
 
 import { useCallback, useEffect, useState } from "react";
 import { Music2, Trash2 } from "lucide-react";
 
 import { useGolcStore } from "../../store/store";
 import { onMidiFeedback, type MidiFeedback } from "../../lib/wailsBridge";
+import { Chip, EmptyState, ErrorState, Field, IconButton, ListRow, LoadingState, Panel, PanelHeader } from "../../design-system";
 import MidiLearn from "./MidiLearn";
 import SoftTakeoverSlider from "./SoftTakeoverSlider";
 import DeskMappingsSection from "./DeskMappingsSection";
-import InfoTooltip from "../primitives/InfoTooltip/InfoTooltip";
 import styles from "./MidiPanel.module.css";
 
 // ---------------------------------------------------------------------------
@@ -252,15 +254,13 @@ export default function MidiPanel() {
   const loading = daemonLoading || listLoading;
 
   return (
-    <section className={styles.panel} aria-label="MIDI mappings" aria-busy={loading}>
+    <Panel aria-label="MIDI mappings" aria-busy={loading}>
       {loading ? (
-        <div className={styles.skeleton}>Loading MIDI mappings…</div>
+        <LoadingState label="Loading MIDI mappings" variant="panel" />
       ) : (
         <>
-          <label className={styles.surfaceSelectRow}>
-            <span className={styles.surfaceSelectLabel}>Operator surface</span>
+          <Field label="Operator surface">
             <select
-              className={styles.surfaceSelect}
               value={selectedSurface ?? ""}
               onChange={(event) => setSelectedSurface(event.target.value || null)}
               aria-label="Select operator surface for MIDI mappings"
@@ -272,40 +272,41 @@ export default function MidiPanel() {
                 </option>
               ))}
             </select>
-          </label>
+          </Field>
 
-          {error && <p className={styles.errorText}>{error}</p>}
+          {error && <ErrorState heading="MIDI mappings unavailable" message={error} variant="inline" />}
 
           <DeskMappingsSection />
 
           {selectedSurface && (
             <>
               <div>
-                <div className={styles.sectionHeadingRow}>
-                  <h3 className={styles.sectionHeading}>Assigned controls</h3>
-                  <InfoTooltip
-                    label="About Assigned controls"
-                    text="Lists the show controls assigned to the selected operator surface that can be mapped to a physical MIDI control."
-                  />
-                </div>
+                <PanelHeader
+                  label="Assigned controls"
+                  info="Lists the show controls assigned to the selected operator surface that can be mapped to a physical MIDI control."
+                />
                 {assignedControls.length === 0 ? (
-                  <p className={styles.emptyBody}>
-                    No controls are assigned to this surface yet — assign one from the
-                    Operator Surfaces view first.
-                  </p>
+                  <EmptyState
+                    heading="No controls assigned"
+                    body="No controls are assigned to this surface yet — assign one from the Operator Surfaces view first."
+                  />
                 ) : (
                   <ul
                     className={styles.controlList}
                     aria-label={`${selectedSurface} learnable controls`}
                   >
                     {assignedControls.map((control) => (
-                      <li key={controlKey(control)} className={styles.controlRow}>
-                        <span className={styles.controlLabel}>{control.label}</span>
-                        <MidiLearn
-                          surfaceName={selectedSurface}
-                          controlRef={selector(control)}
-                          controlLabel={control.label}
-                          onLearned={handleLearned}
+                      <li key={controlKey(control)}>
+                        <ListRow
+                          label={control.label}
+                          actions={
+                            <MidiLearn
+                              surfaceName={selectedSurface}
+                              controlRef={selector(control)}
+                              controlLabel={control.label}
+                              onLearned={handleLearned}
+                            />
+                          }
                         />
                       </li>
                     ))}
@@ -314,24 +315,16 @@ export default function MidiPanel() {
               </div>
 
               <div className={styles.mappingSection}>
-                <div className={styles.sectionHeadingRow}>
-                  <h3 className={styles.sectionHeading}>MIDI mappings</h3>
-                  <InfoTooltip
-                    label="About MIDI mappings"
-                    text="Lists every control currently mapped to an incoming MIDI message, and its live soft-takeover state."
-                  />
-                </div>
+                <PanelHeader
+                  label="MIDI mappings"
+                  info="Lists every control currently mapped to an incoming MIDI message, and its live soft-takeover state."
+                />
                 {mappings.length === 0 ? (
-                  <div className={styles.emptyState}>
-                    <p className={styles.emptyHeading}>
-                      <Music2 size={18} aria-hidden="true" />
-                      No MIDI mappings yet
-                    </p>
-                    <p className={styles.emptyBody}>
-                      Click Learn on any assigned control, then move or press the
-                      matching hardware control.
-                    </p>
-                  </div>
+                  <EmptyState
+                    icon={Music2}
+                    heading="No MIDI mappings yet"
+                    body="Click Learn on any assigned control, then move or press the matching hardware control."
+                  />
                 ) : (
                   <ul
                     className={styles.mappingList}
@@ -340,37 +333,29 @@ export default function MidiPanel() {
                     {mappings.map((mapping) => {
                       const feedback = feedbackByMappingId[mapping.id];
                       return (
-                        <li key={mapping.id} className={styles.mappingRow}>
-                          <div className={styles.mappingInfo}>
-                            <span className={styles.mappingLabel} title={mapping.label}>
-                              {mapping.label}
-                            </span>
-                            <span className={styles.mappingTechnical}>
-                              {mappingTechnical(mapping)}
-                            </span>
-                          </div>
-
-                          {mapping.kind === "control_change" ? (
-                            <SoftTakeoverSlider feedback={feedback} />
-                          ) : (
-                            <span
-                              className={`${styles.armedChip} ${
-                                feedback?.armed ? styles.armedChipOn : styles.armedChipOff
-                              }`}
-                            >
-                              {feedback?.armed ? "Armed" : "Not armed"}
-                            </span>
-                          )}
-
-                          <button
-                            type="button"
-                            className={styles.removeButton}
-                            onClick={() => handleRemove(mapping)}
-                            aria-label={`Remove mapping from ${mapping.label}`}
-                          >
-                            <Trash2 size={13} aria-hidden="true" />
-                            Remove
-                          </button>
+                        <li key={mapping.id}>
+                          <ListRow
+                            label={mapping.label}
+                            meta={mappingTechnical(mapping)}
+                            actions={
+                              <>
+                                {mapping.kind === "control_change" ? (
+                                  <SoftTakeoverSlider feedback={feedback} />
+                                ) : (
+                                  <Chip tone={feedback?.armed ? "armed" : "neutral"}>
+                                    {feedback?.armed ? "Armed" : "Not armed"}
+                                  </Chip>
+                                )}
+                                <IconButton
+                                  icon={Trash2}
+                                  label={`Remove mapping from ${mapping.label}`}
+                                  variant="destructive"
+                                  size="compact"
+                                  onClick={() => handleRemove(mapping)}
+                                />
+                              </>
+                            }
+                          />
                         </li>
                       );
                     })}
@@ -381,6 +366,6 @@ export default function MidiPanel() {
           )}
         </>
       )}
-    </section>
+    </Panel>
   );
 }

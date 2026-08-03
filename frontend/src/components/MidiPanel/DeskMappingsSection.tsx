@@ -7,12 +7,16 @@
 // Desk workspace's own click-to-map overlay (Desk.tsx/Fader.tsx); this
 // section is read-plus-delete only, mirroring MidiPanel.tsx's own
 // "Remove" affordance and destructive-confirmation convention exactly.
+//
+// Phase 13 Plan 28 migrated this section onto shared design-system
+// primitives (PanelHeader/ListRow/EmptyState/ErrorState/LoadingState/
+// IconButton); every Wails call and dispatch path above is unchanged.
 import { useCallback, useEffect, useState } from "react";
 import { Music2, Trash2 } from "lucide-react";
 
 import { errorMessage, listLocalFixtures, listPatch, type FixtureLibraryRowView, type PatchView } from "../../lib/wailsBridge";
 import { resolveDeskChannelLabel } from "../Desk/deskLabels";
-import InfoTooltip from "../primitives/InfoTooltip/InfoTooltip";
+import { EmptyState, ErrorState, IconButton, ListRow, LoadingState, PanelHeader } from "../../design-system";
 import styles from "./MidiPanel.module.css";
 
 export interface DeskMidiMappingView {
@@ -99,48 +103,38 @@ export default function DeskMappingsSection() {
 
   return (
     <div className={styles.mappingSection}>
-      <div className={styles.sectionHeadingRow}>
-        <h3 className={styles.sectionHeading}>Desk mappings</h3>
-        <InfoTooltip
-          label="About Desk mappings"
-          text="Every Desk fader mapped directly to a MIDI control via the global MIDI Learn toggle, independent of Operator Surfaces."
-        />
-      </div>
-      {error && <p className={styles.errorText}>{error}</p>}
+      <PanelHeader
+        label="Desk mappings"
+        info="Every Desk fader mapped directly to a MIDI control via the global MIDI Learn toggle, independent of Operator Surfaces."
+      />
+      {error && <ErrorState heading="Desk mappings unavailable" message={error} variant="inline" />}
       {loading ? (
-        <div className={styles.skeleton}>Loading Desk mappings…</div>
+        <LoadingState label="Loading Desk mappings" variant="inline" />
       ) : mappings.length === 0 ? (
-        <div className={styles.emptyState}>
-          <p className={styles.emptyHeading}>
-            <Music2 size={18} aria-hidden="true" />
-            No Desk mappings yet
-          </p>
-          <p className={styles.emptyBody}>
-            Turn on MIDI Learn (top of the window) and click a fader in the Desk workspace, then
-            move or press the matching hardware control.
-          </p>
-        </div>
+        <EmptyState
+          icon={Music2}
+          heading="No Desk mappings yet"
+          body="Turn on MIDI Learn (top of the window) and click a fader in the Desk workspace, then move or press the matching hardware control."
+        />
       ) : (
         <ul className={styles.mappingList} aria-label="Desk MIDI mappings">
           {mappings.map((mapping) => {
             const label = resolveDeskChannelLabel(patch, library, mapping.instanceId, mapping.capability);
             return (
-              <li key={mapping.id} className={styles.mappingRow}>
-                <div className={styles.mappingInfo}>
-                  <span className={styles.mappingLabel} title={label}>
-                    {label}
-                  </span>
-                  <span className={styles.mappingTechnical}>{mappingTechnical(mapping)}</span>
-                </div>
-                <button
-                  type="button"
-                  className={styles.removeButton}
-                  onClick={() => handleRemove(mapping)}
-                  aria-label={`Remove mapping from ${label}`}
-                >
-                  <Trash2 size={13} aria-hidden="true" />
-                  Remove
-                </button>
+              <li key={mapping.id}>
+                <ListRow
+                  label={label}
+                  meta={mappingTechnical(mapping)}
+                  actions={
+                    <IconButton
+                      icon={Trash2}
+                      label={`Remove mapping from ${label}`}
+                      variant="destructive"
+                      size="compact"
+                      onClick={() => handleRemove(mapping)}
+                    />
+                  }
+                />
               </li>
             );
           })}
