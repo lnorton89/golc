@@ -14,6 +14,14 @@
 // code, not errors in the boundary itself), so this is deliberately mounted
 // as high as possible (wrapping AppShell in App.tsx) to cover the largest
 // practical surface.
+//
+// The Reload control below is intentionally a plain <button>, not the
+// shared Button primitive: Button lives in shared design-system code that
+// could plausibly be part of whatever just crashed the render tree, and
+// this is the one place in the app that must never depend on it. Both this
+// and every color/background literal in ErrorBoundary.module.css are
+// registered, narrowly-scoped design-system exceptions -- see
+// design-system/exception-proposals/shell.json.
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
 

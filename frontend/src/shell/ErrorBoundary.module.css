@@ -1,8 +1,16 @@
-/* Deliberately minimal and dependency-free (no primitives/tokens beyond the
-   handful already loaded by index.css): this fallback must still render
-   correctly even when the crash that triggered it came from deep inside the
-   shell's own component tree, so it avoids relying on anything that could
-   plausibly be part of what just broke. */
+/* Deliberately minimal and dependency-free for its own text/background
+   COLOR contrast: this fallback must still render correctly even when the
+   crash that triggered it came from deep inside the shell's own component
+   tree, including a failure severe enough that tokens.generated.css itself
+   never loaded. The seven color/background declarations below are
+   intentionally bare hex/rgb literals (never var(--ds-*)) -- each is a
+   registered, narrowly-scoped design-system exception (see
+   design-system/exception-proposals/shell.json), matching DESIGN_SYSTEM.md's
+   UI-SPEC "Token-independent ErrorBoundary fallback colors" carve-out.
+   Everything else (spacing, radius, typography) safely uses the generated
+   --ds-* tokens: losing those in the same catastrophic-stylesheet-failure
+   scenario only changes geometry slightly, never turns text invisible or
+   illegible, so there is no token-independence requirement for them. */
 
 .screen {
   height: 100vh;
@@ -10,39 +18,41 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 32px;
-  background: var(--page, #131419);
-  color: var(--ink, #e4e0d8);
-  font-family: "Archivo", system-ui, sans-serif;
+  gap: var(--ds-spacing-space4);
+  padding: var(--ds-spacing-space8);
+  background: #131419;
+  color: #e4e0d8;
+  font-family: var(--ds-typography-font-family-ui);
   text-align: center;
 }
 
 .title {
   margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--status-revoked, #e23a2e);
+  font-size: var(--ds-typography-font-size-heading);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  color: #e23a2e;
 }
 
 .body {
   margin: 0;
   max-width: 640px;
-  font-size: 14px;
-  color: var(--muted, #8a887f);
+  font-size: var(--ds-typography-font-size-body);
+  color: #8a887f;
 }
 
 .detail {
   max-width: 720px;
   max-height: 240px;
   overflow: auto;
-  padding: 12px;
-  border: 1px solid var(--line, #33343a);
-  border-radius: 6px;
+  padding: var(--ds-spacing-space4);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
   background: rgba(0, 0, 0, 0.2);
-  color: var(--muted, #8a887f);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 12px;
+  color: rgb(138, 136, 127);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
   text-align: left;
   white-space: pre-wrap;
 }
@@ -50,15 +60,18 @@
 .reload {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--ds-spacing-space2);
   height: 36px;
-  padding: 0 16px;
-  border: 1px solid var(--status-revoked, #e23a2e);
-  border-radius: 6px;
+  padding-block: 0;
+  padding-inline: var(--ds-spacing-space4);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-status-revoked);
+  border-radius: var(--ds-radii-small);
   background: transparent;
-  color: var(--status-revoked, #e23a2e);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: 14px;
-  font-weight: 600;
+  color: rgb(226, 58, 46);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  font-weight: var(--ds-typography-font-weight-semibold);
   cursor: pointer;
 }
