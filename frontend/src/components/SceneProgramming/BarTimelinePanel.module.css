@@ -1,54 +1,43 @@
 .panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  min-width: 0;
-  min-height: 0;
-  padding: var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--panel);
+  gap: var(--ds-spacing-space2);
   overflow: auto;
 }
 
 .label {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-xs);
-  font-weight: 600;
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 .row {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-xs);
+  align-items: flex-end;
+  gap: var(--ds-spacing-space1);
 }
 
-.input {
-  width: 100px;
-  min-width: 0;
+/* The Evaluate position field is the only sizeable child in this row --
+   it should take the available width, while the Evaluate button (fixed
+   to its own label's intrinsic size via Button.module.css) stays put. */
+.row > :first-child {
   flex: 1 1 100px;
-  height: 30px;
-  padding: 0 var(--space-xs);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--page);
-  color: var(--ink);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-sm);
+  min-width: 0;
 }
 
 .output {
   margin: 0;
-  padding: var(--space-xs);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--page);
-  color: var(--text2);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-xs);
+  padding: var(--ds-spacing-space1);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
+  background: var(--ds-surface-control);
+  color: var(--ds-text-secondary);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
   white-space: pre-wrap;
   overflow: auto;
 }
