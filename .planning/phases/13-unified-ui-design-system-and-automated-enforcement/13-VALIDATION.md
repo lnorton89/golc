@@ -7,12 +7,12 @@ wave_0_complete: false
 created: 2026-08-02
 revised: 2026-08-02
 plan_count: 40
-task_count: 73
+task_count: 75
 ---
 
 # Phase 13 — Validation Strategy
 
-> Exact execution contract for the revised 40-plan, 73-task graph. Commands below are normalized from each PLAN task and are pending until semantic evidence validates. The external-mutation authority row runs read-only preflight and remains a blocking checkpoint.
+> Exact execution contract for the revised 40-plan, 75-task graph. Commands below are normalized from each PLAN task and are pending until semantic evidence validates. The external-mutation authority row runs read-only preflight and remains a blocking checkpoint.
 
 ## Test Infrastructure
 
@@ -77,8 +77,10 @@ The validator parses every `13-NN-PLAN.md`, derives task position, decodes XML e
 - `13-26-02` W7 — `cd frontend && npx vitest run src/components/Diagnostics src/workspaces/output/DiagnosticsWorkspace.test.tsx && node scripts/design-system/check.mjs --paths src/workspaces/output/DiagnosticsWorkspace.tsx,src/workspaces/output/DiagnosticsWorkspace.module.css,src/components/Diagnostics --proposal design-system/exception-proposals/output.json`
 - `13-27-01` W7 — `cd frontend && npx vitest run src/workspaces/build/ScriptsWorkspace.test.tsx src/components/Scripts/ScriptRunDialog.test.tsx && node scripts/design-system/check.mjs --paths src/workspaces/build/ScriptsWorkspace.tsx,src/workspaces/build/ScriptsWorkspace.module.css,src/components/Scripts/ScriptRunDialog.tsx,src/components/Scripts/ScriptRunDialog.module.css`
 - `13-27-02` W7 — `cd frontend && npx vitest run src/components/Scripts/monacoTheme.test.ts src/components/Scripts/ScriptDebugPanel.test.tsx src/components/Scripts/ScriptEditor.test.tsx && node scripts/design-system/check.mjs --paths src/components/Scripts/monacoTheme.ts,src/components/Scripts/ScriptDebugPanel.tsx,src/components/Scripts/ScriptDebugPanel.module.css,src/components/Scripts/ScriptEditor.tsx,src/components/Scripts/ScriptEditor.module.css --proposal design-system/exception-proposals/editors.json`
-- `13-28-01` W7 — `cd frontend && npx vitest run src/components/MidiPanel src/components/MidiLearnToggle src/workspaces/operate/MidiMappingWorkspace.test.tsx && node scripts/design-system/check.mjs --paths src/workspaces/operate/MidiMappingWorkspace.tsx,src/workspaces/operate/MidiMappingWorkspace.module.css,src/components/MidiPanel,src/components/MidiLearnToggle --proposal design-system/exception-proposals/operator-midi.json`
-- `13-29-01` W7 — `cd frontend && npx vitest run src/components/HotkeySettings src/components/KeyboardShortcuts src/workspaces/ComingSoon.test.tsx && node scripts/design-system/check.mjs --paths src/components/HotkeySettings,src/components/KeyboardShortcuts,src/workspaces/workspace.module.css,src/workspaces/ComingSoon.tsx,src/workspaces/ComingSoon.module.css --proposal design-system/exception-proposals/shell-overlays.json`
+- `13-28-01` W7 — `cd frontend && npx vitest run src/components/MidiPanel/MidiPanel.test.tsx src/workspaces/operate/MidiMappingWorkspace.test.tsx && node scripts/design-system/check.mjs --paths src/workspaces/operate/MidiMappingWorkspace.tsx,src/workspaces/operate/MidiMappingWorkspace.module.css,src/components/MidiPanel/MidiPanel.tsx,src/components/MidiPanel/MidiPanel.module.css,src/components/MidiPanel/MidiLearn.tsx,src/components/MidiPanel/DeskMappingsSection.tsx`
+- `13-28-02` W7 — `cd frontend && npx vitest run src/components/MidiPanel/SoftTakeoverSlider.test.tsx src/components/MidiLearnToggle/MidiLearnToggle.test.tsx && node scripts/design-system/check.mjs --paths src/components/MidiPanel/SoftTakeoverSlider.tsx,src/components/MidiLearnToggle/MidiLearnToggle.tsx,src/components/MidiLearnToggle/MidiLearnToggle.module.css --proposal design-system/exception-proposals/operator-midi.json`
+- `13-29-01` W7 — `cd frontend && npx vitest run src/components/HotkeySettings src/components/KeyboardShortcuts && node scripts/design-system/check.mjs --paths src/components/HotkeySettings/HotkeySettings.tsx,src/components/HotkeySettings/HotkeySettings.module.css,src/components/KeyboardShortcuts/KeyboardShortcuts.tsx,src/components/KeyboardShortcuts/KeyboardShortcuts.module.css`
+- `13-29-02` W7 — `cd frontend && npx vitest run src/workspaces/ComingSoon.test.tsx && node scripts/design-system/check.mjs --paths src/workspaces/workspace.module.css,src/workspaces/ComingSoon.tsx,src/workspaces/ComingSoon.module.css --proposal design-system/exception-proposals/shell-overlays.json`
 
 ### Waves 8–17
 
@@ -197,7 +199,7 @@ Deferred ideas: none. No source item is missing.
 
 ## Sign-Off Gate
 
-- [ ] All 73 tasks and automated commands match PLAN-derived normalized strings/hashes and the authority checkpoint has an explicit outcome.
+- [ ] All 75 tasks and automated commands match PLAN-derived normalized strings/hashes and the authority checkpoint has an explicit outcome.
 - [ ] All D-01 through D-14 and UI-SPEC contracts are covered.
 - [ ] Every Wave 0 artifact exists and passes semantic validation.
 - [ ] Packaged WebView2 proof matches its executable build hash.
