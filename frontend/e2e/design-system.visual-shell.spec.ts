@@ -250,3 +250,73 @@ test.describe("dialog layer", () => {
     }
   }
 });
+
+// ---------------------------------------------------------------------------
+// Task 3: shared state gallery matrix
+// ---------------------------------------------------------------------------
+//
+// DesignSystemGallery.tsx (reached via the existing ?e2e=design-system-
+// gallery route, Plan 13-17) already composes all six required bounded
+// states in one deterministic fixture: an empty DataList, a busy DataList, an
+// error DataList, a disabled list row, a selected list row, and a
+// deliberately long fixture name. Every assertion below targets a role,
+// accessible name, or DOM state attribute -- never a color -- per this
+// task's own <action>.
+
+test.describe("shared gallery", () => {
+  for (const width of WIDTHS) {
+    for (const theme of THEMES) {
+      test(`${width}px ${theme}`, async ({ page }) => {
+        await withTheme(page, theme);
+        await installHealthyBindings(page);
+        await page.setViewportSize({ width, height: HEIGHT });
+
+        await page.goto("/?e2e=design-system-gallery");
+        await expect(page.getByRole("heading", { name: "Design system gallery" })).toBeVisible();
+
+        // empty: the one truly empty (non-busy, non-error) DataList falls
+        // back to its default EmptyState heading.
+        await expect(page.getByRole("heading", { name: "Nothing here yet" })).toBeVisible();
+
+        // loading: role=status, aria-busy, named via its own accessible
+        // label -- never inferred from a spinner's color.
+        await expect(page.getByRole("status", { name: "Busy scenes is loading" })).toBeVisible();
+
+        // error: role=alert with its own heading/message text.
+        await expect(page.getByRole("alert")).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Error scenes unavailable" })).toBeVisible();
+        await expect(
+          page.getByText("The daemon did not answer. Your current show remains unchanged."),
+        ).toBeVisible();
+
+        // disabled: aria-disabled on the row itself, not a lower-contrast
+        // color treatment.
+        const disabledRow = page.locator('[aria-label="Many fixtures"] [aria-disabled="true"]');
+        await expect(disabledRow).toBeVisible();
+        await expect(disabledRow).toContainText("Back wash");
+
+        // selected: a data-state="selected" attribute (this DataList has no
+        // onSelect wired, so ListRow renders a plain div rather than an
+        // aria-pressed button).
+        const selectedRow = page.locator('[aria-label="One fixture"] [data-state="selected"]');
+        await expect(selectedRow).toBeVisible();
+        await expect(selectedRow).toContainText("Key light");
+
+        // long-text: the deliberately long fixture name stays fully present
+        // and reachable (UI-SPEC's long-text reflow backstop).
+        await expect(
+          page.getByText("Long fixture name that remains readable in a compact operating row"),
+        ).toBeVisible();
+
+        await assertNoRuntimeIssues(page);
+        const overflow = await findOverflowingControls(page);
+        expect(overflow, "the shared gallery must not overflow its own chrome or the viewport").toEqual([]);
+
+        await settleForCapture(page);
+        await assertNoProtectedMaskIntersections(page, NO_MASKS);
+
+        await expect(page).toHaveScreenshot(`shared-gallery-${theme}-${width}.png`);
+      });
+    }
+  }
+});
