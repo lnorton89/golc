@@ -48,4 +48,12 @@ describe("IconButton", () => {
     button.focus();
     expect(button).toHaveFocus();
   });
+
+  it("defaults to the target size and accepts compact for dense rows", () => {
+    const { rerender } = render(<IconButton label="Save show" icon={Save} />);
+    expect(screen.getByRole("button", { name: "Save show" }).className).toMatch(/target/);
+
+    rerender(<IconButton label="Save show" icon={Save} size="compact" />);
+    expect(screen.getByRole("button", { name: "Save show" }).className).toMatch(/compact/);
+  });
 });

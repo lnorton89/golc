@@ -12,6 +12,16 @@
   transition: background-color var(--ds-motion-tap), border-color var(--ds-motion-tap), color var(--ds-motion-tap);
 }
 
+.compact {
+  min-width: var(--ds-sizing-control-compact);
+  min-height: var(--ds-sizing-control-compact);
+}
+
+.compact .icon {
+  width: var(--ds-sizing-icon16);
+  height: var(--ds-sizing-icon16);
+}
+
 .default {
   min-width: var(--ds-sizing-control-default);
   min-height: var(--ds-sizing-control-default);

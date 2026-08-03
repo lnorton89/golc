@@ -61,7 +61,7 @@ import Fader, { type MidiLearnStatus } from "./Fader";
 import FixtureStyleModal, { BACKGROUND_SIZE_CSS_VALUE, type FixtureStyle } from "./FixtureStyleModal";
 import { capabilityDetailLabel, capabilityLabel, resolveDisplayName } from "./deskLabels";
 import { useResizablePanel } from "../../hooks/useResizablePanel";
-import ResizeHandle from "../primitives/ResizeHandle/ResizeHandle";
+import { Button, Chip, EmptyState, ErrorState, IconButton, LoadingState, Panel, ResizeHandle } from "../../design-system";
 import { useGolcStore } from "../../store/store";
 import styles from "./Desk.module.css";
 
@@ -137,7 +137,7 @@ function resolveChannels(
 
 /** capabilityLabel/capabilityDetailLabel now live in deskLabels.ts
  * (imported above), reused as-is by MidiPanel.tsx's own "Desk mappings"
- * section -- see that file's doc comment for why.
+ * section (see that file's doc comment for why).
  *
  * capabilityIcons swaps a text label for a compact glyph on the two
  * capability types whose full word ("Intensity", "Strobe") is the widest
@@ -154,11 +154,11 @@ const capabilityIcons: Record<string, LucideIcon> = {
  * actual colored dot rather than a letter -- "the red channel" reads more
  * directly from a red circle than from the letter "R" -- self-explanatory
  * without needing a DeskKey entry, unlike capabilityIcons' abstract glyphs.
- * Plain saturated red/green/blue (not the brand's --accent blue, which
- * already carries an unrelated interactive-color meaning elsewhere in this
- * app) so each swatch reads unambiguously as its literal color; white gets
- * a visible border since a near-white fill would otherwise vanish against
- * the light theme's own page background. */
+ * Plain saturated red/green/blue (not the brand's --ds-action-primary,
+ * which already carries an unrelated interactive-color meaning elsewhere
+ * in this app) so each swatch reads unambiguously as its literal color;
+ * white gets a visible border since a near-white fill would otherwise
+ * vanish against the light theme's own page background. */
 const colorSwatches: Record<string, string> = {
   color_red: "#dc2626",
   color_green: "#16a34a",
@@ -263,24 +263,17 @@ function liveByteAt(universeValues: DeskUniverseValuesView[], universe: number, 
   return row.values[address - 1] ?? 0;
 }
 
-type MetaBadgeKind = "mode" | "address";
-
-const META_BADGE_KIND_CLASS: Record<MetaBadgeKind, string> = {
-  mode: styles.badgeMode,
-  address: styles.badgeAddress,
-};
-
-/** MetaBadge mirrors ProjectFixtures.tsx's own MetaBadge pill exactly (same
- * badge/badgeLabel/badgeValue classes and per-kind tint convention,
- * duplicated locally here rather than imported since ProjectFixtures.tsx
- * has no exported shared primitive to import and this component owns its
- * own display logic, mirroring ArtnetConfig/FixturePatch's established
- * "small helper duplicated per feature" precedent) -- a fixed uppercase
- * label plus a monospace value, so a bare number (a mode's channel count,
- * a DMX start address) is never shown unexplained. */
-function MetaBadge({ label, value, kind }: { label: string; value: string; kind: MetaBadgeKind }) {
+/** MetaBadge is a small labeled pill for a bare identifier/value that
+ * would otherwise be ambiguous on its own (a mode's channel count, a DMX
+ * start address) -- mirrors ProjectFixtures.tsx's own MetaTag exactly
+ * (duplicated locally rather than imported since ProjectFixtures.tsx has
+ * no exported shared primitive to import and this component owns its own
+ * display logic, mirroring ArtnetConfig/FixturePatch's established
+ * "small helper duplicated per feature" precedent). Every kind shares one
+ * flat tint -- see Desk.module.css's own .badge doc comment. */
+function MetaBadge({ label, value }: { label: string; value: string }) {
   return (
-    <span className={`${styles.badge} ${META_BADGE_KIND_CLASS[kind]}`}>
+    <span className={styles.badge}>
       <span className={styles.badgeLabel}>{label}</span>
       <span className={styles.badgeValue}>{value}</span>
     </span>
@@ -291,10 +284,9 @@ function MetaBadge({ label, value, kind }: { label: string; value: string; kind:
  * icon-only button group offers (Compact/Normal/Large -- label is the
  * button's aria-label/title only, never rendered as visible text). Normal
  * matches this row's pre-resizable-feature natural height almost exactly
- * (a 120px fader track plus its own fixed chrome, see .faderInput's own
- * doc comment in Desk.module.css), so a fresh Desk looks unchanged from
- * before this feature existed until a user actually reaches for a preset
- * or the drag handle. */
+ * (a 120px fader track plus its own fixed chrome), so a fresh Desk looks
+ * unchanged from before this feature existed until a user actually
+ * reaches for a preset or the drag handle. */
 const UNIVERSE_HEIGHT_PRESETS: { label: string; value: number; icon: LucideIcon }[] = [
   { label: "Compact", value: 210, icon: ChevronsDownUp },
   { label: "Normal", value: 260, icon: Minus },
@@ -313,7 +305,7 @@ interface HeightPreset {
 
 /** FIXTURE_WIDTH_PRESETS mirrors UNIVERSE_HEIGHT_PRESETS exactly, but for
  * the horizontal dimension: each value is a per-channel fader COLUMN width
- * in px (--fader-width), not a fixture-card width directly -- a card's
+ * in px (--ds-fader-width), not a fixture-card width directly -- a card's
  * total width is just its channel count times this value (plus fixed
  * chrome), so scaling the one shared column width scales every fixture's
  * card proportionally to how many channels it actually has. Normal (34)
@@ -328,21 +320,18 @@ const FIXTURE_WIDTH_PRESETS: { label: string; value: number; icon: LucideIcon }[
 const FADER_WIDTH_MIN = 18;
 const FADER_WIDTH_MAX = 96;
 
-/** FADER_ROW_GAP_PX matches .faderRow's own CSS gap (var(--space-xs),
+/** FADER_ROW_GAP_PX matches .faderRow's own CSS gap (--ds-spacing-space1,
  * Desk.module.css) -- read back here so cardFaderWidth below can account
  * for it. Without this, a card's approximated width omitted the (channel
  * count - 1) gaps faderRow's own layout actually spends, undercounting a
  * 5-channel card by 16px -- small enough to go unnoticed on the sliders
  * themselves (which just gained a few px of harmless slack), but visibly
  * lopsided on .fixtureHeader above them, whose own max-width is capped to
- * this same figure: its content rendered flush left against the card's
- * padding while sitting a whole gap-allowance short of the card's right
- * edge, reading as "the card's left/right padding doesn't match" even
- * though the padding itself was always symmetric. */
+ * this same figure. */
 const FADER_ROW_GAP_PX = 4;
 
-/** DETAILED_MIN_FADER_WIDTH is the --fader-width threshold (in px) above
- * which a fader column shows its extra "detailed" content (the full
+/** DETAILED_MIN_FADER_WIDTH is the --ds-fader-width threshold (in px)
+ * above which a fader column shows its extra "detailed" content (the full
  * capability name next to a swatch/icon, plus the 0/64/128/192/255 value
  * scale+ticks) instead of just the compact swatch/icon/track -- computed
  * live against whatever the column's current width actually is (a manual
@@ -355,24 +344,17 @@ const FADER_ROW_GAP_PX = 4;
  * kicks in. */
 const DETAILED_MIN_FADER_WIDTH = 60;
 
-/** COMPACT_SUBLABEL_MAX_FADER_WIDTH is the --fader-width threshold at or
- * below which a fader's sublabel drops its "Ch " prefix, showing just the
- * bare address number -- Compact (26) and Normal (34) both sit at or
- * under this, Large (60) and above don't. A narrow column has the least
- * room to spare and the most channels squeezed into it, so this is where
- * "Ch 10" is most likely to need truncating in the first place (see
- * .faderSublabel's own nowrap/ellipsis in Desk.module.css, which still
- * applies as a last-resort fallback either way). */
+/** COMPACT_SUBLABEL_MAX_FADER_WIDTH is the --ds-fader-width threshold at
+ * or below which a fader's sublabel drops its "Ch " prefix, showing just
+ * the bare address number -- Compact (26) and Normal (34) both sit at or
+ * under this, Large (60) and above don't. */
 const COMPACT_SUBLABEL_MAX_FADER_WIDTH = 40;
 
 /** SCALE_RESERVED_WIDTH is how many extra px of a detailed fader column's
- * own --fader-width go to the value-scale column (its ticks/gap) rather
- * than the slider track itself -- baked into --fader-track-width below so
- * the track shrinks to make room for the scale instead of the scale
- * overflowing the column. Not pixel-exact against .faderScale's own actual
- * rendered width (that would need a DOM measurement pass, like Fit's own),
- * just a close-enough reservation for its "255"-width 3-digit number, its
- * own tick LINE beside it, and the gaps around both. */
+ * own --ds-fader-width go to the value-scale column (its ticks/gap)
+ * rather than the slider track itself -- baked into --ds-fader-track-width
+ * below so the track shrinks to make room for the scale instead of the
+ * scale overflowing the column. */
 const SCALE_RESERVED_WIDTH = 28;
 
 /** WidthPreset is FIXTURE_WIDTH_PRESETS' click-broadcast counterpart to
@@ -384,16 +366,17 @@ const SCALE_RESERVED_WIDTH = 28;
 type WidthPreset = { mode: "fixed"; value: number; version: number } | { mode: "fit"; version: number };
 
 /** computeFitFaderWidth measures a universe row's own fixtureScroll element
- * (its current children, at their current --fader-width) and solves for the
- * exact fader column width that makes the row's total content width equal
- * its container's own visible width -- i.e. exactly wide enough to fill the
- * available space with no horizontal scrollbar, regardless of how many
- * fixtures that row has or how many channels each one carries. Reads real
- * rendered pixel values (padding/border/gaps) off the DOM rather than
- * assuming Desk.module.css's token values, so it stays correct if that
- * spacing ever changes. Returns null when the row has no fader columns to
- * scale against (nothing patched, or every instance in it has no resolved
- * channel layout), since there is then nothing a width preset could do. */
+ * (its current children, at their current --ds-fader-width) and solves
+ * for the exact fader column width that makes the row's total content
+ * width equal its container's own visible width -- i.e. exactly wide
+ * enough to fill the available space with no horizontal scrollbar,
+ * regardless of how many fixtures that row has or how many channels each
+ * one carries. Reads real rendered pixel values (padding/border/gaps) off
+ * the DOM rather than assuming Desk.module.css's token values, so it stays
+ * correct if that spacing ever changes. Returns null when the row has no
+ * fader columns to scale against (nothing patched, or every instance in it
+ * has no resolved channel layout), since there is then nothing a width
+ * preset could do. */
 function computeFitFaderWidth(fixtureScroll: HTMLElement): number | null {
   const groups = Array.from(fixtureScroll.querySelectorAll<HTMLElement>(`.${styles.fixtureGroup}`));
   if (groups.length === 0) return null;
@@ -511,20 +494,34 @@ function writeStoredFixtureStyles(styles: Record<string, FixtureStyle>): void {
 }
 
 /** fixtureCardInlineStyle turns one fixture's own FixtureStyle into the
- * inline style props .fixtureGroup actually renders -- undefined fields
- * are simply omitted rather than set to some empty-string/none value, so
- * the CSS module's own default background/color/image rules keep
- * applying exactly as if this card had no customization at all.
- * imageDataURI is the style's own backgroundImageAssetID already resolved
- * through Desk's own imageDataUriCache -- this function never fetches
- * anything itself, undefined here just means "not resolved yet" (or no
- * image set at all), rendering identically to no customization either
- * way until the cache catches up. */
+ * inline style props .fixtureGroup actually renders. backgroundColor/
+ * backgroundImage fields are simply omitted when unset, so the CSS
+ * module's own default background rules keep applying exactly as if this
+ * card had no customization at all. The two --ds-card-font-color-* custom
+ * properties are always set, though: an operator's one "Font color" field
+ * (style.fontColor) applies to every text element on this card alike, but
+ * .fixtureName/.faderValue and .faderLabelText each fall back to a
+ * different semantic default (primary vs secondary) when uncustomized --
+ * resolving that per-role default here in JS, always, means Desk.module.css's
+ * own `color: var(--ds-card-font-color-*)` reads stay a bare token
+ * reference with no in-CSS fallback to repeat identically at each of the
+ * three call sites (which the design-system checker's exception mechanism
+ * can't tell apart -- see Desk.module.css's own doc comment on
+ * .fixtureName). imageDataURI is the style's own backgroundImageAssetID
+ * already resolved through Desk's own imageDataUriCache -- this function
+ * never fetches anything itself, undefined here just means "not resolved
+ * yet" (or no image set at all), rendering identically to no
+ * customization either way until the cache catches up. */
 function fixtureCardInlineStyle(style: FixtureStyle | undefined, imageDataURI: string | undefined): CSSProperties {
-  if (!style) return {};
-  const result: CSSProperties & { "--card-font-color"?: string } = {};
+  const result: CSSProperties & {
+    "--ds-card-font-color-primary"?: string;
+    "--ds-card-font-color-secondary"?: string;
+  } = {
+    "--ds-card-font-color-primary": style?.fontColor ?? "var(--ds-text-primary)",
+    "--ds-card-font-color-secondary": style?.fontColor ?? "var(--ds-text-secondary)",
+  };
+  if (!style) return result;
   if (style.backgroundColor) result.backgroundColor = style.backgroundColor;
-  if (style.fontColor) result["--card-font-color"] = style.fontColor;
   if (imageDataURI) {
     result.backgroundImage = `url(${JSON.stringify(imageDataURI)})`;
     result.backgroundSize = BACKGROUND_SIZE_CSS_VALUE[style.backgroundSize ?? "cover"];
@@ -673,8 +670,8 @@ function UniverseRow({
   const compactSublabel = widthPanel.size <= COMPACT_SUBLABEL_MAX_FADER_WIDTH;
 
   // universeHasOverride gates the universe-level Release button
-  // (aria-disabled + no-op when nothing on this whole row is overridden) --
-  // any instance whose own overrides prefix-matches this instance's own
+  // (soft-disabled + no-op when nothing on this whole row is overridden)
+  // -- any instance whose own overrides prefix-matches this instance's own
   // channel-key format (DeskChannel.key's `${instanceId}::${capabilityType}`).
   const universeHasOverride = universeInstances.some((instance) =>
     Object.keys(overrides).some((key) => key.startsWith(`${instance.id}::`)),
@@ -685,9 +682,9 @@ function UniverseRow({
       className={styles.universeRow}
       style={
         {
-          "--universe-height": `${heightPanel.size}px`,
-          "--fader-width": `${widthPanel.size}px`,
-          "--fader-track-width": `${trackWidth}px`,
+          "--ds-universe-height": `${heightPanel.size}px`,
+          "--ds-fader-width": `${widthPanel.size}px`,
+          "--ds-fader-track-width": `${trackWidth}px`,
         } as CSSProperties
       }
     >
@@ -697,20 +694,15 @@ function UniverseRow({
           {universeInstances.length} fixture{universeInstances.length === 1 ? "" : "s"}
           {range ? ` · Ch ${range[0]}–${range[1]}` : ""}
         </span>
-        <button
-          type="button"
-          className={styles.universeReleaseButton}
-          onClick={
-            universeHasOverride
-              ? () => onReleaseUniverse(universe, universeInstances.map((instance) => instance.id))
-              : undefined
-          }
-          aria-disabled={!universeHasOverride}
+        <IconButton
+          icon={X}
+          size="compact"
+          label={`Release every override in Universe ${universe}`}
+          onClick={universeHasOverride ? () => onReleaseUniverse(universe, universeInstances.map((instance) => instance.id)) : undefined}
+          disabled={!universeHasOverride}
+          disabledBehavior="soft"
           title={universeHasOverride ? `Release every override in Universe ${universe}` : "No overrides to release"}
-          aria-label={`Release every override in Universe ${universe}`}
-        >
-          <X size={11} aria-hidden="true" />
-        </button>
+        />
       </div>
       <div className={styles.fixtureScroll} ref={fixtureScrollRef}>
         {universeInstances.map((instance) => {
@@ -718,7 +710,7 @@ function UniverseRow({
           // count * the row's current fader width, plus the (channel
           // count - 1) gaps between them (FADER_ROW_GAP_PX -- its own doc
           // comment covers why this needs to be exact, not approximate).
-          // Passed down as --card-fader-width so .fixtureHeader can cap
+          // Passed down as --ds-card-fader-width so .fixtureHeader can cap
           // itself to it below. Without this cap, a name+badges combo
           // that's wider than the card's own sliders would silently
           // stretch the whole card wider to fit them (flex's own auto-
@@ -737,7 +729,7 @@ function UniverseRow({
             ? imageDataUriCache[cardFixtureStyle.backgroundImageAssetID]
             : undefined;
           const cardStyle: CSSProperties = {
-            ...(cardFaderWidth !== null ? ({ "--card-fader-width": `${cardFaderWidth}px` } as CSSProperties) : {}),
+            ...(cardFaderWidth !== null ? ({ "--ds-card-fader-width": `${cardFaderWidth}px` } as CSSProperties) : {}),
             ...fixtureCardInlineStyle(cardFixtureStyle, cardImageDataURI),
           };
           const instanceHasOverride = Object.keys(overrides).some((key) => key.startsWith(`${instance.id}::`));
@@ -748,30 +740,26 @@ function UniverseRow({
                   {instance.displayName}
                 </span>
                 <span className={styles.badgeRow}>
-                  <MetaBadge label="Address" kind="address" value={String(instance.address)} />
-                  <button
-                    type="button"
-                    className={styles.fixtureEditButton}
+                  <MetaBadge label="Address" value={String(instance.address)} />
+                  <IconButton
+                    icon={Pencil}
+                    size="compact"
+                    label={`Customize ${instance.displayName}`}
                     onClick={() => onEditFixture(instance.id)}
-                    title={`Customize ${instance.displayName}`}
-                    aria-label={`Customize ${instance.displayName}`}
-                  >
-                    <Pencil size={11} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.fixtureReleaseButton}
+                  />
+                  <IconButton
+                    icon={X}
+                    size="compact"
+                    label={`Release every override on ${instance.displayName}`}
                     onClick={instanceHasOverride ? () => onReleaseInstance(instance.id) : undefined}
-                    aria-disabled={!instanceHasOverride}
+                    disabled={!instanceHasOverride}
+                    disabledBehavior="soft"
                     title={
                       instanceHasOverride
                         ? `Release every override on ${instance.displayName}`
                         : `${instance.displayName} has no overrides to release`
                     }
-                    aria-label={`Release every override on ${instance.displayName}`}
-                  >
-                    <X size={11} aria-hidden="true" />
-                  </button>
+                  />
                 </span>
               </div>
               {instance.channels.length === 0 ? (
@@ -1282,16 +1270,17 @@ export default function Desk() {
   const editingInstance = editingInstanceId ? instances.find((instance) => instance.id === editingInstanceId) : null;
 
   return (
-    <section className={styles.panel} aria-label="Desk" aria-busy={loading}>
+    <Panel aria-label="Desk" aria-busy={loading}>
+      <div className={styles.content}>
       {loading ? (
-        <div className={styles.skeleton}>Loading Desk…</div>
+        <LoadingState label="Loading Desk…" variant="panel" />
       ) : (
         <>
-          {error && <p className={styles.errorText}>{error}</p>}
+          {error && <ErrorState heading="Desk unavailable" message={error} variant="panel" />}
 
           {!reachable && (
             <div className={styles.offlinePanel}>
-              <span className={styles.offlineChip}>offline</span>
+              <Chip tone="offline">Offline</Chip>
               <p className={styles.offlineText}>
                 <TriangleAlert size={14} aria-hidden="true" style={{ verticalAlign: "-2px", marginRight: 4 }} />
                 Can&rsquo;t reach the playback engine. Live values will resume updating once it&rsquo;s reachable
@@ -1319,7 +1308,6 @@ export default function Desk() {
               {universes.size > 0 && (
                 <div className={styles.heightPresetGroup} role="group" aria-label="Universe panel height">
                   {UNIVERSE_HEIGHT_PRESETS.map((preset) => {
-                    const Icon = preset.icon;
                     // Reflects the last preset clicked, not a live check
                     // against every row's own current height -- once a
                     // row is independently dragged away from it, this
@@ -1328,19 +1316,17 @@ export default function Desk() {
                     // no single "current" height to validate against).
                     const active = heightPreset?.value === preset.value;
                     return (
-                      <button
+                      <IconButton
                         key={preset.label}
-                        type="button"
-                        title={preset.label}
-                        aria-label={preset.label}
+                        icon={preset.icon}
+                        label={preset.label}
+                        variant={active ? "primary" : "neutral"}
+                        size="default"
                         aria-pressed={active}
-                        className={active ? `${styles.heightPresetButton} ${styles.heightPresetButtonActive}` : styles.heightPresetButton}
                         onClick={() =>
                           setHeightPreset((current) => ({ value: preset.value, version: (current?.version ?? 0) + 1 }))
                         }
-                      >
-                        <Icon size={14} aria-hidden="true" />
-                      </button>
+                      />
                     );
                   })}
                 </div>
@@ -1348,16 +1334,15 @@ export default function Desk() {
               {universes.size > 0 && (
                 <div className={styles.heightPresetGroup} role="group" aria-label="Fixture panel width">
                   {FIXTURE_WIDTH_PRESETS.map((preset) => {
-                    const Icon = preset.icon;
                     const active = widthPreset?.mode === "fixed" && widthPreset.value === preset.value;
                     return (
-                      <button
+                      <IconButton
                         key={preset.label}
-                        type="button"
-                        title={preset.label}
-                        aria-label={preset.label}
+                        icon={preset.icon}
+                        label={preset.label}
+                        variant={active ? "primary" : "neutral"}
+                        size="default"
                         aria-pressed={active}
-                        className={active ? `${styles.heightPresetButton} ${styles.heightPresetButtonActive}` : styles.heightPresetButton}
                         onClick={() =>
                           setWidthPreset((current) => ({
                             mode: "fixed",
@@ -1365,38 +1350,22 @@ export default function Desk() {
                             version: (current?.version ?? 0) + 1,
                           }))
                         }
-                      >
-                        <Icon size={14} aria-hidden="true" />
-                      </button>
+                      />
                     );
                   })}
-                  <button
-                    type="button"
-                    title="Fit (fill width, no scrollbar)"
-                    aria-label="Fit (fill width, no scrollbar)"
+                  <IconButton
+                    icon={MoveHorizontal}
+                    label="Fit (fill width, no scrollbar)"
+                    variant={widthPreset?.mode === "fit" ? "primary" : "neutral"}
+                    size="default"
                     aria-pressed={widthPreset?.mode === "fit"}
-                    className={
-                      widthPreset?.mode === "fit"
-                        ? `${styles.heightPresetButton} ${styles.heightPresetButtonActive}`
-                        : styles.heightPresetButton
-                    }
-                    onClick={() =>
-                      setWidthPreset((current) => ({ mode: "fit", version: (current?.version ?? 0) + 1 }))
-                    }
-                  >
-                    <MoveHorizontal size={14} aria-hidden="true" />
-                  </button>
+                    onClick={() => setWidthPreset((current) => ({ mode: "fit", version: (current?.version ?? 0) + 1 }))}
+                  />
                 </div>
               )}
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                onClick={handleClearAll}
-                disabled={overrideCount === 0}
-              >
-                <RotateCcw size={13} aria-hidden="true" />
+              <Button variant="secondary" leadingIcon={RotateCcw} onClick={handleClearAll} disabled={overrideCount === 0}>
                 Release All
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -1415,12 +1384,10 @@ export default function Desk() {
           )}
 
           {universes.size === 0 ? (
-            <div className={styles.emptyState}>
-              <p className={styles.emptyHeading}>No patched fixtures in the active deployment</p>
-              <p className={styles.emptyBody}>
-                Patch fixtures into an active deployment (Build &gt; Patch &amp; Pools) to control them here.
-              </p>
-            </div>
+            <EmptyState
+              heading="No patched fixtures in the active deployment"
+              body="Patch fixtures into an active deployment (Build > Patch & Pools) to control them here."
+            />
           ) : (
             <div className={styles.universeList}>
               {[...universes.entries()].map(([universe, universeInstances]) => (
@@ -1469,6 +1436,7 @@ export default function Desk() {
           onClose={() => setEditingInstanceId(null)}
         />
       )}
-    </section>
+      </div>
+    </Panel>
   );
 }

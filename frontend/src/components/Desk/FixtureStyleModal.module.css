@@ -1,58 +1,8 @@
-/* Mirrors ConfirmModal.module.css's own backdrop/dialog/title/actions
-   tokens exactly (same shell pattern, different body content) so this
-   reads as the same dialog system, not a new one. */
-
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--ink) 45%, transparent);
-  animation: backdropFadeIn var(--motion-settle);
-}
-
-.dialog {
-  /* Bumped from 360px: the image preview thumbnail + Choose Image button
-     row needs a bit more breathing room than the plain color/text fields
-     this dialog started with. */
-  width: min(400px, 90vw);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-lg);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: var(--panel);
-  animation: dialogPopIn var(--motion-settle);
-}
-
-@keyframes backdropFadeIn {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes dialogPopIn {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(4px);
-  }
-}
-
-.title {
-  margin: 0;
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--ink);
-}
-
 .subtitle {
-  margin: 0 0 var(--space-xs);
-  font-size: var(--text-sm);
-  color: var(--text2);
+  display: block;
+  margin: 0;
+  font-size: var(--ds-typography-font-size-body);
+  color: var(--ds-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -61,49 +11,20 @@
 .fieldRow {
   display: flex;
   align-items: flex-end;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
-.fieldRow > label {
+.fieldRow > * {
   flex: 1;
   min-width: 0;
-}
-
-/* Icon-only reset-to-default button, one per field -- mirrors Desk's own
-   Fader clear-button convention (icon + title + aria-disabled when
-   inert), not a shared cross-app primitive (Field's own field/label
-   isn't paired with a reset action anywhere else in this codebase). */
-.resetButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.resetButton:hover:not([aria-disabled="true"]) {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.resetButton[aria-disabled="true"] {
-  opacity: 0.35;
-  cursor: not-allowed;
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: var(--space-sm);
-  margin-top: var(--space-xs);
+  gap: var(--ds-spacing-space2);
+  margin-top: var(--ds-spacing-space1);
 }
 
 /* Background-image section: label + preview/buttons row + optional error
@@ -112,22 +33,22 @@
 .imageSection {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
 .imageSectionLabel {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-2xs);
-  font-weight: 600;
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 .imagePreviewRow {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
 /* Fixed square thumbnail -- object-fit:cover here is purely about
@@ -139,46 +60,39 @@
   width: 64px;
   height: 64px;
   flex: 0 0 auto;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
   object-fit: cover;
-  background: var(--page);
+  background: var(--ds-surface-canvas);
 }
 
-.imagePreviewEmpty {
+.imagePreviewPlaceholder {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 64px;
   height: 64px;
   flex: 0 0 auto;
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--page);
-  color: var(--muted);
-  font-size: var(--text-2xs);
+  border-width: 1px;
+  border-style: dashed;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
+  background: var(--ds-surface-canvas);
+  color: var(--ds-text-muted);
+  font-size: var(--ds-typography-font-size-compact);
   text-align: center;
 }
 
 .imageButtons {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
-.uploadError {
+.uploadIssue {
   margin: 0;
-  font-size: var(--text-sm);
-  color: var(--status-revoked);
-}
-
-.select {
-  height: 32px;
-  padding: 0 var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--page);
-  color: var(--ink);
-  font-family: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--ds-typography-font-size-body);
+  color: var(--ds-status-revoked);
 }

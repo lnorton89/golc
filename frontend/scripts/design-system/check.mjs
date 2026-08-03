@@ -70,10 +70,27 @@ function manifestDiagnostic(path, source) {
   return null;
 }
 
-function exceptionMatches(exception, diagnostics, sourceByPath) {
+function exceptionMatches(exception, diagnostics) {
   if (!exception || typeof exception !== "object" || typeof exception.path !== "string" || typeof exception.rule !== "string" || typeof exception.match !== "string" || !exception.rationale?.trim() || !exception.reviewCondition?.trim() || !RULES.has(exception.rule) || /[*?\n\r]/.test(exception.match)) return { error: "invalid exception record" };
   if (exception.rule === "DS001" && /(padding|margin|gap|space)/i.test(exception.match)) return { error: "spacing exception" };
-  const matching = diagnostics.filter((diagnostic) => diagnostic.rule === exception.rule && diagnostic.path === exception.path && (diagnostic.value === exception.match || sourceByPath.get(exception.path)?.includes(exception.match)));
+  const sameRulePath = diagnostics.filter((diagnostic) => diagnostic.rule === exception.rule && diagnostic.path === exception.path);
+  // Exact diagnostic.value equality is tried first and, when it finds
+  // anything, wins outright: a match string identifying one specific
+  // diagnostic's own exact value (e.g. a full selector like ".badge") must
+  // not be defeated by an unrelated diagnostic whose value merely contains
+  // it as a substring (".badgeLabel" also contains ".badge"). Only when NO
+  // diagnostic's value equals the match exactly do we fall back to
+  // substring containment, which is what lets a match reference a fragment
+  // of a longer diagnostic value (e.g. "#fff" identifying a "color: #fff"
+  // diagnostic) -- and that fallback is scoped to each diagnostic's own
+  // value, not the whole file's source text: checking file-wide would make
+  // any exception match every diagnostic of the same rule+path the moment
+  // its match string appears anywhere in that file, independent of which
+  // diagnostic it was meant to identify (the bug that made a precise,
+  // single-target exception get rejected as "broad" the moment a file had
+  // 2+ diagnostics of the same rule -- see design-system/exception-proposals/desk.json).
+  const exact = sameRulePath.filter((diagnostic) => diagnostic.value === exception.match);
+  const matching = exact.length > 0 ? exact : sameRulePath.filter((diagnostic) => diagnostic.value.includes(exception.match));
   return { matching };
 }
 
@@ -81,13 +98,11 @@ export async function checkFiles(root = FRONTEND_ROOT, requestedPaths = [], prop
   const realRoot = await realpath(root);
   const paths = [...new Set(requestedPaths)].sort();
   let diagnostics = [];
-  const sources = new Map();
   const declaredTokens = await declaredTokenNames(realRoot);
   for (const path of paths) {
     try {
       const target = await contained(realRoot, path);
       const source = (await readFile(target.absolute, "utf8")).replaceAll("\r\n", "\n");
-      sources.set(target.path, source);
       if (extname(target.path) === ".css") diagnostics.push(...checkCSS({ path: target.path, source, declaredTokens, isDesignSystemFile: target.path.startsWith("src/design-system/") }));
       else if (target.path.endsWith(".tsx")) diagnostics.push(...checkTSX({ path: target.path, source, isPrimitiveFile: target.path.includes("src/components/primitives/"), isThemeFile: target.path === "src/lib/theme.ts" }));
       else if (target.path.startsWith("design-system/") && target.path.endsWith(".json")) {
@@ -98,7 +113,7 @@ export async function checkFiles(root = FRONTEND_ROOT, requestedPaths = [], prop
   }
   const exceptions = await exceptionRecords(realRoot, proposalPaths);
   for (const exception of exceptions) {
-    const result = exceptionMatches(exception, diagnostics, sources);
+    const result = exceptionMatches(exception, diagnostics);
     if (result.error) diagnostics.push({ rule: "DS008", path: "design-system/exceptions.json", line: 1, column: 1, message: result.error, value: "" });
     else if (result.matching.length !== 1) diagnostics.push({ rule: "DS008", path: exception.path, line: 1, column: 1, message: result.matching.length === 0 ? "stale exception" : "broad exception", value: exception.match });
     else diagnostics = diagnostics.filter((diagnostic) => diagnostic !== result.matching[0]);
