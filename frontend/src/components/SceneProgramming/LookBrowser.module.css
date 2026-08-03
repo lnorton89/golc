@@ -1,49 +1,49 @@
 .browser {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
 .countSummary {
   margin: 0;
-  color: var(--text2);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  color: var(--ds-text-secondary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
 }
 
 .categoryRow {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--page);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space2);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
+  background: var(--ds-surface-canvas);
 }
 
+/* flex-wrap: the inspector drawer this form renders in is narrow enough
+   that forcing both fields onto one row squeezed each label's column to
+   roughly half the form width, wrapping longer labels ("Chase step
+   duration") onto two lines while the shorter one ("Chase step unit")
+   stayed single-line -- wrapping the whole field onto its own line below
+   a declared minimum width keeps every label on one line instead. */
 .row {
   display: flex;
-  gap: var(--space-xs);
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ds-spacing-space1);
 }
 
-.input,
-.inputNarrow {
-  height: 30px;
-  padding: 0 var(--space-xs);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--panel);
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-  flex: 1;
-  min-width: 0;
+.row > * {
+  flex: 1 1 140px;
 }
 
 .list {
@@ -56,45 +56,47 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--ds-spacing-space1);
 }
 
 .lookRow {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-sm);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-  color: var(--ink);
+  gap: var(--ds-spacing-space1);
+  padding-block: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space2);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  color: var(--ds-text-primary);
 }
 
 .lookKind {
   flex-shrink: 0;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-2xs);
-  font-weight: 600;
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 .renameRow {
   display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-sm);
+  align-items: flex-end;
+  gap: var(--ds-spacing-space1);
+  padding-block: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space2);
 }
 
 .rowActions {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
   flex: none;
   margin-left: auto;
 }
 
 .divider {
   height: 1px;
-  background: var(--line);
-  margin: var(--space-xs) 0;
+  background: var(--ds-border-default);
+  margin-block: var(--ds-spacing-space1);
 }

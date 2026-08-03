@@ -8,9 +8,7 @@ import { useState } from "react";
 import { Plus, X, Check, Layers, Pencil, Trash2 } from "lucide-react";
 
 import type { ProgSceneView } from "../../lib/wailsBridge";
-import Button from "../primitives/Button/Button";
-import ListRow from "../primitives/ListRow/ListRow";
-import ScrollRegion from "../primitives/ScrollRegion/ScrollRegion";
+import { Button, EmptyState, Field, FormActions, IconButton, ListRow, ScrollRegion } from "../../design-system";
 import styles from "./SceneList.module.css";
 
 interface SceneListProps {
@@ -72,51 +70,34 @@ export default function SceneList({
     <div className={styles.column}>
       <div className={styles.header}>
         <span className={styles.label}>Scenes</span>
-        <Button variant="secondary" icon={creating ? X : Plus} onClick={() => setCreating((current) => !current)}>
+        <Button variant="secondary" leadingIcon={creating ? X : Plus} onClick={() => setCreating((current) => !current)}>
           {creating ? "Cancel" : "New"}
         </Button>
       </div>
 
       {creating ? (
         <div className={styles.createForm}>
-          <input
-            className={styles.input}
-            type="text"
-            value={name}
-            placeholder="Scene name"
-            aria-label="New scene name"
-            onChange={(event) => setName(event.target.value)}
-          />
-          <input
-            className={styles.inputNarrow}
-            type="number"
-            min={1}
-            value={bars}
-            aria-label="Bars per loop"
-            onChange={(event) => setBars(event.target.value)}
-          />
-          <Button variant="primary" icon={Check} onClick={handleCreate}>
-            Create
-          </Button>
+          <Field label="New scene name" type="text" value={name} onChange={(event) => setName(event.target.value)} />
+          <Field label="Bars per loop" type="number" min={1} value={bars} onChange={(event) => setBars(event.target.value)} />
+          <FormActions>
+            <Button variant="primary" leadingIcon={Check} onClick={handleCreate}>
+              Create
+            </Button>
+          </FormActions>
         </div>
       ) : null}
 
       <ScrollRegion>
         {scenes.length === 0 ? (
-          <p className={styles.emptyState}>
-            <Layers size={14} aria-hidden="true" />
-            No scenes yet — create one above.
-          </p>
+          <EmptyState icon={Layers}>No scenes yet — create one above.</EmptyState>
         ) : (
           <ul className={styles.list} aria-label="Scene list">
             {scenes.map((scene) =>
               renamingName === scene.name ? (
                 <li key={scene.name} className={styles.renameRow}>
-                  <input
-                    className={styles.input}
-                    type="text"
+                  <Field
+                    label="Scene name"
                     value={renameValue}
-                    aria-label="Scene name"
                     autoFocus
                     onChange={(event) => setRenameValue(event.target.value)}
                     onKeyDown={(event) => {
@@ -124,8 +105,8 @@ export default function SceneList({
                       if (event.key === "Escape") setRenamingName(null);
                     }}
                   />
-                  <Button variant="secondary" icon={Check} onClick={() => handleSaveRename(scene.name)} aria-label="Save" />
-                  <Button variant="secondary" icon={X} onClick={() => setRenamingName(null)} aria-label="Cancel" />
+                  <IconButton icon={Check} label="Save" onClick={() => handleSaveRename(scene.name)} />
+                  <IconButton icon={X} label="Cancel" onClick={() => setRenamingName(null)} />
                 </li>
               ) : (
                 <li
@@ -142,22 +123,8 @@ export default function SceneList({
                     onSelect={() => onSelect(scene.name)}
                     actions={
                       <span className={styles.rowActions}>
-                        <button
-                          type="button"
-                          className={styles.iconButton}
-                          onClick={() => handleStartRename(scene.name)}
-                          aria-label={`Rename ${scene.name}`}
-                        >
-                          <Pencil size={12} aria-hidden="true" />
-                        </button>
-                        <button
-                          type="button"
-                          className={`${styles.iconButton} ${styles.iconButtonDestructive}`}
-                          onClick={() => handleDelete(scene.name)}
-                          aria-label={`Delete ${scene.name}`}
-                        >
-                          <Trash2 size={12} aria-hidden="true" />
-                        </button>
+                        <IconButton icon={Pencil} label={`Rename ${scene.name}`} onClick={() => handleStartRename(scene.name)} />
+                        <IconButton icon={Trash2} variant="destructive" label={`Delete ${scene.name}`} onClick={() => handleDelete(scene.name)} />
                       </span>
                     }
                   />

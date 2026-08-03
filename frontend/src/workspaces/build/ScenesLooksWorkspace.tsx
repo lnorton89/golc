@@ -42,16 +42,14 @@ import {
   type ProgSceneView,
 } from "../../lib/wailsBridge";
 
-import Toolbar from "../../components/primitives/Toolbar/Toolbar";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
-import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion";
+import { Button, EmptyState, ErrorState, InfoTooltip, LoadingState, ResizeHandle, SceneStack, ScrollRegion, WorkspaceFrame } from "../../design-system";
 import SceneList from "../../components/SceneProgramming/SceneList";
 import LayerRow, { LAYER_KINDS, type LayerKind } from "../../components/SceneProgramming/LayerRow";
 import LookBrowser, { type PresetKind } from "../../components/SceneProgramming/LookBrowser";
 import BarTimelinePanel from "../../components/SceneProgramming/BarTimelinePanel";
 import { useInspectorSlot } from "../../shell/InspectorSlot";
 import { useResizablePanel } from "../../hooks/useResizablePanel";
-import ResizeHandle from "../../components/primitives/ResizeHandle/ResizeHandle";
 import styles from "./ScenesLooksWorkspace.module.css";
 
 /** looksForKind returns the reusable-look list a given layer kind's picker
@@ -364,20 +362,30 @@ export default function ScenesLooksWorkspace() {
   const selectedScene = view.scenes.find((scene) => scene.name === selectedSceneName) ?? null;
 
   return (
-    <div className={styles.workspace}>
+    <WorkspaceFrame
+      title="Scenes & Looks"
+      action={<InfoTooltip label="How Scenes & Looks works" text={HOW_IT_WORKS_BY_ID["build-scenes-looks"]} />}
+    >
       {inspectorPortal}
-      <Toolbar title="Scenes & Looks" icon={Layers} info={HOW_IT_WORKS_BY_ID["build-scenes-looks"]} />
       <div className={styles.canvas}>
         {loading ? (
-          <p className={styles.loading}>Loading scene programming…</p>
+          <LoadingState label="Loading scene programming…" variant="panel" />
         ) : (
           <>
-            {error ? <p className={styles.errorText}>{error}</p> : null}
+            {error ? <ErrorState heading="Scene programming unavailable" message={error} /> : null}
             <div
               className={styles.layout}
-              style={{ "--scenelist-width": `${sceneListPanel.size}px` } as CSSProperties}
+              style={{ "--ds-scenelist-width": `${sceneListPanel.size}px` } as CSSProperties}
             >
               <div className={styles.sceneListColumn}>
+                <SceneStack
+                  scenes={view.scenes.map((scene) => ({
+                    id: scene.name,
+                    name: scene.name,
+                    status: scene.active ? "live" : "neutral",
+                    label: scene.active ? "LIVE" : `${scene.barsPerLoop}bar`,
+                  }))}
+                />
                 <SceneList
                   scenes={view.scenes}
                   selectedName={selectedSceneName}
@@ -402,17 +410,18 @@ export default function ScenesLooksWorkspace() {
                       <span className={styles.sceneName} title={selectedScene.name}>
                         {selectedScene.name}
                       </span>
-                      {selectedScene.active ? (
-                        <span className={styles.activeChip}>LIVE</span>
-                      ) : (
-                        <button
-                          type="button"
-                          className={styles.activateButton}
+                      {/* The active scene's LIVE status is already surfaced by
+                          SceneStack, immediately to the left in the same
+                          viewport; this header only needs an action when the
+                          selected scene is NOT yet the live one. */}
+                      {selectedScene.active ? null : (
+                        <Button
+                          variant="secondary"
+                          leadingIcon={Zap}
                           onClick={() => void handleActivateScene(selectedScene.name)}
                         >
-                          <Zap size={13} aria-hidden="true" />
                           Activate
-                        </button>
+                        </Button>
                       )}
                     </div>
                     <ScrollRegion>
@@ -435,10 +444,7 @@ export default function ScenesLooksWorkspace() {
                     </ScrollRegion>
                   </>
                 ) : (
-                  <p className={styles.emptyState}>
-                    <Layers size={14} aria-hidden="true" />
-                    Create a scene to start pointing its layers at reusable looks.
-                  </p>
+                  <EmptyState icon={Layers}>Create a scene to start pointing its layers at reusable looks.</EmptyState>
                 )}
 
                 <BarTimelinePanel activeSceneName={selectedScene?.name ?? null} />
@@ -447,6 +453,6 @@ export default function ScenesLooksWorkspace() {
           </>
         )}
       </div>
-    </div>
+    </WorkspaceFrame>
   );
 }
