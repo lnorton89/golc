@@ -125,6 +125,22 @@ exact Go test marker `TestScope{PascalName}` (here
 no marker exists. Tests always run through the pinned project-local Go
 toolchain, never a host installation.
 
+Property-based tests (`pgregory.net/rapid`, pinned in AGENTS.md's stack
+table) generalize a package's hand-picked example tests across arbitrary
+generated input instead of one fixed case. Six files are the reference
+pattern for adding another:
+`internal/projectconfig/reference_property_test.go` (typed reference
+resolution), `internal/pool/membership_property_test.go` (the
+review-before-apply state machine, via `rapid.T.Repeat`),
+`internal/show/store_property_test.go` (SQLite save/load round trip),
+`internal/scene/layer_property_test.go` (fixed-priority layer merge),
+`internal/artnet/channelmap_property_test.go` (DMX channel packing), and
+`internal/playback/evaluate_property_test.go` (chase/motion cue-transition
+selection). Each stays in the package's existing external `_test` package,
+generalizes an existing fixed example rather than duplicating it, and
+checks against an independently-computed oracle rather than reaching into
+unexported internals.
+
 ## 6. Build the deterministic foundation package
 
 ```bash
