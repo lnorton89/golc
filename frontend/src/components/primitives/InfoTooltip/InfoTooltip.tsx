@@ -13,7 +13,8 @@
 // crosses that container's own bounds. A portal escapes the clipped
 // subtree entirely; its position is computed from the trigger's real
 // on-screen rect instead.
-import { useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import styles from "./InfoTooltip.module.css";
 
@@ -22,14 +23,11 @@ interface InfoTooltipProps {
   text: string;
 }
 
-const TOOLTIP_WIDTH = 240;
-const GAP = 8;
-const EDGE_MARGIN = 8;
-
 export default function InfoTooltip({ label, text }: InfoTooltipProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+  const tooltipId = useId();
 
   useLayoutEffect(() => {
     if (!open || !triggerRef.current) {
@@ -37,10 +35,16 @@ export default function InfoTooltip({ label, text }: InfoTooltipProps) {
     }
     const rect = triggerRef.current.getBoundingClientRect();
     setPosition({
-      top: Math.min(Math.max(rect.top + rect.height / 2, EDGE_MARGIN), window.innerHeight - EDGE_MARGIN),
-      left: Math.min(rect.right + GAP, window.innerWidth - TOOLTIP_WIDTH - EDGE_MARGIN),
+      top: rect.top + rect.height / 2,
+      left: rect.right,
     });
   }, [open]);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === "Escape") {
+      setOpen(false);
+    }
+  };
 
   return (
     <span className={styles.wrapper}>
@@ -48,11 +52,14 @@ export default function InfoTooltip({ label, text }: InfoTooltipProps) {
         ref={triggerRef}
         type="button"
         aria-label={label}
+        aria-describedby={open ? tooltipId : undefined}
         className={styles.trigger}
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
+        onKeyDown={handleKeyDown}
+        title={text}
       >
         i
       </button>
@@ -60,8 +67,9 @@ export default function InfoTooltip({ label, text }: InfoTooltipProps) {
         ? createPortal(
             <span
               role="tooltip"
+              id={tooltipId}
               className={styles.tooltip}
-              style={{ top: position.top, left: position.left, width: TOOLTIP_WIDTH }}
+              style={{ "--tooltip-top": `${position.top}px`, "--tooltip-left": `${position.left}px` } as CSSProperties}
             >
               {text}
             </span>,
