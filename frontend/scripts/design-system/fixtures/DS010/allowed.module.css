@@ -1,0 +1,1 @@
+.button:focus-visible { outline: var(--ds-focus-ring); transition: var(--ds-motion-tap); }
