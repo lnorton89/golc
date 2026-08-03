@@ -6,6 +6,14 @@
 // when a stage has no evidence at all (UI-SPEC empty state). Extracted
 // into its own component so this shared rendering contract stays
 // independently testable from any one stage's own live-data derivation.
+//
+// 13-25-PLAN.md (D-05): the empty state now uses the shared EmptyState
+// primitive's legacy children form instead of a locally hand-rolled
+// `.emptyPreview` paragraph class -- that class's name/shared visual
+// properties (color, font-family, font-size) tripped DS006 ("shared
+// visual class"), and EmptyState is exactly the primitive D-05 reserves
+// for this.
+import { EmptyState } from "../../../design-system";
 import Chip, { type ChipTone } from "../../../components/primitives/Chip/Chip";
 import type { GuideEvidenceItem, GuideEvidenceTone } from "./stages";
 import styles from "./GuidedFirstShow.module.css";
@@ -34,11 +42,7 @@ interface GuideEvidenceListProps {
 
 export default function GuideEvidenceList({ items }: GuideEvidenceListProps) {
   if (items.length === 0) {
-    return (
-      <p className={styles.emptyPreview}>
-        Nothing to preview yet — complete this stage's action to see it here.
-      </p>
-    );
+    return <EmptyState>Nothing to preview yet — complete this stage's action to see it here.</EmptyState>;
   }
 
   return (

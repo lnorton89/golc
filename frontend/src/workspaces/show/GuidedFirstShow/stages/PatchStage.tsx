@@ -10,9 +10,13 @@
 // (onboarding-readiness-impact.md's own interaction contract: "Patch
 // changes remain preview-only until the user reviews and applies the
 // deterministic impact plan").
+//
+// 13-25-PLAN.md (D-05): loading/error text now render through the shared
+// LoadingState/ErrorState primitives instead of bare <p> tags.
 import { useCallback, useEffect, useState } from "react";
 
 import { errorMessage, listPatch } from "../../../../lib/wailsBridge";
+import { ErrorState, LoadingState } from "../../../../design-system";
 import { derivePatchStatus } from "../readiness";
 import type { GuideStageStatus } from "../stages";
 
@@ -52,8 +56,8 @@ export default function PatchStage({ onStatusChange }: PatchStageProps) {
   return (
     <div>
       <p>Patch at least one fixture pool into an active deployment before programming a scene.</p>
-      {loading ? <p>Checking your patch…</p> : null}
-      {error ? <p>{error}</p> : null}
+      {loading ? <LoadingState label="Checking your patch…" /> : null}
+      {error ? <ErrorState heading="Patch unavailable" message={error} /> : null}
     </div>
   );
 }
