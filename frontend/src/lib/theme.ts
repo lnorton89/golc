@@ -1,45 +1,14 @@
-// theme.ts is a pure client-side preference: which mode (light/dark/system)
-// and which palette (default/gruvbox/tokyo) index.css's `[data-theme]` /
-// `[data-theme-name]` overrides resolve to. It never round-trips through a
-// Wails binding (nothing on the Go side owns or needs to know the operator's
-// display preference), so it deliberately lives outside wailsBridge.ts and
-// useGolcStore (store.ts's own doc comment: "cache of Go-pushed snapshots,
-// never authoritative" -- a local UI preference isn't Go-pushed data at
-// all). Mode and palette are independent axes: mode picks light vs. dark
-// values, palette picks which set of values (index.css defines one per
-// palette per mode).
+import { themeNames, type DesignSystemThemeName } from "../design-system/tokens.generated";
+
+// Theme selection is a client-side preference. The generated design-system
+// manifest owns every selectable face and the CSS semantics it resolves to;
+// this module only persists the two selection axes for startup.
 const STORAGE_KEY = "golc-theme";
 const THEME_NAME_STORAGE_KEY = "golc-theme-name";
 
 export type ThemePreference = "light" | "dark" | "system";
-export type ThemeName =
-  | "default"
-  | "gruvbox"
-  | "tokyo"
-  | "dracula"
-  | "nord"
-  | "catppuccin"
-  | "solarized"
-  | "one-dark"
-  | "rose-pine"
-  | "everforest"
-  | "rainbow"
-  | "acid";
-
-const THEME_NAMES: readonly ThemeName[] = [
-  "default",
-  "gruvbox",
-  "tokyo",
-  "dracula",
-  "nord",
-  "catppuccin",
-  "solarized",
-  "one-dark",
-  "rose-pine",
-  "everforest",
-  "rainbow",
-  "acid",
-];
+export type ThemeName = DesignSystemThemeName;
+export const supportedThemeNames = themeNames;
 
 export function getStoredTheme(): ThemePreference {
   const stored = window.localStorage.getItem(STORAGE_KEY);
@@ -66,7 +35,7 @@ export function setStoredTheme(theme: ThemePreference): void {
 
 export function getStoredThemeName(): ThemeName {
   const stored = window.localStorage.getItem(THEME_NAME_STORAGE_KEY);
-  return (THEME_NAMES as string[]).includes(stored ?? "") ? (stored as ThemeName) : "default";
+  return stored !== null && supportedThemeNames.includes(stored as ThemeName) ? stored as ThemeName : "default";
 }
 
 export function applyThemeName(name: ThemeName): void {
