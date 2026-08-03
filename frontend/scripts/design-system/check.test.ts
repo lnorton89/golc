@@ -85,6 +85,12 @@ describe("DS001-DS010 policy boundaries", () => {
     expect(whole.diagnostics).toEqual(scoped.diagnostics);
   });
 
+  it("expands a declared source directory without accepting an unresolved path", async () => {
+    const root = await fixture({ "src/Feature/Feature.tsx": "export const Feature = () => <div />;" });
+    expect((await checkDesignSystem(root, { paths: ["src/Feature"] })).diagnostics).toEqual([]);
+    expect((await checkDesignSystem(root, { paths: ["src/Missing"] })).diagnostics).toMatchObject([{ rule: "DS000" }]);
+  });
+
   it.each([
     ["accepts one exact exception", ".panel { color: #fff; }", "#fff", []],
     ["rejects a stale exception", ".panel { color: #fff; }", "#000", ["stale exception"]],

@@ -107,7 +107,16 @@ export async function checkFiles(root = FRONTEND_ROOT, requestedPaths = [], prop
 }
 
 export async function checkDesignSystem(root = FRONTEND_ROOT, { paths = [], wholeSource = false, proposalPaths = [] } = {}) {
-  const selected = paths.length ? paths : wholeSource ? await filesBelow(root, "src") : [];
+  const selected = paths.length
+    ? (await Promise.all(paths.map(async (path) => {
+        try {
+          const target = await contained(root, path);
+          return (await lstat(target.absolute)).isDirectory() ? filesBelow(root, target.path) : [path];
+        } catch {
+          return [path];
+        }
+      }))).flat()
+    : wholeSource ? await filesBelow(root, "src") : [];
   return checkFiles(root, selected, proposalPaths);
 }
 
