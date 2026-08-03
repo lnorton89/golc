@@ -1,30 +1,10 @@
-.workspace {
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
 .canvas {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding: var(--space-md);
+  padding: var(--ds-spacing-space4);
   display: flex;
   flex-direction: column;
-}
-
-.loading {
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-}
-
-.errorText {
-  margin: 0 0 var(--space-sm);
-  color: var(--status-revoked);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
 }
 
 .layout {
@@ -33,7 +13,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
-  gap: var(--space-md);
+  gap: var(--ds-spacing-space4);
 }
 
 .identityPanel {
@@ -43,15 +23,16 @@
 .identity {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
+  gap: var(--ds-spacing-space2);
+  padding-block: var(--ds-spacing-space2);
+  padding-inline: var(--ds-spacing-space4);
   flex-wrap: wrap;
 }
 
 .path {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-sm);
-  color: var(--ink);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-body);
+  color: var(--ds-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -59,17 +40,19 @@
 }
 
 .meta {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-xs);
-  color: var(--muted);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  color: var(--ds-text-muted);
 }
 
 .issueList {
-  margin: 0 var(--space-md) var(--space-sm);
-  padding-left: var(--space-md);
-  color: var(--status-revoked);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-xs);
+  margin: 0;
+  margin-inline: var(--ds-spacing-space4);
+  margin-block-end: var(--ds-spacing-space2);
+  padding-left: var(--ds-spacing-space4);
+  color: var(--ds-status-revoked);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
 }
 
 .list {
@@ -78,7 +61,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
 /* Guided First Show's "Start Guide" CTA (D-10, 09-UI-SPEC.md): separated
@@ -87,6 +70,6 @@
    surface. */
 .guideCta {
   flex-shrink: 0;
-  margin-top: var(--space-2xl);
+  margin-top: var(--ds-spacing-space12);
   display: flex;
 }

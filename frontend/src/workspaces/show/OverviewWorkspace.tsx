@@ -19,7 +19,7 @@
 // else (D-10) -- no auto-launch banner, the guide simply takes over the
 // canvas.
 import { useCallback, useEffect, useState } from "react";
-import { LayoutDashboard, Activity, Package, Boxes, Compass } from "lucide-react";
+import { Activity, Package, Boxes, Compass } from "lucide-react";
 
 import {
   diagnoseShow,
@@ -30,15 +30,8 @@ import {
   type DiagnosticReportView,
   type ShowInspectView,
 } from "../../lib/wailsBridge";
-import Toolbar from "../../components/primitives/Toolbar/Toolbar";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
-import Panel from "../../components/primitives/Panel/Panel";
-import PanelHeader from "../../components/primitives/PanelHeader/PanelHeader";
-import Button from "../../components/primitives/Button/Button";
-import Chip from "../../components/primitives/Chip/Chip";
-import ListRow from "../../components/primitives/ListRow/ListRow";
-import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion";
-import EmptyState from "../../components/primitives/EmptyState/EmptyState";
+import { Button, Chip, EmptyState, ErrorState, InfoTooltip, ListRow, LoadingState, Panel, PanelHeader, ScrollRegion, WorkspaceFrame } from "../../design-system";
 import { useGuidedFirstShow } from "./GuidedFirstShow/GuidedFirstShowContext";
 import styles from "./OverviewWorkspace.module.css";
 
@@ -89,14 +82,16 @@ export default function OverviewWorkspace() {
   };
 
   return (
-    <div className={styles.workspace}>
-      <Toolbar title="Overview" icon={LayoutDashboard} info={HOW_IT_WORKS_BY_ID["show-overview"]} />
+    <WorkspaceFrame
+      title="Overview"
+      action={<InfoTooltip label="How Overview works" text={HOW_IT_WORKS_BY_ID["show-overview"]} />}
+    >
       <div className={styles.canvas}>
         {loading ? (
-          <p className={styles.loading}>Loading show overview…</p>
+          <LoadingState label="Loading show overview…" variant="panel" />
         ) : (
           <>
-            {error ? <p className={styles.errorText}>{error}</p> : null}
+            {error ? <ErrorState heading="Overview unavailable" message={error} /> : null}
             <div className={styles.layout}>
               <Panel className={styles.identityPanel}>
                 <PanelHeader
@@ -128,7 +123,7 @@ export default function OverviewWorkspace() {
                   {report?.migrationRequired ? <Chip tone="armed">Migration required</Chip> : null}
                 </div>
                 {report && !report.structuralOk && report.structuralError ? (
-                  <p className={styles.errorText}>{report.structuralError}</p>
+                  <ErrorState heading="Show integrity issue" message={report.structuralError} />
                 ) : null}
                 {report && report.fileLevelIssues.length > 0 ? (
                   <ul className={styles.issueList} aria-label="File-level issues">
@@ -209,6 +204,6 @@ export default function OverviewWorkspace() {
           </>
         )}
       </div>
-    </div>
+    </WorkspaceFrame>
   );
 }
