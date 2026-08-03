@@ -266,3 +266,208 @@ test.describe("Scenes & Looks", () => {
     }
   }
 });
+
+// ---------------------------------------------------------------------------
+// Task 2: Fixture Library / Patch & Pools
+// ---------------------------------------------------------------------------
+//
+// UI-SPEC's Required reference matrix lists this as one combined row
+// ("Populated browse/inspect and impact-review warning/blocker state"), so
+// this task captures the single workspace that demonstrates both halves in
+// one bounded state: Patch & Pools' own FixturePatch.tsx already composes
+// populated pool/deployment browsing with an inline "review impact before
+// apply" inspect panel (ImpactReview) -- driving that panel's
+// AddPoolMemberPreview to a mocked plan carrying both a warning and a
+// blocker demonstrates the exact "impact-review warning/blocker truth" this
+// task's <behavior> names, without inventing a second surface or a second
+// screenshot pair.
+
+const PATCH_LIBRARY_VIEW: FixtureLibraryView = {
+  directory: "fixtures",
+  rows: [
+    {
+      stableKey: "par-rgbw",
+      contentHash: "hash-par-rgbw",
+      manufacturer: "Chauvet",
+      model: "COLORado 1 Quad Zoom",
+      modes: ["RGBW"],
+      modeChannelCounts: { RGBW: 4 },
+      modeChannels: { RGBW: [] },
+      fileName: "chauvet-colorado-1-quad-zoom.yaml",
+      source: "local",
+      status: "valid",
+      detail: "",
+    },
+  ],
+};
+
+const PATCH_VIEW: PatchView = {
+  pools: [
+    {
+      id: "pool-wash",
+      name: "Wash",
+      requiredCapabilities: ["intensity", "color"],
+      members: [{ id: "member-wash-1", fixtureStableKey: "par-rgbw", fixtureContentHash: "hash-par-rgbw" }],
+    },
+  ],
+  deployments: [
+    {
+      id: "deployment-main",
+      name: "Main Rig",
+      active: true,
+      instances: [
+        { id: "instance-1", poolId: "pool-wash", poolMemberId: "member-wash-1", mode: "RGBW", universe: 1, address: 1 },
+      ],
+    },
+  ],
+};
+
+// PREVIEW_PLAN mirrors internal/pool/impact.go's own snake_case Impact Plan
+// shape exactly (see FixturePatch.tsx's own ImpactPlan interface) --
+// carrying exactly one warning and one blocker so both non-color-coded
+// truths render in the same accepted baseline. plan_id's distinct hex
+// suffix inside its first 12 characters (rather than a generic "preview"
+// stem) is deliberate: the rendered "Impact Preview (plan …)" summary must
+// prove it reflects THIS exact mocked preview, not a stale/cached one.
+const PREVIEW_PLAN = {
+  schema_version: 1,
+  pool_id: "pool-wash",
+  add: [{ fixture_stable_key: "par-rgbw", fixture_content_hash: "hash-par-rgbw", mode: "RGBW" }],
+  remove: [],
+  propagate: "preview",
+  expected_revision: 1,
+  operations: [
+    {
+      dependent_kind: "deployment_instance",
+      dependent_ref: "Main Rig",
+      dependent_id: "instance-preview-1",
+      action: "add",
+      pool_member_index: 1,
+      pool_member_id: "member-preview-1",
+      proposed_universe: 1,
+      proposed_address: 5,
+      status: "pending",
+    },
+  ],
+  warnings: [
+    {
+      code: "POOL_CAPABILITY_APPROXIMATED",
+      message:
+        "This fixture approximates the pool's declared color capability using RGB mixing instead of a dedicated color wheel.",
+    },
+  ],
+  errors: [
+    {
+      code: "POOL_UNIVERSE_CAPACITY_EXCEEDED",
+      message: "Adding this fixture would exceed Universe 1's 512-channel capacity for Main Rig.",
+    },
+  ],
+  plan_id: "plan-cafef00d9999",
+};
+
+const PREVIEW_PLAN_SUMMARY = `Impact Preview (plan ${PREVIEW_PLAN.plan_id.slice(0, 12)})`;
+
+async function installPatchPoolsBindings(page: Page): Promise<void> {
+  await installHealthyBindings(page);
+  await page.addInitScript(
+    (seed: { library: FixtureLibraryView; patch: PatchView; previewPlan: unknown }) => {
+      const browserWindow = window as unknown as {
+        go: { wails: Record<string, Record<string, (...args: unknown[]) => unknown>> };
+      };
+      const ok = (stdout = "") => ({ exitCode: 0, stdout, stderr: "" });
+      browserWindow.go.wails.FixtureLibraryService.ListLocal = async () => seed.library;
+      browserWindow.go.wails.FixturePatchService.ListPatch = async () => seed.patch;
+      browserWindow.go.wails.FixturePatchService.AddPoolMemberPreview = async () => ok(JSON.stringify(seed.previewPlan));
+    },
+    { library: PATCH_LIBRARY_VIEW, patch: PATCH_VIEW, previewPlan: PREVIEW_PLAN },
+  );
+}
+
+test.describe("Fixture Library / Patch & Pools", () => {
+  for (const width of WIDTHS) {
+    for (const theme of THEMES) {
+      test(`${width}px ${theme}`, async ({ page }) => {
+        await withTheme(page, theme);
+        await installPatchPoolsBindings(page);
+        await page.setViewportSize({ width, height: HEIGHT });
+
+        await page.goto("/");
+        await page.getByRole("button", { name: "Patch & Pools", exact: true }).click();
+        await expect(page.getByRole("heading", { name: "Patch & Pools", exact: true })).toBeVisible();
+
+        // browse: the populated pool/deployment lists render.
+        await expect(page.getByLabel("Pool list")).toContainText("Wash");
+        await expect(page.getByLabel("Deployment list")).toContainText("Main Rig");
+
+        // Drive the inline "review impact before apply" inspect flow.
+        await page.getByRole("button", { name: "Add Fixture" }).click();
+        await page.getByLabel("Fixture", { exact: true }).selectOption("par-rgbw");
+        await page.getByLabel("Fixture mode").selectOption("RGBW");
+
+        // selection identity: the exact fixture/mode chosen is reflected
+        // back by the form before the review is requested.
+        await expect(page.getByLabel("Fixture", { exact: true })).toHaveValue("par-rgbw");
+        await expect(page.getByLabel("Fixture mode")).toHaveValue("RGBW");
+
+        const reviewButton = page.getByRole("button", { name: "Review Impact" });
+        await expect(reviewButton).toBeEnabled();
+        await reviewButton.click();
+
+        // preview freshness: the rendered summary carries this exact
+        // mocked plan's id, never a stale/cached one.
+        await expect(page.getByText(PREVIEW_PLAN_SUMMARY)).toBeVisible();
+        await expect(page.getByText(/Main Rig.*Universe 1, Address 5/)).toBeVisible();
+
+        // warning/blocker text/non-color semantics: both render as their
+        // own literal code+message text, never inferred from color alone.
+        await expect(
+          page.getByText(
+            "POOL_CAPABILITY_APPROXIMATED: This fixture approximates the pool's declared color capability using RGB mixing instead of a dedicated color wheel.",
+          ),
+        ).toBeVisible();
+        await expect(
+          page.getByText(
+            "POOL_UNIVERSE_CAPACITY_EXCEEDED: Adding this fixture would exceed Universe 1's 512-channel capacity for Main Rig.",
+          ),
+        ).toBeVisible();
+
+        // The blocker keeps Apply disabled -- a functional consequence of
+        // the blocker, not merely a visual one.
+        const applyButton = page.getByRole("button", { name: "Apply" });
+        await expect(applyButton).toBeDisabled();
+
+        // The impact-review panel (warning/blocker truth, Apply/Cancel) is
+        // this task's own required capture content -- the panel plus the
+        // pool row above it is taller than the 720px acceptance viewport
+        // even scrolled from the very top, so some scroll trade-off is
+        // unavoidable. Anchoring on Apply keeps the entire impact-review
+        // panel (Review required chip through Apply/Cancel) in view,
+        // trading off the pool's own identity row above it, which is the
+        // right priority for this task's own warning/blocker emphasis.
+        await applyButton.scrollIntoViewIfNeeded();
+
+        // containment.
+        const overflow = await findOverflowingControls(page);
+        expect(overflow, "Patch & Pools must not overflow its own chrome or the viewport").toEqual([]);
+
+        // safe focus: requesting the review must never silently move focus
+        // onto the (blocked) Apply action -- FixturePatch.tsx re-renders
+        // the impact-review panel once the mocked preview resolves, which
+        // resets focus to <body> (a neutral, safe outcome) rather than
+        // preserving it on "Review Impact"; either is acceptable, landing
+        // on the disabled destructive action is not.
+        const activeElementText = await page.evaluate(() => document.activeElement?.textContent?.trim() ?? null);
+        expect(activeElementText, "focus must never land on the blocked Apply action").not.toBe("Apply");
+
+        // safety.
+        await assertNoRuntimeIssues(page);
+        await expectSafetyClusterAvailable(page);
+
+        await settleForCapture(page);
+        await assertNoProtectedMaskIntersections(page, NO_MASKS);
+
+        await expect(page).toHaveScreenshot(`fixtures-patch-${theme}-${width}.png`);
+      });
+    }
+  }
+});
