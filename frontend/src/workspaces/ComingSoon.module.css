@@ -1,37 +1,6 @@
-.workspace {
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
 .canvas {
-  flex: 1;
-  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-lg);
-}
-
-.panel {
-  max-width: 420px;
-  padding: var(--space-lg);
-  text-align: center;
-  align-items: center;
-}
-
-.description {
-  margin: 0 0 var(--space-sm);
-  color: var(--text2);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-base);
-}
-
-.cliHint {
-  margin: 0;
-  color: var(--muted);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-sm);
+  padding: var(--ds-spacing-space6);
 }

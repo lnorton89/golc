@@ -12,4 +12,9 @@ describe("ComingSoon", () => {
     expect(screen.getByText("Not wired in yet.")).toBeInTheDocument();
     expect(screen.getByText("Use golc show open.")).toBeInTheDocument();
   });
+
+  it("labels the workspace as a named, bounded region", () => {
+    render(<ComingSoon title="Overview" description="Not wired in yet." cliHint="Use golc show open." />);
+    expect(screen.getByRole("region", { name: "Overview workspace" })).toBeInTheDocument();
+  });
 });
