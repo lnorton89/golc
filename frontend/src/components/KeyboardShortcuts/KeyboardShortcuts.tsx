@@ -10,14 +10,13 @@
 // Transport/Navigation) and the group list scrolls within a fixed-height
 // area once it exceeds one screen (06-UI-SPEC.md overflow backstop:
 // "Panel scrolls or groups shortcuts by category once content exceeds one
-// screen").
+// screen") -- ScrollRegion below is the shared bounded-scroll primitive
+// that backstop maps onto.
 //
-// This component is mounted from PlaybackControls.tsx (toggled by a
-// "Keyboard Shortcuts" button) rather than from App.tsx directly --
-// App.tsx's layout/mount points are never edited by Wave 3/4 plans
-// (06-04-PLAN.md Task 2's contract). It's also reused read-only inside
-// Settings' Hotkeys panel, next to the editable HotkeySettings component.
+// Mounted from shell/HelpOverlay.tsx (toggled by '?' via
+// useGlobalKeyboardWorkflow.ts).
 
+import { Panel, ScrollRegion } from "../../design-system";
 import { useHotkeyBindings } from "../../hooks/useHotkeyBindings";
 import { useNavHotkeyBindings } from "../../hooks/useNavHotkeyBindings";
 import { HOTKEY_ACTIONS, NAV_ACTIONS, SCENE_SWITCH_SHORTCUT, formatChordLabel, formatHotkeyLabel } from "../../lib/hotkeys";
@@ -60,9 +59,9 @@ export default function KeyboardShortcuts() {
   }
 
   return (
-    <section className={styles.panel} aria-label="Keyboard shortcuts reference">
+    <Panel className={styles.panel} aria-label="Keyboard shortcuts reference">
       <h2 className={styles.heading}>Keyboard Shortcuts</h2>
-      <div className={styles.scrollArea}>
+      <ScrollRegion className={styles.scrollArea}>
         {categories.map((category) => (
           <div key={category} className={styles.group}>
             <h3 className={styles.groupHeading}>{category}</h3>
@@ -76,7 +75,7 @@ export default function KeyboardShortcuts() {
             </ul>
           </div>
         ))}
-      </div>
-    </section>
+      </ScrollRegion>
+    </Panel>
   );
 }

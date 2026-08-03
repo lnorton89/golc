@@ -1,54 +1,47 @@
 /*
  * KeyboardShortcuts.module.css (06-06-PLAN.md Task 2, PLAY-02): the
- * documented keyboard-shortcut reference panel's styling. UI-SPEC overflow
- * backstop: "Panel scrolls or groups shortcuts by category once content
- * exceeds one screen" -- .scrollArea below caps at a fixed viewport
- * fraction and scrolls internally rather than growing the panel/window
- * unbounded, while .group/.groupHeading provide the category grouping.
+ * documented keyboard-shortcut reference panel's styling, layered on the
+ * shared Panel/ScrollRegion primitives. UI-SPEC overflow backstop: "Panel
+ * scrolls or groups shortcuts by category once content exceeds one
+ * screen" -- .scrollArea below caps at a fixed viewport fraction and
+ * relies on ScrollRegion's own vertical overflow, while .group/
+ * .groupHeading provide the category grouping.
  */
 
+/* Additive only -- Panel already supplies display/flex-direction/padding/
+   border/background/color; this file adds the vertical rhythm between the
+   heading and the scrollable body that Panel does not opinionate on. */
 .panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  padding: var(--space-lg);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--text);
-  font-family: "Archivo", system-ui, sans-serif;
+  gap: var(--ds-spacing-space4);
 }
 
 .heading {
   margin: 0;
-  font-family: "Archivo", system-ui, sans-serif;
-  font-weight: 600;
-  font-size: 20px;
-  line-height: 1.2;
-  color: var(--ink);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  font-size: var(--ds-typography-font-size-heading);
+  line-height: var(--ds-typography-line-height-heading);
+  color: var(--ds-text-primary);
 }
 
 .scrollArea {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--ds-spacing-space4);
   max-height: min(60vh, 480px);
-  overflow-y: auto;
 }
 
 .group {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
 .groupHeading {
   margin: 0;
-  font-family: "Archivo", system-ui, sans-serif;
-  font-weight: 600;
-  font-size: 14px;
-  line-height: 1.4;
-  color: var(--muted);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  font-size: var(--ds-typography-font-size-body);
+  line-height: var(--ds-typography-line-height-body);
+  color: var(--ds-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -59,29 +52,32 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-xs) 0;
+  gap: var(--ds-spacing-space2);
+  padding-block: var(--ds-spacing-space1);
 }
 
 .keys {
   min-width: 72px;
-  padding: var(--space-xs) var(--space-sm);
-  background: var(--page);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 14px;
-  color: var(--ink);
+  padding-block: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space2);
+  background: var(--ds-surface-canvas);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  color: var(--ds-text-primary);
   text-align: center;
 }
 
 .description {
-  font-size: 14px;
-  color: var(--text);
+  font-size: var(--ds-typography-font-size-body);
+  color: var(--ds-text-secondary);
 }
