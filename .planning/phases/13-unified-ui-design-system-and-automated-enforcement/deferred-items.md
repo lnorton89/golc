@@ -53,3 +53,36 @@ logged here per the executor's SCOPE BOUNDARY rule rather than fixed inline.
   that accounts for the larger 44px safety-control floor; re-capture the
   four `persistent-shell-*-win32.png` baselines afterward since the fix
   will change their pixels.
+
+## 260803-13-33: `GuidedFirstShow`'s Verify-stage tone label crowds its count with no separating space
+
+- **Found during:** Plan 13-33 (Task 3, Guided First Show baselines), while
+  visually reviewing the accepted `guided-first-show-*-win32.png` captures.
+- **Symptom:** `VerifyStage.tsx`'s `<ul aria-label="Readiness summary">`
+  renders `<li><span>Blocker</span><span>{pluralize(...)}</span></li>` --
+  two adjacent inline `<span>` elements with no separating space or margin
+  between them, so the rendered text reads `Blocker1 blocker` / `Warning1
+  warning` / `Evidence4 evidence items` with no visible gap between the
+  tone word and its count.
+- **Confirmed pre-existing, not caused by this plan:** `VerifyStage.tsx` is
+  not in Plan 13-33's declared `files_modified`; the crowding exists
+  regardless of which readiness counts are seeded (a copy/spacing gap in
+  the component's own markup, not a data artifact of this plan's mocked
+  blocker/warning/evidence rollup).
+- **Why deferred rather than fixed here:** a one-line CSS/markup fix (e.g.
+  a `gap` on the `<li>` or a literal separator between the two spans) is
+  low-risk, but `VerifyStage.tsx`/its stylesheet are outside this plan's
+  declared scope, and `GuidedFirstShow.test.tsx` may assert the exact
+  current text nodes -- a blind fix risks an unrelated test churn this
+  plan did not budget for.
+- **Impact on this plan:** purely cosmetic; every semantic assertion this
+  plan's own test makes (`toContainText("1 blocker")` etc.) still passes
+  correctly since `toContainText` matches a substring regardless of
+  surrounding whitespace. The accepted `guided-first-show-*-win32.png`
+  baselines visually encode this crowding, matching the app's real current
+  rendering.
+- **Recommended follow-up:** add a small gap/separator between the tone
+  label and its count in `VerifyStage.tsx`'s `<li>` markup (or its CSS
+  module) in a future Guided First Show polish pass; re-capture the four
+  `guided-first-show-*-win32.png` baselines afterward since the fix will
+  change their pixels.
