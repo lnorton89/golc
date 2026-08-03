@@ -10,9 +10,13 @@
 // wired centrally by GuidedFirstShow.tsx's STAGE_DESTINATION map); this
 // stage performs no assignment mutation of its own (T-09-04-04) --
 // assigning is the Operator Surface workspace's job.
+//
+// 13-25-PLAN.md (D-05): loading/error text now render through the shared
+// LoadingState/ErrorState primitives instead of bare <p> tags.
 import { useCallback, useEffect, useState } from "react";
 
 import { errorMessage, listProgramming } from "../../../../lib/wailsBridge";
+import { ErrorState, LoadingState } from "../../../../design-system";
 import { deriveAssignStatus } from "../readiness";
 import type { GuideStageStatus } from "../stages";
 
@@ -61,8 +65,8 @@ export default function AssignStage({ onStatusChange }: AssignStageProps) {
   return (
     <div>
       <p>Create an operator surface so someone else can play this show back.</p>
-      {loading ? <p>Checking operator surfaces…</p> : null}
-      {error ? <p>{error}</p> : null}
+      {loading ? <LoadingState label="Checking operator surfaces…" /> : null}
+      {error ? <ErrorState heading="Operator surfaces unavailable" message={error} /> : null}
     </div>
   );
 }
