@@ -6,71 +6,82 @@
 .handle {
   position: absolute;
   touch-action: none;
-  z-index: 5;
+  z-index: var(--ds-stacking-base);
 }
 
 .axisHorizontal {
   top: 0;
   bottom: 0;
-  width: 7px;
+  width: var(--ds-spacing-space2);
   cursor: col-resize;
 }
 
 .axisVertical {
   left: 0;
   right: 0;
-  height: 7px;
+  height: var(--ds-spacing-space2);
   cursor: row-resize;
 }
 
 .handleRight {
-  right: -3px;
+  right: calc(var(--ds-spacing-space1) * -1);
 }
 
 .handleLeft {
-  left: -3px;
+  left: calc(var(--ds-spacing-space1) * -1);
 }
 
 .handleBottom {
-  bottom: -3px;
+  bottom: calc(var(--ds-spacing-space1) * -1);
 }
 
 .handleTop {
-  top: -3px;
+  top: calc(var(--ds-spacing-space1) * -1);
 }
 
 .handle::after {
   content: "";
   position: absolute;
   background: transparent;
-  transition: background-color var(--motion-tap), width var(--motion-tap), height var(--motion-tap);
+  transition: background-color var(--ds-motion-tap), width var(--ds-motion-tap), height var(--ds-motion-tap);
 }
 
 .axisHorizontal::after {
   top: 0;
   bottom: 0;
-  left: 3px;
-  width: 1px;
+  left: var(--ds-spacing-space1);
+  width: var(--ds-focus-offset);
 }
 
 .axisVertical::after {
   left: 0;
   right: 0;
-  top: 3px;
-  height: 1px;
+  top: var(--ds-spacing-space1);
+  height: var(--ds-focus-offset);
 }
 
 .handle:hover::after,
 .handleActive::after {
-  background: var(--text2);
+  background: var(--ds-text-secondary);
 }
 
 .axisHorizontal:hover::after,
 .axisHorizontal.handleActive::after {
-  width: 2px;
+  width: var(--ds-focus-ring);
 }
 
 .axisVertical:hover::after,
 .axisVertical.handleActive::after {
-  height: 2px;
+  height: var(--ds-focus-ring);
+}
+
+.handle:focus-visible {
+  outline: var(--ds-focus-ring) solid var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .handle::after {
+    transition-duration: var(--ds-motion-snap);
+  }
 }

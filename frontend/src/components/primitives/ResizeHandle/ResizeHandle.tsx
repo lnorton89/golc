@@ -4,11 +4,11 @@
 // isResizing back into a hit target big enough to grab reliably. Double-
 // click resets to the panel's own default size (resetSize), the same
 // convention native OS split-view dividers use.
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { HTMLAttributes, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import styles from "./ResizeHandle.module.css";
 
-interface ResizeHandleProps {
+interface ResizeHandleProps extends Omit<HTMLAttributes<HTMLDivElement>, "onDoubleClick" | "onPointerDown"> {
   onPointerDown: (event: ReactPointerEvent) => void;
   onDoubleClick: () => void;
   isResizing: boolean;
@@ -25,9 +25,21 @@ interface ResizeHandleProps {
    * panels (e.g. Desk's per-universe rows). Mirrors useResizablePanel's
    * own `axis` option. */
   axis?: "horizontal" | "vertical";
+  /** Current panel geometry and its limits. Supply all four value props to
+   * expose a keyboard-operable separator; legacy pointer-only handles remain
+   * supported while their owners migrate. */
+  value?: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  onValueChange?: (value: number) => void;
 }
 
-export default function ResizeHandle({ onPointerDown, onDoubleClick, isResizing, label, edge, axis = "horizontal" }: ResizeHandleProps) {
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+export default function ResizeHandle({ onPointerDown, onDoubleClick, isResizing, label, edge, axis = "horizontal", value, min, max, step = 1, onValueChange, onKeyDown, className, ...rest }: ResizeHandleProps) {
   const axisClass = axis === "horizontal" ? styles.axisHorizontal : styles.axisVertical;
   const edgeClass =
     axis === "horizontal"
@@ -37,17 +49,49 @@ export default function ResizeHandle({ onPointerDown, onDoubleClick, isResizing,
       : edge === "end"
         ? styles.handleBottom
         : styles.handleTop;
-  const className = isResizing
+  const handleClassName = isResizing
     ? `${styles.handle} ${axisClass} ${edgeClass} ${styles.handleActive}`
     : `${styles.handle} ${axisClass} ${edgeClass}`;
+  const bounds =
+    typeof value === "number" && Number.isFinite(value) && typeof min === "number" && Number.isFinite(min) && typeof max === "number" && Number.isFinite(max) && min <= max
+      ? { min, max, currentValue: clamp(value, min, max) }
+      : undefined;
+  const hasValueContract = bounds !== undefined && onValueChange !== undefined;
+  const resolvedStep = Number.isFinite(step) && step > 0 ? step : 1;
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!hasValueContract || bounds === undefined || onValueChange === undefined) {
+      onKeyDown?.(event);
+      return;
+    }
+
+    let nextValue: number | undefined;
+    if (event.key === "Home") nextValue = bounds.min;
+    if (event.key === "End") nextValue = bounds.max;
+    if (event.key === "ArrowRight" || (axis === "vertical" && event.key === "ArrowUp")) nextValue = bounds.currentValue + resolvedStep;
+    if (event.key === "ArrowLeft" || (axis === "vertical" && event.key === "ArrowDown")) nextValue = bounds.currentValue - resolvedStep;
+    if (nextValue === undefined) {
+      onKeyDown?.(event);
+      return;
+    }
+
+    event.preventDefault();
+    onValueChange(clamp(nextValue, bounds.min, bounds.max));
+  };
   return (
     <div
+      {...rest}
       role="separator"
       aria-orientation={axis === "horizontal" ? "vertical" : "horizontal"}
       aria-label={label}
-      className={className}
+      aria-valuemin={bounds?.min}
+      aria-valuemax={bounds?.max}
+      aria-valuenow={bounds?.currentValue}
+      className={[handleClassName, className].filter(Boolean).join(" ")}
       onPointerDown={onPointerDown}
       onDoubleClick={onDoubleClick}
+      onKeyDown={handleKeyDown}
+      tabIndex={hasValueContract ? 0 : undefined}
     />
   );
 }
