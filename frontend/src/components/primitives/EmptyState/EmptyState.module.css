@@ -1,4 +1,4 @@
-.emptyState {
+.legacy {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
@@ -10,4 +10,40 @@
 
 .icon {
   flex-shrink: 0;
+}
+
+.emptyState {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  max-width: 48rem;
+  padding: var(--space-lg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--text);
+}
+
+.copy {
+  min-width: 0;
+}
+
+.heading {
+  margin: 0;
+  color: var(--ink);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.body {
+  margin: var(--space-xs) 0 0;
+  overflow-wrap: anywhere;
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--text-base);
+  line-height: 1.5;
+}
+
+.action {
+  margin-top: var(--space-md);
 }
