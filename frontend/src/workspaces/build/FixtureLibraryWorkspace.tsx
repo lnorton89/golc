@@ -76,16 +76,8 @@ import {
   type OflManufacturerView,
   type OflSearchView,
 } from "../../lib/wailsBridge";
-import Toolbar from "../../components/primitives/Toolbar/Toolbar";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
-import Panel from "../../components/primitives/Panel/Panel";
-import PanelHeader from "../../components/primitives/PanelHeader/PanelHeader";
-import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion";
-import EmptyState from "../../components/primitives/EmptyState/EmptyState";
-import ListRow from "../../components/primitives/ListRow/ListRow";
-import Chip from "../../components/primitives/Chip/Chip";
-import Field from "../../components/primitives/Field/Field";
-import Button from "../../components/primitives/Button/Button";
+import { Button, Chip, EmptyState, ErrorState, Field, ListRow, LoadingState, Panel, PanelHeader, ScrollRegion, Toolbar } from "../../design-system";
 import styles from "./FixtureLibraryWorkspace.module.css";
 
 // oflSearchDebounceMs is the client-side debounce D-01/T-09-05-03 require
@@ -459,11 +451,37 @@ export default function FixtureLibraryWorkspace() {
       <Toolbar title="Fixture Library" icon={Lightbulb} info={HOW_IT_WORKS_BY_ID["build-fixture-library"]} />
       <div className={styles.canvas}>
         {loading ? (
-          <p className={styles.loading}>Loading fixture library…</p>
+          <LoadingState label="Loading fixture library" />
         ) : (
           <>
-            {error ? <p className={styles.errorText}>{error}</p> : null}
-            <div className={styles.sourceToggle} role="group" aria-label="Fixture source">
+            {error ? <ErrorState heading="Fixture library unavailable" message={error} /> : null}
+            <div role="group" aria-label="Fixture source">
+              <Button
+                variant={source === "local" ? "primary" : "secondary"}
+                aria-pressed={source === "local"}
+                onClick={() => {
+                  resetCandidate();
+                  setSelectedManufacturer(null);
+                  setCandidateFixtureKey("");
+                  setSource("local");
+                }}
+              >
+                My Library
+              </Button>
+              <Button
+                variant={source === "catalog" ? "primary" : "secondary"}
+                aria-pressed={source === "catalog"}
+                onClick={() => {
+                  resetCandidate();
+                  setAddingCustomFixture(false);
+                  setCustomFixturePath("");
+                  setSource("catalog");
+                }}
+              >
+                Open Fixture Library
+              </Button>
+            </div>
+            {/*
               <button
                 type="button"
                 className={source === "local" ? styles.sourceButtonActive : styles.sourceButton}
@@ -490,13 +508,11 @@ export default function FixtureLibraryWorkspace() {
               >
                 Open Fixture Library
               </button>
-            </div>
-            <input
-              className={styles.searchInput}
-              type="text"
+            */}
+            <Field
+              label="Search fixtures"
               value={search}
               placeholder="Search fixtures by name or manufacturer…"
-              aria-label="Search fixtures"
               onChange={(event) => setSearch(event.target.value)}
             />
             <div className={styles.layout}>
@@ -519,8 +535,8 @@ export default function FixtureLibraryWorkspace() {
                   <ScrollRegion>
                     {rows.length === 0 ? (
                       <EmptyState icon={Lightbulb}>
-                        <span className={styles.emptyHeading}>No fixtures yet</span>
-                        <span className={styles.emptyBody}>
+                        <strong>No fixtures yet</strong>
+                        <span>
                           Import a fixture from the Open Fixture Library or add your own YAML definition to get
                           started.
                         </span>

@@ -10,214 +10,30 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding: var(--space-md);
+  padding: var(--ds-spacing-space4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--ds-spacing-space4);
 }
 
-.loading {
-  margin: 0;
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-}
-
-.errorText {
-  margin: 0 0 var(--space-sm);
-  color: var(--status-revoked);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-}
-
-/* Spacing scale for this workspace's own layout/search/inspect rules
-   (09-UI-SPEC.md Spacing Scale): 8px row internal padding, 16px
-   search-bar padding, 24px inspect-panel padding, 32px gap between the
-   list and inspect panels -- literal px, matching the declared scale's
-   own sm/md/lg/xl token values exactly (not re-derived from var(), so
-   the exact scale value used here is unambiguous at a glance). */
 .layout {
   flex: 1;
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 32px;
+  gap: var(--ds-spacing-space8);
 }
 
-.list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.rowMeta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
-.manufacturer {
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-}
-
-.emptyHeading {
-  display: block;
-  font-family: "Archivo", system-ui, sans-serif;
-  font-weight: 600;
-}
-
-.emptyBody {
-  display: block;
-  color: var(--muted);
-}
-
-/* Source toggle (09-05-PLAN.md Task 3, D-01): a two-option accessible
-   control switching the list panel between "My Library" (local) and
-   "Open Fixture Library" (catalog search) -- the active option carries
-   the accent as the selected treatment. */
-.sourceToggle {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-}
-
-.sourceButton,
-.sourceButtonActive {
-  height: 32px;
-  padding: 0 var(--space-md);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--page);
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.sourceButtonActive {
-  border-color: var(--accent-3);
-  background: var(--accent-3);
-  color: var(--page);
-}
-
-/* Rainbow only: the two source-toggle buttons get their own hue by
-   position instead of both sharing --accent-3. Every other palette keeps
-   the flat --accent-3 from the rule above. */
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .sourceButtonActive:nth-of-type(1) {
-  border-color: var(--accent);
-  background: var(--accent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .sourceButtonActive:nth-of-type(2) {
-  border-color: var(--accent-2);
-  background: var(--accent-2);
-}
-
-.searchInput {
-  box-sizing: border-box;
-  width: 100%;
-  height: 32px;
-  padding: 8px 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--page);
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-}
-
-.searchInput:focus-visible {
-  outline: 2px solid var(--accent-3);
-  outline-offset: -2px;
-}
-
-.inspectPanel {
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.inspectBody {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.techReadout {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-sm);
-  color: var(--ink);
-}
-
-.diagnosticList {
-  list-style: disc;
-  margin: 0;
-  padding-left: var(--space-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
-
-.diagnosticList li {
-  padding: 8px;
-}
-
-.warningText {
-  margin: 0;
-  color: var(--status-armed);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-}
-
-/* Catalog search states (09-05-PLAN.md Task 3): the unreachable copy
-   renders with the offline status tone, never a thrown error; the scope
-   note is permanently visible beside the catalog results so an operator
-   never mistakes manufacturer-name-only search for fixture-model search. */
-.catalogUnreachable {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-sm);
-}
-
-.catalogScopeNote {
-  margin: 0;
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-}
-
-/* Import candidate body (09-06-PLAN.md, D-02): the fixture-key field,
-   Preview action, and inline inspect result for a selected manufacturer --
-   the same sm/md spacing tokens the rest of this workspace already uses,
-   no new size introduced. */
-.candidateBody {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  flex: 1;
-  min-height: 0;
-}
-
-.candidateManufacturer {
-  margin: 0;
-  font-family: "Archivo", system-ui, sans-serif;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.alreadyExists {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-sm);
-}
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--ds-spacing-space1); }
+.rowMeta { display: flex; align-items: center; gap: var(--ds-spacing-space2); }
+.manufacturer { color: var(--ds-text-muted); font-family: var(--ds-typography-font-family-ui); font-size: var(--ds-typography-font-size-body); }
+.catalogScopeNote { color: var(--ds-text-muted); font-family: var(--ds-typography-font-family-ui); font-size: var(--ds-typography-font-size-body); }
+.candidateManufacturer { display: block; font-family: var(--ds-typography-font-family-ui); font-weight: var(--ds-typography-font-weight-semibold); color: var(--ds-text-primary); }
+.inspectPanel, .inspectBody, .candidateBody, .catalogUnreachable, .alreadyExists { display: flex; flex-direction: column; gap: var(--ds-spacing-space2); }
+.inspectPanel { padding: var(--ds-spacing-space6); }
+.candidateBody { flex: 1; min-height: 0; }
+.catalogUnreachable, .alreadyExists { align-items: flex-start; }
+.techReadout { font-family: var(--ds-typography-font-family-mono); font-size: var(--ds-typography-font-size-body); color: var(--ds-text-primary); }
+.diagnosticList { list-style: disc; margin: 0; padding-left: var(--ds-spacing-space4); display: flex; flex-direction: column; gap: var(--ds-spacing-space1); font-family: var(--ds-typography-font-family-ui); font-size: var(--ds-typography-font-size-body); color: var(--ds-text-muted); }
+.diagnosticList li { padding: var(--ds-spacing-space2); }
+.warningText { margin: 0; color: var(--ds-status-armed); font-family: var(--ds-typography-font-family-ui); font-size: var(--ds-typography-font-size-body); }
