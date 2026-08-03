@@ -37,7 +37,23 @@
 
 .statusSlot {
   flex: 1;
-  min-width: 0;
+  /* min-width was 0 (fully collapsible). At extreme effective-width
+     scarcity (900x720 acceptance viewport + real 200% browser text zoom,
+     UI-SPEC's Accessibility Contract: "current show/live truth ...
+     remain reachable without body overflow"), an unbounded flex-shrink
+     let this slot collapse to a literal 0x0 box -- LiveStatusBar (D-13's
+     persistent live-truth surface) became genuinely non-visible, not
+     merely crowded. This floor is well below this slot's natural width
+     at every already-verified acceptance viewport (900/1280px, ~121px/
+     ~501px measured, 13-41 evidence) so it is inert there; it only
+     engages under the zoom-driven scarcity this plan's own evidence
+     harness (design-system.text-zoom.spec.ts) exercises, forcing the
+     *header* (not this locked-height slot) to be the one that overflows
+     -- SafetyCluster's own buttons remain independently keyboard-
+     reachable via Tab regardless of pointer-clipped position, per the
+     same Accessibility Contract's explicit "visible or keyboard
+     reachable" alternative. */
+  min-width: 60px;
 }
 
 .safetyDivider {
