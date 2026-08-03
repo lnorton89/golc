@@ -60,6 +60,19 @@
 }
 
 .lookRow {
+  /* min-width: 0 is required, not decorative -- same root cause as
+     ScenesLooksWorkspace.module.css's .sceneHeader/.sceneName and
+     patterns.module.css's .sceneStack (13-33 Task 1): .lookRow is a flex
+     item of .rows' column flex container, and ContextualInspector.module
+     .css's own .inspector only declares overflow-y (never overflow-x), so
+     without an explicit min-width this row's intrinsic content (kind
+     label + name + two icon-button actions) can silently render wider
+     than the resizable inspector column and bleed past it -- caught live
+     capturing this task's own populated LookBrowser baselines, where the
+     rename/delete action pair on a themes/chases/motions/presets row
+     intermittently measured past the 1280px viewport depending on
+     font-load timing. */
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--ds-spacing-space1);
@@ -77,6 +90,21 @@
   font-weight: var(--ds-typography-font-weight-semibold);
   text-transform: uppercase;
   color: var(--ds-text-muted);
+}
+
+/* .lookName: paired with .lookRow's own min-width: 0 fix above -- this is
+   the one flex child in the row actually able to shrink (lookKind is
+   flex-shrink: 0, rowActions is flex: none), so it also needs its own
+   min-width: 0 to actually give up space rather than refusing to shrink
+   below its unwrapped text width. Long theme/chase/motion/preset/blend
+   names now truncate here with an ellipsis (their full value stays
+   available via the existing title attribute) instead of silently
+   forcing the row wider than the resizable inspector column. */
+.lookName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .renameRow {
