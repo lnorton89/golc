@@ -125,6 +125,15 @@ export async function installHealthyBindings(page: Page): Promise<void> {
         MidiService: {
           ListMappings: async () => [],
           SetActiveSurface: async () => ok(),
+          ListDeskMappings: async () => [],
+          RemoveDeskMapping: async () => ok(),
+        },
+        NotesService: {
+          ListNotes: async () => [],
+          GetNote: async () => ({ id: "", title: "", body: "" }),
+          CreateNote: async () => ok(),
+          SaveNote: async () => ok(),
+          DeleteNote: async () => ok(),
         },
         ArtnetConfigService: {
           ListInterfaces: async () => [
@@ -231,6 +240,7 @@ export async function expectTopBarTextToBeReadable(page: Page): Promise<void> {
 export async function assertNoRuntimeIssues(page: Page): Promise<void> {
   await expect(page.getByText(/Can.t reach the playback engine/i)).toHaveCount(0);
   await expect(page.getByText(/Can.t reach the script host/i)).toHaveCount(0);
+  await expect(page.getByText(/Can.t reach the show host/i)).toHaveCount(0);
   await expect(page.getByText(/GOLC_WAILS_(?:BINDING|BRIDGE)_UNAVAILABLE/i)).toHaveCount(0);
   await expect(page.getByText("Issues found", { exact: true })).toHaveCount(0);
   await expect(page.getByText("offline", { exact: true })).toHaveCount(0);
