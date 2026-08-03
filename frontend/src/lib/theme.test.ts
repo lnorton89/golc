@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { themeNames } from "../design-system/tokens.generated";
 import {
   applyTheme,
   applyThemeName,
@@ -7,6 +8,7 @@ import {
   getStoredThemeName,
   setStoredTheme,
   setStoredThemeName,
+  supportedThemeNames,
 } from "./theme";
 
 describe("theme", () => {
@@ -56,6 +58,10 @@ describe("theme", () => {
 
   it("defaults to the default palette when nothing is stored", () => {
     expect(getStoredThemeName()).toBe("default");
+  });
+
+  it("uses the generated exhaustive theme list as its palette authority", () => {
+    expect(supportedThemeNames).toEqual(themeNames);
   });
 
   it("ignores a corrupt/unknown stored palette and falls back to default", () => {
