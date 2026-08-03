@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkDS007, checkDesignSystem, checkFiles } from "./check.mjs";
+import { checkDS007, checkDesignSystem, checkFiles, parseCommandLine } from "./check.mjs";
 
 const roots: string[] = [];
 
@@ -20,6 +20,16 @@ async function fixture(files: Record<string, string>): Promise<string> {
 afterEach(async () => { await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))); });
 
 describe("DS001-DS010 policy boundaries", () => {
+  it("parses documented scoped paths and proposal inputs fail-closed", () => {
+    expect(parseCommandLine(["--paths", "src/one.tsx,src/two.module.css", "--proposal", "design-system/exception-proposals/fixtures.json"])).toEqual({
+      rule: null,
+      paths: ["src/one.tsx", "src/two.module.css"],
+      proposalPaths: ["design-system/exception-proposals/fixtures.json"],
+      wholeSource: false,
+    });
+    expect(() => parseCommandLine(["--paths"])).toThrow("DSCHECK_ARGS");
+    expect(() => parseCommandLine(["--paths", "../outside.tsx"])).toThrow("DSCHECK_ARGS");
+  });
   it("DS007 requires one inventory identity for barrel, guide, and tests", async () => {
     const root = await fixture({
       "design-system/components.json": JSON.stringify({ schemaVersion: 1, components: [{ name: "Panel", kind: "primitive", exportPath: "src/components/Panel.tsx", guideAnchor: "#panel", testPath: "src/components/Panel.test.tsx" }] }),

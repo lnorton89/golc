@@ -44,15 +44,22 @@ async function declaredTokenNames(root) {
   return names;
 }
 
-async function exceptionRecords(root) {
-  try {
-    const source = await readFile(resolve(root, "design-system/exceptions.json"), "utf8");
-    const manifest = JSON.parse(source);
-    return Array.isArray(manifest.records) ? manifest.records : [{ invalid: true }];
-  } catch (error) {
-    if (error?.code === "ENOENT") return [];
-    return [{ invalid: true }];
+async function exceptionRecords(root, proposalPaths = []) {
+  const records = [];
+  for (const proposalPath of ["design-system/exceptions.json", ...proposalPaths]) {
+    try {
+      const source = await readFile(resolve(root, proposalPath), "utf8");
+      const manifest = JSON.parse(source);
+      if (!Array.isArray(manifest.records)) return [{ invalid: true }];
+      records.push(...manifest.records);
+    } catch (error) {
+      if (error?.code === "ENOENT") {
+        if (proposalPath === "design-system/exceptions.json") continue;
+      }
+      return [{ invalid: true }];
+    }
   }
+  return records;
 }
 
 function manifestDiagnostic(path, source) {
@@ -70,7 +77,7 @@ function exceptionMatches(exception, diagnostics, sourceByPath) {
   return { matching };
 }
 
-export async function checkFiles(root = FRONTEND_ROOT, requestedPaths = []) {
+export async function checkFiles(root = FRONTEND_ROOT, requestedPaths = [], proposalPaths = []) {
   const realRoot = await realpath(root);
   const paths = [...new Set(requestedPaths)].sort();
   let diagnostics = [];
@@ -89,7 +96,7 @@ export async function checkFiles(root = FRONTEND_ROOT, requestedPaths = []) {
       }
     } catch { diagnostics.push(fail(normalize(path), "unresolvable source path")); }
   }
-  const exceptions = await exceptionRecords(realRoot);
+  const exceptions = await exceptionRecords(realRoot, proposalPaths);
   for (const exception of exceptions) {
     const result = exceptionMatches(exception, diagnostics, sources);
     if (result.error) diagnostics.push({ rule: "DS008", path: "design-system/exceptions.json", line: 1, column: 1, message: result.error, value: "" });
@@ -99,9 +106,9 @@ export async function checkFiles(root = FRONTEND_ROOT, requestedPaths = []) {
   return { diagnostics: sortDiagnostics(diagnostics) };
 }
 
-export async function checkDesignSystem(root = FRONTEND_ROOT, { paths = [], wholeSource = false } = {}) {
+export async function checkDesignSystem(root = FRONTEND_ROOT, { paths = [], wholeSource = false, proposalPaths = [] } = {}) {
   const selected = paths.length ? paths : wholeSource ? await filesBelow(root, "src") : [];
-  return checkFiles(root, selected);
+  return checkFiles(root, selected, proposalPaths);
 }
 
 function publicExports(source) {
@@ -140,18 +147,42 @@ export async function checkDS007(root = FRONTEND_ROOT) {
   return { diagnostics };
 }
 
-async function main() {
-  const args = process.argv.slice(2);
+export function parseCommandLine(args) {
   const ruleIndex = args.indexOf("--rule");
   if (ruleIndex !== -1) {
     if (args.length !== 2 || ruleIndex !== 0 || !RULES.has(args[1])) throw new Error("DSCHECK_ARGS: use --rule DS001 through DS010");
-    const result = args[1] === "DS007" ? await checkDS007(FRONTEND_ROOT) : await checkDesignSystem(FRONTEND_ROOT, { wholeSource: true });
-    for (const diagnostic of result.diagnostics.filter((diagnostic) => diagnostic.rule === args[1])) console.error(`${diagnostic.rule} ${diagnostic.path}:${diagnostic.line}:${diagnostic.column} ${diagnostic.message}${diagnostic.value ? ` (${diagnostic.value})` : ""}`);
-    process.exitCode = result.diagnostics.some((diagnostic) => diagnostic.rule === args[1]) ? 1 : 0;
+    return { rule: args[1], paths: [], proposalPaths: [], wholeSource: false };
+  }
+  const paths = [];
+  const proposalPaths = [];
+  let wholeSource = false;
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === "--all") { wholeSource = true; continue; }
+    if (argument === "--paths" || argument === "--proposal") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("--")) throw new Error(`DSCHECK_ARGS: ${argument} requires a comma-separated relative path list`);
+      const values = value.split(",").map((path) => path.trim());
+      if (values.some((path) => !path || path.startsWith("/") || path.includes("\\") || path.split("/").includes(".."))) throw new Error(`DSCHECK_ARGS: ${argument} requires safe repository-relative paths`);
+      (argument === "--paths" ? paths : proposalPaths).push(...values);
+      index += 1;
+      continue;
+    }
+    throw new Error("DSCHECK_ARGS: use --all, --paths <comma-separated paths>, --proposal <comma-separated paths>, or --rule DS001 through DS010");
+  }
+  if (wholeSource && paths.length) throw new Error("DSCHECK_ARGS: --all cannot be combined with --paths");
+  return { rule: null, paths, proposalPaths, wholeSource };
+}
+
+async function main() {
+  const parsed = parseCommandLine(process.argv.slice(2));
+  if (parsed.rule) {
+    const result = parsed.rule === "DS007" ? await checkDS007(FRONTEND_ROOT) : await checkDesignSystem(FRONTEND_ROOT, { wholeSource: true });
+    for (const diagnostic of result.diagnostics.filter((diagnostic) => diagnostic.rule === parsed.rule)) console.error(`${diagnostic.rule} ${diagnostic.path}:${diagnostic.line}:${diagnostic.column} ${diagnostic.message}${diagnostic.value ? ` (${diagnostic.value})` : ""}`);
+    process.exitCode = result.diagnostics.some((diagnostic) => diagnostic.rule === parsed.rule) ? 1 : 0;
     return;
   }
-  const scoped = args.filter((argument) => argument !== "--all");
-  const result = await checkDesignSystem(FRONTEND_ROOT, { paths: scoped, wholeSource: args.includes("--all") || scoped.length === 0 });
+  const result = await checkDesignSystem(FRONTEND_ROOT, parsed);
   for (const diagnostic of result.diagnostics) console.error(`${diagnostic.rule} ${diagnostic.path}:${diagnostic.line}:${diagnostic.column} ${diagnostic.message}${diagnostic.value ? ` (${diagnostic.value})` : ""}`);
   process.exitCode = result.diagnostics.length ? 1 : 0;
 }
