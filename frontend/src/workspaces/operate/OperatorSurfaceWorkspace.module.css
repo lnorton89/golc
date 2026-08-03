@@ -1,0 +1,17 @@
+/*
+ * OperatorSurfaceWorkspace.module.css supplies only this wrapper's own
+ * canvas padding/scroll -- WorkspaceFrame (frontend/src/design-system)
+ * already owns the toolbar chrome and outer flex column. Matches the
+ * exact canvas convention every other migrated workspace wrapper uses
+ * (e.g. src/workspaces/build/ScenesLooksWorkspace.module.css).
+ */
+
+.canvas {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--ds-spacing-space4);
+  display: flex;
+  flex-direction: column;
+}

@@ -42,6 +42,7 @@ import {
   setPlaybackActiveSurface,
   setSafetyActiveSurface,
 } from "../../lib/wailsBridge";
+import { Button, ErrorState, LoadingState, Panel, ScrollRegion } from "../../design-system";
 import AssignmentToggle from "./AssignmentToggle";
 import SurfaceList from "./SurfaceList";
 import Launcher from "./Launcher";
@@ -276,9 +277,9 @@ export default function OperatorSurface() {
   const loading = daemonLoading || listLoading;
 
   return (
-    <section className={styles.panel} aria-label="Operator surfaces" aria-busy={loading}>
+    <Panel className={styles.surfacePanel} aria-label="Operator surfaces" aria-busy={loading}>
       {loading ? (
-        <div className={styles.skeleton}>Loading operator surfaces…</div>
+        <LoadingState label="Loading operator surfaces…" variant="panel" />
       ) : (
         <>
           <SurfaceList
@@ -289,7 +290,7 @@ export default function OperatorSurface() {
             onRemove={handleRemove}
           />
 
-          {error && <p className={styles.errorText}>{error}</p>}
+          {error && <ErrorState heading="Operator surfaces unavailable" message={error} />}
 
           {selectedName && (
             <div className={styles.detailPanel}>
@@ -297,34 +298,31 @@ export default function OperatorSurface() {
                 <h3 className={styles.detailTitle} title={selectedName}>
                   {selectedName}
                 </h3>
-                <button
-                  type="button"
-                  className={styles.modeButton}
+                <Button
+                  variant="secondary"
+                  leadingIcon={mode === "author" ? Eye : ArrowLeft}
                   onClick={() => setMode((current) => (current === "author" ? "operate" : "author"))}
                 >
-                  {mode === "author" ? (
-                    <Eye size={13} aria-hidden="true" />
-                  ) : (
-                    <ArrowLeft size={13} aria-hidden="true" />
-                  )}
                   {mode === "author" ? "Preview as Operator" : "Back to Authoring"}
-                </button>
+                </Button>
               </div>
 
               {detailLoading ? (
-                <div className={styles.skeleton}>Loading assignments…</div>
+                <LoadingState label="Loading assignments…" variant="panel" />
               ) : mode === "author" ? (
-                <ul className={styles.controlList} aria-label={`${selectedName} controls`}>
-                  {controls.map((control) => (
-                    <li key={controlKey(control)} className={styles.controlRow}>
-                      <AssignmentToggle
-                        label={control.label}
-                        assigned={control.assigned}
-                        onToggle={() => handleToggle(control)}
-                      />
-                    </li>
-                  ))}
-                </ul>
+                <ScrollRegion aria-label={`${selectedName} controls`}>
+                  <ul className={styles.controlList}>
+                    {controls.map((control) => (
+                      <li key={controlKey(control)} className={styles.controlRow}>
+                        <AssignmentToggle
+                          label={control.label}
+                          assigned={control.assigned}
+                          onToggle={() => handleToggle(control)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </ScrollRegion>
               ) : (
                 <Launcher controls={controls} />
               )}
@@ -332,6 +330,6 @@ export default function OperatorSurface() {
           )}
         </>
       )}
-    </section>
+    </Panel>
   );
 }
