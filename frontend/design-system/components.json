@@ -1,4 +1,33 @@
 {
   "schemaVersion": 1,
-  "components": []
+  "components": [
+    { "name": "Button", "kind": "primitive", "exportPath": "src/components/primitives/Button/Button.tsx", "guideAnchor": "#button", "testPath": "src/components/primitives/Button/Button.test.tsx" },
+    { "name": "Chip", "kind": "primitive", "exportPath": "src/components/primitives/Chip/Chip.tsx", "guideAnchor": "#chip", "testPath": "src/components/primitives/Chip/Chip.test.tsx" },
+    { "name": "ConfirmDialog", "kind": "primitive", "exportPath": "src/components/primitives/ConfirmDialog/ConfirmDialog.tsx", "guideAnchor": "#confirmdialog", "testPath": "src/components/primitives/ConfirmDialog/ConfirmDialog.test.tsx" },
+    { "name": "ConfirmModal", "kind": "primitive", "exportPath": "src/components/primitives/ConfirmModal/ConfirmModal.tsx", "guideAnchor": "#confirmmodal", "testPath": "src/design-system/design-system.contract.test.ts" },
+    { "name": "DataList", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#datalist", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" },
+    { "name": "Dialog", "kind": "primitive", "exportPath": "src/components/primitives/Dialog/Dialog.tsx", "guideAnchor": "#dialog", "testPath": "src/components/primitives/Dialog/Dialog.test.tsx" },
+    { "name": "EmptyState", "kind": "primitive", "exportPath": "src/components/primitives/EmptyState/EmptyState.tsx", "guideAnchor": "#emptystate", "testPath": "src/components/primitives/EmptyState/EmptyState.test.tsx" },
+    { "name": "ErrorState", "kind": "primitive", "exportPath": "src/components/primitives/ErrorState/ErrorState.tsx", "guideAnchor": "#errorstate", "testPath": "src/components/primitives/ErrorState/ErrorState.test.tsx" },
+    { "name": "Field", "kind": "primitive", "exportPath": "src/components/primitives/Field/Field.tsx", "guideAnchor": "#field", "testPath": "src/components/primitives/Field/Field.test.tsx" },
+    { "name": "FormActions", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#formactions", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" },
+    { "name": "GuidedFlow", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#guidedflow", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" },
+    { "name": "IconButton", "kind": "primitive", "exportPath": "src/components/primitives/IconButton/IconButton.tsx", "guideAnchor": "#iconbutton", "testPath": "src/components/primitives/IconButton/IconButton.test.tsx" },
+    { "name": "ImpactReview", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#impactreview", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" },
+    { "name": "InfoTooltip", "kind": "primitive", "exportPath": "src/components/primitives/InfoTooltip/InfoTooltip.tsx", "guideAnchor": "#infotooltip", "testPath": "src/components/primitives/InfoTooltip/InfoTooltip.test.tsx" },
+    { "name": "LauncherMasters", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#launchermasters", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" },
+    { "name": "ListRow", "kind": "primitive", "exportPath": "src/components/primitives/ListRow/ListRow.tsx", "guideAnchor": "#listrow", "testPath": "src/components/primitives/ListRow/ListRow.test.tsx" },
+    { "name": "LoadingState", "kind": "primitive", "exportPath": "src/components/primitives/LoadingState/LoadingState.tsx", "guideAnchor": "#loadingstate", "testPath": "src/components/primitives/LoadingState/LoadingState.test.tsx" },
+    { "name": "MidiPickup", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#midipickup", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" },
+    { "name": "Panel", "kind": "primitive", "exportPath": "src/components/primitives/Panel/Panel.tsx", "guideAnchor": "#panel", "testPath": "src/components/primitives/Panel/Panel.test.tsx" },
+    { "name": "PanelHeader", "kind": "primitive", "exportPath": "src/components/primitives/PanelHeader/PanelHeader.tsx", "guideAnchor": "#panelheader", "testPath": "src/components/primitives/PanelHeader/PanelHeader.test.tsx" },
+    { "name": "ResizeHandle", "kind": "primitive", "exportPath": "src/components/primitives/ResizeHandle/ResizeHandle.tsx", "guideAnchor": "#resizehandle", "testPath": "src/components/primitives/ResizeHandle/ResizeHandle.test.tsx" },
+    { "name": "SafetyAction", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#safetyaction", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" },
+    { "name": "SceneStack", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#scenestack", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" },
+    { "name": "ScrollRegion", "kind": "primitive", "exportPath": "src/components/primitives/ScrollRegion/ScrollRegion.tsx", "guideAnchor": "#scrollregion", "testPath": "src/components/primitives/ScrollRegion/ScrollRegion.test.tsx" },
+    { "name": "SplitPane", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#splitpane", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" },
+    { "name": "Tabs", "kind": "primitive", "exportPath": "src/components/primitives/Tabs/Tabs.tsx", "guideAnchor": "#tabs", "testPath": "src/components/primitives/Tabs/Tabs.test.tsx" },
+    { "name": "Toolbar", "kind": "primitive", "exportPath": "src/components/primitives/Toolbar/Toolbar.tsx", "guideAnchor": "#toolbar", "testPath": "src/components/primitives/Toolbar/Toolbar.test.tsx" },
+    { "name": "WorkspaceFrame", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#workspaceframe", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" }
+  ]
 }

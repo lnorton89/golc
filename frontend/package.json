@@ -9,6 +9,7 @@
     "test:e2e": "playwright test",
     "test:e2e:resize": "playwright test e2e/resize.spec.ts",
     "docs:screenshots": "playwright test e2e/desktop-view-docs.spec.ts --workers=1",
+    "generate:design-system": "node scripts/design-system/generate.mjs",
     "build": "tsc --noEmit && vitest run && vite build",
     "preview": "vite preview"
   },
