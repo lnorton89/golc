@@ -18,11 +18,8 @@ import {
   pickShowPath,
   relaunchWithShow,
 } from "../../lib/wailsBridge";
-import Toolbar from "../../components/primitives/Toolbar/Toolbar";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
-import Panel from "../../components/primitives/Panel/Panel";
-import PanelHeader from "../../components/primitives/PanelHeader/PanelHeader";
-import Button from "../../components/primitives/Button/Button";
+import { Button, ErrorState, InfoTooltip, LoadingState, Panel, PanelHeader, WorkspaceFrame } from "../../design-system";
 import styles from "./ShowsWorkspace.module.css";
 
 export default function ShowsWorkspace() {
@@ -88,14 +85,16 @@ export default function ShowsWorkspace() {
   };
 
   return (
-    <div className={styles.workspace}>
-      <Toolbar title="Shows" icon={FolderOpen} info={HOW_IT_WORKS_BY_ID["show-shows"]} />
+    <WorkspaceFrame
+      title="Shows"
+      action={<InfoTooltip label="How Shows works" text={HOW_IT_WORKS_BY_ID["show-shows"]} />}
+    >
       <div className={styles.canvas}>
         {loading ? (
-          <p className={styles.loading}>Loading show…</p>
+          <LoadingState label="Loading show…" variant="panel" />
         ) : (
           <>
-            {error ? <p className={styles.errorText}>{error}</p> : null}
+            {error ? <ErrorState heading="Show unavailable" message={error} /> : null}
             {switching ? (
               <p className={styles.switchingText}>Switching shows — GOLC will reload in a moment…</p>
             ) : null}
@@ -112,7 +111,7 @@ export default function ShowsWorkspace() {
                       {showPath}
                     </span>
                   ) : (
-                    <p className={styles.emptyText}>Choose a show file to open, or create a new one.</p>
+                    <p className={styles.noShowCopy}>Choose a show file to open, or create a new one.</p>
                   )}
                 </div>
                 <div className={styles.actionRow}>
@@ -138,6 +137,6 @@ export default function ShowsWorkspace() {
           </>
         )}
       </div>
-    </div>
+    </WorkspaceFrame>
   );
 }

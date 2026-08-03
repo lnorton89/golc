@@ -1,38 +1,19 @@
-.workspace {
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
 .canvas {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding: var(--space-md);
+  padding: var(--ds-spacing-space4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-}
-
-.loading {
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-}
-
-.errorText {
-  margin: 0 0 var(--space-sm);
-  color: var(--status-revoked);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  gap: var(--ds-spacing-space4);
 }
 
 .switchingText {
-  margin: 0 0 var(--space-sm);
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  margin: 0;
+  margin-block-end: var(--ds-spacing-space2);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
 }
 
 .layout {
@@ -40,11 +21,12 @@
   min-height: 0;
   display: grid;
   grid-template-rows: auto;
-  gap: var(--space-md);
+  gap: var(--ds-spacing-space4);
 }
 
 .currentShow {
-  padding: var(--space-sm) var(--space-md);
+  padding-block: var(--ds-spacing-space2);
+  padding-inline: var(--ds-spacing-space4);
 }
 
 .path {
@@ -53,22 +35,23 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-sm);
-  color: var(--ink);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-body);
+  color: var(--ds-text-primary);
 }
 
-.emptyText {
+.noShowCopy {
   margin: 0;
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
 }
 
 .actionRow {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
+  gap: var(--ds-spacing-space2);
+  padding-block: var(--ds-spacing-space2);
+  padding-inline: var(--ds-spacing-space4);
 }
