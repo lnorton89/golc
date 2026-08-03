@@ -1,22 +1,22 @@
 {
   "schema_version": 1,
   "proof": "dialog-feasibility",
-  "status": "failed",
-  "started_at": "2026-08-03T02:50:06.3863118Z",
-  "completed_at": "2026-08-03T02:51:19.4744579Z",
+  "status": "passed",
+  "started_at": "2026-08-03T03:31:49.8759140Z",
+  "completed_at": "2026-08-03T03:32:17.7631060Z",
   "build": {
     "command": "mage Build",
     "executable": "C:\\Users\\Lawrence\\Documents\\Dev\\golc\\golc-desktop.exe",
-    "sha256": "38D9B7B7AB65285C363FEC67F571A7BCD55F3D3DFE0DCFDA546442D00757FDFE"
+    "sha256": "A6163E010BEEC81FE98EC60C41112F1228BC34016DC8A2B9876EFADC3D729087"
   },
   "runtime": {
     "cdp_endpoint": "http://127.0.0.1:19226",
-    "browser": null,
-    "user_data_dir": "C:\\Users\\Lawrence\\AppData\\Local\\Temp\\golc-dialog-proof-4692-19226"
+    "browser": "Edg/150.0.4078.105",
+    "user_data_dir": "C:\\Users\\Lawrence\\AppData\\Local\\Temp\\golc-dialog-proof-33212-19226"
   },
   "test": {
-    "command": "npx playwright test e2e/dialog-feasibility.spec.ts --project=chromium --workers=1",
-    "exit_code": null
+    "command": "pinned node + local @playwright/test/cli.js test e2e/dialog-feasibility.spec.ts --project=chromium --workers=1",
+    "exit_code": 0
   },
-  "error": "GOLC_DIALOG_PROOF_CDP_TIMEOUT: WebView2 CDP endpoint did not become ready within 45 seconds"
+  "error": null
 }
