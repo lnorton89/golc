@@ -8,16 +8,23 @@
 // not an element -- callers pass `icon={Save}`, not `icon={<Save />}`, so
 // this primitive controls size/aria-hidden consistently everywhere). Purely
 // additive: every existing text-only call site is unaffected.
+import { forwardRef } from "react";
 import type { ButtonHTMLAttributes } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import styles from "./Button.module.css";
 
 export type ButtonVariant = "primary" | "secondary" | "destructive";
+export type ButtonSize = "compact" | "default" | "target";
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
+  size?: ButtonSize;
+  /** @deprecated Use leadingIcon for new call sites. */
   icon?: LucideIcon;
+  leadingIcon?: LucideIcon;
+  trailingIcon?: LucideIcon;
+  loading?: boolean;
 }
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
@@ -26,21 +33,39 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
   destructive: styles.destructive,
 };
 
-export default function Button({
-  variant = "secondary",
-  icon: Icon,
-  className,
-  type = "button",
-  children,
-  ...rest
-}: ButtonProps) {
-  const combinedClassName = className
-    ? `${styles.button} ${VARIANT_CLASS[variant]} ${className}`
-    : `${styles.button} ${VARIANT_CLASS[variant]}`;
+const SIZE_CLASS: Record<ButtonSize, string> = {
+  compact: styles.compact,
+  default: styles.default,
+  target: styles.target,
+};
+
+const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    variant = "secondary",
+    size = "default",
+    icon: legacyIcon,
+    leadingIcon,
+    trailingIcon: TrailingIcon,
+    loading = false,
+    disabled = false,
+    className,
+    type = "button",
+    children,
+    ...rest
+  },
+  ref,
+) {
+  const LeadingIcon = leadingIcon ?? legacyIcon;
+  const combinedClassName = [styles.button, VARIANT_CLASS[variant], SIZE_CLASS[size], className].filter(Boolean).join(" ");
+
   return (
-    <button type={type} className={combinedClassName} {...rest}>
-      {Icon ? <Icon size={14} className={styles.icon} aria-hidden="true" /> : null}
+    <button ref={ref} type={type} className={combinedClassName} disabled={disabled || loading} aria-busy={loading || undefined} {...rest}>
+      {loading ? <span className={styles.spinner} aria-hidden="true" /> : null}
+      {LeadingIcon ? <LeadingIcon className={styles.icon} aria-hidden="true" /> : null}
       {children}
+      {TrailingIcon ? <TrailingIcon className={styles.icon} aria-hidden="true" /> : null}
     </button>
   );
-}
+});
+
+export default Button;

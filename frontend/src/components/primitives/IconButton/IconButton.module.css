@@ -2,40 +2,23 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--ds-spacing-space1);
-  min-height: var(--ds-sizing-control-default);
-  padding: 0 var(--ds-spacing-space4);
+  flex-shrink: 0;
+  min-width: var(--ds-sizing-control-minimum-target);
+  min-height: var(--ds-sizing-control-minimum-target);
+  padding: 0;
   border: 1px solid transparent;
   border-radius: var(--ds-radii-small);
-  font-family: var(--ds-typography-font-family-ui);
-  font-size: var(--ds-typography-font-size-body);
-  font-weight: var(--ds-typography-font-weight-semibold);
-  line-height: var(--ds-typography-line-height-body);
   cursor: pointer;
   transition: background-color var(--ds-motion-tap), border-color var(--ds-motion-tap), color var(--ds-motion-tap);
-  /* A narrow container (a squeezed footer/toolbar at a small window
-     width) used to wrap this button's own label across multiple lines
-     inside its fixed 32px height -- the text spilled out past the
-     button's own box instead of the button growing to fit it. nowrap +
-     flex-shrink:0 make the button grow to its label's full width instead
-     of ever wrapping text inside it; the *container* around a group of
-     buttons is then responsible for its own overflow policy (wrap onto a
-     second line, or scroll) -- see GuidedFirstShow.module.css's
-     .footer/Toolbar.module.css's .action for the two conventions. */
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.compact {
-  min-height: var(--ds-sizing-control-compact);
-  padding-inline: var(--ds-spacing-space2);
 }
 
 .default {
+  min-width: var(--ds-sizing-control-default);
   min-height: var(--ds-sizing-control-default);
 }
 
 .target {
+  min-width: var(--ds-sizing-control-minimum-target);
   min-height: var(--ds-sizing-control-minimum-target);
 }
 
@@ -48,19 +31,27 @@
   transform: translateY(1px);
 }
 
-.icon {
-  flex-shrink: 0;
-  width: var(--ds-sizing-icon16);
-  height: var(--ds-sizing-icon16);
+.icon,
+.spinner {
+  width: var(--ds-sizing-icon20);
+  height: var(--ds-sizing-icon20);
 }
 
 .spinner {
   box-sizing: border-box;
-  width: var(--ds-sizing-icon16);
-  height: var(--ds-sizing-icon16);
   border: var(--ds-focus-ring) solid currentColor;
   border-right-color: transparent;
   border-radius: var(--ds-radii-pill);
+}
+
+.neutral {
+  border-color: var(--ds-border-default);
+  background: var(--ds-surface-control);
+  color: var(--ds-text-primary);
+}
+
+.neutral:hover:not(:disabled) {
+  border-color: var(--ds-border-strong);
 }
 
 .primary {
@@ -77,16 +68,6 @@
 .primary:active:not(:disabled) {
   background: var(--ds-action-primary-active);
   border-color: var(--ds-action-primary-active);
-}
-
-.secondary {
-  border-color: var(--ds-border-default);
-  background: var(--ds-surface-control);
-  color: var(--ds-text-primary);
-}
-
-.secondary:hover:not(:disabled) {
-  border-color: var(--ds-border-strong);
 }
 
 .destructive {
