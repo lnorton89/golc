@@ -595,7 +595,7 @@ Plans:
 - [ ] 13-06-PLAN.md — Chromium and packaged-WebView2 dialog proof (wave 5)
 - [ ] 13-07-PLAN.md — Product patterns, public inventory/barrel/guide, and gallery (wave 6)
 - [ ] 13-08-PLAN.md — Four-file generated theme consumption migration (wave 7)
-- [ ] 13-09-PLAN.md — Eight-file front-door workspace migration (wave 7)
+- [ ] 13-09-PLAN.md — Twelve-file front-door workspace migration (wave 7)
 - [ ] 13-10-PLAN.md — Fixture Library, Patch & Pools, and Project Fixtures migration (wave 7)
 - [ ] 13-11-PLAN.md — Bounded Scenes & Looks and SceneProgramming migration (wave 7)
 - [ ] 13-12-PLAN.md — Five-file Notes/Tiptap migration (wave 7)
