@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-03T23:34:06.361Z",
+  "buildSha": "5849175c22376666403f6ce609760f08b07b631f",
+  "environment": {
+    "platform": "win32",
+    "browser": "chromium",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    }
+  },
+  "states": [
+    {
+      "id": "daemon-offline",
+      "description": "The connection to the Go playback daemon itself is unreachable (StatusSnapshot.reachable === false) while the daemon's own last-known truth -- an actively playing scene with live output -- remains authoritative and displayed, never replaced with a blank/idle placeholder.",
+      "unavailableDependency": "playback daemon connection",
+      "before": {
+        "sceneName": "Opening Look",
+        "barText": "3:2",
+        "layersText": "Color",
+        "sourceText": "live",
+        "outputText": "live"
+      },
+      "after": {
+        "sceneName": "Opening Look",
+        "barText": "3:2",
+        "layersText": "Color",
+        "sourceText": "live",
+        "outputText": "live"
+      },
+      "projectedConnectivityCopyPresent": true,
+      "projectedConnectivityCopyExpected": true,
+      "forbiddenCopyFound": [],
+      "playbackOutputTruthPreserved": true,
+      "controls": {
+        "blackout": {
+          "role": "button",
+          "name": "Blackout",
+          "visible": true,
+          "box": {
+            "x": 728.1875,
+            "y": 36,
+            "width": 110.90625,
+            "height": 44
+          },
+          "focusableViaTab": true,
+          "tabIndexReached": 5,
+          "activationMethod": "keyboard-hold-enter",
+          "dispatchCountAfter": 1,
+          "dispatchedExactlyOnce": true,
+          "crossDispatchZero": true
+        },
+        "revokeAutomation": {
+          "role": "button",
+          "name": "Automation",
+          "visible": true,
+          "box": {
+            "x": 843.09375,
+            "y": 36,
+            "width": 129.03125,
+            "height": 44
+          },
+          "focusableViaTab": true,
+          "tabIndexReached": 6,
+          "activationMethod": "keyboard-hold-enter",
+          "dispatchCountAfter": 1,
+          "dispatchedExactlyOnce": true,
+          "crossDispatchZero": true
+        }
+      },
+      "assertions": {
+        "connectivityCopyMatchesExpectation": true,
+        "noForbiddenCopyBefore": true,
+        "noForbiddenCopyAfter": true,
+        "scenePreservedBefore": true,
+        "playbackOutputTruthPreserved": true,
+        "blackoutVisible": true,
+        "blackoutKeyboardReachable": true,
+        "blackoutDispatchedExactlyOnce": true,
+        "blackoutCrossDispatchZero": true,
+        "revokeVisible": true,
+        "revokeKeyboardReachable": true,
+        "revokeDispatchedExactlyOnce": true,
+        "revokeCrossDispatchZero": true
+      }
+    },
+    {
+      "id": "provider-offline",
+      "description": "A hypothetical upstream AI/automation provider is unreachable while the Go daemon itself is fully reachable and its own truth is completely unaffected (reachable stays true) -- models D-14's 'must not depend on an AI provider' mandate as zero observable coupling: the operator-facing safety surface behaves identically to a fully-healthy daemon.",
+      "unavailableDependency": "AI automation provider",
+      "before": {
+        "sceneName": "Opening Look",
+        "barText": "3:2",
+        "layersText": "Color",
+        "sourceText": "live",
+        "outputText": "live"
+      },
+      "after": {
+        "sceneName": "Opening Look",
+        "barText": "3:2",
+        "layersText": "Color",
+        "sourceText": "live",
+        "outputText": "live"
+      },
+      "projectedConnectivityCopyPresent": false,
+      "projectedConnectivityCopyExpected": false,
+      "forbiddenCopyFound": [],
+      "playbackOutputTruthPreserved": true,
+      "controls": {
+        "blackout": {
+          "role": "button",
+          "name": "Blackout",
+          "visible": true,
+          "box": {
+            "x": 728.1875,
+            "y": 36,
+            "width": 110.90625,
+            "height": 44
+          },
+          "focusableViaTab": true,
+          "tabIndexReached": 5,
+          "activationMethod": "keyboard-hold-enter",
+          "dispatchCountAfter": 1,
+          "dispatchedExactlyOnce": true,
+          "crossDispatchZero": true
+        },
+        "revokeAutomation": {
+          "role": "button",
+          "name": "Automation",
+          "visible": true,
+          "box": {
+            "x": 843.09375,
+            "y": 36,
+            "width": 129.03125,
+            "height": 44
+          },
+          "focusableViaTab": true,
+          "tabIndexReached": 6,
+          "activationMethod": "keyboard-hold-enter",
+          "dispatchCountAfter": 1,
+          "dispatchedExactlyOnce": true,
+          "crossDispatchZero": true
+        }
+      },
+      "assertions": {
+        "connectivityCopyMatchesExpectation": true,
+        "noForbiddenCopyBefore": true,
+        "noForbiddenCopyAfter": true,
+        "scenePreservedBefore": true,
+        "playbackOutputTruthPreserved": true,
+        "blackoutVisible": true,
+        "blackoutKeyboardReachable": true,
+        "blackoutDispatchedExactlyOnce": true,
+        "blackoutCrossDispatchZero": true,
+        "revokeVisible": true,
+        "revokeKeyboardReachable": true,
+        "revokeDispatchedExactlyOnce": true,
+        "revokeCrossDispatchZero": true
+      }
+    }
+  ],
+  "allStatesPassed": true
+}

@@ -1,0 +1,527 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-03T23:33:54.685Z",
+  "buildSha": "5849175c22376666403f6ce609760f08b07b631f",
+  "environment": {
+    "platform": "win32",
+    "browser": "chromium"
+  },
+  "viewport": {
+    "width": 900,
+    "height": 720
+  },
+  "requestedZoom": "2",
+  "computedZoom": "2",
+  "overflow": {
+    "htmlClientWidth": 900,
+    "htmlScrollWidth": 900,
+    "bodyClientWidth": 450,
+    "bodyScrollWidth": 450,
+    "rootOverflows": false,
+    "bodyOverflows": false
+  },
+  "locators": {
+    "navigation": {
+      "role": "navigation",
+      "name": "Workspace navigation",
+      "present": true,
+      "visible": true,
+      "box": {
+        "x": 0,
+        "y": -552,
+        "width": 320,
+        "height": 1272
+      },
+      "keyboardReachable": false,
+      "tabIndexReached": null,
+      "passed": true
+    },
+    "navigationCurrent": {
+      "role": "navigation",
+      "name": "current destination",
+      "present": true,
+      "visible": true,
+      "box": {
+        "x": 16,
+        "y": -464,
+        "width": 288,
+        "height": 46
+      },
+      "keyboardReachable": true,
+      "tabIndexReached": 20,
+      "passed": true
+    },
+    "liveTruth": {
+      "role": "status",
+      "name": "Live status bar",
+      "present": true,
+      "visible": true,
+      "box": {
+        "x": 32,
+        "y": -632,
+        "width": 120,
+        "height": 56
+      },
+      "keyboardReachable": false,
+      "tabIndexReached": null,
+      "passed": true
+    },
+    "activeTask": {
+      "role": "button",
+      "name": "dominant next action",
+      "present": true,
+      "visible": true,
+      "box": {
+        "x": 1290.640625,
+        "y": 576,
+        "width": 369.359375,
+        "height": 64
+      },
+      "keyboardReachable": true,
+      "tabIndexReached": 6,
+      "passed": true
+    },
+    "blackout": {
+      "role": "button",
+      "name": "Blackout",
+      "present": true,
+      "visible": true,
+      "box": {
+        "x": 573.375,
+        "y": -648,
+        "width": 221.796875,
+        "height": 88
+      },
+      "keyboardReachable": true,
+      "tabIndexReached": 14,
+      "passed": true
+    },
+    "revokeAutomation": {
+      "role": "button",
+      "name": "Revoke Automation",
+      "present": true,
+      "visible": true,
+      "box": {
+        "x": 803.171875,
+        "y": -648,
+        "width": 258.0625,
+        "height": 88
+      },
+      "keyboardReachable": true,
+      "tabIndexReached": 15,
+      "passed": true
+    },
+    "stopReleaseAll": {
+      "role": "button",
+      "name": "Stop / Release All",
+      "present": true,
+      "visible": true,
+      "box": {
+        "x": 1069.234375,
+        "y": -648,
+        "width": 332.59375,
+        "height": 88
+      },
+      "keyboardReachable": true,
+      "tabIndexReached": 16,
+      "passed": true
+    }
+  },
+  "focusTraversal": [
+    {
+      "step": 0,
+      "role": "button",
+      "name": "Fixtures",
+      "probeTag": null
+    },
+    {
+      "step": 1,
+      "role": "button",
+      "name": "Patch",
+      "probeTag": null
+    },
+    {
+      "step": 2,
+      "role": "button",
+      "name": "Program",
+      "probeTag": null
+    },
+    {
+      "step": 3,
+      "role": "button",
+      "name": "Assign",
+      "probeTag": null
+    },
+    {
+      "step": 4,
+      "role": "button",
+      "name": "Verify",
+      "probeTag": null
+    },
+    {
+      "step": 5,
+      "role": "button",
+      "name": "Exit Guide",
+      "probeTag": null
+    },
+    {
+      "step": 6,
+      "role": "button",
+      "name": "Go to Fixture Library",
+      "probeTag": "active-task"
+    },
+    {
+      "step": 7,
+      "role": "aside",
+      "name": "Live preview and evidence",
+      "probeTag": null
+    },
+    {
+      "step": 9,
+      "role": "button",
+      "name": "Minimize",
+      "probeTag": null
+    },
+    {
+      "step": 10,
+      "role": "button",
+      "name": "Maximize",
+      "probeTag": null
+    },
+    {
+      "step": 11,
+      "role": "button",
+      "name": "Close",
+      "probeTag": null
+    },
+    {
+      "step": 12,
+      "role": "button",
+      "name": "120 BPM",
+      "probeTag": null
+    },
+    {
+      "step": 13,
+      "role": "button",
+      "name": "Tap",
+      "probeTag": null
+    },
+    {
+      "step": 14,
+      "role": "button",
+      "name": "Blackout",
+      "probeTag": "blackout"
+    },
+    {
+      "step": 15,
+      "role": "button",
+      "name": "Automation",
+      "probeTag": "revoke-automation"
+    },
+    {
+      "step": 16,
+      "role": "button",
+      "name": "Stop / Release All",
+      "probeTag": "stop-release-all"
+    },
+    {
+      "step": 17,
+      "role": "button",
+      "name": "Enter MIDI Learn mode",
+      "probeTag": null
+    },
+    {
+      "step": 18,
+      "role": "button",
+      "name": "Show",
+      "probeTag": null
+    },
+    {
+      "step": 19,
+      "role": "button",
+      "name": "About the Show section",
+      "probeTag": null
+    },
+    {
+      "step": 20,
+      "role": "button",
+      "name": "Overview",
+      "probeTag": "navigation-current"
+    },
+    {
+      "step": 21,
+      "role": "button",
+      "name": "Shows",
+      "probeTag": null
+    },
+    {
+      "step": 22,
+      "role": "button",
+      "name": "Save & Recovery",
+      "probeTag": null
+    },
+    {
+      "step": 23,
+      "role": "button",
+      "name": "Settings",
+      "probeTag": null
+    },
+    {
+      "step": 24,
+      "role": "button",
+      "name": "Notes",
+      "probeTag": null
+    },
+    {
+      "step": 25,
+      "role": "button",
+      "name": "Build",
+      "probeTag": null
+    },
+    {
+      "step": 26,
+      "role": "button",
+      "name": "About the Build section",
+      "probeTag": null
+    },
+    {
+      "step": 27,
+      "role": "button",
+      "name": "Fixture Library",
+      "probeTag": null
+    },
+    {
+      "step": 28,
+      "role": "button",
+      "name": "Patch & Pools",
+      "probeTag": null
+    },
+    {
+      "step": 29,
+      "role": "button",
+      "name": "Project Fixtures",
+      "probeTag": null
+    },
+    {
+      "step": 30,
+      "role": "button",
+      "name": "Scenes & Looks",
+      "probeTag": null
+    },
+    {
+      "step": 31,
+      "role": "button",
+      "name": "Scripts",
+      "probeTag": null
+    },
+    {
+      "step": 32,
+      "role": "button",
+      "name": "Operate",
+      "probeTag": null
+    },
+    {
+      "step": 33,
+      "role": "button",
+      "name": "About the Operate section",
+      "probeTag": null
+    },
+    {
+      "step": 34,
+      "role": "button",
+      "name": "Operator Surface",
+      "probeTag": null
+    },
+    {
+      "step": 35,
+      "role": "button",
+      "name": "MIDI Mapping",
+      "probeTag": null
+    },
+    {
+      "step": 36,
+      "role": "button",
+      "name": "Perform",
+      "probeTag": null
+    },
+    {
+      "step": 37,
+      "role": "button",
+      "name": "About the Perform section",
+      "probeTag": null
+    },
+    {
+      "step": 38,
+      "role": "button",
+      "name": "Desk",
+      "probeTag": null
+    },
+    {
+      "step": 39,
+      "role": "button",
+      "name": "Output",
+      "probeTag": null
+    },
+    {
+      "step": 40,
+      "role": "button",
+      "name": "About the Output section",
+      "probeTag": null
+    },
+    {
+      "step": 41,
+      "role": "button",
+      "name": "Art-Net",
+      "probeTag": null
+    },
+    {
+      "step": 42,
+      "role": "button",
+      "name": "Diagnostics",
+      "probeTag": null
+    },
+    {
+      "step": 43,
+      "role": "button",
+      "name": "Fixtures",
+      "probeTag": null
+    },
+    {
+      "step": 44,
+      "role": "button",
+      "name": "Patch",
+      "probeTag": null
+    },
+    {
+      "step": 45,
+      "role": "button",
+      "name": "Program",
+      "probeTag": null
+    },
+    {
+      "step": 46,
+      "role": "button",
+      "name": "Assign",
+      "probeTag": null
+    },
+    {
+      "step": 47,
+      "role": "button",
+      "name": "Verify",
+      "probeTag": null
+    },
+    {
+      "step": 48,
+      "role": "button",
+      "name": "Exit Guide",
+      "probeTag": null
+    },
+    {
+      "step": 49,
+      "role": "button",
+      "name": "Go to Fixture Library",
+      "probeTag": "active-task"
+    },
+    {
+      "step": 50,
+      "role": "aside",
+      "name": "Live preview and evidence",
+      "probeTag": null
+    },
+    {
+      "step": 52,
+      "role": "button",
+      "name": "Minimize",
+      "probeTag": null
+    },
+    {
+      "step": 53,
+      "role": "button",
+      "name": "Maximize",
+      "probeTag": null
+    },
+    {
+      "step": 54,
+      "role": "button",
+      "name": "Close",
+      "probeTag": null
+    },
+    {
+      "step": 55,
+      "role": "button",
+      "name": "120 BPM",
+      "probeTag": null
+    },
+    {
+      "step": 56,
+      "role": "button",
+      "name": "Tap",
+      "probeTag": null
+    },
+    {
+      "step": 57,
+      "role": "button",
+      "name": "Blackout",
+      "probeTag": "blackout"
+    },
+    {
+      "step": 58,
+      "role": "button",
+      "name": "Automation",
+      "probeTag": "revoke-automation"
+    },
+    {
+      "step": 59,
+      "role": "button",
+      "name": "Stop / Release All",
+      "probeTag": "stop-release-all"
+    }
+  ],
+  "dispatchCounts": {
+    "blackout": 1,
+    "revokeAutomation": 1
+  },
+  "overlayHitTests": [
+    {
+      "control": "blackout",
+      "centerPoint": {
+        "x": -92.7265625,
+        "y": 116
+      },
+      "inViewport": false,
+      "hitOwnControl": null
+    },
+    {
+      "control": "revoke-automation",
+      "centerPoint": {
+        "x": 155.203125,
+        "y": 116
+      },
+      "inViewport": true,
+      "hitOwnControl": true
+    },
+    {
+      "control": "stop-release-all",
+      "centerPoint": {
+        "x": 458.53125,
+        "y": 116
+      },
+      "inViewport": true,
+      "hitOwnControl": true
+    }
+  ],
+  "assertions": {
+    "viewportExact": true,
+    "computedZoomExactlyTwo": true,
+    "noRootOverflow": true,
+    "noBodyOverflow": true,
+    "navigationReachable": true,
+    "liveTruthReachable": true,
+    "activeTaskReachable": true,
+    "blackoutReachable": true,
+    "revokeAutomationReachable": true,
+    "stopReleaseAllReachable": true,
+    "blackoutKeyboardOperable": true,
+    "revokeAutomationKeyboardOperable": true
+  }
+}
