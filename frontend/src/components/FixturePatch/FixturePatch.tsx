@@ -44,7 +44,7 @@
 // than an interactive mid-execution checkpoint.
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Eye, X, Check, Zap, Package, Boxes, Pencil, Trash2 } from "lucide-react";
+import { Plus, Eye, X, Check, Zap, Pencil, Trash2 } from "lucide-react";
 
 import {
   activateDeployment,
@@ -66,7 +66,7 @@ import {
   type FixtureLibraryRowView,
   type PatchView,
 } from "../../lib/wailsBridge";
-import InfoTooltip from "../primitives/InfoTooltip/InfoTooltip";
+import { Button, Chip, EmptyState, ErrorState, Field, FormActions, IconButton, ImpactReview, InfoTooltip, LoadingState, Panel } from "../../design-system";
 import styles from "./FixturePatch.module.css";
 
 // ---------------------------------------------------------------------------
@@ -114,6 +114,32 @@ function parseRequires(raw: string): string[] {
     .split(",")
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
+}
+
+/** addMemberImpacts summarizes the deployment instances an add-member plan
+ * will instantiate, for ImpactReview's preview-before-apply contract. */
+function addMemberImpacts(plan: ImpactPlan): string[] {
+  const additions = (plan.operations ?? [])
+    .filter((op) => op.dependent_kind === "deployment_instance" && op.action === "add")
+    .map((op) => `${op.dependent_ref} → Universe ${op.proposed_universe}, Address ${op.proposed_address}`);
+  return additions.length > 0
+    ? additions
+    : ["No deployment currently references this pool -- nothing to instantiate yet."];
+}
+
+/** removeMemberImpacts summarizes what a remove-member plan will detach, for
+ * the same preview-before-apply contract. */
+function removeMemberImpacts(plan: ImpactPlan): string[] {
+  const removals = (plan.operations ?? [])
+    .filter((op) => op.action === "remove")
+    .map((op) =>
+      op.dependent_kind === "deployment_instance"
+        ? `${op.dependent_ref}: deployment instance removed`
+        : `${op.dependent_ref}: group member removed`,
+    );
+  return removals.length > 0
+    ? removals
+    : ["Nothing else references this member -- only the pool member itself is removed."];
 }
 
 interface PendingPreview {
@@ -441,18 +467,15 @@ export default function FixturePatch() {
   const deployments = patch.deployments;
 
   return (
-    <section
-      className={styles.panel}
-      aria-label="Fixture patch"
-      aria-busy={listLoading}
-    >
+    <Panel aria-label="Fixture patch" aria-busy={listLoading}>
+      <div className={styles.content}>
       <h2 className={styles.sectionHeading}>Fixture Patch</h2>
 
       {listLoading ? (
-        <div className={styles.skeleton}>Loading fixture patch…</div>
+        <LoadingState label="Fixture patch is loading" variant="panel" />
       ) : (
         <>
-          {error && <p className={styles.errorText}>{error}</p>}
+          {error && <ErrorState heading="Fixture patch unavailable" message={error} variant="panel" />}
 
           {/* Pools */}
           <div className={styles.subsection}>
@@ -464,48 +487,37 @@ export default function FixturePatch() {
               />
             </div>
             <div className={styles.createRow}>
-              <input
+              <Field
                 className={styles.createInput}
+                label="New pool name"
                 type="text"
                 value={newPoolName}
-                placeholder="New pool name"
                 onChange={(event) => setNewPoolName(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     void handleCreatePool();
                   }
                 }}
-                aria-label="New pool name"
               />
-              <input
+              <Field
                 className={styles.createInput}
+                label="Required capabilities"
                 type="text"
                 value={newPoolRequires}
-                placeholder="Required capabilities (comma-separated, optional)"
+                placeholder="comma-separated, optional"
                 onChange={(event) => setNewPoolRequires(event.target.value)}
-                aria-label="Required capabilities"
               />
-              <button
-                type="button"
-                className={styles.primaryButton}
+              <Button
+                variant="primary"
+                leadingIcon={Plus}
                 onClick={() => void handleCreatePool()}
               >
-                <Plus size={14} aria-hidden="true" />
                 Create Pool
-              </button>
+              </Button>
             </div>
 
             {pools.length === 0 ? (
-              <div className={styles.emptyState}>
-                <p className={styles.emptyHeading}>
-                  <Package size={18} aria-hidden="true" />
-                  No fixture pools yet
-                </p>
-                <p className={styles.emptyBody}>
-                  Create a pool, then add a fixture at a mode to patch it into a
-                  deployment.
-                </p>
-              </div>
+              <EmptyState heading="No fixture pools yet" body="Create a pool, then add a fixture at a mode to patch it into a deployment." />
             ) : (
               <>
                 <p className={styles.countSummary}>
@@ -517,8 +529,9 @@ export default function FixturePatch() {
                       <div className={styles.rowHeader}>
                         {renamingPoolId === p.id ? (
                           <>
-                            <input
+                            <Field
                               className={styles.createInput}
+                              label="Pool name"
                               type="text"
                               value={renamePoolValue}
                               onChange={(event) => setRenamePoolValue(event.target.value)}
@@ -530,23 +543,18 @@ export default function FixturePatch() {
                                   setRenamingPoolId(null);
                                 }
                               }}
-                              aria-label="Pool name"
                               autoFocus
                             />
-                            <button
-                              type="button"
-                              className={styles.secondaryButton}
+                            <IconButton
+                              icon={Check}
+                              label={`Save ${p.name}`}
                               onClick={() => void handleSaveRenamePool(p.name)}
-                            >
-                              <Check size={13} aria-hidden="true" />
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.secondaryButton}
+                            />
+                            <IconButton
+                              icon={X}
+                              label={`Cancel renaming ${p.name}`}
                               onClick={() => setRenamingPoolId(null)}
-                            >
-                              <X size={13} aria-hidden="true" />
-                            </button>
+                            />
                           </>
                         ) : (
                           <>
@@ -557,30 +565,24 @@ export default function FixturePatch() {
                               {p.members.length} member
                               {p.members.length === 1 ? "" : "s"}
                             </span>
-                            <button
-                              type="button"
-                              className={styles.secondaryButton}
+                            <IconButton
+                              icon={Pencil}
+                              label={`Rename ${p.name}`}
                               onClick={() => handleStartRenamePool(p.id, p.name)}
-                              aria-label={`Rename ${p.name}`}
-                            >
-                              <Pencil size={13} aria-hidden="true" />
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.secondaryButton}
+                            />
+                            <IconButton
+                              icon={Trash2}
+                              label={`Delete ${p.name}`}
+                              variant="destructive"
                               onClick={() => void handleDeletePool(p.name, p.members.length, instanceCountForPool(p.id))}
-                              aria-label={`Delete ${p.name}`}
-                            >
-                              <Trash2 size={13} aria-hidden="true" />
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.secondaryButton}
+                            />
+                            <Button
+                              variant="secondary"
+                              leadingIcon={Plus}
                               onClick={() => handleStartAddMember(p.name)}
                             >
-                              <Plus size={13} aria-hidden="true" />
                               Add Fixture
-                            </button>
+                            </Button>
                           </>
                         )}
                       </div>
@@ -591,70 +593,31 @@ export default function FixturePatch() {
                               <span className={styles.technical}>
                                 {m.fixtureStableKey}
                               </span>
-                              <button
-                                type="button"
-                                className={styles.secondaryButton}
+                              <Button
+                                variant="destructive"
+                                leadingIcon={X}
                                 onClick={() => void handleStartRemoveMember(p.name, m.id)}
                               >
-                                <X size={13} aria-hidden="true" />
                                 Remove
-                              </button>
+                              </Button>
                               {removeTarget?.poolName === p.name && removeTarget.memberId === m.id && (
-                                <div className={styles.previewPanel}>
-                                  {removePreviewLoading ? (
-                                    <p className={styles.previewRow}>Reviewing…</p>
-                                  ) : (
-                                    pendingRemovePreview && (
-                                      <>
-                                        <p className={styles.previewHeading}>
-                                          Impact Preview (plan{" "}
-                                          <span className={styles.technical}>
-                                            {pendingRemovePreview.plan.plan_id.slice(0, 12)}
-                                          </span>
-                                          )
-                                        </p>
-                                        <ul className={styles.previewList}>
-                                          {(pendingRemovePreview.plan.operations ?? [])
-                                            .filter((op) => op.action === "remove")
-                                            .map((op, index) => (
-                                              <li key={`${op.dependent_id}-${index}`} className={styles.previewRow}>
-                                                {op.dependent_kind === "deployment_instance"
-                                                  ? `${op.dependent_ref}: deployment instance removed`
-                                                  : `${op.dependent_ref}: group member removed`}
-                                              </li>
-                                            ))}
-                                          {(pendingRemovePreview.plan.operations ?? []).filter(
-                                            (op) => op.action === "remove",
-                                          ).length === 0 && (
-                                            <li className={styles.previewRow}>
-                                              Nothing else references this member -- only the pool member itself
-                                              is removed.
-                                            </li>
-                                          )}
-                                        </ul>
-                                        <div className={styles.formActions}>
-                                          <button
-                                            type="button"
-                                            className={styles.primaryButton}
-                                            disabled={removeApplyLoading}
-                                            onClick={() => void handleApplyRemoveMember()}
-                                          >
-                                            <Check size={14} aria-hidden="true" />
-                                            {removeApplyLoading ? "Applying…" : "Apply"}
-                                          </button>
-                                          <button
-                                            type="button"
-                                            className={styles.secondaryButton}
-                                            onClick={handleCancelRemoveMember}
-                                          >
-                                            <X size={13} aria-hidden="true" />
-                                            Cancel
-                                          </button>
-                                        </div>
-                                      </>
-                                    )
-                                  )}
-                                </div>
+                                removePreviewLoading ? (
+                                  <LoadingState label="Reviewing removal impact" variant="inline" />
+                                ) : (
+                                  pendingRemovePreview && (
+                                    <ImpactReview
+                                      summary={`Impact Preview (plan ${pendingRemovePreview.plan.plan_id.slice(0, 12)})`}
+                                      impacts={removeMemberImpacts(pendingRemovePreview.plan)}
+                                    >
+                                      <FormActions>
+                                        <Button variant="primary" leadingIcon={Check} loading={removeApplyLoading} onClick={() => void handleApplyRemoveMember()}>
+                                          {removeApplyLoading ? "Applying…" : "Apply"}
+                                        </Button>
+                                        <Button variant="secondary" leadingIcon={X} onClick={handleCancelRemoveMember}>Cancel</Button>
+                                      </FormActions>
+                                    </ImpactReview>
+                                  )
+                                )
                               )}
                             </li>
                           ))}
@@ -663,103 +626,52 @@ export default function FixturePatch() {
 
                       {addPoolTarget === p.name && (
                         <div className={styles.addMemberForm}>
-                          <select
-                            className={styles.createInput}
-                            value={selectedFixture?.stableKey ?? ""}
-                            onChange={(event) => handleSelectFixture(event.target.value)}
-                            aria-label="Fixture"
-                          >
-                            <option value="" disabled>
-                              {libraryRows.filter((row) => row.status === "valid").length === 0
-                                ? "No fixtures in library -- import one first"
-                                : "Select a fixture…"}
-                            </option>
-                            {libraryRows
-                              .filter((row) => row.status === "valid")
-                              .map((row) => (
-                                <option key={row.stableKey} value={row.stableKey}>
-                                  {row.manufacturer} {row.model}
+                          <Field label="Fixture">
+                            <select
+                              value={selectedFixture?.stableKey ?? ""}
+                              onChange={(event) => handleSelectFixture(event.target.value)}
+                            >
+                              <option value="" disabled>
+                                {libraryRows.filter((row) => row.status === "valid").length === 0
+                                  ? "No fixtures in library -- import one first"
+                                  : "Select a fixture…"}
+                              </option>
+                              {libraryRows
+                                .filter((row) => row.status === "valid")
+                                .map((row) => (
+                                  <option key={row.stableKey} value={row.stableKey}>
+                                    {row.manufacturer} {row.model}
+                                  </option>
+                                ))}
+                            </select>
+                          </Field>
+                          <Field label="Fixture mode" disabled={!selectedFixture}>
+                            <select
+                              value={addMode}
+                              onChange={(event) => setAddMode(event.target.value)}
+                            >
+                              <option value="" disabled>
+                                Select a mode…
+                              </option>
+                              {(selectedFixture?.modes ?? []).map((mode) => (
+                                <option key={mode} value={mode}>
+                                  {mode}
                                 </option>
                               ))}
-                          </select>
-                          <select
-                            className={styles.createInput}
-                            value={addMode}
-                            onChange={(event) => setAddMode(event.target.value)}
-                            aria-label="Fixture mode"
-                            disabled={!selectedFixture}
-                          >
-                            <option value="" disabled>
-                              Select a mode…
-                            </option>
-                            {(selectedFixture?.modes ?? []).map((mode) => (
-                              <option key={mode} value={mode}>
-                                {mode}
-                              </option>
-                            ))}
-                          </select>
-                          <div className={styles.formActions}>
-                            <button
-                              type="button"
-                              className={styles.primaryButton}
-                              disabled={previewLoading || !selectedFixture || !addMode}
-                              onClick={() => void handlePreviewAddMember()}
-                            >
-                              <Eye size={14} aria-hidden="true" />
+                            </select>
+                          </Field>
+                          <FormActions>
+                            <Button variant="primary" leadingIcon={Eye} loading={previewLoading} disabled={!selectedFixture || !addMode} onClick={() => void handlePreviewAddMember()}>
                               {previewLoading ? "Reviewing…" : "Review Impact"}
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.secondaryButton}
-                              onClick={() => setAddPoolTarget(null)}
-                            >
-                              <X size={13} aria-hidden="true" />
-                              Cancel
-                            </button>
-                          </div>
+                            </Button>
+                            <Button variant="secondary" leadingIcon={X} onClick={() => setAddPoolTarget(null)}>Cancel</Button>
+                          </FormActions>
 
                           {pendingPreview && pendingPreview.poolName === p.name && (
-                            <div className={styles.previewPanel}>
-                              <p className={styles.previewHeading}>
-                                Impact Preview (plan{" "}
-                                <span className={styles.technical}>
-                                  {pendingPreview.plan.plan_id.slice(0, 12)}
-                                </span>
-                                )
-                              </p>
-                              <ul className={styles.previewList}>
-                                {(pendingPreview.plan.operations ?? [])
-                                  .filter(
-                                    (op) =>
-                                      op.dependent_kind === "deployment_instance" &&
-                                      op.action === "add",
-                                  )
-                                  .map((op, index) => (
-                                    <li
-                                      key={`${op.dependent_id}-${index}`}
-                                      className={styles.previewRow}
-                                    >
-                                      {op.dependent_ref} → Universe{" "}
-                                      <span className={styles.technical}>
-                                        {op.proposed_universe}
-                                      </span>
-                                      , Address{" "}
-                                      <span className={styles.technical}>
-                                        {op.proposed_address}
-                                      </span>
-                                    </li>
-                                  ))}
-                                {(pendingPreview.plan.operations ?? []).filter(
-                                  (op) =>
-                                    op.dependent_kind === "deployment_instance" &&
-                                    op.action === "add",
-                                ).length === 0 && (
-                                  <li className={styles.previewRow}>
-                                    No deployment currently references this pool --
-                                    nothing to instantiate yet.
-                                  </li>
-                                )}
-                              </ul>
+                            <ImpactReview
+                              summary={`Impact Preview (plan ${pendingPreview.plan.plan_id.slice(0, 12)})`}
+                              impacts={addMemberImpacts(pendingPreview.plan)}
+                            >
                               {(pendingPreview.plan.warnings ?? []).length > 0 && (
                                 <ul className={styles.previewList}>
                                   {pendingPreview.plan.warnings?.map((warning, index) => (
@@ -777,36 +689,20 @@ export default function FixturePatch() {
                                   {pendingPreview.plan.errors?.map((planError, index) => (
                                     <li
                                       key={`error-${index}`}
-                                      className={styles.previewError}
+                                      className={styles.previewBlocker}
                                     >
                                       {planError.code}: {planError.message}
                                     </li>
                                   ))}
                                 </ul>
                               )}
-                              <div className={styles.formActions}>
-                                <button
-                                  type="button"
-                                  className={styles.primaryButton}
-                                  disabled={
-                                    applyLoading ||
-                                    (pendingPreview.plan.errors ?? []).length > 0
-                                  }
-                                  onClick={() => void handleApplyPreview()}
-                                >
-                                  <Check size={14} aria-hidden="true" />
+                              <FormActions>
+                                <Button variant="primary" leadingIcon={Check} loading={applyLoading} disabled={(pendingPreview.plan.errors ?? []).length > 0} onClick={() => void handleApplyPreview()}>
                                   {applyLoading ? "Applying…" : "Apply"}
-                                </button>
-                                <button
-                                  type="button"
-                                  className={styles.secondaryButton}
-                                  onClick={handleCancelPreview}
-                                >
-                                  <X size={13} aria-hidden="true" />
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
+                                </Button>
+                                <Button variant="secondary" leadingIcon={X} onClick={handleCancelPreview}>Cancel</Button>
+                              </FormActions>
+                            </ImpactReview>
                           )}
                         </div>
                       )}
@@ -827,40 +723,29 @@ export default function FixturePatch() {
               />
             </div>
             <div className={styles.createRow}>
-              <input
+              <Field
                 className={styles.createInput}
+                label="New deployment name"
                 type="text"
                 value={newDeploymentName}
-                placeholder="New deployment name"
                 onChange={(event) => setNewDeploymentName(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     void handleCreateDeployment();
                   }
                 }}
-                aria-label="New deployment name"
               />
-              <button
-                type="button"
-                className={styles.primaryButton}
+              <Button
+                variant="primary"
+                leadingIcon={Plus}
                 onClick={() => void handleCreateDeployment()}
               >
-                <Plus size={14} aria-hidden="true" />
                 Create Deployment
-              </button>
+              </Button>
             </div>
 
             {deployments.length === 0 ? (
-              <div className={styles.emptyState}>
-                <p className={styles.emptyHeading}>
-                  <Boxes size={18} aria-hidden="true" />
-                  No deployments yet
-                </p>
-                <p className={styles.emptyBody}>
-                  Create a deployment, then activate it to patch pool fixtures
-                  into concrete instances.
-                </p>
-              </div>
+              <EmptyState heading="No deployments yet" body="Create a deployment, then activate it to patch pool fixtures into concrete instances." />
             ) : (
               <>
                 <p className={styles.countSummary}>
@@ -873,8 +758,9 @@ export default function FixturePatch() {
                       <div className={styles.rowHeader}>
                         {renamingDeploymentId === d.id ? (
                           <>
-                            <input
+                            <Field
                               className={styles.createInput}
+                              label="Deployment name"
                               type="text"
                               value={renameDeploymentValue}
                               onChange={(event) => setRenameDeploymentValue(event.target.value)}
@@ -886,23 +772,18 @@ export default function FixturePatch() {
                                   setRenamingDeploymentId(null);
                                 }
                               }}
-                              aria-label="Deployment name"
                               autoFocus
                             />
-                            <button
-                              type="button"
-                              className={styles.secondaryButton}
+                            <IconButton
+                              icon={Check}
+                              label={`Save ${d.name}`}
                               onClick={() => void handleSaveRenameDeployment(d.name)}
-                            >
-                              <Check size={13} aria-hidden="true" />
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.secondaryButton}
+                            />
+                            <IconButton
+                              icon={X}
+                              label={`Cancel renaming ${d.name}`}
                               onClick={() => setRenamingDeploymentId(null)}
-                            >
-                              <X size={13} aria-hidden="true" />
-                            </button>
+                            />
                           </>
                         ) : (
                           <>
@@ -910,33 +791,27 @@ export default function FixturePatch() {
                               {d.name}
                             </span>
                             {d.active ? (
-                              <span className={styles.activeChip}>Active</span>
+                              <Chip tone="live">Active</Chip>
                             ) : (
-                              <button
-                                type="button"
-                                className={styles.secondaryButton}
+                              <Button
+                                variant="secondary"
+                                leadingIcon={Zap}
                                 onClick={() => void handleActivateDeployment(d.name)}
                               >
-                                <Zap size={13} aria-hidden="true" />
                                 Activate
-                              </button>
+                              </Button>
                             )}
-                            <button
-                              type="button"
-                              className={styles.secondaryButton}
+                            <IconButton
+                              icon={Pencil}
+                              label={`Rename ${d.name}`}
                               onClick={() => handleStartRenameDeployment(d.id, d.name)}
-                              aria-label={`Rename ${d.name}`}
-                            >
-                              <Pencil size={13} aria-hidden="true" />
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.secondaryButton}
+                            />
+                            <IconButton
+                              icon={Trash2}
+                              label={`Delete ${d.name}`}
+                              variant="destructive"
                               onClick={() => void handleDeleteDeployment(d.name, d.instances.length)}
-                              aria-label={`Delete ${d.name}`}
-                            >
-                              <Trash2 size={13} aria-hidden="true" />
-                            </button>
+                            />
                           </>
                         )}
                       </div>
@@ -950,54 +825,41 @@ export default function FixturePatch() {
                               <li key={instance.id} className={styles.memberRow}>
                                 {reassigningInstanceId === instance.id ? (
                                   <>
-                                    <select
+                                    <Field label="Mode">
+                                      <select
+                                        value={reassignMode}
+                                        onChange={(event) => setReassignMode(event.target.value)}
+                                      >
+                                        <option value={reassignMode}>{reassignMode}</option>
+                                        {modesForMember(member?.fixtureStableKey ?? "")
+                                          .filter((mode) => mode !== reassignMode)
+                                          .map((mode) => (
+                                            <option key={mode} value={mode}>
+                                              {mode}
+                                            </option>
+                                          ))}
+                                      </select>
+                                    </Field>
+                                    <Field
                                       className={styles.createInput}
-                                      value={reassignMode}
-                                      onChange={(event) => setReassignMode(event.target.value)}
-                                      aria-label="Mode"
-                                    >
-                                      <option value={reassignMode}>{reassignMode}</option>
-                                      {modesForMember(member?.fixtureStableKey ?? "")
-                                        .filter((mode) => mode !== reassignMode)
-                                        .map((mode) => (
-                                          <option key={mode} value={mode}>
-                                            {mode}
-                                          </option>
-                                        ))}
-                                    </select>
-                                    <input
-                                      className={styles.createInput}
+                                      label="Universe"
                                       type="number"
                                       min={1}
                                       value={reassignUniverse}
                                       onChange={(event) => setReassignUniverse(event.target.value)}
-                                      aria-label="Universe"
                                     />
-                                    <input
+                                    <Field
                                       className={styles.createInput}
+                                      label="Address"
                                       type="number"
                                       min={1}
                                       value={reassignAddress}
                                       onChange={(event) => setReassignAddress(event.target.value)}
-                                      aria-label="Address"
                                     />
-                                    <button
-                                      type="button"
-                                      className={styles.primaryButton}
-                                      disabled={reassignLoading}
-                                      onClick={() => void handleSaveReassign(d.name, instance.id)}
-                                    >
-                                      <Check size={13} aria-hidden="true" />
+                                    <Button variant="primary" leadingIcon={Check} loading={reassignLoading} onClick={() => void handleSaveReassign(d.name, instance.id)}>
                                       {reassignLoading ? "Saving…" : "Save"}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className={styles.secondaryButton}
-                                      onClick={handleCancelReassign}
-                                    >
-                                      <X size={13} aria-hidden="true" />
-                                      Cancel
-                                    </button>
+                                    </Button>
+                                    <Button variant="secondary" leadingIcon={X} onClick={handleCancelReassign}>Cancel</Button>
                                   </>
                                 ) : (
                                   <>
@@ -1006,16 +868,13 @@ export default function FixturePatch() {
                                       Universe {instance.universe}, Address{" "}
                                       {instance.address}
                                     </span>
-                                    <button
-                                      type="button"
-                                      className={styles.secondaryButton}
+                                    <IconButton
+                                      icon={Pencil}
+                                      label="Edit instance"
                                       onClick={() =>
                                         handleStartReassign(instance.id, instance.mode, instance.universe, instance.address)
                                       }
-                                      aria-label="Edit instance"
-                                    >
-                                      <Pencil size={13} aria-hidden="true" />
-                                    </button>
+                                    />
                                   </>
                                 )}
                               </li>
@@ -1031,6 +890,7 @@ export default function FixturePatch() {
           </div>
         </>
       )}
-    </section>
+    </div>
+    </Panel>
   );
 }

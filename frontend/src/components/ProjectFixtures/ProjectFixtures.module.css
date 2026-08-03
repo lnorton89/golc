@@ -1,49 +1,16 @@
 /*
- * ProjectFixtures.module.css mirrors FixturePatch.module.css's class-naming
- * and token usage exactly, so this feature reads as the same visual system
- * as Patch & Pools, not a new one.
+ * ProjectFixtures.module.css owns this feature's domain-specific layout
+ * only: the shared subgrid row system, the tag pill, and the dialog form
+ * stack. Shared control/state chrome comes from the design-system
+ * primitives (Button, IconButton, Field, NumberStepper, EmptyState,
+ * LoadingState, ErrorState, ImpactReview, Dialog, Panel) this component
+ * consumes.
  */
-
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ds-spacing-space4);
-  padding: var(--ds-spacing-space6);
-  background: var(--ds-surface-panel);
-  border: 1px solid var(--ds-border-default);
-  border-radius: 4px;
-  color: var(--ds-text-secondary);
-  font-family: "Archivo", system-ui, sans-serif;
-}
-
-.sectionHeading {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--ds-text-primary);
-}
 
 .subsection {
   display: flex;
   flex-direction: column;
   gap: var(--ds-spacing-space2);
-  border-top: 1px solid var(--ds-border-default);
-  padding-top: var(--ds-spacing-space4);
-}
-
-.subsectionHeading {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--ds-text-primary);
-}
-
-.skeleton {
-  padding: var(--ds-spacing-space4);
-  border-radius: 4px;
-  background: var(--ds-border-default);
-  color: var(--ds-text-muted);
-  opacity: 0.6;
 }
 
 .createRow {
@@ -54,226 +21,35 @@
   justify-content: space-between;
 }
 
-.createInput {
-  flex: 1;
-  min-width: 160px;
-  padding: var(--ds-spacing-space2);
-  border: 1px solid var(--ds-border-default);
-  border-radius: 4px;
-  background: var(--ds-surface-canvas);
-  color: var(--ds-text-primary);
-  font-family: inherit;
-  font-size: 14px;
-  box-sizing: border-box;
-}
-
-.fieldLabel {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 12px;
-  color: var(--ds-text-muted);
-}
-
-/* nameField pairs with .fieldLabel (not a replacement -- both classes
-   apply together) on the reassign row's Name field only: every other
-   .fieldLabel user (Mode/Universe/Address here, Quantity/Starting
-   universe/Starting address in the add form) should stay content-sized,
-   but the name text is the one field that should absorb whatever width
-   Mode/Universe/Address/Save/Cancel don't need. */
+/* nameField is the reassign row's one Field that should absorb whatever
+   width Mode/Universe/Address/Save/Cancel don't need within .rowEditing's
+   flex row -- Field itself renders no sizing hook on its own outer
+   wrapper, so this wraps it from the outside. */
 .nameField {
   flex: 1;
   min-width: 0;
 }
 
-/* stepperWrap/stepperInput/stepperSpinner/stepperSpinnerButton mirror
-   TempoControls.module.css's BPM spinner (the app's one existing
-   up/down-styled numeric control) -- same custom-chevron-buttons-replace-
-   the-native-arrows structure, re-skinned with this file's own
-   --ds-border-default-bordered/4px-radius input convention instead of TempoControls'
-   accent-bordered transport-chrome look. align-self: flex-start matters
-   here: .fieldLabel is a column-direction flex container, which
-   stretches a child with no align-self override to its own full width
-   by default -- inside .rowEditing (a row-direction flex row) that
-   never showed up, since row-direction only stretches children
-   vertically, but inside .addForm (also column-direction, the "Add from
-   Library" dialog's field list) it stretched .stepperWrap far wider
-   than its 96px input, leaving .stepperSpinner (absolutely positioned
-   against .stepperWrap's own right edge) stranded off to the right of
-   the visible input instead of hugging it. */
-.stepperWrap {
-  position: relative;
-  display: inline-flex;
-  flex: none;
-  align-self: flex-start;
-}
-
-.stepperInput {
-  width: 96px;
-  height: 32px;
-  padding: 0 20px 0 var(--ds-spacing-space2);
-  border: 1px solid var(--ds-border-default);
-  border-radius: 4px;
-  background: var(--ds-surface-canvas);
-  color: var(--ds-text-primary);
-  font-family: inherit;
-  font-size: 14px;
-  box-sizing: border-box;
-  -moz-appearance: textfield;
-}
-
-.stepperInput::-webkit-inner-spin-button,
-.stepperInput::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.stepperSpinner {
-  position: absolute;
-  top: 1px;
-  right: 1px;
-  bottom: 1px;
-  display: flex;
-  flex-direction: column;
-  width: 18px;
-  border-left: 1px solid var(--ds-border-default);
-  overflow: hidden;
-  border-radius: 0 4px 4px 0;
-}
-
-.stepperSpinnerButton {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-  padding: 0;
-  border: none;
-  background: var(--ds-surface-panel);
-  color: var(--ds-text-muted);
-  cursor: pointer;
-  line-height: 0;
-}
-
-.stepperSpinnerButton:hover {
-  /* An opaque mix onto --ds-surface-panel (not --ds-surface-selected, which mixes onto
-     transparent): this button's resting background is the opaque
-     --ds-surface-panel fill above, so a transparent-mixed hover would let whatever
-     sits behind the stepper (the row's own --ds-surface-canvas/hover background)
-     show through and look washed out instead of a clean panel tint. */
-  background: color-mix(in srgb, var(--ds-action-primary) 16%, var(--ds-surface-panel));
-  color: var(--ds-text-primary);
-}
-
-.stepperSpinnerButton:first-child {
-  border-bottom: 1px solid var(--ds-border-default);
-}
-
-.primaryButton {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--ds-spacing-space1);
-  padding: var(--ds-spacing-space2) var(--ds-spacing-space4);
-  border: none;
-  border-radius: 4px;
-  background: var(--ds-action-primary);
-  color: #fff;
-  font-family: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.primaryButton:hover {
-  background: var(--ds-action-primary-hover);
-}
-
-.primaryButton:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.secondaryButton {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--ds-spacing-space1);
-  padding: var(--ds-spacing-space1) var(--ds-spacing-space2);
-  border: 1px solid var(--ds-action-primary);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--ds-action-primary);
-  font-family: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.secondaryButton:hover {
-  background: var(--ds-action-primary);
-  color: #fff;
-}
-
-/* rowFormButton pairs with .primaryButton/.secondaryButton (declared
-   above -- source order matters here: this rule must come after both so
-   its padding/height win the cascade) on every fixture-row action
-   button (Edit/Remove in the display row, Save/Cancel in the edit row):
-   those two base classes otherwise carry different padding
-   (primaryButton is the app's larger call-to-action size), which made
-   Save visibly larger than Cancel, and Edit/Remove a different size
-   again from Save/Cancel -- switching a row between display and edit
-   mode was visibly resizing its buttons. Pinning every one of them to
-   this same 32px height (matching .stepperInput/.createInput's own
-   field height) keeps button size constant across that transition;
-   vertical alignment within each layout is each container's own job
-   (.row's align-items: center for the grid display row, .rowEditing's
-   align-items: flex-end for the flex edit row -- see below), not this
-   class's. */
-.rowFormButton {
-  height: 32px;
-  padding: 0 var(--ds-spacing-space2);
-}
-
-.emptyState {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ds-spacing-space1);
-  padding: var(--ds-spacing-space6) var(--ds-spacing-space4);
-}
-
-.emptyHeading {
-  display: flex;
-  align-items: center;
-  gap: var(--ds-spacing-space1);
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--ds-text-primary);
-}
-
-.emptyBody {
-  margin: 0;
-  font-size: 16px;
-  color: var(--ds-text-secondary);
-}
-
 .countSummary {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--ds-typography-font-size-body);
   color: var(--ds-text-muted);
 }
 
-/* rowScroll is a CSS Grid (not the flex column it used to be) so every
-   row's cells land in shared column tracks: name | id | spacer | mode |
-   universe | address | deployment | edit | remove. Each .row below spans
-   every column (grid-column: 1 / -1) and re-declares those same tracks
-   via grid-template-columns: subgrid, so its own children slot straight
-   into the parent's tracks instead of sizing independently per row --
+/* rowScroll is a CSS Grid (not a flex column) so every row's cells land
+   in shared column tracks: name | id | spacer | mode | universe |
+   address | deployment | edit | remove. Each .row below spans every
+   column (grid-column: 1 / -1) and re-declares those same tracks via
+   grid-template-columns: subgrid, so its own children slot straight into
+   the parent's tracks instead of sizing independently per row --
    without subgrid, each row would size its "auto" columns off only its
    own content (an 8-char id, a 1-vs-3-digit address, ...), so the same
    column could land at a different x position row to row.
 
-   Name is max-content (never truncates a realistic fixture display
-   name) with the id badge in the very next auto column, so the two sit
-   flush against each other. The spacer column (3rd; a plain empty grid
-   item, .rowSpacer below) sits right after id and is the one track that
+   Name is max-content (never truncates a realistic fixture display name)
+   with the id tag in the very next auto column, so the two sit flush
+   against each other. The spacer column (3rd; a plain empty grid item,
+   .rowSpacer below) sits right after id and is the one track that
    actually absorbs the row's leftover width, so mode/universe/address/
    deployment pack tight against edit/remove at the row's right edge
    instead of trailing off with dead space before them. */
@@ -300,10 +76,12 @@
   align-items: center;
   column-gap: var(--ds-spacing-space2);
   padding: var(--ds-spacing-space2);
-  border: 1px solid var(--ds-border-default);
-  border-radius: 4px;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
   background: var(--ds-surface-canvas);
-  transition: background var(--ds-motion-tap);
+  transition: var(--ds-motion-tap);
 }
 
 .row:hover {
@@ -313,14 +91,14 @@
 /* rowEditing overrides .row back to a plain flex row (declared after
    .row so display/align-items win the cascade) for the reassign form's
    content: labeled Name/Mode/Universe/Address fields plus Save/Cancel
-   don't correspond 1:1 with the display row's 8 shared columns (a
-   "Name" input isn't the same cell as an "ID" badge), so this state
-   opts out of the shared subgrid rather than forcing a mismatched
-   mapping onto it. align-items: flex-end (not .row's own center) is
-   deliberate: Mode/Universe/Address each grew a label line above their
-   input, so bottom-aligning every child -- fields and Save/Cancel alike
-   -- lands the buttons level with the actual input line instead of
-   centered against the taller label+input block. */
+   don't correspond 1:1 with the display row's 8 shared columns (a "Name"
+   field isn't the same cell as an "ID" tag), so this state opts out of
+   the shared subgrid rather than forcing a mismatched mapping onto it.
+   align-items: flex-end (not .row's own center) is deliberate: every
+   Field/NumberStepper grows a label line above its control, so
+   bottom-aligning every child -- fields and Save/Cancel alike -- lands
+   the buttons level with the actual control line instead of centered
+   against the taller label+control block. */
 .rowEditing {
   display: flex;
   align-items: flex-end;
@@ -332,150 +110,46 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
+  font-weight: var(--ds-typography-font-weight-semibold);
   color: var(--ds-text-primary);
 }
 
-/* badge/badgeLabel/badgeValue mirror primitives/Chip/Chip.module.css's
-   pill shape (border/--ds-radii-pill/monospace value) for a label+value
+/* tag/tagLabel/tagValue mirror primitives/Chip/Chip.module.css's pill
+   shape (border/--ds-radii-pill/monospace value) for a label+value
    row-metadata chip -- Chip itself isn't reused directly since its
    `tone` prop is a fixed live/frame-lock/armed/... status vocabulary
-   this plain "ID"/"Mode"/... tag has no business borrowing. Each
-   .badge* modifier below tints the pill so the five kinds read apart at
-   a glance without leaving the brand's accent-only interactive-color
-   discipline (Chip's own tone vocabulary is reserved for the six named
-   live/frame-lock/armed/revoked/blackout/offline system states, so
-   these reuse --accent at rising intensity for the three patch-address
-   fields, plus two neutral fills for the two identity fields, rather
-   than inventing new hues or borrowing a status color for an unrelated
-   meaning). */
-.badge {
+   this plain "ID"/"Mode"/... tag has no business borrowing. Every kind
+   shares one flat tint: the fixed uppercase label plus each kind's
+   stable column position in .rowScroll's subgrid already disambiguate
+   kind, so a second, decorative per-kind color was cut rather than
+   spent on six feature-local color-mix() tints with no semantic-token
+   equivalent. */
+.tag {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px var(--ds-spacing-space2);
-  border: 1px solid var(--ds-border-default);
+  gap: var(--ds-spacing-space1);
+  padding-block: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space2);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
   border-radius: var(--ds-radii-pill);
-  background: var(--ds-surface-canvas);
+  background: var(--ds-surface-panel-subdued);
   white-space: nowrap;
 }
 
-.badgeId {
-  background: var(--ds-surface-panel-subdued);
-}
-
-.badgeMode {
-  background: color-mix(in srgb, var(--ds-action-primary) 10%, var(--ds-surface-canvas));
-  border-color: color-mix(in srgb, var(--ds-action-primary) 30%, var(--ds-border-default));
-}
-
-.badgeUniverse {
-  background: color-mix(in srgb, var(--ds-action-primary) 18%, var(--ds-surface-canvas));
-  border-color: color-mix(in srgb, var(--ds-action-primary) 40%, var(--ds-border-default));
-}
-
-.badgeAddress {
-  background: color-mix(in srgb, var(--ds-action-primary) 26%, var(--ds-surface-canvas));
-  border-color: color-mix(in srgb, var(--ds-action-primary) 50%, var(--ds-border-default));
-}
-
-.badgeDeployment {
-  background: var(--ds-border-default);
-}
-
-.badgeLabel {
+.tagLabel {
   font-size: var(--ds-typography-font-size-compact);
-  font-weight: 600;
+  font-weight: var(--ds-typography-font-weight-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ds-text-muted);
 }
 
-.badgeValue {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+.tagValue {
+  font-family: var(--ds-typography-font-family-mono);
   font-size: var(--ds-typography-font-size-compact);
   color: var(--ds-text-secondary);
-}
-
-.technical {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 14px;
-  color: var(--ds-text-muted);
-}
-
-/* backdrop/dialog/dialogHeader/dialogTitle/dialogBody mirror
-   Scripts/ScriptRunDialog.module.css's established custom dialog shell
-   exactly (no Radix; backdrop click + Escape both close, focus moves
-   onto the dialog on open -- see ProjectFixtures.tsx's addFormDialogRef
-   effects) -- "Add from Library" used to expand inline in the fixture
-   list, pushing everything below it down the page; this is the same
-   shell every other in-app dialog (Scripts run/debug, the guide's
-   confirm prompts) already uses, not a bespoke one. */
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--ds-text-primary) 45%, transparent);
-  animation: backdropFadeIn var(--ds-motion-settle);
-}
-
-.dialog {
-  width: min(560px, 90vw);
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--ds-border-default);
-  border-radius: var(--ds-radii-large);
-  background: var(--ds-surface-panel);
-  overflow: hidden;
-  animation: dialogPopIn var(--ds-motion-settle);
-}
-
-@keyframes backdropFadeIn {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes dialogPopIn {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(4px);
-  }
-}
-
-.dialog:focus-visible {
-  outline: 2px solid var(--ds-action-primary);
-  outline-offset: -2px;
-}
-
-.dialogHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--ds-spacing-space4) var(--ds-spacing-space6);
-  border-bottom: 1px solid var(--ds-border-default);
-  flex-shrink: 0;
-}
-
-.dialogTitle {
-  display: flex;
-  align-items: center;
-  gap: var(--ds-spacing-space2);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--ds-typography-font-size-heading);
-  font-weight: 600;
-  color: var(--ds-text-primary);
-}
-
-.dialogBody {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: var(--ds-spacing-space6);
 }
 
 .addForm {
@@ -484,33 +158,10 @@
   gap: var(--ds-spacing-space2);
 }
 
-.formActions {
+.dialogTitle {
   display: flex;
+  align-items: center;
   gap: var(--ds-spacing-space2);
-}
-
-.previewPanel {
-  /* grid-column spans every .rowScroll track when this panel's parent
-     .row is still the grid display row (removing a fixture never
-     switches that row into .rowEditing's flex layout); flex-basis is
-     the equivalent full-width-wrap for the rare case a row is
-     simultaneously mid-edit, so this never renders squeezed into a
-     single column/flex segment under either layout. */
-  grid-column: 1 / -1;
-  flex-basis: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: var(--ds-spacing-space1);
-  padding: var(--ds-spacing-space2);
-  border: 1px solid var(--ds-action-primary);
-  border-radius: 4px;
-  background: var(--ds-surface-canvas);
-}
-
-.previewHeading {
-  margin: 0;
-  font-weight: 600;
-  color: var(--ds-text-primary);
 }
 
 .previewList {
@@ -521,30 +172,16 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-}
-
-.previewRow {
-  font-size: 14px;
-  color: var(--ds-text-secondary);
+  gap: var(--ds-spacing-space1);
 }
 
 .previewWarning {
-  font-size: 14px;
+  font-size: var(--ds-typography-font-size-body);
   color: var(--ds-status-armed);
 }
 
-.previewError {
-  font-size: 14px;
+.previewBlocker {
+  font-size: var(--ds-typography-font-size-body);
   color: var(--ds-status-revoked);
-  font-weight: 600;
-}
-
-.errorText {
-  margin: 0;
-  padding: var(--ds-spacing-space2);
-  border-radius: 4px;
-  background: var(--ds-status-revoked);
-  color: #fff;
-  font-size: 14px;
+  font-weight: var(--ds-typography-font-weight-semibold);
 }

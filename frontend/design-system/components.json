@@ -19,6 +19,7 @@
     { "name": "ListRow", "kind": "primitive", "exportPath": "src/components/primitives/ListRow/ListRow.tsx", "guideAnchor": "#listrow", "testPath": "src/components/primitives/ListRow/ListRow.test.tsx" },
     { "name": "LoadingState", "kind": "primitive", "exportPath": "src/components/primitives/LoadingState/LoadingState.tsx", "guideAnchor": "#loadingstate", "testPath": "src/components/primitives/LoadingState/LoadingState.test.tsx" },
     { "name": "MidiPickup", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#midipickup", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" },
+    { "name": "NumberStepper", "kind": "primitive", "exportPath": "src/components/primitives/NumberStepper/NumberStepper.tsx", "guideAnchor": "#numberstepper", "testPath": "src/components/primitives/NumberStepper/NumberStepper.test.tsx" },
     { "name": "Panel", "kind": "primitive", "exportPath": "src/components/primitives/Panel/Panel.tsx", "guideAnchor": "#panel", "testPath": "src/components/primitives/Panel/Panel.test.tsx" },
     { "name": "PanelHeader", "kind": "primitive", "exportPath": "src/components/primitives/PanelHeader/PanelHeader.tsx", "guideAnchor": "#panelheader", "testPath": "src/components/primitives/PanelHeader/PanelHeader.test.tsx" },
     { "name": "ResizeHandle", "kind": "primitive", "exportPath": "src/components/primitives/ResizeHandle/ResizeHandle.tsx", "guideAnchor": "#resizehandle", "testPath": "src/components/primitives/ResizeHandle/ResizeHandle.test.tsx" },

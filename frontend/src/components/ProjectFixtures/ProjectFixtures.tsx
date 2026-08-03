@@ -23,8 +23,8 @@
 // FixtureLibraryService helpers -- this file never re-declares
 // `declare global` itself and never adds a second pool/deployment mutation
 // path (mirrors FixturePatch.tsx's own header comment).
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Eye, X, Check, PackagePlus, Pencil, ChevronUp, ChevronDown } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Plus, Eye, Check, PackagePlus, Pencil, X } from "lucide-react";
 
 import {
   activateDeployment,
@@ -44,6 +44,19 @@ import {
   type PatchPoolMemberView,
   type PatchView,
 } from "../../lib/wailsBridge";
+import {
+  Button,
+  Dialog,
+  EmptyState,
+  ErrorState,
+  Field,
+  FormActions,
+  IconButton,
+  ImpactReview,
+  LoadingState,
+  NumberStepper,
+  Panel,
+} from "../../design-system";
 import styles from "./ProjectFixtures.module.css";
 
 // ImpactOperation/ImpactPlan mirror internal/pool/impact.go's own
@@ -150,100 +163,55 @@ function parsePositiveInt(raw: string): number {
   return Math.floor(value);
 }
 
-// NumberStepper mirrors TempoControls.tsx's BPM spinner (the app's one
-// existing up/down-styled numeric control): a plain number input plus a
-// pair of chevron buttons that nudge the uncommitted value by 1, each
-// with tabIndex={-1} + onMouseDown preventDefault so a spinner click
-// never steals focus from the input.
-function NumberStepper({
-  value,
-  onChange,
-  label,
-  min = 1,
-  placeholder,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  label: string;
-  min?: number;
-  placeholder?: string;
-}) {
-  const step = (delta: number) => {
-    const parsed = Number(value) || 0;
-    onChange(String(Math.max(min, Math.round(parsed + delta))));
-  };
-
-  return (
-    <span className={styles.stepperWrap}>
-      <input
-        className={styles.stepperInput}
-        type="number"
-        min={min}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        aria-label={label}
-      />
-      <span className={styles.stepperSpinner}>
-        <button
-          type="button"
-          className={styles.stepperSpinnerButton}
-          tabIndex={-1}
-          aria-label={`Increase ${label.toLowerCase()}`}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => step(1)}
-        >
-          <ChevronUp size={10} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className={styles.stepperSpinnerButton}
-          tabIndex={-1}
-          aria-label={`Decrease ${label.toLowerCase()}`}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => step(-1)}
-        >
-          <ChevronDown size={10} aria-hidden="true" />
-        </button>
-      </span>
-    </span>
-  );
+/** addImpacts/removeImpacts summarize an ImpactPlan for ImpactReview's
+ * preview-before-apply contract, mirroring FixturePatch.tsx's identical
+ * helpers -- this file's ImpactPlan/ImpactOperation shapes are the same
+ * raw pool-impact encoding, duplicated locally per this file's own header
+ * comment rather than centralized in wailsBridge.ts. */
+function addImpacts(plan: ImpactPlan): string[] {
+  const additions = (plan.operations ?? [])
+    .filter((op) => op.dependent_kind === "deployment_instance" && op.action === "add")
+    .map((op) => `${op.dependent_ref} → Universe ${op.proposed_universe}, Address ${op.proposed_address}`);
+  return additions.length > 0 ? additions : ["No deployment currently references this pool -- nothing to instantiate yet."];
 }
 
-type MetaBadgeKind = "id" | "mode" | "universe" | "address" | "deployment";
+function removeImpacts(plan: ImpactPlan): string[] {
+  const removals = (plan.operations ?? [])
+    .filter((op) => op.action === "remove")
+    .map((op) =>
+      op.dependent_kind === "deployment_instance"
+        ? `${op.dependent_ref}: deployment instance removed`
+        : `${op.dependent_ref}: group member removed`,
+    );
+  return removals.length > 0
+    ? removals
+    : ["Nothing else references this member -- only the pool member itself is removed."];
+}
 
-const META_BADGE_KIND_CLASS: Record<MetaBadgeKind, string> = {
-  id: styles.badgeId,
-  mode: styles.badgeMode,
-  universe: styles.badgeUniverse,
-  address: styles.badgeAddress,
-  deployment: styles.badgeDeployment,
-};
-
-// MetaBadge is a small labeled pill for a bare identifier/value that
-// would otherwise be ambiguous on its own (a truncated UUID, a
-// deployment name that reads like a generic word) -- label is a fixed
-// uppercase tag ("ID", "Deployment") so the value is never shown
-// unexplained, mirroring the primitives/Chip pill shape (border/pill
-// radius/monospace value) without adopting Chip's own tone/status
-// vocabulary, which this row-metadata use has no need for. kind selects
-// a background tint so the five badge kinds read apart at a glance
-// (ProjectFixtures.module.css's .badge* modifiers).
-function MetaBadge({
+// MetaTag is a small labeled pill for a bare identifier/value that would
+// otherwise be ambiguous on its own (a truncated UUID, a deployment name
+// that reads like a generic word) -- label is a fixed uppercase tag ("ID",
+// "Deployment") so the value is never shown unexplained. It deliberately
+// does not reuse Chip: Chip's tone vocabulary is the fixed six-status
+// brand meaning (live/armed/revoked/...), and this row-metadata use has
+// five unrelated identity kinds with no status meaning to encode. Every
+// kind shares one flat tint -- the fixed label plus each kind's stable
+// grid column position (mode/universe/address/deployment always land in
+// the same track, per .rowScroll's subgrid) already disambiguate kind
+// without needing a second, decorative per-kind color.
+function MetaTag({
   label,
   value,
-  kind,
   title,
 }: {
   label: string;
   value: string;
-  kind: MetaBadgeKind;
   title?: string;
 }) {
   return (
-    <span className={`${styles.badge} ${META_BADGE_KIND_CLASS[kind]}`} title={title}>
-      <span className={styles.badgeLabel}>{label}</span>
-      <span className={styles.badgeValue}>{value}</span>
+    <span className={styles.tag} title={title}>
+      <span className={styles.tagLabel}>{label}</span>
+      <span className={styles.tagValue}>{value}</span>
     </span>
   );
 }
@@ -315,31 +283,6 @@ export default function ProjectFixtures() {
     setShowAddForm(false);
     setPendingPreview(null);
   };
-
-  // addFormDialogRef/the two effects below mirror ScriptRunDialog.tsx's
-  // established backdrop+dialog pattern exactly (no Radix, plain custom
-  // dialog): focus moves onto the dialog surface itself on open, and
-  // Escape closes it, both only while it's actually open.
-  const addFormDialogRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (showAddForm) {
-      addFormDialogRef.current?.focus();
-    }
-  }, [showAddForm]);
-
-  useEffect(() => {
-    if (!showAddForm) {
-      return;
-    }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        handleCancelAddForm();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [showAddForm]);
 
   const handleSelectFixture = (stableKey: string) => {
     const row = libraryRows.find((candidate) => candidate.stableKey === stableKey) ?? null;
@@ -523,12 +466,12 @@ export default function ProjectFixtures() {
   };
 
   return (
-    <section className={styles.panel} aria-label="Project fixtures" aria-busy={listLoading}>
+    <Panel aria-label="Project fixtures" aria-busy={listLoading}>
       {listLoading ? (
-        <div className={styles.skeleton}>Loading project fixtures…</div>
+        <LoadingState label="Project fixtures are loading" variant="panel" />
       ) : (
         <>
-          {error && <p className={styles.errorText}>{error}</p>}
+          {error && <ErrorState heading="Project fixtures unavailable" message={error} variant="panel" />}
 
           <div className={styles.subsection}>
             <div className={styles.createRow}>
@@ -536,23 +479,18 @@ export default function ProjectFixtures() {
                 {rows.length} fixture{rows.length === 1 ? "" : "s"} in this project
               </span>
               {!showAddForm && (
-                <button type="button" className={styles.primaryButton} onClick={handleOpenAddForm}>
-                  <Plus size={14} aria-hidden="true" />
+                <Button variant="primary" leadingIcon={Plus} onClick={handleOpenAddForm}>
                   Add from Library
-                </button>
+                </Button>
               )}
             </div>
 
             {rows.length === 0 ? (
-              <div className={styles.emptyState}>
-                <p className={styles.emptyHeading}>
-                  <PackagePlus size={18} aria-hidden="true" />
-                  No fixtures added yet
-                </p>
-                <p className={styles.emptyBody}>
-                  Add a fixture from the library to patch it into the show with a universe and address.
-                </p>
-              </div>
+              <EmptyState
+                icon={PackagePlus}
+                heading="No fixtures added yet"
+                body="Add a fixture from the library to patch it into the show with a universe and address."
+              />
             ) : (
               <ul className={styles.rowScroll} aria-label="Project fixture list">
                 {rows.map((row) => (
@@ -564,19 +502,15 @@ export default function ProjectFixtures() {
                   >
                     {reassigningInstanceId === row.key ? (
                       <>
-                        <label className={`${styles.fieldLabel} ${styles.nameField}`}>
-                          Name
-                          <input
-                            className={styles.createInput}
+                        <div className={styles.nameField}>
+                          <Field
+                            label="Name"
                             value={reassignName}
                             onChange={(event) => setReassignName(event.target.value)}
-                            aria-label="Fixture name"
                           />
-                        </label>
-                        <label className={styles.fieldLabel}>
-                          Mode
+                        </div>
+                        <Field label="Mode">
                           <select
-                            className={styles.createInput}
                             value={reassignMode}
                             onChange={(event) => setReassignMode(event.target.value)}
                           >
@@ -589,45 +523,25 @@ export default function ProjectFixtures() {
                                 </option>
                               ))}
                           </select>
-                        </label>
-                        <label className={styles.fieldLabel}>
-                          Universe
-                          <NumberStepper
-                            value={reassignUniverse}
-                            onChange={setReassignUniverse}
-                            label="Universe"
-                          />
-                        </label>
-                        <label className={styles.fieldLabel}>
-                          Address
-                          <NumberStepper value={reassignAddress} onChange={setReassignAddress} label="Address" />
-                        </label>
-                        <button
-                          type="button"
-                          className={`${styles.primaryButton} ${styles.rowFormButton}`}
-                          disabled={reassignLoading}
+                        </Field>
+                        <NumberStepper value={reassignUniverse} onChange={setReassignUniverse} label="Universe" />
+                        <NumberStepper value={reassignAddress} onChange={setReassignAddress} label="Address" />
+                        <IconButton
+                          icon={Check}
+                          variant="primary"
+                          loading={reassignLoading}
+                          label={reassignLoading ? "Saving…" : "Save"}
                           onClick={() => void handleSaveReassign(row)}
-                          aria-label={reassignLoading ? "Saving…" : "Save"}
-                        >
-                          <Check size={13} aria-hidden="true" />
-                        </button>
-                        <button
-                          type="button"
-                          className={`${styles.secondaryButton} ${styles.rowFormButton}`}
-                          onClick={handleCancelReassign}
-                          aria-label="Cancel"
-                        >
-                          <X size={13} aria-hidden="true" />
-                        </button>
+                        />
+                        <IconButton icon={X} label="Cancel" onClick={handleCancelReassign} />
                       </>
                     ) : (
                       <>
                         <span className={styles.rowName} title={row.displayName}>
                           {row.displayName}
                         </span>
-                        <MetaBadge
+                        <MetaTag
                           label="ID"
-                          kind="id"
                           // UUIDv7's leading bits encode a millisecond
                           // timestamp, so members minted in the same
                           // batch add (like these 5 rows) share an
@@ -640,244 +554,160 @@ export default function ProjectFixtures() {
                           title={`Fixture unit ${row.poolMemberId}`}
                         />
                         <span className={styles.rowSpacer} aria-hidden="true" />
-                        <MetaBadge label="Mode" kind="mode" value={row.mode} />
-                        <MetaBadge label="Universe" kind="universe" value={String(row.universe)} />
-                        <MetaBadge label="Address" kind="address" value={String(row.address)} />
-                        <MetaBadge label="Deployment" kind="deployment" value={row.deploymentName} />
-                        <button
-                          type="button"
-                          className={`${styles.secondaryButton} ${styles.rowFormButton}`}
-                          onClick={() => handleStartReassign(row)}
-                          aria-label={`Edit ${row.displayName}`}
-                        >
-                          <Pencil size={13} aria-hidden="true" />
-                        </button>
-                        <button
-                          type="button"
-                          className={`${styles.secondaryButton} ${styles.rowFormButton}`}
+                        <MetaTag label="Mode" value={row.mode} />
+                        <MetaTag label="Universe" value={String(row.universe)} />
+                        <MetaTag label="Address" value={String(row.address)} />
+                        <MetaTag label="Deployment" value={row.deploymentName} />
+                        <IconButton icon={Pencil} label={`Edit ${row.displayName}`} onClick={() => handleStartReassign(row)} />
+                        <IconButton
+                          icon={X}
+                          variant="destructive"
+                          label={`Remove ${row.displayName}`}
                           onClick={() => void handleStartRemove(row.poolName, row.poolMemberId)}
-                          aria-label={`Remove ${row.displayName}`}
-                        >
-                          <X size={13} aria-hidden="true" />
-                        </button>
+                        />
                       </>
                     )}
 
                     {removeTarget?.poolName === row.poolName && removeTarget.poolMemberId === row.poolMemberId && (
-                      <div className={styles.previewPanel}>
-                        {removePreviewLoading ? (
-                          <p className={styles.previewRow}>Reviewing…</p>
-                        ) : (
-                          pendingRemovePreview && (
-                            <>
-                              <p className={styles.previewHeading}>
-                                Impact Preview (plan{" "}
-                                <span className={styles.technical}>
-                                  {pendingRemovePreview.plan_id.slice(0, 12)}
-                                </span>
-                                )
-                              </p>
-                              <ul className={styles.previewList}>
-                                {(pendingRemovePreview.operations ?? [])
-                                  .filter((op) => op.action === "remove")
-                                  .map((op, index) => (
-                                    <li key={`${op.dependent_id}-${index}`} className={styles.previewRow}>
-                                      {op.dependent_kind === "deployment_instance"
-                                        ? `${op.dependent_ref}: deployment instance removed`
-                                        : `${op.dependent_ref}: group member removed`}
-                                    </li>
-                                  ))}
-                              </ul>
-                              <div className={styles.formActions}>
-                                <button
-                                  type="button"
-                                  className={styles.primaryButton}
-                                  disabled={removeApplyLoading}
-                                  onClick={() => void handleApplyRemove()}
-                                >
-                                  <Check size={14} aria-hidden="true" />
-                                  {removeApplyLoading ? "Applying…" : "Apply"}
-                                </button>
-                                <button type="button" className={styles.secondaryButton} onClick={handleCancelRemove}>
-                                  <X size={13} aria-hidden="true" />
-                                  Cancel
-                                </button>
-                              </div>
-                            </>
-                          )
-                        )}
-                      </div>
+                      removePreviewLoading ? (
+                        <LoadingState label="Reviewing removal impact" variant="inline" />
+                      ) : (
+                        pendingRemovePreview && (
+                          <ImpactReview
+                            summary={`Impact Preview (plan ${pendingRemovePreview.plan_id.slice(0, 12)})`}
+                            impacts={removeImpacts(pendingRemovePreview)}
+                          >
+                            <FormActions>
+                              <Button variant="primary" leadingIcon={Check} loading={removeApplyLoading} onClick={() => void handleApplyRemove()}>
+                                {removeApplyLoading ? "Applying…" : "Apply"}
+                              </Button>
+                              <Button variant="secondary" leadingIcon={X} onClick={handleCancelRemove}>Cancel</Button>
+                            </FormActions>
+                          </ImpactReview>
+                        )
+                      )
                     )}
                   </li>
                 ))}
               </ul>
             )}
 
-            {showAddForm && (
-              <div className={styles.backdrop} onClick={handleCancelAddForm}>
-                <div
-                  ref={addFormDialogRef}
-                  className={styles.dialog}
-                  role="dialog"
-                  aria-modal="true"
-                  aria-label="Add fixture from library"
-                  tabIndex={-1}
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  <div className={styles.dialogHeader}>
-                    <span className={styles.dialogTitle}>
-                      <PackagePlus size={16} aria-hidden="true" />
-                      Add from Library
-                    </span>
-                    <button
-                      type="button"
-                      className={styles.secondaryButton}
-                      onClick={handleCancelAddForm}
-                      aria-label="Close"
-                    >
-                      <X size={13} aria-hidden="true" />
-                    </button>
-                  </div>
-                  <div className={styles.dialogBody}>
-                    <div className={styles.addForm}>
-                      <select
-                        className={styles.createInput}
-                        value={selectedFixture?.stableKey ?? ""}
-                        onChange={(event) => handleSelectFixture(event.target.value)}
-                        aria-label="Fixture"
-                      >
-                        <option value="" disabled>
-                          {libraryRows.filter((row) => row.status === "valid").length === 0
-                            ? "No fixtures in library -- import one first"
-                            : "Select a fixture…"}
+            <Dialog
+              open={showAddForm}
+              title={
+                <span className={styles.dialogTitle}>
+                  <PackagePlus size={16} aria-hidden="true" />
+                  Add from Library
+                </span>
+              }
+              onClose={handleCancelAddForm}
+            >
+              <div className={styles.addForm}>
+                <Field label="Fixture">
+                  <select
+                    value={selectedFixture?.stableKey ?? ""}
+                    onChange={(event) => handleSelectFixture(event.target.value)}
+                  >
+                    <option value="" disabled>
+                      {libraryRows.filter((row) => row.status === "valid").length === 0
+                        ? "No fixtures in library -- import one first"
+                        : "Select a fixture…"}
+                    </option>
+                    {libraryRows
+                      .filter((row) => row.status === "valid")
+                      .map((row) => (
+                        <option key={row.stableKey} value={row.stableKey}>
+                          {row.manufacturer} {row.model}
                         </option>
-                        {libraryRows
-                          .filter((row) => row.status === "valid")
-                          .map((row) => (
-                            <option key={row.stableKey} value={row.stableKey}>
-                              {row.manufacturer} {row.model}
-                            </option>
-                          ))}
-                      </select>
-                      <select
-                        className={styles.createInput}
-                        value={mode}
-                        onChange={(event) => setMode(event.target.value)}
-                        aria-label="Fixture mode"
-                        disabled={!selectedFixture}
-                      >
-                        <option value="" disabled>
-                          Select a mode…
-                        </option>
-                        {(selectedFixture?.modes ?? []).map((modeOption) => (
-                          <option key={modeOption} value={modeOption}>
-                            {modeOption}
-                          </option>
+                      ))}
+                  </select>
+                </Field>
+                <Field label="Fixture mode" disabled={!selectedFixture}>
+                  <select
+                    value={mode}
+                    onChange={(event) => setMode(event.target.value)}
+                  >
+                    <option value="" disabled>
+                      Select a mode…
+                    </option>
+                    {(selectedFixture?.modes ?? []).map((modeOption) => (
+                      <option key={modeOption} value={modeOption}>
+                        {modeOption}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <NumberStepper value={quantity} onChange={setQuantity} label="Quantity" />
+                <NumberStepper
+                  value={startUniverse}
+                  onChange={setStartUniverse}
+                  label="Starting universe"
+                  placeholder="Auto"
+                  description="Optional -- leave blank for the next open universe."
+                />
+                <NumberStepper
+                  value={startAddress}
+                  onChange={setStartAddress}
+                  label="Starting address"
+                  placeholder="Auto"
+                  description="Optional -- leave blank for the next open address."
+                />
+
+                <FormActions>
+                  <Button
+                    variant="primary"
+                    leadingIcon={Eye}
+                    loading={previewLoading}
+                    disabled={!selectedFixture || !mode}
+                    onClick={() => void handleReviewImpact()}
+                  >
+                    {previewLoading ? "Reviewing…" : "Review Impact"}
+                  </Button>
+                  <Button variant="secondary" leadingIcon={X} onClick={handleCancelAddForm}>Cancel</Button>
+                </FormActions>
+
+                {pendingPreview && (
+                  <ImpactReview
+                    summary={`Impact Preview (plan ${pendingPreview.plan_id.slice(0, 12)})`}
+                    impacts={addImpacts(pendingPreview)}
+                  >
+                    {(pendingPreview.warnings ?? []).length > 0 && (
+                      <ul className={styles.previewList}>
+                        {pendingPreview.warnings?.map((warning, index) => (
+                          <li key={`warning-${index}`} className={styles.previewWarning}>
+                            {warning.code}: {warning.message}
+                          </li>
                         ))}
-                      </select>
-                      <label className={styles.fieldLabel}>
-                        Quantity
-                        <NumberStepper value={quantity} onChange={setQuantity} label="Quantity" />
-                      </label>
-                      <label className={styles.fieldLabel}>
-                        Starting universe (optional)
-                        <NumberStepper
-                          value={startUniverse}
-                          onChange={setStartUniverse}
-                          label="Starting universe"
-                          placeholder="Auto"
-                        />
-                      </label>
-                      <label className={styles.fieldLabel}>
-                        Starting address (optional)
-                        <NumberStepper
-                          value={startAddress}
-                          onChange={setStartAddress}
-                          label="Starting address"
-                          placeholder="Auto"
-                        />
-                      </label>
-
-                      <div className={styles.formActions}>
-                        <button
-                          type="button"
-                          className={styles.primaryButton}
-                          disabled={previewLoading || !selectedFixture || !mode}
-                          onClick={() => void handleReviewImpact()}
-                        >
-                          <Eye size={14} aria-hidden="true" />
-                          {previewLoading ? "Reviewing…" : "Review Impact"}
-                        </button>
-                        <button type="button" className={styles.secondaryButton} onClick={handleCancelAddForm}>
-                          <X size={13} aria-hidden="true" />
-                          Cancel
-                        </button>
-                      </div>
-
-                      {pendingPreview && (
-                        <div className={styles.previewPanel}>
-                          <p className={styles.previewHeading}>
-                            Impact Preview (plan{" "}
-                            <span className={styles.technical}>{pendingPreview.plan_id.slice(0, 12)}</span>)
-                          </p>
-                          <ul className={styles.previewList}>
-                            {(pendingPreview.operations ?? [])
-                              .filter((op) => op.dependent_kind === "deployment_instance" && op.action === "add")
-                              .map((op, index) => (
-                                <li key={`${op.dependent_id}-${index}`} className={styles.previewRow}>
-                                  {op.dependent_ref} → Universe{" "}
-                                  <span className={styles.technical}>{op.proposed_universe}</span>, Address{" "}
-                                  <span className={styles.technical}>{op.proposed_address}</span>
-                                </li>
-                              ))}
-                          </ul>
-                          {(pendingPreview.warnings ?? []).length > 0 && (
-                            <ul className={styles.previewList}>
-                              {pendingPreview.warnings?.map((warning, index) => (
-                                <li key={`warning-${index}`} className={styles.previewWarning}>
-                                  {warning.code}: {warning.message}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                          {(pendingPreview.errors ?? []).length > 0 && (
-                            <ul className={styles.previewList}>
-                              {pendingPreview.errors?.map((planError, index) => (
-                                <li key={`error-${index}`} className={styles.previewError}>
-                                  {planError.code}: {planError.message}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                          <div className={styles.formActions}>
-                            <button
-                              type="button"
-                              className={styles.primaryButton}
-                              disabled={applyLoading || (pendingPreview.errors ?? []).length > 0}
-                              onClick={() => void handleApply()}
-                            >
-                              <Check size={14} aria-hidden="true" />
-                              {applyLoading ? "Applying…" : "Apply"}
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.secondaryButton}
-                              onClick={() => setPendingPreview(null)}
-                            >
-                              <X size={13} aria-hidden="true" />
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                      </ul>
+                    )}
+                    {(pendingPreview.errors ?? []).length > 0 && (
+                      <ul className={styles.previewList}>
+                        {pendingPreview.errors?.map((planError, index) => (
+                          <li key={`error-${index}`} className={styles.previewBlocker}>
+                            {planError.code}: {planError.message}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <FormActions>
+                      <Button
+                        variant="primary"
+                        leadingIcon={Check}
+                        loading={applyLoading}
+                        disabled={(pendingPreview.errors ?? []).length > 0}
+                        onClick={() => void handleApply()}
+                      >
+                        {applyLoading ? "Applying…" : "Apply"}
+                      </Button>
+                      <Button variant="secondary" leadingIcon={X} onClick={() => setPendingPreview(null)}>Cancel</Button>
+                    </FormActions>
+                  </ImpactReview>
+                )}
               </div>
-            )}
+            </Dialog>
           </div>
         </>
       )}
-    </section>
+    </Panel>
   );
 }
