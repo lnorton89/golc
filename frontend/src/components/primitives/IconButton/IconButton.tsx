@@ -6,6 +6,16 @@ import styles from "./IconButton.module.css";
 
 export type IconButtonVariant = "neutral" | "primary" | "destructive";
 export type IconButtonSize = "default" | "target";
+/** "native" (default) disables via the real `disabled` attribute, same as
+ * every other button in the app. "soft" is an opt-in for the rare case
+ * where the button must stay hoverable/focusable/tabbable while inert --
+ * a native `disabled` button does not receive hover/focus events in most
+ * browsers, which silently swallows a `title` tooltip explaining why an
+ * action is unavailable right when an operator goes looking for it. In
+ * "soft" mode the caller remains responsible for making its own onClick a
+ * no-op while `disabled` is true (exactly like the "native" mode's own
+ * callers already must not rely on the click firing at all). */
+export type IconButtonDisabledBehavior = "native" | "soft";
 
 export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label" | "children"> {
   icon: LucideIcon;
@@ -13,6 +23,7 @@ export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
   variant?: IconButtonVariant;
   size?: IconButtonSize;
   loading?: boolean;
+  disabledBehavior?: IconButtonDisabledBehavior;
 }
 
 const VARIANT_CLASS: Record<IconButtonVariant, string> = {
@@ -27,13 +38,25 @@ const SIZE_CLASS: Record<IconButtonSize, string> = {
 };
 
 const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { icon: Icon, label, variant = "neutral", size = "target", loading = false, disabled = false, className, type = "button", ...rest },
+  {
+    icon: Icon,
+    label,
+    variant = "neutral",
+    size = "target",
+    loading = false,
+    disabled = false,
+    disabledBehavior = "native",
+    className,
+    type = "button",
+    ...rest
+  },
   ref,
 ) {
   if (!label.trim()) {
     throw new Error("IconButton requires a non-empty accessible label.");
   }
 
+  const isSoftDisabled = disabled && !loading && disabledBehavior === "soft";
   const combinedClassName = [styles.button, VARIANT_CLASS[variant], SIZE_CLASS[size], className].filter(Boolean).join(" ");
   return (
     <button
@@ -42,7 +65,8 @@ const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconB
       className={combinedClassName}
       aria-label={label}
       aria-busy={loading || undefined}
-      disabled={disabled || loading}
+      aria-disabled={isSoftDisabled ? true : undefined}
+      disabled={isSoftDisabled ? false : disabled || loading}
       {...rest}
     >
       {loading ? <span className={styles.spinner} aria-hidden="true" /> : <Icon className={styles.icon} aria-hidden="true" />}
