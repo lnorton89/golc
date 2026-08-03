@@ -13,6 +13,7 @@ import { lazy, Suspense } from "react";
 
 import ErrorBoundary from "./shell/ErrorBoundary";
 import DialogFeasibility from "./design-system/fixtures/DialogFeasibility";
+import DesignSystemGallery from "./design-system/fixtures/DesignSystemGallery";
 
 // Keep the test-only fixture route independent from the normal shell bundle.
 // It still inherits index.css's generated semantic theme contract, while the
@@ -22,6 +23,15 @@ const AppShell = lazy(() => import("./shell/AppShell"));
 export default function App() {
   if (globalThis.location.search === "?e2e=dialog-feasibility") {
     return <DialogFeasibility />;
+  }
+
+  // Plan 13-17's calibration/matrix fixtures need a real, reachable browser
+  // page for DesignSystemGallery.tsx (previously only rendered inside
+  // Vitest's jsdom via DesignSystemGallery.test.tsx) -- mirrors the exact
+  // ?e2e=dialog-feasibility seam above rather than inventing a second
+  // routing mechanism.
+  if (globalThis.location.search === "?e2e=design-system-gallery") {
+    return <DesignSystemGallery />;
   }
 
   return (
