@@ -20,10 +20,20 @@
 // Blocker/warning/evidence stay three independently counted categories,
 // each rendered with the locked status word plus its own
 // singular/plural-agreeing count ("1 blocker", "0 warnings") -- never a
-// combined score, ratio, or bar.
+// combined score, ratio, or bar. This <ul aria-label="Readiness summary">
+// structure and its exact text are asserted directly by
+// GuidedFirstShow.test.tsx and are NOT converted to a shared primitive
+// (13-25-PLAN.md): no inventory primitive renders this three-category,
+// singular/plural-agreeing count shape, and the locked design's own "no
+// combined score/progressbar" contract is easiest to keep verifiably true
+// in this stage's own plain markup.
+//
+// 13-25-PLAN.md (D-05): only the stage's own top-level loading/error text
+// now render through the shared LoadingState/ErrorState primitives.
 import { useCallback, useEffect, useState } from "react";
 
 import { errorMessage, listLocalFixtures, listPatch, listProgramming } from "../../../../lib/wailsBridge";
+import { ErrorState, LoadingState } from "../../../../design-system";
 import {
   aggregateReadiness,
   deriveAssignStatus,
@@ -112,8 +122,8 @@ export default function VerifyStage({ onStatusChange }: VerifyStageProps) {
         Review the readiness evidence gathered from every stage before handing this show off to a
         player.
       </p>
-      {loading ? <p>Checking readiness…</p> : null}
-      {error ? <p>{error}</p> : null}
+      {loading ? <LoadingState label="Checking readiness…" /> : null}
+      {error ? <ErrorState heading="Readiness check unavailable" message={error} /> : null}
       {rollup ? (
         <ul aria-label="Readiness summary">
           <li>

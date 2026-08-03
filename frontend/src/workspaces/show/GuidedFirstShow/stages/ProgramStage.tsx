@@ -6,9 +6,13 @@
 // (navigateTo("build-scenes-looks"), wired centrally by
 // GuidedFirstShow.tsx's STAGE_DESTINATION map); this stage performs no
 // programming mutation of its own (T-09-04-04).
+//
+// 13-25-PLAN.md (D-05): loading/error text now render through the shared
+// LoadingState/ErrorState primitives instead of bare <p> tags.
 import { useCallback, useEffect, useState } from "react";
 
 import { errorMessage, listProgramming } from "../../../../lib/wailsBridge";
+import { ErrorState, LoadingState } from "../../../../design-system";
 import { deriveProgramStatus } from "../readiness";
 import type { GuideStageStatus } from "../stages";
 
@@ -48,8 +52,8 @@ export default function ProgramStage({ onStatusChange }: ProgramStageProps) {
   return (
     <div>
       <p>Program at least one scene before assigning it to an operator surface.</p>
-      {loading ? <p>Checking your show's programming…</p> : null}
-      {error ? <p>{error}</p> : null}
+      {loading ? <LoadingState label="Checking your show's programming…" /> : null}
+      {error ? <ErrorState heading="Programming unavailable" message={error} /> : null}
     </div>
   );
 }

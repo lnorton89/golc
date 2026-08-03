@@ -8,9 +8,15 @@
 // duplicate state"). Its single primary action hands off to the real
 // Fixture Library workspace rather than embedding a second fixture
 // browser here.
+//
+// 13-25-PLAN.md (D-05): loading/error text now render through the shared
+// LoadingState/ErrorState primitives instead of bare <p> tags -- the
+// stage's own description paragraph is unchanged and inherits its
+// typography from GuidedFirstShow.module.css's .stageBody ancestor.
 import { useCallback, useEffect, useState } from "react";
 
 import { errorMessage, listLocalFixtures } from "../../../../lib/wailsBridge";
+import { ErrorState, LoadingState } from "../../../../design-system";
 import { deriveFixturesStatus } from "../readiness";
 import type { GuideStageStatus } from "../stages";
 
@@ -51,8 +57,8 @@ export default function FixturesStage({ onStatusChange }: FixturesStageProps) {
   return (
     <div>
       <p>Get at least one fixture into your library before patching it into the show.</p>
-      {loading ? <p>Checking your fixture library…</p> : null}
-      {error ? <p>{error}</p> : null}
+      {loading ? <LoadingState label="Checking your fixture library…" /> : null}
+      {error ? <ErrorState heading="Fixture library unavailable" message={error} /> : null}
     </div>
   );
 }
