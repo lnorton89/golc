@@ -1,0 +1,318 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-03T18:49:31.187Z",
+  "environment": {
+    "platform": "win32",
+    "browserName": "chromium",
+    "browserVersion": "151.0.7922.34",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "ceiling": 0.02,
+  "pixelColorThreshold": 0.2,
+  "candidateComparator": "playwright-toMatchSnapshot",
+  "states": [
+    {
+      "name": "shell",
+      "description": "Persistent shell chrome (top bar, rail, canvas, safety cluster) on the default Overview landing destination.",
+      "captures": [
+        {
+          "id": "capture-1",
+          "sha256": "02ba55a6d5187ddc649f14951f905d8a7d1e0ca046ef6c22522ab10ef4e9381e",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "capture-2",
+          "sha256": "02ba55a6d5187ddc649f14951f905d8a7d1e0ca046ef6c22522ab10ef4e9381e",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "capture-3",
+          "sha256": "02ba55a6d5187ddc649f14951f905d8a7d1e0ca046ef6c22522ab10ef4e9381e",
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "pairwiseDiffs": [
+        {
+          "pair": [
+            "capture-1",
+            "capture-2"
+          ],
+          "smallestPassingRatio": 0,
+          "candidatesTried": [
+            0
+          ]
+        },
+        {
+          "pair": [
+            "capture-1",
+            "capture-3"
+          ],
+          "smallestPassingRatio": 0,
+          "candidatesTried": [
+            0
+          ]
+        },
+        {
+          "pair": [
+            "capture-2",
+            "capture-3"
+          ],
+          "smallestPassingRatio": 0,
+          "candidatesTried": [
+            0
+          ]
+        }
+      ],
+      "maxRatio": 0
+    },
+    {
+      "name": "gallery",
+      "description": "The design-system's own deterministic state-gallery fixture (zero/one/many, busy/error, guided flow, safety variants).",
+      "captures": [
+        {
+          "id": "capture-1",
+          "sha256": "aa8d1525fa4748d1a9a2e0d67cea220a0f38c3730580f7da44958ecc1dd4638d",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "capture-2",
+          "sha256": "aa8d1525fa4748d1a9a2e0d67cea220a0f38c3730580f7da44958ecc1dd4638d",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "capture-3",
+          "sha256": "aa8d1525fa4748d1a9a2e0d67cea220a0f38c3730580f7da44958ecc1dd4638d",
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "pairwiseDiffs": [
+        {
+          "pair": [
+            "capture-1",
+            "capture-2"
+          ],
+          "smallestPassingRatio": 0,
+          "candidatesTried": [
+            0
+          ]
+        },
+        {
+          "pair": [
+            "capture-1",
+            "capture-3"
+          ],
+          "smallestPassingRatio": 0,
+          "candidatesTried": [
+            0
+          ]
+        },
+        {
+          "pair": [
+            "capture-2",
+            "capture-3"
+          ],
+          "smallestPassingRatio": 0,
+          "candidatesTried": [
+            0
+          ]
+        }
+      ],
+      "maxRatio": 0
+    },
+    {
+      "name": "dialog",
+      "description": "The Keyboard shortcuts help dialog open above the shell (dialog layer, focus-visible state).",
+      "captures": [
+        {
+          "id": "capture-1",
+          "sha256": "917a4625eee9625acdd7678b9433b8187f400e5e5b3e585adf8d97d06cb5e2f6",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "capture-2",
+          "sha256": "917a4625eee9625acdd7678b9433b8187f400e5e5b3e585adf8d97d06cb5e2f6",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "capture-3",
+          "sha256": "917a4625eee9625acdd7678b9433b8187f400e5e5b3e585adf8d97d06cb5e2f6",
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "pairwiseDiffs": [
+        {
+          "pair": [
+            "capture-1",
+            "capture-2"
+          ],
+          "smallestPassingRatio": 0,
+          "candidatesTried": [
+            0
+          ]
+        },
+        {
+          "pair": [
+            "capture-1",
+            "capture-3"
+          ],
+          "smallestPassingRatio": 0,
+          "candidatesTried": [
+            0
+          ]
+        },
+        {
+          "pair": [
+            "capture-2",
+            "capture-3"
+          ],
+          "smallestPassingRatio": 0,
+          "candidatesTried": [
+            0
+          ]
+        }
+      ],
+      "maxRatio": 0
+    },
+    {
+      "name": "text",
+      "description": "Fixture Library populated with a deliberately long manufacturer/model name (long-text reflow backstop).",
+      "captures": [
+        {
+          "id": "capture-1",
+          "sha256": "bc87915a64c25ffa6df40f02a6fef2dccaa1d5ae93a90a69d7f2d37272b18ca0",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "capture-2",
+          "sha256": "bc87915a64c25ffa6df40f02a6fef2dccaa1d5ae93a90a69d7f2d37272b18ca0",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "capture-3",
+          "sha256": "bc87915a64c25ffa6df40f02a6fef2dccaa1d5ae93a90a69d7f2d37272b18ca0",
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "pairwiseDiffs": [
+        {
+          "pair": [
+            "capture-1",
+            "capture-2"
+          ],
+          "smallestPassingRatio": 0,
+          "candidatesTried": [
+            0
+          ]
+        },
+        {
+          "pair": [
+            "capture-1",
+            "capture-3"
+          ],
+          "smallestPassingRatio": 0,
+          "candidatesTried": [
+            0
+          ]
+        },
+        {
+          "pair": [
+            "capture-2",
+            "capture-3"
+          ],
+          "smallestPassingRatio": 0,
+          "candidatesTried": [
+            0
+          ]
+        }
+      ],
+      "maxRatio": 0
+    },
+    {
+      "name": "specialized-geometry",
+      "description": "Desk fader geometry for two patched channel groups from the deterministic calibration fixture.",
+      "captures": [
+        {
+          "id": "capture-1",
+          "sha256": "44d26675d7acd77821644ae40c1489a6d106790c4cbc9342899fe464d2e6c530",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "capture-2",
+          "sha256": "44d26675d7acd77821644ae40c1489a6d106790c4cbc9342899fe464d2e6c530",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "capture-3",
+          "sha256": "44d26675d7acd77821644ae40c1489a6d106790c4cbc9342899fe464d2e6c530",
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "pairwiseDiffs": [
+        {
+          "pair": [
+            "capture-1",
+            "capture-2"
+          ],
+          "smallestPassingRatio": 0,
+          "candidatesTried": [
+            0
+          ]
+        },
+        {
+          "pair": [
+            "capture-1",
+            "capture-3"
+          ],
+          "smallestPassingRatio": 0,
+          "candidatesTried": [
+            0
+          ]
+        },
+        {
+          "pair": [
+            "capture-2",
+            "capture-3"
+          ],
+          "smallestPassingRatio": 0,
+          "candidatesTried": [
+            0
+          ]
+        }
+      ],
+      "maxRatio": 0
+    }
+  ],
+  "recomputation": {
+    "formula": "computedSmallestStableThreshold = max(state.maxRatio for state in states); state.maxRatio = max(pair.smallestPassingRatio for pair in state.pairwiseDiffs), or null if any pair never passed by the ceiling candidate; selectedThreshold = computedSmallestStableThreshold if it is <= ceiling, else null (excessive noise, calibration fails).",
+    "measuredRatios": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "computedSmallestStableThreshold": 0,
+    "ceiling": 0.02,
+    "selectedThreshold": 0,
+    "exceedsCeiling": false
+  },
+  "selectedThreshold": 0
+}
