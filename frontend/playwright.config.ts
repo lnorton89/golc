@@ -53,6 +53,13 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
   reporter: "list",
+  // Default Playwright naming interpolates {arg}-{projectName}-{platform}{ext}
+  // -- this repo only ever runs a single "chromium" project, so the
+  // projectName segment is pure noise on every committed baseline filename.
+  // Dropping it keeps snapshot filenames platform-qualified (still catches a
+  // genuine cross-OS rendering difference) without a redundant, never-varying
+  // "-chromium" segment.
+  snapshotPathTemplate: "{testDir}/{testFileDir}/{testFileName}-snapshots/{arg}{-snapshotSuffix}{ext}",
   use: {
     baseURL: "http://localhost:4790",
   },
