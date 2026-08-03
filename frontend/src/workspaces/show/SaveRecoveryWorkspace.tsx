@@ -31,13 +31,8 @@ import {
   saveShowAs,
   type RecoveryPointView,
 } from "../../lib/wailsBridge";
-import Toolbar from "../../components/primitives/Toolbar/Toolbar";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
-import Panel from "../../components/primitives/Panel/Panel";
-import PanelHeader from "../../components/primitives/PanelHeader/PanelHeader";
-import Button from "../../components/primitives/Button/Button";
-import ScrollRegion from "../../components/primitives/ScrollRegion/ScrollRegion";
-import EmptyState from "../../components/primitives/EmptyState/EmptyState";
+import { Button, EmptyState, ErrorState, Field, FormActions, InfoTooltip, LoadingState, Panel, PanelHeader, ScrollRegion, WorkspaceFrame } from "../../design-system";
 import styles from "./SaveRecoveryWorkspace.module.css";
 
 export default function SaveRecoveryWorkspace() {
@@ -127,14 +122,16 @@ export default function SaveRecoveryWorkspace() {
   };
 
   return (
-    <div className={styles.workspace}>
-      <Toolbar title="Save & Recovery" icon={SaveIcon} info={HOW_IT_WORKS_BY_ID["show-save-recovery"]} />
+    <WorkspaceFrame
+      title="Save & Recovery"
+      action={<InfoTooltip label="How Save & Recovery works" text={HOW_IT_WORKS_BY_ID["show-save-recovery"]} />}
+    >
       <div className={styles.canvas}>
         {loading ? (
-          <p className={styles.loading}>Loading save & recovery…</p>
+          <LoadingState label="Loading save & recovery…" variant="panel" />
         ) : (
           <>
-            {error ? <p className={styles.errorText}>{error}</p> : null}
+            {error ? <ErrorState heading="Save & Recovery unavailable" message={error} /> : null}
             {migrationRequired ? (
               <p className={styles.migrationNote}>
                 This show needs a schema migration before it can be edited further. Run{" "}
@@ -150,16 +147,14 @@ export default function SaveRecoveryWorkspace() {
                   icon={SaveIcon}
                   info="Saves the open show to its own file, or saves a copy to a different path."
                 />
-                <div className={styles.saveRow}>
+                <FormActions>
                   <Button variant="primary" icon={SaveIcon} disabled={saving} onClick={() => void handleSave()}>
                     {saving ? "Saving…" : "Save"}
                   </Button>
-                  <input
-                    className={styles.destInput}
-                    type="text"
+                  <Field
+                    label="Save As destination path"
                     value={destPath}
                     placeholder="Save a copy to path…"
-                    aria-label="Save As destination path"
                     onChange={(event) => setDestPath(event.target.value)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
@@ -170,7 +165,7 @@ export default function SaveRecoveryWorkspace() {
                   <Button variant="secondary" icon={Copy} disabled={savingAs} onClick={() => void handleSaveAs()}>
                     {savingAs ? "Saving…" : "Save As"}
                   </Button>
-                </div>
+                </FormActions>
               </Panel>
 
               <Panel>
@@ -222,6 +217,6 @@ export default function SaveRecoveryWorkspace() {
           </>
         )}
       </div>
-    </div>
+    </WorkspaceFrame>
   );
 }
