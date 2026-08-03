@@ -171,3 +171,82 @@ test.describe("persistent shell", () => {
     }
   }
 });
+
+// ---------------------------------------------------------------------------
+// Task 2: destructive dialog matrix
+// ---------------------------------------------------------------------------
+//
+// DialogFeasibility.tsx's "blocked dialog" (title "Discard fixture
+// changes?") is the only ConfirmDialog actually mounted anywhere reachable
+// in the app outside its own component/unit tests (reached via the existing
+// ?e2e=dialog-feasibility route, Plan 13-13's packaged-proof seam) -- this
+// spec reuses that exact route/fixture rather than inventing a second one.
+// dialog-feasibility.spec.ts already proves this specific ConfirmDialog
+// instance is deliberately Escape/backdrop-immune (closeOnEscape={false},
+// closeOnBackdrop={false} -- "This fixture keeps its dismissal policy
+// explicit."): for a destructive confirmation, requiring an explicit button
+// click rather than a stray Escape keypress is itself the safety contract
+// this matrix captures, not a gap in it.
+
+test.describe("dialog layer", () => {
+  for (const width of WIDTHS) {
+    for (const theme of THEMES) {
+      test(`${width}px ${theme}`, async ({ page }) => {
+        await withTheme(page, theme);
+        await installHealthyBindings(page);
+        await page.setViewportSize({ width, height: HEIGHT });
+
+        await page.goto("/?e2e=dialog-feasibility");
+        const trigger = page.getByRole("button", { name: "Open blocked dialog" });
+        await expect(page.getByRole("button", { name: "Open allowed dialog" })).toBeFocused();
+        await trigger.click();
+
+        const dialog = page.getByRole("dialog", { name: "Discard fixture changes?" });
+        await expect(dialog).toBeVisible();
+        await expect(page.getByText("This fixture keeps its dismissal policy explicit.")).toBeVisible();
+
+        // direct focus: the safe (cancel) action holds initial focus, never
+        // the destructive one.
+        const cancelAction = page.getByRole("button", { name: "Keep fixture" });
+        await expect(cancelAction).toBeFocused();
+
+        // Escape: this destructive confirmation's explicit-dismissal-only
+        // policy means a stray Escape must never silently dismiss it --
+        // containment holds even against an accidental keypress.
+        await page.keyboard.press("Escape");
+        await expect(dialog).toBeVisible();
+        await expect(cancelAction).toBeFocused();
+
+        // containment: the dialog itself stays fully inside the viewport at
+        // every required width.
+        const dialogBox = await dialog.boundingBox();
+        const viewportSize = page.viewportSize();
+        const containedInViewport =
+          dialogBox !== null &&
+          viewportSize !== null &&
+          dialogBox.x >= -2 &&
+          dialogBox.y >= -2 &&
+          dialogBox.x + dialogBox.width <= viewportSize.width + 2 &&
+          dialogBox.y + dialogBox.height <= viewportSize.height + 2;
+        expect(containedInViewport, "the dialog must stay fully inside the viewport at every width/theme").toBe(true);
+
+        await expectSafetyClusterAvailable(page);
+        await assertNoRuntimeIssues(page);
+        const overflow = await findOverflowingControls(page);
+        expect(overflow, "the dialog layer must not overflow the viewport").toEqual([]);
+
+        await settleForCapture(page);
+        await assertNoProtectedMaskIntersections(page, NO_MASKS);
+
+        await expect(page).toHaveScreenshot(`dialog-layer-${theme}-${width}.png`);
+
+        // return-focus: only an explicit action closes the dialog and
+        // returns focus to its own trigger -- proven after the capture above
+        // so it never perturbs the accepted baseline pixel state.
+        await cancelAction.click();
+        await expect(dialog).toHaveCount(0);
+        await expect(trigger).toBeFocused();
+      });
+    }
+  }
+});
