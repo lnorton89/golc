@@ -15,6 +15,18 @@
 // finishes with the real Verify stage -- every stage's own evidence
 // renders independently, and only Verify's Perform transition gates on a
 // blocker (T-09-04-02), never a rail item or any other workspace.
+//
+// 13-25-PLAN.md (D-02/D-03/D-04/D-05) migrated the rail from a hand-rolled
+// raw <button> list (styled with locked-sketch custom properties
+// --color-primary/--color-primary-soft) to the shared ListRow primitive:
+// ListRow already implements the identical left-border-accent + tinted-
+// background "current step" treatment via its own selected state (real
+// --ds-border-selected/--ds-surface-selected tokens), so the rail no
+// longer needs any of its own selection styling or custom properties.
+// Every rail-item behavior (click-to-select, aria-current, Exit Guide,
+// Back/primary footer actions) is unchanged -- only the visual
+// implementation moved into the shared primitive (see
+// GuidedFirstShow.module.css's own header comment for the full rationale).
 import { useEffect, useState, type ReactNode } from "react";
 import {
   ChevronLeft,
@@ -29,8 +41,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import Button from "../../../components/primitives/Button/Button";
 import type { DestinationId } from "../../../shell/navigation";
+import { Button, ListRow } from "../../../design-system";
 import { useGuidedFirstShow } from "./GuidedFirstShowContext";
 import GuideEvidenceList from "./GuideEvidenceList";
 import { GUIDE_STAGES, GUIDE_STAGE_LABELS, type GuideStageId, type GuideStageStatus } from "./stages";
@@ -115,21 +127,16 @@ export default function GuidedFirstShow() {
     <div className={styles.overlay}>
       <div className={styles["guided-flow"]}>
         <nav aria-label="First show steps" className={styles.rail}>
-          {GUIDE_STAGES.map((id) => {
-            const StageIcon = GUIDE_STAGE_ICONS[id];
-            return (
-              <button
-                key={id}
-                type="button"
-                className={styles["guide-step"]}
-                aria-current={id === stage ? "step" : undefined}
-                onClick={() => setStage(id)}
-              >
-                <StageIcon size={15} className={styles.stepIcon} aria-hidden="true" />
-                {GUIDE_STAGE_LABELS[id]}
-              </button>
-            );
-          })}
+          {GUIDE_STAGES.map((id) => (
+            <ListRow
+              key={id}
+              icon={GUIDE_STAGE_ICONS[id]}
+              label={GUIDE_STAGE_LABELS[id]}
+              selected={id === stage}
+              onSelect={() => setStage(id)}
+              aria-current={id === stage ? "step" : undefined}
+            />
+          ))}
         </nav>
 
         <div className={styles.contentArea}>
