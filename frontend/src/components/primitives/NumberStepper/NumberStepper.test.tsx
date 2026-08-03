@@ -47,4 +47,28 @@ describe("NumberStepper", () => {
       expect(button).toBeDisabled();
     }
   });
+
+  it("nudges by a fractional step when one is provided, without floating-point drift", () => {
+    const onChange = vi.fn();
+    render(<NumberStepper label="BPM" value="120" onChange={onChange} min={1} step={0.1} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Increase bpm" }));
+    expect(onChange).toHaveBeenCalledWith("120.1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Decrease bpm" }));
+    expect(onChange).toHaveBeenCalledWith("119.9");
+  });
+
+  it("forwards onBlur and onKeyDown to the underlying input", () => {
+    const onBlur = vi.fn();
+    const onKeyDown = vi.fn();
+    render(<NumberStepper label="BPM" value="120" onChange={() => {}} onBlur={onBlur} onKeyDown={onKeyDown} />);
+
+    const input = screen.getByLabelText("BPM");
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.blur(input);
+
+    expect(onKeyDown).toHaveBeenCalledTimes(1);
+    expect(onBlur).toHaveBeenCalledTimes(1);
+  });
 });

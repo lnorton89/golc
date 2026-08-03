@@ -1,118 +1,18 @@
+/*
+ * TempoControls.module.css -- 13-15 design-system migration: the display/
+ * Tap buttons and the editing-mode input+spinner now compose the shared
+ * `Button`/`NumberStepper` primitives (their own stylesheets own all
+ * button/input/spinner paint), so the only feature-owned CSS left here is
+ * this component's own bounded layout (the row) and the narrow-viewport
+ * label-collapse rule that mirrors SafetyCluster.module.css's own
+ * breakpoint and rationale.
+ */
+
 .tempo {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
   flex-shrink: 0;
-}
-
-.bpmDisplay {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  height: 28px;
-  padding: 0 var(--space-sm);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--ink);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.bpmIcon {
-  flex-shrink: 0;
-  color: var(--muted);
-}
-
-.bpmDisplay:hover {
-  border-color: var(--line);
-  background: var(--panel);
-}
-
-.bpmInputWrap {
-  position: relative;
-  display: inline-flex;
-}
-
-.bpmInput {
-  width: 64px;
-  height: 28px;
-  padding: 0 18px 0 var(--space-xs);
-  border: 1px solid var(--accent-4);
-  border-radius: var(--radius-sm);
-  background: var(--page);
-  color: var(--ink);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-sm);
-  /* Native spin buttons can't be recolored/resized to match this design
-     system -- hidden here in favor of the custom .bpmSpinner pair, which
-     is fully styleable and matches the rest of the app's controls. */
-  -moz-appearance: textfield;
-}
-
-.bpmInput::-webkit-inner-spin-button,
-.bpmInput::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.bpmSpinner {
-  position: absolute;
-  top: 1px;
-  right: 1px;
-  bottom: 1px;
-  display: flex;
-  flex-direction: column;
-  width: 16px;
-  border-left: 1px solid var(--line);
-  overflow: hidden;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-}
-
-.bpmSpinnerButton {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-  padding: 0;
-  border: none;
-  background: var(--panel);
-  color: var(--muted);
-  cursor: pointer;
-  line-height: 0;
-}
-
-.bpmSpinnerButton:hover {
-  background: color-mix(in srgb, var(--accent-4) 16%, var(--panel));
-  color: var(--ink);
-}
-
-.bpmSpinnerButton:first-child {
-  border-bottom: 1px solid var(--line);
-}
-
-.button {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  height: 28px;
-  padding: 0 var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--panel);
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.button:hover {
-  border-color: var(--muted);
 }
 
 /* Mirrors SafetyCluster.module.css's own breakpoint and rationale: below
@@ -120,11 +20,7 @@
    collapses to icon-only (aria-label keeps its accessible name) to help
    keep SafetyCluster's controls on screen. */
 @media (max-width: 700px) {
-  .button {
-    padding: 0 6px;
-  }
-
-  .buttonLabel {
+  .tapLabel {
     display: none;
   }
 }
