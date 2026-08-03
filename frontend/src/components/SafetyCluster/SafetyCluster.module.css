@@ -1,76 +1,98 @@
 /*
  * SafetyCluster.module.css -- the persistent safety cluster (D-13/D-15),
- * the three hold-to-confirm controls (D-14). Icon/polish + header-merge
- * pass: no longer its own full-width row -- it now lives inline in
- * GlobalFrame's 52px header, to the right of TempoControls' Tap button,
- * so its controls match that button's own 28px height/text-sm sizing
- * instead of the old dedicated-row's taller 36px target. Still visually
- * distinct via color (--control-color) and the fill/progress indicator;
- * the old floating "ACTIVE" text badge didn't fit this shorter target, so
- * an active control now shows via its own icon+label change (SafetyCluster.tsx)
- * plus a subtle accent ring (`.control[data-active]` below) instead.
+ * the three hold-to-confirm controls (D-14). 13-15 design-system
+ * migration: `.control` now decorates the shared `Button` primitive
+ * (target size, 44px min -- `--ds-sizing-control-minimum-target`, the
+ * required minimum in this embedded-in-shell-header context) instead of
+ * declaring its own geometry/paint from scratch. Every dynamic per-action
+ * color is an always-JS-set `--ds-safety-control-*` custom property (never
+ * a CSS-side fallback -- see 13-13-SUMMARY.md's `--ds-card-font-color-*`
+ * precedent for why a fallback pattern here would be un-exceptable), and
+ * the active/error rings use a `::after` overlay (border-based) so they
+ * never collide with `:focus-visible`'s own real `outline`.
  */
 
 .cluster {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
   flex-shrink: 0;
 }
 
 .control {
   position: relative;
   overflow: hidden;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-xs);
-  padding: 0 var(--space-sm);
-  color: var(--control-text-color, var(--ink));
-  font-family: "Archivo", system-ui, sans-serif;
-  font-weight: 600;
-  font-size: var(--text-sm);
-  white-space: nowrap;
-  text-align: center;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--control-color, var(--page));
-  cursor: pointer;
-  user-select: none;
-  touch-action: none;
-  -webkit-user-select: none;
-  box-shadow: 0 0 0 0 var(--control-color, var(--accent-5));
-  transition: box-shadow var(--motion-settle);
-}
-
-.control[data-active] {
-  box-shadow: 0 0 0 2px var(--control-color, var(--accent-5));
-}
-
-.controlIcon {
   flex-shrink: 0;
-  position: relative;
-  z-index: 1;
+}
+
+/* The attribute selector (rather than relying on cascade/import order
+   against Button.module.css's own same-specificity `.secondary`/`.target`
+   classes) guarantees this always wins regardless of bundling order. */
+.control[data-safety-control] {
+  background: var(--ds-safety-control-color);
+  color: var(--ds-safety-control-text-color);
+}
+
+.control[data-active="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-style: solid;
+  border-width: 2px;
+  border-color: var(--ds-safety-control-color);
+  border-radius: inherit;
+}
+
+/* A failed dispatch shows a destructive-toned ring so a sighted operator
+   gets an immediate visual signal even though the header has no spare
+   layout room for visible inline error copy (see SafetyCluster.tsx's own
+   role="alert" sr-only announcement for the audible signal). */
+.control[data-error="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-style: solid;
+  border-width: 2px;
+  border-color: var(--ds-action-destructive);
+  border-radius: inherit;
 }
 
 .control:focus-visible {
-  outline: 2px solid var(--accent-5);
-  outline-offset: 2px;
+  outline-style: solid;
+  outline-width: var(--ds-focus-ring);
+  outline-color: var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
 }
 
+/* .fill is the determinate hold-progress wash -- always the first child
+   (SafetyCluster.tsx) so it paints beneath the icon/label (both later in
+   DOM order, and thus painted on top of it: an absolutely-positioned
+   descendant with the default z-index:auto and this button's own in-flow
+   flex-item children share the same stacking step, broken by DOM order --
+   no z-index token needed at all). Its own translucent-white tone is
+   fixed regardless of the active action's own color (a light wash reads
+   consistently across blackout/revoked/neutral tones); the actual
+   per-instance transform/transition (the only genuinely dynamic parts)
+   are set inline in TSX, not here. */
 .fill {
   position: absolute;
   inset: 0;
-  transform-origin: left center;
-  transform: scaleX(0);
-  background: rgba(255, 255, 255, 0.28);
   pointer-events: none;
+  transform-origin: left center;
+  background: var(--ds-action-on-primary);
+  opacity: 0.28;
+}
+
+.icon {
+  flex-shrink: 0;
+  width: var(--ds-sizing-icon16);
+  height: var(--ds-sizing-icon16);
 }
 
 .label {
-  position: relative;
-  z-index: 1;
+  white-space: nowrap;
 }
 
 /* Below this width the three full labels (esp. "Stop / Release All") no
@@ -83,8 +105,8 @@
    accessible name regardless, and the visible label reappears unchanged
    above this breakpoint. */
 @media (max-width: 700px) {
-  .control {
-    padding: 0 6px;
+  .control[data-safety-control] {
+    padding-inline: var(--ds-spacing-space1);
   }
 
   .label {

@@ -2,22 +2,27 @@
 // active scene, enabled layers, BPM/bar position, controlling source, and
 // final output state (PLAY-07, 06-UI-SPEC.md "Live status bar ... fixed
 // height, not built from the standard scale -- treat as a locked chrome
-// region"). 06-05-PLAN.md Task 2 fills this Wave 2 stub: on mount it
-// fetches an authoritative baseline via fetchSafetyStatus, subscribes to
-// the Go host's throttled "status:update" push (onStatusUpdate,
-// wailsBridge.ts) to stay current, and re-queries fetchSafetyStatus again
-// if no push arrives within STATUS_GAP_MS -- the store's `status` slice is
-// therefore always a cache of the Go-pushed/fetched snapshot, never
-// authoritative on its own (06-RESEARCH.md anti-pattern: "Treating Wails
-// EventsEmit as ... source of truth"). When no scene is active (or the
-// daemon is unreachable), every field renders the same explicit idle value
-// ("--") rather than a blank/undefined one (PLAY-07
-// idle edge, D-04 "visible not hidden"); scene/layer names truncate with
-// ellipsis at a fixed column width with the full name on hover via the
-// native `title` attribute, and this bar's own height never grows to
-// accommodate a long name (06-UI-SPEC.md overflow rule).
+// region"). On mount it fetches an authoritative baseline via
+// fetchSafetyStatus, subscribes to the Go host's throttled "status:update"
+// push (onStatusUpdate, wailsBridge.ts) to stay current, and re-queries
+// fetchSafetyStatus again if no push arrives within STATUS_GAP_MS -- the
+// store's `status` slice is therefore always a cache of the Go-pushed/
+// fetched snapshot, never authoritative on its own (06-RESEARCH.md
+// anti-pattern: "Treating Wails EventsEmit as ... source of truth"). When
+// no scene is active (or the daemon is unreachable), every field renders
+// the same explicit idle value ("--") rather than a blank/undefined one
+// (PLAY-07 idle edge, D-04 "visible not hidden"); scene/layer names
+// truncate with ellipsis at a fixed column width with the full name on
+// hover via the native `title` attribute, and this bar's own height never
+// grows to accommodate a long name (06-UI-SPEC.md overflow rule).
+//
+// 13-15 design-system migration: Source/Output now render through the
+// shared `Chip` primitive (its per-tone icon already satisfies "status is
+// non-color-only" -- ChipTone's vocabulary is byte-identical to this
+// bridge's own controllingSource/outputState strings) instead of a local,
+// color-only StatusChip.
 
-import { useEffect, type CSSProperties } from "react";
+import { useEffect } from "react";
 import { TriangleAlert } from "lucide-react";
 
 import { useGolcStore } from "../../store/store";
@@ -26,6 +31,7 @@ import {
   onStatusUpdate,
   type StatusSnapshot,
 } from "../../lib/wailsBridge";
+import Chip, { type ChipTone } from "../primitives/Chip/Chip";
 import styles from "./LiveStatusBar.module.css";
 
 // STATUS_GAP_MS bounds how long LiveStatusBar waits with no "status:update"
@@ -41,37 +47,22 @@ const STATUS_GAP_MS = 2000;
 // bar, so this converts it to a 1-based beat number within that bar.
 const BEATS_PER_BAR = 4;
 
-// STATUS_COLOR_VAR maps the daemon's fixed controllingSource/outputState
+// KNOWN_TONES is the daemon's fixed controllingSource/outputState
 // vocabulary (06-UI-SPEC.md Status Vocabulary: live/frame-lock/armed/
-// revoked/blackout/offline) to this app's brand CSS custom properties
-// (index.css). An unrecognized value (should never happen against a
-// well-behaved daemon) falls back to --muted rather than an undefined/
-// blank color.
-const STATUS_COLOR_VAR: Record<string, string> = {
-  live: "var(--status-live)",
-  "frame-lock": "var(--status-frame-lock)",
-  armed: "var(--status-armed)",
-  revoked: "var(--status-revoked)",
-  blackout: "var(--status-blackout)",
-  offline: "var(--status-offline)",
-};
+// revoked/blackout/offline), byte-identical to Chip's own ChipTone union.
+// An unrecognized value (should never happen against a well-behaved
+// daemon) falls back to "neutral" rather than an undefined/blank tone.
+const KNOWN_TONES: ReadonlySet<string> = new Set([
+  "live",
+  "frame-lock",
+  "armed",
+  "revoked",
+  "blackout",
+  "offline",
+]);
 
-function statusColor(value: string): string {
-  return STATUS_COLOR_VAR[value] ?? "var(--muted)";
-}
-
-function StatusChip({ label, value }: { label: string; value: string }) {
-  const color = statusColor(value);
-  return (
-    <span
-      className={styles.chip}
-      style={{ "--chip-color": color } as CSSProperties}
-      title={`${label}: ${value}`}
-    >
-      <span className={styles.chipDot} aria-hidden="true" />
-      {value}
-    </span>
-  );
+function toChipTone(value: string): ChipTone {
+  return (KNOWN_TONES.has(value) ? value : "neutral") as ChipTone;
 }
 
 export default function LiveStatusBar() {
@@ -128,29 +119,29 @@ export default function LiveStatusBar() {
       aria-busy={loading}
       style={{ opacity: loading ? 0.5 : 1 }}
     >
-      <div className={styles.field}>
-        <span className={styles.fieldLabel}>Scene</span>
+      <div className={styles.metric}>
+        <span className={styles.metricLabel}>Scene</span>
         <span
-          className={`${styles.fieldValue} ${styles.truncate}`}
+          className={`${styles.metricValue} ${styles.truncate}`}
           title={sceneName}
         >
           {sceneName}
         </span>
       </div>
 
-      <div className={styles.field}>
-        <span className={styles.fieldLabel}>Layers</span>
+      <div className={styles.metric}>
+        <span className={styles.metricLabel}>Layers</span>
         <span
-          className={`${styles.fieldValue} ${styles.layersValue}`}
+          className={`${styles.metricValue} ${styles.layersValue}`}
           title={layersText}
         >
           {layersText}
         </span>
       </div>
 
-      <div className={styles.field}>
-        <span className={styles.fieldLabel}>Bar</span>
-        <span className={styles.fieldValue}>{barText}</span>
+      <div className={styles.metric}>
+        <span className={styles.metricLabel}>Bar</span>
+        <span className={styles.metricValue}>{barText}</span>
       </div>
 
       <div className={styles.spacer} />
@@ -163,8 +154,12 @@ export default function LiveStatusBar() {
         </span>
       )}
 
-      <StatusChip label="Source" value={status.controllingSource} />
-      <StatusChip label="Output" value={status.outputState} />
+      <span title={`Source: ${status.controllingSource}`}>
+        <Chip tone={toChipTone(status.controllingSource)}>{status.controllingSource}</Chip>
+      </span>
+      <span title={`Output: ${status.outputState}`}>
+        <Chip tone={toChipTone(status.outputState)}>{status.outputState}</Chip>
+      </span>
     </div>
   );
 }
