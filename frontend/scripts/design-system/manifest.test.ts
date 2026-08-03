@@ -1,8 +1,9 @@
-import { cp, mkdtemp, mkdir, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadDesignSystem } from "./manifest.mjs";
+import { generateDesignSystem } from "./generate.mjs";
 
 const fixtureRoots: string[] = [];
 
@@ -55,5 +56,21 @@ describe("loadDesignSystem", () => {
       records: [{ path: "design-system/escape.css", rule: "DS001", match: ".outside", rationale: "fixture", source: "test", owner: "test", reviewCondition: "next review" }],
     }));
     await expect(loadDesignSystem(root)).rejects.toThrow(/DSMANIFEST_PATH_ESCAPE/);
+  });
+});
+
+describe("generateDesignSystem", () => {
+  it("is byte-stable and leaves checked output untouched in check mode", async () => {
+    const root = await fixture();
+    await generateDesignSystem(root);
+    const cssPath = join(root, "src", "design-system", "tokens.generated.css");
+    const typesPath = join(root, "src", "design-system", "tokens.generated.ts");
+    const first = await Promise.all([readFile(cssPath, "utf8"), readFile(typesPath, "utf8")]);
+    await generateDesignSystem(root);
+    expect(await Promise.all([readFile(cssPath, "utf8"), readFile(typesPath, "utf8")])).toEqual(first);
+    await expect(generateDesignSystem(root, { check: true })).resolves.toEqual([]);
+    await writeFile(cssPath, `${first[0]}/* drift */\n`);
+    await expect(generateDesignSystem(root, { check: true })).rejects.toThrow(/DSMANIFEST_DRIFT/);
+    expect(await readFile(cssPath, "utf8")).toContain("/* drift */");
   });
 });
