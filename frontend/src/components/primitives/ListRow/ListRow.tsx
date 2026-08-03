@@ -12,19 +12,23 @@
 // rendered outside the selectable button/row so its own clicks never
 // trigger onSelect -- purely additive, every existing call site (which
 // never passes it) is unaffected.
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import styles from "./ListRow.module.css";
 
-interface ListRowProps {
+export type ListRowDensity = "default" | "compact";
+
+export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, "onSelect"> {
   label: string;
   icon?: LucideIcon;
   meta?: ReactNode;
   selected?: boolean;
   locked?: boolean;
+  disabled?: boolean;
   onSelect?: () => void;
   actions?: ReactNode;
+  density?: ListRowDensity;
 }
 
 export default function ListRow({
@@ -33,20 +37,27 @@ export default function ListRow({
   meta,
   selected = false,
   locked = false,
+  disabled = false,
   onSelect,
   actions,
+  density = "default",
+  className: externalClassName,
+  title,
+  ...rest
 }: ListRowProps) {
+  const isDisabled = locked || disabled;
   const className = [
     styles.row,
     selected ? styles.selected : "",
-    locked ? styles.locked : "",
+    isDisabled ? styles.locked : "",
+    externalClassName,
   ]
     .filter(Boolean)
     .join(" ");
 
   const content = (
     <>
-      {Icon ? <Icon size={14} className={styles.icon} aria-hidden="true" /> : null}
+      {Icon ? <Icon className={styles.icon} aria-hidden="true" /> : null}
       <span className={styles.label}>{label}</span>
       {meta ? <span className={styles.meta}>{meta}</span> : null}
     </>
@@ -54,7 +65,7 @@ export default function ListRow({
 
   if (!onSelect) {
     return (
-      <div className={className} aria-disabled={locked} title={label}>
+      <div className={className} aria-disabled={isDisabled || undefined} data-state={selected ? "selected" : "default"} data-density={density} title={title ?? label} {...rest}>
         {content}
         {actions}
       </div>
@@ -67,10 +78,12 @@ export default function ListRow({
         type="button"
         className={className}
         aria-pressed={selected}
-        aria-disabled={locked}
-        disabled={locked}
-        title={label}
+        disabled={isDisabled}
+        data-state={selected ? "selected" : "default"}
+        data-density={density}
+        title={title ?? label}
         onClick={onSelect}
+        {...(rest as HTMLAttributes<HTMLButtonElement>)}
       >
         {content}
       </button>

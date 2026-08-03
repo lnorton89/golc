@@ -37,4 +37,23 @@ describe("ListRow", () => {
     fireEvent.click(button);
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  it("forwards row attributes and exposes selected, disabled, and compact state", () => {
+    render(
+      <ListRow
+        label="A very long fixture pool name that should retain its full accessible title"
+        selected
+        disabled
+        density="compact"
+        aria-label="Fixture pool row"
+        onSelect={() => {}}
+      />,
+    );
+
+    const row = screen.getByLabelText("Fixture pool row");
+    expect(row).toBeDisabled();
+    expect(row).toHaveAttribute("data-state", "selected");
+    expect(row).toHaveAttribute("data-density", "compact");
+    expect(row).toHaveAttribute("title", "A very long fixture pool name that should retain its full accessible title");
+  });
 });

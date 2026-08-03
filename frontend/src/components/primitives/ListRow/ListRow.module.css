@@ -2,30 +2,36 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
   width: 100%;
   box-sizing: border-box;
-  min-height: 40px;
-  padding: var(--space-xs) var(--space-sm);
+  min-height: var(--ds-sizing-control-minimum-target);
+  padding: var(--ds-spacing-space2);
   border: none;
   border-left: 3px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--ds-radii-small);
   background: transparent;
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-base);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  line-height: var(--ds-typography-line-height-body);
   text-align: left;
   cursor: pointer;
-  transition: background-color var(--motion-tap), border-color var(--motion-tap);
+  transition: background-color var(--ds-motion-tap), border-color var(--ds-motion-tap);
+}
+
+.row[data-density="compact"] {
+  min-height: var(--ds-sizing-control-default);
+  padding: var(--ds-spacing-space1) var(--ds-spacing-space2);
 }
 
 button.row:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: var(--ds-surface-panel-subdued);
 }
 
 .row.selected {
-  border-left-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-left-color: var(--ds-border-selected);
+  background: var(--ds-surface-selected);
 }
 
 .row.locked {
@@ -35,7 +41,10 @@ button.row:hover:not(:disabled) {
 
 .icon {
   flex-shrink: 0;
-  color: var(--muted);
+  flex-shrink: 0;
+  width: var(--ds-sizing-icon16);
+  height: var(--ds-sizing-icon16);
+  color: var(--ds-text-muted);
 }
 
 .label {
@@ -47,12 +56,22 @@ button.row:hover:not(:disabled) {
 
 .meta {
   flex-shrink: 0;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-sm);
-  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  color: var(--ds-text-muted);
 }
 
 :where(.row):focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  outline: var(--ds-focus-ring) solid var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row {
+    transition-duration: var(--ds-motion-snap);
+  }
 }
