@@ -26,9 +26,16 @@ describe("HelpOverlay", () => {
   it("calls onClose when the backdrop is clicked, but not when the dialog body is clicked", () => {
     const onClose = vi.fn();
     render(<HelpOverlay open onClose={onClose} />);
-    fireEvent.click(screen.getByRole("dialog"));
+    fireEvent.mouseDown(screen.getByRole("dialog"));
     expect(onClose).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("dialog").parentElement as HTMLElement);
+    fireEvent.mouseDown(screen.getByTestId("dialog-backdrop"));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onClose on Escape", () => {
+    const onClose = vi.fn();
+    render(<HelpOverlay open onClose={onClose} />);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
