@@ -7,12 +7,12 @@
 .panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-  padding: var(--space-lg);
-  background: var(--panel);
-  border: 1px solid var(--line);
+  gap: var(--ds-spacing-space4);
+  padding: var(--ds-spacing-space6);
+  background: var(--ds-surface-panel);
+  border: 1px solid var(--ds-border-default);
   border-radius: 4px;
-  color: var(--text);
+  color: var(--ds-text-secondary);
   font-family: "Archivo", system-ui, sans-serif;
 }
 
@@ -20,36 +20,36 @@
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--ds-text-primary);
 }
 
 .subsection {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  border-top: 1px solid var(--line);
-  padding-top: var(--space-md);
+  gap: var(--ds-spacing-space2);
+  border-top: 1px solid var(--ds-border-default);
+  padding-top: var(--ds-spacing-space4);
 }
 
 .subsectionHeading {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--ds-text-primary);
 }
 
 .skeleton {
-  padding: var(--space-md);
+  padding: var(--ds-spacing-space4);
   border-radius: 4px;
-  background: var(--line);
-  color: var(--muted);
+  background: var(--ds-border-default);
+  color: var(--ds-text-muted);
   opacity: 0.6;
 }
 
 .createRow {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
   align-items: center;
   justify-content: space-between;
 }
@@ -57,11 +57,11 @@
 .createInput {
   flex: 1;
   min-width: 160px;
-  padding: var(--space-sm);
-  border: 1px solid var(--line);
+  padding: var(--ds-spacing-space2);
+  border: 1px solid var(--ds-border-default);
   border-radius: 4px;
-  background: var(--page);
-  color: var(--ink);
+  background: var(--ds-surface-canvas);
+  color: var(--ds-text-primary);
   font-family: inherit;
   font-size: 14px;
   box-sizing: border-box;
@@ -72,7 +72,7 @@
   flex-direction: column;
   gap: 2px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 /* nameField pairs with .fieldLabel (not a replacement -- both classes
@@ -90,7 +90,7 @@
    TempoControls.module.css's BPM spinner (the app's one existing
    up/down-styled numeric control) -- same custom-chevron-buttons-replace-
    the-native-arrows structure, re-skinned with this file's own
-   --line-bordered/4px-radius input convention instead of TempoControls'
+   --ds-border-default-bordered/4px-radius input convention instead of TempoControls'
    accent-bordered transport-chrome look. align-self: flex-start matters
    here: .fieldLabel is a column-direction flex container, which
    stretches a child with no align-self override to its own full width
@@ -111,11 +111,11 @@
 .stepperInput {
   width: 96px;
   height: 32px;
-  padding: 0 20px 0 var(--space-sm);
-  border: 1px solid var(--line);
+  padding: 0 20px 0 var(--ds-spacing-space2);
+  border: 1px solid var(--ds-border-default);
   border-radius: 4px;
-  background: var(--page);
-  color: var(--ink);
+  background: var(--ds-surface-canvas);
+  color: var(--ds-text-primary);
   font-family: inherit;
   font-size: 14px;
   box-sizing: border-box;
@@ -136,7 +136,7 @@
   display: flex;
   flex-direction: column;
   width: 18px;
-  border-left: 1px solid var(--line);
+  border-left: 1px solid var(--ds-border-default);
   overflow: hidden;
   border-radius: 0 4px 4px 0;
 }
@@ -149,34 +149,34 @@
   min-height: 0;
   padding: 0;
   border: none;
-  background: var(--panel);
-  color: var(--muted);
+  background: var(--ds-surface-panel);
+  color: var(--ds-text-muted);
   cursor: pointer;
   line-height: 0;
 }
 
 .stepperSpinnerButton:hover {
-  /* An opaque mix onto --panel (not --hover-tint, which mixes onto
+  /* An opaque mix onto --ds-surface-panel (not --ds-surface-selected, which mixes onto
      transparent): this button's resting background is the opaque
-     --panel fill above, so a transparent-mixed hover would let whatever
-     sits behind the stepper (the row's own --page/hover background)
+     --ds-surface-panel fill above, so a transparent-mixed hover would let whatever
+     sits behind the stepper (the row's own --ds-surface-canvas/hover background)
      show through and look washed out instead of a clean panel tint. */
-  background: color-mix(in srgb, var(--accent-3) 16%, var(--panel));
-  color: var(--ink);
+  background: color-mix(in srgb, var(--ds-action-primary) 16%, var(--ds-surface-panel));
+  color: var(--ds-text-primary);
 }
 
 .stepperSpinnerButton:first-child {
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--ds-border-default);
 }
 
 .primaryButton {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-md);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space2) var(--ds-spacing-space4);
   border: none;
   border-radius: 4px;
-  background: var(--accent-3);
+  background: var(--ds-action-primary);
   color: #fff;
   font-family: inherit;
   font-weight: 600;
@@ -184,7 +184,7 @@
 }
 
 .primaryButton:hover {
-  background: var(--accent-3-dp);
+  background: var(--ds-action-primary-hover);
 }
 
 .primaryButton:disabled {
@@ -195,19 +195,19 @@
 .secondaryButton {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-sm);
-  border: 1px solid var(--accent-3);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space1) var(--ds-spacing-space2);
+  border: 1px solid var(--ds-action-primary);
   border-radius: 4px;
   background: transparent;
-  color: var(--accent-3);
+  color: var(--ds-action-primary);
   font-family: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
 .secondaryButton:hover {
-  background: var(--accent-3);
+  background: var(--ds-action-primary);
   color: #fff;
 }
 
@@ -228,36 +228,36 @@
    class's. */
 .rowFormButton {
   height: 32px;
-  padding: 0 var(--space-sm);
+  padding: 0 var(--ds-spacing-space2);
 }
 
 .emptyState {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-lg) var(--space-md);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space6) var(--ds-spacing-space4);
 }
 
 .emptyHeading {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--ds-text-primary);
 }
 
 .emptyBody {
   margin: 0;
   font-size: 16px;
-  color: var(--text);
+  color: var(--ds-text-secondary);
 }
 
 .countSummary {
   margin: 0;
   font-size: 14px;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 /* rowScroll is a CSS Grid (not the flex column it used to be) so every
@@ -284,9 +284,9 @@
   max-height: 320px;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: max-content auto minmax(var(--space-sm), 1fr) repeat(6, auto);
+  grid-template-columns: max-content auto minmax(var(--ds-spacing-space2), 1fr) repeat(6, auto);
   align-items: center;
-  row-gap: var(--space-xs);
+  row-gap: var(--ds-spacing-space1);
 }
 
 .rowSpacer {
@@ -298,16 +298,16 @@
   grid-column: 1 / -1;
   grid-template-columns: subgrid;
   align-items: center;
-  column-gap: var(--space-sm);
-  padding: var(--space-sm);
-  border: 1px solid var(--line);
+  column-gap: var(--ds-spacing-space2);
+  padding: var(--ds-spacing-space2);
+  border: 1px solid var(--ds-border-default);
   border-radius: 4px;
-  background: var(--page);
-  transition: background var(--motion-tap);
+  background: var(--ds-surface-canvas);
+  transition: background var(--ds-motion-tap);
 }
 
 .row:hover {
-  background: var(--hover-tint);
+  background: var(--ds-surface-selected);
 }
 
 /* rowEditing overrides .row back to a plain flex row (declared after
@@ -324,7 +324,7 @@
 .rowEditing {
   display: flex;
   align-items: flex-end;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
 .rowName {
@@ -333,11 +333,11 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--ds-text-primary);
 }
 
 /* badge/badgeLabel/badgeValue mirror primitives/Chip/Chip.module.css's
-   pill shape (border/--radius-pill/monospace value) for a label+value
+   pill shape (border/--ds-radii-pill/monospace value) for a label+value
    row-metadata chip -- Chip itself isn't reused directly since its
    `tone` prop is a fixed live/frame-lock/armed/... status vocabulary
    this plain "ID"/"Mode"/... tag has no business borrowing. Each
@@ -353,54 +353,54 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  background: var(--page);
+  padding: 2px var(--ds-spacing-space2);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-radii-pill);
+  background: var(--ds-surface-canvas);
   white-space: nowrap;
 }
 
 .badgeId {
-  background: var(--panel-dim);
+  background: var(--ds-surface-panel-subdued);
 }
 
 .badgeMode {
-  background: color-mix(in srgb, var(--accent-3) 10%, var(--page));
-  border-color: color-mix(in srgb, var(--accent-3) 30%, var(--line));
+  background: color-mix(in srgb, var(--ds-action-primary) 10%, var(--ds-surface-canvas));
+  border-color: color-mix(in srgb, var(--ds-action-primary) 30%, var(--ds-border-default));
 }
 
 .badgeUniverse {
-  background: color-mix(in srgb, var(--accent-3) 18%, var(--page));
-  border-color: color-mix(in srgb, var(--accent-3) 40%, var(--line));
+  background: color-mix(in srgb, var(--ds-action-primary) 18%, var(--ds-surface-canvas));
+  border-color: color-mix(in srgb, var(--ds-action-primary) 40%, var(--ds-border-default));
 }
 
 .badgeAddress {
-  background: color-mix(in srgb, var(--accent-3) 26%, var(--page));
-  border-color: color-mix(in srgb, var(--accent-3) 50%, var(--line));
+  background: color-mix(in srgb, var(--ds-action-primary) 26%, var(--ds-surface-canvas));
+  border-color: color-mix(in srgb, var(--ds-action-primary) 50%, var(--ds-border-default));
 }
 
 .badgeDeployment {
-  background: var(--line);
+  background: var(--ds-border-default);
 }
 
 .badgeLabel {
-  font-size: var(--text-2xs);
+  font-size: var(--ds-typography-font-size-compact);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 .badgeValue {
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-xs);
-  color: var(--text2);
+  font-size: var(--ds-typography-font-size-compact);
+  color: var(--ds-text-secondary);
 }
 
 .technical {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 14px;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 /* backdrop/dialog/dialogHeader/dialogTitle/dialogBody mirror
@@ -418,8 +418,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, var(--ink) 45%, transparent);
-  animation: backdropFadeIn var(--motion-settle);
+  background: color-mix(in srgb, var(--ds-text-primary) 45%, transparent);
+  animation: backdropFadeIn var(--ds-motion-settle);
 }
 
 .dialog {
@@ -427,11 +427,11 @@
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: var(--panel);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-radii-large);
+  background: var(--ds-surface-panel);
   overflow: hidden;
-  animation: dialogPopIn var(--motion-settle);
+  animation: dialogPopIn var(--ds-motion-settle);
 }
 
 @keyframes backdropFadeIn {
@@ -448,7 +448,7 @@
 }
 
 .dialog:focus-visible {
-  outline: 2px solid var(--accent-3);
+  outline: 2px solid var(--ds-action-primary);
   outline-offset: -2px;
 }
 
@@ -456,37 +456,37 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-md) var(--space-lg);
-  border-bottom: 1px solid var(--line);
+  padding: var(--ds-spacing-space4) var(--ds-spacing-space6);
+  border-bottom: 1px solid var(--ds-border-default);
   flex-shrink: 0;
 }
 
 .dialogTitle {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
   font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-lg);
+  font-size: var(--ds-typography-font-size-heading);
   font-weight: 600;
-  color: var(--ink);
+  color: var(--ds-text-primary);
 }
 
 .dialogBody {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: var(--space-lg);
+  padding: var(--ds-spacing-space6);
 }
 
 .addForm {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
 .formActions {
   display: flex;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
 .previewPanel {
@@ -500,17 +500,17 @@
   flex-basis: 100%;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-sm);
-  border: 1px solid var(--accent-3);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space2);
+  border: 1px solid var(--ds-action-primary);
   border-radius: 4px;
-  background: var(--page);
+  background: var(--ds-surface-canvas);
 }
 
 .previewHeading {
   margin: 0;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--ds-text-primary);
 }
 
 .previewList {
@@ -526,25 +526,25 @@
 
 .previewRow {
   font-size: 14px;
-  color: var(--text);
+  color: var(--ds-text-secondary);
 }
 
 .previewWarning {
   font-size: 14px;
-  color: var(--status-armed);
+  color: var(--ds-status-armed);
 }
 
 .previewError {
   font-size: 14px;
-  color: var(--status-revoked);
+  color: var(--ds-status-revoked);
   font-weight: 600;
 }
 
 .errorText {
   margin: 0;
-  padding: var(--space-sm);
+  padding: var(--ds-spacing-space2);
   border-radius: 4px;
-  background: var(--status-revoked);
+  background: var(--ds-status-revoked);
   color: #fff;
   font-size: 14px;
 }
