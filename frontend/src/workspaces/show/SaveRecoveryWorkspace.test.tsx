@@ -51,6 +51,7 @@ describe("SaveRecoveryWorkspace", () => {
         screen.getByText("No interrupted-session recovery points are currently offered."),
       ).toBeInTheDocument(),
     );
+    expect(screen.getByRole("region", { name: "Save & Recovery workspace" })).toBeInTheDocument();
   });
 
   it("saves the working show via the Save button", async () => {

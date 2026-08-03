@@ -17,6 +17,7 @@ describe("SettingsWorkspace", () => {
 
   it("defaults to Match System selected", () => {
     render(<SettingsWorkspace />);
+    expect(screen.getByRole("region", { name: "Settings workspace" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Match System" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Light" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("button", { name: "Dark" })).toHaveAttribute("aria-pressed", "false");
