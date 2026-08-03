@@ -111,6 +111,12 @@ vi.mock("@tiptap/extension-task-item", () => ({
   default: { configure: vi.fn(() => "task-item-configured") },
 }));
 
+vi.mock("../../design-system", () => ({
+  IconButton: ({ label, ...props }: { label: string }) => <button data-design-system-icon-button="true" aria-label={label} {...props} />,
+  Button: ({ children, ...props }: { children: React.ReactNode }) => <button data-design-system-button="true" {...props}>{children}</button>,
+  Field: ({ label, ...props }: { label: string }) => <label>{label}<input data-design-system-field="true" {...props} /></label>,
+}));
+
 import NoteEditor from "./NoteEditor";
 
 describe("NoteEditor", () => {
@@ -127,6 +133,17 @@ describe("NoteEditor", () => {
     expect(screen.getByRole("button", { name: "Link" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Redo" })).toBeInTheDocument();
+  });
+
+  it("uses public design-system controls for editor-adjacent chrome", async () => {
+    render(<NoteEditor value="<p>Hello</p>" onChange={() => {}} />);
+
+    await screen.findByRole("button", { name: "Bold" });
+    expect(document.querySelectorAll("[data-design-system-icon-button='true']")).toHaveLength(16);
+
+    fireEvent.click(screen.getByRole("button", { name: "Link" }));
+    expect(screen.getByLabelText("Link URL")).toHaveAttribute("data-design-system-field", "true");
+    expect(screen.getByRole("button", { name: "Apply" })).toHaveAttribute("data-design-system-button", "true");
   });
 
   it("toggling Bold marks the toolbar button active and fires onChange with updated HTML", async () => {
