@@ -2,5 +2,18 @@
   min-width: 0;
   min-height: 0;
   flex: 1;
+}
+
+.vertical {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.horizontal {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.both {
   overflow: auto;
 }
