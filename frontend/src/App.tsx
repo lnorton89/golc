@@ -14,9 +14,9 @@ import { lazy, Suspense } from "react";
 import ErrorBoundary from "./shell/ErrorBoundary";
 import DialogFeasibility from "./design-system/fixtures/DialogFeasibility";
 
-// Keep the test-only fixture route independent from the normal shell bundle:
-// feasibility proof must not be blocked by unrelated workspace CSS while still
-// loading the exact normal shell on every operator-facing route.
+// Keep the test-only fixture route independent from the normal shell bundle.
+// It still inherits index.css's generated semantic theme contract, while the
+// route itself remains a proof seam rather than an operator-facing theme path.
 const AppShell = lazy(() => import("./shell/AppShell"));
 
 export default function App() {
