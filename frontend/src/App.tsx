@@ -9,13 +9,26 @@
 // workspace, the safety cluster, anything) renders a visible error screen
 // instead of unmounting into a blank window (see ErrorBoundary.tsx's own
 // doc comment for the real bug that motivated this).
-import AppShell from "./shell/AppShell";
+import { lazy, Suspense } from "react";
+
 import ErrorBoundary from "./shell/ErrorBoundary";
+import DialogFeasibility from "./design-system/fixtures/DialogFeasibility";
+
+// Keep the test-only fixture route independent from the normal shell bundle:
+// feasibility proof must not be blocked by unrelated workspace CSS while still
+// loading the exact normal shell on every operator-facing route.
+const AppShell = lazy(() => import("./shell/AppShell"));
 
 export default function App() {
+  if (globalThis.location.search === "?e2e=dialog-feasibility") {
+    return <DialogFeasibility />;
+  }
+
   return (
     <ErrorBoundary>
-      <AppShell />
+      <Suspense fallback={null}>
+        <AppShell />
+      </Suspense>
     </ErrorBoundary>
   );
 }

@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 
 import styles from "./Dialog.module.css";
@@ -41,7 +42,7 @@ export default function Dialog({
   closeOnBackdrop = true,
   role = "dialog",
 }: DialogProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const descriptionId = useId();
@@ -63,7 +64,7 @@ export default function Dialog({
 
   if (!open) return null;
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLDialogElement>) => {
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape" && closeOnEscape) {
       event.preventDefault();
       onClose();
@@ -92,26 +93,31 @@ export default function Dialog({
     }
   };
 
-  return (
-    <dialog
-      ref={dialogRef}
-      open
-      className={styles.dialog}
-      role={role}
-      aria-modal="true"
-      aria-labelledby={titleId}
-      aria-describedby={description ? descriptionId : undefined}
-      tabIndex={-1}
-      onKeyDown={handleKeyDown}
-      onClick={(event) => {
+  return createPortal(
+    <div
+      className={styles.backdrop}
+      data-testid="dialog-backdrop"
+      onMouseDown={(event) => {
         if (closeOnBackdrop && event.target === event.currentTarget) onClose();
       }}
     >
-      <div className={styles.content}>
-        <h2 id={titleId} className={styles.title}>{title}</h2>
-        {description ? <div id={descriptionId} className={styles.description}>{description}</div> : null}
-        <div className={styles.body}>{children}</div>
+      <div
+        ref={dialogRef}
+        className={styles.dialog}
+        role={role}
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
+      >
+        <div className={styles.content}>
+          <h2 id={titleId} className={styles.title}>{title}</h2>
+          {description ? <div id={descriptionId} className={styles.description}>{description}</div> : null}
+          <div className={styles.body}>{children}</div>
+        </div>
       </div>
-    </dialog>
+    </div>,
+    document.body,
   );
 }
