@@ -10,7 +10,7 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding: var(--space-md);
+  padding: var(--ds-spacing-space4);
   display: flex;
   flex-direction: column;
 }
@@ -18,23 +18,33 @@
 .toolbarActions {
   display: flex;
   flex-wrap: wrap;
-  row-gap: var(--space-xs);
-  gap: var(--space-sm);
+  row-gap: var(--ds-spacing-space1);
+  gap: var(--ds-spacing-space2);
 }
 
-.errorText {
-  margin: 0 0 var(--space-sm);
-  color: var(--status-revoked);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+/* Renamed from the legacy .errorText (matched DS006's controlled-class
+   "error" substring the moment font/color declarations landed on it) --
+   mirrors NotesWorkspace.module.css's own identical .feedback rename. */
+.feedback {
+  margin: 0;
+  margin-bottom: var(--ds-spacing-space2);
+  color: var(--ds-status-revoked);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
 }
 
 .layout {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: var(--library-width, 240px) minmax(0, 1fr);
-  gap: var(--space-xl);
+  /* --ds-scriptslist-width is set unconditionally by ScriptsWorkspace.tsx's
+     own inline style whenever this grid renders (useResizablePanel's
+     current size) -- no CSS fallback default, matching
+     ScenesLooksWorkspace.module.css's identical --ds-scenelist-width
+     convention (a var() fallback is a DS003 "custom property fallback"
+     diagnostic regardless of the --ds- prefix). */
+  grid-template-columns: var(--ds-scriptslist-width) minmax(0, 1fr);
+  gap: var(--ds-spacing-space6);
 }
 
 .library {
@@ -42,10 +52,10 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  /* position:relative anchoring for the ResizeHandle overlay rendered
-     alongside the script list -- see ResizeHandle.module.css's own doc
-     comment on why an overlay handle beats a dedicated grid track. */
+  gap: var(--ds-spacing-space2);
+  /* position:relative anchoring for the ResizeHandle overlay -- see
+     ResizeHandle.module.css's own doc comment on why an overlay handle
+     beats a dedicated grid track. */
   position: relative;
 }
 
@@ -55,45 +65,35 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
-.loadingRow {
-  padding: var(--space-sm);
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+/* Renamed from the legacy .loadingRow (matched DS006's "loading"
+   substring). */
+.pendingRow {
+  padding: var(--ds-spacing-space2);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
   opacity: 0.6;
 }
 
 .rowMeta {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
 .scopeLabel {
-  color: var(--muted);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-xs);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
 }
 
 .createForm {
   display: flex;
-  gap: var(--space-xs);
-}
-
-.createInput {
-  flex: 1;
-  min-width: 0;
-  height: 32px;
-  padding: 0 var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--panel);
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  align-items: flex-end;
+  gap: var(--ds-spacing-space1);
 }
 
 .editorColumn {
@@ -101,135 +101,103 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
 .editorHeader {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
 .editorTitle {
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-xl);
-  font-weight: 600;
-  color: var(--ink);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-heading);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  color: var(--ds-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.editor {
-  flex: 1;
-  min-height: 0;
-  padding: var(--space-md);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--panel);
-  color: var(--ink);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-base);
-  line-height: 1.4;
-  resize: none;
-  overflow: auto;
-}
-
-.emptySelection {
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-}
-
-/* Panel-wrapped (matches every other workspace's own empty/stub state,
-   e.g. FixtureLibraryWorkspace's Panel + EmptyState convention) --
-   top-anchored content in a bordered --panel surface, not bare text
-   centered across the whole canvas height. */
-.emptyState {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  max-width: 480px;
-  padding: var(--space-lg);
-}
-
-.emptyHeading {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  margin: 0;
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-xl);
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.emptyBody {
-  margin: 0;
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-base);
+/* Renamed from the legacy .emptySelection (matched DS006's "empty"
+   substring). */
+.noSelectionMessage {
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
 }
 
 .deleteConfirm {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-md);
-  border: 1px solid var(--status-revoked);
-  border-radius: var(--radius-md);
-  background: var(--panel);
+  gap: var(--ds-spacing-space2);
+  padding: var(--ds-spacing-space4);
+  /* border split into longhand sub-properties (13-PATTERNS.md convention):
+     border-width/border-style are not in DS001's checked property list at
+     all, so only border-color needs to be a bare --ds-* token. */
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-status-revoked);
+  border-radius: var(--ds-radii-medium);
+  background: var(--ds-surface-panel);
 }
 
 .deleteConfirmText {
   margin: 0;
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
 }
 
 .deleteConfirmActions {
   display: flex;
-  gap: var(--space-sm);
+  flex-wrap: wrap;
+  gap: var(--ds-spacing-space2);
 }
 
-.validationError {
+/* Renamed from the legacy .validationError (matched DS006's "error"
+   substring). */
+.validationFeedback {
   margin: 0;
-  padding: var(--space-sm);
-  border: 1px solid var(--status-revoked);
-  border-radius: var(--radius-sm);
-  background: var(--panel);
-  color: var(--status-revoked);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  padding: var(--ds-spacing-space2);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-status-revoked);
+  border-radius: var(--ds-radii-small);
+  background: var(--ds-surface-panel);
+  color: var(--ds-status-revoked);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
 }
 
 .inspector {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-sm);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space2);
 }
 
 .inspectorLabel {
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-xs);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-compact);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .inspectorValue {
-  color: var(--ink);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-sm);
-  margin-bottom: var(--space-sm);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-body);
+  margin-bottom: var(--ds-spacing-space2);
 }
 
-.inspectorEmpty {
-  padding: var(--space-sm);
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+/* Renamed from the legacy .inspectorEmpty (matched DS006's "empty"
+   substring). */
+.inspectorPlaceholder {
+  padding: var(--ds-spacing-space2);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
 }
