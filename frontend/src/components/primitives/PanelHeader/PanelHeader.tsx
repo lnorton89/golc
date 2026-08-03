@@ -36,7 +36,7 @@ const PanelHeader = forwardRef<HTMLDivElement, PanelHeaderProps>(function PanelH
   return (
     <div ref={ref} className={combinedClassName} data-density={density} {...rest}>
       <span className={styles.labelGroup}>
-        {Icon ? <Icon size={13} className={styles.icon} aria-hidden="true" /> : null}
+        {Icon ? <Icon className={styles.icon} aria-hidden="true" /> : null}
         <span className={styles.label}>{label}</span>
         {metadata ? <span className={styles.metadata}>{metadata}</span> : null}
         {info ? <InfoTooltip label={`About ${label}`} text={info} /> : null}

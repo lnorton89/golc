@@ -23,6 +23,8 @@
 
 .icon {
   flex-shrink: 0;
+  width: var(--ds-sizing-icon12);
+  height: var(--ds-sizing-icon12);
   color: var(--ds-text-muted);
 }
 
