@@ -11,12 +11,12 @@
 .panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-  padding: var(--space-lg);
-  background: var(--panel);
-  border: 1px solid var(--line);
+  gap: var(--ds-spacing-space4);
+  padding: var(--ds-spacing-space6);
+  background: var(--ds-surface-panel);
+  border: 1px solid var(--ds-border-default);
   border-radius: 4px;
-  color: var(--text);
+  color: var(--ds-text-secondary);
   font-family: "Archivo", system-ui, sans-serif;
 }
 
@@ -24,35 +24,35 @@
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--ds-text-primary);
 }
 
 .subsection {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  border-top: 1px solid var(--line);
-  padding-top: var(--space-md);
+  gap: var(--ds-spacing-space2);
+  border-top: 1px solid var(--ds-border-default);
+  padding-top: var(--ds-spacing-space4);
 }
 
 .subsectionHeadingRow {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
 .subsectionHeading {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--ds-text-primary);
 }
 
 .skeleton {
-  padding: var(--space-md);
+  padding: var(--ds-spacing-space4);
   border-radius: 4px;
-  background: var(--line);
-  color: var(--muted);
+  background: var(--ds-border-default);
+  color: var(--ds-text-muted);
   opacity: 0.6;
 }
 
@@ -61,18 +61,18 @@
 .createRow {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
   align-items: center;
 }
 
 .createInput {
   flex: 1;
   min-width: 160px;
-  padding: var(--space-sm);
-  border: 1px solid var(--line);
+  padding: var(--ds-spacing-space2);
+  border: 1px solid var(--ds-border-default);
   border-radius: 4px;
-  background: var(--page);
-  color: var(--ink);
+  background: var(--ds-surface-canvas);
+  color: var(--ds-text-primary);
   font-family: inherit;
   font-size: 14px;
 }
@@ -89,11 +89,11 @@
 .primaryButton {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-md);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space2) var(--ds-spacing-space4);
   border: none;
   border-radius: 4px;
-  background: var(--accent-3);
+  background: var(--ds-action-primary);
   color: #fff;
   font-family: inherit;
   font-weight: 600;
@@ -101,7 +101,7 @@
 }
 
 .primaryButton:hover {
-  background: var(--accent-3-dp);
+  background: var(--ds-action-primary-hover);
 }
 
 .primaryButton:disabled {
@@ -112,19 +112,19 @@
 .secondaryButton {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-sm);
-  border: 1px solid var(--accent-3);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space1) var(--ds-spacing-space2);
+  border: 1px solid var(--ds-action-primary);
   border-radius: 4px;
   background: transparent;
-  color: var(--accent-3);
+  color: var(--ds-action-primary);
   font-family: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
 .secondaryButton:hover {
-  background: var(--accent-3);
+  background: var(--ds-action-primary);
   color: #fff;
 }
 
@@ -133,30 +133,30 @@
 .emptyState {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-lg) var(--space-md);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space6) var(--ds-spacing-space4);
 }
 
 .emptyHeading {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--ds-text-primary);
 }
 
 .emptyBody {
   margin: 0;
   font-size: 16px;
-  color: var(--text);
+  color: var(--ds-text-secondary);
 }
 
 .countSummary {
   margin: 0;
   font-size: 14px;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 /* Fixed-height scroll panel (overflow backstop): pool/deployment lists
@@ -171,23 +171,23 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
 .row {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-sm);
-  border: 1px solid var(--line);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space2);
+  border: 1px solid var(--ds-border-default);
   border-radius: 4px;
-  background: var(--page);
+  background: var(--ds-surface-canvas);
 }
 
 .rowHeader {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
 .rowName {
@@ -197,18 +197,18 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--ds-text-primary);
 }
 
 .rowCounts {
   font-size: 14px;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 .activeChip {
-  padding: 2px var(--space-sm);
+  padding: 2px var(--ds-spacing-space2);
   border-radius: 4px;
-  background: var(--status-live);
+  background: var(--ds-status-live);
   color: #fff;
   font-size: 14px;
   font-weight: 600;
@@ -228,16 +228,16 @@
 .memberRow {
   display: flex;
   justify-content: space-between;
-  gap: var(--space-sm);
-  padding: 2px var(--space-xs);
+  gap: var(--ds-spacing-space2);
+  padding: 2px var(--ds-spacing-space1);
   font-size: 14px;
-  color: var(--text);
+  color: var(--ds-text-secondary);
 }
 
 .technical {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 14px;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 /* Add-fixture form + impact preview */
@@ -245,31 +245,31 @@
 .addMemberForm {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-sm);
-  border: 1px dashed var(--line);
+  gap: var(--ds-spacing-space2);
+  padding: var(--ds-spacing-space2);
+  border: 1px dashed var(--ds-border-default);
   border-radius: 4px;
 }
 
 .formActions {
   display: flex;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
 .previewPanel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-sm);
-  border: 1px solid var(--accent-3);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space2);
+  border: 1px solid var(--ds-action-primary);
   border-radius: 4px;
-  background: var(--page);
+  background: var(--ds-surface-canvas);
 }
 
 .previewHeading {
   margin: 0;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--ds-text-primary);
 }
 
 .previewList {
@@ -285,25 +285,25 @@
 
 .previewRow {
   font-size: 14px;
-  color: var(--text);
+  color: var(--ds-text-secondary);
 }
 
 .previewWarning {
   font-size: 14px;
-  color: var(--status-armed);
+  color: var(--ds-status-armed);
 }
 
 .previewError {
   font-size: 14px;
-  color: var(--status-revoked);
+  color: var(--ds-status-revoked);
   font-weight: 600;
 }
 
 .errorText {
   margin: 0;
-  padding: var(--space-sm);
+  padding: var(--ds-spacing-space2);
   border-radius: 4px;
-  background: var(--status-revoked);
+  background: var(--ds-status-revoked);
   color: #fff;
   font-size: 14px;
 }
