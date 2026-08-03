@@ -60,6 +60,7 @@ describe("ScenesLooksWorkspace", () => {
   it("loads and displays scenes, defaulting the selection to the active scene", async () => {
     render(<ScenesLooksWorkspace />);
     await waitFor(() => expect(screen.getByLabelText("Alpha layers")).toBeInTheDocument());
+    expect(screen.getByLabelText("Scene stack")).toBeInTheDocument();
     expect(screen.getAllByText("LIVE")).toHaveLength(2);
   });
 
