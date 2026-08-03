@@ -4,19 +4,30 @@
 // feature components (FixturePatch, ArtnetConfig, etc.) can adopt it by
 // swapping their own ad hoc `<section className={styles.panel}>` for this
 // shared one without changing any behavior.
+import { forwardRef } from "react";
 import type { HTMLAttributes, ReactNode } from "react";
 
 import styles from "./Panel.module.css";
 
-interface PanelProps extends HTMLAttributes<HTMLElement> {
+export type PanelVariant = "default" | "subdued" | "selected" | "warning" | "error";
+export type PanelDensity = "default" | "compact";
+
+export interface PanelProps extends HTMLAttributes<HTMLElement> {
   children: ReactNode;
+  variant?: PanelVariant;
+  density?: PanelDensity;
 }
 
-export default function Panel({ children, className, ...rest }: PanelProps) {
+const Panel = forwardRef<HTMLElement, PanelProps>(function Panel(
+  { children, className, variant = "default", density = "default", ...rest },
+  ref,
+) {
   const combinedClassName = className ? `${styles.panel} ${className}` : styles.panel;
   return (
-    <section className={combinedClassName} {...rest}>
+    <section ref={ref} className={combinedClassName} data-variant={variant} data-density={density} {...rest}>
       {children}
     </section>
   );
-}
+});
+
+export default Panel;

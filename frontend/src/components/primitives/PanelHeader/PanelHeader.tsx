@@ -10,28 +10,40 @@
 // label span -- same reasoning as Toolbar's own `info`: an accessible
 // name lookup against this panel's label text (`screen.getByText(label)`)
 // stays unaffected since the tooltip is a sibling, not nested inside it.
-import type { ReactNode } from "react";
+import { forwardRef } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import InfoTooltip from "../InfoTooltip/InfoTooltip";
 import styles from "./PanelHeader.module.css";
 
-interface PanelHeaderProps {
+export type PanelHeaderDensity = "default" | "compact";
+
+export interface PanelHeaderProps extends HTMLAttributes<HTMLDivElement> {
   label: string;
   icon?: LucideIcon;
   info?: string;
   action?: ReactNode;
+  metadata?: ReactNode;
+  density?: PanelHeaderDensity;
 }
 
-export default function PanelHeader({ label, icon: Icon, info, action }: PanelHeaderProps) {
+const PanelHeader = forwardRef<HTMLDivElement, PanelHeaderProps>(function PanelHeader(
+  { label, icon: Icon, info, action, metadata, density = "default", className, ...rest },
+  ref,
+) {
+  const combinedClassName = className ? `${styles.header} ${className}` : styles.header;
   return (
-    <div className={styles.header}>
+    <div ref={ref} className={combinedClassName} data-density={density} {...rest}>
       <span className={styles.labelGroup}>
         {Icon ? <Icon size={13} className={styles.icon} aria-hidden="true" /> : null}
         <span className={styles.label}>{label}</span>
+        {metadata ? <span className={styles.metadata}>{metadata}</span> : null}
         {info ? <InfoTooltip label={`About ${label}`} text={info} /> : null}
       </span>
       {action ? <div className={styles.action}>{action}</div> : null}
     </div>
   );
-}
+});
+
+export default PanelHeader;

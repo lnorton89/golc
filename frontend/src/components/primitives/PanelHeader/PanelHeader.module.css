@@ -3,22 +3,27 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  border-bottom: 1px solid var(--line);
+  gap: var(--ds-spacing-space2);
+  padding: var(--ds-spacing-space2) var(--ds-spacing-space4);
+  border-bottom: 1px solid var(--ds-border-default);
   flex-shrink: 0;
+}
+
+.header[data-density="compact"] {
+  padding: var(--ds-spacing-space1) var(--ds-spacing-space2);
 }
 
 .labelGroup {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .icon {
   flex-shrink: 0;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 .label {
@@ -26,17 +31,25 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  line-height: var(--ds-typography-line-height-body);
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--ds-text-secondary);
+}
+
+.metadata {
+  flex-shrink: 0;
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
 }
 
 .action {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
+  max-width: 100%;
 }

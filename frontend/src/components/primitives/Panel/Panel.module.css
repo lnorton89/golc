@@ -3,7 +3,31 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: var(--panel);
+  padding: var(--ds-spacing-space4);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-radii-medium);
+  background: var(--ds-surface-panel);
+  color: var(--ds-text-primary);
+}
+
+.panel[data-density="compact"] {
+  padding: var(--ds-spacing-space2);
+}
+
+.panel[data-variant="subdued"] {
+  background: var(--ds-surface-panel-subdued);
+}
+
+.panel[data-variant="selected"] {
+  border-color: var(--ds-border-selected);
+  background: var(--ds-surface-selected);
+}
+
+.panel[data-variant="warning"] {
+  border-color: var(--ds-status-armed);
+}
+
+.panel[data-variant="error"] {
+  border-color: var(--ds-border-destructive);
+}
 }
