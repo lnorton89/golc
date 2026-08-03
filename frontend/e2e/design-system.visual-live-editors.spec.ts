@@ -399,3 +399,185 @@ test.describe("MIDI Mapping", () => {
     }
   }
 });
+
+// ---------------------------------------------------------------------------
+// Task 3: Scripts / Notes
+// ---------------------------------------------------------------------------
+//
+// ScriptsNotesFixture.tsx (?e2e=scripts-notes) mounts the real
+// ScriptsWorkspace (a real Monaco instance plus its own Save/Delete/
+// Validate/Run/Debug/Stop toolbar) directly adjacent to the real
+// NotesWorkspace (a real Tiptap instance plus its own autosave status) --
+// see that fixture's own doc comment for why no single existing navigable
+// destination demonstrates this combined UI-SPEC row. Both workspaces
+// auto-select their one seeded script/note on mount (ScenesLooksWorkspace's
+// own selection-validity-repair discipline, reused verbatim by
+// ScriptsWorkspace.tsx/NotesWorkspace.tsx), so no selection click is
+// needed before either editor mounts.
+
+const SCRIPT_SOURCE = '// Opening Sequence\ngolc.playback.switchScene("Opening Look");\ngolc.playback.setBpm(120);\n';
+const NOTE_TITLE = "Load-in Checklist";
+const NOTE_BODY =
+  "<h2>Load-in checklist</h2><ul><li>Confirm patch matches rig sheet</li><li>Verify Art-Net interface pinned</li></ul>";
+
+async function installScriptsNotesBindings(page: Page): Promise<void> {
+  await installHealthyBindings(page);
+  await page.addInitScript(
+    (seed: { source: string; noteTitle: string; noteBody: string }) => {
+      const browserWindow = window as unknown as {
+        go: { wails: Record<string, Record<string, (...args: unknown[]) => unknown>> };
+      };
+      const ok = (stdout = "") => ({ exitCode: 0, stdout, stderr: "" });
+
+      browserWindow.go.wails.ScriptService.ListScripts = async () => [
+        {
+          id: "script-1",
+          name: "Opening Sequence",
+          lastRunStatus: "failed",
+          scope: "read_write",
+          preset: "standard",
+          deadlineSeconds: 30,
+          ratePerSecond: 5,
+          memoryLimitMB: 64,
+          cpuCapPercent: 50,
+        },
+      ];
+      browserWindow.go.wails.ScriptService.GetScript = async (name: unknown) => ({
+        id: "script-1",
+        name,
+        lastRunStatus: "failed",
+        scope: "read_write",
+        preset: "standard",
+        deadlineSeconds: 30,
+        ratePerSecond: 5,
+        memoryLimitMB: 64,
+        cpuCapPercent: 50,
+        source: seed.source,
+      });
+      browserWindow.go.wails.ScriptService.ValidateScript = async () => ({
+        valid: false,
+        diagnostics: [
+          { code: "TS2304", message: "Cannot find name 'golc'.", line: 2, column: 1, severity: "error" },
+          { code: "TS2532", message: "Object is possibly 'undefined'.", line: 4, column: 3, severity: "error" },
+        ],
+      });
+      browserWindow.go.wails.ScriptService.GetSDKTypeDefinitions = async () => "";
+
+      browserWindow.go.wails.NotesService.ListNotes = async () => [
+        { id: "note-1", title: seed.noteTitle, updatedAt: "2026-08-01T00:00:00Z" },
+      ];
+      browserWindow.go.wails.NotesService.GetNote = async (title: unknown) => ({
+        id: "note-1",
+        title,
+        body: seed.noteBody,
+        updatedAt: "2026-08-01T00:00:00Z",
+        createdAt: "2026-08-01T00:00:00Z",
+      });
+      browserWindow.go.wails.NotesService.SaveNote = async () => ok();
+    },
+    { source: SCRIPT_SOURCE, noteTitle: NOTE_TITLE, noteBody: NOTE_BODY },
+  );
+}
+
+test.describe("Scripts / Notes", () => {
+  for (const width of WIDTHS) {
+    for (const theme of THEMES) {
+      test(`${width}px ${theme}`, async ({ page }) => {
+        await withTheme(page, theme);
+        await installScriptsNotesBindings(page);
+        await page.setViewportSize({ width, height: HEIGHT });
+
+        await page.goto("/?e2e=scripts-notes");
+        await expect(page.getByRole("heading", { name: "Scripts / Notes", exact: true })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Scripts", exact: true })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Notes", exact: true })).toBeVisible();
+
+        // editor mount: the real Monaco and Tiptap instances both reach
+        // their ready state (mirrors design-system.geometry.spec.ts's own
+        // Family 4/5 wait convention).
+        await expect(page.locator(".monaco-editor")).toBeVisible({ timeout: 20_000 });
+        await expect(page.locator('[contenteditable="true"]')).toBeVisible({ timeout: 15_000 });
+
+        // model independence: each editor shows only its own seeded
+        // content, never the other's.
+        await expect(page.locator(".monaco-editor .view-lines")).toContainText("golc.playback.switchScene");
+        await expect(page.locator('[contenteditable="true"]')).toContainText("Load-in checklist");
+        await expect(page.locator(".monaco-editor .view-lines")).not.toContainText("Load-in checklist");
+        await expect(page.locator('[contenteditable="true"]')).not.toContainText("golc.playback");
+
+        // diagnostics/save truth (Scripts): Validate reports the exact
+        // seeded diagnostic count and blocks Run/Debug as a functional
+        // consequence, not merely a visual one.
+        const validateButton = page.getByRole("button", { name: "Validate" });
+        await validateButton.click();
+        await expect(page.getByText("This script has 2 error(s). Fix them before running.")).toBeVisible();
+        await expect(page.getByRole("button", { name: "Run" })).toBeDisabled();
+        await expect(page.getByRole("button", { name: "Debug" })).toBeDisabled();
+
+        // focus: Validate's own button is briefly disabled while the mocked
+        // call is in flight (handleValidate's own `validating` state),
+        // which browsers forcibly blur -- focus landing on <body> afterward
+        // is the same safe, neutral outcome Plan 13-33 documented for
+        // FixturePatch.tsx's own impact-review re-render, never a trap on a
+        // removed/hidden element.
+        const activeElementVisible = await page.evaluate(() => {
+          const el = document.activeElement;
+          if (!el || el === document.body) return true;
+          const rect = el.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        });
+        expect(
+          activeElementVisible,
+          "focus must never land on a removed/hidden element after Validate resolves",
+        ).toBe(true);
+
+        // diagnostics/save truth (Notes): editing the title schedules a
+        // real autosave; waiting past AUTOSAVE_DEBOUNCE_MS/SaveNote's own
+        // resolution shows the genuine "Saved" status, not a decorative
+        // label. Fills back to the identical seeded title so the visible
+        // content itself never changes.
+        const titleField = page.getByLabel("Note title");
+        await expect(titleField).toHaveValue(NOTE_TITLE);
+        await titleField.fill(`${NOTE_TITLE}!`);
+        await titleField.fill(NOTE_TITLE);
+        await page.waitForTimeout(1200);
+        await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+
+        // model independence, continued: validating/saving one editor's
+        // own workspace never disturbs the other's content.
+        await expect(titleField).toHaveValue(NOTE_TITLE);
+        await expect(page.locator(".monaco-editor .view-lines")).toContainText("golc.playback.switchScene");
+
+        // public toolbars/actions: every declared action for both
+        // workspaces renders through the shared Button primitive.
+        await expect(page.getByRole("button", { name: "New Script" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Delete Script" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "New Note" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Delete Note" })).toBeVisible();
+
+        // no theme branch: no component below the document root may itself
+        // read or branch on theme identity (only <html> legitimately
+        // carries data-theme/data-theme-name, set once by lib/theme.ts).
+        const themeBranchElementCount = await page.evaluate(
+          () => Array.from(document.querySelectorAll("[data-theme], [data-theme-name]")).filter(
+            (element) => element !== document.documentElement,
+          ).length,
+        );
+        expect(
+          themeBranchElementCount,
+          "no component below the root may itself read/branch on theme identity",
+        ).toBe(0);
+
+        // editor containment.
+        const overflow = await findOverflowingControls(page);
+        expect(overflow, "Scripts / Notes must not overflow its own chrome or the viewport").toEqual([]);
+
+        await settleForCapture(page);
+        await assertNoProtectedMaskIntersections(page, NO_MASKS);
+
+        await expect(page).toHaveScreenshot(`scripts-notes-${theme}-${width}.png`);
+      });
+    }
+  }
+});
