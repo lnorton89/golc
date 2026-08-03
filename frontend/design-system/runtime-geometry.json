@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "properties": [
+    { "name": "--ds-guided-first-show-stage-rail", "type": "length", "minimum": "160px", "maximum": "320px", "fallback": "210px", "settingSite": "guided-first-show", "reviewCondition": "guided-first-show resize implementation" }
+  ]
+}
