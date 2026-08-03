@@ -471,3 +471,182 @@ test.describe("Fixture Library / Patch & Pools", () => {
     }
   }
 });
+
+// ---------------------------------------------------------------------------
+// Task 3: Guided First Show
+// ---------------------------------------------------------------------------
+//
+// The Verify stage rolls up every prior stage's own derived readiness into
+// one flattened blocker/warning/evidence list (readiness.ts's
+// aggregateReadiness) -- seeding one blocker (no pools yet), one warning
+// (a fixture-library validation failure), and multiple evidence rows (a
+// programmed scene, an operator surface, and the always-present optional
+// MIDI-hardware note) produces exactly the "mixed blocker/warning/evidence
+// state" this task's must_haves.truths bullet names, with Perform (the
+// guide's one dominant next action) visibly disabled by the outstanding
+// blocker.
+
+const GUIDE_FIXTURE_LIBRARY_VIEW: FixtureLibraryView = {
+  directory: "fixtures",
+  rows: [
+    {
+      stableKey: "par-rgbw",
+      contentHash: "hash-par-rgbw",
+      manufacturer: "Chauvet",
+      model: "COLORado 1 Quad Zoom",
+      modes: ["RGBW"],
+      modeChannelCounts: { RGBW: 4 },
+      modeChannels: { RGBW: [] },
+      fileName: "chauvet-colorado-1-quad-zoom.yaml",
+      source: "local",
+      status: "valid",
+      detail: "",
+    },
+    {
+      stableKey: "broken-fixture",
+      contentHash: "hash-broken",
+      manufacturer: "",
+      model: "",
+      modes: [],
+      modeChannelCounts: {},
+      modeChannels: {},
+      fileName: "broken-fixture.yaml",
+      source: "local",
+      status: "invalid",
+      detail: "Missing required intensity capability.",
+    },
+  ],
+};
+
+// GUIDE_PATCH_VIEW is deliberately empty (no pools yet) -- derivePatchStatus
+// reports this as the guide's one blocker.
+const GUIDE_PATCH_VIEW: PatchView = { pools: [], deployments: [] };
+
+const GUIDE_PROGRAMMING_VIEW: ProgrammingView = {
+  scenes: [{ name: "Opening Look", active: true, barsPerLoop: 4, layers: [] }],
+  themes: [],
+  presets: [],
+  chases: [],
+  motions: [],
+  blends: [],
+  instances: [],
+};
+
+const GUIDE_SURFACES: ReadonlyArray<{ name: string }> = [{ name: "Main Surface" }];
+
+async function installGuideBindings(page: Page): Promise<void> {
+  await installHealthyBindings(page);
+  await page.addInitScript(
+    (seed: {
+      library: FixtureLibraryView;
+      patch: PatchView;
+      programming: ProgrammingView;
+      surfaces: ReadonlyArray<{ name: string }>;
+    }) => {
+      const browserWindow = window as unknown as {
+        go: { wails: Record<string, Record<string, (...args: unknown[]) => unknown>> };
+      };
+      browserWindow.go.wails.FixtureLibraryService.ListLocal = async () => seed.library;
+      browserWindow.go.wails.FixturePatchService.ListPatch = async () => seed.patch;
+      browserWindow.go.wails.ProgrammingService.ListProgramming = async () => seed.programming;
+      browserWindow.go.wails.SurfaceService.ListSurfaces = async () => seed.surfaces;
+    },
+    {
+      library: GUIDE_FIXTURE_LIBRARY_VIEW,
+      patch: GUIDE_PATCH_VIEW,
+      programming: GUIDE_PROGRAMMING_VIEW,
+      surfaces: GUIDE_SURFACES,
+    },
+  );
+}
+
+test.describe("Guided First Show", () => {
+  for (const width of WIDTHS) {
+    for (const theme of THEMES) {
+      test(`${width}px ${theme}`, async ({ page }) => {
+        await withTheme(page, theme);
+        await installGuideBindings(page);
+        await page.setViewportSize({ width, height: HEIGHT });
+
+        await page.goto("/");
+        await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
+
+        await page.getByRole("button", { name: "Start Guide" }).click();
+        await expect(page.getByRole("heading", { name: "Fixtures", exact: true })).toBeVisible();
+
+        const verifyRailItem = page.getByRole("button", { name: "Verify", exact: true });
+        await verifyRailItem.click();
+        await expect(page.getByRole("heading", { name: "Verify", exact: true })).toBeVisible();
+
+        // readiness semantics: exactly one blocker, one warning, and the
+        // seeded evidence rows -- never a combined score or percentage.
+        const readinessSummary = page.getByRole("list", { name: "Readiness summary" });
+        await expect(readinessSummary).toContainText("1 blocker");
+        await expect(readinessSummary).toContainText("1 warning");
+        await expect(readinessSummary).toContainText("4 evidence items");
+
+        // The mixed evidence aside renders every contributing row's own
+        // tone word -- text/icon signal, never color alone. GuidedFirstShow
+        // .module.css's own documented "safety valve" (.stageSection's
+        // 460px floor competing with .evidenceAside's minmax(0, 260px))
+        // squeezes this column to a narrow sliver at 900px -- the DOM
+        // assertion below still holds true at every width regardless (the
+        // rows exist with correct counts), and the always-visible
+        // "Readiness summary" list above already satisfies this baseline's
+        // "mixed blocker/warning/evidence state" requirement at 900px;
+        // 1280px additionally shows the fuller tone-chip cards legibly.
+        const evidenceAside = page.getByLabel("Stage evidence");
+        await expect(evidenceAside.getByText("Blocker", { exact: true })).toHaveCount(1);
+        await expect(evidenceAside.getByText("Warning", { exact: true })).toHaveCount(1);
+        await expect(evidenceAside.getByText("Evidence", { exact: true })).toHaveCount(4);
+
+        // next-action hierarchy: Perform is the guide's one dominant next
+        // action, visibly disabled while the blocker remains; Back and
+        // Exit Guide stay reachable regardless. Scoped to the "Verify"
+        // stage section (aria-labelledby="current-step-title") -- "Perform"
+        // bare would also match the persistent nav's own "Perform" group
+        // toggle and its "About the Perform section" info tooltip.
+        const stageSection = page.getByLabel("Verify", { exact: true });
+        await expect(stageSection.getByRole("button", { name: "Perform" })).toBeDisabled();
+        await expect(stageSection.getByRole("button", { name: "Back" })).toBeEnabled();
+        await expect(stageSection.getByRole("button", { name: "Exit Guide" })).toBeEnabled();
+
+        // navigation/exit: the rail marks Verify as the current step, and
+        // exiting the guide is always available and never disabled by an
+        // outstanding blocker (only Perform is ever gated).
+        await expect(verifyRailItem).toHaveAttribute("aria-current", "step");
+
+        // 8px grid (D-03: Phase 13 supersedes the inherited 7px gap): both
+        // the rail/content-area grid and the stage footer's button row use
+        // the standard 8px spacing token.
+        const railParentGap = await page.evaluate(() => {
+          const nav = document.querySelector('nav[aria-label="First show steps"]');
+          const parent = nav?.parentElement;
+          return parent ? window.getComputedStyle(parent).gap : null;
+        });
+        expect(railParentGap, "the rail/content-area grid must use the 8px D-03 gap").toBe("8px");
+
+        const footerGap = await page
+          .getByRole("button", { name: "Exit Guide" })
+          .locator("xpath=..")
+          .evaluate((el) => window.getComputedStyle(el).gap);
+        expect(footerGap, "the stage footer's button row must use the 8px spacing token").toBe("8px");
+
+        // containment.
+        const overflow = await findOverflowingControls(page);
+        expect(overflow, "Guided First Show must not overflow its own chrome or the viewport").toEqual([]);
+
+        // safety: the guide overlay replaces only the workspace canvas --
+        // the persistent safety cluster and runtime-health guarantees stay
+        // intact underneath it.
+        await assertNoRuntimeIssues(page);
+        await expectSafetyClusterAvailable(page);
+
+        await settleForCapture(page);
+        await assertNoProtectedMaskIntersections(page, NO_MASKS);
+
+        await expect(page).toHaveScreenshot(`guided-first-show-${theme}-${width}.png`);
+      });
+    }
+  }
+});
