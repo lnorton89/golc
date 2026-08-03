@@ -287,6 +287,16 @@ export async function smallestPassingRatio(
 }
 
 export function cleanupScratchSnapshots(testInfo: TestInfo): void {
-  const root = testInfo.snapshotPath("calibration-scratch");
+  // A *single*-segment snapshotPath() call applies the default
+  // snapshotPathTemplate's "-{projectName}-{platform}{ext}" leaf suffix to
+  // that lone segment itself (matching what happens to the real "baseline-a"/
+  // "baseline-b" leaf names), so it does NOT resolve to the literal
+  // "calibration-scratch" directory every real write's path is actually
+  // nested under -- calling with two segments and taking the parent of the
+  // result mirrors the real 3-segment writes (where only the last segment
+  // is suffixed) and reliably lands on the true, un-suffixed root directory
+  // regardless of what the suffixed sentinel leaf itself resolves to.
+  const sentinelPath = testInfo.snapshotPath("calibration-scratch", "sentinel");
+  const root = path.dirname(sentinelPath);
   rmSync(root, { recursive: true, force: true });
 }
