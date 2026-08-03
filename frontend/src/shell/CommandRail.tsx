@@ -14,10 +14,10 @@
 // pointer-events:none, since the click itself is what triggers that
 // confirm dialog.
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
 import { NAV_GROUPS, type DestinationId } from "./navigation";
 import { DESTINATION_ICONS } from "./destinationIcons";
 import InfoTooltip from "../components/primitives/InfoTooltip/InfoTooltip";
+import CommandRailGroupToggle from "./CommandRailGroupToggle";
 import styles from "./CommandRail.module.css";
 
 interface CommandRailProps {
@@ -68,20 +68,12 @@ export default function CommandRail({ active, onSelect, dimmed = false }: Comman
         return (
           <div key={group.label} className={styles.group}>
             <div className={styles.groupHeader}>
-              <button
-                type="button"
-                className={styles.groupToggle}
-                aria-expanded={!collapsed}
-                aria-controls={panelId}
-                onClick={() => toggleGroup(group.label)}
-              >
-                {collapsed ? (
-                  <ChevronRight size={12} className={styles.groupChevron} aria-hidden="true" />
-                ) : (
-                  <ChevronDown size={12} className={styles.groupChevron} aria-hidden="true" />
-                )}
-                <span className={styles.groupLabel}>{group.label}</span>
-              </button>
+              <CommandRailGroupToggle
+                label={group.label}
+                collapsed={collapsed}
+                panelId={panelId}
+                onToggle={() => toggleGroup(group.label)}
+              />
               <InfoTooltip label={`About the ${group.label} section`} text={group.description} />
             </div>
             {collapsed ? null : (

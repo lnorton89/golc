@@ -11,18 +11,27 @@
   height: 52px;
   display: flex;
   align-items: center;
-  gap: var(--space-md);
-  padding: 0 var(--space-md);
-  /* --line alone (1px solid var(--line)) is nearly invisible against this
-     row's own --panel-dim background -- the two tokens sit too close in
-     lightness in the light theme, so the full-width separator under
-     Scene/Layers/Bar read as missing rather than as a hairline. Blending
-     toward --ink (light theme) / --page (dark theme) darkens/lightens it
-     just enough to read as a deliberate edge across the entire bar,
-     without touching the shared --line token every other hairline in the
-     app still relies on. */
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, var(--ink) 45%);
-  background: var(--panel-dim);
+  gap: var(--ds-spacing-space4);
+  /* padding-block/padding-inline (not the "padding" shorthand): DS001
+     requires a single bare var(--ds-*) per declaration, and this row's
+     original "0 var(--ds-spacing-space4)" horizontal-only shorthand is
+     two values. Splitting keeps the exact same box model with each
+     longhand carrying exactly one token/safe literal. */
+  padding-block: 0;
+  padding-inline: var(--ds-spacing-space4);
+  /* --ds-border-default alone (1px solid) is nearly invisible against this
+     row's own --ds-surface-panel-subdued background -- the two tokens sit
+     too close in lightness in the light theme, so the full-width separator
+     under Scene/Layers/Bar read as missing rather than as a hairline.
+     Blending toward --ds-text-primary (light theme) / --ds-surface-canvas
+     (dark theme) darkens/lightens it just enough to read as a deliberate
+     edge across the entire bar, without touching the shared
+     --ds-border-default token every other hairline in the app still
+     relies on. "border-bottom" (unlike bare "border"/"border-color") is
+     not one of DS001's tracked shorthand properties, so this composite
+     color-mix needs no exception. */
+  border-bottom: 1px solid color-mix(in srgb, var(--ds-border-default) 55%, var(--ds-text-primary) 45%);
+  background: var(--ds-surface-panel-subdued);
   overflow: hidden;
 }
 
@@ -35,5 +44,5 @@
   width: 1px;
   height: 24px;
   flex-shrink: 0;
-  background: var(--line);
+  background: var(--ds-border-default);
 }
