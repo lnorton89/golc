@@ -18,6 +18,18 @@
 // automatically (the effect below) -- there is no "still on, but nothing
 // to map" state to strand an operator in, so `disabled` here only ever
 // needs to gate turning it ON.
+//
+// Phase 13 Plan 28 migrated this component's own CSS onto design-system
+// tokens (design-system/exception-proposals/operator-midi.json registers
+// the one still-unavoidable shorthand exception, the active-state focus
+// ring). The root element stays a raw <button> (registered as its own
+// narrow DS005 exception, same reasoning as Desk's own MIDI-learn hit
+// area): it needs `aria-disabled` (not the native `disabled` attribute) so
+// its own `title` tooltip keeps working while gated off a supported
+// destination -- a genuinely disabled button suppresses hover/focus
+// events in Chromium/WebView2, which would silently swallow this button's
+// own "why can't I click this" explanation -- and no existing primitive
+// combines an icon+text label with that soft-disabled toggle contract.
 import { useEffect } from "react";
 import { Radio } from "lucide-react";
 

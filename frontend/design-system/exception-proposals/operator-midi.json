@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "id": "midi-learn-toggle-button",
+      "path": "src/components/MidiLearnToggle/MidiLearnToggle.tsx",
+      "rule": "DS005",
+      "match": "button",
+      "rationale": "The global MIDI Learn switch needs aria-disabled (not the native disabled attribute) so its own title tooltip keeps working while gated off a supported destination -- a genuinely disabled button suppresses hover/focus events in Chromium/WebView2, silently swallowing the tooltip. No existing primitive combines an icon+text label with that soft-disabled toggle contract (IconButton has disabledBehavior=\"soft\" but hides its text label; Button has no soft-disabled mode at all).",
+      "source": "MidiLearnToggle.tsx:63",
+      "owner": "phase-13-28",
+      "reviewCondition": "a shared icon+label toggle primitive with soft-disabled support is added to the design system",
+      "verification": "npx vitest run src/components/MidiLearnToggle"
+    },
+    {
+      "id": "midi-learn-toggle-active-focus-shadow",
+      "path": "src/components/MidiLearnToggle/MidiLearnToggle.module.css",
+      "rule": "DS001",
+      "match": "box-shadow: 0 0 0 2px color-mix(in srgb, var(--ds-action-primary) 40%, transparent)",
+      "rationale": "The active-state accent ring around the toggle once MIDI Learn is on -- box-shadow has no longhand decomposition, so this shorthand mixing raw geometry with a semantic color token (inside color-mix() for translucency) can never satisfy DS001's bare-var()/calc(var()) pattern, the same reasoning as Desk's own desk-fader-learn-hit-area-focus-shadow exception.",
+      "source": "MidiLearnToggle.module.css:47",
+      "owner": "phase-13-28",
+      "reviewCondition": "a focus-ring/accent-ring box-shadow token is added to the design system",
+      "verification": "npx vitest run src/components/MidiLearnToggle"
+    }
+  ]
+}

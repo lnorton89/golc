@@ -1,20 +1,30 @@
-// SoftTakeoverSlider.tsx renders the D-09/D-10/D-11 live-position slider
-// with a ghost/target marker for one continuous CC/fader MIDI mapping.
-// While not armed, the fill tracks the live physical position in a
-// distinct pickup visual state (muted/translucent) and a fixed ghost/
+// SoftTakeoverSlider.tsx renders the D-09/D-10/D-11 live-position visual
+// track with a ghost/target marker for one continuous CC/fader MIDI
+// mapping. While not armed, the fill tracks the live physical position in
+// a distinct pickup visual state (muted/translucent) and a fixed ghost/
 // target marker (Signal Blue accent) shows the app's current value the
 // physical fader must cross; once armed (feedback.armed), the fill
 // switches to the armed status color and tracks the controlling value,
 // and the ghost marker disappears (armed means physical === appValue,
 // making a separate marker redundant). Only continuous CC/fader mappings
-// render this component -- Note/button mappings render an armed chip
-// only (D-12, see MidiPanel.tsx), never a takeover slider.
+// render this component -- Note/button mappings render a Chip only
+// (D-12, see MidiPanel.tsx), never a takeover slider.
 //
 // This component is purely presentational: it receives the latest
 // MidiFeedback for its own mapping as a prop (MidiPanel.tsx owns the
 // "midi:feedback" EventsOn subscription and keys pushes by mappingId) and
 // never calls a Wails binding itself.
-
+//
+// Phase 13 Plan 28: the visual track/fill/ghost marker is unavoidable
+// domain geometry (design-system/exception-proposals/operator-midi.json
+// has the one shorthand exception it still needs) and stays decorative
+// (aria-hidden) rather than the misleading former role="slider" -- a
+// non-interactive element with no keyboard support was never a real ARIA
+// slider to begin with. The shared design-system MidiPickup pattern now
+// owns the actual accessible status announcement (physical/target/armed),
+// adopting D-05's "public actions/statuses" requirement instead of a
+// second, redundant local chip.
+import { MidiPickup } from "../../design-system";
 import styles from "./MidiPanel.module.css";
 import type { MidiFeedback } from "../../lib/wailsBridge";
 
@@ -36,11 +46,7 @@ export default function SoftTakeoverSlider({ feedback }: SoftTakeoverSliderProps
     <div className={styles.takeoverRow}>
       <div
         className={`${styles.takeoverTrack} ${armed ? styles.takeoverArmed : styles.takeoverPickup}`}
-        role="slider"
-        aria-label="Soft-takeover fader position"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(physicalPct)}
+        aria-hidden="true"
       >
         <div className={styles.takeoverFill} style={{ width: `${physicalPct}%` }} />
         {!armed && (
@@ -51,9 +57,7 @@ export default function SoftTakeoverSlider({ feedback }: SoftTakeoverSliderProps
           />
         )}
       </div>
-      <span className={`${styles.armedChip} ${armed ? styles.armedChipOn : styles.armedChipOff}`}>
-        {armed ? "Armed" : "Not armed"}
-      </span>
+      <MidiPickup value={Math.round(physicalPct)} target={Math.round(ghostPct)} pickedUp={armed} />
     </div>
   );
 }
