@@ -1,45 +1,43 @@
 {
   "version": "1.0",
-  "timestamp": "2026-08-03T03:58:56.239Z",
+  "timestamp": "2026-08-03T05:26:00.000Z",
   "phase": "13",
   "phase_name": "Unified UI Design System and Automated Enforcement",
   "phase_dir": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement",
-  "plan": 10,
-  "task": 2,
+  "plan": 13,
+  "task": 1,
   "total_tasks": 77,
   "status": "paused",
   "completed_tasks": [
     {"id": 1, "name": "Foundation: parser approval, manifest/token generator, DS001-DS010 checker and primitives", "status": "done", "commit": "63f1f172"},
     {"id": 2, "name": "Dialog foundation and real Chromium/packaged WebView2 proof", "status": "done", "commit": "9165038f"},
     {"id": 3, "name": "WebView2 proof-only CDP bridge", "status": "done", "commit": "82541bc4"},
-    {"id": 4, "name": "Theme, front-door workspaces, and Notes migration", "status": "done", "commit": "71f60c11"}
+    {"id": 4, "name": "Theme, front-door workspaces, and Notes migration", "status": "done", "commit": "71f60c11"},
+    {"id": 5, "name": "13-10: Fixture Library / Patch & Pools / Project Fixtures migration, NumberStepper primitive", "status": "done", "commit": "b6eafd97, 1eb41687"},
+    {"id": 6, "name": "13-11: Scene programming migration (SceneList/LookBrowser/ScenesLooksWorkspace), SceneStack tone/label fix", "status": "done", "commit": "02dccd3d, 97667e54"}
   ],
   "remaining_tasks": [
-    {"id": 5, "name": "13-10 Task 2: Patch & Pools and Project Fixtures public-primitive conversion", "status": "in_progress"},
-    {"id": 6, "name": "13-11: scene programming broad migration", "status": "in_progress"},
-    {"id": 7, "name": "Wave 7 remaining Desk/operator/shell/editor/output/MIDI migrations and all later validation/CI waves", "status": "not_started"}
+    {"id": 7, "name": "13-13: Desk migration", "status": "not_started", "note": "Confirmed clean: no uncommitted Desk changes, no orphan commits, no lingering worktree/stash. The prior session's dispatch never reached a file edit; nothing to recover."},
+    {"id": 8, "name": "Remaining Wave 7 plans (13-14,15,16,24-29,40: OperatorSurface, SafetyCluster/LiveStatusBar/TempoControls, shell (ContextualInspector/HelpOverlay/QuickSwitcher/ErrorBoundary/AppShell/CommandRail), GuidedFirstShow, Artnet/Diagnostics, Scripts, MIDI, HotkeySettings/ComingSoon)", "status": "not_started"},
+    {"id": 9, "name": "Waves 8-16: calibration, six UI backstops, nine-surface visual matrix, Go/Mage/CI integration, Windows CI run (explicit user authority required), final exception/parity/sign-off", "status": "not_started"}
   ],
-  "blockers": [
-    {"description": "Fixture and scene slices contain large pre-existing legacy surfaces; no broad design-system exceptions may be used.", "type": "technical", "workaround": "Continue in bounded directory-owned passes, with focused regression tests and scoped DS checks."}
-  ],
+  "blockers": [],
   "async_jobs": [],
-  "human_actions_pending": [],
+  "human_actions_pending": [
+    {"description": "Decide whether to continue into the remaining ~13 Wave 7 plans and Waves 8-16 in this session, given their scale (dozens of files, Playwright visual suites, and a Windows CI mutation gated behind explicit user authority per 13-VALIDATION.md's Wave 15).", "type": "scope_decision"}
+  ],
   "decisions": [
     {"decision": "Use strict generated semantic tokens and DS001-DS010 fail-closed checker as the UI authority.", "rationale": "Prevents future agents from guessing or silently adding one-off styling.", "phase": "13"},
     {"decision": "Use a proof-only hash-locked local-module replacement plus Go overlay for packaged WebView2 CDP.", "rationale": "Wails v2/go-webview2 discards environment CDP arguments; the bridge proves the shipped desktop dialog without changing production dependencies or runtime defaults.", "phase": "13"},
-    {"decision": "Do not waive fixture/scene violations with broad exceptions.", "rationale": "The user requested enforced consistency; actual primitive/token migration is required.", "phase": "13"}
+    {"decision": "Do not waive fixture/scene violations with broad exceptions.", "rationale": "The user requested enforced consistency; actual primitive/token migration is required.", "phase": "13"},
+    {"decision": "Added a new NumberStepper primitive (frontend/src/components/primitives/NumberStepper/) rather than accept a DS005 exception for ProjectFixtures' quantity/universe/address steppers.", "rationale": "The exception mechanism can only resolve a match to exactly one diagnostic; two near-identical raw chevron buttons in one file always produce two matches, making a narrow exception structurally impossible. TempoControls.tsx (Plan 13-15-02) has the identical pattern and can adopt this primitive when that plan runs.", "phase": "13"},
+    {"decision": "Fixed a real bug in the SceneStack pattern (idle scenes tagged 'armed'/warning tone; Chip text was the raw lowercase tone instead of brand-required 'LIVE') and removed a resulting duplicate LIVE indicator in ScenesLooksWorkspace's scene-detail header.", "rationale": "Both were inherited from the interrupted prior session's uncommitted edits; the composition test (243fc2a7) fixes the on-screen LIVE count at exactly 2.", "phase": "13"}
   ],
   "uncommitted_files": [
     ".planning/STATE.md",
-    ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-10-SUMMARY.md",
-    "frontend/src/components/FixturePatch/FixturePatch.tsx",
-    "frontend/src/components/SceneProgramming/SceneList.module.css",
-    "frontend/src/components/SceneProgramming/SceneList.tsx",
-    "frontend/src/workspaces/build/ScenesLooksWorkspace.module.css",
-    "frontend/src/workspaces/build/ScenesLooksWorkspace.tsx",
     ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/.gitkeep",
     ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-PATTERNS.md"
   ],
-  "next_action": "Read the phase .continue-here.md, inspect the listed uncommitted files without reverting them, then finish 13-10 Task 2 and 13-11 using scoped DS checks before starting another Wave 7 plan.",
-  "context_notes": "Three executors were deliberately interrupted for the requested pause. Their partial changes are preserved in the shared worktree and must be reviewed/continued rather than discarded. Protected unrelated user work has remained out of scope."
+  "next_action": "13-10 and 13-11 are fully committed and verified (scoped DS checks + focused tests + tsc + manual browser verification all pass). 13-13 is confirmed not-started with nothing to recover. Ask the user whether to continue into the remaining Wave 7 plans now (large scope: ~13 more plans) or pause here.",
+  "context_notes": "STATE.md remains stale (references Phase 08/09 in places) and is left untouched pending a proper gsd state-update pass; it was already stale before this session and is not required for the code migration work. Protected unrelated paths (internal/deskmidi/, site/, go.mod, go.sum, internal/projectconfig/reference_property_test.go, cmd/golc-desktop/rsrc_windows_amd64.syso and its .wails-dev-disabled sibling) remained untouched. The .syso file was found deleted/renamed to its .wails-dev-disabled sibling partway through this session (byte-identical size to the tracked blob, so a benign rename, not data loss) -- most likely a Wails dev-mode side effect of the frontend Vite dev server used for browser verification; left alone per protected-path instructions."
 }
