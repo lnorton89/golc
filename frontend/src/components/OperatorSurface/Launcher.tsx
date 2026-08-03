@@ -1,27 +1,34 @@
 // Launcher is the "operate" mode's Launcher + Masters composition
 // (live-operation-safety-midi.md, Sketch 003 Variant A) -- shell
-// restructure plan Step 7. Assigned scenes render as ScenePad grid cells;
-// unassigned scenes remain visible, dimmed, and locked (never dispatch).
-// The active scene's four layers stay visible in a compact strip below the
-// grid. Real dispatch (dispatch.switchScene/setLayerEnabled) is completely
-// independent of this surface's own assignment tracking -- assignment
-// only gates whether THIS UI lets an operator reach a control; the actual
-// enforcement is server-side (AuthorizeControl), per OperatorSurface.tsx's
-// existing doctrine this component does not change.
+// restructure plan Step 7, retargeted onto the shared design system
+// (unified design system phase, 13-14-PLAN.md Task 2). Assigned scenes
+// render as ScenePad grid cells; unassigned scenes remain visible, dimmed,
+// and locked (never dispatch). The active scene's four layers stay
+// visible in a compact strip below the grid, now composed from the
+// shared Button primitive (via the public design-system barrel instead of
+// a direct primitive import). Real dispatch
+// (dispatch.switchScene/setLayerEnabled) is completely independent of
+// this surface's own assignment tracking -- assignment only gates whether
+// THIS UI lets an operator reach a control; the actual enforcement is
+// server-side (AuthorizeControl), per OperatorSurface.tsx's existing
+// doctrine this component does not change.
 //
 // Group/Grand Master controls can be ASSIGNED to a surface (ControlKind
 // "master") but there is no Wails-bound way to actually set a master's
 // live level yet -- no such method exists on any bound service. Rather
 // than build an interactive slider against a capability that doesn't
 // exist (out of this round's scope per the shell restructure plan's
-// explicit "no new Go services" non-goal), assigned masters are shown as
-// an honest, non-interactive "assigned, not yet controllable" note.
+// explicit "no new Go services" non-goal), assigned masters now render
+// through the shared LauncherMasters pattern -- a disabled, compact
+// "Not controllable" button per assigned master -- the same honest,
+// non-interactive treatment the prior local masterChip markup gave, just
+// composed from the shared pattern instead of a locally reinvented class.
 import { useCallback } from "react";
 import { Layers, Play } from "lucide-react";
 
 import type { ControlRefView } from "./OperatorSurface";
 import ScenePad from "./ScenePad";
-import Button from "../primitives/Button/Button";
+import { Button, EmptyState, LauncherMasters } from "../../design-system";
 import { usePlaybackSnapshot } from "../../shell/PlaybackSnapshotContext";
 import { dispatch, LAYER_KINDS, LAYER_LABELS, type LayerKind } from "../../lib/playbackDispatch";
 import styles from "./Launcher.module.css";
@@ -61,10 +68,7 @@ export default function Launcher({ controls }: LauncherProps) {
       <div className={styles.section}>
         <span className={styles.label}>Scenes</span>
         {sceneControls.length === 0 ? (
-          <p className={styles.emptyState}>
-            <Layers size={14} aria-hidden="true" />
-            No scenes assigned to this surface yet.
-          </p>
+          <EmptyState icon={Layers}>No scenes assigned to this surface yet.</EmptyState>
         ) : (
           <div className={styles.grid}>
             {sceneControls.map((control) => {
@@ -87,10 +91,7 @@ export default function Launcher({ controls }: LauncherProps) {
       <div className={styles.section}>
         <span className={styles.label}>Layers{activeScene ? ` — ${activeScene.name}` : ""}</span>
         {!activeScene ? (
-          <p className={styles.emptyState}>
-            <Play size={14} aria-hidden="true" />
-            No scene is live yet.
-          </p>
+          <EmptyState icon={Play}>No scene is live yet.</EmptyState>
         ) : (
           <div className={styles.layerStrip}>
             {LAYER_KINDS.map((kind) => {
@@ -118,13 +119,14 @@ export default function Launcher({ controls }: LauncherProps) {
       {masterControls.length > 0 ? (
         <div className={styles.section}>
           <span className={styles.label}>Masters</span>
-          <div className={styles.masterRow}>
-            {masterControls.map((control) => (
-              <span key={control.label} className={styles.masterChip} title="Assigned — live control not available yet">
-                {control.label}
-              </span>
-            ))}
-          </div>
+          <LauncherMasters
+            masters={masterControls.map((control) => ({
+              id: control.label,
+              name: control.label,
+              value: "Not controllable",
+              disabled: true,
+            }))}
+          />
         </div>
       ) : null}
     </div>
