@@ -25,6 +25,19 @@ export async function settle(page: Page): Promise<void> {
   await page.waitForTimeout(250);
 }
 
+// waitForFonts resolves once the browser's own FontFaceSet has finished
+// loading every @font-face declared by index.css (Archivo, JetBrains Mono).
+// Required before any deterministic screenshot capture (260803, Plan
+// 13-17): a capture taken before web fonts settle silently falls back to a
+// system font for one or two frames, which is real nondeterminism no
+// animation/caret freeze touches -- Chromium's own font-loading timing
+// varies run to run independent of anything this app controls.
+export async function waitForFonts(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+}
+
 // installHealthyBindings installs the complete healthy Wails mock surface
 // (moved verbatim from desktop-view-docs.spec.ts) so every workspace renders
 // its content-rich state instead of a daemon-unreachable fallback.

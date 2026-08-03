@@ -1,0 +1,37 @@
+/* screenshot.css -- injected immediately before every deterministic
+   design-system capture (Plan 13-17), via Playwright's `stylePath` option
+   for `expect(...).toHaveScreenshot()`/`toMatchSnapshot()` calls (wired as
+   the `expect.toHaveScreenshot` default in playwright.config.ts) and via
+   `page.addStyleTag({ path: ... })` for the raw `page.screenshot()` calls
+   the calibration spec itself makes.
+
+   Playwright's own `animations: "disabled"` option (also defaulted in
+   playwright.config.ts) already freezes CSS animations/transitions at
+   their end state and disables infinite animations; this stylesheet is
+   the backstop for the nondeterminism sources that option does not
+   reach: text-selection highlight color and native scrollbar rendering
+   both vary by OS theme/DPI and are neither an animation, a transition,
+   nor the text caret `caret: "hide"` already covers. A `!important` hard
+   override is intentional here -- this file's only job is guaranteeing
+   pixel determinism during capture, never real applied styling. */
+
+*,
+*::before,
+*::after {
+  animation: none !important;
+  transition: none !important;
+  caret-color: transparent !important;
+  scroll-behavior: auto !important;
+}
+
+::selection {
+  background: transparent !important;
+}
+
+::-webkit-scrollbar {
+  display: none !important;
+}
+
+html {
+  scrollbar-width: none !important;
+}
