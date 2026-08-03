@@ -83,9 +83,13 @@ describe("QuickSwitcher", () => {
   it("clicking the backdrop closes without navigating", () => {
     const onNavigate = vi.fn();
     const onClose = vi.fn();
-    const { container } = render(<QuickSwitcher open onClose={onClose} onNavigate={onNavigate} />);
+    render(<QuickSwitcher open onClose={onClose} onNavigate={onNavigate} />);
 
-    fireEvent.click(container.firstChild as Element);
+    // QuickSwitcher now renders through the shared Dialog primitive, which
+    // dismisses its portal-rendered backdrop on mousedown (see
+    // Dialog.test.tsx's own convention), not a plain click on a local
+    // backdrop div.
+    fireEvent.mouseDown(screen.getByTestId("dialog-backdrop"));
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onNavigate).not.toHaveBeenCalled();
