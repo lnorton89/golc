@@ -1,38 +1,42 @@
 /*
- * MidiLearnToggle.module.css -- mirrors SafetyCluster.module.css's
- * `.control` sizing/shape exactly (28px height, same padding/border/
- * radius/font) so this button reads as part of the same header cluster it
- * sits beside, despite being a plain click-to-toggle rather than a
- * hold-to-confirm control (this action is reversible, not safety-critical
- * -- toggling it back off is always one click away).
+ * MidiLearnToggle.module.css -- sized/shaped to read as part of the same
+ * header cluster SafetyCluster sits beside, despite being a plain
+ * click-to-toggle rather than a hold-to-confirm control (this action is
+ * reversible, not safety-critical -- toggling it back off is always one
+ * click away). Migrated onto design-system tokens in Phase 13 Plan 28;
+ * the active-state focus ring's box-shadow is the one still-unavoidable
+ * shorthand exception (see design-system/exception-proposals/
+ * operator-midi.json), since box-shadow has no longhand decomposition
+ * that would let it satisfy DS001's bare-var() pattern.
  */
 
 .toggle {
   position: relative;
   flex-shrink: 0;
-  height: 28px;
+  height: var(--ds-sizing-control-compact);
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
-  padding: 0 var(--space-sm);
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-weight: 600;
-  font-size: var(--text-sm);
+  gap: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space2);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  font-size: var(--ds-typography-font-size-body);
   white-space: nowrap;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--page);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
+  background: var(--ds-surface-control);
   cursor: pointer;
-  transition:
-    background var(--motion-settle),
-    color var(--motion-settle),
-    box-shadow var(--motion-settle);
+  transition: var(--ds-motion-tap);
 }
 
 .toggle:focus-visible {
-  outline: 2px solid var(--accent-5);
-  outline-offset: 2px;
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
 }
 
 /* Active state uses the same accent-ring language as SafetyCluster's own
@@ -41,10 +45,10 @@
    toggle stays on for as long as an operator is actively mapping several
    controls in a row, unlike the momentary safety actions beside it. */
 .toggle[data-active] {
-  background: var(--accent-5);
-  color: var(--page);
-  border-color: var(--accent-5);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-5) 40%, transparent);
+  background: var(--ds-action-primary);
+  color: var(--ds-action-on-primary);
+  border-color: var(--ds-action-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ds-action-primary) 40%, transparent);
 }
 
 .icon {
@@ -65,7 +69,7 @@
 
 @media (max-width: 700px) {
   .toggle {
-    padding: 0 6px;
+    padding-inline: var(--ds-spacing-space1);
   }
 
   .label {

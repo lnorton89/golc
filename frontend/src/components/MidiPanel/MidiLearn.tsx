@@ -14,10 +14,18 @@
 // (minted by internal/midi/learn.go's CaptureCandidate, 06-03) maps to
 // the UI-SPEC timeout copy client-side, since that diagnostic's own
 // message text isn't phrased as user-facing copy.
+//
+// Phase 13 Plan 28 migrated the idle Learn affordance and Cancel action
+// onto the shared Button primitive (its own min 44px target-size variant
+// already covers the 06-UI-SPEC.md touch-target requirement this file
+// used to hand-roll); the "Listening…" pill and its own inline issue
+// message remain local, since neither matches an existing shared
+// primitive shape closely enough to reuse one.
 
 import { useState } from "react";
 import { Radio, X } from "lucide-react";
 
+import { Button } from "../../design-system";
 import styles from "./MidiPanel.module.css";
 import type { ControlRefInput } from "./MidiPanel";
 
@@ -126,27 +134,26 @@ export default function MidiLearn({
     return (
       <div className={styles.learnListening} role="status" aria-live="polite">
         <span>Listening for MIDI input…</span>
-        <button type="button" className={styles.cancelButton} onClick={handleCancel}>
-          <X size={13} aria-hidden="true" />
+        <Button variant="secondary" size="compact" leadingIcon={X} onClick={() => void handleCancel()}>
           Cancel
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
     <div className={styles.learnControl}>
-      <button
-        type="button"
-        className={styles.learnButton}
-        onClick={handleLearn}
+      <Button
+        variant="secondary"
+        size="target"
+        leadingIcon={Radio}
+        onClick={() => void handleLearn()}
         aria-label={`Learn MIDI mapping for ${controlLabel}`}
       >
-        <Radio size={13} aria-hidden="true" />
         Learn
-      </button>
+      </Button>
       {message && (status === "conflict" || status === "timeout" || status === "error") && (
-        <p className={styles.learnError} role="alert">
+        <p className={styles.learnIssue} role="alert">
           {message}
         </p>
       )}
