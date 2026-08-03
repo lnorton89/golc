@@ -78,7 +78,7 @@ export default function TitleBar() {
         <img src={appIcon} alt="" className={styles.brandIcon} />
         <span className={styles.brandLabel}>GOLC</span>
       </div>
-      <span className={styles.projectName} style={projectNameStyle}>
+      <span className={styles.projectName} style={projectNameStyle} title={projectName}>
         {projectName}
       </span>
       <div className={styles.controls} style={noDragStyle} onDoubleClick={(event) => event.stopPropagation()}>
