@@ -38,7 +38,7 @@ describe("Dialog", () => {
     fireEvent.keyDown(dialog, { key: "Tab" });
     expect(first).toHaveFocus();
     fireEvent.keyDown(dialog, { key: "Escape" });
-    fireEvent.click(dialog);
+    fireEvent.mouseDown(screen.getByTestId("dialog-backdrop"));
 
     expect(onClose).toHaveBeenCalledTimes(2);
   });

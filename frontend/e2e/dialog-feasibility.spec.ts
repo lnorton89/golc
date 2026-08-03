@@ -30,14 +30,14 @@ test.describe("dialog feasibility", () => {
     await expect(page.getByRole("button", { name: "Open allowed dialog" })).toBeFocused();
 
     await page.getByRole("button", { name: "Open allowed dialog" }).click();
-    await dialog.click({ position: { x: 2, y: 2 } });
+    await page.getByTestId("dialog-backdrop").click({ position: { x: 2, y: 2 } });
     await expect(dialog).toHaveCount(0);
 
     await page.getByRole("button", { name: "Open blocked dialog" }).click();
     const blocked = page.getByRole("dialog", { name: "Discard fixture changes?" });
     await expect(blocked).toBeVisible();
     await page.keyboard.press("Escape");
-    await blocked.click({ position: { x: 2, y: 2 } });
+    await page.getByTestId("dialog-backdrop").click({ position: { x: 2, y: 2 } });
     await expect(blocked).toBeVisible();
     await page.getByRole("button", { name: "Keep fixture" }).click();
     await expect(blocked).toHaveCount(0);

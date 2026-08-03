@@ -1,17 +1,22 @@
+.backdrop {
+  position: fixed;
+  z-index: var(--ds-stacking-modal);
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--ds-spacing-space4);
+  background: var(--ds-surface-scrim);
+}
+
 .dialog {
   width: min(32rem, calc(100vw - var(--ds-spacing-space8)));
   max-height: calc(100vh - var(--ds-spacing-space8));
-  margin: auto;
   padding: 0;
   overflow: auto;
   border: 1px solid var(--ds-border-default);
   border-radius: var(--ds-radii-large);
   background: var(--ds-surface-overlay);
   color: var(--ds-text-primary);
-}
-
-.dialog::backdrop {
-  background: var(--ds-surface-scrim);
 }
 
 .content {
