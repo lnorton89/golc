@@ -2,79 +2,16 @@
   display: grid;
   grid-template-columns: 100px minmax(0, 1fr);
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
   min-height: 48px;
-  padding: var(--space-xs) var(--space-sm);
-  border-left: 3px solid var(--accent-2);
-  border-radius: var(--radius-sm);
-  background: var(--panel);
+  padding-block: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space2);
+  border-left: 3px solid var(--ds-border-selected);
+  border-radius: var(--ds-radii-small);
+  background: var(--ds-surface-panel);
 }
 
 .rowDisabled {
-  border-left-color: var(--line);
+  border-left-color: var(--ds-border-default);
   opacity: 0.72;
-}
-
-.toggle {
-  height: 32px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--page);
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.toggle[aria-pressed="true"] {
-  border-color: var(--accent-2);
-  background: color-mix(in srgb, var(--accent-2) 16%, transparent);
-}
-
-/* Rainbow only: each of the 4 fixed layer rows (Base Look/Color Theme/
-   Chase/Motion, one <li class="row"> per LAYER_KINDS entry -- see
-   ScenesLooksWorkspace.tsx) gets its own hue by position for its left
-   border and its toggle's pressed state, instead of every row sharing
-   --accent-2. Every other palette keeps the flat --accent-2 from the
-   rules above. */
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .row:nth-of-type(1) {
-  border-left-color: var(--accent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .row:nth-of-type(1) .toggle[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .row:nth-of-type(2) {
-  border-left-color: var(--accent-2);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .row:nth-of-type(2) .toggle[aria-pressed="true"] {
-  border-color: var(--accent-2);
-  background: color-mix(in srgb, var(--accent-2) 16%, transparent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .row:nth-of-type(3) {
-  border-left-color: var(--accent-3);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .row:nth-of-type(3) .toggle[aria-pressed="true"] {
-  border-color: var(--accent-3);
-  background: color-mix(in srgb, var(--accent-3) 16%, transparent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .row:nth-of-type(4) {
-  border-left-color: var(--accent-4);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .row:nth-of-type(4) .toggle[aria-pressed="true"] {
-  border-color: var(--accent-4);
-  background: color-mix(in srgb, var(--accent-4) 16%, transparent);
-}
-
-.lookSelect {
-  height: 32px;
-  min-width: 0;
-  padding: 0 var(--space-xs);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--page);
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
 }
