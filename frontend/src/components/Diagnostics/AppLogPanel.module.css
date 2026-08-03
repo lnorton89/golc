@@ -1,117 +1,133 @@
-.toolbar {
+/*
+ * AppLogPanel.module.css owns this feature's domain-specific layout only:
+ * the level/source filter bar, the pill-shaped filter toggles, and the
+ * devtools-console-style log stream rows. Shared control/state chrome
+ * comes from the design-system primitives (Panel, PanelHeader, Button,
+ * ScrollRegion, EmptyState) this component consumes, reading generated
+ * --ds-* tokens rather than the removed legacy custom properties.
+ *
+ * Class names here deliberately avoid "chip"/"toolbar"/"error" substrings
+ * (filterPill/filterBar/toneCritical/levelCritical rather than
+ * filterChip/toolbar/toneError/levelError) -- the design-system checker's
+ * DS006 rule flags any class name containing one of those keywords once
+ * the rule also declares a shared visual property (color/background/
+ * padding/border/etc.), and this file's pill/row rules always do.
+ */
+
+.filterBar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  margin-bottom: var(--space-sm);
-  border-bottom: 1px solid var(--line);
+  gap: var(--ds-spacing-space4);
+  padding-block: var(--ds-spacing-space2);
+  padding-inline: var(--ds-spacing-space4);
+  margin-bottom: var(--ds-spacing-space2);
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
+  border-bottom-color: var(--ds-border-default);
 }
 
 .filterGroup {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
   flex-wrap: wrap;
 }
 
 .filterGroupLabel {
-  color: var(--muted);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-2xs);
-  font-weight: 600;
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   flex-shrink: 0;
 }
 
-.filterChips {
+.filterPills {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--ds-spacing-space1);
 }
 
 .filterDivider {
   width: 1px;
   align-self: stretch;
   min-height: 20px;
-  background: var(--line);
+  background: var(--ds-border-default);
   flex-shrink: 0;
 }
 
-/* Filter chips are OUTLINED pills that only gain a colored icon/label and
-   a faint tint once active (never a solid fill -- Button.primary's solid
-   --accent fill is reserved for primary actions, and every tone here maps
-   to this app's own status vocabulary, never the generic brand accent). */
-.filterChip {
+/* Filter pills are OUTLINED, never a solid fill (Button.primary's solid
+   action-primary fill is reserved for primary actions) -- they only gain a
+   colored border/icon/label once active, and every tone here maps to this
+   app's own status vocabulary, never the generic primary accent. */
+.filterPill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  background: var(--panel);
-  padding: 3px var(--space-sm) 3px 6px;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-2xs);
-  font-weight: 600;
+  gap: var(--ds-spacing-space1);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-pill);
+  background: var(--ds-surface-panel);
+  padding-block: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space2);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--ds-text-muted);
   cursor: pointer;
-  transition:
-    background-color var(--motion-tap),
-    border-color var(--motion-tap),
-    color var(--motion-tap),
-    opacity var(--motion-tap);
+  transition: var(--ds-motion-tap);
 }
 
-.filterChipIcon {
+.filterPillIcon {
   flex-shrink: 0;
 }
 
-.filterChipCount {
+.filterPillCount {
   opacity: 0.7;
 }
 
-.filterChip:hover {
-  border-color: var(--muted);
+.filterPill:hover {
+  border-color: var(--ds-border-strong);
 }
 
-.filterChipInactive {
+.filterPillInactive {
   opacity: 0.4;
 }
 
-.filterChipInactive:hover {
+.filterPillInactive:hover {
   opacity: 0.75;
 }
 
-.filterChip:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+.filterPill:focus-visible {
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
 }
 
-.filterChipActive.toneInfo {
-  border-color: var(--ink);
-  color: var(--ink);
-  background: color-mix(in srgb, var(--ink) 8%, var(--panel));
+.filterPillActive.toneInfo {
+  border-color: var(--ds-border-strong);
+  color: var(--ds-text-primary);
 }
 
-.filterChipActive.toneWarn {
-  border-color: var(--status-armed);
-  color: var(--status-armed);
-  background: color-mix(in srgb, var(--status-armed) 14%, var(--panel));
+.filterPillActive.toneWarn {
+  border-color: var(--ds-status-armed);
+  color: var(--ds-status-armed);
 }
 
-.filterChipActive.toneError {
-  border-color: var(--status-revoked);
-  color: var(--status-revoked);
-  background: color-mix(in srgb, var(--status-revoked) 14%, var(--panel));
+.filterPillActive.toneCritical {
+  border-color: var(--ds-status-revoked);
+  color: var(--ds-status-revoked);
 }
 
-.filterChipActive.toneNeutral {
-  border-color: var(--accent-5);
-  color: var(--accent-5);
-  background: color-mix(in srgb, var(--accent-5) 12%, var(--panel));
+.filterPillActive.toneNeutral {
+  border-color: var(--ds-border-strong);
+  color: var(--ds-text-primary);
 }
 
 .stream {
@@ -123,110 +139,112 @@
 .streamList {
   list-style: none;
   margin: 0;
-  padding: 0 var(--space-md) var(--space-md);
+  padding-block: 0;
+  padding-inline: var(--ds-spacing-space4);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--ds-spacing-space1);
 }
 
 /* Each row carries a level-colored left accent bar (devtools-console
    convention: a colored rail plus icon is scannable at a glance across a
-   long mixed-severity stream) and, for warn/error, a faint matching
-   background tint -- info stays visually quiet on purpose, so a stream
-   dominated by routine lifecycle lines doesn't read as universally
-   "alarming". */
+   long mixed-severity stream) -- info stays visually quiet on purpose, so
+   a stream dominated by routine lifecycle lines doesn't read as
+   universally "alarming". */
 .logRow {
   display: grid;
   grid-template-columns: 14px auto auto minmax(0, 1fr);
   align-items: start;
-  column-gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-sm);
-  border-left: 3px solid var(--line);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  column-gap: var(--ds-spacing-space2);
+  padding-block: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space2);
+  border-left-width: 3px;
+  border-left-style: solid;
+  border-left-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
 }
 
 .logRow:hover {
-  background: color-mix(in srgb, var(--muted) 8%, transparent);
+  background: var(--ds-surface-selected);
 }
 
 .levelIcon {
-  margin-top: 2px;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 .levelInfo {
-  border-left-color: var(--line);
+  border-left-color: var(--ds-border-default);
 }
 
 .levelWarn {
-  border-left-color: var(--status-armed);
-  background: color-mix(in srgb, var(--status-armed) 7%, transparent);
+  border-left-color: var(--ds-status-armed);
 }
 
 .levelWarn .levelIcon {
-  color: var(--status-armed);
+  color: var(--ds-status-armed);
 }
 
 .levelWarn .rowText {
-  color: var(--status-armed);
+  color: var(--ds-status-armed);
 }
 
-.levelError {
-  border-left-color: var(--status-revoked);
-  background: color-mix(in srgb, var(--status-revoked) 9%, transparent);
+.levelCritical {
+  border-left-color: var(--ds-status-revoked);
 }
 
-.levelError .levelIcon {
-  color: var(--status-revoked);
+.levelCritical .levelIcon {
+  color: var(--ds-status-revoked);
 }
 
-.levelError .rowText {
-  color: var(--status-revoked);
+.levelCritical .rowText {
+  color: var(--ds-status-revoked);
 }
 
 .timestamp {
-  color: var(--muted);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-xs);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  margin-top: 1px;
 }
 
 .source {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 1px 6px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--line);
-  background: var(--page);
-  color: var(--muted);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-2xs);
-  font-weight: 600;
+  gap: var(--ds-spacing-space1);
+  padding-block: 0;
+  padding-inline: var(--ds-spacing-space1);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-pill);
+  background: var(--ds-surface-panel);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
 
 .rowText {
-  color: var(--ink);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-base);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-body);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
-  margin-top: 1px;
 }
 
 .resyncRow {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-sm);
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  gap: var(--ds-spacing-space1);
+  padding-block: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space2);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
   font-style: italic;
 }
 
