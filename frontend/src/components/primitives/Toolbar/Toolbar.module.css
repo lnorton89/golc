@@ -12,44 +12,57 @@
      wrap onto further lines of their own once even alone they're too
      wide -- both are the same convention this app already uses elsewhere
      (LookBrowser's categoryRow, Launcher's layerStrip, ...). */
-  min-height: 42px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  row-gap: var(--space-xs);
-  gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-md);
-  border-bottom: 1px solid var(--line);
+  row-gap: var(--ds-spacing-space1);
+  gap: var(--ds-spacing-space2);
+  padding: var(--ds-spacing-space2) var(--ds-spacing-space4);
+  border-bottom: 1px solid var(--ds-border-default);
+  background: var(--ds-surface-panel);
+  color: var(--ds-text-primary);
+}
+
+.toolbar[data-density="compact"] {
+  padding: var(--ds-spacing-space1) var(--ds-spacing-space2);
 }
 
 .titleGroup {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
   min-width: 0;
 }
 
 .icon {
   flex-shrink: 0;
-  color: var(--muted);
+  flex-shrink: 0;
+  width: var(--ds-sizing-icon16);
+  height: var(--ds-sizing-icon16);
+  color: var(--ds-text-muted);
 }
 
 .title {
   margin: 0;
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--ink);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-heading);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  line-height: var(--ds-typography-line-height-heading);
+  color: var(--ds-text-primary);
 }
 
 .action {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  row-gap: var(--space-xs);
-  gap: var(--space-sm);
+  row-gap: var(--ds-spacing-space1);
+  gap: var(--ds-spacing-space2);
   /* A lone flex item on its own wrapped line doesn't shrink to the
      line's available width just because it's alone there -- flexbox only
      wraps ITEMS of a container across lines, it doesn't also constrain a

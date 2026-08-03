@@ -20,28 +20,38 @@
 // desktopViews.json). Omitted entirely by callers that pass no `info`, so
 // existing Toolbar.test.tsx's "renders no buttons without an action"
 // assertion is unaffected.
-import type { ReactNode } from "react";
+import { forwardRef } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import InfoTooltip from "../InfoTooltip/InfoTooltip";
 import styles from "./Toolbar.module.css";
 
-interface ToolbarProps {
+export type ToolbarDensity = "default" | "compact";
+
+export interface ToolbarProps extends HTMLAttributes<HTMLDivElement> {
   title: string;
   icon?: LucideIcon;
   info?: string;
   action?: ReactNode;
+  density?: ToolbarDensity;
 }
 
-export default function Toolbar({ title, icon: Icon, info, action }: ToolbarProps) {
+const Toolbar = forwardRef<HTMLDivElement, ToolbarProps>(function Toolbar(
+  { title, icon: Icon, info, action, density = "default", className, ...rest },
+  ref,
+) {
+  const combinedClassName = className ? `${styles.toolbar} ${className}` : styles.toolbar;
   return (
-    <div className={styles.toolbar}>
+    <div ref={ref} className={combinedClassName} data-density={density} {...rest}>
       <span className={styles.titleGroup}>
-        {Icon ? <Icon size={16} className={styles.icon} aria-hidden="true" /> : null}
+        {Icon ? <Icon className={styles.icon} aria-hidden="true" /> : null}
         <h2 className={styles.title}>{title}</h2>
         {info ? <InfoTooltip label={`How ${title} works`} text={info} /> : null}
       </span>
       {action ? <div className={styles.action}>{action}</div> : null}
     </div>
   );
-}
+});
+
+export default Toolbar;

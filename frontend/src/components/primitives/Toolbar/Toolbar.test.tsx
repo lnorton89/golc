@@ -1,3 +1,4 @@
+import { createRef } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 
@@ -30,5 +31,14 @@ describe("Toolbar", () => {
     render(<Toolbar title="Art-Net" info="Configures the Art-Net output path." />);
     expect(screen.getByRole("heading", { name: "Art-Net" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "How Art-Net works" })).toBeInTheDocument();
+  });
+
+  it("forwards native props and ref while exposing compact toolbar density", () => {
+    const ref = createRef<HTMLDivElement>();
+    render(<Toolbar ref={ref} title="A very long workspace title that must remain bounded" density="compact" aria-label="Workspace toolbar" />);
+
+    const toolbar = screen.getByLabelText("Workspace toolbar");
+    expect(ref.current).toBe(toolbar);
+    expect(toolbar).toHaveAttribute("data-density", "compact");
   });
 });
