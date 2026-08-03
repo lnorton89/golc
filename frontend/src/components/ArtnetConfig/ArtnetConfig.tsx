@@ -23,18 +23,23 @@
 //
 // State coverage (06-UI-SPEC.md-style backstop): a loading placeholder on
 // initial status/interface fetch; an explicit daemon-unreachable panel
-// (UI-SPEC copy + the `offline` status color) whenever FetchArtnetStatus
+// (UI-SPEC copy + the `offline` status tone) whenever FetchArtnetStatus
 // reports Reachable=false; an empty state when no targets are configured;
 // an error banner rendering a failed call's own stderr diagnostic; and a
 // fixed-height scroll panel for the configured-target list (backstop:
 // "scrolls within a fixed-height panel rather than growing the window").
-// The full list-interfaces -> configure -> enable/disable -> status click-
-// through against a real golc-desktop build is queued as a human-check for
-// end-of-phase UAT (workflow.human_verify_mode=end-of-phase) rather than an
-// interactive mid-execution checkpoint.
+// Layout/domain geometry only lives in ArtnetConfig.module.css -- shared
+// control/state chrome (Panel, Button, IconButton, Chip, Field,
+// EmptyState, ErrorState, LoadingState, InfoTooltip) comes from the
+// design-system barrel (13-26 migration; mirrors FixturePatch.tsx's own
+// established shape). The full list-interfaces -> configure ->
+// enable/disable -> status click-through against a real golc-desktop
+// build is queued as a human-check for end-of-phase UAT
+// (workflow.human_verify_mode=end-of-phase) rather than an interactive
+// mid-execution checkpoint.
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Power, PowerOff, Network, TriangleAlert } from "lucide-react";
+import { Plus, Power, PowerOff, Network } from "lucide-react";
 
 import {
   configureArtnetTarget,
@@ -49,7 +54,7 @@ import {
   type ArtnetStatusView,
   type ArtnetTargetView,
 } from "../../lib/wailsBridge";
-import InfoTooltip from "../primitives/InfoTooltip/InfoTooltip";
+import { Button, Chip, EmptyState, ErrorState, Field, InfoTooltip, LoadingState, Panel } from "../../design-system";
 import styles from "./ArtnetConfig.module.css";
 
 interface TargetDraft {
@@ -229,216 +234,194 @@ export default function ArtnetConfig() {
   }
 
   return (
-    <section
-      className={styles.panel}
-      aria-label="Art-Net configuration"
-      aria-busy={loading}
-    >
-      <h2 className={styles.sectionHeading}>Art-Net Configuration</h2>
+    <Panel aria-label="Art-Net configuration" aria-busy={loading}>
+      <div className={styles.content}>
+        <h2 className={styles.sectionHeading}>Art-Net Configuration</h2>
 
-      {loading ? (
-        <div className={styles.skeleton}>Loading Art-Net configuration…</div>
-      ) : (
-        <>
-          {error && <p className={styles.errorText}>{error}</p>}
+        {loading ? (
+          <LoadingState label="Art-Net configuration is loading" variant="panel" />
+        ) : (
+          <>
+            {error ? <ErrorState heading="Art-Net configuration issue" message={error} variant="inline" /> : null}
 
-          {daemonUnreachable && (
-            <div className={styles.offlinePanel}>
-              <span className={styles.offlineChip}>offline</span>
-              <p className={styles.offlineText}>
-                <TriangleAlert size={14} aria-hidden="true" style={{ verticalAlign: "-2px", marginRight: 4 }} />
-                Can&rsquo;t reach the playback engine. GOLC will try to
-                reconnect automatically — Blackout and Stop/Release-All
-                remain available.
-              </p>
-            </div>
-          )}
-
-          {/* Interfaces */}
-          <div className={styles.subsection}>
-            <div className={styles.subsectionHeadingRow}>
-              <h3 className={styles.subsectionHeading}>Network Interfaces</h3>
-              <InfoTooltip
-                label="About Network Interfaces"
-                text="Lists the network interfaces the Art-Net output can bind to, and lets you pin which one it uses."
-              />
-            </div>
-            {interfaces.length === 0 ? (
-              <div className={styles.emptyState}>
-                <p className={styles.emptyHeading}>
-                  <Network size={18} aria-hidden="true" />
-                  No network interfaces found
+            {daemonUnreachable ? (
+              <div className={styles.offlinePanel}>
+                <Chip tone="offline">Offline</Chip>
+                <p className={styles.offlineText}>
+                  Can&rsquo;t reach the playback engine. GOLC will try to
+                  reconnect automatically — Blackout and Stop/Release-All
+                  remain available.
                 </p>
               </div>
-            ) : (
-              <ul
-                className={styles.interfaceList}
-                aria-label="Interface list"
-              >
-                {interfaces.map((iface) => (
-                  <li key={iface.index} className={styles.interfaceRow}>
-                    <span
-                      className={
-                        iface.up
-                          ? styles.interfaceStatusUp
-                          : styles.interfaceStatusDown
-                      }
-                      aria-hidden="true"
-                      title={iface.up ? "up" : "down"}
-                    />
-                    <span
-                      className={styles.interfaceName}
-                      title={iface.name}
-                    >
-                      {iface.name}
-                    </span>
-                    <span
-                      className={styles.interfaceAddrs}
-                      title={iface.addrs.join(", ") || "no addresses"}
-                    >
-                      {iface.addrs.join(", ") || "no addresses"}
-                    </span>
-                    {iface.pinned ? (
-                      <span className={styles.pinnedChip}>In use</span>
-                    ) : (
-                      <button
-                        type="button"
-                        className={styles.interfaceSelectButton}
-                        disabled={selectingIndex !== null}
-                        onClick={() => void handleSelectInterface(iface)}
-                        title={`Use ${iface.name} for Art-Net output`}
-                      >
-                        <Network size={12} aria-hidden="true" />
-                        {selectingIndex === iface.index ? "Switching…" : "Use"}
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+            ) : null}
 
-          {/* Universe targets: one row per universe that currently has
-              fixtures patched into the active deployment (refresh()) --
-              blank when none do -- each independently editable so every
-              universe can be configured without stepping through a shared
-              form one at a time. */}
-          <div className={styles.subsection}>
-            <div className={styles.subsectionHeadingRow}>
-              <h3 className={styles.subsectionHeading}>Universe Targets</h3>
-              <InfoTooltip
-                label="About Universe Targets"
-                text="Lists the DMX universes currently configured to send over Art-Net and their live output state."
-              />
+            {/* Interfaces */}
+            <div className={styles.subsection}>
+              <div className={styles.subsectionHeadingRow}>
+                <h3 className={styles.subsectionHeading}>Network Interfaces</h3>
+                <InfoTooltip
+                  label="About Network Interfaces"
+                  text="Lists the network interfaces the Art-Net output can bind to, and lets you pin which one it uses."
+                />
+              </div>
+              {interfaces.length === 0 ? (
+                <EmptyState icon={Network} heading="No network interfaces found" />
+              ) : (
+                <ul className={styles.interfaceList} aria-label="Interface list">
+                  {interfaces.map((iface) => (
+                    <li key={iface.index} className={styles.interfaceRow}>
+                      <span
+                        className={
+                          iface.up
+                            ? styles.interfaceStatusUp
+                            : styles.interfaceStatusDown
+                        }
+                        aria-hidden="true"
+                        title={iface.up ? "up" : "down"}
+                      />
+                      <span
+                        className={styles.interfaceName}
+                        title={iface.name}
+                      >
+                        {iface.name}
+                      </span>
+                      <span
+                        className={styles.interfaceAddrs}
+                        title={iface.addrs.join(", ") || "no addresses"}
+                      >
+                        {iface.addrs.join(", ") || "no addresses"}
+                      </span>
+                      {iface.pinned ? (
+                        <Chip tone="live">In use</Chip>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="compact"
+                          leadingIcon={Network}
+                          disabled={selectingIndex !== null}
+                          loading={selectingIndex === iface.index}
+                          onClick={() => void handleSelectInterface(iface)}
+                        >
+                          {selectingIndex === iface.index ? "Switching…" : "Use"}
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
-            {patchedUniverses.length > 0 && (
-              <p className={styles.countSummary}>
-                {patchedUniverses.length} universe
-                {patchedUniverses.length === 1 ? "" : "s"} patched
-              </p>
-            )}
+            {/* Universe targets: one row per universe that currently has
+                fixtures patched into the active deployment (refresh()) --
+                blank when none do -- each independently editable so every
+                universe can be configured without stepping through a shared
+                form one at a time. */}
+            <div className={styles.subsection}>
+              <div className={styles.subsectionHeadingRow}>
+                <h3 className={styles.subsectionHeading}>Universe Targets</h3>
+                <InfoTooltip
+                  label="About Universe Targets"
+                  text="Lists the DMX universes currently configured to send over Art-Net and their live output state."
+                />
+              </div>
 
-            <ul className={styles.rowScroll} aria-label="Universe target list">
-              {patchedUniverses.map((u) => {
-                const existing = targetsByUniverse.get(u) ?? [];
-                const draft = drafts[u] ?? emptyDraft;
-                return (
-                  <li key={u} className={styles.row}>
-                    <div className={styles.rowHeader}>
-                      <span className={styles.rowName}>Universe {u}</span>
-                    </div>
+              {patchedUniverses.length > 0 ? (
+                <p className={styles.countSummary}>
+                  {patchedUniverses.length} universe
+                  {patchedUniverses.length === 1 ? "" : "s"} patched
+                </p>
+              ) : null}
 
-                    {existing.map((target) => (
-                      <div
-                        key={`${target.ip}-${target.port}`}
-                        className={styles.rowHeader}
-                      >
-                        <span className={styles.technical}>
-                          {target.ip}:{target.port || 6454}
-                        </span>
-                        <span
-                          className={
-                            target.enabled
-                              ? styles.enabledChip
-                              : styles.disabledChip
-                          }
-                        >
-                          {target.enabled ? "Enabled" : "Disabled"}
-                        </span>
-                        <button
-                          type="button"
-                          className={styles.secondaryButton}
-                          disabled={actionLoading}
-                          onClick={() => void handleToggleTarget(target)}
-                        >
-                          {target.enabled ? (
-                            <PowerOff size={13} aria-hidden="true" />
-                          ) : (
-                            <Power size={13} aria-hidden="true" />
-                          )}
-                          {target.enabled ? "Disable" : "Enable"}
-                        </button>
-                        <span className={styles.technical}>
-                          send_ok={target.sendOk} send_err={target.sendErr}{" "}
-                          reachable={String(target.reachable)}
-                          {target.lastError
-                            ? ` last_error=${target.lastError}`
-                            : ""}
-                        </span>
+              <ul className={styles.rowScroll} aria-label="Universe target list">
+                {patchedUniverses.map((u) => {
+                  const existing = targetsByUniverse.get(u) ?? [];
+                  const draft = drafts[u] ?? emptyDraft;
+                  return (
+                    <li key={u} className={styles.row}>
+                      <div className={styles.rowHeader}>
+                        <span className={styles.rowName}>Universe {u}</span>
                       </div>
-                    ))}
 
-                    <div className={styles.createRow}>
-                      <input
-                        className={styles.createInput}
-                        type="text"
-                        value={draft.ip}
-                        placeholder="Target IP address"
-                        onChange={(event) =>
-                          updateDraft(u, { ip: event.target.value })
-                        }
-                        aria-label={`Universe ${u} target IP address`}
-                      />
-                      <input
-                        className={styles.createInputNarrow}
-                        type="number"
-                        min={1}
-                        max={65535}
-                        value={draft.port}
-                        placeholder="Port (optional)"
-                        onChange={(event) =>
-                          updateDraft(u, { port: event.target.value })
-                        }
-                        aria-label={`Universe ${u} target port (optional)`}
-                      />
-                      <label className={styles.checkboxLabel}>
-                        <input
-                          type="checkbox"
-                          checked={draft.enabled}
+                      {existing.map((target) => (
+                        <div
+                          key={`${target.ip}-${target.port}`}
+                          className={styles.rowHeader}
+                        >
+                          <span className={styles.technical}>
+                            {target.ip}:{target.port || 6454}
+                          </span>
+                          <Chip tone={target.enabled ? "frame-lock" : "offline"}>
+                            {target.enabled ? "Enabled" : "Disabled"}
+                          </Chip>
+                          <Button
+                            variant="secondary"
+                            size="compact"
+                            leadingIcon={target.enabled ? PowerOff : Power}
+                            disabled={actionLoading}
+                            onClick={() => void handleToggleTarget(target)}
+                          >
+                            {target.enabled ? "Disable" : "Enable"}
+                          </Button>
+                          <span className={styles.technical}>
+                            send_ok={target.sendOk} send_err={target.sendErr}{" "}
+                            reachable={String(target.reachable)}
+                            {target.lastError
+                              ? ` last_error=${target.lastError}`
+                              : ""}
+                          </span>
+                        </div>
+                      ))}
+
+                      <div className={styles.createRow}>
+                        <Field
+                          className={styles.createInput}
+                          label={`Universe ${u} target IP address`}
+                          type="text"
+                          value={draft.ip}
+                          placeholder="Target IP address"
                           onChange={(event) =>
-                            updateDraft(u, { enabled: event.target.checked })
+                            updateDraft(u, { ip: event.target.value })
                           }
                         />
-                        Enabled
-                      </label>
-                      <button
-                        type="button"
-                        className={styles.primaryButton}
-                        disabled={actionLoading}
-                        onClick={() => void handleAddTarget(u)}
-                      >
-                        <Plus size={14} aria-hidden="true" />
-                        {actionLoading ? "Configuring…" : "Add Target"}
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </>
-      )}
-    </section>
+                        <Field
+                          className={styles.createInputNarrow}
+                          label={`Universe ${u} target port (optional)`}
+                          type="number"
+                          min={1}
+                          max={65535}
+                          value={draft.port}
+                          placeholder="Port (optional)"
+                          onChange={(event) =>
+                            updateDraft(u, { port: event.target.value })
+                          }
+                        />
+                        <label className={styles.checkboxLabel}>
+                          <input
+                            type="checkbox"
+                            checked={draft.enabled}
+                            onChange={(event) =>
+                              updateDraft(u, { enabled: event.target.checked })
+                            }
+                          />
+                          Enabled
+                        </label>
+                        <Button
+                          variant="primary"
+                          leadingIcon={Plus}
+                          loading={actionLoading}
+                          onClick={() => void handleAddTarget(u)}
+                        >
+                          {actionLoading ? "Configuring…" : "Add Target"}
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </>
+        )}
+      </div>
+    </Panel>
   );
 }
