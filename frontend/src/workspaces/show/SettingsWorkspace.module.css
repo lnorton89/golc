@@ -1,369 +1,85 @@
-.workspace {
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
 .canvas {
   min-width: 0;
-  padding: var(--space-md);
+  padding: var(--ds-spacing-space4);
 }
 
-.layout {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
+.layout,
+.about,
+.aboutHeading,
+.creditsColumn,
+.creditDetail {
+  display: grid;
+  gap: var(--ds-spacing-space2);
 }
 
-.appearancePanel {
-  flex-shrink: 0;
-}
-
-.hotkeysPanel {
-  flex-shrink: 0;
-}
-
-.aboutPanel {
-  flex-shrink: 0;
-}
-
-.groupLabel {
-  display: block;
-  padding: var(--space-sm) var(--space-md) 0;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
+.groupLabel,
+.creditsLabel {
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
   text-transform: uppercase;
-  color: var(--muted);
 }
 
 .themeRow {
   display: flex;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
   flex-wrap: wrap;
+  gap: var(--ds-spacing-space2);
+  padding: var(--ds-spacing-space2);
 }
 
-/* Rainbow only: the selected button in the Mode row (3) and the Theme row
-   (11, so the 5-hue cycle repeats twice plus one) each get a different
-   role hue by position, instead of every selected Button primitive using
-   the single flat --accent every other palette (and Rainbow's own Button
-   primitive rule) uses. Button.module.css itself deliberately stays on
-   the base --accent (see index.css's Rainbow comment -- it's the one
-   universal "primary action" anchor), so these overrides live here
-   instead, scoped to just these two named groups via their own
-   aria-label, with enough specificity ([aria-label] + button + two
-   pseudo-classes) to beat Button.module.css's single-class .primary rule. */
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) [aria-label="Mode"] button:nth-of-type(1)[aria-pressed="true"] {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) [aria-label="Mode"] button:nth-of-type(1)[aria-pressed="true"]:hover {
-  background: var(--accent-dp);
-  border-color: var(--accent-dp);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) [aria-label="Mode"] button:nth-of-type(2)[aria-pressed="true"] {
-  background: var(--accent-2);
-  border-color: var(--accent-2);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) [aria-label="Mode"] button:nth-of-type(2)[aria-pressed="true"]:hover {
-  background: var(--accent-2-dp);
-  border-color: var(--accent-2-dp);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) [aria-label="Mode"] button:nth-of-type(3)[aria-pressed="true"] {
-  background: var(--accent-3);
-  border-color: var(--accent-3);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) [aria-label="Mode"] button:nth-of-type(3)[aria-pressed="true"]:hover {
-  background: var(--accent-3-dp);
-  border-color: var(--accent-3-dp);
+.aboutTitle,
+.creditUsageLabel {
+  color: var(--ds-text-primary);
+  font-weight: var(--ds-typography-font-weight-semibold);
 }
 
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) [aria-label="Theme"] button:nth-of-type(5n + 1)[aria-pressed="true"] {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) [aria-label="Theme"] button:nth-of-type(5n + 1)[aria-pressed="true"]:hover {
-  background: var(--accent-dp);
-  border-color: var(--accent-dp);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) [aria-label="Theme"] button:nth-of-type(5n + 2)[aria-pressed="true"] {
-  background: var(--accent-2);
-  border-color: var(--accent-2);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) [aria-label="Theme"] button:nth-of-type(5n + 2)[aria-pressed="true"]:hover {
-  background: var(--accent-2-dp);
-  border-color: var(--accent-2-dp);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) [aria-label="Theme"] button:nth-of-type(5n + 3)[aria-pressed="true"] {
-  background: var(--accent-3);
-  border-color: var(--accent-3);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) [aria-label="Theme"] button:nth-of-type(5n + 3)[aria-pressed="true"]:hover {
-  background: var(--accent-3-dp);
-  border-color: var(--accent-3-dp);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) [aria-label="Theme"] button:nth-of-type(5n + 4)[aria-pressed="true"] {
-  background: var(--accent-4);
-  border-color: var(--accent-4);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) [aria-label="Theme"] button:nth-of-type(5n + 4)[aria-pressed="true"]:hover {
-  background: var(--accent-4-dp);
-  border-color: var(--accent-4-dp);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) [aria-label="Theme"] button:nth-of-type(5n + 5)[aria-pressed="true"] {
-  background: var(--accent-5);
-  border-color: var(--accent-5);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) [aria-label="Theme"] button:nth-of-type(5n + 5)[aria-pressed="true"]:hover {
-  background: var(--accent-5-dp);
-  border-color: var(--accent-5-dp);
+.aboutMeta,
+.creditMeta,
+.creditCreatedAt {
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
 }
 
-.swatch {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: var(--radius-pill);
-  flex-shrink: 0;
-}
-
-.about {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  width: 100%;
-  padding: var(--space-sm) var(--space-md) var(--space-md);
-  box-sizing: border-box;
-}
-
-.aboutHeading {
-  flex-shrink: 0;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  width: 100%;
-  flex-wrap: wrap;
-}
-
-.aboutTitle {
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.aboutMeta {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-xs);
-  color: var(--muted);
-}
-
-.aboutDescription {
+.aboutDescription,
+.creditLongDescription,
+.creditUsage,
+.creditDescription {
   margin: 0;
-  color: var(--text2);
-  font-size: var(--text-sm);
-  line-height: 1.4;
-}
-
-.creditsToggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  width: fit-content;
-  margin-top: var(--space-xs);
-  border: none;
-  background: transparent;
-  padding: var(--space-xs) 0;
-  color: var(--ink);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.creditsToggle:hover {
-  color: var(--accent-5);
-}
-
-.creditsToggleChevron {
-  flex-shrink: 0;
-  color: var(--muted);
+  color: var(--ds-text-secondary);
+  font-size: var(--ds-typography-font-size-body);
 }
 
 .creditsColumns {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0 var(--space-lg);
-  align-items: start;
-}
-
-.creditsColumn {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  gap: 2px;
-}
-
-.creditsLabel {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ds-spacing-space4);
 }
 
 .creditsList {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
+  display: grid;
+  gap: var(--ds-spacing-space1);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.creditsList li {
-  padding-bottom: 2px;
-}
-
-.creditRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 32px;
-  padding: var(--space-xs) var(--space-sm);
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-base);
-  text-align: left;
-  cursor: pointer;
-  transition: background-color var(--motion-tap);
-}
-
-.creditRow:hover {
-  background: color-mix(in srgb, var(--accent-5) 8%, transparent);
-}
-
-.creditRow:focus-visible {
-  outline: 2px solid var(--accent-5);
-  outline-offset: -2px;
-}
-
-.creditChevron {
-  flex-shrink: 0;
-  color: var(--muted);
+.creditDetail {
+  padding: var(--ds-spacing-space2);
 }
 
 .creditName {
-  flex-shrink: 0;
-  font-weight: 600;
+  font-weight: var(--ds-typography-font-weight-semibold);
 }
 
-.creditDescription {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text2);
-  font-size: var(--text-2xs);
-  font-style: italic;
+.creditChevron,
+.creditsToggleChevron {
+  color: var(--ds-text-muted);
 }
 
-/* A fixed total WIDTH here (not just flex-shrink:0's auto/content width)
-   is what actually makes license/version fall in the same column on
-   every row: .creditMeta sits flush against the row's right edge as the
-   last flex child, so if its own width were merely content-sized (as it
-   was before this fix -- confirmed by screenshot, MIT vs BSD-3-Clause vs
-   Apache-2.0 each landing at a different X per row), a longer license OR
-   version string pushes that whole block's left edge further left,
-   throwing every column out of line. Pinning the box itself to 250px
-   (104px license + separator + roughly 130px for the longest version
-   string used above, "v0.46.0, 0.15.0") makes every row's box identical,
-   so its left edge -- and therefore the license column inside it -- lands
-   at the exact same X for every row. */
-.creditMeta {
-  flex-shrink: 0;
-  width: 250px;
-  display: grid;
-  grid-template-columns: 104px auto 1fr;
-  align-items: baseline;
-  column-gap: var(--space-xs);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
-
-.creditLicense {
-  text-align: right;
-  white-space: nowrap;
-}
-
-.creditSep {
-  color: var(--muted);
-}
-
-.creditVersion {
-  text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.creditDetail {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-xs);
-  padding: 0 var(--space-sm) var(--space-xs) calc(14px + var(--space-sm) * 2);
-}
-
-.creditLongDescription {
-  margin: 0;
-  color: var(--text2);
-  font-size: var(--text-2xs);
-  line-height: 1.35;
-}
-
-.creditUsage {
-  margin: 0;
-  color: var(--muted);
-  font-size: var(--text-2xs);
-  line-height: 1.25;
-  font-style: italic;
-}
-
-.creditUsageLabel {
-  color: var(--ink);
-  font-style: normal;
-  font-weight: 600;
-}
-
-.creditLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: none;
-  background: none;
-  padding: 0;
-  color: var(--accent-5);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.creditLink:hover {
-  text-decoration: underline;
+@media (max-width: 640px) {
+  .creditsColumns {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
