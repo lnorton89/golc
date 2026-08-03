@@ -42,7 +42,7 @@ import {
   type HotkeyActionId,
   type NavActionId,
 } from "../../lib/hotkeys";
-import Button from "../primitives/Button/Button";
+import { Button, IconButton } from "../../design-system";
 import styles from "./HotkeySettings.module.css";
 
 const PLAYBACK_CATEGORIES = ["Layers", "Tempo", "Transport"];
@@ -144,22 +144,22 @@ export default function HotkeySettings() {
                 <li key={action.id} className={styles.row}>
                   <span className={styles.description}>{action.description}</span>
                   <div className={styles.controls}>
-                    <button
+                    <Button
                       type="button"
-                      className={isRecording ? `${styles.keyButton} ${styles.recording}` : styles.keyButton}
+                      variant={isRecording ? "primary" : "secondary"}
+                      size="compact"
+                      className={styles.keyControl}
                       onClick={() => startRecordingPlayback(action.id)}
                     >
                       {isRecording ? "Press a key…" : formatHotkeyLabel(bindings[action.id])}
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.resetButton}
-                      aria-label={`Reset ${action.description} to default`}
+                    </Button>
+                    <IconButton
+                      icon={RotateCcw}
+                      label={`Reset ${action.description} to default`}
+                      size="compact"
                       disabled={!isCustom}
                       onClick={() => resetHotkeyBinding(action.id)}
-                    >
-                      <RotateCcw size={12} aria-hidden="true" />
-                    </button>
+                    />
                   </div>
                 </li>
               );
@@ -178,22 +178,22 @@ export default function HotkeySettings() {
               <li key={action.id} className={styles.row}>
                 <span className={styles.description}>{action.description}</span>
                 <div className={styles.controls}>
-                  <button
+                  <Button
                     type="button"
-                    className={isRecording ? `${styles.keyButton} ${styles.recording}` : styles.keyButton}
+                    variant={isRecording ? "primary" : "secondary"}
+                    size="compact"
+                    className={styles.keyControl}
                     onClick={() => startRecordingNav(action.id)}
                   >
                     {isRecording ? "Press a combo…" : formatChordLabel(navBindings[action.id])}
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.resetButton}
-                    aria-label={`Reset ${action.description} to default`}
+                  </Button>
+                  <IconButton
+                    icon={RotateCcw}
+                    label={`Reset ${action.description} to default`}
+                    size="compact"
                     disabled={!isCustom}
                     onClick={() => resetNavHotkeyBinding(action.id)}
-                  >
-                    <RotateCcw size={12} aria-hidden="true" />
-                  </button>
+                  />
                 </div>
               </li>
             );

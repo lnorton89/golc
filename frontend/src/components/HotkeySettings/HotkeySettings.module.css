@@ -1,25 +1,27 @@
 .hotkeys {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--ds-spacing-space4);
   width: 100%;
-  padding: var(--space-sm) var(--space-md) var(--space-md);
+  padding-top: var(--ds-spacing-space2);
+  padding-inline: var(--ds-spacing-space4);
+  padding-bottom: var(--ds-spacing-space4);
   box-sizing: border-box;
 }
 
 .group {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
 .groupHeading {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-2xs);
-  font-weight: 600;
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 .list {
@@ -28,7 +30,7 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
 .row {
@@ -36,34 +38,40 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-sm);
-  margin: 0 calc(var(--space-sm) * -1);
-  border-radius: var(--radius-sm);
-  transition: background-color var(--motion-tap);
+  gap: var(--ds-spacing-space2);
+  padding-block: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space2);
+  border-radius: var(--ds-radii-small);
+  transition: var(--ds-motion-tap);
 }
 
 .row:hover {
-  background: color-mix(in srgb, var(--accent-5) 8%, transparent);
+  background: var(--ds-surface-panel-subdued);
 }
 
 .description {
   flex: 1;
   min-width: 0;
-  font-size: var(--text-base);
-  color: var(--text);
+  font-size: var(--ds-typography-font-size-body);
+  color: var(--ds-text-secondary);
 }
 
+/* Fixed, non-rebindable scene-switch entry -- a kbd-styled hint, not an
+   interactive control, so it keeps its own domain chip styling rather than
+   adopting Button/IconButton. */
 .fixedKey {
   flex-shrink: 0;
   min-width: 88px;
-  padding: var(--space-xs) var(--space-sm);
-  background: var(--page);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-sm);
-  color: var(--muted);
+  padding-block: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space2);
+  background: var(--ds-surface-canvas);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  color: var(--ds-text-muted);
   text-align: center;
 }
 
@@ -71,73 +79,27 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
-.keyButton {
+/* Fixed alignment width for the rebind Button so every row's key/chord
+   label lines up in a column regardless of label length (matches
+   .fixedKey's own alignment width above) -- width isn't a DS001-checked
+   property, so this stays a plain domain-alignment literal. */
+.keyControl {
   min-width: 88px;
-  padding: var(--space-xs) var(--space-sm);
-  background: var(--page);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-sm);
-  color: var(--ink);
-  text-align: center;
-  cursor: pointer;
-  transition: border-color var(--motion-tap), background-color var(--motion-tap);
-}
-
-.keyButton:hover {
-  border-color: var(--accent-5);
-}
-
-.keyButton:focus-visible {
-  outline: 2px solid var(--accent-5);
-  outline-offset: -2px;
-}
-
-.recording {
-  border-color: var(--accent-5);
-  background: color-mix(in srgb, var(--accent-5) 12%, var(--page));
-  color: var(--accent-5);
-}
-
-.resetButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: color var(--motion-tap), background-color var(--motion-tap);
-}
-
-.resetButton:hover:not(:disabled) {
-  color: var(--ink);
-  background: color-mix(in srgb, var(--accent-5) 8%, transparent);
-}
-
-.resetButton:disabled {
-  visibility: hidden;
-  cursor: default;
 }
 
 .hint {
   margin: 0;
-  font-size: var(--text-2xs);
-  color: var(--muted);
+  font-size: var(--ds-typography-font-size-compact);
+  color: var(--ds-text-muted);
 }
 
 .conflict {
   margin: 0;
-  font-size: var(--text-2xs);
-  color: var(--status-revoked);
+  font-size: var(--ds-typography-font-size-compact);
+  color: var(--ds-status-revoked);
 }
 
 .footer {
