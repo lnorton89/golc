@@ -1,0 +1,50 @@
+.dialog {
+  width: min(32rem, calc(100vw - var(--ds-spacing-space8)));
+  max-height: calc(100vh - var(--ds-spacing-space8));
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-radii-large);
+  background: var(--ds-surface-overlay);
+  color: var(--ds-text-primary);
+}
+
+.dialog::backdrop {
+  background: var(--ds-surface-scrim);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-spacing-space4);
+  padding: var(--ds-spacing-space6);
+}
+
+.title,
+.description {
+  margin: 0;
+}
+
+.title {
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-heading);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  line-height: var(--ds-typography-line-height-heading);
+}
+
+.description {
+  color: var(--ds-text-secondary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  line-height: var(--ds-typography-line-height-body);
+}
+
+.body {
+  min-width: 0;
+}
+
+.dialog:focus-visible {
+  outline: var(--ds-focus-ring) solid var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
+}
