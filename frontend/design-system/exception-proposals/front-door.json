@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "id": "guided-first-show-impact-preview-border",
+      "path": "src/workspaces/show/GuidedFirstShow/GuidedFirstShow.module.css",
+      "rule": "DS001",
+      "match": "border: 1px solid rgba(200, 162, 75, .5)",
+      "rationale": "Verbatim reproduction of the locked Sketch 004 Variant B .impact-preview rule (.planning/sketches/references/onboarding-readiness-impact.md, D-11) -- its exact rgba(200, 162, 75, .5) value has no equivalent generated token (it coincidentally shares --ds-status-armed's RGB but with a sketch-specific alpha no token expresses), and the sketch's own header note says not to round this rule to a token.",
+      "source": "GuidedFirstShow.module.css",
+      "owner": "phase-13-25",
+      "reviewCondition": "the locked sketch reference is revised, or a generated token adds this exact alpha-tinted warning border color",
+      "verification": "npx vitest run src/workspaces/show/GuidedFirstShow"
+    },
+    {
+      "id": "guided-first-show-impact-preview-background",
+      "path": "src/workspaces/show/GuidedFirstShow/GuidedFirstShow.module.css",
+      "rule": "DS001",
+      "match": "background: rgba(200, 162, 75, .08)",
+      "rationale": "Same locked-sketch verbatim exception as guided-first-show-impact-preview-border -- this rule's own background half, at a different alpha, so it is its own distinct diagnostic value.",
+      "source": "GuidedFirstShow.module.css",
+      "owner": "phase-13-25",
+      "reviewCondition": "same as guided-first-show-impact-preview-border",
+      "verification": "npx vitest run src/workspaces/show/GuidedFirstShow"
+    }
+  ]
+}

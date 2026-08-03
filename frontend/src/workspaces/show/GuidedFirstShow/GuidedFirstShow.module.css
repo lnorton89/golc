@@ -1,15 +1,34 @@
-/* GuidedFirstShow.module.css -- the three declarations below
-   (.guided-flow, .guide-step's current-step attribute rule,
-   .impact-preview) are reproduced VERBATIM from
-   .planning/sketches/references/onboarding-readiness-impact.md (D-11):
-   the rail's fixed column width and the grid's gap value are a formally
-   locked exception to this project's 4px spacing scale -- do not round
-   them to a token. --color-primary/--color-primary-soft are bound to
-   this project's real --accent token (index.css defines --accent, not
-   --color-primary) using the same color-mix idiom ListRow.module.css
-   already uses. Every other rule in this file uses the project's
-   declared --space-* scale, and deliberately avoids repeating the locked
-   rule's own exact column-sizing expression elsewhere in this file. */
+/* GuidedFirstShow.module.css -- 13-25-PLAN.md's D-02/D-03/D-04 migration
+   of Sketch 004 Variant B's locked overlay
+   (.planning/sketches/references/onboarding-readiness-impact.md, D-11).
+
+   The rail's fixed column width and its inter-column gap are now real
+   generated design tokens (frontend/design-system/tokens.json's
+   sizing.guidedFirstShowStageRail / spacing.guidedFirstShowGap) instead of
+   the locked sketch's raw 210px/7px literals -- D-03 explicitly
+   supersedes Phase 9 D-11's inherited 7px gap with the standard 8px
+   4px-grid value; the 210px rail width remains a sizing value (not a
+   spacing token), now expressed as --ds-sizing-guided-first-show-stage-rail
+   rather than a bare literal. This is distinct from
+   design-system/runtime-geometry.json's --ds-guided-first-show-stage-rail
+   entry, which is reserved for a future resizable-rail implementation --
+   this rail is not resizable today, so it reads the static generated
+   token instead.
+
+   The former .guide-step rule (locked-sketch custom properties
+   --color-primary/--color-primary-soft driving a left-border-accent +
+   tinted-background "current step" treatment) is now the shared ListRow
+   primitive's own `selected` state, which implements the identical visual
+   contract with real --ds-border-selected/--ds-surface-selected tokens --
+   see GuidedFirstShow.tsx's own header comment.
+
+   .impact-preview is the one remaining verbatim reproduction from the
+   locked sketch: its exact rgba(200, 162, 75, ...) values are the
+   sketch's own hard-coded warning highlight (coincidentally equal to
+   --ds-status-armed's RGB with sketch-specific alpha values no generated
+   token expresses) -- registered as a narrow DS001 exception in
+   design-system/exception-proposals/front-door.json rather than rounded
+   to a token, per this rule's own do-not-round precedent. */
 
 .overlay {
   height: 100%;
@@ -25,75 +44,27 @@
      edge with zero breathing room, and (icon/polish pass) .guided-flow's
      own rail was rendering flush against the command rail's right border
      on its left with the same problem. */
-  padding-right: var(--space-md);
-  padding-left: var(--space-md);
+  padding-right: var(--ds-spacing-space4);
+  padding-left: var(--ds-spacing-space4);
 }
 
 .guided-flow {
-  --color-primary: var(--accent-5);
-  --color-primary-soft: color-mix(in srgb, var(--accent-5) 12%, transparent);
   height: 100%;
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
-  gap: 7px;
+  grid-template-columns: var(--ds-sizing-guided-first-show-stage-rail) minmax(0, 1fr);
+  gap: var(--ds-spacing-guided-first-show-gap);
   min-height: 0;
 }
 
 .rail {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-sm);
-  background: var(--panel);
-  border-radius: var(--radius-md);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space2);
+  background: var(--ds-surface-panel);
+  border-radius: var(--ds-radii-medium);
   min-height: 0;
   overflow-y: auto;
-}
-
-.guide-step {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  width: 100%;
-  min-height: 36px;
-  padding: var(--space-xs) var(--space-sm);
-  border: none;
-  border-left: 3px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-base);
-  text-align: left;
-  cursor: pointer;
-  transition: background-color var(--motion-tap), border-color var(--motion-tap);
-}
-
-.stepIcon {
-  flex-shrink: 0;
-  color: var(--muted);
-}
-
-.guide-step[aria-current="step"] .stepIcon {
-  color: var(--color-primary);
-}
-
-.guide-step:hover {
-  background: color-mix(in srgb, var(--accent-5) 8%, transparent);
-}
-
-.guide-step[aria-current="step"] {
-  border-left: 3px solid var(--color-primary);
-  background: var(--color-primary-soft);
-}
-
-/* Mirrors shell/CommandRail.module.css's own .item:focus-visible fix: this
-   rail's only active/focus language is a left-border accent, never a boxed
-   outline, so the browser's default focus rectangle read as a foreign
-   element sitting on top of the current step. */
-.guide-step:focus-visible {
-  outline: none;
-  border-left-color: var(--color-primary);
 }
 
 .contentArea {
@@ -101,10 +72,10 @@
   min-height: 0;
   display: grid;
   grid-template-columns: 1fr minmax(0, 260px);
-  /* space-md (not space-lg): matches .overlay's own right-edge
-     padding-right so the gap between stageSection/evidenceAside doesn't
-     read wider than the gap between evidenceAside and the window edge. */
-  gap: var(--space-md);
+  /* space4 (not space6): matches .overlay's own right-edge padding-right
+     so the gap between stageSection/evidenceAside doesn't read wider than
+     the gap between evidenceAside and the window edge. */
+  gap: var(--ds-spacing-space4);
   /* Safety valve for the rare window narrower than stageSection's own
      460px floor below: evidenceAside (minmax(0, 260px)) collapses toward
      0 first, and only once that's exhausted does this scroll
@@ -126,33 +97,33 @@
   min-height: 0;
   display: grid;
   grid-template-rows: auto 1fr auto;
-  gap: var(--space-md);
-  background: var(--panel);
-  border-radius: var(--radius-md);
-  padding: var(--space-lg);
+  gap: var(--ds-spacing-space4);
+  background: var(--ds-surface-panel);
+  border-radius: var(--ds-radii-medium);
+  padding: var(--ds-spacing-space6);
 }
 
 .stageHeader h2 {
   margin: 0;
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-xl);
-  font-weight: 600;
-  color: var(--ink);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-heading);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  color: var(--ds-text-primary);
 }
 
 .stageBody {
   min-height: 0;
   overflow: auto;
-  color: var(--text);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-base);
+  color: var(--ds-text-secondary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
 }
 
 .footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
 .evidenceAside {
@@ -160,10 +131,10 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  background: var(--panel);
-  border-radius: var(--radius-md);
-  padding: var(--space-md);
+  gap: var(--ds-spacing-space2);
+  background: var(--ds-surface-panel);
+  border-radius: var(--ds-radii-medium);
+  padding: var(--ds-spacing-space4);
   overflow-y: auto;
 }
 
@@ -173,51 +144,32 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
 .evidenceRow {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-sm);
-  border-radius: var(--radius-sm);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space2);
+  border-radius: var(--ds-radii-small);
 }
 
 .evidenceLabel {
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--ink);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  color: var(--ds-text-primary);
 }
 
 .evidenceDetail {
   margin: 0;
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-  color: var(--text2);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  color: var(--ds-text-secondary);
 }
 
 .impact-preview {
   border: 1px solid rgba(200, 162, 75, .5);
   background: rgba(200, 162, 75, .08);
-}
-
-.emptyPreview {
-  margin: 0;
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-}
-
-.loading,
-.errorText {
-  margin: 0;
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-}
-
-.errorText {
-  color: var(--status-revoked);
 }
