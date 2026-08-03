@@ -38,12 +38,12 @@
       "id": "shell-error-boundary-title-color",
       "path": "src/shell/ErrorBoundary.module.css",
       "rule": "DS001",
-      "match": "color: #e23a2e",
-      "rationale": "Token-independent 'GOLC hit an unexpected error' heading color -- the revoked/error red must remain visible even if the generated theme tokens never loaded.",
+      "match": "color: #e54e43",
+      "rationale": "Token-independent 'GOLC hit an unexpected error' heading color -- the revoked/error red must remain visible even if the generated theme tokens never loaded. #e54e43 is a minimal, hue-preserving lightening of the canonical #e23a2e revoked red, measured by Plan 13-30's emergency-fallback contrast backstop to clear WCAG AA 4.5:1 against this file's own #131419 background literal (the canonical value only reaches 4.27:1 here); the shared --ds-status-revoked token elsewhere in the app is unaffected.",
       "source": "ErrorBoundary.module.css:24",
       "owner": "phase-13-16",
       "reviewCondition": "same as shell-error-boundary-screen-background",
-      "verification": "npx vitest run src/shell/ErrorBoundary.test.tsx"
+      "verification": "npx vitest run src/shell/ErrorBoundary.test.tsx; npx playwright test e2e/design-system.emergency-fallback.spec.ts --project=chromium --workers=1"
     },
     {
       "id": "shell-error-boundary-body-color",
@@ -82,12 +82,12 @@
       "id": "shell-error-boundary-reload-color",
       "path": "src/shell/ErrorBoundary.module.css",
       "rule": "DS001",
-      "match": "color: rgb(226, 58, 46)",
-      "rationale": "Token-independent Reload button label color -- the operator's one recovery action must stay legible with zero stylesheet dependency. Written as rgb() rather than the identical #e23a2e hex used by .title's own color so the checker's exception-matching mechanism can address this declaration independently of shell-error-boundary-title-color -- both render the exact same revoked red.",
+      "match": "color: rgb(229, 78, 67)",
+      "rationale": "Token-independent Reload button label color -- the operator's one recovery action must stay legible with zero stylesheet dependency. Written as rgb() rather than the identical #e54e43 hex used by .title's own color so the checker's exception-matching mechanism can address this declaration independently of shell-error-boundary-title-color -- both render the exact same lightened revoked red. rgb(229, 78, 67) is a minimal, hue-preserving lightening of the canonical rgb(226, 58, 46) revoked red, measured by Plan 13-30's emergency-fallback contrast backstop to clear WCAG AA 4.5:1 against this file's own background literal at 14px semibold (the canonical value only reaches 4.27:1 here); the shared --ds-status-revoked token elsewhere in the app is unaffected.",
       "source": "ErrorBoundary.module.css:70",
       "owner": "phase-13-16",
       "reviewCondition": "same as shell-error-boundary-screen-background",
-      "verification": "npx vitest run src/shell/ErrorBoundary.test.tsx"
+      "verification": "npx vitest run src/shell/ErrorBoundary.test.tsx; npx playwright test e2e/design-system.emergency-fallback.spec.ts --project=chromium --workers=1"
     },
     {
       "id": "shell-quick-switcher-search-input",
