@@ -1,24 +1,25 @@
 // OperatorSurfaceWorkspace wraps OperatorSurface.tsx, whose "operate" mode
-// now renders the Launcher + Masters pattern (shell restructure plan Step
-// 7). An earlier interim version of this file also rendered a standalone
-// scene-quick-switch section (from Step 5, before Launcher existed) --
-// that's retired now: showing it alongside OperatorSurface's own Launcher
-// would duplicate scene-switching UI the moment a surface is in operate
-// mode.
-import { SlidersHorizontal } from "lucide-react";
-
-import Toolbar from "../../components/primitives/Toolbar/Toolbar";
+// renders the Launcher + Masters pattern (shell restructure plan Step 7).
+// Phase 13 (unified design system, 13-14-PLAN.md Task 1) retargets this
+// wrapper onto the shared WorkspaceFrame pattern -- the same
+// toolbar/canvas chrome every other migrated workspace wrapper now uses
+// (PatchPoolsWorkspace.tsx is the closest analog: a thin wrapper around an
+// unchanged feature component) -- without touching OperatorSurface.tsx's
+// own mount contract or any command/dispatch path.
+import { InfoTooltip, WorkspaceFrame } from "../../design-system";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
 import OperatorSurface from "../../components/OperatorSurface/OperatorSurface";
-import styles from "../workspace.module.css";
+import styles from "./OperatorSurfaceWorkspace.module.css";
 
 export default function OperatorSurfaceWorkspace() {
   return (
-    <div className={styles.workspace}>
-      <Toolbar title="Operator Surface" icon={SlidersHorizontal} info={HOW_IT_WORKS_BY_ID["operate-operator-surface"]} />
+    <WorkspaceFrame
+      title="Operator Surface"
+      action={<InfoTooltip label="How Operator Surface works" text={HOW_IT_WORKS_BY_ID["operate-operator-surface"]} />}
+    >
       <div className={styles.canvas}>
         <OperatorSurface />
       </div>
-    </div>
+    </WorkspaceFrame>
   );
 }
