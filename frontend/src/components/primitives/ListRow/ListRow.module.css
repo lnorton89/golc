@@ -17,15 +17,26 @@
   line-height: var(--ds-typography-line-height-body);
   text-align: left;
   cursor: pointer;
+  /* --ds-motion-tap is a combined duration+easing token ("120ms ease-out"),
+     not a bare duration -- it can't be split into transition-duration/
+     transition-timing-function longhand (transition-duration only accepts
+     a time value, so the combined string would be invalid there). Kept as
+     shorthand and registered as a narrow, single-diagnostic exception in
+     design-system/exception-proposals/primitives.json. */
   transition: background-color var(--ds-motion-tap), border-color var(--ds-motion-tap);
 }
 
 .row[data-density="compact"] {
   min-height: var(--ds-sizing-control-default);
-  padding: var(--ds-spacing-space1) var(--ds-spacing-space2);
+  padding-block: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space2);
 }
 
-button.row:hover:not(:disabled) {
+/* [data-interactive], not a bare `button` element selector: ListRow renders
+   either a <div> (no onSelect) or a <button> (onSelect provided), both
+   sharing .row -- the hover highlight must apply only to the clickable
+   button variant, which is exactly what data-interactive marks. */
+.row[data-interactive]:hover:not(:disabled) {
   background: var(--ds-surface-panel-subdued);
 }
 
@@ -40,7 +51,6 @@ button.row:hover:not(:disabled) {
 }
 
 .icon {
-  flex-shrink: 0;
   flex-shrink: 0;
   width: var(--ds-sizing-icon16);
   height: var(--ds-sizing-icon16);
@@ -66,7 +76,9 @@ button.row:hover:not(:disabled) {
 }
 
 :where(.row):focus-visible {
-  outline: var(--ds-focus-ring) solid var(--ds-focus-color);
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
   outline-offset: var(--ds-focus-offset);
 }
 

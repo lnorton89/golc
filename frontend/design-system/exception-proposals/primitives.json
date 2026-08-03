@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "id": "iconbutton-transition-motion-tap",
+      "path": "src/components/primitives/IconButton/IconButton.module.css",
+      "rule": "DS001",
+      "match": "transition: background-color var(--ds-motion-tap), border-color var(--ds-motion-tap), color var(--ds-motion-tap)",
+      "rationale": "--ds-motion-tap is a combined duration+easing token (120ms ease-out), not a bare duration -- it cannot be split into transition-property/transition-duration/transition-timing-function longhand, since transition-duration only accepts a time value and would reject the combined string. The multi-property transition list itself has no single-token equivalent in the generated token set.",
+      "source": "IconButton.module.css",
+      "owner": "primitives-sweep",
+      "reviewCondition": "a combined multi-property transition-list token, or a duration-only motion token, is added to the design system",
+      "verification": "npx vitest run src/components/primitives/IconButton"
+    },
+    {
+      "id": "listrow-transition-motion-tap",
+      "path": "src/components/primitives/ListRow/ListRow.module.css",
+      "rule": "DS001",
+      "match": "transition: background-color var(--ds-motion-tap), border-color var(--ds-motion-tap)",
+      "rationale": "Same reasoning as iconbutton-transition-motion-tap -- --ds-motion-tap is a combined duration+easing token that cannot be split into transition longhand without becoming invalid CSS, and no single-token equivalent for a multi-property transition list exists.",
+      "source": "ListRow.module.css",
+      "owner": "primitives-sweep",
+      "reviewCondition": "same as iconbutton-transition-motion-tap",
+      "verification": "npx vitest run src/components/primitives/ListRow"
+    }
+  ]
+}

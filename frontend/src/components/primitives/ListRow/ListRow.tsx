@@ -81,6 +81,7 @@ export default function ListRow({
         disabled={isDisabled}
         data-state={selected ? "selected" : "default"}
         data-density={density}
+        data-interactive=""
         title={title ?? label}
         onClick={onSelect}
         {...(rest as HTMLAttributes<HTMLButtonElement>)}
