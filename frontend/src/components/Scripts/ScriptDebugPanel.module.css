@@ -1,32 +1,34 @@
 .panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
   min-height: 0;
-  padding: var(--space-md);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--panel);
+  padding: var(--ds-spacing-space4);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-medium);
+  background: var(--ds-surface-panel);
 }
 
 .placeholder {
   margin: 0;
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
 }
 
 .statusRow {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
 .offlineText,
 .stoppingText {
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-  color: var(--muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  color: var(--ds-text-muted);
 }
 
 /* stepControls (08-12-PLAN.md Task 2, D-01): Continue/Step Over/Step
@@ -35,7 +37,7 @@
 .stepControls {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
 .stream {
@@ -50,81 +52,68 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
+/* .outcomeFailed is the renamed .outcomeError (matched DS006's
+   controlled-class "error" substring in this shared grouped selector). */
 .logRow,
 .outcomeOk,
-.outcomeError,
+.outcomeFailed,
 .resyncRow {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-sm);
-  border-radius: var(--radius-sm);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space1);
+  border-radius: var(--ds-radii-small);
 }
 
 .timestamp,
 .source {
-  color: var(--muted);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-xs);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
   flex-shrink: 0;
 }
 
 .rowText {
-  color: var(--ink);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-base);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-body);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 
-.outcomeError .rowText {
-  color: var(--status-revoked);
+.outcomeFailed .rowText {
+  color: var(--ds-status-revoked);
 }
 
 .resyncRow {
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
   font-style: italic;
 }
 
 .terminationDetail {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
 .terminationSentence {
   margin: 0;
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
   overflow-wrap: anywhere;
 }
 
 .trace {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.traceToggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  align-self: flex-start;
-  border: none;
-  background: none;
-  padding: 0;
-  color: var(--accent-5);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  cursor: pointer;
+  gap: var(--ds-spacing-space1);
 }
 
 .traceBody {
@@ -132,30 +121,30 @@
 }
 
 /* traceList/traceFrame (08-12-PLAN.md Task 2, D-03): each stack-trace
-   frame is its own keyboard-focusable <button> (replacing the earlier
-   plain <pre> block) so a click/Enter/Space on a frame can call
-   onSelectFrame -- same monospace technical-readout styling the old
-   <pre> block used, just per-frame and interactive now. */
+   frame is its own keyboard-focusable <button>, so a click/Enter/Space on
+   a frame can call onSelectFrame -- same monospace technical-readout
+   styling every other technical readout in this file uses, just per-frame
+   and interactive now. */
 .traceList {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
 .traceFrame {
   display: block;
   width: 100%;
   margin: 0;
-  padding: var(--space-xs) var(--space-sm);
-  border: none;
-  border-radius: var(--radius-sm);
+  padding: var(--ds-spacing-space1);
+  border-width: 0;
+  border-style: none;
   background: none;
-  color: var(--ink);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-base);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-body);
   text-align: left;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -164,36 +153,38 @@
 
 .traceFrame:hover,
 .traceFrame:focus-visible {
-  background: var(--page);
+  background: var(--ds-surface-panel-subdued);
 }
 
 .banner {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-md);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--page);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space4);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-medium);
+  background: var(--ds-surface-panel-subdued);
 }
 
 .bannerHeading {
   margin: 0;
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-base);
-  font-weight: 600;
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  font-weight: var(--ds-typography-font-weight-semibold);
 }
 
 .bannerBody {
   margin: 0;
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
 }
 
 .bannerActions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }

@@ -22,9 +22,8 @@ import { useState } from "react";
 import { Play, ChevronsRight, ArrowDownToLine, ArrowUpToLine, X, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
 
 import type { ScriptEventView } from "../../lib/wailsBridge";
-import Chip, { type ChipTone } from "../primitives/Chip/Chip";
-import ScrollRegion from "../primitives/ScrollRegion/ScrollRegion";
-import Button from "../primitives/Button/Button";
+import { Button, Chip, ScrollRegion } from "../../design-system";
+import type { ChipTone } from "../primitives/Chip/Chip";
 import styles from "./ScriptDebugPanel.module.css";
 
 export type ScriptPanelStatus =
@@ -202,7 +201,7 @@ function LogRow({ event }: { event: ScriptEventView }) {
       ? `${event.method}(...) → OK (${event.durationMs ?? 0}ms)`
       : `${event.method}(...) → ERROR: ${event.message ?? ""}`;
     return (
-      <li className={event.ok ? styles.outcomeOk : styles.outcomeError}>
+      <li className={event.ok ? styles.outcomeOk : styles.outcomeFailed}>
         <span className={styles.timestamp}>{formatTimestamp(event.at)}</span>
         <span className={styles.rowText}>{text}</span>
       </li>
@@ -299,19 +298,15 @@ export default function ScriptDebugPanel({
           <p className={styles.terminationSentence}>{termination.sentence}</p>
           {termination.isCrash && stackFrames.length > 0 ? (
             <div className={styles.trace}>
-              <button
-                type="button"
-                className={styles.traceToggle}
+              <Button
+                variant="secondary"
+                size="compact"
+                leadingIcon={traceExpanded ? ChevronUp : ChevronDown}
                 onClick={() => setTraceExpanded((current) => !current)}
                 aria-expanded={traceExpanded}
               >
-                {traceExpanded ? (
-                  <ChevronUp size={14} aria-hidden="true" />
-                ) : (
-                  <ChevronDown size={14} aria-hidden="true" />
-                )}
                 {traceExpanded ? "Hide stack trace" : "Show stack trace"}
-              </button>
+              </Button>
               {traceExpanded ? (
                 <ScrollRegion className={styles.traceBody}>
                   {/* Each frame is its own keyboard-focusable control
