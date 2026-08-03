@@ -1,0 +1,20 @@
+// Public design-system boundary. Consumers import shared UI only from here.
+export { default as Button } from "../components/primitives/Button/Button";
+export { default as Chip } from "../components/primitives/Chip/Chip";
+export { default as ConfirmDialog } from "../components/primitives/ConfirmDialog/ConfirmDialog";
+export { default as ConfirmModal } from "../components/primitives/ConfirmModal/ConfirmModal";
+export { default as Dialog } from "../components/primitives/Dialog/Dialog";
+export { default as EmptyState } from "../components/primitives/EmptyState/EmptyState";
+export { default as ErrorState } from "../components/primitives/ErrorState/ErrorState";
+export { default as Field } from "../components/primitives/Field/Field";
+export { default as IconButton } from "../components/primitives/IconButton/IconButton";
+export { default as InfoTooltip } from "../components/primitives/InfoTooltip/InfoTooltip";
+export { default as ListRow } from "../components/primitives/ListRow/ListRow";
+export { default as LoadingState } from "../components/primitives/LoadingState/LoadingState";
+export { default as Panel } from "../components/primitives/Panel/Panel";
+export { default as PanelHeader } from "../components/primitives/PanelHeader/PanelHeader";
+export { default as ResizeHandle } from "../components/primitives/ResizeHandle/ResizeHandle";
+export { default as ScrollRegion } from "../components/primitives/ScrollRegion/ScrollRegion";
+export { default as Tabs } from "../components/primitives/Tabs/Tabs";
+export { default as Toolbar } from "../components/primitives/Toolbar/Toolbar";
+export { DataList, FormActions, GuidedFlow, ImpactReview, LauncherMasters, MidiPickup, SafetyAction, SceneStack, SplitPane, WorkspaceFrame } from "./patterns";
