@@ -1,55 +1,57 @@
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 2px var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  background: var(--page);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text2);
+  gap: var(--ds-spacing-space1);
+  min-height: var(--ds-sizing-control-compact);
+  padding: 0 var(--ds-spacing-space2);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-radii-pill);
+  background: var(--ds-surface-control);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  line-height: var(--ds-typography-line-height-body);
+  color: var(--ds-text-secondary);
   white-space: nowrap;
 }
 
 .icon {
   flex-shrink: 0;
+  width: var(--ds-sizing-icon12);
+  height: var(--ds-sizing-icon12);
 }
 
 .neutral {
-  color: var(--text2);
+  color: var(--ds-text-secondary);
 }
 
 .live {
-  border-color: var(--status-live);
-  color: var(--status-live);
+  border-color: var(--ds-status-live);
+  color: var(--ds-status-live);
 }
 
 .frameLock {
-  border-color: var(--status-frame-lock);
-  color: var(--status-frame-lock);
+  border-color: var(--ds-status-frame-lock);
+  color: var(--ds-status-frame-lock);
 }
 
 .armed {
-  border-color: var(--status-armed);
-  color: var(--status-armed);
+  border-color: var(--ds-status-armed);
+  color: var(--ds-status-armed);
 }
 
 .revoked {
-  border-color: var(--status-revoked);
-  color: var(--status-revoked);
+  border-color: var(--ds-status-revoked);
+  color: var(--ds-status-revoked);
 }
 
 .blackout {
-  border-color: var(--status-blackout);
-  background: var(--status-blackout);
-  color: var(--status-blackout-text);
+  border-color: var(--ds-status-blackout);
+  background: var(--ds-status-blackout);
+  color: var(--ds-status-on-blackout);
 }
 
 .offline {
-  border-color: var(--status-offline);
-  color: var(--status-offline);
+  border-color: var(--ds-status-offline);
+  color: var(--ds-status-offline);
 }

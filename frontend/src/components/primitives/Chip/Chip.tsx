@@ -1,20 +1,11 @@
-// Chip is the shared pill/status-indicator primitive. `tone` maps to the
-// brand's semantic status vocabulary (index.css --status-*), which is
-// explicitly documented as separate from the 60/30/10 color split -- never
-// pass "accent" here for a routine selection state, only for the six named
-// live/frame-lock/armed/revoked/blackout/offline meanings.
-//
-// Each non-neutral tone renders a matching small glyph (icon/polish pass)
-// so status is never conveyed by color alone -- neutral stays icon-less,
-// it carries no semantic meaning to reinforce.
 import type { ReactNode } from "react";
-import { CircleDot, CircleCheck, CircleAlert, CircleX, CircleSlash, CircleDashed, type LucideIcon } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleDashed, CircleDot, CircleSlash, CircleX, type LucideIcon } from "lucide-react";
 
 import styles from "./Chip.module.css";
 
 export type ChipTone = "neutral" | "live" | "frame-lock" | "armed" | "revoked" | "blackout" | "offline";
 
-interface ChipProps {
+export interface ChipProps {
   tone?: ChipTone;
   children: ReactNode;
 }
@@ -42,8 +33,13 @@ const TONE_ICON: Record<ChipTone, LucideIcon | null> = {
 export default function Chip({ tone = "neutral", children }: ChipProps) {
   const Icon = TONE_ICON[tone];
   return (
-    <span className={`${styles.chip} ${TONE_CLASS[tone]}`}>
-      {Icon ? <Icon size={11} className={styles.icon} aria-hidden="true" /> : null}
+    <span
+      className={`${styles.chip} ${TONE_CLASS[tone]}`}
+      data-status={tone}
+      role={tone === "neutral" ? undefined : "status"}
+      aria-label={tone === "neutral" ? undefined : typeof children === "string" ? children : `${tone} status`}
+    >
+      {Icon ? <Icon className={styles.icon} aria-hidden="true" /> : null}
       {children}
     </span>
   );

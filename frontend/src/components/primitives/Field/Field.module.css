@@ -1,30 +1,65 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
 .label {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  line-height: var(--ds-typography-line-height-body);
+  color: var(--ds-text-secondary);
+}
+
+.required {
+  color: var(--ds-action-destructive);
 }
 
 .input {
-  height: 32px;
-  padding: 0 var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--page);
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-base);
+  box-sizing: border-box;
+  min-height: var(--ds-sizing-control-default);
+  padding: 0 var(--ds-spacing-space2);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
+  background: var(--ds-surface-control);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  font-weight: var(--ds-typography-font-weight-regular);
+  line-height: var(--ds-typography-line-height-body);
+}
+
+textarea.input {
+  min-height: calc(var(--ds-sizing-control-default) * 3);
+  padding-block: var(--ds-spacing-space2);
+  resize: vertical;
+}
+
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input[aria-invalid="true"] {
+  border-color: var(--ds-border-destructive);
 }
 
 .input:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline: var(--ds-focus-ring) solid var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
+}
+
+.description,
+.error {
+  font-size: var(--ds-typography-font-size-compact);
+  line-height: var(--ds-typography-line-height-body);
+}
+
+.description {
+  color: var(--ds-text-muted);
+}
+
+.error {
+  color: var(--ds-action-destructive);
 }
