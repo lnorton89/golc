@@ -1,7 +1,7 @@
 .column {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -12,7 +12,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
 }
 
 .label {
@@ -20,34 +20,28 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-xs);
-  font-weight: 600;
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 .createForm {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--panel);
+  gap: var(--ds-spacing-space1);
+  padding: var(--ds-spacing-space2);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
+  background: var(--ds-surface-panel);
 }
 
-.input,
-.inputNarrow {
-  height: 30px;
-  padding: 0 var(--space-xs);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--page);
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+.createForm > div {
+  justify-content: flex-end;
 }
 
 .list {
@@ -56,24 +50,13 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-}
-
-.emptyState {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  margin: 0;
-  padding: var(--space-sm);
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  gap: var(--ds-spacing-space1);
 }
 
 .sceneRow {
   display: flex;
   align-items: center;
-  border-radius: var(--radius-sm);
+  border-radius: var(--ds-radii-small);
 }
 
 /* ListRow's own .selected/:hover backgrounds only paint the button they're
@@ -89,68 +72,36 @@
    than trying to win a same-specificity tie against ListRow.module.css's
    own button.row(:hover)/.row.selected rules state-by-state -- its accent
    border-left is a solid color, not semi-transparent, so it never
-   double-stacks and still renders normally underneath. */
-.sceneRow > button {
+   double-stacks and still renders normally underneath. The two backgrounds
+   below are the exact same tokens ListRow.module.css itself paints
+   (--ds-surface-selected / --ds-surface-panel-subdued), not an
+   approximation, so the row and its own button read as one flat color.
+   Targeted via [data-state] (ListRow's own selection marker attribute),
+   not the button element type, since this file may not depend on
+   ListRow's private generated class name and a bare element selector is
+   a native-control policy violation regardless of cross-component
+   intent. */
+.sceneRow > [data-state] {
   background: transparent !important;
 }
 
 .sceneRow.selected {
-  background: color-mix(in srgb, var(--accent-2) 14%, transparent);
-}
-
-.sceneRow.selected:hover {
-  background: color-mix(in srgb, var(--accent-2) 20%, transparent);
+  background: var(--ds-surface-selected);
 }
 
 .sceneRow:hover:not(.selected) {
-  background: color-mix(in srgb, var(--accent-2) 8%, transparent);
+  background: var(--ds-surface-panel-subdued);
 }
 
 .renameRow {
   display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: 2px 0;
-}
-
-.renameRow .input {
-  flex: 1;
-  min-width: 0;
+  align-items: flex-end;
+  gap: var(--ds-spacing-space1);
 }
 
 .rowActions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--ds-spacing-space1);
   flex: none;
-}
-
-.iconButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.iconButton:hover {
-  background: color-mix(in srgb, var(--accent-2) 12%, transparent);
-  color: var(--ink);
-}
-
-.iconButtonDestructive:hover {
-  background: var(--status-revoked);
-  color: var(--page);
-}
-
-.iconButton:focus-visible {
-  outline: 2px solid var(--accent-2);
-  outline-offset: 1px;
 }

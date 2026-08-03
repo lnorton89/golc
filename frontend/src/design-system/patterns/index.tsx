@@ -36,8 +36,8 @@ export function GuidedFlow({ steps }: { steps: ReadonlyArray<{ title: string; de
   return <ol className={styles.guidedFlow}>{steps.map((step, index) => <li className={styles.guidedStep} key={step.title}><span className={styles.guidedNumber} aria-label={`Step ${index + 1}`}>{index + 1}</span><div><strong>{step.title}</strong><p>{step.description}</p>{step.state === "current" ? <Chip tone="armed">Current</Chip> : null}</div></li>)}</ol>;
 }
 
-export function SceneStack({ scenes }: { scenes: ReadonlyArray<{ id: string; name: string; status: ChipTone }> }) {
-  return <div className={styles.sceneStack} aria-label="Scene stack">{scenes.map((scene) => <ListRow key={scene.id} label={scene.name} meta={<Chip tone={scene.status}>{scene.status}</Chip>} />)}</div>;
+export function SceneStack({ scenes }: { scenes: ReadonlyArray<{ id: string; name: string; status: ChipTone; label?: string }> }) {
+  return <div className={styles.sceneStack} aria-label="Scene stack">{scenes.map((scene) => <ListRow key={scene.id} label={scene.name} meta={<Chip tone={scene.status}>{scene.label ?? scene.status}</Chip>} />)}</div>;
 }
 
 export function LauncherMasters({ masters }: { masters: ReadonlyArray<{ id: string; name: string; value: string; disabled?: boolean }> }) {

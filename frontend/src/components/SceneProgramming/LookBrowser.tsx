@@ -8,10 +8,7 @@ import { useState } from "react";
 import { Plus, Check, X, Pencil, Trash2, Sparkles, Palette } from "lucide-react";
 
 import type { ProgChaseView, ProgLookView, ProgPresetView, ProgrammingView } from "../../lib/wailsBridge";
-import Button from "../primitives/Button/Button";
-import PanelHeader from "../primitives/PanelHeader/PanelHeader";
-import ScrollRegion from "../primitives/ScrollRegion/ScrollRegion";
-import EmptyState from "../primitives/EmptyState/EmptyState";
+import { Button, EmptyState, Field, PanelHeader, ScrollRegion } from "../../design-system";
 import styles from "./LookBrowser.module.css";
 
 type FormKind = "theme" | "motion" | "chase" | "preset" | "blend";
@@ -179,33 +176,32 @@ export default function LookBrowser({
       </p>
 
       <div className={styles.categoryRow}>
-        <Button variant={activeForm === "theme" ? "primary" : "secondary"} icon={Plus} onClick={() => toggle("theme")}>
+        <Button variant={activeForm === "theme" ? "primary" : "secondary"} leadingIcon={Plus} onClick={() => toggle("theme")}>
           Theme
         </Button>
-        <Button variant={activeForm === "motion" ? "primary" : "secondary"} icon={Plus} onClick={() => toggle("motion")}>
+        <Button variant={activeForm === "motion" ? "primary" : "secondary"} leadingIcon={Plus} onClick={() => toggle("motion")}>
           Motion
         </Button>
-        <Button variant={activeForm === "chase" ? "primary" : "secondary"} icon={Plus} onClick={() => toggle("chase")}>
+        <Button variant={activeForm === "chase" ? "primary" : "secondary"} leadingIcon={Plus} onClick={() => toggle("chase")}>
           Chase
         </Button>
-        <Button variant={activeForm === "preset" ? "primary" : "secondary"} icon={Plus} onClick={() => toggle("preset")}>
+        <Button variant={activeForm === "preset" ? "primary" : "secondary"} leadingIcon={Plus} onClick={() => toggle("preset")}>
           Preset
         </Button>
       </div>
 
       {activeForm === "theme" ? (
         <div className={styles.form}>
-          <input
-            className={styles.input}
+          <Field
+            label="New color theme name"
             type="text"
             value={themeName}
             placeholder="Color theme name"
-            aria-label="New color theme name"
             onChange={(event) => setThemeName(event.target.value)}
           />
           <Button
             variant="primary"
-            icon={Check}
+            leadingIcon={Check}
             onClick={() => {
               if (themeName.trim() === "") return;
               onCreateTheme(themeName.trim());
@@ -220,17 +216,16 @@ export default function LookBrowser({
 
       {activeForm === "motion" ? (
         <div className={styles.form}>
-          <input
-            className={styles.input}
+          <Field
+            label="New motion preset name"
             type="text"
             value={motionName}
             placeholder="Motion preset name"
-            aria-label="New motion preset name"
             onChange={(event) => setMotionName(event.target.value)}
           />
           <Button
             variant="primary"
-            icon={Check}
+            leadingIcon={Check}
             onClick={() => {
               if (motionName.trim() === "") return;
               onCreateMotion(motionName.trim());
@@ -245,37 +240,35 @@ export default function LookBrowser({
 
       {activeForm === "chase" ? (
         <div className={styles.form}>
-          <input
-            className={styles.input}
+          <Field
+            label="New chase name"
             type="text"
             value={chaseName}
             placeholder="Chase name"
-            aria-label="New chase name"
             onChange={(event) => setChaseName(event.target.value)}
           />
           <div className={styles.row}>
-            <select
-              className={styles.inputNarrow}
-              value={chaseUnit}
-              aria-label="Chase step unit"
-              onChange={(event) => setChaseUnit(event.target.value as "bar" | "beat")}
-            >
-              <option value="bar">bar</option>
-              <option value="beat">beat</option>
-            </select>
-            <input
-              className={styles.inputNarrow}
+            <Field label="Chase step unit">
+              <select
+                value={chaseUnit}
+                onChange={(event) => setChaseUnit(event.target.value as "bar" | "beat")}
+              >
+                <option value="bar">bar</option>
+                <option value="beat">beat</option>
+              </select>
+            </Field>
+            <Field
+              label="Chase step duration"
               type="number"
               min={0}
               step="any"
               value={chaseStepDuration}
-              aria-label="Chase step duration"
               onChange={(event) => setChaseStepDuration(event.target.value)}
             />
           </div>
           <Button
             variant="primary"
-            icon={Check}
+            leadingIcon={Check}
             onClick={() => {
               const stepDuration = Number.parseFloat(chaseStepDuration);
               if (chaseName.trim() === "" || Number.isNaN(stepDuration)) return;
@@ -291,51 +284,49 @@ export default function LookBrowser({
 
       {activeForm === "preset" ? (
         <div className={styles.form}>
-          <select
-            className={styles.input}
-            value={presetInstanceId}
-            aria-label="Fixture instance"
-            onChange={(event) => setPresetInstanceId(event.target.value)}
-          >
-            <option value="" disabled>
-              {view.instances.length === 0 ? "No deployment instances available" : "Select a fixture instance…"}
-            </option>
-            {view.instances.map((instance) => (
-              <option key={instance.id} value={instance.id}>
-                {instance.label}
+          <Field label="Fixture instance">
+            <select
+              value={presetInstanceId}
+              onChange={(event) => setPresetInstanceId(event.target.value)}
+            >
+              <option value="" disabled>
+                {view.instances.length === 0 ? "No deployment instances available" : "Select a fixture instance…"}
               </option>
-            ))}
-          </select>
-          <select
-            className={styles.inputNarrow}
-            value={presetKind}
-            aria-label="Preset kind"
-            onChange={(event) => setPresetKind(event.target.value as PresetKind)}
-          >
-            <option value="intensity">intensity</option>
-            <option value="color">color</option>
-            <option value="position">position</option>
-            <option value="beam">beam</option>
-          </select>
-          <input
-            className={styles.input}
+              {view.instances.map((instance) => (
+                <option key={instance.id} value={instance.id}>
+                  {instance.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Preset kind">
+            <select
+              value={presetKind}
+              onChange={(event) => setPresetKind(event.target.value as PresetKind)}
+            >
+              <option value="intensity">intensity</option>
+              <option value="color">color</option>
+              <option value="position">position</option>
+              <option value="beam">beam</option>
+            </select>
+          </Field>
+          <Field
+            label="Attribute assignments"
             type="text"
             value={presetAttrs}
             placeholder="capability=value, comma-separated"
-            aria-label="Attribute assignments"
             onChange={(event) => setPresetAttrs(event.target.value)}
           />
-          <input
-            className={styles.input}
+          <Field
+            label="Preset name"
             type="text"
             value={presetName}
             placeholder="Preset name"
-            aria-label="Preset name"
             onChange={(event) => setPresetName(event.target.value)}
           />
           <Button
             variant="primary"
-            icon={Check}
+            leadingIcon={Check}
             disabled={presetLoading}
             onClick={() => {
               const attrs = parseAttrs(presetAttrs);
@@ -357,11 +348,10 @@ export default function LookBrowser({
             {view.themes.map((look) =>
               renamingKey === `theme-${look.id}` ? (
                 <li key={`theme-${look.id}`} className={styles.renameRow}>
-                  <input
-                    className={styles.input}
+                  <Field
+                    label="Theme name"
                     type="text"
                     value={renameValue}
-                    aria-label="Theme name"
                     autoFocus
                     onChange={(event) => setRenameValue(event.target.value)}
                     onKeyDown={(event) => {
@@ -386,30 +376,28 @@ export default function LookBrowser({
             {view.chases.map((chase) =>
               editingChaseId === chase.id ? (
                 <li key={`chase-${chase.id}`} className={styles.renameRow}>
-                  <input
-                    className={styles.input}
+                  <Field
+                    label="Chase name"
                     type="text"
                     value={chaseEditName}
-                    aria-label="Chase name"
                     autoFocus
                     onChange={(event) => setChaseEditName(event.target.value)}
                   />
-                  <select
-                    className={styles.inputNarrow}
-                    value={chaseEditUnit}
-                    aria-label="Chase step unit"
-                    onChange={(event) => setChaseEditUnit(event.target.value as "bar" | "beat")}
-                  >
-                    <option value="bar">bar</option>
-                    <option value="beat">beat</option>
-                  </select>
-                  <input
-                    className={styles.inputNarrow}
+                  <Field label="Chase step unit">
+                    <select
+                      value={chaseEditUnit}
+                      onChange={(event) => setChaseEditUnit(event.target.value as "bar" | "beat")}
+                    >
+                      <option value="bar">bar</option>
+                      <option value="beat">beat</option>
+                    </select>
+                  </Field>
+                  <Field
+                    label="Chase step duration"
                     type="number"
                     min={0}
                     step="any"
                     value={chaseEditStepDuration}
-                    aria-label="Chase step duration"
                     onChange={(event) => setChaseEditStepDuration(event.target.value)}
                   />
                   <Button variant="secondary" icon={Check} onClick={() => handleSaveEditChase(chase.name)} aria-label="Save" />
@@ -429,11 +417,10 @@ export default function LookBrowser({
             {view.motions.map((look) =>
               renamingKey === `motion-${look.id}` ? (
                 <li key={`motion-${look.id}`} className={styles.renameRow}>
-                  <input
-                    className={styles.input}
+                  <Field
+                    label="Motion preset name"
                     type="text"
                     value={renameValue}
-                    aria-label="Motion preset name"
                     autoFocus
                     onChange={(event) => setRenameValue(event.target.value)}
                     onKeyDown={(event) => {
@@ -458,11 +445,10 @@ export default function LookBrowser({
             {view.presets.map((preset) =>
               renamingKey === `preset-${preset.id}` ? (
                 <li key={`preset-${preset.id}`} className={styles.renameRow}>
-                  <input
-                    className={styles.input}
+                  <Field
+                    label="Preset name"
                     type="text"
                     value={renameValue}
-                    aria-label="Preset name"
                     autoFocus
                     onChange={(event) => setRenameValue(event.target.value)}
                     onKeyDown={(event) => {
@@ -495,7 +481,7 @@ export default function LookBrowser({
         icon={Palette}
         info="Lists reusable blend presets that control how multiple active layers combine, and lets you create a new one."
         action={
-          <Button variant={activeForm === "blend" ? "primary" : "secondary"} icon={Plus} onClick={() => toggle("blend")}>
+          <Button variant={activeForm === "blend" ? "primary" : "secondary"} leadingIcon={Plus} onClick={() => toggle("blend")}>
             Blend
           </Button>
         }
@@ -503,38 +489,36 @@ export default function LookBrowser({
 
       {activeForm === "blend" ? (
         <div className={styles.form}>
-          <input
-            className={styles.input}
+          <Field
+            label="New blend name"
             type="text"
             value={blendName}
             placeholder="Blend name"
-            aria-label="New blend name"
             onChange={(event) => setBlendName(event.target.value)}
           />
           <div className={styles.row}>
-            <input
-              className={styles.inputNarrow}
+            <Field
+              label="Blend duration (bars)"
               type="number"
               min={0}
               step="any"
               value={blendDuration}
-              aria-label="Blend duration (bars)"
               onChange={(event) => setBlendDuration(event.target.value)}
             />
-            <select
-              className={styles.inputNarrow}
-              value={blendCurve}
-              aria-label="Blend curve"
-              onChange={(event) => setBlendCurve(event.target.value)}
-            >
-              <option value="linear">linear</option>
-              <option value="ease_in">ease_in</option>
-              <option value="ease_out">ease_out</option>
-            </select>
+            <Field label="Blend curve">
+              <select
+                value={blendCurve}
+                onChange={(event) => setBlendCurve(event.target.value)}
+              >
+                <option value="linear">linear</option>
+                <option value="ease_in">ease_in</option>
+                <option value="ease_out">ease_out</option>
+              </select>
+            </Field>
           </div>
           <Button
             variant="primary"
-            icon={Check}
+            leadingIcon={Check}
             onClick={() => {
               const duration = Number.parseFloat(blendDuration);
               if (blendName.trim() === "" || Number.isNaN(duration)) return;
@@ -555,11 +539,10 @@ export default function LookBrowser({
           {view.blends.map((blend) =>
             renamingKey === `blend-${blend.id}` ? (
               <li key={blend.id} className={styles.renameRow}>
-                <input
-                  className={styles.input}
+                <Field
+                  label="Blend name"
                   type="text"
                   value={renameValue}
-                  aria-label="Blend name"
                   autoFocus
                   onChange={(event) => setRenameValue(event.target.value)}
                   onKeyDown={(event) => {
