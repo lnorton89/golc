@@ -77,8 +77,43 @@ func (s *progressSink) buffered() []byte {
 // progressSink with a live writer streams in real time rather than only
 // after the process exits) -- mirrors test.go's runProjectGo environment
 // setup exactly, just without the fully-buffered-only contract.
+const (
+	dialogProofGoOverlayEnvName  = "GOLC_DIALOG_PROOF_GO_OVERLAY"
+	dialogProofGoModfileEnvName  = "GOLC_DIALOG_PROOF_GO_MODFILE"
+	dialogProofGoOverlayBuildTag = "golc_dialog_proof_overlay"
+)
+
+func projectBuildGoArguments(arguments []string) []string {
+	overlay := strings.TrimSpace(os.Getenv(dialogProofGoOverlayEnvName))
+	modfile := strings.TrimSpace(os.Getenv(dialogProofGoModfileEnvName))
+	if overlay == "" || modfile == "" || len(arguments) == 0 || arguments[0] != "build" {
+		return append([]string(nil), arguments...)
+	}
+	result := make([]string, 0, len(arguments)+3)
+	result = append(result, arguments[0], "-modfile="+modfile, "-overlay="+overlay)
+	foundTags := false
+	for index := 1; index < len(arguments); index++ {
+		argument := arguments[index]
+		switch {
+		case argument == "-tags" && index+1 < len(arguments):
+			result = append(result, argument, arguments[index+1]+","+dialogProofGoOverlayBuildTag)
+			index++
+			foundTags = true
+		case strings.HasPrefix(argument, "-tags="):
+			result = append(result, argument+","+dialogProofGoOverlayBuildTag)
+			foundTags = true
+		default:
+			result = append(result, argument)
+		}
+	}
+	if !foundTags {
+		result = append(result[:3], append([]string{"-tags=" + dialogProofGoOverlayBuildTag}, result[3:]...)...)
+	}
+	return result
+}
+
 func runProjectGoLive(goExecutable, root string, arguments []string, stdout, stderr io.Writer) error {
-	execution := exec.Command(goExecutable, arguments...)
+	execution := exec.Command(goExecutable, projectBuildGoArguments(arguments)...)
 	execution.Dir = root
 	execution.Env = projectGoEnvironment(root)
 	execution.Stdout = stdout
