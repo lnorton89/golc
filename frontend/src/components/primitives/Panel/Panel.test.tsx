@@ -1,3 +1,4 @@
+import { createRef } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 
@@ -26,5 +27,19 @@ describe("Panel", () => {
     );
     const section = screen.getByLabelText("Test panel");
     expect(section).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("forwards its section ref and exposes its closed surface variants", () => {
+    const ref = createRef<HTMLElement>();
+    render(
+      <Panel ref={ref} variant="warning" density="compact" aria-label="Patch warning">
+        Long fixture pool name
+      </Panel>,
+    );
+
+    const panel = screen.getByLabelText("Patch warning");
+    expect(ref.current).toBe(panel);
+    expect(panel).toHaveAttribute("data-variant", "warning");
+    expect(panel).toHaveAttribute("data-density", "compact");
   });
 });
