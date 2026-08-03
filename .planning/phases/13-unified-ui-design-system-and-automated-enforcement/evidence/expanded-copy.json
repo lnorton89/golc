@@ -1,0 +1,909 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-03T20:17:49.446Z",
+  "buildSha": "1b9cd51782e750ae4c64d78ddb370a1261d8b664",
+  "environment": {
+    "platform": "win32",
+    "widths": [
+      900,
+      1280
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "height": 720
+  },
+  "minimumExpansionRatio": 2,
+  "pairs": [
+    {
+      "id": "shell-titlebar-project-name",
+      "category": "shell",
+      "canonical": "Fall Tour",
+      "expanded": "Fall Tour — Winter Festival 2026 Main Stage Full Production Backup Copy (Archive Revision 3, Confidential Technical Rider, Do Not Distribute Outside The Touring Party, Front Of House Reference Only, Monitor World Copy, Lighting Department Master File, Final Approved Version)",
+      "expansionRatio": 30.555555555555557
+    },
+    {
+      "id": "dialog-notes-delete-confirm",
+      "category": "dialog",
+      "canonical": "Show Notes",
+      "expanded": "Show Notes — Full Production Run-of-Show Cue Sheet and Technical Rider Annotations (Draft Revision 7, Confidential)",
+      "expansionRatio": 11.5
+    },
+    {
+      "id": "shared-states-diagnostics-structural-error",
+      "category": "shared-states",
+      "canonical": "Integrity check failed.",
+      "expanded": "Integrity check failed: 3 orphaned scene references, 2 duplicate fixture instance IDs, and a schema-version mismatch were detected while validating the show file; a verified backup was created automatically before this check ran.",
+      "expansionRatio": 9.956521739130435
+    },
+    {
+      "id": "guided-first-show-assign-stage-evidence",
+      "category": "guided-first-show",
+      "canonical": "Create an operator surface before handing this show off to a player.",
+      "expanded": "Physical MIDI hardware evidence is optional for on-screen and keyboard operation -- it's required only for a named hardware compatibility claim.",
+      "expansionRatio": 2.1176470588235294
+    },
+    {
+      "id": "status-diagnostics-app-log-row",
+      "category": "status",
+      "canonical": "Art-Net daemon reconnected.",
+      "expanded": "Art-Net daemon reconnected after a brief network interface flap on Ethernet; output resumed automatically and no frames were dropped during the outage window.",
+      "expansionRatio": 5.851851851851852
+    },
+    {
+      "id": "field-help-artnet-port-usage",
+      "category": "field-help",
+      "canonical": "GOLC_ARTNET_USAGE: port 99999 is not a valid integer in the 1-65535 range.",
+      "expanded": "GOLC_ARTNET_USAGE: port 999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 is not a valid integer in the 1-65535 range.",
+      "expansionRatio": 2.554054054054054
+    }
+  ],
+  "cases": [
+    {
+      "pairId": "shell-titlebar-project-name",
+      "category": "shell",
+      "width": 900,
+      "theme": "light",
+      "expansionRatio": 30.555555555555557,
+      "measurement": {
+        "lineCount": 2,
+        "textContent": "Fall Tour — Winter Festival 2026 Main Stage Full Production Backup Copy (Archive Revision 3, Confidential Technical Rider, Do Not Distribute Outside The Touring Party, Front Of House Reference Only, Monitor World Copy, Lighting Department Master File, Final Approved Version)",
+        "clientHeight": 17,
+        "scrollHeight": 17,
+        "clientWidth": 900,
+        "scrollWidth": 1590,
+        "rect": {
+          "top": 7.25,
+          "left": 0,
+          "right": 900,
+          "bottom": 23.75,
+          "width": 900,
+          "height": 16.5
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "titleMatchesExpanded": true,
+        "visuallyTruncated": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "shell-titlebar-project-name",
+      "category": "shell",
+      "width": 900,
+      "theme": "dark",
+      "expansionRatio": 30.555555555555557,
+      "measurement": {
+        "lineCount": 2,
+        "textContent": "Fall Tour — Winter Festival 2026 Main Stage Full Production Backup Copy (Archive Revision 3, Confidential Technical Rider, Do Not Distribute Outside The Touring Party, Front Of House Reference Only, Monitor World Copy, Lighting Department Master File, Final Approved Version)",
+        "clientHeight": 17,
+        "scrollHeight": 17,
+        "clientWidth": 900,
+        "scrollWidth": 1590,
+        "rect": {
+          "top": 7.25,
+          "left": 0,
+          "right": 900,
+          "bottom": 23.75,
+          "width": 900,
+          "height": 16.5
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "titleMatchesExpanded": true,
+        "visuallyTruncated": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "shell-titlebar-project-name",
+      "category": "shell",
+      "width": 1280,
+      "theme": "light",
+      "expansionRatio": 30.555555555555557,
+      "measurement": {
+        "lineCount": 2,
+        "textContent": "Fall Tour — Winter Festival 2026 Main Stage Full Production Backup Copy (Archive Revision 3, Confidential Technical Rider, Do Not Distribute Outside The Touring Party, Front Of House Reference Only, Monitor World Copy, Lighting Department Master File, Final Approved Version)",
+        "clientHeight": 17,
+        "scrollHeight": 17,
+        "clientWidth": 1280,
+        "scrollWidth": 1590,
+        "rect": {
+          "top": 7.25,
+          "left": 0,
+          "right": 1280,
+          "bottom": 23.75,
+          "width": 1280,
+          "height": 16.5
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "titleMatchesExpanded": true,
+        "visuallyTruncated": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "shell-titlebar-project-name",
+      "category": "shell",
+      "width": 1280,
+      "theme": "dark",
+      "expansionRatio": 30.555555555555557,
+      "measurement": {
+        "lineCount": 2,
+        "textContent": "Fall Tour — Winter Festival 2026 Main Stage Full Production Backup Copy (Archive Revision 3, Confidential Technical Rider, Do Not Distribute Outside The Touring Party, Front Of House Reference Only, Monitor World Copy, Lighting Department Master File, Final Approved Version)",
+        "clientHeight": 17,
+        "scrollHeight": 17,
+        "clientWidth": 1280,
+        "scrollWidth": 1590,
+        "rect": {
+          "top": 7.25,
+          "left": 0,
+          "right": 1280,
+          "bottom": 23.75,
+          "width": 1280,
+          "height": 16.5
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "titleMatchesExpanded": true,
+        "visuallyTruncated": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "dialog-notes-delete-confirm",
+      "category": "dialog",
+      "width": 900,
+      "theme": "light",
+      "expansionRatio": 11.5,
+      "measurement": {
+        "lineCount": 3,
+        "textContent": "This permanently removes \"Show Notes — Full Production Run-of-Show Cue Sheet and Technical Rider Annotations (Draft Revision 7, Confidential)\" from this show. This can't be undone.",
+        "clientHeight": 63,
+        "scrollHeight": 63,
+        "clientWidth": 400,
+        "scrollWidth": 400,
+        "rect": {
+          "top": 323,
+          "left": 250,
+          "right": 650,
+          "bottom": 386,
+          "width": 400,
+          "height": 63
+        },
+        "dialogBox": {
+          "x": 250,
+          "y": 302,
+          "width": 400,
+          "height": 116
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "containedInViewport": true,
+        "noOverlaps": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "dialog-notes-delete-confirm",
+      "category": "dialog",
+      "width": 900,
+      "theme": "dark",
+      "expansionRatio": 11.5,
+      "measurement": {
+        "lineCount": 3,
+        "textContent": "This permanently removes \"Show Notes — Full Production Run-of-Show Cue Sheet and Technical Rider Annotations (Draft Revision 7, Confidential)\" from this show. This can't be undone.",
+        "clientHeight": 63,
+        "scrollHeight": 63,
+        "clientWidth": 400,
+        "scrollWidth": 400,
+        "rect": {
+          "top": 323,
+          "left": 250,
+          "right": 650,
+          "bottom": 386,
+          "width": 400,
+          "height": 63
+        },
+        "dialogBox": {
+          "x": 250,
+          "y": 302,
+          "width": 400,
+          "height": 116
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "containedInViewport": true,
+        "noOverlaps": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "dialog-notes-delete-confirm",
+      "category": "dialog",
+      "width": 1280,
+      "theme": "light",
+      "expansionRatio": 11.5,
+      "measurement": {
+        "lineCount": 3,
+        "textContent": "This permanently removes \"Show Notes — Full Production Run-of-Show Cue Sheet and Technical Rider Annotations (Draft Revision 7, Confidential)\" from this show. This can't be undone.",
+        "clientHeight": 63,
+        "scrollHeight": 63,
+        "clientWidth": 400,
+        "scrollWidth": 400,
+        "rect": {
+          "top": 323,
+          "left": 440,
+          "right": 840,
+          "bottom": 386,
+          "width": 400,
+          "height": 63
+        },
+        "dialogBox": {
+          "x": 440,
+          "y": 302,
+          "width": 400,
+          "height": 116
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "containedInViewport": true,
+        "noOverlaps": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "dialog-notes-delete-confirm",
+      "category": "dialog",
+      "width": 1280,
+      "theme": "dark",
+      "expansionRatio": 11.5,
+      "measurement": {
+        "lineCount": 3,
+        "textContent": "This permanently removes \"Show Notes — Full Production Run-of-Show Cue Sheet and Technical Rider Annotations (Draft Revision 7, Confidential)\" from this show. This can't be undone.",
+        "clientHeight": 63,
+        "scrollHeight": 63,
+        "clientWidth": 400,
+        "scrollWidth": 400,
+        "rect": {
+          "top": 291.81591796875,
+          "left": 533,
+          "right": 933,
+          "bottom": 354.81591796875,
+          "width": 400,
+          "height": 63
+        },
+        "dialogBox": {
+          "x": 533,
+          "y": 270.76556396484375,
+          "width": 400,
+          "height": 116.00003051757812
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "containedInViewport": true,
+        "noOverlaps": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "shared-states-diagnostics-structural-error",
+      "category": "shared-states",
+      "width": 900,
+      "theme": "light",
+      "expansionRatio": 9.956521739130435,
+      "measurement": {
+        "lineCount": 5,
+        "textContent": "Integrity check failed: 3 orphaned scene references, 2 duplicate fixture instance IDs, and a schema-version mismatch were detected while validating the show file; a verified backup was created automatically before this check ran.",
+        "clientHeight": 50,
+        "scrollHeight": 50,
+        "clientWidth": 642,
+        "scrollWidth": 642,
+        "rect": {
+          "top": 267,
+          "left": 209,
+          "right": 851,
+          "bottom": 316.5,
+          "width": 642,
+          "height": 49.5
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "noOverlaps": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "shared-states-diagnostics-structural-error",
+      "category": "shared-states",
+      "width": 900,
+      "theme": "dark",
+      "expansionRatio": 9.956521739130435,
+      "measurement": {
+        "lineCount": 5,
+        "textContent": "Integrity check failed: 3 orphaned scene references, 2 duplicate fixture instance IDs, and a schema-version mismatch were detected while validating the show file; a verified backup was created automatically before this check ran.",
+        "clientHeight": 50,
+        "scrollHeight": 50,
+        "clientWidth": 642,
+        "scrollWidth": 642,
+        "rect": {
+          "top": 267,
+          "left": 209,
+          "right": 851,
+          "bottom": 316.5,
+          "width": 642,
+          "height": 49.5
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "noOverlaps": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "shared-states-diagnostics-structural-error",
+      "category": "shared-states",
+      "width": 1280,
+      "theme": "light",
+      "expansionRatio": 9.956521739130435,
+      "measurement": {
+        "lineCount": 3,
+        "textContent": "Integrity check failed: 3 orphaned scene references, 2 duplicate fixture instance IDs, and a schema-version mismatch were detected while validating the show file; a verified backup was created automatically before this check ran.",
+        "clientHeight": 33,
+        "scrollHeight": 33,
+        "clientWidth": 996,
+        "scrollWidth": 996,
+        "rect": {
+          "top": 267,
+          "left": 235,
+          "right": 1231,
+          "bottom": 300,
+          "width": 996,
+          "height": 33
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "noOverlaps": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "shared-states-diagnostics-structural-error",
+      "category": "shared-states",
+      "width": 1280,
+      "theme": "dark",
+      "expansionRatio": 9.956521739130435,
+      "measurement": {
+        "lineCount": 3,
+        "textContent": "Integrity check failed: 3 orphaned scene references, 2 duplicate fixture instance IDs, and a schema-version mismatch were detected while validating the show file; a verified backup was created automatically before this check ran.",
+        "clientHeight": 33,
+        "scrollHeight": 33,
+        "clientWidth": 996,
+        "scrollWidth": 996,
+        "rect": {
+          "top": 267,
+          "left": 235,
+          "right": 1231,
+          "bottom": 300,
+          "width": 996,
+          "height": 33
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "noOverlaps": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "guided-first-show-assign-stage-evidence",
+      "category": "guided-first-show",
+      "width": 900,
+      "theme": "light",
+      "expansionRatio": 2.1176470588235294,
+      "measurement": {
+        "expandedRow": {
+          "lineCount": 23,
+          "textContent": "Physical MIDI hardware evidence is optional for on-screen and keyboard operation -- it's required only for a named hardware compatibility claim.",
+          "clientHeight": 483,
+          "scrollHeight": 483,
+          "clientWidth": 0,
+          "scrollWidth": 79,
+          "rect": {
+            "top": 619,
+            "left": 894,
+            "right": 894,
+            "bottom": 1102,
+            "width": 0,
+            "height": 483
+          }
+        },
+        "canonicalRow": {
+          "lineCount": 12,
+          "textContent": "Create an operator surface before handing this show off to a player.",
+          "clientHeight": 252,
+          "scrollHeight": 252,
+          "clientWidth": 0,
+          "scrollWidth": 52,
+          "rect": {
+            "top": 244,
+            "left": 894,
+            "right": 894,
+            "bottom": 496,
+            "width": 0,
+            "height": 252
+          }
+        },
+        "asideCollapsed": true
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "contentAreaScrolls": true,
+        "noOverlaps": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "guided-first-show-assign-stage-evidence",
+      "category": "guided-first-show",
+      "width": 900,
+      "theme": "dark",
+      "expansionRatio": 2.1176470588235294,
+      "measurement": {
+        "expandedRow": {
+          "lineCount": 23,
+          "textContent": "Physical MIDI hardware evidence is optional for on-screen and keyboard operation -- it's required only for a named hardware compatibility claim.",
+          "clientHeight": 483,
+          "scrollHeight": 483,
+          "clientWidth": 0,
+          "scrollWidth": 79,
+          "rect": {
+            "top": 619,
+            "left": 894,
+            "right": 894,
+            "bottom": 1102,
+            "width": 0,
+            "height": 483
+          }
+        },
+        "canonicalRow": {
+          "lineCount": 12,
+          "textContent": "Create an operator surface before handing this show off to a player.",
+          "clientHeight": 252,
+          "scrollHeight": 252,
+          "clientWidth": 0,
+          "scrollWidth": 52,
+          "rect": {
+            "top": 244,
+            "left": 894,
+            "right": 894,
+            "bottom": 496,
+            "width": 0,
+            "height": 252
+          }
+        },
+        "asideCollapsed": true
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "contentAreaScrolls": true,
+        "noOverlaps": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "guided-first-show-assign-stage-evidence",
+      "category": "guided-first-show",
+      "width": 1280,
+      "theme": "light",
+      "expansionRatio": 2.1176470588235294,
+      "measurement": {
+        "expandedRow": {
+          "lineCount": 5,
+          "textContent": "Physical MIDI hardware evidence is optional for on-screen and keyboard operation -- it's required only for a named hardware compatibility claim.",
+          "clientHeight": 105,
+          "scrollHeight": 105,
+          "clientWidth": 212,
+          "scrollWidth": 212,
+          "rect": {
+            "top": 304,
+            "left": 1028,
+            "right": 1240,
+            "bottom": 409,
+            "width": 212,
+            "height": 105
+          }
+        },
+        "canonicalRow": {
+          "lineCount": 2,
+          "textContent": "Create an operator surface before handing this show off to a player.",
+          "clientHeight": 42,
+          "scrollHeight": 42,
+          "clientWidth": 212,
+          "scrollWidth": 212,
+          "rect": {
+            "top": 181,
+            "left": 1028,
+            "right": 1240,
+            "bottom": 223,
+            "width": 212,
+            "height": 42
+          }
+        },
+        "asideCollapsed": false
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "contentAreaScrolls": true,
+        "noOverlaps": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "guided-first-show-assign-stage-evidence",
+      "category": "guided-first-show",
+      "width": 1280,
+      "theme": "dark",
+      "expansionRatio": 2.1176470588235294,
+      "measurement": {
+        "expandedRow": {
+          "lineCount": 5,
+          "textContent": "Physical MIDI hardware evidence is optional for on-screen and keyboard operation -- it's required only for a named hardware compatibility claim.",
+          "clientHeight": 105,
+          "scrollHeight": 105,
+          "clientWidth": 212,
+          "scrollWidth": 212,
+          "rect": {
+            "top": 304,
+            "left": 1028,
+            "right": 1240,
+            "bottom": 409,
+            "width": 212,
+            "height": 105
+          }
+        },
+        "canonicalRow": {
+          "lineCount": 2,
+          "textContent": "Create an operator surface before handing this show off to a player.",
+          "clientHeight": 42,
+          "scrollHeight": 42,
+          "clientWidth": 212,
+          "scrollWidth": 212,
+          "rect": {
+            "top": 181,
+            "left": 1028,
+            "right": 1240,
+            "bottom": 223,
+            "width": 212,
+            "height": 42
+          }
+        },
+        "asideCollapsed": false
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "contentAreaScrolls": true,
+        "noOverlaps": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "status-diagnostics-app-log-row",
+      "category": "status",
+      "width": 900,
+      "theme": "light",
+      "expansionRatio": 5.851851851851852,
+      "measurement": {
+        "lineCount": 7,
+        "textContent": "Art-Net daemon reconnected after a brief network interface flap on Ethernet; output resumed automatically and no frames were dropped during the outage window.",
+        "clientHeight": 84,
+        "scrollHeight": 84,
+        "clientWidth": 466,
+        "scrollWidth": 466,
+        "rect": {
+          "top": 440,
+          "left": 377.0625,
+          "right": 843,
+          "bottom": 524,
+          "width": 465.9375,
+          "height": 84
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "noOverlaps": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "status-diagnostics-app-log-row",
+      "category": "status",
+      "width": 900,
+      "theme": "dark",
+      "expansionRatio": 5.851851851851852,
+      "measurement": {
+        "lineCount": 7,
+        "textContent": "Art-Net daemon reconnected after a brief network interface flap on Ethernet; output resumed automatically and no frames were dropped during the outage window.",
+        "clientHeight": 84,
+        "scrollHeight": 84,
+        "clientWidth": 466,
+        "scrollWidth": 466,
+        "rect": {
+          "top": 440,
+          "left": 377.0625,
+          "right": 843,
+          "bottom": 524,
+          "width": 465.9375,
+          "height": 84
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "noOverlaps": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "status-diagnostics-app-log-row",
+      "category": "status",
+      "width": 1280,
+      "theme": "light",
+      "expansionRatio": 5.851851851851852,
+      "measurement": {
+        "lineCount": 3,
+        "textContent": "Art-Net daemon reconnected after a brief network interface flap on Ethernet; output resumed automatically and no frames were dropped during the outage window.",
+        "clientHeight": 42,
+        "scrollHeight": 42,
+        "clientWidth": 820,
+        "scrollWidth": 820,
+        "rect": {
+          "top": 440,
+          "left": 403.0625,
+          "right": 1223,
+          "bottom": 482,
+          "width": 819.9375,
+          "height": 42
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "noOverlaps": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "status-diagnostics-app-log-row",
+      "category": "status",
+      "width": 1280,
+      "theme": "dark",
+      "expansionRatio": 5.851851851851852,
+      "measurement": {
+        "lineCount": 3,
+        "textContent": "Art-Net daemon reconnected after a brief network interface flap on Ethernet; output resumed automatically and no frames were dropped during the outage window.",
+        "clientHeight": 42,
+        "scrollHeight": 42,
+        "clientWidth": 820,
+        "scrollWidth": 820,
+        "rect": {
+          "top": 440,
+          "left": 403.0625,
+          "right": 1223,
+          "bottom": 482,
+          "width": 819.9375,
+          "height": 42
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "noOverlaps": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "field-help-artnet-port-usage",
+      "category": "field-help",
+      "width": 900,
+      "theme": "light",
+      "expansionRatio": 2.554054054054054,
+      "measurement": {
+        "lineCount": 3,
+        "textContent": "GOLC_ARTNET_USAGE: port 999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 is not a valid integer in the 1-65535 range.",
+        "clientHeight": 63,
+        "scrollHeight": 63,
+        "clientWidth": 654,
+        "scrollWidth": 654,
+        "rect": {
+          "top": 241,
+          "left": 213,
+          "right": 867,
+          "bottom": 304,
+          "width": 654,
+          "height": 63
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "noOverlaps": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "field-help-artnet-port-usage",
+      "category": "field-help",
+      "width": 900,
+      "theme": "dark",
+      "expansionRatio": 2.554054054054054,
+      "measurement": {
+        "lineCount": 3,
+        "textContent": "GOLC_ARTNET_USAGE: port 999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 is not a valid integer in the 1-65535 range.",
+        "clientHeight": 63,
+        "scrollHeight": 63,
+        "clientWidth": 654,
+        "scrollWidth": 654,
+        "rect": {
+          "top": 241,
+          "left": 213,
+          "right": 867,
+          "bottom": 304,
+          "width": 654,
+          "height": 63
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "noOverlaps": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "field-help-artnet-port-usage",
+      "category": "field-help",
+      "width": 1280,
+      "theme": "light",
+      "expansionRatio": 2.554054054054054,
+      "measurement": {
+        "lineCount": 3,
+        "textContent": "GOLC_ARTNET_USAGE: port 999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 is not a valid integer in the 1-65535 range.",
+        "clientHeight": 63,
+        "scrollHeight": 63,
+        "clientWidth": 748,
+        "scrollWidth": 748,
+        "rect": {
+          "top": 241,
+          "left": 239,
+          "right": 987,
+          "bottom": 304,
+          "width": 748,
+          "height": 63
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "noOverlaps": true,
+        "noOverflow": true
+      },
+      "passed": true
+    },
+    {
+      "pairId": "field-help-artnet-port-usage",
+      "category": "field-help",
+      "width": 1280,
+      "theme": "dark",
+      "expansionRatio": 2.554054054054054,
+      "measurement": {
+        "lineCount": 3,
+        "textContent": "GOLC_ARTNET_USAGE: port 999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 is not a valid integer in the 1-65535 range.",
+        "clientHeight": 63,
+        "scrollHeight": 63,
+        "clientWidth": 748,
+        "scrollWidth": 748,
+        "rect": {
+          "top": 241,
+          "left": 239,
+          "right": 987,
+          "bottom": 304,
+          "width": 748,
+          "height": 63
+        }
+      },
+      "assertions": {
+        "fullTextPresent": true,
+        "noClipping": true,
+        "grewMultiline": true,
+        "noOverlaps": true,
+        "noOverflow": true
+      },
+      "passed": true
+    }
+  ],
+  "allCasesPassed": true
+}
