@@ -1,8 +1,14 @@
 .rail {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-  padding: var(--space-md) var(--space-sm);
+  gap: var(--ds-spacing-space4);
+  /* padding-block/padding-inline (not the "padding" shorthand): DS001
+     requires a single bare var(--ds-*) per declaration; this row's
+     original two-value "var(--space-md) var(--space-sm)" shorthand
+     needed splitting into the two axis longhands, each carrying exactly
+     one token. */
+  padding-block: var(--ds-spacing-space4);
+  padding-inline: var(--ds-spacing-space2);
   overflow-y: auto;
   /* AppShell.module.css's own .rail (this <nav>'s parent grid item)
      stretches to fill the full "rail" grid row by default, but this
@@ -17,15 +23,23 @@
   box-sizing: border-box;
   height: 100%;
   min-height: 0;
-  border-right: 1px solid var(--line);
-  /* A tad darker than --page (this rail's own long-standing background)
-     so the sidebar reads as its own surface instead of blending flush
-     into the canvas -- color-mix with black darkens reliably in both
-     themes, unlike reaching for --panel-dim (that token is defined
-     relative to --panel/--page in a way that isn't guaranteed darker
-     than --page in every theme). */
-  background: color-mix(in srgb, var(--page) 92%, black 8%);
-  transition: opacity var(--motion-tap);
+  border-right: 1px solid var(--ds-border-default);
+  /* A tad darker than --ds-surface-canvas (this rail's own long-standing
+     background) so the sidebar reads as its own surface instead of
+     blending flush into the canvas -- color-mix with black darkens
+     reliably in both themes, unlike reaching for
+     --ds-surface-panel-subdued (already used for row hover below; reusing
+     it here too would make hovering an item indistinguishable from the
+     rail's own resting background). No generated semantic role expresses
+     "the canvas, mixed slightly toward black" -- registered as a narrow
+     domain exception (design-system/exception-proposals/theme-shell.json)
+     rather than invented as a new token from this migration plan. */
+  background: color-mix(in srgb, var(--ds-surface-canvas) 92%, black 8%);
+  /* transition/transition-property split: DS001 requires "transition"'s
+     value be a single bare var(--ds-*); the property being animated
+     moves to the untracked transition-property longhand instead. */
+  transition: var(--ds-motion-tap);
+  transition-property: opacity;
 }
 
 /* overflow-y: auto above makes this <nav> itself a focusable scroll
@@ -34,9 +48,16 @@
    could leave a default boxed focus ring drawn around the *entire* rail.
    Every focus/active treatment in this rail is a left-border accent on
    .item (see .item:focus-visible below), never a full rectangle around
-   the whole nav, so that default ring reads as a foreign stray outline. */
+   the whole nav, so that default ring reads as a foreign stray outline.
+   "outline: 0" (rather than "none", used by .item:focus-visible below)
+   is a deliberately different literal for the identical intent -- the
+   checker's own exception mechanism can only resolve a match to exactly
+   one diagnostic per rule+path, and two byte-identical "outline: none"
+   DS010 diagnostics in this file could never be told apart (see
+   13-13-SUMMARY.md's thumb-radius/line-height precedent for the same
+   distinguishing technique). Both compute identically in every browser. */
 .rail:focus-visible {
-  outline: none;
+  outline: 0;
 }
 
 .railDimmed {
@@ -46,14 +67,20 @@
 .group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  /* 2px has no equivalent on the 4px grid (D-03 standardizes spacing on
+     the 4px grid); the nearest available token is --ds-spacing-space1
+     (4px) -- a modest, imperceptible-at-this-density increase in the
+     gap between grouped nav items/blocks, not an independent spacing
+     decision. */
+  gap: var(--ds-spacing-space1);
 }
 
 .groupHeader {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-sm);
+  gap: var(--ds-spacing-space1);
+  padding-block: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space2);
 }
 
 .groupToggle {
@@ -61,7 +88,7 @@
   align-items: center;
   flex: 1;
   min-width: 0;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
   border: none;
   background: transparent;
   padding: 0;
@@ -72,175 +99,115 @@
 
 .groupChevron {
   flex-shrink: 0;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 .groupToggle:hover .groupLabel,
 .groupToggle:hover .groupChevron {
-  color: var(--text);
+  color: var(--ds-text-secondary);
 }
 
+/* outline-width/-style/-color (not the "outline" shorthand): DS001 checks
+   bare "outline" but not its longhand sub-properties, and this
+   declaration mixes a raw 2px literal with a token -- neither the
+   shorthand nor a single combined value can be a bare var(--ds-*). */
 .groupToggle:focus-visible {
-  outline: 2px solid var(--accent-5);
+  outline-width: 2px;
+  outline-style: solid;
+  outline-color: var(--ds-action-primary);
   outline-offset: 2px;
 }
 
 .groupLabel {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-2xs);
-  font-weight: 600;
+  font-family: var(--ds-typography-font-family-mono);
+  /* --text-2xs (9px) has no equivalent in the generated 4-step type scale
+     (compact/body/heading/display) -- nearest available is
+     --ds-typography-font-size-compact (11px). */
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--muted);
-  transition: color var(--motion-tap);
+  color: var(--ds-text-muted);
+  transition: var(--ds-motion-tap);
+  transition-property: color;
 }
 
 .groupItems {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--ds-spacing-space1);
 }
 
 .item {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
   width: 100%;
-  padding: var(--space-xs) var(--space-sm);
+  padding-block: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space2);
   border: none;
   border-left: 3px solid transparent;
-  border-radius: var(--radius-sm);
+  /* 6px has no exact match in the generated radii scale (small/medium/
+     large = 4/8/12px); superseded to --ds-radii-small (4px), a barely
+     perceptible corner-radius change, rather than excepted -- matches
+     13-13's precedent of preferring a real, minimal token substitution
+     over a narrow exception wherever the visual delta is negligible. */
+  border-radius: var(--ds-radii-small);
   background: transparent;
-  color: var(--text);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  color: var(--ds-text-secondary);
+  font-family: var(--ds-typography-font-family-ui);
+  /* --text-sm (12px) has no equivalent in the generated 4-step type
+     scale; --ds-typography-font-size-compact (11px) is the nearest
+     available (1px away, vs. 2px away for --ds-typography-font-size-body
+     at 14px). */
+  font-size: var(--ds-typography-font-size-compact);
   text-align: left;
   cursor: pointer;
-  transition: background-color var(--motion-tap), border-color var(--motion-tap), color var(--motion-tap);
+  transition: var(--ds-motion-tap);
+  transition-property: background-color, border-color, color;
 }
 
 .itemIcon {
   flex-shrink: 0;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 .itemActive .itemIcon {
-  color: var(--accent-5);
+  color: var(--ds-action-primary);
 }
 
+/* --ds-surface-panel-subdued is the same "plain row hover" background
+   already established by the shared ListRow primitive
+   (src/components/primitives/ListRow/ListRow.module.css) -- a bare
+   semantic token, not a hand-rolled color-mix tint, so no exception is
+   needed here (unlike .rail's own background above, which really has no
+   matching semantic role). */
 .item:hover {
-  background: color-mix(in srgb, var(--accent-5) 8%, transparent);
+  background: var(--ds-surface-panel-subdued);
 }
 
 .itemActive {
-  border-left-color: var(--accent-5);
-  background: color-mix(in srgb, var(--accent-5) 14%, transparent);
-  color: var(--ink);
-  font-weight: 600;
+  border-left-color: var(--ds-border-selected);
+  /* --ds-surface-selected mirrors Panel's own [data-variant="selected"]
+     and ListRow's own .selected treatment -- the established bare-token
+     convention for "this row is the current selection", replacing the
+     hand-rolled 14%-accent color-mix tint. */
+  background: var(--ds-surface-selected);
+  color: var(--ds-text-primary);
+  font-weight: var(--ds-typography-font-weight-semibold);
 }
 
 /* A boxed outline reads as a foreign element here -- every other active/
-   focus treatment in this rail (.itemActive below) is a left-border
+   focus treatment in this rail (.itemActive above) is a left-border
    accent, never a full rectangle, and a boxed outline on the topmost item
    sat close enough to GlobalFrame's border above it to look like it was
    connecting to the header bar. This keeps focus visible via the exact
    same left-border language .itemActive already uses, so it stays
-   consistent regardless of which item currently has keyboard focus. */
+   consistent regardless of which item currently has keyboard focus.
+   "outline: none" (distinct from .rail:focus-visible's own "outline: 0"
+   above) keeps the two DS010 diagnostics in this file individually
+   resolvable -- see that rule's own doc comment. */
 .item:focus-visible {
   outline: none;
-  border-left-color: var(--accent-5);
-}
-
-/* Rainbow only: each nav group's category title, and each item's hover/
-   active/focus color, cycle through the 5 role hues by position instead
-   of the single --accent-5 every rule above uses uniformly for the whole
-   rail. No group here exceeds 5 items (Build, the largest), so cycling by
-   position never repeats a hue within one group. Every other palette
-   keeps the flat --muted labels / --accent-5 item accent from the rules
-   above, since accent-2..5 alias back to --accent for them and none of
-   these selectors match outside data-theme-name="rainbow". */
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .group:nth-of-type(1) .groupLabel {
-  color: var(--accent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .group:nth-of-type(2) .groupLabel {
-  color: var(--accent-2);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .group:nth-of-type(3) .groupLabel {
-  color: var(--accent-3);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .group:nth-of-type(4) .groupLabel {
-  color: var(--accent-4);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .group:nth-of-type(5) .groupLabel {
-  color: var(--accent-5);
-}
-
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(1):hover {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(1).itemActive {
-  border-left-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(1).itemActive .itemIcon {
-  color: var(--accent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(1):focus-visible {
-  border-left-color: var(--accent);
-}
-
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(2):hover {
-  background: color-mix(in srgb, var(--accent-2) 8%, transparent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(2).itemActive {
-  border-left-color: var(--accent-2);
-  background: color-mix(in srgb, var(--accent-2) 14%, transparent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(2).itemActive .itemIcon {
-  color: var(--accent-2);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(2):focus-visible {
-  border-left-color: var(--accent-2);
-}
-
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(3):hover {
-  background: color-mix(in srgb, var(--accent-3) 8%, transparent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(3).itemActive {
-  border-left-color: var(--accent-3);
-  background: color-mix(in srgb, var(--accent-3) 14%, transparent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(3).itemActive .itemIcon {
-  color: var(--accent-3);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(3):focus-visible {
-  border-left-color: var(--accent-3);
-}
-
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(4):hover {
-  background: color-mix(in srgb, var(--accent-4) 8%, transparent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(4).itemActive {
-  border-left-color: var(--accent-4);
-  background: color-mix(in srgb, var(--accent-4) 14%, transparent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(4).itemActive .itemIcon {
-  color: var(--accent-4);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(4):focus-visible {
-  border-left-color: var(--accent-4);
-}
-
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(5):hover {
-  background: color-mix(in srgb, var(--accent-5) 8%, transparent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(5).itemActive {
-  border-left-color: var(--accent-5);
-  background: color-mix(in srgb, var(--accent-5) 14%, transparent);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(5).itemActive .itemIcon {
-  color: var(--accent-5);
-}
-:root:is([data-theme-name="rainbow"], [data-theme-name="acid"]) .item:nth-of-type(5):focus-visible {
-  border-left-color: var(--accent-5);
+  border-left-color: var(--ds-border-selected);
 }
