@@ -1,0 +1,21 @@
+﻿{
+    "schema_version":  1,
+    "proof":  "dialog-feasibility",
+    "status":  "failed",
+    "started_at":  "2026-08-03T02:45:44.0868502Z",
+    "completed_at":  "2026-08-03T02:46:18.1681896Z",
+    "build":  {
+                  "command":  "mage Build",
+                  "executable":  null,
+                  "sha256":  null
+              },
+    "runtime":  {
+                    "cdp_endpoint":  "http://127.0.0.1:19226",
+                    "browser":  null
+                },
+    "test":  {
+                 "command":  "npx playwright test e2e/dialog-feasibility.spec.ts --project=chromium --workers=1",
+                 "exit_code":  null
+             },
+    "error":  "GOLC_DIALOG_PROOF_BUILD_FAILED: mage Build exited 1"
+}
