@@ -583,7 +583,7 @@ Plans:
 **Goal:** Every reachable desktop surface uses one documented Paper/Ink design system whose semantic tokens, typed components, accessibility states, theme parity, safety invariants, and exceptions are mechanically enforced with zero unregistered drift.
 **Requirements**: D-01 through D-14 and the approved Phase 13 UI-SPEC acceptance contract
 **Depends on:** Phase 12
-**Plans:** 32/41 plans executed
+**Plans:** 33/41 plans executed
 
 Plans:
 
@@ -627,7 +627,7 @@ Plans:
 - [ ] 13-38-PLAN.md — Complete local acceptance with semantic result evidence (wave 16)
 - [ ] 13-39-PLAN.md — Machine-checked final Nyquist sign-off (wave 17)
 - [x] 13-40-PLAN.md — Six-file scene timeline and layer geometry migration (wave 7)
-- [ ] 13-41-PLAN.md — 200% text-zoom and provider/daemon-offline safety acceptance (wave 9)
+- [x] 13-41-PLAN.md — 200% text-zoom and provider/daemon-offline safety acceptance (wave 9)
 
 ---
 *Roadmap created: 2026-07-17*
