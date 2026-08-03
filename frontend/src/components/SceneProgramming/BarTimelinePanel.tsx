@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { Zap } from "lucide-react";
 
-import Button from "../primitives/Button/Button";
+import { Button, Field, Panel } from "../../design-system";
 import { dispatch } from "../../lib/playbackDispatch";
 import styles from "./BarTimelinePanel.module.css";
 
@@ -30,16 +30,15 @@ export default function BarTimelinePanel({ activeSceneName }: BarTimelinePanelPr
   };
 
   return (
-    <div className={styles.panel} aria-label="Bar timeline preview">
+    <Panel className={styles.panel} aria-label="Bar timeline preview">
       <span className={styles.label}>
         Evaluate{activeSceneName ? ` — ${activeSceneName}` : ""}
       </span>
       <div className={styles.row}>
-        <input
-          className={styles.input}
+        <Field
+          label="Evaluate position (bar.beatfraction)"
           type="number"
           step="0.01"
-          aria-label="Evaluate position (bar.beatfraction)"
           value={evaluateAt}
           onChange={(event) => setEvaluateAt(event.target.value)}
         />
@@ -48,6 +47,6 @@ export default function BarTimelinePanel({ activeSceneName }: BarTimelinePanelPr
         </Button>
       </div>
       {previewOutput ? <pre className={styles.output}>{previewOutput}</pre> : null}
-    </div>
+    </Panel>
   );
 }

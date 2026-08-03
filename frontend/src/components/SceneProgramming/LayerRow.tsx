@@ -3,6 +3,7 @@
 // a layer preserves and continues to display its reference (never hides
 // it) -- the select's value persists regardless of the enabled toggle.
 import type { ProgLookView, ProgPresetView } from "../../lib/wailsBridge";
+import { Button, Field } from "../../design-system";
 import styles from "./LayerRow.module.css";
 
 export type LayerKind = "base_look" | "color_theme" | "chase" | "motion";
@@ -36,24 +37,21 @@ interface LayerRowProps {
 export default function LayerRow({ kind, enabled, refId, looks, onToggle, onSelectLook }: LayerRowProps) {
   return (
     <li className={enabled ? styles.row : `${styles.row} ${styles.rowDisabled}`}>
-      <button type="button" aria-pressed={enabled} onClick={onToggle} className={styles.toggle}>
+      <Button variant={enabled ? "primary" : "secondary"} aria-pressed={enabled} onClick={onToggle}>
         {layerKindLabel(kind)}
-      </button>
-      <select
-        value={refId}
-        onChange={(event) => onSelectLook(event.target.value)}
-        aria-label={`${layerKindLabel(kind)} look`}
-        className={styles.lookSelect}
-      >
-        <option value="" disabled>
-          {looks.length === 0 ? "No looks available" : "Select a look…"}
-        </option>
-        {looks.map((look) => (
-          <option key={look.id} value={look.id}>
-            {look.name}
+      </Button>
+      <Field label={`${layerKindLabel(kind)} look`}>
+        <select value={refId} onChange={(event) => onSelectLook(event.target.value)}>
+          <option value="" disabled>
+            {looks.length === 0 ? "No looks available" : "Select a look…"}
           </option>
-        ))}
-      </select>
+          {looks.map((look) => (
+            <option key={look.id} value={look.id}>
+              {look.name}
+            </option>
+          ))}
+        </select>
+      </Field>
     </li>
   );
 }
