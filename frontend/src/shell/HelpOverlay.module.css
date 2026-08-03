@@ -1,69 +1,10 @@
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
+/* Everything else (backdrop, dialog chrome, title, focus trap) is owned by
+   the shared Dialog primitive now -- this file only owns the one bit of
+   feature-local layout Dialog's generic content slot doesn't know about:
+   where the Close button sits relative to the KeyboardShortcuts panel
+   above it. */
+.actions {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--ink) 45%, transparent);
-  animation: backdropFadeIn var(--motion-settle);
-}
-
-.dialog {
-  width: min(480px, 90vw);
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: var(--panel);
-  overflow: hidden;
-  animation: dialogPopIn var(--motion-settle);
-}
-
-@keyframes backdropFadeIn {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes dialogPopIn {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(4px);
-  }
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-sm) var(--space-md);
-  border-bottom: 1px solid var(--line);
-  flex-shrink: 0;
-}
-
-.title {
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.close {
-  height: 28px;
-  padding: 0 var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--page);
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-
-.body {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
+  justify-content: flex-end;
+  padding-top: var(--ds-spacing-space2);
 }

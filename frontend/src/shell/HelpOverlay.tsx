@@ -1,13 +1,13 @@
-// HelpOverlay wraps the existing KeyboardShortcuts reference panel in a
-// simple custom dialog (shell restructure plan Step 8) -- toggled by '?'
-// via useGlobalKeyboardWorkflow.ts, closed by Escape or backdrop click. No
-// Radix dependency: nothing in this shell's actual CSS patterns needs its
-// focus/roving-tabindex composition (SoftTakeoverSlider is already a fully
-// custom widget with no Radix), and adding a package for exactly one
-// static dialog isn't proportionate -- revisit if a future primitive
-// genuinely needs it.
-import { useEffect, useRef } from "react";
-
+// HelpOverlay wraps the existing KeyboardShortcuts reference panel in the
+// shared, packaged-proven Dialog primitive (13-06's Chromium- and
+// packaged-WebView2-verified focus-trap/Escape/backdrop/portal contract)
+// instead of a hand-rolled backdrop+dialog pair -- toggled by '?' via
+// useGlobalKeyboardWorkflow.ts, closed by Escape, an allowed backdrop
+// click, or the Close button. KeyboardShortcuts itself has no focusable
+// descendants, so Dialog's own "first focusable element" default lands on
+// Close automatically, matching this overlay's previous explicit
+// close-button auto-focus.
+import { Button, Dialog } from "../design-system";
 import KeyboardShortcuts from "../components/KeyboardShortcuts/KeyboardShortcuts";
 import styles from "./HelpOverlay.module.css";
 
@@ -17,37 +17,14 @@ interface HelpOverlayProps {
 }
 
 export default function HelpOverlay({ open, onClose }: HelpOverlayProps) {
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (open) {
-      closeButtonRef.current?.focus();
-    }
-  }, [open]);
-
-  if (!open) {
-    return null;
-  }
-
   return (
-    <div className={styles.backdrop} onClick={onClose}>
-      <div
-        className={styles.dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Keyboard shortcuts"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className={styles.header}>
-          <span className={styles.title}>Keyboard Shortcuts</span>
-          <button type="button" ref={closeButtonRef} className={styles.close} onClick={onClose}>
-            Close
-          </button>
-        </div>
-        <div className={styles.body}>
-          <KeyboardShortcuts />
-        </div>
+    <Dialog open={open} title="Keyboard shortcuts" onClose={onClose}>
+      <KeyboardShortcuts />
+      <div className={styles.actions}>
+        <Button variant="secondary" onClick={onClose}>
+          Close
+        </Button>
       </div>
-    </div>
+    </Dialog>
   );
 }
