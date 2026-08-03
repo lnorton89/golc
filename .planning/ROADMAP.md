@@ -583,7 +583,7 @@ Plans:
 **Goal:** Every reachable desktop surface uses one documented Paper/Ink design system whose semantic tokens, typed components, accessibility states, theme parity, safety invariants, and exceptions are mechanically enforced with zero unregistered drift.
 **Requirements**: D-01 through D-14 and the approved Phase 13 UI-SPEC acceptance contract
 **Depends on:** Phase 12
-**Plans:** 28/41 plans executed
+**Plans:** 29/41 plans executed
 
 Plans:
 
@@ -617,7 +617,7 @@ Plans:
 - [x] 13-28-PLAN.md — Complete thirteen-file generic MIDI mapping/pickup migration in bounded tasks (wave 7)
 - [x] 13-29-PLAN.md — Complete eleven-file hotkey and shared workspace chrome migration in bounded tasks (wave 7)
 - [x] 13-30-PLAN.md — Pre-settle startup and token-independent ErrorBoundary backstops (wave 9)
-- [ ] 13-31-PLAN.md — Specialized geometry and explicit 2x-copy reflow backstops (wave 9)
+- [x] 13-31-PLAN.md — Specialized geometry and explicit 2x-copy reflow backstops (wave 9)
 - [ ] 13-32-PLAN.md — Twelve shell/dialog/gallery Windows baselines (wave 9)
 - [ ] 13-33-PLAN.md — Twelve authoring Windows baselines (wave 9)
 - [ ] 13-34-PLAN.md — Twelve live/editor Windows baselines (wave 9)
