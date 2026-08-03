@@ -2,6 +2,12 @@
 
 - **Sketch findings for GOLC** (validated layout, navigation, programming, performance, MIDI,
   onboarding, and readiness decisions) → load `.planning/sketches/SKILL.md`
+- **Verifying a go.mod/go.sum change** (before trusting `go mod tidy`/a plain build as proof) →
+  load `docs/skills/go-sum-verification/SKILL.md`
+- **Verifying a golc-desktop frontend change** (mock-bridge browser preview, the Vitest
+  runtime-error build gate, box-sizing gotchas) → load `docs/skills/frontend-verify/SKILL.md`
+- **Editing or committing anything under `site/`** (the golc-site submodule) →
+  load `docs/skills/site-submodule/SKILL.md`
 
 # MCP Tool Routing
 
