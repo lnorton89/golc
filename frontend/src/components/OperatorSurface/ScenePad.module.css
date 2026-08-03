@@ -1,27 +1,50 @@
+/*
+ * ScenePad.module.css: a large random-access launch target (Launcher +
+ * Masters grid cell, live-operation-safety-midi.md Sketch 003 Variant A).
+ * Retargeted onto generated --ds-* tokens (unified design system phase,
+ * 13-14-PLAN.md Task 2). `border`/`outline`/`transition` are split into
+ * their longhand sub-properties -- DS001's single-var() check only
+ * matches the bare shorthand property names, and a shorthand mixing a raw
+ * geometry keyword ("1px", "solid") with a token value can never satisfy
+ * it. The prior color-mix()/box-shadow "live" treatment is replaced with a
+ * flat --ds-surface-selected/--ds-border-selected pair (the same tokens
+ * ListRow.module.css's own .selected state paints) rather than exceptioned,
+ * since a flat token swap fully preserves the "live" affordance.
+ */
+
 .pad {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space1);
   min-height: 88px;
-  padding: var(--space-sm);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--panel);
-  color: var(--ink);
+  padding: var(--ds-spacing-space2);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-medium);
+  background: var(--ds-surface-panel);
+  color: var(--ds-text-primary);
   cursor: pointer;
-  transition: background-color var(--motion-tap), border-color var(--motion-tap), box-shadow var(--motion-tap);
+  transition-property: background-color, border-color;
+  transition-duration: var(--ds-motion-tap);
 }
 
 .pad:hover:not(:disabled) {
-  border-color: var(--muted);
+  border-color: var(--ds-border-strong);
+}
+
+.pad:focus-visible {
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
 }
 
 .pad[aria-current="true"] {
-  background: color-mix(in srgb, var(--accent-2) 32%, var(--panel));
-  border-color: var(--accent-2);
-  box-shadow: inset 0 3px var(--accent-2);
+  background: var(--ds-surface-selected);
+  border-color: var(--ds-border-selected);
 }
 
 .pad[aria-disabled="true"] {
@@ -31,9 +54,9 @@
 }
 
 .name {
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-base);
-  font-weight: 600;
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  font-weight: var(--ds-typography-font-weight-semibold);
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -42,18 +65,24 @@
 }
 
 .liveTag {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-2xs);
-  font-weight: 600;
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
   letter-spacing: 0.08em;
-  color: var(--status-live);
+  color: var(--ds-status-live);
 }
 
 .lockedTag {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-2xs);
-  font-weight: 600;
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
   letter-spacing: 0.06em;
-  color: var(--muted);
+  color: var(--ds-text-muted);
   text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pad {
+    transition-duration: var(--ds-motion-snap);
+  }
 }
