@@ -1,0 +1,10 @@
+.workspaceFrame { display: flex; min-block-size: 0; flex: 1; flex-direction: column; gap: var(--ds-spacing-space4); }
+.splitPane { display: grid; min-block-size: 0; flex: 1; gap: var(--ds-spacing-space4); grid-template-columns: minmax(0, 1fr) minmax(12rem, 0.75fr); }
+.dataList, .sceneStack, .masterList, .guidedFlow, .impactReview { display: grid; gap: var(--ds-spacing-space2); }
+.formActions { display: flex; flex-wrap: wrap; gap: var(--ds-spacing-space2); justify-content: flex-end; }
+.impactSummary, .midiPickup { color: var(--ds-text-secondary); font: var(--ds-typography-body); }
+.guidedStep { display: flex; align-items: start; gap: var(--ds-spacing-space2); }
+.guidedNumber { display: grid; block-size: var(--ds-sizing-icon-20); inline-size: var(--ds-sizing-icon-20); place-items: center; border-radius: var(--ds-radii-pill); background: var(--ds-surface-selected); color: var(--ds-text-primary); font: var(--ds-typography-compact); }
+.masterRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--ds-spacing-space2); align-items: center; }
+.safetyAction { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-spacing-space2); }
+.safetyDescription { color: var(--ds-text-secondary); font: var(--ds-typography-compact); }
