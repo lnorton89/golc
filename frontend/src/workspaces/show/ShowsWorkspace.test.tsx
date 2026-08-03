@@ -70,6 +70,7 @@ describe("ShowsWorkspace", () => {
     render(<ShowsWorkspace />);
 
     await waitFor(() => expect(screen.getByText(longPath)).toBeInTheDocument());
+    expect(screen.getByRole("region", { name: "Shows workspace" })).toBeInTheDocument();
     expect(screen.getByText(longPath)).toHaveAttribute("title", longPath);
   });
 
