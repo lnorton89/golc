@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-03T19:19:46.638Z",
+  "buildSha": "428dd7cc210f2a4dcf3b2a1ee1e32bf485f89136",
+  "environment": {
+    "platform": "win32",
+    "browserName": "chromium",
+    "browserVersion": "151.0.7922.34"
+  },
+  "wcagAaNormalTextMinimum": 4.5,
+  "viewports": [
+    {
+      "name": "compact",
+      "width": 900,
+      "height": 720,
+      "blockedStylesheet": {
+        "pathname": "/src/index.css",
+        "originalLength": 34096,
+        "strippedLength": 7746,
+        "declarationsStripped": 858
+      },
+      "computedStyles": {
+        "screenBackground": "rgb(19, 20, 25)",
+        "screenColor": "rgb(228, 224, 216)",
+        "titleColor": "rgb(229, 78, 67)",
+        "bodyColor": "rgb(138, 136, 127)",
+        "reloadColor": "rgb(229, 78, 67)",
+        "sampleTokenAfterBlock": ""
+      },
+      "contrast": {
+        "screenBackgroundVsScreenColor": 13.971608370496583,
+        "screenBackgroundVsTitleColor": 4.819110173000139,
+        "screenBackgroundVsBodyColor": 5.175018051473322,
+        "screenBackgroundVsReloadColor": 4.819110173000139,
+        "minimumRequired": 4.5
+      },
+      "focus": {
+        "reachableViaKeyboardTab": true,
+        "outlineStyle": "auto",
+        "outlineWidthPx": 1
+      },
+      "activation": {
+        "reloadedAfterActivation": true,
+        "fallbackReappearedAfterReload": true
+      },
+      "viewportContainment": {
+        "screenWithinViewport": true,
+        "documentHasNoHorizontalOverflow": true
+      },
+      "assertions": {
+        "exactRegisteredLiteralsUsed": true,
+        "tokensGenuinelyUnavailable": true,
+        "meetsContrastFloor": true,
+        "keyboardOperable": true,
+        "staysInViewport": true,
+        "safetyReachabilityCopyPresent": true
+      }
+    },
+    {
+      "name": "normal",
+      "width": 1280,
+      "height": 720,
+      "blockedStylesheet": {
+        "pathname": "/src/index.css",
+        "originalLength": 34096,
+        "strippedLength": 7746,
+        "declarationsStripped": 858
+      },
+      "computedStyles": {
+        "screenBackground": "rgb(19, 20, 25)",
+        "screenColor": "rgb(228, 224, 216)",
+        "titleColor": "rgb(229, 78, 67)",
+        "bodyColor": "rgb(138, 136, 127)",
+        "reloadColor": "rgb(229, 78, 67)",
+        "sampleTokenAfterBlock": ""
+      },
+      "contrast": {
+        "screenBackgroundVsScreenColor": 13.971608370496583,
+        "screenBackgroundVsTitleColor": 4.819110173000139,
+        "screenBackgroundVsBodyColor": 5.175018051473322,
+        "screenBackgroundVsReloadColor": 4.819110173000139,
+        "minimumRequired": 4.5
+      },
+      "focus": {
+        "reachableViaKeyboardTab": true,
+        "outlineStyle": "auto",
+        "outlineWidthPx": 1
+      },
+      "activation": {
+        "reloadedAfterActivation": true,
+        "fallbackReappearedAfterReload": true
+      },
+      "viewportContainment": {
+        "screenWithinViewport": true,
+        "documentHasNoHorizontalOverflow": true
+      },
+      "assertions": {
+        "exactRegisteredLiteralsUsed": true,
+        "tokensGenuinelyUnavailable": true,
+        "meetsContrastFloor": true,
+        "keyboardOperable": true,
+        "staysInViewport": true,
+        "safetyReachabilityCopyPresent": true
+      }
+    }
+  ]
+}

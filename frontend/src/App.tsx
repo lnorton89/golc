@@ -14,6 +14,7 @@ import { lazy, Suspense } from "react";
 import ErrorBoundary from "./shell/ErrorBoundary";
 import DialogFeasibility from "./design-system/fixtures/DialogFeasibility";
 import DesignSystemGallery from "./design-system/fixtures/DesignSystemGallery";
+import EmergencyFallbackFixture from "./design-system/fixtures/EmergencyFallbackFixture";
 
 // Keep the test-only fixture route independent from the normal shell bundle.
 // It still inherits index.css's generated semantic theme contract, while the
@@ -32,6 +33,16 @@ export default function App() {
   // routing mechanism.
   if (globalThis.location.search === "?e2e=design-system-gallery") {
     return <DesignSystemGallery />;
+  }
+
+  // Plan 13-30's emergency-fallback backstop needs a deterministic,
+  // browser-reachable render-time failure (UI-CONSIDERATIONS-BACKSTOP-ERROR)
+  // -- mirrors the two seams above exactly rather than inventing a second
+  // routing mechanism. This fixture wraps its own ErrorBoundary rather than
+  // relying on the one below, so the forced failure never depends on
+  // AppShell/Suspense ever mounting.
+  if (globalThis.location.search === "?e2e=emergency-fallback") {
+    return <EmergencyFallbackFixture />;
   }
 
   return (
