@@ -1,57 +1,41 @@
+/*
+ * Launcher.module.css owns only this component's own layout (section
+ * stacking, the scene grid, the layer strip) -- the masters row and both
+ * empty-state messages now come from the shared LauncherMasters pattern
+ * and EmptyState primitive (frontend/src/design-system), so their prior
+ * locally reinvented classes (.masterRow/.masterChip/.emptyState) are
+ * gone rather than tokenized in place.
+ */
+
 .launcher {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--ds-spacing-space4);
 }
 
 .section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--ds-spacing-space2);
 }
 
 .label {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-xs);
-  font-weight: 600;
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--ds-text-muted);
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: var(--space-sm);
+  gap: var(--ds-spacing-space2);
 }
 
 .layerStrip {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-xs);
-}
-
-.masterRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-}
-
-.masterChip {
-  padding: var(--space-xs) var(--space-sm);
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-pill);
-  color: var(--muted);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: var(--text-xs);
-}
-
-.emptyState {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  margin: 0;
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  gap: var(--ds-spacing-space1);
 }

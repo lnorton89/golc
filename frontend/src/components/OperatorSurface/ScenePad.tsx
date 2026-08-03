@@ -5,6 +5,15 @@
 // hidden" -- the lock is enforced server-side by AuthorizeControl, this
 // dimmed/disabled rendering is a UI affordance only, matching
 // OperatorSurface.tsx's own existing doctrine).
+//
+// This remains a raw native <button> (registered as a narrow DS005 domain
+// exception, design-system/exception-proposals/operator-surface.json)
+// rather than the shared Button primitive: a launch-pad grid cell's
+// stacked name/LIVE/Locked-tag content and fixed 88px minimum height are
+// domain-specific launcher-grid geometry, not the single-line label
+// grammar Button owns -- there is no launch-pad/grid-cell primitive
+// elsewhere in this codebase to reuse (same reasoning as Desk's own
+// FaderLearnHitArea/faderClearButton DS005 exceptions).
 import styles from "./ScenePad.module.css";
 
 interface ScenePadProps {
