@@ -124,9 +124,11 @@ describe("theme-contrast", () => {
       expect(tokens.foundation.focus.offset).toMatch(/^\d+px$/);
     });
 
-    // The light-mode palette family (the outer canvas and every control
-    // surface a focus-visible outline's 2px offset gap can reveal) meets
-    // the UI-component contrast floor against the shared focus color.
+    // The shared foundation focus color is emitted once and applies to
+    // every theme face, so it must clear the UI-component contrast floor
+    // against every reading surface in BOTH palette families -- the outer
+    // canvas and every control surface a focus-visible outline's 2px
+    // offset gap can reveal.
     it("meets the UI-component contrast floor against every light-mode reading surface", () => {
       for (const face of tokens.themes.filter((candidate) => candidate.mode === "light")) {
         const palette = tokens.palettes[face.palette];
@@ -137,15 +139,14 @@ describe("theme-contrast", () => {
       }
     });
 
-    // Known gap, intentionally not asserted as passing: the shared
-    // foundation focus color does not clear the same 3:1 floor against the
-    // dark-mode control/panel surfaces (currently ~2.2-2.5:1). Fixing this
-    // requires either a per-theme foundation override (a schema change to
-    // generate.mjs/manifest.mjs) or a different universal focus color
-    // recalibrated against both palette families, re-baselining every
-    // Playwright visual-regression screenshot that captures a
-    // focus-visible state -- verification this offline, Playwright-less
-    // worktree cannot perform (see SUMMARY.md). Tracked as a follow-up
-    // rather than silently asserted as compliant.
+    it("meets the UI-component contrast floor against every dark-mode reading surface", () => {
+      for (const face of tokens.themes.filter((candidate) => candidate.mode === "dark")) {
+        const palette = tokens.palettes[face.palette];
+        for (const surface of READING_SURFACES) {
+          const ratio = contrastRatio(tokens.foundation.focus.color, palette[surface]);
+          expect(ratio).toBeGreaterThanOrEqual(UI_COMPONENT_MINIMUM);
+        }
+      }
+    });
   });
 });
