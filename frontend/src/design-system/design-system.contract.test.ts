@@ -18,6 +18,28 @@ describe("public design-system inventory", () => {
     }
     expect(Object.keys(designSystem).sort()).toEqual(components.map((component) => component.name).sort());
   });
+
+  // DS007 (scripts/design-system/check.mjs) only proves every inventory
+  // record's guideAnchor is PRESENT somewhere in the guide -- it never
+  // proves the guide's own "stable selection markers" list has no EXTRA
+  // anchor left behind by a removal (exactly what let ConfirmModal's own
+  // #confirmmodal anchor survive Plan 37's removal undetected, since the
+  // guide's case-sensitive `/ConfirmModal/` absence check in this same file
+  // doesn't match a lowercase anchor token). This closes that direction:
+  // every anchor literally listed in the guide's marker line must resolve
+  // back to a live inventory record, not just the reverse.
+  it("has no orphaned guide anchor without a matching inventory record", async () => {
+    const components = inventory.components as InventoryRecord[];
+    const guideFiles = import.meta.glob("../../DESIGN_SYSTEM.md", { query: "?raw", import: "default" });
+    const loaders = Object.values(guideFiles);
+    expect(loaders.length).toBe(1);
+    const guide = (await loaders[0]()) as string;
+    const markerLine = guide.split("\n").find((line) => line.startsWith("The inventory anchors are stable selection markers:"));
+    expect(markerLine).toBeDefined();
+    const guideAnchors = [...(markerLine ?? "").matchAll(/#[a-z0-9-]+/g)].map((match) => match[0]);
+    const inventoryAnchors = components.map((component) => component.guideAnchor);
+    expect(guideAnchors.sort()).toEqual([...inventoryAnchors].sort());
+  });
 });
 
 // ConfirmModal was removed in Phase 13 Plan 37: Dialog/ConfirmDialog are now
