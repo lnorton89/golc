@@ -372,8 +372,17 @@ export function validateWindowsCiEvidence(evidence, { approvedSha } = {}) {
   if (evidence.workflowPath !== ".github/workflows/design-system.yml") {
     errors.push('Windows CI evidence workflowPath must be ".github/workflows/design-system.yml"');
   }
-  if (!Array.isArray(evidence.artifacts) || evidence.artifacts.length === 0) {
-    errors.push("Windows CI evidence missing downloaded artifacts");
+  // The workflow's artifact-upload step is gated `if: failure()` (see
+  // .github/workflows/design-system.yml) -- it only runs, and only produces
+  // artifacts, when the visual suite genuinely fails, for post-mortem
+  // diagnosis. A genuinely passing run therefore always has artifacts: [],
+  // by design, and must NOT be flagged as missing evidence. A failing run
+  // with empty artifacts, however, indicates the upload step itself failed
+  // or was skipped incorrectly, and is still a real problem worth catching.
+  if (!Array.isArray(evidence.artifacts)) {
+    errors.push("Windows CI evidence artifacts must be an array");
+  } else if (evidence.conclusion === "failure" && evidence.artifacts.length === 0) {
+    errors.push("Windows CI evidence missing downloaded artifacts (required for a failed run, for post-mortem diagnosis)");
   } else {
     evidence.artifacts.forEach((artifact, index) => errors.push(...validateArtifact(artifact, `windowsCi.artifacts[${index}]`)));
   }

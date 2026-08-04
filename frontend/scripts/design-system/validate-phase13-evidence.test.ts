@@ -428,6 +428,16 @@ describe("Windows CI run evidence", () => {
     const evidence = { ...validWindowsCiEvidence(), jobs: [{ name: "x", conclusion: "failure" }] };
     expect(validateWindowsCiEvidence(evidence).some((e) => e.includes("successful job"))).toBe(true);
   });
+
+  it("accepts a genuinely passing run with empty artifacts[] (the design-system.yml upload step is gated if: failure(), so a success run legitimately never produces artifacts)", () => {
+    const evidence = { ...validWindowsCiEvidence(), conclusion: "success", artifacts: [] };
+    expect(validateWindowsCiEvidence(evidence)).toEqual([]);
+  });
+
+  it("still rejects a failing run with empty artifacts[] (the upload step should have run and produced artifacts for post-mortem diagnosis)", () => {
+    const evidence = { ...validWindowsCiEvidence(), status: "completed", conclusion: "failure", artifacts: [] };
+    expect(validateWindowsCiEvidence(evidence).some((e) => e.includes("missing downloaded artifacts"))).toBe(true);
+  });
 });
 
 describe("collectAssertionErrors", () => {
