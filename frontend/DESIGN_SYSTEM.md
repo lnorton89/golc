@@ -27,12 +27,12 @@ Everything visual is generated from `design-system/tokens.json`, a single source
 semanticRoles   →  the named roles every token maps to (surface, text, border, action, status, ...)
 foundation      →  non-color scales shared by every theme: typography, spacing, radii, sizing, focus, motion, stacking
 palettes        →  the two base value sets: "paper-ink-light" and "paper-ink-dark"
-themes          →  24 selectable faces: 12 named palettes (default, gruvbox, tokyo, dracula, nord,
+themes          →  24 named theme-face entries: 12 names (default, gruvbox, tokyo, dracula, nord,
                     catppuccin, solarized, one-dark, rose-pine, everforest, rainbow, acid) × 2 modes
-                    (light/dark), each resolving the same semantic roles to that theme's own values
+                    (light/dark), each entry pointing at one of the two base palettes above
 ```
 
-`npm run generate:design-system` compiles this into `src/design-system/tokens.generated.css` (the real `--ds-*` custom properties) and `tokens.generated.ts` (typed theme-name unions consumed by `src/lib/theme.ts`). Component code never references a palette or theme name directly — it references a semantic token (`var(--ds-surface-panel)`, `var(--ds-text-muted)`, `var(--ds-spacing-space3)`), and the active `data-theme`/`data-theme-name` attributes on `<html>` resolve it to the right concrete value. This is what makes all 24 themes "free" for every component that follows the rules: there is no per-theme component code to write or maintain.
+`npm run generate:design-system` compiles this into `src/design-system/tokens.generated.css` (the real `--ds-*` custom properties) and `tokens.generated.ts` (typed theme-name unions consumed by `src/lib/theme.ts`). Component code never references a palette or theme name directly — it references a semantic token (`var(--ds-surface-panel)`, `var(--ds-text-muted)`, `var(--ds-spacing-space3)`), and the active `data-theme`/`data-theme-name` attributes on `<html>` resolve it to the right concrete value. Today every one of the 12 names resolves to the same `paper-ink-light`/`paper-ink-dark` palette pair (see the `palette` field on each entry in `themes`) — the names are selectable and wired end-to-end, but they don't yet carry distinct color values of their own. This is what makes wiring up a new theme "free" for every component that follows the rules: there is no per-theme component code to write or maintain, only a new palette entry.
 
 `design-system/runtime-geometry.json` is the one deliberate escape hatch from pure static tokens: a small, explicitly-bounded set of CSS custom properties that must be set at *runtime* rather than compile time (e.g. a resizable rail's current width). Each entry declares its own minimum/maximum/fallback and the exact component responsible for setting it — nothing here is a free-form custom property.
 
