@@ -5,7 +5,7 @@
    never loaded. The seven color/background declarations below are
    intentionally bare hex/rgb literals (never var(--ds-*)) -- each is a
    registered, narrowly-scoped design-system exception (see
-   design-system/exception-proposals/shell.json), matching DESIGN_SYSTEM.md's
+   design-system/exceptions.json), matching DESIGN_SYSTEM.md's
    UI-SPEC "Token-independent ErrorBoundary fallback colors" carve-out.
    Everything else (spacing, radius, typography) safely uses the generated
    --ds-* tokens: losing those in the same catastrophic-stylesheet-failure

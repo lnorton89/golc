@@ -1,24 +1,26 @@
 .errorState {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-md);
+  gap: var(--ds-spacing-space4);
   max-width: 48rem;
-  border: 1px solid var(--status-revoked);
-  border-radius: var(--radius-md);
-  color: var(--text);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-status-revoked);
+  border-radius: var(--ds-radii-medium);
+  color: var(--ds-text-primary);
 }
 
 .inline {
-  padding: var(--space-md);
+  padding: var(--ds-spacing-space4);
 }
 
 .panel {
-  padding: var(--space-lg);
+  padding: var(--ds-spacing-space6);
 }
 
 .icon {
   flex: 0 0 auto;
-  color: var(--status-revoked);
+  color: var(--ds-status-revoked);
 }
 
 .copy {
@@ -29,48 +31,55 @@
 .message {
   margin: 0;
   overflow-wrap: anywhere;
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-base);
-  line-height: 1.5;
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  line-height: var(--ds-typography-line-height-body);
 }
 
 .heading {
-  color: var(--ink);
-  font-weight: 600;
+  color: var(--ds-text-primary);
+  font-weight: var(--ds-typography-font-weight-semibold);
 }
 
 .message {
-  margin-top: var(--space-xs);
+  margin-top: var(--ds-spacing-space1);
 }
 
 .retry {
-  min-height: 32px;
-  margin-top: var(--space-md);
-  padding: 0 var(--space-md);
-  border: 1px solid var(--status-revoked);
-  border-radius: var(--radius-sm);
-  background: var(--panel);
-  color: var(--status-revoked);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-  font-weight: 600;
+  min-height: var(--ds-sizing-control-default);
+  margin-top: var(--ds-spacing-space4);
+  padding-block: 0;
+  padding-inline: var(--ds-spacing-space4);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-status-revoked);
+  border-radius: var(--ds-radii-small);
+  background: var(--ds-surface-panel);
+  color: var(--ds-status-revoked);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
   cursor: pointer;
 }
 
 .retry:focus-visible {
-  outline: 2px solid var(--accent);
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
   outline-offset: 2px;
 }
 
 .diagnostic {
-  margin-top: var(--space-md);
-  color: var(--text2);
-  font-family: "JetBrains Mono", monospace;
-  font-size: var(--text-sm);
+  margin-top: var(--ds-spacing-space4);
+  color: var(--ds-text-secondary);
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
 }
 
 .diagnostic pre {
-  margin: var(--space-xs) 0 0;
+  margin-block-start: var(--ds-spacing-space1);
+  margin-inline: 0;
+  margin-block-end: 0;
   overflow-x: auto;
   white-space: pre-wrap;
 }

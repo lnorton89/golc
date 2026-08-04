@@ -1,4 +1,536 @@
 {
   "schemaVersion": 1,
-  "records": []
+  "records": [
+    {
+      "path": "src/components/Desk/Fader.tsx",
+      "rule": "DS005",
+      "match": "input",
+      "rationale": "Vertical fader slider: a fully custom-styled native <input type=\"range\"> (writing-mode rotation, custom thumb/track paint). D-05's 'Specialized surfaces... vertical faders... may own domain-specific visualization and input geometry' carve-out -- there is no slider/fader primitive anywhere else in this codebase to reuse.",
+      "source": "Fader.tsx:229",
+      "owner": "phase-13-13",
+      "reviewCondition": "a shared slider/fader primitive is added to the design system"
+    },
+    {
+      "path": "src/components/Desk/Fader.tsx",
+      "rule": "DS005",
+      "match": "button",
+      "rationale": "faderClearButton is fixed at 18x18px regardless of --ds-fader-width, which can resize down to FADER_WIDTH_MIN (18px) -- IconButton's smallest size (32px) and fixed 20px icon would overflow the column at that width and collide with the adjacent fader.",
+      "source": "Fader.tsx:262",
+      "owner": "phase-13-13",
+      "reviewCondition": "IconButton grows a size tier at or below 18px total footprint"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS006",
+      "match": ".faderClearButton",
+      "rationale": "Same domain-geometry exception as desk-fader-clear-button-jsx (raw button, not IconButton, for FADER_WIDTH_MIN column-width reasons) -- this class is that button's own visual styling, not an independent decision to hand-roll shared button chrome.",
+      "source": "Desk.module.css:698",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-fader-clear-button-jsx"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS006",
+      "match": ".faderClearButton:hover:not([aria-disabled=\"true\"])",
+      "rationale": "Same domain-geometry exception as desk-fader-clear-button-jsx -- this is that same button's own hover state, not an independent decision.",
+      "source": "Desk.module.css:714",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-fader-clear-button-jsx"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS001",
+      "match": "border-radius: 3px",
+      "rationale": "Same domain-geometry exception as desk-fader-clear-button-jsx -- this fixed 18x18px button's own corner radius, not an independent spacing/radii decision.",
+      "source": "Desk.module.css:708",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-fader-clear-button-jsx"
+    },
+    {
+      "path": "src/components/Desk/FaderLearnHitArea.tsx",
+      "rule": "DS005",
+      "match": "button",
+      "rationale": "The MIDI-learn click target: fully transparent, sized to the whole fader card (inset:0), sitting above the range input so a click in learn mode never doubles as a drag. Split into its own file so this is the only raw button the checker finds here (see this file's own header comment).",
+      "source": "FaderLearnHitArea.tsx:40",
+      "owner": "phase-13-13",
+      "reviewCondition": "a shared invisible-hit-area primitive is added to the design system"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS006",
+      "match": ".badge",
+      "rationale": "MetaBadge mirrors ProjectFixtures.tsx's own MetaTag convention -- duplicated locally rather than imported since there is no exported shared primitive, mirroring ArtnetConfig/FixturePatch's established 'small helper duplicated per feature' precedent (see MetaBadge's own doc comment in Desk.tsx).",
+      "source": "Desk.module.css:293",
+      "owner": "phase-13-13",
+      "reviewCondition": "a shared MetaTag/MetaBadge primitive is added to the design system"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS006",
+      "match": ".badgeLabel",
+      "rationale": "Same MetaBadge exception as desk-badge-shared-class -- this is that same pill's own label text styling.",
+      "source": "Desk.module.css:307",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-badge-shared-class"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS006",
+      "match": ".badgeValue",
+      "rationale": "Same MetaBadge exception as desk-badge-shared-class -- this is that same pill's own value text styling.",
+      "source": "Desk.module.css:315",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-badge-shared-class"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS001",
+      "match": "0.22), 9px)",
+      "rationale": "Scales down with the row's own --ds-fader-width (Desk.tsx's per-row horizontal preset/resize) so a Compact/Normal-width row's badge still fits next to the fixture name on one line. The clamp() ceiling is the pre-migration fixed size -- a wide/Large/Fit row never grows past it, only shrinks at narrower ones. DS001 does not recognize clamp()/calc() as a token reference the way it does a bare var(--ds-*). match is this declaration's own distinguishing suffix, not its full value -- the checker mechanically rejects '*' in any match string, which the full clamp()/calc() text always contains.",
+      "source": "Desk.module.css:308",
+      "owner": "phase-13-13",
+      "reviewCondition": "a fader-width-responsive typography token is added to the design system"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS001",
+      "match": "0.28), 11px)",
+      "rationale": "Same fader-width-responsive exception as desk-badge-label-font-size -- this pill's own value text, not its label. Also a distinguishing suffix, not the full value, for the same '*'-is-forbidden reason.",
+      "source": "Desk.module.css:317",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-badge-label-font-size"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS001",
+      "match": "0.3), 10px)",
+      "rationale": "Same fader-width-responsive exception as desk-badge-label-font-size -- the value badge above each fader track. Also a distinguishing suffix, not the full value, for the same '*'-is-forbidden reason.",
+      "source": "Desk.module.css:394",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-badge-label-font-size"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS001",
+      "match": "line-height: 1",
+      "rationale": "This pill's own fixed 20px height is what actually centers its text -- line-height only needs to stay tight enough not to add its own extra leading above/below the glyph, which neither semantic line-height role (1.5 body/1.2 heading, both meant for ordinary paragraph/heading text) expresses.",
+      "source": "Desk.module.css:402",
+      "owner": "phase-13-13",
+      "reviewCondition": "a 'tight'/1.0 line-height token is added to the design system"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS001",
+      "match": "line-height: 1.1",
+      "rationale": "Same tight-line-height reasoning as desk-fader-value-line-height, for the numbered fader-scale ruler tick text (255/192/128/64/0) -- 1.1 rather than 1 only because this text isn't centered inside a fixed-height box the way .faderValue's pill is, so it has no exact-centering constraint pinning it to the identical value.",
+      "source": "Desk.module.css:473",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-fader-value-line-height"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS001",
+      "match": "background: linear-gradient(to right, transparent calc(50% - 2px), var(--ds-border-default) calc(50% - 2px), var(--ds-border-default) calc(50% + 2px), transparent calc(50% + 2px))",
+      "rationale": "Same domain-geometry exception as desk-fader-input (the custom vertical fader's own track-line paint -- see .faderInput's own doc comment). A custom-styled range input's thumb fills its full width by construction, so the thin track line is instead drawn via this background gradient rather than the (removed) native track rendering.",
+      "source": "Desk.module.css:538",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-fader-input"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS001",
+      "match": "line-height: 12px",
+      "rationale": "Matches this rule's own fixed 12px height so a 2-digit channel number centers inside its box instead of adding its own extra leading -- neither semantic line-height role is a fixed-pixel value compatible with a fixed-height single-line box like this one.",
+      "source": "Desk.module.css:675",
+      "owner": "phase-13-13",
+      "reviewCondition": "a fixed-pixel line-height token is added to the design system"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS001",
+      "match": "animation: faderLearnTargetPulse 2.4s ease-in-out infinite",
+      "rationale": "Ambient, looping 'invite to click' pulse for every still-unselected MIDI-learn target. --ds-motion-settle/-tap/-snap are all discrete one-shot UI feedback transitions (a state change finishing), not an ambient looping invitation -- no semantic-motion-token equivalent exists.",
+      "source": "Desk.module.css:748",
+      "owner": "phase-13-13",
+      "reviewCondition": "an ambient/looping motion token is added to the design system"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS001",
+      "match": "background-color: rgba(255, 255, 255, 0.03)",
+      "rationale": "Colorless white overlay at low opacity, part of desk-fader-learn-target-pulse-animation's own keyframe -- deliberately white rather than a theme token so it lightens correctly regardless of theme (a light theme's own canvas is already pale, a dark theme's is not), never introducing a hue the surrounding card didn't already have. No --ds-surface-*/--ds-status-* option is colorless/theme-relative in this way.",
+      "source": "Desk.module.css:754",
+      "owner": "phase-13-13",
+      "reviewCondition": "a theme-relative overlay token is added to the design system"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS001",
+      "match": "background-color: rgba(255, 255, 255, 0.1)",
+      "rationale": "Same colorless-white-overlay exception as desk-fader-learn-pulse-keyframe-rest -- this keyframe's own pulse peak (50%), not its rest state (0%/100%).",
+      "source": "Desk.module.css:757",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-fader-learn-pulse-keyframe-rest"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS001",
+      "match": "background-color: rgba(255, 255, 255, 0.18)",
+      "rationale": "Same colorless-white-overlay exception as desk-fader-learn-pulse-keyframe-rest -- the static (non-pulsing), stronger step shown for the one channel actually being learned or in a conflict/timeout/error state.",
+      "source": "Desk.module.css:776",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-fader-learn-pulse-keyframe-rest"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS001",
+      "match": "z-index: 2",
+      "rationale": "Local stacking order within one fader's own small set of overlapping layers (pulse background below, hit area above it, badge above that in learn mode) -- unrelated to the app-wide --ds-stacking-* ladder, which coordinates sticky chrome/popovers/modals/the emergency overlay against each other, not sibling layers within one component's own stacking context.",
+      "source": "Desk.module.css:794",
+      "owner": "phase-13-13",
+      "reviewCondition": "a local component-scoped stacking token is added to the design system"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS010",
+      "match": "none",
+      "rationale": "A native button's default focus outline would otherwise render right on top of the pulsing MIDI-learn background -- outline:none removes it, and the box-shadow-based focus-visible ring (desk-fader-learn-hit-area-focus-shadow) is the compensating visible focus indicator, a distinct visual layer from both outline and background-color.",
+      "source": "Desk.module.css:799",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-fader-learn-hit-area-focus-shadow"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS001",
+      "match": "box-shadow: inset 0 0 0 2px var(--ds-action-primary)",
+      "rationale": "The compensating visible focus ring for desk-fader-learn-hit-area-outline-none's outline:none -- box-shadow has no longhand decomposition, so this shorthand mixing raw geometry with a semantic color token can never satisfy DS001's bare-var()/calc(var()) pattern.",
+      "source": "Desk.module.css:803",
+      "owner": "phase-13-13",
+      "reviewCondition": "a focus-ring box-shadow token is added to the design system"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS006",
+      "match": ".faderLearnBadge",
+      "rationale": "The always-visible 'this channel is MIDI-mapped' corner indicator -- a small, single-purpose decorative marker with no existing shared badge/chip primitive that fits a 14px absolute-positioned corner dot (Chip is a labeled status pill, not a bare dot).",
+      "source": "Desk.module.css:816",
+      "owner": "phase-13-13",
+      "reviewCondition": "a shared corner-indicator-dot primitive is added to the design system"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS001",
+      "match": "z-index: 1",
+      "rationale": "Same local-stacking exception as desk-fader-learn-hit-area-z-index -- this badge's own layer (above the pulse background, below the hit area outside learn mode).",
+      "source": "Desk.module.css:820",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-fader-learn-hit-area-z-index"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS006",
+      "match": ".faderLearnBadgeClickable",
+      "rationale": "Same corner-indicator-dot exception as desk-fader-learn-badge-shared-class -- this modifier makes the same dot clickable while learn mode is on.",
+      "source": "Desk.module.css:832",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-fader-learn-badge-shared-class"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS006",
+      "match": ".faderLearnBadgeClickable:hover",
+      "rationale": "Same corner-indicator-dot exception as desk-fader-learn-badge-shared-class -- this dot's own hover state while clickable.",
+      "source": "Desk.module.css:838",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-fader-learn-badge-shared-class"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS006",
+      "match": ".faderLearnBadgeClickable:focus-visible",
+      "rationale": "Same corner-indicator-dot exception as desk-fader-learn-badge-shared-class -- this dot's own keyboard-focus state while clickable.",
+      "source": "Desk.module.css:842",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-fader-learn-badge-shared-class"
+    },
+    {
+      "path": "src/components/Desk/Desk.module.css",
+      "rule": "DS001",
+      "match": "z-index: 3",
+      "rationale": "Same local-stacking exception as desk-fader-learn-hit-area-z-index -- this clickable dot's own topmost layer while learn mode is on.",
+      "source": "Desk.module.css:833",
+      "owner": "phase-13-13",
+      "reviewCondition": "same as desk-fader-learn-hit-area-z-index"
+    },
+    {
+      "path": "src/components/Scripts/ScriptDebugPanel.tsx",
+      "rule": "DS005",
+      "match": "button",
+      "rationale": "Each stack-trace frame (a single Deno-captured 'at Func (file:line:col)' line, D-03) is rendered as its own full-width, left-aligned, monospace, keyboard-focusable button so a click/Enter/Space can jump the editor to that line. No existing design-system primitive fits: Button enforces fixed 32/28/44px height plus icon+label layout, unsuitable for a variable-length wrapped technical readout line; ListRow's icon/label/meta/selected layout is built for a navigable list row, not a preformatted stack-frame line. The Show/Hide stack trace disclosure toggle in this same file was converted to the real Button primitive (13-27-PLAN.md Task 2) precisely so this exception stays narrowly scoped to the one raw-button pattern with no primitive fit, rather than exempting the whole file.",
+      "source": "ScriptDebugPanel.tsx:327",
+      "owner": "phase-13-27",
+      "reviewCondition": "a shared 'preformatted clickable technical row' primitive is added to the design system"
+    },
+    {
+      "path": "src/workspaces/show/GuidedFirstShow/GuidedFirstShow.module.css",
+      "rule": "DS001",
+      "match": "border: 1px solid rgba(200, 162, 75, .5)",
+      "rationale": "Verbatim reproduction of the locked Sketch 004 Variant B .impact-preview rule (.planning/sketches/references/onboarding-readiness-impact.md, D-11) -- its exact rgba(200, 162, 75, .5) value has no equivalent generated token (it coincidentally shares --ds-status-armed's RGB but with a sketch-specific alpha no token expresses), and the sketch's own header note says not to round this rule to a token.",
+      "source": "GuidedFirstShow.module.css",
+      "owner": "phase-13-25",
+      "reviewCondition": "the locked sketch reference is revised, or a generated token adds this exact alpha-tinted warning border color"
+    },
+    {
+      "path": "src/workspaces/show/GuidedFirstShow/GuidedFirstShow.module.css",
+      "rule": "DS001",
+      "match": "background: rgba(200, 162, 75, .08)",
+      "rationale": "Same locked-sketch verbatim exception as guided-first-show-impact-preview-border -- this rule's own background half, at a different alpha, so it is its own distinct diagnostic value.",
+      "source": "GuidedFirstShow.module.css",
+      "owner": "phase-13-25",
+      "reviewCondition": "same as guided-first-show-impact-preview-border"
+    },
+    {
+      "path": "src/components/MidiLearnToggle/MidiLearnToggle.tsx",
+      "rule": "DS005",
+      "match": "button",
+      "rationale": "The global MIDI Learn switch needs aria-disabled (not the native disabled attribute) so its own title tooltip keeps working while gated off a supported destination -- a genuinely disabled button suppresses hover/focus events in Chromium/WebView2, silently swallowing the tooltip. No existing primitive combines an icon+text label with that soft-disabled toggle contract (IconButton has disabledBehavior=\"soft\" but hides its text label; Button has no soft-disabled mode at all).",
+      "source": "MidiLearnToggle.tsx:63",
+      "owner": "phase-13-28",
+      "reviewCondition": "a shared icon+label toggle primitive with soft-disabled support is added to the design system"
+    },
+    {
+      "path": "src/components/MidiLearnToggle/MidiLearnToggle.module.css",
+      "rule": "DS001",
+      "match": "box-shadow: 0 0 0 2px color-mix(in srgb, var(--ds-action-primary) 40%, transparent)",
+      "rationale": "The active-state accent ring around the toggle once MIDI Learn is on -- box-shadow has no longhand decomposition, so this shorthand mixing raw geometry with a semantic color token (inside color-mix() for translucency) can never satisfy DS001's bare-var()/calc(var()) pattern, the same reasoning as Desk's own desk-fader-learn-hit-area-focus-shadow exception.",
+      "source": "MidiLearnToggle.module.css:47",
+      "owner": "phase-13-28",
+      "reviewCondition": "a focus-ring/accent-ring box-shadow token is added to the design system"
+    },
+    {
+      "path": "src/components/OperatorSurface/ScenePad.tsx",
+      "rule": "DS005",
+      "match": "button",
+      "rationale": "ScenePad is the Launcher + Masters grid's large random-access scene-launch cell (live-operation-safety-midi.md, Sketch 003 Variant A): a stacked name/LIVE/Locked-tag launch target with a fixed 88px minimum height, not a single-line labeled action button -- Button's label grammar does not fit this domain-specific launch-pad visualization, and there is no launch-pad/grid-cell primitive elsewhere in this codebase to reuse (same reasoning as Desk's own FaderLearnHitArea/faderClearButton DS005 exceptions).",
+      "source": "ScenePad.tsx:28",
+      "owner": "phase-13-14",
+      "reviewCondition": "a shared launch-pad/grid-cell primitive is added to the design system"
+    },
+    {
+      "path": "src/components/Diagnostics/AppLogPanel.tsx",
+      "rule": "DS005",
+      "match": "button",
+      "rationale": "The per-level/per-source filter toggle is an outlined pill with an active/inactive visual state and an aria-pressed toggle contract -- Button/IconButton have no pill-shaped toggle variant, and this is the only raw native control in this file (the rest of the tree uses Panel/PanelHeader/Button/ScrollRegion/EmptyState).",
+      "source": "AppLogPanel.tsx:120",
+      "owner": "phase-13-26",
+      "reviewCondition": "a shared toggle-pill primitive is added to the design system"
+    },
+    {
+      "path": "src/components/primitives/IconButton/IconButton.module.css",
+      "rule": "DS001",
+      "match": "transition: background-color var(--ds-motion-tap), border-color var(--ds-motion-tap), color var(--ds-motion-tap)",
+      "rationale": "--ds-motion-tap is a combined duration+easing token (120ms ease-out), not a bare duration -- it cannot be split into transition-property/transition-duration/transition-timing-function longhand, since transition-duration only accepts a time value and would reject the combined string. The multi-property transition list itself has no single-token equivalent in the generated token set.",
+      "source": "IconButton.module.css",
+      "owner": "primitives-sweep",
+      "reviewCondition": "a combined multi-property transition-list token, or a duration-only motion token, is added to the design system"
+    },
+    {
+      "path": "src/components/primitives/ListRow/ListRow.module.css",
+      "rule": "DS001",
+      "match": "transition: background-color var(--ds-motion-tap), border-color var(--ds-motion-tap)",
+      "rationale": "Same reasoning as iconbutton-transition-motion-tap -- --ds-motion-tap is a combined duration+easing token that cannot be split into transition longhand without becoming invalid CSS, and no single-token equivalent for a multi-property transition list exists.",
+      "source": "ListRow.module.css",
+      "owner": "primitives-sweep",
+      "reviewCondition": "same as iconbutton-transition-motion-tap"
+    },
+    {
+      "path": "src/shell/ErrorBoundary.tsx",
+      "rule": "DS005",
+      "match": "button",
+      "rationale": "The last-resort Reload control on this render-crash fallback intentionally avoids depending on the shared Button primitive, since Button lives in shared design-system code that could plausibly be part of whatever just crashed the render tree -- see this file's own header comment.",
+      "source": "ErrorBoundary.tsx:66",
+      "owner": "phase-13-16",
+      "reviewCondition": "ErrorBoundary's documented dependency-free requirement is revisited"
+    },
+    {
+      "path": "src/shell/ErrorBoundary.module.css",
+      "rule": "DS001",
+      "match": "background: #131419",
+      "rationale": "Token-independent emergency-screen background: must render correctly even if tokens.generated.css itself failed to load (the exact scenario this fallback exists for). Matches DESIGN_SYSTEM.md's UI-SPEC 'Token-independent ErrorBoundary fallback colors' carve-out.",
+      "source": "ErrorBoundary.module.css:16",
+      "owner": "phase-13-16",
+      "reviewCondition": "ErrorBoundary's documented dependency-free requirement is revisited"
+    },
+    {
+      "path": "src/shell/ErrorBoundary.module.css",
+      "rule": "DS001",
+      "match": "color: #e4e0d8",
+      "rationale": "Token-independent emergency-screen foreground text color, paired with shell-error-boundary-screen-background for guaranteed contrast even with zero stylesheet dependency.",
+      "source": "ErrorBoundary.module.css:17",
+      "owner": "phase-13-16",
+      "reviewCondition": "same as shell-error-boundary-screen-background"
+    },
+    {
+      "path": "src/shell/ErrorBoundary.module.css",
+      "rule": "DS001",
+      "match": "color: #e54e43",
+      "rationale": "Token-independent 'GOLC hit an unexpected error' heading color -- the revoked/error red must remain visible even if the generated theme tokens never loaded. #e54e43 is a minimal, hue-preserving lightening of the canonical #e23a2e revoked red, measured by Plan 13-30's emergency-fallback contrast backstop to clear WCAG AA 4.5:1 against this file's own #131419 background literal (the canonical value only reaches 4.27:1 here); the shared --ds-status-revoked token elsewhere in the app is unaffected.",
+      "source": "ErrorBoundary.module.css:24",
+      "owner": "phase-13-16",
+      "reviewCondition": "same as shell-error-boundary-screen-background"
+    },
+    {
+      "path": "src/shell/ErrorBoundary.module.css",
+      "rule": "DS001",
+      "match": "color: #8a887f",
+      "rationale": "Token-independent explanatory-body text color, paired against the same bare .screen background.",
+      "source": "ErrorBoundary.module.css:31",
+      "owner": "phase-13-16",
+      "reviewCondition": "same as shell-error-boundary-screen-background"
+    },
+    {
+      "path": "src/shell/ErrorBoundary.module.css",
+      "rule": "DS001",
+      "match": "background: rgba(0, 0, 0, 0.2)",
+      "rationale": "Token-independent subtle-panel background behind the raw crash stack trace -- the single most important diagnostic on this screen, so its own contrast pairing cannot depend on any stylesheet loading.",
+      "source": "ErrorBoundary.module.css:46",
+      "owner": "phase-13-16",
+      "reviewCondition": "same as shell-error-boundary-screen-background"
+    },
+    {
+      "path": "src/shell/ErrorBoundary.module.css",
+      "rule": "DS001",
+      "match": "color: rgb(138, 136, 127)",
+      "rationale": "Token-independent crash-stack-trace text color. Written as rgb() rather than the identical #8a887f hex used by .body's own color so the checker's exception-matching mechanism (which can only resolve a match to exactly one diagnostic per rule+path+value) can address this declaration independently of shell-error-boundary-body-color -- both render the exact same muted gray.",
+      "source": "ErrorBoundary.module.css:47",
+      "owner": "phase-13-16",
+      "reviewCondition": "same as shell-error-boundary-screen-background"
+    },
+    {
+      "path": "src/shell/ErrorBoundary.module.css",
+      "rule": "DS001",
+      "match": "color: rgb(229, 78, 67)",
+      "rationale": "Token-independent Reload button label color -- the operator's one recovery action must stay legible with zero stylesheet dependency. Written as rgb() rather than the identical #e54e43 hex used by .title's own color so the checker's exception-matching mechanism can address this declaration independently of shell-error-boundary-title-color -- both render the exact same lightened revoked red. rgb(229, 78, 67) is a minimal, hue-preserving lightening of the canonical rgb(226, 58, 46) revoked red, measured by Plan 13-30's emergency-fallback contrast backstop to clear WCAG AA 4.5:1 against this file's own background literal at 14px semibold (the canonical value only reaches 4.27:1 here); the shared --ds-status-revoked token elsewhere in the app is unaffected.",
+      "source": "ErrorBoundary.module.css:70",
+      "owner": "phase-13-16",
+      "reviewCondition": "same as shell-error-boundary-screen-background"
+    },
+    {
+      "path": "src/shell/QuickSwitcher.tsx",
+      "rule": "DS005",
+      "match": "input",
+      "rationale": "The Ctrl+K quick-switcher's borderless, icon-adjacent filter input has no visible label by design (Discord-style command palette) -- Field always renders a visible <label>, which does not fit this compact composition, and there is no bare unlabeled-input primitive in the design system.",
+      "source": "QuickSwitcher.tsx:84",
+      "owner": "phase-13-16",
+      "reviewCondition": "an unlabeled/borderless input primitive is added to the design system"
+    },
+    {
+      "path": "src/shell/QuickSwitcher.tsx",
+      "rule": "DS005",
+      "match": "button",
+      "rationale": "Each search result is a role=\"option\" row inside a role=\"listbox\" (ArrowUp/ArrowDown/Enter keyboard selection, aria-selected), not a discrete Button/IconButton action -- it composes a leading icon, a truncating label, and a trailing group tag in one native <button> so a click on any part of the row commits that destination, which Button's fixed label/icon slots don't express.",
+      "source": "QuickSwitcher.tsx:132",
+      "owner": "phase-13-16",
+      "reviewCondition": "a shared selectable-list-row-as-button primitive is added to the design system"
+    },
+    {
+      "path": "src/shell/CommandRail.module.css",
+      "rule": "DS001",
+      "match": "background: color-mix(in srgb, var(--ds-surface-canvas) 92%, black 8%)",
+      "rationale": "The nav rail's own background is deliberately a tad darker than --ds-surface-canvas so the sidebar reads as its own surface instead of blending flush into the workspace canvas. No generated semantic role expresses 'canvas, mixed slightly toward black' in every theme (--ds-surface-panel-subdued is already used for .item's own row-hover state; reusing it for the rail's resting background would make hover indistinguishable from rest). color-mix with a literal black is the only reliable way to guarantee darker-than-canvas across every approved theme face.",
+      "source": "src/shell/CommandRail.module.css:37",
+      "owner": "phase-13-24",
+      "reviewCondition": "a semantic --ds-surface-rail (or equivalent 'sidebar, distinct from canvas') role is added to the generated token set"
+    },
+    {
+      "path": "src/shell/CommandRail.module.css",
+      "rule": "DS010",
+      "match": "0",
+      "rationale": "overflow-y:auto makes the <nav> itself a focusable scroll container in Chromium (independent of any child .item's own focus state); suppressing its own default focus ring is intentional -- keyboard focus is always visible on whichever .item actually has it, via that item's own left-border-accent treatment (.item:focus-visible below), never a full rectangle around the entire rail. Set to the literal '0' (rather than 'none', used by .item:focus-visible's own identical-intent exception) purely so the checker's exception mechanism -- which can only resolve a match to exactly one diagnostic per rule+path -- can tell the two apart; both compute identically in every browser.",
+      "source": "src/shell/CommandRail.module.css:63",
+      "owner": "phase-13-24",
+      "reviewCondition": "the rail's own scroll-container focus-ring suppression is replaced by a non-focusable scroll wrapper"
+    },
+    {
+      "path": "src/shell/CommandRail.module.css",
+      "rule": "DS010",
+      "match": "none",
+      "rationale": "A boxed outline reads as a foreign element in this rail -- every other active/focus treatment here (.itemActive) is a left-border accent, never a full rectangle, and a boxed outline on the topmost item visually collided with GlobalFrame's border above it. Focus stays visible via the identical left-border-color change .itemActive already uses (border-left-color: var(--ds-border-selected) on the same rule), so this is a substitute focus indicator, not a removed one.",
+      "source": "src/shell/CommandRail.module.css:157",
+      "owner": "phase-13-24",
+      "reviewCondition": "the rail adopts a shared focus-visible primitive treatment instead of its own left-border convention"
+    },
+    {
+      "path": "src/shell/CommandRailGroupToggle.tsx",
+      "rule": "DS005",
+      "match": "button",
+      "rationale": "The group-disclosure control (chevron + uppercase category label, aria-expanded/aria-controls, collapses/expands a nav section) has no counterpart in any shared primitive: Button/IconButton are for standalone text or icon-only actions, and ListRow's closest-shaped API renders aria-pressed (list-selection semantics), not a disclosure toggle. Extracted to its own file (Desk's FaderLearnHitArea.tsx precedent) so CommandRail.tsx's own raw <button> (the nav item, a separate registered exception below) is the only one the checker finds there -- two raw <button> elements in one file always produce byte-identical DS005 diagnostic values, which the exception mechanism cannot resolve individually. D-05's 'Feature CSS Modules may own feature layout and exceptional domain visualization' carve-out -- there is no disclosure-toggle primitive in this codebase to reuse.",
+      "source": "src/shell/CommandRailGroupToggle.tsx:22",
+      "owner": "phase-13-24",
+      "reviewCondition": "a shared disclosure-toggle primitive is added to the design system"
+    },
+    {
+      "path": "src/shell/CommandRail.tsx",
+      "rule": "DS005",
+      "match": "button",
+      "rationale": "Each nav destination button carries aria-current=\"page\" navigation-landmark semantics (WAI-ARIA's convention for persistent primary navigation), which the closest-shaped shared primitive (ListRow) does not support -- it renders aria-pressed (list-selection semantics) instead, and switching would both regress the existing aria-current contract CommandRail.test.tsx already asserts and weaken the nav's accessibility semantics. D-05's 'exceptional domain visualization' carve-out -- there is no aria-current-aware nav-item primitive in this codebase to reuse.",
+      "source": "src/shell/CommandRail.tsx:82",
+      "owner": "phase-13-24",
+      "reviewCondition": "a shared nav-item primitive with aria-current support is added to the design system"
+    },
+    {
+      "path": "src/components/primitives/Button/Button.module.css",
+      "rule": "DS001",
+      "match": "transition: background-color var(--ds-motion-tap), border-color var(--ds-motion-tap), color var(--ds-motion-tap)",
+      "rationale": "--ds-motion-tap is a combined duration+easing token (120ms ease-out), not a bare duration -- it cannot be split into transition-property/transition-duration/transition-timing-function longhand, since transition-duration only accepts a time value and would reject the combined string. Same reasoning as IconButton.module.css's/ListRow.module.css's own identical exceptions (separate records: each file is its own diagnostic).",
+      "source": "Button.module.css",
+      "owner": "phase-13-19",
+      "reviewCondition": "a combined multi-property transition-list token, or a duration-only motion token, is added to the design system"
+    },
+    {
+      "path": "src/components/primitives/InfoTooltip/InfoTooltip.module.css",
+      "rule": "DS001",
+      "match": "transition: border-color var(--ds-motion-tap), color var(--ds-motion-tap)",
+      "rationale": "Same combined-duration+easing-token constraint as Button.module.css's/IconButton.module.css's/ListRow.module.css's own transition exceptions -- --ds-motion-tap cannot be split into transition-duration/transition-timing-function longhand without becoming invalid CSS.",
+      "source": "InfoTooltip.module.css",
+      "owner": "phase-13-19",
+      "reviewCondition": "a combined multi-property transition-list token, or a duration-only motion token, is added to the design system"
+    },
+    {
+      "path": "src/components/primitives/ResizeHandle/ResizeHandle.module.css",
+      "rule": "DS001",
+      "match": "transition: background-color var(--ds-motion-tap), width var(--ds-motion-tap), height var(--ds-motion-tap)",
+      "rationale": "Same combined-duration+easing-token constraint as Button.module.css's/IconButton.module.css's/ListRow.module.css's own transition exceptions -- --ds-motion-tap cannot be split into transition-duration/transition-timing-function longhand without becoming invalid CSS.",
+      "source": "ResizeHandle.module.css",
+      "owner": "phase-13-19",
+      "reviewCondition": "a combined multi-property transition-list token, or a duration-only motion token, is added to the design system"
+    },
+    {
+      "path": "src/components/primitives/ConfirmModal/ConfirmModal.module.css",
+      "rule": "DS001",
+      "match": "animation: backdropFadeIn var(--ds-motion-settle)",
+      "rationale": "backdropFadeIn's animation-name+token pairing can't be a bare var(--ds-*) value; --ds-motion-settle is a combined duration+easing token that can't be split into animation-duration/animation-timing-function longhand either (animation-duration only accepts a time value). Same shape as Desk's own desk-fader-learn-target-pulse-animation exception.",
+      "source": "ConfirmModal.module.css",
+      "owner": "phase-13-19",
+      "reviewCondition": "a combined multi-property animation-list token, or a duration-only motion token, is added to the design system"
+    },
+    {
+      "path": "src/components/primitives/ConfirmModal/ConfirmModal.module.css",
+      "rule": "DS001",
+      "match": "animation: dialogPopIn var(--ds-motion-settle)",
+      "rationale": "Same shorthand-with-combined-token constraint as this file's own backdropFadeIn exception above -- this is the dialog's own pop-in animation, a distinct animation-name so a distinct diagnostic value.",
+      "source": "ConfirmModal.module.css",
+      "owner": "phase-13-19",
+      "reviewCondition": "a combined multi-property animation-list token, or a duration-only motion token, is added to the design system"
+    },
+    {
+      "path": "src/components/primitives/LoadingState/LoadingState.module.css",
+      "rule": "DS001",
+      "match": "animation: spin var(--ds-motion-settle) linear infinite",
+      "rationale": "Same shorthand-with-combined-token constraint as ConfirmModal.module.css's own animation exceptions -- --ds-motion-settle cannot be split into animation-duration/animation-timing-function longhand without becoming invalid CSS, and this is an ambient looping spinner (no discrete one-shot semantic-motion-token fits either, the same reasoning as Desk's own desk-fader-learn-target-pulse-animation exception).",
+      "source": "LoadingState.module.css",
+      "owner": "phase-13-19",
+      "reviewCondition": "a combined multi-property animation-list token, a duration-only motion token, or an ambient/looping motion token is added to the design system"
+    }
+  ]
 }

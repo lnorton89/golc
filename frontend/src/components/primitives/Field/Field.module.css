@@ -19,8 +19,11 @@
 .input {
   box-sizing: border-box;
   min-height: var(--ds-sizing-control-default);
-  padding: 0 var(--ds-spacing-space2);
-  border: 1px solid var(--ds-border-default);
+  padding-block: 0;
+  padding-inline: var(--ds-spacing-space2);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
   border-radius: var(--ds-radii-small);
   background: var(--ds-surface-control);
   color: var(--ds-text-primary);
@@ -30,7 +33,13 @@
   line-height: var(--ds-typography-line-height-body);
 }
 
-textarea.input {
+/* [data-multiline], not a `textarea.input` tag selector -- Field.tsx marks
+   any cloned <textarea> child with this attribute so the multiline
+   variant is keyed off an explicit marker (the same convention as
+   data-density/data-variant/data-interactive elsewhere in this design
+   system) rather than assuming only the literal textarea tag can ever
+   want the taller, resizable treatment. */
+.input[data-multiline] {
   min-height: calc(var(--ds-sizing-control-default) * 3);
   padding-block: var(--ds-spacing-space2);
   resize: vertical;
@@ -46,7 +55,9 @@ textarea.input {
 }
 
 .input:focus-visible {
-  outline: var(--ds-focus-ring) solid var(--ds-focus-color);
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
   outline-offset: var(--ds-focus-offset);
 }
 

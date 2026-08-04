@@ -3,7 +3,7 @@
 // checker finds here -- Fader.tsx already owns one exact, narrow
 // domain-geometry exception for its own fixed-size clear button, and the
 // checker's exception mechanism can only resolve a match to exactly one
-// diagnostic per file (see design-system/exception-proposals/desk.json).
+// diagnostic per file (see design-system/exceptions.json).
 //
 // This element is transparent -- no background, no border, nothing
 // painted over the fader's own content -- it exists only to intercept the

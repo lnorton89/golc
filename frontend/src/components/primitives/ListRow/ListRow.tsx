@@ -65,7 +65,7 @@ export default function ListRow({
 
   if (!onSelect) {
     return (
-      <div className={className} aria-disabled={isDisabled || undefined} data-state={selected ? "selected" : "default"} data-density={density} title={title ?? label} {...rest}>
+      <div className={className} aria-disabled={isDisabled || undefined} data-state={selected ? "selected" : "unselected"} data-density={density} title={title ?? label} {...rest}>
         {content}
         {actions}
       </div>
@@ -79,7 +79,7 @@ export default function ListRow({
         className={className}
         aria-pressed={selected}
         disabled={isDisabled}
-        data-state={selected ? "selected" : "default"}
+        data-state={selected ? "selected" : "unselected"}
         data-density={density}
         data-interactive=""
         title={title ?? label}
