@@ -74,7 +74,7 @@ Do not use raw colors, local token namespaces, theme-name conditionals, custom `
 
 ### Component anchors
 
-The inventory anchors are stable selection markers: #button #chip #confirmdialog #confirmmodal #datalist #dialog #emptystate #errorstate #field #formactions #guidedflow #iconbutton #impactreview #infotooltip #launchermasters #listrow #loadingstate #midipickup #numberstepper #panel #panelheader #resizehandle #safetyaction #scenestack #scrollregion #splitpane #tabs #toolbar #workspaceframe.
+The inventory anchors are stable selection markers: #button #chip #confirmdialog #datalist #dialog #emptystate #errorstate #field #formactions #guidedflow #iconbutton #impactreview #infotooltip #launchermasters #listrow #loadingstate #midipickup #numberstepper #panel #panelheader #resizehandle #safetyaction #scenestack #scrollregion #splitpane #tabs #toolbar #workspaceframe.
 
 ## Commands
 
