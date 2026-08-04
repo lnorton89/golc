@@ -1,0 +1,203 @@
+{
+  "status": "passed",
+  "conclusion": "SUCCESS on the second, baseline-regenerated run. The first run at the originally-approved commit genuinely FAILED (24/92 visual tests); investigation found no real UI regression, 24 stale/environment-mismatched baselines were regenerated from that first run's own real windows-latest actual screenshots, and the re-run (headSha = the regenerated commit) passed cleanly with zero failures. Both runs are recorded below in full for an honest audit trail -- nothing is hidden or silently superseded.",
+  "authorization": {
+    "mechanism": "authorize-push-via-evidence-branch-pr",
+    "description": "A corrected/clarified form of Task 1's originally-offered 'authorize-push' option. Direct push of the approved SHA to origin/master cannot trigger .github/workflows/design-system.yml because that workflow's sole trigger is `on: pull_request` (confirmed by reading the workflow file, `gh workflow view design-system.yml --yaml`, and `gh run list --workflow design-system.yml` returning zero total runs prior to this plan). The executor halted and reported this finding rather than pushing directly or improvising an unauthorized mechanism. The user then gave fresh, explicit authorization for the corrected mechanism: create a short-lived branch at the exact approved SHA, push only that branch to origin, and open a pull request against master from it so a genuine pull_request event fires the required workflow. The exact approved implementation SHA was unchanged from the original authorization.",
+    "approvedImplementationSha": "78ebde6c53e12c21a6aa0daf1f00755555e628a6",
+    "targetRemote": "origin",
+    "repository": "lnorton89/golc",
+    "evidenceBranch": "phase13-ci-evidence-78ebde6c",
+    "pullRequest": {
+      "number": 6,
+      "url": "https://github.com/lnorton89/golc/pull/6",
+      "baseRef": "master",
+      "headRef": "phase13-ci-evidence-78ebde6c",
+      "state": "OPEN",
+      "note": "Disposable evidence-gathering PR, deliberately left open (not merged, not closed) by this plan's own execution. Merge/close is explicitly the coordinator/user's decision, not this plan's."
+    },
+    "approvedBy": "user, via a second AskUserQuestion, answer \"Authorize branch + PR (Recommended)\"",
+    "noForcePush": true,
+    "noOtherRefsModified": true,
+    "masterUntouchedDirectly": true
+  },
+  "baselineRegenerationAuthorization": {
+    "mechanism": "regenerate-and-reverify",
+    "description": "After the first run (30870575466) genuinely failed, the coordinator dispatched a separate read-only investigation agent to examine the actual diff images before any remediation was proposed. That investigation (corroborated by commit history, not just visual inspection) found two fully-explained clusters, neither a real UI regression -- see failureInvestigation below. The user was shown these exact findings and explicitly authorized regenerating the 24 affected baselines from the first run's own real windows-latest actual screenshots, pushing that regeneration commit to the same evidence branch (not master), and re-verifying via a fresh Windows CI run.",
+    "approvedBy": "user, via a follow-up authorization, answer \"Yes, regenerate and re-verify (Recommended)\"",
+    "regenerationCommit": "c3fe6e726a5cba598be6d68f20ab4b276400cb1a",
+    "regenerationCommitBranch": "phase13-ci-evidence-78ebde6c",
+    "filesRegenerated": 24,
+    "regenerationSource": "The 24 -actual.png files from run 30870575466's own design-system-visual-evidence artifact (real windows-latest GitHub Actions Chromium screenshots), copied byte-for-byte over their corresponding checked-in *-win32.png baselines. No hand-edited or synthetically-generated pixel data.",
+    "noForcePush": true,
+    "masterUntouchedDirectly": true,
+    "onlyBaselinePngsChanged": true
+  },
+  "windowsCi": {
+    "runId": 30875348640,
+    "url": "https://github.com/lnorton89/golc/actions/runs/30875348640",
+    "workflowPath": ".github/workflows/design-system.yml",
+    "workflowName": "design-system",
+    "event": "pull_request",
+    "eventDetail": "synchronize (PR #6 head ref updated by the regeneration push)",
+    "repository": "lnorton89/golc",
+    "headSha": "c3fe6e726a5cba598be6d68f20ab4b276400cb1a",
+    "headShaNote": "This is the regeneration commit (78ebde6c53e12c21a6aa0daf1f00755555e628a6 plus exactly 24 regenerated baseline PNGs), NOT the originally-approved SHA itself. The originally-approved SHA's own run (30870575466, below) genuinely failed. See implementationTree.deltaFromOriginallyApprovedSha for the exact, disclosed difference.",
+    "headBranch": "phase13-ci-evidence-78ebde6c",
+    "attempt": 1,
+    "createdAt": "2026-08-04T03:38:53Z",
+    "updatedAt": "2026-08-04T03:48:18Z",
+    "status": "completed",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "databaseId": 91885592613,
+        "name": "design-system",
+        "status": "completed",
+        "conclusion": "success",
+        "startedAt": "2026-08-04T03:38:58Z",
+        "completedAt": "2026-08-04T03:48:17Z",
+        "url": "https://github.com/lnorton89/golc/actions/runs/30875348640/job/91885592613",
+        "durationSeconds": 559,
+        "steps": [
+          { "number": 1, "name": "Set up job", "status": "completed", "conclusion": "success" },
+          { "number": 2, "name": "Checkout", "status": "completed", "conclusion": "success" },
+          { "number": 3, "name": "Install pinned Mage", "status": "completed", "conclusion": "success" },
+          { "number": 4, "name": "bootstrap", "status": "completed", "conclusion": "success" },
+          { "number": 5, "name": "Install lockfile-matched Chromium", "status": "completed", "conclusion": "success" },
+          { "number": 6, "name": "designsystembrowser", "status": "completed", "conclusion": "success", "startedAt": "2026-08-04T03:45:30Z", "completedAt": "2026-08-04T03:48:14Z", "note": "mage DesignSystemBrowser / Playwright design-system visual suite: all 92 tests passed, including all 24 tests that failed on the first run against the regenerated baselines." },
+          { "number": 7, "name": "Upload design-system visual evidence", "status": "completed", "conclusion": "skipped", "note": "if: failure() step; correctly skipped because step 6 succeeded. This is expected, by-design behavior, not a gap -- confirmed via .github/workflows/design-system.yml and independently via the GitHub Actions artifacts API." },
+          { "number": 14, "name": "Post Checkout", "status": "completed", "conclusion": "success" },
+          { "number": 15, "name": "Complete job", "status": "completed", "conclusion": "success" }
+        ]
+      }
+    ],
+    "artifacts": [],
+    "artifactsNote": "Zero artifacts, by design: the workflow's only artifact-upload step is gated `if: failure()`, and this run succeeded, so it legitimately never ran. Confirmed via `gh api repos/lnorton89/golc/actions/runs/30875348640/artifacts` returning {\"total_count\":0,\"artifacts\":[]}. This is not a missing-evidence gap -- the green run/job/step conclusions and headSha identity are themselves the evidence for a passing run, exactly as documented for a clean pass of this required workflow."
+  },
+  "priorRun": {
+    "runId": 30870575466,
+    "url": "https://github.com/lnorton89/golc/actions/runs/30870575466",
+    "headSha": "78ebde6c53e12c21a6aa0daf1f00755555e628a6",
+    "headShaIsOriginallyApprovedSha": true,
+    "event": "pull_request",
+    "eventDetail": "opened (initial PR #6 creation)",
+    "createdAt": "2026-08-04T02:02:19Z",
+    "updatedAt": "2026-08-04T02:13:29Z",
+    "status": "completed",
+    "conclusion": "failure",
+    "note": "This is the FIRST run, at the exact originally-approved commit. It genuinely failed: 24 of 92 Playwright visual tests failed as toHaveScreenshot() pixel-diff mismatches (zero Go/build/lint errors). This is preserved here in full, not deleted or silently overwritten, so the audit trail shows the originally-approved SHA itself was never proven passing by any Windows CI run -- only the regenerated descendant commit (c3fe6e72...) was.",
+    "failureSummary": {
+      "totalTests": 92,
+      "passed": 68,
+      "failed": 24,
+      "failingTestBaselines": [
+        "scenes-looks-light-900-win32.png", "scenes-looks-dark-900-win32.png", "scenes-looks-light-1280-win32.png", "scenes-looks-dark-1280-win32.png",
+        "fixtures-patch-light-900-win32.png", "fixtures-patch-dark-900-win32.png", "fixtures-patch-light-1280-win32.png", "fixtures-patch-dark-1280-win32.png",
+        "midi-mapping-light-900-win32.png", "midi-mapping-dark-900-win32.png", "midi-mapping-light-1280-win32.png", "midi-mapping-dark-1280-win32.png",
+        "scripts-notes-light-900-win32.png", "scripts-notes-dark-900-win32.png", "scripts-notes-light-1280-win32.png", "scripts-notes-dark-1280-win32.png",
+        "persistent-shell-light-900-win32.png", "persistent-shell-dark-900-win32.png", "persistent-shell-light-1280-win32.png", "persistent-shell-dark-1280-win32.png",
+        "shared-gallery-light-900-win32.png", "shared-gallery-dark-900-win32.png", "shared-gallery-light-1280-win32.png", "shared-gallery-dark-1280-win32.png"
+      ]
+    },
+    "artifact": {
+      "artifactId": 8877908319,
+      "artifactName": "design-system-visual-evidence",
+      "byteCount": 8120729,
+      "sha256": "f7b57ff3e2c811269cd63abd5e3eb5139972b8e664c4f72ac76ed92fff4ba286",
+      "note": "Downloaded read-only, inspected, source of the 24 regenerated baseline PNGs, then its temporary local copy was deleted after use (twice: once for the initial failure inspection, once again to extract the -actual.png files used for regeneration)."
+    }
+  },
+  "failureInvestigation": {
+    "conductedBy": "a separate read-only investigation agent dispatched by the coordinator, examining the actual diff images from run 30870575466, corroborated against git commit history (not visual inspection alone)",
+    "conclusion": "All 24 failures split into two fully-explained clusters. Neither is a real UI regression.",
+    "clusterA": {
+      "label": "environmental Chromium-rendering noise",
+      "testCount": 14,
+      "tests": "Fixture Library / Patch & Pools (4), Scenes & Looks 900px (2), Scripts / Notes (4), persistent shell (4)",
+      "diffPixelRange": "15-97 pixels",
+      "finding": "Diff pixels confined entirely to antialiasing edges of a small InfoTooltip icon glyph -- same icon, same position, same color. Classic local-Chromium-build vs. GitHub-hosted windows-latest-Chromium-build antialiasing variance. Nothing to fix in source."
+    },
+    "clusterB": {
+      "label": "stale baselines predating a real, already-shipped fix",
+      "testCount": 10,
+      "tests": "MIDI Mapping (4), shared gallery (4), Scenes & Looks 1280px (2)",
+      "diffPixelRange": "13274-28192 pixels",
+      "finding": "These baselines were captured same-day but roughly 2 hours before commit a8ccc8fa (\"feat(13-19): merge exact exception evidence, prove whole-source parity\", 2026-08-03T17:57:20) fixed a real, self-acknowledged bug: EmptyState/ErrorState used dead/undefined legacy custom properties (--line, --space-xs, etc.) that silently no-op'd their border/gap shorthand. The first run's actual screenshots correctly showed the now-fixed bordered/spaced EmptyState rendering -- confirmed current EmptyState.tsx/DeskMappingsSection.tsx/LookBrowser.tsx source intentionally produces this. The checked-in baselines simply predated that fix.",
+      "baselineCaptureProvenance": [
+        { "files": "midi-mapping-*-win32.png", "capturedAt": "2026-08-03T15:51:24-07:00", "capturedBy": "a80f97f3 (feat(13-34): capture MIDI Mapping baseline matrix (Task 2))" },
+        { "files": "shared-gallery-*-win32.png", "capturedAt": "2026-08-03T13:52:26-07:00", "capturedBy": "0758e018 (feat(13-32): capture shared-gallery baseline matrix (Task 3))" },
+        { "files": "scenes-looks-dark/light-1280-win32.png", "capturedAt": "2026-08-03T15:05:59-07:00", "capturedBy": "8cf81ce4 (feat(13-33): capture Scenes & Looks authoring baseline matrix (Task 1))" }
+      ],
+      "fixCommit": { "sha": "a8ccc8fa", "message": "feat(13-19): merge exact exception evidence, prove whole-source parity", "timestamp": "2026-08-03T17:57:20-07:00" }
+    },
+    "remediationApplied": "Regenerated all 24 baselines from run 30870575466's own real windows-latest actual screenshots (byte-for-byte copy, no hand editing), committed as c3fe6e726a5cba598be6d68f20ab4b276400cb1a on the evidence branch, and re-verified with a fresh Windows CI run (30875348640, conclusion success) before recording this file as passing.",
+    "boundedScope": "This investigation and remediation is scoped entirely to Playwright visual-baseline PNG fixtures (frontend/e2e/**/*-snapshots/**). No production/application source file, workflow file, dependency, or build configuration was touched -- confirmed by `git diff --name-only 78ebde6c53e1... c3fe6e726a5c...` returning exactly the 24 baseline PNG paths and nothing else."
+  },
+  "implementationTree": {
+    "provenSha": "c3fe6e726a5cba598be6d68f20ab4b276400cb1a",
+    "observedSha": "c3fe6e726a5cba598be6d68f20ab4b276400cb1a",
+    "declaredProvenHash": "c5cf21562086501b40578e259e6104410f32e9de3d0facd359c75d12e18e52e4",
+    "declaredObservedHash": "c5cf21562086501b40578e259e6104410f32e9de3d0facd359c75d12e18e52e4",
+    "fieldNameNote": "provenSha/observedSha/declaredProvenHash/declaredObservedHash are the exact field names frontend/scripts/design-system/validate-phase13-evidence.mjs#validateImplementationTreeIdentity destructures from bundle.implementationTree (it spreads the object directly). Set to the regenerated commit itself (self-referential, trivially equal), matching how the same fields were set to the originally-approved SHA in the first (failed) record.",
+    "manifestEntryCount": 930,
+    "manifestAlgorithm": "sorted `git ls-tree -r --full-tree <sha>` entries excluding any path under .planning/, joined as `{mode} blob {objectId}\\t{path}` lines, sha256 over the joined text (matches frontend/scripts/design-system/validate-phase13-evidence.mjs#computeImplementationManifest exactly)",
+    "ciProvenImplementationSha": "c3fe6e726a5cba598be6d68f20ab4b276400cb1a",
+    "ciProvenImplementationManifestHash": "c5cf21562086501b40578e259e6104410f32e9de3d0facd359c75d12e18e52e4",
+    "observedDescendantSha": "c3fe6e726a5cba598be6d68f20ab4b276400cb1a",
+    "observedDescendantManifestHash": "c5cf21562086501b40578e259e6104410f32e9de3d0facd359c75d12e18e52e4",
+    "ancestryResult": "identical (observedDescendantSha equals ciProvenImplementationSha; no later commit exists yet on the evidence branch beyond the regeneration commit)",
+    "changedPaths": [],
+    "allowlist": ".planning/**",
+    "manifestHashesEqual": true,
+    "deltaFromOriginallyApprovedSha": {
+      "disclosureNote": "IMPORTANT, disclosed transparently: c3fe6e72... is NOT identical to the originally-approved 78ebde6c53e1... -- it differs by exactly 24 files, all Playwright visual-baseline PNGs, all outside .planning/**. Per this plan's own success_criteria wording ('later evidence/planning-only descendants are accepted only with identical non-planning tree content'), this delta does NOT qualify as a trivial .planning-only descendant of the original approved SHA -- it is a genuine, separately-authorized change to the non-planning implementation tree, and is recorded here as such rather than being misrepresented as a no-op evolution of the original commit.",
+      "originallyApprovedSha": "78ebde6c53e12c21a6aa0daf1f00755555e628a6",
+      "originallyApprovedShaManifestHash": "52b44a9111d634b0e0f9f9490b494bf1a0840122d7572a2a6e8354c7766b6d42",
+      "originallyApprovedShaOwnWindowsRunConclusion": "failure (see priorRun above) -- the originally-approved SHA itself was never proven passing by any Windows CI run",
+      "ancestryHolds": true,
+      "changedPathCount": 24,
+      "changedPaths": [
+        "frontend/e2e/design-system.visual-authoring.spec.ts-snapshots/fixtures-patch-dark-1280-win32.png",
+        "frontend/e2e/design-system.visual-authoring.spec.ts-snapshots/fixtures-patch-dark-900-win32.png",
+        "frontend/e2e/design-system.visual-authoring.spec.ts-snapshots/fixtures-patch-light-1280-win32.png",
+        "frontend/e2e/design-system.visual-authoring.spec.ts-snapshots/fixtures-patch-light-900-win32.png",
+        "frontend/e2e/design-system.visual-authoring.spec.ts-snapshots/scenes-looks-dark-1280-win32.png",
+        "frontend/e2e/design-system.visual-authoring.spec.ts-snapshots/scenes-looks-dark-900-win32.png",
+        "frontend/e2e/design-system.visual-authoring.spec.ts-snapshots/scenes-looks-light-1280-win32.png",
+        "frontend/e2e/design-system.visual-authoring.spec.ts-snapshots/scenes-looks-light-900-win32.png",
+        "frontend/e2e/design-system.visual-live-editors.spec.ts-snapshots/midi-mapping-dark-1280-win32.png",
+        "frontend/e2e/design-system.visual-live-editors.spec.ts-snapshots/midi-mapping-dark-900-win32.png",
+        "frontend/e2e/design-system.visual-live-editors.spec.ts-snapshots/midi-mapping-light-1280-win32.png",
+        "frontend/e2e/design-system.visual-live-editors.spec.ts-snapshots/midi-mapping-light-900-win32.png",
+        "frontend/e2e/design-system.visual-live-editors.spec.ts-snapshots/scripts-notes-dark-1280-win32.png",
+        "frontend/e2e/design-system.visual-live-editors.spec.ts-snapshots/scripts-notes-dark-900-win32.png",
+        "frontend/e2e/design-system.visual-live-editors.spec.ts-snapshots/scripts-notes-light-1280-win32.png",
+        "frontend/e2e/design-system.visual-live-editors.spec.ts-snapshots/scripts-notes-light-900-win32.png",
+        "frontend/e2e/design-system.visual-shell.spec.ts-snapshots/persistent-shell-dark-1280-win32.png",
+        "frontend/e2e/design-system.visual-shell.spec.ts-snapshots/persistent-shell-dark-900-win32.png",
+        "frontend/e2e/design-system.visual-shell.spec.ts-snapshots/persistent-shell-light-1280-win32.png",
+        "frontend/e2e/design-system.visual-shell.spec.ts-snapshots/persistent-shell-light-900-win32.png",
+        "frontend/e2e/design-system.visual-shell.spec.ts-snapshots/shared-gallery-dark-1280-win32.png",
+        "frontend/e2e/design-system.visual-shell.spec.ts-snapshots/shared-gallery-dark-900-win32.png",
+        "frontend/e2e/design-system.visual-shell.spec.ts-snapshots/shared-gallery-light-1280-win32.png",
+        "frontend/e2e/design-system.visual-shell.spec.ts-snapshots/shared-gallery-light-900-win32.png"
+      ],
+      "changedPathsAllOutsidePlanningAllowlist": true,
+      "changedPathsAllTestFixturesOnly": true,
+      "productionSourceWorkflowDependencyOrBuildConfigChanged": false,
+      "mergeIntoMasterStatus": "NOT performed by this plan. master's tip remains at 78ebde6c53e1... (the commit with the failed Windows CI run). Reconciling master's tree with this CI-proven regenerated tree (e.g. by merging PR #6) is explicitly left to the coordinator/user's decision, not this plan's."
+    },
+    "note": "provenSha/observedSha above are intentionally self-referential (both = the regenerated commit) rather than pointing back at the originally-approved SHA, because that original SHA's own delta to this commit is NOT .planning/**-only and would correctly fail the strict planning-only-descendant check -- see deltaFromOriginallyApprovedSha for the full, honest accounting of that difference instead of a misleading pass."
+  },
+  "requiredArtifactCategoriesNotApplicable": {
+    "note": "Task 3's action text lists categories to download and inspect (expected result, calibration, screenshot actual/expected/diff, mask-audit, zoom, offline-safety, packaged-WebView2). This successful run produced zero GitHub Actions artifacts (by the workflow's own if: failure() design -- confirmed via the artifacts API returning total_count: 0). It does not contain separately-typed calibration/mask-audit/zoom/offline-safety/packaged-WebView2 evidence files (those already exist locally as evidence/*.json, produced by earlier plans, and are outside this run's own scope). This is disclosed rather than papered over: no calibration/mask-audit/zoom/offline-safety/packaged-WebView2 category was fabricated or asserted from this CI run."
+  },
+  "fullBundleValidatorNote": "Running `npm run validate:phase13-evidence -- --evidence windows-ci-run.json` against this file still reports errors beyond the CI outcome itself: `validateEvidenceBundle` expects a full phase-13 sign-off bundle shape (rows[], calibration, masks, packagedWebView2, backstops, requirementsCovered, backstopsCovered, signOff) that only Plans 13-38/13-39 are scoped to assemble; this file intentionally carries only the windowsCi/implementationTree/priorRun/failureInvestigation fields Task 3's own action text describes plus this plan's own audit trail. Those additional schema-category errors are a known, pre-existing scope mismatch between this narrow per-run artifact and the full-bundle validator's shape -- NOT evidence of a problem with the Windows CI run itself. With this update, the implementation-tree sub-check (validateImplementationTreeIdentity) and the run status/conclusion/job sub-checks within validateWindowsCiEvidence now all pass cleanly (no more 'must be completed/success' or 'missing a successful job record' errors). One additional, genuine FAIL remains from validateWindowsCiEvidence itself: 'Windows CI evidence missing downloaded artifacts', because that function unconditionally requires a non-empty artifacts[] array. This run legitimately produced zero artifacts (the workflow's only upload step is if: failure()-gated, confirmed via the GitHub Actions artifacts API returning total_count: 0) -- this is a real gap in the validator's assumptions (written expecting every CI run to produce artifacts) rather than a data problem with this evidence record, and is disclosed here rather than worked around by inventing a fake artifact entry.",
+  "signOff": {
+    "wave_0_complete": false,
+    "nyquist_compliant": false,
+    "approved": false,
+    "reason": "Windows CI run 30875348640 (headSha c3fe6e726a5cba598be6d68f20ab4b276400cb1a) concluded success -- the required Windows visual suite genuinely passes at this commit. However: (1) this file intentionally does not carry the full phase-13 sign-off bundle shape (rows/calibration/masks/packagedWebView2/backstops/coverage), which is Plans 13-38/13-39's own scope, so signOff cannot be claimed true here without failing the full-bundle validator's own consistency check; (2) the CI-proven commit (c3fe6e72...) is not yet master's tip (78ebde6c... remains master's head, and its own Windows run failed) -- reconciling that (e.g. merging PR #6) is the coordinator/user's decision, not this plan's, and phase-level sign-off should not be claimed until that reconciliation happens."
+  }
+}
