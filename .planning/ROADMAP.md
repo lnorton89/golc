@@ -583,7 +583,7 @@ Plans:
 **Goal:** Every reachable desktop surface uses one documented Paper/Ink design system whose semantic tokens, typed components, accessibility states, theme parity, safety invariants, and exceptions are mechanically enforced with zero unregistered drift.
 **Requirements:** D-01 through D-14 and the approved Phase 13 UI-SPEC acceptance contract
 **Depends on:** Phase 12
-**Plans:** 34/41 plans executed
+**Plans:** 36/41 plans executed
 
 Plans:
 
@@ -605,8 +605,8 @@ Plans:
 - [x] 13-16-PLAN.md — Inspector, overlays, error boundary, and log projection (wave 7)
 - [x] 13-17-PLAN.md — Three-capture tolerance calibration before baselines (wave 8)
 - [x] 13-18-PLAN.md — Pinned package/Mage routes and required Windows workflow (wave 10)
-- [ ] 13-19-PLAN.md — Evidence-driven exception merge and whole-source policy parity (wave 12)
-- [ ] 13-20-PLAN.md — Plan-derived semantic evidence validator and mutation tests (wave 11)
+- [x] 13-19-PLAN.md — Evidence-driven exception merge and whole-source policy parity (wave 12)
+- [x] 13-20-PLAN.md — Plan-derived semantic evidence validator and mutation tests (wave 11)
 - [x] 13-21-PLAN.md — Strict inert manifests and deterministic token generation (wave 2)
 - [x] 13-22-PLAN.md — Six-file Dialog/ConfirmDialog public contract (wave 4)
 - [x] 13-23-PLAN.md — Nine-file scroll/tooltip/resize utilities (wave 4)
