@@ -6,7 +6,7 @@
 
 GOLC is a modern lighting-control application for operators of small live shows, built in Go with a Wails desktop interface and a cross-platform architecture. Its first supported release targets Windows. It combines a fast, modular show-authoring workflow with TypeScript scripting, autonomous LLM control, and a well-documented API so people, scripts, external programs, and AI agents can all create and operate fixture patches, scenes, chases, and show playback through the same system.
 
-The first release will output Art-Net and support complete show authoring and playback. Additional lighting protocols and larger-scale console capabilities can be added after the core workflow and extension model are proven.
+GOLC's v1.0 release (shipped 2026-07-27) outputs Art-Net and supports complete show authoring and playback. Additional lighting protocols and larger-scale console capabilities can be added after the core workflow and extension model are proven in use.
 
 **Core Value:** An operator can author a modular show once, adapt its fixture pools to different deployments in one or two actions, and hand a simple controller surface to another person for reliable playback.
 
