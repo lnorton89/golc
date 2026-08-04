@@ -87,7 +87,7 @@ func buildExcludedRoutes() map[string]string {
 	}
 
 	addAll(reasonDevTooling,
-		"build", "check", "docs", "generate",
+		"build", "check", "designsystem", "docs", "generate",
 		"linear apply", "linear archive", "linear catalog", "linear drift",
 		"linear map migrate", "linear preview", "linear status", "linear unlink",
 		"linear validate", "lint", "package", "test", "tools update",
@@ -106,6 +106,7 @@ func buildExcludedRoutes() map[string]string {
 		"config set", "deployment activate", "deployment create", "deployment delete",
 		"deployment instance reassign", "deployment rename", "fixture import",
 		"motion create", "motion delete", "motion duplicate", "motion rename",
+		"note create", "note delete", "note edit",
 		"operatorsurface assign", "operatorsurface create", "operatorsurface remove", "operatorsurface unassign",
 		"playback bpm set", "playback bpm tap", "playback evaluate", "playback switch",
 		"pool apply", "pool delete", "pool rename", "pool substitute", "pool update",
@@ -119,6 +120,7 @@ func buildExcludedRoutes() map[string]string {
 	)
 	addAll(reasonReadFutureWork,
 		"config explain", "fixture inspect", "fixture validate",
+		"note list", "note show",
 		"operatorsurface list", "operatorsurface show",
 		"programmer inspect", "script list", "script show", "script validate", "show diagnose", "show export",
 	)
