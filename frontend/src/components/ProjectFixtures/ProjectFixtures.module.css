@@ -10,12 +10,15 @@
 .subsection {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   gap: var(--ds-spacing-space2);
 }
 
 .createRow {
   display: flex;
   flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
   gap: var(--ds-spacing-space2);
   align-items: center;
   justify-content: space-between;

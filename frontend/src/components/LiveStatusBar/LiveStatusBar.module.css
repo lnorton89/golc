@@ -20,6 +20,32 @@
   overflow: hidden;
 }
 
+/* Below this width (SafetyCluster's 13-15 44px-target floor leaves this
+   slot too little room for Scene/Layers/Bar's full space6 rhythm -- see
+   deferred-items.md 260803-13-32), every field tightens its own gap so
+   more of this slot's scarce width goes to the fields themselves rather
+   than the space between them. */
+@media (max-width: 1024px) {
+  .bar {
+    gap: var(--ds-spacing-space2);
+  }
+}
+
+/* Mirrors SafetyCluster's/TempoControls'/MidiLearnToggle's own 1024px
+   collapse breakpoint: below it those three are already icon-only, but at
+   the supported floor (640px, HEADER_MIN_SUPPORTED_WIDTH in
+   e2e/resize.spec.ts) that alone still leaves this slot a few px short of
+   Scene/Layers/Bar's full labels plus both status chips at their full
+   natural width. expectTopBarTextToBeReadable forbids any real clipping
+   (not just overlap), so a chip max-width below its natural content size
+   is not an option here -- closing this last few-px gap has to come out
+   of the gap between fields instead, down to 0. */
+@media (max-width: 700px) {
+  .bar {
+    gap: 0;
+  }
+}
+
 .metric {
   display: flex;
   align-items: baseline;
@@ -33,7 +59,23 @@
 }
 
 .metricLabel {
-  flex-shrink: 0;
+  /* Was flex-shrink:0 with no overflow -- at extreme scarcity (900/960px,
+     260803-13-32) that kept this span at its full natural width even once
+     its own .metric box had been shrunk to a sliver, so the label's *raw*
+     layout box (unaffected by .metric's overflow:hidden, which only clips
+     paint) still geometrically extended into the next field's box --
+     "Scene" overlaps "Layers" per expectTopBarTextToBeReadable's own
+     getBoundingClientRect check, a real bug that check's clip-blind
+     comment already flagged as a known limitation, not a false positive.
+     Letting this shrink like every other field (overflow:hidden gives a
+     flex item an effective 0 automatic minimum size, so it degrades
+     smoothly toward 0 instead of holding firm and spilling into a
+     neighbor) fixes that at its root. */
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
   color: var(--ds-text-muted);
   font-family: var(--ds-typography-font-family-ui);
   font-size: var(--ds-typography-font-size-compact);
@@ -43,6 +85,13 @@
 }
 
 .metricValue {
+  /* The Bar field's value (the only one of the three with no .truncate/
+     .layersValue max-width) needs the same shrink-to-0-instead-of-overflow
+     treatment as .metricLabel above, for the identical reason. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
   font-family: var(--ds-typography-font-family-mono);
   font-size: var(--ds-typography-font-size-body);
   color: var(--ds-text-primary);
@@ -64,6 +113,30 @@
 
 .spacer {
   flex: 1;
+}
+
+/* Wraps each Source/Output Chip (LiveStatusBar.tsx) so it can shrink like
+   every other field above instead of holding its full natural width and
+   geometrically overlapping TempoControls' BPM readout at the same
+   extreme scarcity (260803-13-32) -- Chip itself (a shared primitive) has
+   no overflow/shrink handling of its own, so that has to live here on the
+   field-specific wrapper instead. */
+.statusChip {
+  display: inline-flex;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Chip's own root <span> (Chip.tsx) has no shrink/overflow handling of its
+   own -- a shared primitive with no reason to know about this one caller's
+   scarce-width problem. Without this, .statusChip's own flex-shrunk box
+   clipped Chip's *paint* but not its raw layout rect (same class of bug as
+   .metricLabel above), so Chip's un-clipped bounding box still reached
+   past its shrunk wrapper into TempoControls' BPM readout. */
+.statusChip > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: clip;
 }
 
 .unreachableCopy {

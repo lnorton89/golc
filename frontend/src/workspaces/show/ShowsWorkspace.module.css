@@ -19,7 +19,9 @@
 .layout {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto;
   gap: var(--ds-spacing-space4);
 }
@@ -50,6 +52,8 @@
 .actionRow {
   display: flex;
   flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   gap: var(--ds-spacing-space2);
   padding-block: var(--ds-spacing-space2);
