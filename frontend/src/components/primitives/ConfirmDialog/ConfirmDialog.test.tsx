@@ -43,6 +43,26 @@ describe("ConfirmDialog", () => {
     expect(onConfirm).toHaveBeenCalledOnce();
   });
 
+  it("allows alertdialog semantics without the destructive visual variant via the role prop", () => {
+    const onConfirm = vi.fn();
+    render(
+      <ConfirmDialog
+        open
+        role="alertdialog"
+        title="Leave the guide?"
+        message="Your progress is kept, and you can resume from Overview later."
+        confirmLabel="Leave Guide"
+        cancelLabel="Stay in Guide"
+        onCancel={vi.fn()}
+        onConfirm={onConfirm}
+      />,
+    );
+
+    expect(screen.getByRole("alertdialog", { name: "Leave the guide?" })).toBeInTheDocument();
+    const confirmButton = screen.getByRole("button", { name: "Leave Guide" });
+    expect(confirmButton.className).not.toMatch(/destructive/i);
+  });
+
   it("keeps dismissal policy explicit without taking ownership of safety commands", () => {
     const onCancel = vi.fn();
     render(
