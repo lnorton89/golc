@@ -583,7 +583,7 @@ Plans:
 **Goal:** Every reachable desktop surface uses one documented Paper/Ink design system whose semantic tokens, typed components, accessibility states, theme parity, safety invariants, and exceptions are mechanically enforced with zero unregistered drift.
 **Requirements:** D-01 through D-14 and the approved Phase 13 UI-SPEC acceptance contract
 **Depends on:** Phase 12
-**Plans:** 38/41 plans executed
+**Plans:** 39/41 plans executed
 
 Plans:
 
@@ -621,7 +621,7 @@ Plans:
 - [x] 13-32-PLAN.md — Twelve shell/dialog/gallery Windows baselines (wave 9)
 - [x] 13-33-PLAN.md — Twelve authoring Windows baselines (wave 9)
 - [x] 13-34-PLAN.md — Twelve live/editor Windows baselines (wave 9)
-- [ ] 13-35-PLAN.md — Explicit CI trigger authority and immutable implementation-tree artifact inspection (wave 15)
+- [x] 13-35-PLAN.md — Explicit CI trigger authority and immutable implementation-tree artifact inspection (wave 15)
 - [x] 13-36-PLAN.md — Final public inventory/theme/contrast parity (wave 14)
 - [x] 13-37-PLAN.md — ConfirmModal implementation and compatibility removal (wave 13)
 - [ ] 13-38-PLAN.md — Complete local acceptance with semantic result evidence (wave 16)
