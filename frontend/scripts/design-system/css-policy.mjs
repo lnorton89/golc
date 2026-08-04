@@ -22,7 +22,7 @@ function customProperties(value) {
   return [...value.matchAll(/var\(\s*(--[A-Za-z0-9-]+)\s*(?:,\s*[^)]+)?\)/g)].map((match) => ({ name: match[1], fallback: match[0].includes(",") }));
 }
 
-export function checkCSS({ path, source, declaredTokens = new Set(), isDesignSystemFile = false, isSafetyFile = false }) {
+export function checkCSS({ path, source, declaredTokens = new Set(), isDesignSystemFile = false, isSafetyFile = false, isPrimitiveFile = false }) {
   const diagnostics = [];
   let root;
   try {
@@ -35,8 +35,16 @@ export function checkCSS({ path, source, declaredTokens = new Set(), isDesignSys
   root.walkRules((rule) => {
     if (!isDesignSystemFile && /\[data-theme(?:-name)?(?:=|\])/i.test(rule.selector)) diagnostics.push(diagnostic("DS004", path, rule, "theme selector", rule.selector));
     if (!isDesignSystemFile && /(^|[\s>+~,])(button|input|select|textarea)(?=\b|[.#[:])/i.test(rule.selector)) diagnostics.push(diagnostic("DS005", path, rule, "styled native control", rule.selector));
+    // DS006 exists to catch FEATURE code reinventing shared button/field/dialog/
+    // tab/toolbar/chip/badge/empty/loading/error/focus-looking chrome instead of
+    // importing the real primitive. It must not also fire on a primitive's own
+    // definitional stylesheet -- that IS the one canonical place such a class
+    // legitimately owns shared visual properties. isPrimitiveFile mirrors the
+    // identical isPrimitiveFile carve-out checkTSX already applies to DS005 for
+    // primitive .tsx files (native <button>/<input>/... elements are exactly
+    // what a primitive wraps); this closes the same gap on the CSS side.
     const classNames = [...rule.selector.matchAll(/\.([A-Za-z0-9_-]+)/g)].map((match) => match[1]);
-    if (!isDesignSystemFile && classNames.some((name) => CONTROLLED_CLASS.test(name))) {
+    if (!isDesignSystemFile && !isPrimitiveFile && classNames.some((name) => CONTROLLED_CLASS.test(name))) {
       const shared = rule.nodes?.some((node) => node.type === "decl" && SHARED_VISUAL_PROPERTIES.has(node.prop)) ?? false;
       if (shared) diagnostics.push(diagnostic("DS006", path, rule, "shared visual class", rule.selector));
     }

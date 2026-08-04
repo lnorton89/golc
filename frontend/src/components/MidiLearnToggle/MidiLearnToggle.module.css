@@ -5,8 +5,8 @@
  * reversible, not safety-critical -- toggling it back off is always one
  * click away). Migrated onto design-system tokens in Phase 13 Plan 28;
  * the active-state focus ring's box-shadow is the one still-unavoidable
- * shorthand exception (see design-system/exception-proposals/
- * operator-midi.json), since box-shadow has no longhand decomposition
+ * shorthand exception (see design-system/exceptions.json), since
+ * box-shadow has no longhand decomposition
  * that would let it satisfy DS001's bare-var() pattern.
  */
 

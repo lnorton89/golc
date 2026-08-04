@@ -285,7 +285,7 @@
    lengths. Each clamp() ceiling is the pre-migration fixed size, so a
    wide/Large/Fit row never grows past its original size, only ever
    shrinks at narrower ones -- registered as an exact, narrow
-   domain-geometry proposal (design-system/exception-proposals/desk.json)
+   domain-geometry proposal (design-system/exceptions.json)
    since DS001 does not recognize clamp()/calc() as a token reference the
    way it does a bare var(--ds-*). Padding is fixed (not fader-width
    scaled) -- a pill this small has no meaningful room to save by shrinking
@@ -510,7 +510,7 @@
    track LINE is instead drawn via a background gradient on the input
    itself, which is centered within the input's own box by definition.
    This raw native <input type="range"> is registered as an exact
-   design-system/exception-proposals/desk.json domain exception (D-05's
+   design-system/exceptions.json domain exception (D-05's
    own "Specialized surfaces... vertical faders... may own domain-specific
    visualization and input geometry" carve-out) -- there is no
    slider/fader component anywhere else in this codebase to reuse. The
@@ -686,7 +686,7 @@
    (18px) -- IconButton's smallest size (32px) and fixed 20px icon would
    overflow the column at that width and collide with the adjacent fader.
    Registered as an exact, narrow domain-geometry exception in
-   design-system/exception-proposals/desk.json. aria-disabled, not the
+   design-system/exceptions.json. aria-disabled, not the
    native disabled attribute: a genuinely disabled button suppresses its
    own title tooltip in Chromium/WebView2 (disabled elements don't receive
    the hover events a tooltip needs), which would silently swallow this

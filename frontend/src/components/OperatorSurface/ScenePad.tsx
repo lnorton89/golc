@@ -7,7 +7,7 @@
 // OperatorSurface.tsx's own existing doctrine).
 //
 // This remains a raw native <button> (registered as a narrow DS005 domain
-// exception, design-system/exception-proposals/operator-surface.json)
+// exception, design-system/exceptions.json)
 // rather than the shared Button primitive: a launch-pad grid cell's
 // stacked name/LIVE/Locked-tag content and fixed 88px minimum height are
 // domain-specific launcher-grid geometry, not the single-line label

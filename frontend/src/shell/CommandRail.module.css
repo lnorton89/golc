@@ -32,7 +32,7 @@
      it here too would make hovering an item indistinguishable from the
      rail's own resting background). No generated semantic role expresses
      "the canvas, mixed slightly toward black" -- registered as a narrow
-     domain exception (design-system/exception-proposals/theme-shell.json)
+     domain exception (design-system/exceptions.json)
      rather than invented as a new token from this migration plan. */
   background: color-mix(in srgb, var(--ds-surface-canvas) 92%, black 8%);
   /* transition/transition-property split: DS001 requires "transition"'s

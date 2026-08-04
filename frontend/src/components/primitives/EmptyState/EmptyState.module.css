@@ -1,11 +1,12 @@
 .legacy {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
-  margin: var(--space-sm) var(--space-md);
-  color: var(--muted);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
+  gap: var(--ds-spacing-space1);
+  margin-block: var(--ds-spacing-space2);
+  margin-inline: var(--ds-spacing-space4);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-compact);
 }
 
 .icon {
@@ -15,12 +16,14 @@
 .emptyState {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-md);
+  gap: var(--ds-spacing-space4);
   max-width: 48rem;
-  padding: var(--space-lg);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  color: var(--text);
+  padding: var(--ds-spacing-space6);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-medium);
+  color: var(--ds-text-primary);
 }
 
 .copy {
@@ -29,21 +32,23 @@
 
 .heading {
   margin: 0;
-  color: var(--ink);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-base);
-  font-weight: 600;
-  line-height: 1.5;
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  line-height: var(--ds-typography-line-height-body);
 }
 
 .body {
-  margin: var(--space-xs) 0 0;
+  margin-block-start: var(--ds-spacing-space1);
+  margin-inline: 0;
+  margin-block-end: 0;
   overflow-wrap: anywhere;
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-base);
-  line-height: 1.5;
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  line-height: var(--ds-typography-line-height-body);
 }
 
 .action {
-  margin-top: var(--space-md);
+  margin-top: var(--ds-spacing-space4);
 }

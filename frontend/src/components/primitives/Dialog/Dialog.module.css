@@ -13,7 +13,9 @@
   max-height: calc(100vh - var(--ds-spacing-space8));
   padding: 0;
   overflow: auto;
-  border: 1px solid var(--ds-border-default);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
   border-radius: var(--ds-radii-large);
   background: var(--ds-surface-overlay);
   color: var(--ds-text-primary);
@@ -50,6 +52,8 @@
 }
 
 .dialog:focus-visible {
-  outline: var(--ds-focus-ring) solid var(--ds-focus-color);
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
   outline-offset: var(--ds-focus-offset);
 }

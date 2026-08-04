@@ -20,7 +20,7 @@
 // needs to gate turning it ON.
 //
 // Phase 13 Plan 28 migrated this component's own CSS onto design-system
-// tokens (design-system/exception-proposals/operator-midi.json registers
+// tokens (design-system/exceptions.json registers
 // the one still-unavoidable shorthand exception, the active-state focus
 // ring). The root element stays a raw <button> (registered as its own
 // narrow DS005 exception, same reasoning as Desk's own MIDI-learn hit

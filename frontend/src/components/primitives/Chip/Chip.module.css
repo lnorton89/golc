@@ -3,8 +3,11 @@
   align-items: center;
   gap: var(--ds-spacing-space1);
   min-height: var(--ds-sizing-control-compact);
-  padding: 0 var(--ds-spacing-space2);
-  border: 1px solid var(--ds-border-default);
+  padding-block: 0;
+  padding-inline: var(--ds-spacing-space2);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
   border-radius: var(--ds-radii-pill);
   background: var(--ds-surface-control);
   font-family: var(--ds-typography-font-family-mono);

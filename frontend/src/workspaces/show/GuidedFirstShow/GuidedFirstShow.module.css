@@ -27,7 +27,7 @@
    sketch's own hard-coded warning highlight (coincidentally equal to
    --ds-status-armed's RGB with sketch-specific alpha values no generated
    token expresses) -- registered as a narrow DS001 exception in
-   design-system/exception-proposals/front-door.json rather than rounded
+   design-system/exceptions.json rather than rounded
    to a token, per this rule's own do-not-round precedent. */
 
 .overlay {
