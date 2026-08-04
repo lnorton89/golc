@@ -581,7 +581,7 @@ Plans:
 ### Phase 13: Unified UI design system and automated enforcement
 
 **Goal:** Every reachable desktop surface uses one documented Paper/Ink design system whose semantic tokens, typed components, accessibility states, theme parity, safety invariants, and exceptions are mechanically enforced with zero unregistered drift.
-**Requirements:** D-01 through D-14 and the approved Phase 13 UI-SPEC acceptance contract
+**Requirements:** DSYS-01, DSYS-02, DSYS-03, DSYS-04, DSYS-05, DSYS-06, DSYS-07, DSYS-08, DSYS-09, DSYS-10, DSYS-11, DSYS-12, DSYS-13, DSYS-14
 **Depends on:** Phase 12
 **Plans:** 40/41 plans executed
 

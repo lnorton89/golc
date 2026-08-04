@@ -168,6 +168,29 @@ routes that already exist from Phases 2, 5, and 6.
 - [ ] **TELE-03**: A crash is automatically captured and submitted for diagnosis without the user having to manually reproduce or describe it.
 - [ ] **TELE-04**: Telemetry and crash submission never block or degrade live playback or Art-Net output.
 
+### Unified UI Design System
+
+Added 2026-08-03 (Phase 13 formalization) restating
+`.planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-CONTEXT.md`'s
+D-01–D-14 implementation decisions as durable `KEY-NN` requirement keys so
+`internal/trace/catalog` can parse Phase 13's ROADMAP.md Requirements line; the
+decisions themselves remain authoritative in 13-CONTEXT.md.
+
+- [ ] **DSYS-01**: The application preserves the approved Paper/Ink console visual language and existing theme choices; unifying the design system is not a rebrand.
+- [ ] **DSYS-02**: Every reachable desktop workspace, shell surface, dialog, editor-adjacent control, and reusable component uses the unified design system, with no permanent split between new-system and legacy UI.
+- [ ] **DSYS-03**: The desktop UI keeps a dense, instrument-like character — compact operational controls, bounded scroll regions, restrained motion, visible focus, persistent operator safety controls — on a single 4px spacing grid.
+- [ ] **DSYS-04**: Components consume semantic design tokens for surfaces, text, borders, actions, statuses, typography, spacing, radii, sizing, focus, and motion; raw palette values remain confined to theme/token definitions.
+- [ ] **DSYS-05**: Shared visual behavior lives in typed React primitives and patterns; feature CSS Modules may not reinvent common buttons, fields, panels, dialogs, rows, badges, tabs, toolbars, or empty/loading/error states.
+- [ ] **DSYS-06**: Theme variants implement the same semantic contract; feature code cannot branch on a theme name or read theme-specific palette values directly.
+- [ ] **DSYS-07**: Any necessary design-system exception is declared in an audited exception manifest with file, rule, rationale, and review condition; exceptions cannot bypass the 4px spacing grid.
+- [ ] **DSYS-08**: A concise design-system guide documents component selection rules, token vocabulary, examples, anti-patterns, and a new-component checklist for coding agents.
+- [ ] **DSYS-09**: Automated enforcement runs in normal frontend validation and CI, detecting raw visual literals outside approved token/theme files, undeclared CSS custom properties, forbidden native control reinvention, and drift between the documented and exported design-system surface.
+- [ ] **DSYS-10**: Design-system verification is layered: fast static policy checks, unit/contract tests for primitives and tokens, accessibility interaction checks, and stable Playwright visual coverage for representative shell/workspace states in light and dark modes.
+- [ ] **DSYS-11**: New design-system enforcement begins green; existing violations are migrated or explicitly registered rather than absorbed into a permanently ignored baseline.
+- [ ] **DSYS-12**: Every interactive primitive owns consistent hover, active, disabled, loading, and focus-visible states and exposes native semantics; color is never the only status signal.
+- [ ] **DSYS-13**: The design system does not weaken the persistent visibility, priority, or independent behavior of Blackout and Revoke Automation.
+- [ ] **DSYS-14**: Cosmetic UI work remains a projection of Go-owned state and cannot introduce playback, Art-Net timing, script, or safety authority into React.
+
 ## v1.x Requirements
 
 ### Cross-Show Modules
