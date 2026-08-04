@@ -216,7 +216,7 @@ Originally out of scope for Phase 1 (now delivered — see
   `.golc` store with rotating recovery points; Phase 1 only had TOML
   configuration as persisted state.
 - **NSIS product packaging** — still genuinely out of scope today
-  (Phase 10, "Windows Release Qualification," has not started). Nothing
+  (Phase 11, "Windows Release Qualification," has not started). Nothing
   is installed or distributed yet. `package --foundation` (step 6 above)
   produces a deterministic developer-tool ZIP of the CLI, config,
   schemas, and docs — it is not an application installer, and it stages
@@ -224,7 +224,11 @@ Originally out of scope for Phase 1 (now delivered — see
 
 At Phase 1 time, none of GOLC's lighting-domain behavior existed yet.
 Fixture pools/deployments (Phase 2), deterministic show programming and
-playback (Phase 3), observable Art-Net output (Phase 4), and the
-versioned external `/v1` control API (Phase 7) have since shipped;
-isolated TypeScript scripting (Phase 8) is in progress and AI features
-(Phase 9) have not started.
+playback (Phase 3), observable Art-Net output (Phase 4), the versioned
+external `/v1` control API (Phase 7), and isolated TypeScript scripting
+(Phase 8) shipped as v1.0 (2026-07-27). Front-Door UI Completion
+(Phase 9) is implemented but its human UAT pass is still open. The
+unified UI design system and automated enforcement work (Phase 13) is
+the current focus, 40/41 plans executed. AI autonomy (Phase 10),
+Windows Release Qualification (Phase 11), and telemetry (Phase 12)
+have not started.
