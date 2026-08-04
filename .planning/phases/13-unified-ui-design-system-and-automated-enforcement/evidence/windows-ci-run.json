@@ -1,0 +1,36 @@
+{
+  "status": "pending",
+  "authorization": {
+    "mechanism": "authorize-push-via-evidence-branch-pr",
+    "description": "A corrected/clarified form of Task 1's originally-offered 'authorize-push' option. Direct push of the approved SHA to origin/master cannot trigger .github/workflows/design-system.yml because that workflow's sole trigger is `on: pull_request` (confirmed by reading the workflow file, `gh workflow view design-system.yml --yaml`, and `gh run list --workflow design-system.yml` returning zero total runs prior to this plan). The executor halted and reported this finding rather than pushing directly or improvising an unauthorized mechanism. The user then gave fresh, explicit authorization for the corrected mechanism: create a short-lived branch at the exact approved SHA, push only that branch to origin, and open a pull request against master from it so a genuine pull_request event fires the required workflow. The exact approved implementation SHA is unchanged from the original authorization.",
+    "approvedImplementationSha": "78ebde6c53e12c21a6aa0daf1f00755555e628a6",
+    "targetRemote": "origin",
+    "repository": "lnorton89/golc",
+    "evidenceBranch": "phase13-ci-evidence-78ebde6c",
+    "pullRequest": {
+      "number": 6,
+      "url": "https://github.com/lnorton89/golc/pull/6",
+      "baseRef": "master",
+      "headRef": "phase13-ci-evidence-78ebde6c",
+      "note": "Disposable evidence-gathering PR. Not merged, not closed for the duration of evidence gathering; exists solely to fire the pull_request event."
+    },
+    "approvedBy": "user, via a second AskUserQuestion, answer \"Authorize branch + PR (Recommended)\"",
+    "noForcePush": true,
+    "noOtherRefsModified": true,
+    "masterUntouchedDirectly": true
+  },
+  "trigger": {
+    "mechanismExecuted": "created branch phase13-ci-evidence-78ebde6c pointing at exactly 78ebde6c53e12c21a6aa0daf1f00755555e628a6, pushed it to origin without force, opened PR #6 (lnorton89/golc) against master",
+    "branchHeadShaAtPushTime": "78ebde6c53e12c21a6aa0daf1f00755555e628a6",
+    "resultingRun": {
+      "runId": 30870575466,
+      "url": "https://github.com/lnorton89/golc/actions/runs/30870575466",
+      "event": "pull_request",
+      "headSha": "78ebde6c53e12c21a6aa0daf1f00755555e628a6",
+      "headBranch": "phase13-ci-evidence-78ebde6c",
+      "statusAtMutationTime": "in_progress",
+      "createdAt": "2026-08-04T02:02:19Z"
+    }
+  },
+  "note": "PENDING: Task 3 will wait for terminal completion, download/inspect artifacts read-only, and overwrite this file with the final immutable evidence record (windowsCi, implementationTree, and all other required fields) or an honest failure record."
+}
