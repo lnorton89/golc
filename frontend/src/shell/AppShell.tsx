@@ -99,6 +99,7 @@ function GuardedCommandRail({ active }: { active: DestinationId }) {
         message="You're leaving the Guided First Show before finishing. Your progress is kept, and you can resume from Overview later."
         confirmLabel="Leave Guide"
         cancelLabel="Stay in Guide"
+        role="alertdialog"
         onConfirm={() => {
           if (pendingDestination) {
             const destination = pendingDestination;
