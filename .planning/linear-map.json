@@ -2906,6 +2906,923 @@
       "parent_local_id": "plan:09-07",
       "display": "Task 3: Wire the Add Custom Fixture affordance into the workspace",
       "source": ".planning/phases/09-front-door-ui-completion/09-07-PLAN.md"
+    },
+    {
+      "local_id": "phase:13",
+      "kind": "phase",
+      "parent_local_id": "milestone:v1",
+      "display": "Unified UI design system and automated enforcement",
+      "source": ".planning/ROADMAP.md"
+    },
+    {
+      "local_id": "req:DSYS-01",
+      "kind": "req",
+      "parent_local_id": "phase:13",
+      "display": "The application preserves the approved Paper/Ink console visual language and existing theme choices; unifying the design system is not a rebrand.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:DSYS-02",
+      "kind": "req",
+      "parent_local_id": "phase:13",
+      "display": "Every reachable desktop workspace, shell surface, dialog, editor-adjacent control, and reusable component uses the unified design system, with no permanent split between new-system and legacy UI.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:DSYS-03",
+      "kind": "req",
+      "parent_local_id": "phase:13",
+      "display": "The desktop UI keeps a dense, instrument-like character — compact operational controls, bounded scroll regions, restrained motion, visible focus, persistent operator safety controls — on a single 4px spacing grid.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:DSYS-04",
+      "kind": "req",
+      "parent_local_id": "phase:13",
+      "display": "Components consume semantic design tokens for surfaces, text, borders, actions, statuses, typography, spacing, radii, sizing, focus, and motion; raw palette values remain confined to theme/token definitions.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:DSYS-05",
+      "kind": "req",
+      "parent_local_id": "phase:13",
+      "display": "Shared visual behavior lives in typed React primitives and patterns; feature CSS Modules may not reinvent common buttons, fields, panels, dialogs, rows, badges, tabs, toolbars, or empty/loading/error states.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:DSYS-06",
+      "kind": "req",
+      "parent_local_id": "phase:13",
+      "display": "Theme variants implement the same semantic contract; feature code cannot branch on a theme name or read theme-specific palette values directly.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:DSYS-07",
+      "kind": "req",
+      "parent_local_id": "phase:13",
+      "display": "Any necessary design-system exception is declared in an audited exception manifest with file, rule, rationale, and review condition; exceptions cannot bypass the 4px spacing grid.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:DSYS-08",
+      "kind": "req",
+      "parent_local_id": "phase:13",
+      "display": "A concise design-system guide documents component selection rules, token vocabulary, examples, anti-patterns, and a new-component checklist for coding agents.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:DSYS-09",
+      "kind": "req",
+      "parent_local_id": "phase:13",
+      "display": "Automated enforcement runs in normal frontend validation and CI, detecting raw visual literals outside approved token/theme files, undeclared CSS custom properties, forbidden native control reinvention, and drift between the documented and exported design-system surface.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:DSYS-10",
+      "kind": "req",
+      "parent_local_id": "phase:13",
+      "display": "Design-system verification is layered: fast static policy checks, unit/contract tests for primitives and tokens, accessibility interaction checks, and stable Playwright visual coverage for representative shell/workspace states in light and dark modes.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:DSYS-11",
+      "kind": "req",
+      "parent_local_id": "phase:13",
+      "display": "New design-system enforcement begins green; existing violations are migrated or explicitly registered rather than absorbed into a permanently ignored baseline.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:DSYS-12",
+      "kind": "req",
+      "parent_local_id": "phase:13",
+      "display": "Every interactive primitive owns consistent hover, active, disabled, loading, and focus-visible states and exposes native semantics; color is never the only status signal.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:DSYS-13",
+      "kind": "req",
+      "parent_local_id": "phase:13",
+      "display": "The design system does not weaken the persistent visibility, priority, or independent behavior of Blackout and Revoke Automation.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "req:DSYS-14",
+      "kind": "req",
+      "parent_local_id": "phase:13",
+      "display": "Cosmetic UI work remains a projection of Go-owned state and cannot introduce playback, Art-Net timing, script, or safety authority into React.",
+      "source": ".planning/REQUIREMENTS.md"
+    },
+    {
+      "local_id": "plan:13-01",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-01",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-01-PLAN.md"
+    },
+    {
+      "local_id": "task:13-01.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-01",
+      "display": "Task 2: Install only the approved exact parser pins",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-01-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-02",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-02",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-02-PLAN.md"
+    },
+    {
+      "local_id": "task:13-02.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-02",
+      "display": "Task 1: Implement CSS and TSX policy boundaries",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-02-PLAN.md"
+    },
+    {
+      "local_id": "task:13-02.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-02",
+      "display": "Task 2: Orchestrate scoped and whole-source checking",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-02-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-03",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-03",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-03-PLAN.md"
+    },
+    {
+      "local_id": "task:13-03.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-03",
+      "display": "Task 1: Harden Button and IconButton",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-03-PLAN.md"
+    },
+    {
+      "local_id": "task:13-03.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-03",
+      "display": "Task 2: Harden Field and Chip status semantics",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-03-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-04",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-04",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-04-PLAN.md"
+    },
+    {
+      "local_id": "task:13-04.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-04",
+      "display": "Task 1: Implement the Tabs keyboard and state contract",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-04-PLAN.md"
+    },
+    {
+      "local_id": "task:13-04.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-04",
+      "display": "Task 2: Complete shared empty, loading, and error states",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-04-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-05",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-05",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-05-PLAN.md"
+    },
+    {
+      "local_id": "task:13-05.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-05",
+      "display": "Task 1: Harden panels and panel headers",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-05-PLAN.md"
+    },
+    {
+      "local_id": "task:13-05.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-05",
+      "display": "Task 2: Harden toolbars and list rows",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-05-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-06",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-06",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-06-PLAN.md"
+    },
+    {
+      "local_id": "task:13-06.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-06",
+      "display": "Task 1: Prove Dialog in real Chromium",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-06-PLAN.md"
+    },
+    {
+      "local_id": "task:13-06.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-06",
+      "display": "Task 2: Prove the identical contract in packaged WebView2",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-06-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-07",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-07",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-07-PLAN.md"
+    },
+    {
+      "local_id": "task:13-07.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-07",
+      "display": "Task 1: Build product patterns and deterministic gallery",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-07-PLAN.md"
+    },
+    {
+      "local_id": "task:13-07.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-07",
+      "display": "Task 2: Publish inventory, barrel, guide, and discovery link",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-07-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-08",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-08",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-08-PLAN.md"
+    },
+    {
+      "local_id": "task:13-08.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-08",
+      "display": "Task 1: Replace global aliases with generated theme contracts",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-08-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-09",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-09",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-09-PLAN.md"
+    },
+    {
+      "local_id": "task:13-09.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-09",
+      "display": "Task 1: Migrate overview and show-open workspaces",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-09-PLAN.md"
+    },
+    {
+      "local_id": "task:13-09.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-09",
+      "display": "Task 2: Migrate recovery and settings workspaces",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-09-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-10",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-10",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-10-PLAN.md"
+    },
+    {
+      "local_id": "task:13-10.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-10",
+      "display": "Task 1: Migrate Fixture Library browse and import",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-10-PLAN.md"
+    },
+    {
+      "local_id": "task:13-10.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-10",
+      "display": "Task 2: Migrate Patch \u0026 Pools and Project Fixtures",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-10-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-11",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-11",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-11-PLAN.md"
+    },
+    {
+      "local_id": "task:13-11.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-11",
+      "display": "Task 1: Migrate Scenes \u0026 Looks workspace, scene list, and look browser",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-11-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-12",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-12",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-12-PLAN.md"
+    },
+    {
+      "local_id": "task:13-12.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-12",
+      "display": "Task 1: Migrate Notes and Tiptap-adjacent controls",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-12-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-13",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-13",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-13-PLAN.md"
+    },
+    {
+      "local_id": "task:13-13.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-13",
+      "display": "Task 1: Migrate Desk chrome, launchers, faders, and style dialog",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-13-PLAN.md"
+    },
+    {
+      "local_id": "task:13-13.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-13",
+      "display": "Task 2: Prove Desk policy and geometry classification",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-13-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-14",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-14",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-14-PLAN.md"
+    },
+    {
+      "local_id": "task:13-14.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-14",
+      "display": "Task 1: Migrate Operator workspace and core surface",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-14-PLAN.md"
+    },
+    {
+      "local_id": "task:13-14.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-14",
+      "display": "Task 2: Migrate launchers and scene pads",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-14-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-15",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-15",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-15-PLAN.md"
+    },
+    {
+      "local_id": "task:13-15.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-15",
+      "display": "Task 1: Migrate persistent independent safety controls",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-15-PLAN.md"
+    },
+    {
+      "local_id": "task:13-15.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-15",
+      "display": "Task 2: Migrate live truth and tempo controls",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-15-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-16",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-16",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-16-PLAN.md"
+    },
+    {
+      "local_id": "task:13-16.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-16",
+      "display": "Task 1: Migrate inspector and help overlay",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-16-PLAN.md"
+    },
+    {
+      "local_id": "task:13-16.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-16",
+      "display": "Task 2: Migrate quick switcher, error boundary, and log projection",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-16-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-17",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-17",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-17-PLAN.md"
+    },
+    {
+      "local_id": "task:13-17.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-17",
+      "display": "Task 1: Build deterministic capture fixtures and helpers",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-17-PLAN.md"
+    },
+    {
+      "local_id": "task:13-17.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-17",
+      "display": "Task 2: Calibrate one tolerance from three repeated captures",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-17-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-18",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-18",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-18-PLAN.md"
+    },
+    {
+      "local_id": "task:13-18.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-18",
+      "display": "Task 1: Expose package and pinned internal command routes",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-18-PLAN.md"
+    },
+    {
+      "local_id": "task:13-18.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-18",
+      "display": "Task 2: Register delivery, Mage, and command-graph routes",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-18-PLAN.md"
+    },
+    {
+      "local_id": "task:13-18.3",
+      "kind": "task",
+      "parent_local_id": "plan:13-18",
+      "display": "Task 3: Add required Windows visual CI and artifact evidence",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-18-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-19",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-19",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-19-PLAN.md"
+    },
+    {
+      "local_id": "task:13-19.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-19",
+      "display": "Task 1: Merge exact exception evidence and remove proposal inputs",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-19-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-20",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-20",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-20-PLAN.md"
+    },
+    {
+      "local_id": "task:13-20.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-20",
+      "display": "Task 1: Implement exact plan-derived command and semantic evidence validation",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-20-PLAN.md"
+    },
+    {
+      "local_id": "task:13-20.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-20",
+      "display": "Task 2: Prove every false-sign-off mutation is rejected",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-20-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-21",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-21",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-21-PLAN.md"
+    },
+    {
+      "local_id": "task:13-21.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-21",
+      "display": "Task 1: Create strict inert manifests and schemas",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-21-PLAN.md"
+    },
+    {
+      "local_id": "task:13-21.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-21",
+      "display": "Task 2: Generate deterministic CSS and TypeScript token surfaces",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-21-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-22",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-22",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-22-PLAN.md"
+    },
+    {
+      "local_id": "task:13-22.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-22",
+      "display": "Task 1: Implement stable Dialog and ConfirmDialog APIs",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-22-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-23",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-23",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-23-PLAN.md"
+    },
+    {
+      "local_id": "task:13-23.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-23",
+      "display": "Task 1: Harden scroll and tooltip utilities",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-23-PLAN.md"
+    },
+    {
+      "local_id": "task:13-23.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-23",
+      "display": "Task 2: Harden accessible resize geometry",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-23-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-24",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-24",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-24-PLAN.md"
+    },
+    {
+      "local_id": "task:13-24.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-24",
+      "display": "Task 1: Migrate the bounded frame and title bar",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-24-PLAN.md"
+    },
+    {
+      "local_id": "task:13-24.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-24",
+      "display": "Task 2: Migrate command rail and classify shell geometry",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-24-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-25",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-25",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-25-PLAN.md"
+    },
+    {
+      "local_id": "task:13-25.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-25",
+      "display": "Task 1: Migrate guide shell, readiness, and evidence",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-25-PLAN.md"
+    },
+    {
+      "local_id": "task:13-25.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-25",
+      "display": "Task 2: Migrate all five guide stages",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-25-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-26",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-26",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-26-PLAN.md"
+    },
+    {
+      "local_id": "task:13-26.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-26",
+      "display": "Task 1: Migrate Art-Net configuration",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-26-PLAN.md"
+    },
+    {
+      "local_id": "task:13-26.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-26",
+      "display": "Task 2: Migrate diagnostics and classify output geometry",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-26-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-27",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-27",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-27-PLAN.md"
+    },
+    {
+      "local_id": "task:13-27.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-27",
+      "display": "Task 1: Migrate Scripts workspace and run dialog",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-27-PLAN.md"
+    },
+    {
+      "local_id": "task:13-27.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-27",
+      "display": "Task 2: Migrate Monaco editor, debug panel, and semantic theme adapter",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-27-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-28",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-28",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-28-PLAN.md"
+    },
+    {
+      "local_id": "task:13-28.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-28",
+      "display": "Task 1: Migrate generic MIDI mapping and reachable panel children",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-28-PLAN.md"
+    },
+    {
+      "local_id": "task:13-28.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-28",
+      "display": "Task 2: Migrate MIDI pickup and learn toggle",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-28-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-29",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-29",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-29-PLAN.md"
+    },
+    {
+      "local_id": "task:13-29.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-29",
+      "display": "Task 1: Migrate hotkey settings and keyboard shortcuts",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-29-PLAN.md"
+    },
+    {
+      "local_id": "task:13-29.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-29",
+      "display": "Task 2: Migrate shared workspace chrome and empty destinations",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-29-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-30",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-30",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-30-PLAN.md"
+    },
+    {
+      "local_id": "task:13-30.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-30",
+      "display": "Task 1: Backstop theme and font initialization before settle",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-30-PLAN.md"
+    },
+    {
+      "local_id": "task:13-30.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-30",
+      "display": "Task 2: Backstop token-independent ErrorBoundary before theme CSS",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-30-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-31",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-31",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-31-PLAN.md"
+    },
+    {
+      "local_id": "task:13-31.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-31",
+      "display": "Task 1: Backstop exact specialized geometry at 900 and 1280",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-31-PLAN.md"
+    },
+    {
+      "local_id": "task:13-31.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-31",
+      "display": "Task 2: Backstop explicit 2x expanded-copy reflow",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-31-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-32",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-32",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-32-PLAN.md"
+    },
+    {
+      "local_id": "task:13-32.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-32",
+      "display": "Task 1: Capture persistent shell matrix",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-32-PLAN.md"
+    },
+    {
+      "local_id": "task:13-32.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-32",
+      "display": "Task 2: Capture destructive dialog matrix",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-32-PLAN.md"
+    },
+    {
+      "local_id": "task:13-32.3",
+      "kind": "task",
+      "parent_local_id": "plan:13-32",
+      "display": "Task 3: Capture shared state gallery matrix",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-32-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-33",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-33",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-33-PLAN.md"
+    },
+    {
+      "local_id": "task:13-33.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-33",
+      "display": "Task 1: Capture Scenes \u0026 Looks matrix",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-33-PLAN.md"
+    },
+    {
+      "local_id": "task:13-33.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-33",
+      "display": "Task 2: Capture Fixture Library and Patch \u0026 Pools matrix",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-33-PLAN.md"
+    },
+    {
+      "local_id": "task:13-33.3",
+      "kind": "task",
+      "parent_local_id": "plan:13-33",
+      "display": "Task 3: Capture Guided First Show matrix",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-33-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-34",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-34",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-34-PLAN.md"
+    },
+    {
+      "local_id": "task:13-34.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-34",
+      "display": "Task 1: Capture Desk and Operator Surface matrix",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-34-PLAN.md"
+    },
+    {
+      "local_id": "task:13-34.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-34",
+      "display": "Task 2: Capture MIDI Mapping matrix",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-34-PLAN.md"
+    },
+    {
+      "local_id": "task:13-34.3",
+      "kind": "task",
+      "parent_local_id": "plan:13-34",
+      "display": "Task 3: Capture Scripts and Notes matrix",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-34-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-35",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-35",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-35-PLAN.md"
+    },
+    {
+      "local_id": "task:13-35.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-35",
+      "display": "Task 2: Perform only the explicitly authorized trigger",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-35-PLAN.md"
+    },
+    {
+      "local_id": "task:13-35.3",
+      "kind": "task",
+      "parent_local_id": "plan:13-35",
+      "display": "Task 3: Wait, download, and inspect immutable Windows artifacts read-only",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-35-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-36",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-36",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-36-PLAN.md"
+    },
+    {
+      "local_id": "task:13-36.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-36",
+      "display": "Task 1: Prove public inventory, theme parity, and contrast",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-36-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-37",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-37",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-37-PLAN.md"
+    },
+    {
+      "local_id": "task:13-37.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-37",
+      "display": "Task 1: Remove ConfirmModal and every compatibility seam",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-37-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-38",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-38",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-38-PLAN.md"
+    },
+    {
+      "local_id": "task:13-38.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-38",
+      "display": "Task 1: Run and record complete local acceptance",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-38-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-39",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-39",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-39-PLAN.md"
+    },
+    {
+      "local_id": "task:13-39.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-39",
+      "display": "Task 1: Record evidence and obtain machine-checked Nyquist sign-off",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-39-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-40",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-40",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-40-PLAN.md"
+    },
+    {
+      "local_id": "task:13-40.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-40",
+      "display": "Task 1: Migrate timeline and layer geometry",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-40-PLAN.md"
+    },
+    {
+      "local_id": "plan:13-41",
+      "kind": "plan",
+      "parent_local_id": "phase:13",
+      "display": "Plan 13-41",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-41-PLAN.md"
+    },
+    {
+      "local_id": "task:13-41.1",
+      "kind": "task",
+      "parent_local_id": "plan:13-41",
+      "display": "Task 1: Prove 200 percent text zoom at compact desktop size",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-41-PLAN.md"
+    },
+    {
+      "local_id": "task:13-41.2",
+      "kind": "task",
+      "parent_local_id": "plan:13-41",
+      "display": "Task 2: Prove provider-offline and daemon-offline safety authority",
+      "source": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-41-PLAN.md"
     }
   ],
   "remote_mappings": [
@@ -6207,6 +7124,1054 @@
     },
     {
       "repo_id": "task:09-07.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "phase:13",
+      "linear_type": "project_milestone",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:DSYS-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:DSYS-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:DSYS-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:DSYS-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:DSYS-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:DSYS-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:DSYS-07",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:DSYS-08",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:DSYS-09",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:DSYS-10",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:DSYS-11",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:DSYS-12",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:DSYS-13",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "req:DSYS-14",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-01",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-01.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-02",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-02.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-02.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-03",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-03.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-03.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-04",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-04.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-04.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-05",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-05.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-05.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-06",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-06.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-06.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-07",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-07.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-07.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-08",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-08.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-09",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-09.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-09.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-10",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-10.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-10.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-11",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-11.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-12",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-12.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-13",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-13.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-13.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-14",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-14.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-14.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-15",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-15.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-15.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-16",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-16.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-16.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-17",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-17.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-17.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-18",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-18.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-18.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-18.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-19",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-19.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-20",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-20.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-20.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-21",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-21.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-21.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-22",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-22.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-23",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-23.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-23.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-24",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-24.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-24.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-25",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-25.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-25.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-26",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-26.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-26.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-27",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-27.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-27.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-28",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-28.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-28.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-29",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-29.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-29.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-30",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-30.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-30.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-31",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-31.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-31.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-32",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-32.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-32.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-32.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-33",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-33.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-33.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-33.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-34",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-34.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-34.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-34.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-35",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-35.2",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-35.3",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-36",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-36.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-37",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-37.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-38",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-38.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-39",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-39.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-40",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-40.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "plan:13-41",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-41.1",
+      "linear_type": "issue",
+      "status": "pending",
+      "linear_uuid": null,
+      "identifier": null,
+      "url": null
+    },
+    {
+      "repo_id": "task:13-41.2",
       "linear_type": "issue",
       "status": "pending",
       "linear_uuid": null,
