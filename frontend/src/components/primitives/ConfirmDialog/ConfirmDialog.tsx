@@ -11,6 +11,15 @@ export interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
+  /**
+   * ARIA role, fully decoupled from `destructive` (mirrors Dialog.tsx's own
+   * `role` prop). `destructive` only ever controls the confirm button's
+   * visual variant; a confirmation can need `alertdialog` semantics -- e.g.
+   * an interruption that risks losing in-progress context -- without being a
+   * destructive/red-styled action, and vice versa. Defaults to
+   * `destructive`'s prior implied role so existing callers are unaffected.
+   */
+  role?: "dialog" | "alertdialog";
   onConfirm: () => void;
   onCancel: () => void;
   closeOnEscape?: boolean;
@@ -28,6 +37,7 @@ export default function ConfirmDialog({
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   destructive = false,
+  role,
   onConfirm,
   onCancel,
   closeOnEscape = true,
@@ -44,7 +54,7 @@ export default function ConfirmDialog({
       onClose={onCancel}
       closeOnEscape={closeOnEscape}
       closeOnBackdrop={closeOnBackdrop}
-      role={destructive ? "alertdialog" : "dialog"}
+      role={role ?? (destructive ? "alertdialog" : "dialog")}
     >
       <div className={styles.actions}>
         <Button ref={cancelRef} variant="secondary" onClick={onCancel}>
