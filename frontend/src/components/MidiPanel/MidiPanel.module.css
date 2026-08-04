@@ -9,7 +9,7 @@
  * feature-specific layout (list bounds, section spacing) and the
  * irreducible soft-takeover slider domain geometry (track/fill/ghost
  * marker), whose still-unavoidable shorthand exceptions live in
- * design-system/exception-proposals/operator-midi.json.
+ * design-system/exceptions.json.
  */
 
 /* Assigned-controls list -- one per-control Learn affordance each (D-05,
@@ -94,9 +94,8 @@
 /* SoftTakeoverSlider -- live-position track + ghost/target marker (D-09/
    D-10), distinct not-armed/pickup vs armed/controlling visual state
    (D-11). Fully custom geometry with no shared-primitive equivalent
-   anywhere else in the codebase (see design-system/exception-proposals/
-   operator-midi.json for the one unavoidable shorthand exception this
-   geometry still needs). */
+   anywhere else in the codebase (see design-system/exceptions.json for
+   the one unavoidable shorthand exception this geometry still needs). */
 
 .takeoverRow {
   display: flex;

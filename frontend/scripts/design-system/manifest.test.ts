@@ -15,6 +15,19 @@ async function fixture(): Promise<string> {
   return root;
 }
 
+// Only generateDesignSystem's own round-trip test needs this: it loads the
+// REAL, unmodified design-system/exceptions.json (Plan 13-19 merged Wave
+// 7-10's evidence-backed domain exceptions there), whose record.path
+// values are real repo-relative src/... files that assertContainedPath
+// must lstat successfully. The other fixture()-based tests below always
+// overwrite exceptions.json with their own dummy records before calling
+// loadDesignSystem, so they never need a src/ copy.
+async function fixtureWithSource(): Promise<string> {
+  const root = await fixture();
+  await cp(join(process.cwd(), "src"), join(root, "src"), { recursive: true });
+  return root;
+}
+
 afterEach(async () => {
   await Promise.all(fixtureRoots.splice(0).map(async (root) => {
     const { rm } = await import("node:fs/promises");
@@ -25,7 +38,13 @@ afterEach(async () => {
 describe("loadDesignSystem", () => {
   it("loads the closed, complete manifest authority", async () => {
     const authority = await loadDesignSystem(process.cwd());
-    expect(authority.exceptions.records).toEqual([]);
+    // Wave 7-10 migration plans' evidence-backed domain exceptions are
+    // merged here (Plan 13-19) -- exceptions.json is no longer empty, but
+    // every record still validates against validateExceptions' strict
+    // 7-key schema (asserted structurally above) and check.mjs --all
+    // confirms each resolves to exactly one live diagnostic.
+    expect(Array.isArray(authority.exceptions.records)).toBe(true);
+    expect(authority.exceptions.records.length).toBeGreaterThan(0);
     expect(authority.tokens.themes).toHaveLength(24);
     expect(authority.tokens.themes.every((face: { tokens: Record<string, string> }) =>
       Object.keys(face.tokens).length === authority.tokens.semanticRoles.length,
@@ -61,7 +80,7 @@ describe("loadDesignSystem", () => {
 
 describe("generateDesignSystem", () => {
   it("is byte-stable and leaves checked output untouched in check mode", async () => {
-    const root = await fixture();
+    const root = await fixtureWithSource();
     await generateDesignSystem(root);
     const cssPath = join(root, "src", "design-system", "tokens.generated.css");
     const typesPath = join(root, "src", "design-system", "tokens.generated.ts");

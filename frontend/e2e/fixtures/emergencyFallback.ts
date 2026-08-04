@@ -80,7 +80,7 @@ export const EMERGENCY_FALLBACK_VIEWPORTS = [
 export type EmergencyFallbackViewportName = (typeof EMERGENCY_FALLBACK_VIEWPORTS)[number]["name"];
 
 // EXPECTED_* mirror ErrorBoundary.module.css's registered
-// design-system/exception-proposals/shell.json literals exactly -- the
+// design-system/exceptions.json literals exactly -- the
 // spec asserts computed style equals these precise values even with tokens
 // blocked, proving the fallback never silently degraded to an unreadable
 // default because a var(--ds-*) reference resolved to nothing.

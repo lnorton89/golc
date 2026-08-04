@@ -69,7 +69,7 @@ export default function InfoTooltip({ label, text }: InfoTooltipProps) {
               role="tooltip"
               id={tooltipId}
               className={styles.tooltip}
-              style={{ "--tooltip-top": `${position.top}px`, "--tooltip-left": `${position.left}px` } as CSSProperties}
+              style={{ "--ds-tooltip-top": `${position.top}px`, "--ds-tooltip-left": `${position.left}px` } as CSSProperties}
             >
               {text}
             </span>,

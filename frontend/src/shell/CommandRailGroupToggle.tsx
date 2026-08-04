@@ -8,7 +8,7 @@
 // ("button"); the checker's exception mechanism can only resolve a match
 // to exactly one diagnostic per rule+path, so the two could never be
 // excepted individually without this split (see
-// design-system/exception-proposals/theme-shell.json).
+// design-system/exceptions.json).
 import { ChevronDown, ChevronRight } from "lucide-react";
 import styles from "./CommandRail.module.css";
 

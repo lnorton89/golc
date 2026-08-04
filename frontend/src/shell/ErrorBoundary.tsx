@@ -21,7 +21,7 @@
 // this is the one place in the app that must never depend on it. Both this
 // and every color/background literal in ErrorBoundary.module.css are
 // registered, narrowly-scoped design-system exceptions -- see
-// design-system/exception-proposals/shell.json.
+// design-system/exceptions.json.
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
 

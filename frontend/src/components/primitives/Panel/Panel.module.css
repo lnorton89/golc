@@ -4,7 +4,9 @@
   min-width: 0;
   min-height: 0;
   padding: var(--ds-spacing-space4);
-  border: 1px solid var(--ds-border-default);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
   border-radius: var(--ds-radii-medium);
   background: var(--ds-surface-panel);
   color: var(--ds-text-primary);

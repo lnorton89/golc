@@ -343,7 +343,7 @@ async function assertDeskGeometry(page: Page, width: number, resizeState: "defau
     }
 
     for (const clearRect of row.clearButtonRects) {
-      // desk-fader-clear-button-jsx (design-system/exception-proposals/desk.json):
+      // desk-fader-clear-button-jsx (design-system/exceptions.json):
       // fixed 18x18px domain geometry, registered because it must stay
       // usable even at FADER_WIDTH_MIN=18px where IconButton's own
       // smallest size would collide with the adjacent fader -- not the
