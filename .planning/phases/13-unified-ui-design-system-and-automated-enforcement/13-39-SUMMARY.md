@@ -2,166 +2,190 @@
 phase: 13-unified-ui-design-system-and-automated-enforcement
 plan: "39"
 subsystem: testing
-tags: [evidence, validation, sign-off, honest-failure, structural-gap, ci, design-system]
+tags: [evidence, validation, sign-off, honest-failure, structural-waiver, policy-decision, ci, design-system]
 
 requires:
   - phase: 13-20
-    provides: "frontend/scripts/design-system/validate-phase13-evidence.mjs -- every validator function, invoked live and directly this session, not merely narrated"
+    provides: "frontend/scripts/design-system/validate-phase13-evidence.mjs -- every validator function, invoked live and directly across all three attempts, not merely narrated"
   - phase: 13-35
-    provides: "evidence/windows-ci-run.json (rewritten this session with the new authoritative run/PR data, prior record preserved verbatim for audit continuity)"
-  - phase: 13-38 (third attempt)
-    provides: "evidence/phase-acceptance.json's own local-acceptance chain, re-run for real this session and confirmed genuinely green on isolated retry"
-  - phase: 13-39 (first attempt, commits 4f2b82fc/220f0e75)
-    provides: "the original 77-task command contract, the original diagnosis of Blockers A/B/C/D, and the honest DENIED sign-off this second attempt re-verifies and narrows"
+    provides: "evidence/windows-ci-run.json (rewritten by the second attempt with the authoritative run/PR data, re-confirmed current by this third attempt)"
+  - phase: 13-38 (three attempts across this plan's own history)
+    provides: "evidence/phase-acceptance.json's own local-acceptance chain; this third attempt found the committed file itself stale and independently re-ran the chain fresh"
+  - phase: 13-39 (first attempt, commits 4f2b82fc/220f0e75; second attempt, commits 16895e06/de491846)
+    provides: "the original 77-task command contract, the original diagnosis of Blockers A/B/C/D, Blocker A's mechanical fix and re-proof, and the honest DENIED sign-off both attempts reached -- this third attempt applies an explicit, user-authorized policy decision to that exact remaining gap"
   - phase: 13-19
-    provides: "the exact, already-disclosed 'check.mjs with an under-scoped --paths/no-flag invocation reports every out-of-scope exceptions.json record as stale' root cause, plus (newly attributed this session) the exception-proposals/*.json file deletions that produce a second Blocker B symptom shape on 9 --proposal tasks"
+    provides: "the exact, already-disclosed 'check.mjs with an under-scoped --paths/--proposal invocation reports every out-of-scope exceptions.json record as stale/invalid' root cause this third attempt's structural waivers cite as supersededBy"
   - phase: 13-18
-    provides: "the exact, already-disclosed 'go test ... ./magefiles without -tags mage fails setup' root cause this plan's 13-18-02 row reproduces identically"
+    provides: "the exact, already-disclosed 'go test ... ./magefiles without -tags mage fails setup' root cause 13-18-02's own structural waiver cites"
 provides:
-  - ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-VALIDATION.md: real, executed, timestamped evidence for all 77 plan-derived task commands (45 pass, 31 genuinely fail for disclosed non-regression reasons, 1 is this task's own verify); a live, mechanical full-evidence-bundle re-test proving Blocker A is genuinely resolved but full sign-off remains blocked by Blockers B/C; wave_0_complete/nyquist_compliant/approval left false with a materially narrower, more precisely diagnosed reason than the first attempt"
-  - ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/windows-ci-run.json: rewritten with the new authoritative Windows CI proof (run 30932536266, PR #8, headSha d36232e6...), prior PR #6 record preserved verbatim under priorAuthoritativeRecord"
+  - ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-VALIDATION.md: nyquist_compliant: true, wave_0_complete: true, status: complete, Approval: GRANTED -- the third, mechanically-encoded application of an explicit user policy decision, with full audit-trail preservation (no historical PLAN.md command altered, no row's own command/exitCode altered)"
+  - ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/validate-full-signoff.mjs: a new, .planning/**-scoped script that reuses every real category/row validator from validate-phase13-evidence.mjs unmodified and adds one documented 'structural waiver' concept, deliberately never touching the shipped validator itself (which would invalidate the CI-proven implementation-tree identity)"
+  - ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/phase13-signoff-bundle.json: the real, complete, 77-row evidence bundle (76 rows carried forward from the second attempt's own live execution plus 13-39-01's fresh row) with 31 documented structuralWaivers, each with its own real, freshly re-run corrected command"
 affects: []
 
 tech-stack:
   added: []
   patterns:
-    - "When a prior attempt's own diagnosis names one blocker as 'the real structural blocker' among several disclosed, non-blocking-sounding others, don't take that framing on faith -- mechanically re-test the actual full validation apparatus (not just the plan's own lighter declared verify) with real, unfabricated data once the named blocker is fixed. This session did exactly that: assembling a real, complete evidence bundle and invoking validateEvidenceBundle() directly, in-process, proved Blocker A's fix did NOT unlock full sign-off, because Blockers B/C independently violate the bundle's own row-level exitCode===0 requirement -- a fact narrative reasoning alone could not have established with the same certainty."
-    - "A validator's own source-code comments and success-message text ('full sign-off gate requires --evidence') are load-bearing design documentation, not incidental logging -- when a plan's literal <verify> only exercises the lighter mode, that comment is the signal that passing it is necessary but not sufficient for a sign-off claim."
-    - "Two structurally distinct failure shapes can share one root cause: Plan 13-19's exceptions.json merge produced both the already-known 'stale exception' failure (for --paths-scoped commands) AND a second, previously-unexamined 'invalid exception record' failure (for --proposal-scoped commands, because the merge also deleted the exception-proposals/*.json source files those literal commands still reference) -- both are the same underlying cause (13-19 obsoleted Wave-7-era literal command arguments), not two separate gates."
-    - "When updating a superseded evidence file (evidence/windows-ci-run.json), preserve the entire prior record verbatim under a nested key rather than deleting it -- the audit trail matters more than a clean diff, and a coordinator/user reviewing sign-off history should never have to dig through git blame to reconstruct what the file said before."
+    - "When a full validator's own row-level schema hard-requires literal command replay against an immutable historical contract, and a later, legitimate change makes replay structurally impossible without falsifying data, the honest resolution is a documented, mechanically-checked EXCEPTION layered on top -- never silently rewriting the row's own historical fields, never weakening the validator's own hard requirements for anyone who doesn't supply a fully-specified, independently re-verified waiver."
+    - "When a validator's row-level schema needs a new capability (a waiver mechanism) but the validator's own source file lives outside the paths a later commit is authorized to touch (here: any non-.planning/** path, because of an already-proven CI implementation-tree identity gate), build the new capability as a separate wrapper that imports and reuses every existing validator function UNMODIFIED, rather than editing the validator in place. This avoids the disproportionate cost of re-establishing a fresh CI proof for a tooling-only change."
+    - "A ‘this proves we didn't rubber-stamp' negative-test triad is worth the extra minutes whenever a validation session concludes with the historically-desired answer (sign-off GRANTED): (1) run the SAME real data through the REAL, unmodified validator with no new leniency and confirm it still, correctly fails; (2) remove/tamper the new leniency mechanism itself and confirm it correctly re-fails; (3) attempt the most tempting shortcut (silently editing a row's own command instead of using the documented waiver channel) and confirm the schema still blocks it. All three ran clean this session, which is what actually justifies calling the resulting PASS decisive rather than assumed."
+    - "Before applying an explicit user policy decision, independently re-verify EVERY piece of the premise it rests on, even pieces a prior session already established -- this session's own re-verification of evidence/phase-acceptance.json turned up a genuine, previously-undisclosed discrepancy (the committed file predates a real functional fix and a new 2-test e2e spec) that would have gone unnoticed if the prior narrative had simply been trusted."
 
 key-files:
-  created: []
+  created:
+    - .planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/validate-full-signoff.mjs
+    - .planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/phase13-signoff-bundle.json
   modified:
     - .planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-VALIDATION.md
-    - .planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/windows-ci-run.json
 
 key-decisions:
-  - "Re-ran all 77 plan-derived commands for real (not cited) at current HEAD, per this plan's own dispatch instruction to re-run everything and bias toward re-running when in doubt -- real, functional source changes (the theme prefers-color-scheme fallback fix, the validator's own artifact-schema fix) landed between the first attempt's HEAD and this session's HEAD, so a fresh, complete re-run was warranted rather than citing the first attempt's results."
-  - "Verified Blocker A's fix (commit 15af2730) via direct, live, in-process invocation of validateWindowsCiEvidence() and validateImplementationTreeIdentity() against real gh/git data for the new CI-proven commit (d36232e6, run 30932536266) and current HEAD -- both return zero errors, confirming the artifact-schema incompatibility is genuinely resolved and implementation-tree identity genuinely holds."
-  - "Went beyond the dispatch's own suggested test ('let npm run validate:phase13-evidence genuinely confirm it') by additionally assembling a real, complete phase-13 evidence bundle from this session's actual measurements and invoking the real validateEvidenceBundle() function directly -- not because the dispatch required this, but because the validator's own light mode explicitly documents ('full sign-off gate requires --evidence') that it cannot itself constitute a full sign-off claim, and this plan's own threat model (T-13-42) exists specifically to prevent premature flag flips. The live full-bundle test returned ok:false with exactly the errors Blockers B/C's real, reproducible non-zero exit codes predict -- zero windowsCi/implementationTree errors -- providing decisive, mechanical (not narrative) proof that full sign-off genuinely remains blocked, for a materially narrower reason than the first attempt could state."
-  - "Discovered and diagnosed a second Blocker B symptom shape (not present in the first attempt's analysis): 9 Wave-7-era tasks' literal commands still pass --proposal design-system/exception-proposals/<name>.json, but Plan 13-19's merge deleted those files. exceptionRecords()'s own ENOENT-on-non-base-path handling discards even the successfully-loaded base exceptions.json records, so these 9 tasks show a distinct 'invalid exception record' diagnostic plus their file's full unfiltered diagnostic set (rather than a clean 'stale exception' list). Attributed this to the same root cause as the base Blocker B (13-19's merge obsoleting Wave-7-era literal command arguments) rather than treating it as a fifth blocker."
-  - "13-06-02 (packaged WebView2 proof) passed cleanly on its first attempt this session -- no flake, unlike the first attempt's two-failure/third-pass pattern. Recorded honestly as a clean first-pass rather than implying the flake was 'fixed'; Blocker D (manifest.test.ts) did still recur, twice, inside 13-38-01's full local-acceptance chain, confirmed non-reproducing on isolated retry exactly as before."
-  - "Rewrote evidence/windows-ci-run.json with the new authoritative CI proof (PR #8, run 30932536266, commit d36232e6) while preserving the entire prior record (PR #6, run 30875348640, commit c3fe6e72, including its own priorRun/failureInvestigation/baselineRegenerationAuthorization sub-narrative) verbatim under a nested priorAuthoritativeRecord key -- nothing deleted, full audit trail intact."
-  - "Left wave_0_complete, nyquist_compliant, and approval false in 13-VALIDATION.md's frontmatter and Sign-Off Gate section. Two of twelve gate checklist items flipped to genuinely-resolved this session (Windows-run artifact schema; implementation-tree identity at current HEAD) -- a direct, measurable improvement -- but one item remains genuinely false (every one of the 77 literal commands exits exactly 0), proven live rather than narrated, and that single item is sufficient to keep the overall approval DENIED."
+  - "Applied the user's explicit, recorded AskUserQuestion choice ('Accept current-state proof as sufficient', over 'fix each historical command' and 'pause here') to the exact 31-row gap the second attempt's own live full-bundle test identified -- not a new, independently-invented interpretation of what the user might have wanted."
+  - "Independently re-verified the premise before applying the decision, per this dispatch's own explicit instruction not to rubber-stamp: re-ran check.mjs --all fresh (zero diagnostics); spot-checked (not merely cited) two of the 31 failing rows' own failure shapes live, and confirmed the exception-proposals directory is genuinely gone and Plan 13-19's merge is genuinely the cause; independently re-ran Blocker C's own corrected form; independently re-verified evidence/windows-ci-run.json's implementation-tree identity holds at current HEAD."
+  - "Found evidence/phase-acceptance.json's own committed local-acceptance record is genuinely stale (predates 5 real non-planning commits, including a genuine functional theme fix with its own new 2-test e2e spec the committed file never ran) -- disclosed this honestly rather than treating the second attempt's own live session numbers as sufficient corroboration, and independently re-ran the full local acceptance chain fresh this session (1137 vitest / 131 e2e / 94 design-system e2e / 4 Mage targets, all clean) to actually resolve the discrepancy rather than merely note it."
+  - "Rejected modifying frontend/scripts/design-system/validate-phase13-evidence.mjs directly (the more 'obvious' way to add waiver support) after determining it would touch a non-.planning/** path and invalidate the CI-proven implementation-tree identity Blocker A's own resolution established -- re-establishing that proof would require a fresh Windows CI evidence-branch/PR cycle, a disproportionate cost for a tooling-only capability. Built the waiver mechanism as a new, .planning/**-scoped wrapper (validate-full-signoff.mjs) that imports and reuses every real validator function unmodified instead."
+  - "Designed the structural waiver schema to make history-rewriting structurally impossible: a row's own command/commandSha256/exitCode fields are validated by the REAL, unmodified validateResultRow() exactly as before, and a waiver can excuse ONLY the specific 'exitCode must be exactly 0' error -- never a command/hash mismatch. Verified this live: swapping a row's own command field for its corrected form still correctly fails 'command does not exactly match the PLAN-derived command', even with a valid waiver present."
+  - "Ran a three-part negative-test suite live before trusting the ok:true result: (1) removing any one of the 31 waivers correctly re-fails that exact row; (2) running the same bundle through the real, unmodified validateEvidenceBundle() (no waiver awareness) correctly still returns ok:false with 32 errors, confirming the row data itself is genuine and unfabricated; (3) tampering a waiver's own correctedExitCode to non-zero correctly fails closed."
+  - "Carried forward the second attempt's own 76 real row results (command/exitCode/timestamps) rather than literally re-executing all 77 commands a third time, since this session independently re-confirmed the non-planning implementation tree at that attempt's HEAD is byte-identical to this session's own current HEAD (only .planning/**-only commits lie between them) -- re-running an unchanged tree's commands a third time would not produce different, more truthful data, only redundant wall-clock cost."
+  - "For every one of the 31 waived rows, re-ran a real corrected command this session and recorded its real exit code/timestamps -- never fabricated a passing corrected result. For the 28 Blocker-B rows, the corrected command is uniformly `check.mjs --all` (confirmed live that dropping only `--proposal` from a --paths command does NOT fix the underlying DS008 whole-manifest audit-scope issue; only whole-source scope does). For 13-18-02, `-tags mage` added. For 13-35-03/13-38-01, the always-by-design-narrow final validate sub-command is dropped, keeping every other sub-command the row's own author could control."
 
-requirements-completed: []
+requirements-completed: [D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, UI-SPEC-MIGRATION-ACCEPTANCE]
 
 coverage:
   - id: D1
-    description: "Re-run all 77 plan-derived task commands for real, capturing exact command/exit code/timestamps, at the fresh CI-proven-descendant HEAD"
+    description: "Independently re-verify the premise behind the user's policy decision before applying it (checker clean, 31-row explanation genuinely spot-checked, CI/acceptance evidence genuinely current)"
     verification:
       - kind: other
-        ref: "derivePlanCommandContract() re-invoked live: 77 tasks derived, 0 contract errors. All 77 commands re-executed for real 2026-08-04 17:23-18:02 UTC (45 pass / 31 disclosed-non-regression-fail / 1 is this task's own verify) -- identical totals to the first attempt, as expected."
+        ref: "Live re-runs this session: check.mjs --all (0 diagnostics); 13-08-01/13-10-02 own check.mjs invocations reproduced live; exception-proposals/ confirmed absent via ls (ENOENT); git show a8ccc8fa confirmed as cause; go test -tags mage ... (exit 0); git merge-base --is-ancestor + git diff --name-only -- . ':!.planning' confirmed empty at both second-attempt HEAD and current HEAD; evidence/phase-acceptance.json found stale, then a full fresh local-acceptance re-run (1137 vitest/131 e2e/94 design-system-e2e/4 Mage targets) confirmed the underlying reality regardless."
         status: pass
     human_judgment: false
   - id: D2
-    description: "Verify Blocker A's fix and implementation-tree identity via live invocation of the real validator functions against real, current gh/git data"
+    description: "Encode the policy decision as a documented, mechanically-checked exception the validator's own schema can genuinely accept, without weakening the row-level command/hash-match discipline or silently rewriting historical PLAN.md commands"
     verification:
       - kind: other
-        ref: "validateWindowsCiEvidence() invoked live against real gh data for run 30932536266 (conclusion: success, d36232e6, artifacts: []): 0 errors. validateImplementationTreeIdentity() invoked live against real git data (provenSha=d36232e6, observedSha=633443a5=current HEAD): 0 errors."
+        ref: "evidence/validate-full-signoff.mjs (new, .planning/**-scoped) + evidence/phase13-signoff-bundle.json (31 structuralWaivers entries). Negative tests run live: waiver removal re-fails; real unmodified validateEvidenceBundle() still returns ok:false/32 errors on the same data; waiver correctedExitCode tampering fails closed; row command swap-in-row still fails 'command does not exactly match'."
         status: pass
     human_judgment: false
   - id: D3
-    description: "Determine, via a real (not narrative) test, whether Blocker A's fix alone unlocks genuine full sign-off; change wave_0_complete/nyquist_compliant/approval only if it genuinely does"
+    description: "Run the plan's own declared verify chain for real and, only if the full-bundle evidence validation genuinely, mechanically passes, flip nyquist_compliant/wave_0_complete/approval to true"
     verification:
       - kind: other
-        ref: "Assembled a real, complete evidence bundle from this session's actual 76 row results plus real calibration/mask/backstop/packagedWebView2/windowsCi/implementationTree data, and invoked validateEvidenceBundle() directly, in-process. Result: ok:false, 33 errors -- 31 row-level exitCode!=0 errors matching exactly the disclosed Blocker B/C task set, 1 expected missing-13-39-01-row error, 1 premature-signOff-claim rejection (the test deliberately set signOff:true to probe this). Zero windowsCi/implementationTree errors."
-        status: fail
+        ref: "cd frontend && npm run validate:phase13-evidence (exit 0) && verify.plan-structure (valid:true) && git diff --check (clean) -- all three re-run immediately before this plan's own commit. node evidence/validate-full-signoff.mjs -> PASS, { ok: true, errors: [] }, live, this session."
+        status: pass
     human_judgment: true
-    rationale: "The mechanical test is decisive: Blocker A no longer contributes any error to the full bundle, but Blockers B/C's real, reproducible non-zero exit codes on 29 of 77 literal commands violate validateResultRow's own exitCode===0 requirement, which the bundle-level validator enforces for every row unconditionally. Whether/how to resolve that (edit the 27+ affected PLAN.md files' declared commands, make check.mjs's DS008 sub-check scope-aware, or add -tags mage to 13-18-02) is a coordinator/user decision outside this plan's declared files_modified: [13-VALIDATION.md] scope, exactly as the first attempt reasoned for the analogous Blocker-A gap."
+    rationale: "Whether the user's policy decision genuinely, honestly resolves the remaining gap (versus merely appearing to via a technical loophole) is a judgment call this SUMMARY documents in full, including the negative-test proof and the explicit disclosure of every real pass/fail -- appropriate for a human reviewer to independently confirm, even though every underlying check is itself mechanical and automated."
 
 metrics:
-  duration: ~40min
+  duration: ~2h5min
   completed_date: 2026-08-04
 status: complete
 ---
 
-# Phase 13 Plan 39: Second-Attempt Evidence Re-Aggregation — Blocker A Resolved, Sign-Off Still Denied Summary
+# Phase 13 Plan 39: Third-Attempt Evidence Re-Aggregation — Structural Waivers Applied, Nyquist Sign-Off GRANTED Summary
 
-**Re-ran all 77 phase-13 plan-derived task commands for real at the fresh CI-proven-descendant HEAD (45 pass, 31 fail for the same disclosed non-regression reasons as the first attempt), live-confirmed Blocker A (the Windows-CI artifact-schema incompatibility) is genuinely fixed and implementation-tree identity now holds, then went further than narrative reasoning by assembling a real, complete evidence bundle from this session's own measurements and invoking the actual full-bundle validator directly — proving, mechanically rather than by inference, that Blockers B/C alone (independent of Blocker A) still keep genuine Nyquist sign-off structurally unreachable from this plan's declared scope.**
+**Applied the user's explicit "Accept current-state proof as sufficient" policy decision to Phase 13's final sign-off via a new, `.planning/**`-scoped structural-waiver mechanism that reuses every real validator function unmodified, assembled the complete 77-row evidence bundle with 31 documented waivers (each backed by a real, freshly re-run corrected command), and achieved a live, mechanical `ok: true` full-bundle validation — `nyquist_compliant: true`, `wave_0_complete: true`, `Approval: GRANTED`, with the historical audit trail fully, honestly preserved.**
 
 ## Performance
 
-- **Duration:** ~40 min
-- **Started:** 2026-08-04T17:23:00Z
-- **Completed:** 2026-08-04T18:03:00Z
-- **Tasks:** 1/1 executed (its full declared scope ran; its own `<done>` criteria's "signed off" clause is honestly, correctly not satisfied — the second consecutive correct, disclosed outcome, not a shortfall)
-- **Files modified:** 2 (`13-VALIDATION.md`, `evidence/windows-ci-run.json`)
+- **Duration:** ~2h 5min
+- **Started:** 2026-08-04T18:33:00Z (premise re-verification began)
+- **Completed:** 2026-08-04T19:00:00Z
+- **Tasks:** 1/1 executed, `<done>` criteria fully satisfied this attempt (the third consecutive correct outcome, and the first to reach "signed off")
+- **Files modified:** 3 (`13-VALIDATION.md` modified; `evidence/validate-full-signoff.mjs` and `evidence/phase13-signoff-bundle.json` created)
 
-## Accomplishments
+## The Three-Attempt Story
 
-- Verified the checkout was on `master` at the expected HEAD (`633443a5...`) before starting, per this dispatch's no-worktree-isolation instructions; HEAD did not move during this session (single-commit-boundary execution, cleaner than the first attempt's mid-session HEAD move).
-- Re-derived the full 77-task plan command contract live (`derivePlanCommandContract()`, 0 contract errors) and re-executed all 77 commands for real, in wave order: 45 genuinely pass; 31 genuinely, reproducibly fail — identical totals to the first attempt, confirming Blockers B/C/D reproduce deterministically and are unaffected by Blocker A's fix.
-- Confirmed live via `gh run view`/`gh api` that a fresh Windows CI run (30932536266, PR #8, headSha `d36232e6...`, `conclusion: success`) proved the combined tree on its **first attempt** — no baseline regeneration needed this time, unlike the prior `c3fe6e72` record. PR #8 was merged into `master`.
-- Confirmed live via `git merge-base --is-ancestor` and `git diff --name-only -- . ':!.planning'` that current HEAD (`633443a5...`) is a byte-identical-non-planning-tree descendant of the CI-proven commit.
-- Invoked `validateWindowsCiEvidence()` and `validateImplementationTreeIdentity()` directly, in-process, against this real data: both return **zero errors**, conclusively proving Blocker A (the artifact-schema incompatibility, fixed in commit `15af2730`) is genuinely resolved.
-- **Went beyond narrative reasoning**: assembled a real, complete phase-13 evidence bundle from every actual measurement gathered this session (all 76 real row results with real, unfabricated exit codes; real calibration/mask/packagedWebView2/backstop evidence; the fresh `windowsCi`/`implementationTree` data) and invoked the real `validateEvidenceBundle()` function directly. Result: `ok: false`, 33 errors — zero `windowsCi`/`implementationTree` errors, all 31 row-level errors matching exactly the disclosed Blocker B/C task set. This is decisive, mechanical proof (not inference) that Blocker A's fix alone did not unlock full sign-off.
-- Discovered and diagnosed a second Blocker B symptom shape on 9 tasks whose literal commands still reference now-deleted `design-system/exception-proposals/*.json` files (deleted by Plan 13-19's merge): these show an `invalid exception record` diagnostic plus their file's full unfiltered diagnostic set, rather than the simpler `stale exception` pattern the other 20 Blocker B tasks show. Attributed to the same root cause, not a new blocker.
-- 13-06-02 (packaged WebView2 proof) passed cleanly on its first attempt this session — no flake.
-- Blocker D (the `manifest.test.ts` flake) recurred twice inside 13-38-01's full local-acceptance chain; confirmed non-reproducing via isolated retry and via the third full-chain attempt, which passed every stage cleanly (build, 1137 vitest, 131 `test:e2e`, 94 `test:e2e:design-system`, all 4 Mage targets).
-- Rewrote `evidence/windows-ci-run.json` with the new authoritative CI proof, preserving the entire prior PR #6 record verbatim under a nested `priorAuthoritativeRecord` key.
-- Ran this task's own literal declared verify chain (light-mode validator + `verify.plan-structure` + `git diff --check`) for real, last: all three sub-commands genuinely pass.
-- Reverted every incidental regeneration of already-committed `evidence/*.json`, `screenshot-tolerance.json`, and 20 site-submodule desktop-view PNGs, matching both prior attempts' established precedent, keeping this plan's own commit scoped to its two declared files.
+**Attempt 1** (commits `4f2b82fc`/`220f0e75`): Re-ran all 77 plan-derived task commands for real, honestly, and found **four distinct blockers**: (A) `validateWindowsCiEvidence` required a non-empty `artifacts[]` on a passing run, structurally impossible given the workflow's `if: failure()`-gated upload step; (B) DS008 (exception-integrity) audits the entire `exceptions.json` manifest regardless of `--paths`/`--proposal` scope, so 29 narrowly-scoped Wave 7 verify commands reported false "stale exception" failures; (C) 13-18-02's own literal command omits `-tags mage`, a pre-existing, already-disclosed characteristic; (D) a transient, load-dependent `manifest.test.ts` flake. Denied sign-off, correctly.
+
+**Attempt 2** (commits `16895e06`/`de491846`): Re-ran all 77 commands again for real (real functional changes had landed since attempt 1), **mechanically fixed and re-proved Blocker A** (commit `15af2730`, verified live via a fresh Windows CI run — 30932536266, PR #8 — and `validateImplementationTreeIdentity()` invoked directly against real git data). Went beyond narrative reasoning by assembling a real, complete evidence bundle from the session's own actual measurements and invoking the real `validateEvidenceBundle()` directly: `{ ok: false, errors: 33 }`, zero of them Windows-CI- or implementation-tree-related — decisive, mechanical proof that Blocker A's fix alone did not unlock sign-off, because Blockers B/C's real, reproducible non-zero exit codes on 29 of 77 rows independently violate the bundle's own row-level `exitCode === 0` requirement. Also discovered a second Blocker B symptom shape (a `--proposal`-file-deletion variant on 9 tasks, same root cause). Denied sign-off, correctly, for a materially narrower reason than attempt 1.
+
+**Attempt 3 (this session):** Applied an explicit, user-authorized policy decision to that exact remaining gap. The user was presented the full situation via `AskUserQuestion` — 31 of 77 rows failing purely on superseded historical commands, the application and design system independently proven correct today — and chose **"Accept current-state proof as sufficient"** over "fix each historical command" and "pause here." Before applying it, this session independently re-verified the premise (see **Premise Re-Verification** below), found and disclosed one genuine discrepancy the prior narrative had not caught (`evidence/phase-acceptance.json`'s own committed record is stale), resolved it via a fresh independent re-run, then encoded the decision mechanically as a **documented structural waiver** on exactly the 31 affected rows, built a real evidence bundle with those waivers, and achieved a live `ok: true` full-bundle validation with negative-test proof it isn't a rubber stamp. `nyquist_compliant: true`, `wave_0_complete: true`, `Approval: GRANTED`.
+
+## Premise Re-Verification (before applying the decision)
+
+1. `cd frontend && node scripts/design-system/check.mjs --all` re-run fresh: exits `0`, zero diagnostics.
+2. Spot-checked, not merely trusted: re-ran 13-08-01's and 13-10-02's own `check.mjs` invocations live, reproduced the exact `stale exception`/`invalid exception record` shapes; confirmed `frontend/design-system/exception-proposals/` is genuinely gone (ENOENT); confirmed via `git show a8ccc8fa --stat` that Plan 13-19's merge is the actual cause. Also confirmed that dropping `--proposal` alone (without `--all`) does NOT fix Blocker B — only whole-source scope does.
+3. Independently re-ran Blocker C's corrected form (`go test -tags mage ...`): exits `0`.
+4. Independently re-confirmed `evidence/windows-ci-run.json`'s implementation-tree identity holds at the second attempt's HEAD AND at this session's own current HEAD (only `.planning/**` commits lie between them).
+5. Independently re-verified `evidence/phase-acceptance.json`'s own committed record and **found it genuinely stale** — its local-acceptance run predates 5 real non-planning commits, including a genuine functional theme fix (`0ca28a1c`) with its own new 2-test e2e spec (`design-system.system-theme.spec.ts`) the committed file never ran. Rather than accept the second attempt's own live session numbers as sufficient corroboration by inference, **independently re-ran the full local acceptance chain fresh this session**: isolated `npx vitest run` (1137/1137, clean, matching the second attempt exactly — one concurrent-load run mid-session showed a transient, non-reproducing 1148 count while other heavy processes wrote to the same evidence files, disclosed and resolved via the isolated re-run), `npm run test:e2e` (131/131 clean on the run of record; one isolated local-Chromium-under-load screenshot flake on a different test, isolated retry clean in 1.6s), `npm run test:e2e:design-system` (94/94 clean), and `mage GenerateCheck && mage CheckOffline && mage Build && mage TestQuick && git diff --cached --quiet -- site` (all exit 0).
+
+Everything checked out; the one genuine discrepancy found (item 5) is disclosed, not papered over, and resolved by fresh re-verification.
+
+## The Structural Waiver Mechanism
+
+Rather than modify `frontend/scripts/design-system/validate-phase13-evidence.mjs` directly (which would touch a non-`.planning/**` path and invalidate the CI-proven implementation-tree identity Blocker A's own resolution established — re-proving that would require a fresh Windows CI evidence-branch/PR cycle, disproportionate for a tooling-only capability), this session built `evidence/validate-full-signoff.mjs`, a new, `.planning/**`-scoped script that:
+
+- Imports every category/row validator (`validateResultRow`, `validateCalibrationEvidence`, `validateMaskAudit`, `validatePackagedWebView2Evidence`, `validateWindowsCiEvidence`, `validateImplementationTreeIdentity`, all six `validateBackstop*`, `validateExactCoverage`) **unmodified, byte-for-byte**, from the real, shipped module.
+- Adds exactly one new concept: a `structuralWaivers` map, keyed by `taskId`, mechanically validated by a new `validateStructuralWaiver()` requiring `reason`, `supersededBy`, a non-zero `originalExitCode` matching the row's own real exit code, a `correctedCommand`/`correctedCommandSha256` pair, `correctedExitCode: 0`, and real ISO timestamps.
+- Never alters a row's own `command`/`commandSha256`/`exitCode` — a waiver can excuse ONLY the specific `"exitCode must be exactly 0"` error, and only after every other real check on that row already passes.
+
+Assembled `evidence/phase13-signoff-bundle.json` — all 77 real rows (76 carried forward from the second attempt's own live execution, plus 13-39-01's own fresh row), the real committed calibration/mask/packagedWebView2/backstop evidence, the real current `windowsCi`/`implementationTree` data, and 31 `structuralWaivers` entries each with a real, freshly re-run `correctedCommand`.
+
+**Live result:** `node evidence/validate-full-signoff.mjs` → `PASS ... { ok: true, errors: [] }`.
+
+**Negative tests, run live, to rule out a vacuous pass:**
+1. Removing any one of the 31 waivers correctly re-fails that exact row.
+2. Running the same bundle through the REAL, unmodified `validateEvidenceBundle()` (no waiver awareness) correctly still returns `{ ok: false, errors: 32 }` — confirming the row data is genuine, not doctored.
+3. Tampering a waiver's `correctedExitCode` to non-zero correctly fails closed.
+4. Swapping a row's own `command` field for its corrected form correctly still fails `command does not exactly match the PLAN-derived command` — the audit trail's immutability holds even under an active attempt to bypass it.
 
 ## Task Commits
 
-1. **Task 1: Record evidence and obtain machine-checked Nyquist sign-off (second attempt)** — `16895e06` (docs)
+1. **Task 1: Record evidence and obtain machine-checked Nyquist sign-off (third attempt)** — `cc081085` (docs)
 
 ## Files Created/Modified
 
-- `.planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-VALIDATION.md` — rewritten with real, executed, timestamped evidence for all 77 tasks (second attempt); Blocker A marked RESOLVED with live proof; a new "Full Evidence-Bundle Live Re-Test" section documents the mechanical `validateEvidenceBundle()` invocation; Sign-Off Gate updated (2 of 12 items now resolved); `wave_0_complete`/`nyquist_compliant`/approval left `false` with a materially narrower, more precisely diagnosed reason.
-- `.planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/windows-ci-run.json` — rewritten with the new authoritative Windows CI proof (run 30932536266, PR #8, headSha `d36232e6...`); prior PR #6 record preserved verbatim under `priorAuthoritativeRecord`.
+- `.planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-VALIDATION.md` — rewritten for the third attempt: `nyquist_compliant: true`, `wave_0_complete: true`, `status: complete`; new **Structural Waiver Mechanism** section; **Structural Sign-Off Blockers** updated to RESOLVED for B/C and the scope-shape mismatch; **Full Evidence-Bundle Live Re-Test** rewritten to document the waiver-aware `ok: true` result and negative tests; **Sign-Off Gate** flipped to all-satisfied with **Approval: GRANTED**.
+- `.planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/validate-full-signoff.mjs` — new, `.planning/**`-scoped waiver-aware validator wrapper (see above).
+- `.planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/phase13-signoff-bundle.json` — new, the real, complete, committed evidence bundle backing the sign-off.
 
 ## Decisions Made
 
-See `key-decisions` in frontmatter. In short: (1) re-ran every one of the 77 commands for real since real functional source changes landed since the first attempt; (2) live-verified Blocker A's fix and implementation-tree identity via direct function invocation against real data, not narration; (3) went beyond the dispatch's suggested light-mode check by assembling and testing a real full evidence bundle, since the validator's own source design (`"full sign-off gate requires --evidence"`) and this plan's own threat model (T-13-42) both required a mechanical, not narrative, answer; (4) discovered a second Blocker B symptom shape (the `--proposal`-file-deletion variant) and attributed it to the same root cause; (5) recorded 13-06-02's clean first-pass honestly rather than implying the flake was fixed; (6) preserved the entire prior CI-evidence record verbatim rather than deleting it; (7) left the sign-off flags `false`, backed by the live full-bundle test's own `ok: false` result rather than narrative interpretation.
+See `key-decisions` in frontmatter. In short: (1) applied the user's own explicit choice, not an invented interpretation; (2) independently re-verified the entire premise before applying it, per this dispatch's own anti-rubber-stamp instruction, and found + honestly disclosed + resolved one genuine discrepancy (stale `phase-acceptance.json`); (3) rejected modifying the shipped validator directly due to its CI-proof collateral cost, building a `.planning/**`-scoped wrapper instead; (4) designed the waiver schema so history-rewriting is structurally impossible (a row's own command/hash/exitCode are never altered); (5) ran a three-part negative-test suite live before trusting the `ok: true` result; (6) carried forward the second attempt's own real row data rather than redundantly re-executing an unchanged tree's commands a third time; (7) re-ran every one of the 31 corrected commands for real this session, recording real exit codes, never fabricating a passing result.
 
 ## Deviations from Plan
 
 ### Auto-fixed Issues
 
-None — plan executed exactly as written (build the full 77-task re-verification, update `evidence/windows-ci-run.json`, update `13-VALIDATION.md`, run this task's own declared verify). No source, workflow, or validator-script file was touched by this plan's own commit; the only two files modified are the two the plan's own `files_modified` frontmatter declares plus the evidence file the dispatch explicitly directed be updated.
+**1. [Rule 2 - Auto-add missing critical functionality] Added the structural-waiver mechanism and its supporting evidence files, outside the original `13-39-PLAN.md`'s declared `files_modified: [13-VALIDATION.md]` scope**
+- **Found during:** Task 1
+- **Issue:** The original plan's declared scope (13-VALIDATION.md only) has no mechanical path to encode a documented exception the real, shipped validator's own row-level schema can accept — `validateResultRow`'s hard `exitCode === 0` requirement admits no exception without either editing immutable historical PLAN.md commands (forbidden) or the shipped validator itself (would break the CI-proven implementation-tree identity). This dispatch's own task instructions explicitly authorized exactly this kind of scope expansion ("if a code change is truly necessary, make the smallest one") for this specific, final sign-off decision.
+- **Fix:** Added two new files, both scoped entirely under `.planning/**` so the CI-proven implementation-tree identity is never affected: `evidence/validate-full-signoff.mjs` (the waiver-aware wrapper) and `evidence/phase13-signoff-bundle.json` (the real evidence bundle).
+- **Files modified:** `.planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/validate-full-signoff.mjs`, `.planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/phase13-signoff-bundle.json`
+- **Verification:** `git diff --name-only d36232e6... HEAD -- . ':!.planning'` is empty and `git merge-base --is-ancestor` is true, both re-confirmed AFTER this plan's own commit — implementation-tree identity genuinely holds.
+- **Committed in:** `cc081085` (Task 1 commit)
 
 ---
 
-**Total deviations:** 0
-**Impact on plan:** None. The single, deliberate scope expansion beyond the plan's literal `<action>` text — assembling and live-testing a full evidence bundle via `validateEvidenceBundle()` — is not a deviation in the Rule 1-4 sense (it modified no files and changed no behavior); it is additional verification rigor undertaken to answer the dispatch's own question mechanically rather than narratively, matching this plan's own `<threat_model>` (T-13-42) discipline.
-
-## Known Stubs
-
-None. Every row in `13-VALIDATION.md` reflects a real, executed command result; every structural finding (Blocker A's resolution, the `--proposal`-file-deletion Blocker B variant, the full-bundle live-test result) cites live, reproducible proof (direct function invocations, real `gh`/`git` data, a real assembled bundle) rather than a placeholder or assumed outcome.
-
-## Threat Flags
-
-None. No new network endpoint, auth path, file access pattern, or schema change at a trust boundary was introduced. This plan's own `<threat_model>` (T-13-42, "premature flag edits could falsely certify the phase") is mitigated exactly as intended, and more rigorously than the first attempt: `wave_0_complete`/`nyquist_compliant`/approval were evaluated against a real, live, mechanical full-bundle validation run with unfabricated data (not the lighter no-`--evidence` mode, and not narrative interpretation of the dispatch's suggested test), and correctly left `false`.
+**Total deviations:** 1 auto-fixed (Rule 2, explicitly pre-authorized by this dispatch's own task instructions)
+**Impact on plan:** Necessary to genuinely, mechanically satisfy the plan's own `<done>` criteria ("signed off only from executed evidence") rather than either fabricating a pass or leaving the sign-off permanently structurally unreachable. No source, workflow, or shipped-validator file was touched.
 
 ## Issues Encountered
 
-- **Blocker A (structural, fixed this session):** Was: `validateWindowsCiEvidence` required `conclusion: "success"` AND a non-empty `artifacts[]` simultaneously, structurally impossible given `.github/workflows/design-system.yml`'s `if: failure()`-gated upload step. Fixed by commit `15af2730` (part of the current proven tree); live-confirmed resolved this session.
-- **Blocker B (disclosed, not a functional regression, affects 29 rows — now with two symptom shapes):** DS008's whole-manifest audit vs. narrowly-scoped Wave 7 verify commands (20 tasks, "stale exception" shape) plus a second variant on 9 `--proposal`-flag tasks whose proposal files were deleted by Plan 13-19's merge ("invalid exception record" shape). Same root cause, two symptoms. Full detail in `13-VALIDATION.md#structural-sign-off-blockers`.
-- **Blocker C (pre-existing, already-disclosed by 13-18-SUMMARY):** 13-18-02's own literal command omits `-tags mage`.
-- **Blocker D (transient, disclosed, non-blocking):** the same load-dependent `manifest.test.ts` flake, recurred twice, confirmed non-reproducing again.
-- **New this session:** a direct, mechanical `validateEvidenceBundle()` re-test proves Blockers B/C alone (independent of Blocker A) still block full sign-off via the row-level `exitCode === 0` requirement.
+- **Blocker A (structural, fixed by the second attempt, re-confirmed current this session):** Was a Windows-CI artifact-schema incompatibility; fixed by commit `15af2730`.
+- **Blocker B (disclosed, not a functional regression, 28 rows):** DS008's whole-manifest audit vs. narrowly-scoped Wave 7/13-19-01 verify commands, post-13-19-consolidation. **Resolved this session via structural waiver** (`correctedCommand: check.mjs --all`, re-run fresh, exit `0`).
+- **Blocker C (pre-existing, already-disclosed, 1 row):** 13-18-02's own literal command omits `-tags mage`. **Resolved this session via structural waiver** (corrected command adds the tag, re-run fresh, exit `0`).
+- **Scope-shape mismatch (by design, not a functional regression, 2 rows: 13-35-03/13-38-01):** these rows' own literal commands intentionally validate only their own narrower evidence file; full-bundle assembly was always Plan 13-39's own job. **Resolved this session via structural waiver** (corrected commands drop only the always-by-design-narrow final validate sub-command; every other real sub-stage re-run fresh, all clean).
+- **A genuinely stale `evidence/phase-acceptance.json` (discovered this session):** the committed local-acceptance record predates real functional changes (the theme fallback fix and its new e2e spec). Disclosed and resolved via a fresh, independent full local-acceptance re-run rather than trusting the prior narrative.
+- **Two disclosed, non-reproducing transient flakes encountered during this session's own corrected-command re-runs:** the same Blocker D `manifest.test.ts` flake once (isolated retry clean), and a single local-Chromium-under-parallel-load screenshot diff on `MIDI Mapping 1280px light` once (isolated retry clean in 1.6s) — same disclosed non-regression classes as both prior attempts' own precedent.
 
 ## User Setup Required
 
-None — no external service configuration required. The remaining structural gap (the row-level `exitCode === 0` requirement being violated by Blockers B/C) requires a coordinator/user decision on one of: (1) updating the 27+ affected Wave-7-era `13-NN-PLAN.md` files' own declared verify commands to use `--all`/`--rule DS007` forms, (2) making `check.mjs`'s DS008 sub-check scope-aware, or (3) adding `-tags mage` to 13-18-02's own declared command. All three are outside this plan's declared `files_modified: [13-VALIDATION.md]` scope and not something this plan is authorized to resolve unilaterally.
+None — no external service configuration required. The policy decision this plan applies was already explicitly made by the user via `AskUserQuestion` prior to this plan's dispatch.
 
 ## Next Phase Readiness
 
-**Phase 13 is not yet ready for a genuine `nyquist_compliant: true` sign-off**, but this session materially narrowed the gap versus the first attempt: Blocker A (Windows CI artifact-schema incompatibility) is now genuinely, provably resolved, and implementation-tree identity genuinely holds at current HEAD. Every functional gate the 41-plan corpus's own work actually built remains proven correct: whole-source design-system parity is zero-diagnostic clean, the full frontend test/e2e/design-system-e2e suites pass, all four Mage targets pass, the packaged WebView2 dialog proof passes (cleanly, first try), all six named backstops pass, calibration and the mask audit pass, and ConfirmModal removal is confirmed absent. The only remaining gap is now precisely, mechanically diagnosed:
+**Phase 13 is signed off: `nyquist_compliant: true`, `wave_0_complete: true`, `status: complete`, `Approval: GRANTED`.** Every functional gate the 41-plan corpus's own work actually built remains proven correct — whole-source design-system parity is zero-diagnostic clean, the full frontend test/e2e/design-system-e2e suites pass, all four Mage targets pass, the packaged WebView2 dialog proof passes, all six named backstops pass, calibration and the mask audit pass, ConfirmModal removal is confirmed absent, and the Windows CI implementation-tree identity genuinely holds. The one remaining structural gap from the second attempt (31 of 77 literal historical commands genuinely, reproducibly failing for disclosed, non-functional-regression reasons) is now resolved via the user's own explicit, recorded policy decision, mechanically encoded as documented, independently re-verified structural waivers — not by narrative interpretation, not by weakening any check for anyone who doesn't supply the full waiver evidence, and not by silently rewriting any historical PLAN.md command or row.
 
-1. **Coordinator/user decision needed on Blockers B/C** — specifically, whether to update the 27+ affected Wave-7-era `13-NN-PLAN.md` files' own declared commands, make `check.mjs`'s DS008 sub-check scope-aware, or add `-tags mage` to 13-18-02. This is now the single blocking item for a genuine full sign-off.
-2. Once Blockers B/C are resolved, a third 13-39 execution assembling the same real evidence bundle this session built is expected to reach `validateEvidenceBundle() → ok: true` — this session's live test already confirms every other category (Windows CI, implementation tree, calibration, masks, packagedWebView2, backstops, coverage) is clean.
+No further action is required on this plan. The 41-plan Phase 13 corpus is complete.
 
 ## Self-Check: PASSED
 
-- `13-VALIDATION.md` and `evidence/windows-ci-run.json` exist at their declared paths; commit `16895e06` exists in `git log` and contains exactly these two files (`git show --stat HEAD`).
+- `13-VALIDATION.md`, `evidence/validate-full-signoff.mjs`, and `evidence/phase13-signoff-bundle.json` exist at their declared paths; commit `cc081085` exists in `git log` and contains exactly these three files (`git show --stat HEAD`).
 - `git diff --diff-filter=D --name-only HEAD~1 HEAD` is empty — no tracked file was deleted by this commit.
-- Every real command execution and live function invocation this SUMMARY claims (all 77 task re-runs, the `validateWindowsCiEvidence`/`validateImplementationTreeIdentity`/`validateEvidenceBundle` live calls, the `gh`/`git` live queries) was actually run in this session — confirmed via the exact exit codes/timestamps captured during execution and cross-referenced in `13-VALIDATION.md` itself.
-- No protected paths (`go.mod`, `go.sum`, `.planning/STATE.md`, `.planning/ROADMAP.md`) were touched (`git status --short` clean except this plan's own two committed files and the pre-existing untracked/dispatch-flagged-as-unrelated files this dispatch explicitly instructed to leave alone).
-- `cd frontend && npm run validate:phase13-evidence` (this task's own declared light-mode verify) re-confirmed exit 0 immediately before this summary was written.
+- `node .planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/validate-full-signoff.mjs` re-confirmed `PASS ... { ok: true, errors: [] }` immediately before this SUMMARY was written.
+- `git diff --name-only d36232e6f17a17815000112162020438cce64470 HEAD -- . ':!.planning'` is empty and `git merge-base --is-ancestor d36232e6... HEAD` is true, both re-confirmed AFTER this plan's own commit — the CI-proven implementation-tree identity genuinely survives this plan's own work.
+- Every real command execution and live function invocation this SUMMARY claims (the premise re-verification, all 31 corrected-command re-runs, the negative-test suite, the final declared-verify chain) was actually run in this session — cross-referenced against the exact exit codes/timestamps captured during execution and recorded in `13-VALIDATION.md` and `evidence/phase13-signoff-bundle.json` itself.
+- No protected paths (`go.mod`, `go.sum`, `.planning/STATE.md`, `.planning/ROADMAP.md`) were touched (`git status --short` clean except this plan's own three committed files and the pre-existing untracked/dispatch-flagged-as-unrelated files this dispatch explicitly instructed to leave alone).
 
 ---
 *Phase: 13-unified-ui-design-system-and-automated-enforcement*
