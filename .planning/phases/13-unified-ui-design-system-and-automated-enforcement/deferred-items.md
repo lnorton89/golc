@@ -3,8 +3,30 @@
 Out-of-scope discoveries found while executing a plan's own verification loop,
 logged here per the executor's SCOPE BOUNDARY rule rather than fixed inline.
 
-## 260803-13-32: Pre-existing top-bar text-overlap regression at 900px width
+## 260803-13-32: Pre-existing top-bar text-overlap regression at 900px width [RESOLVED 2026-08-04]
 
+- **Resolution:** `GlobalFrame`'s header now has the narrow-width strategy
+  this entry's own "Recommended follow-up" called for. `SafetyCluster`'s/
+  `TempoControls`'/`MidiLearnToggle`'s shared icon-only collapse breakpoint
+  moved from 700px to 1024px, restoring `LiveStatusBar` enough room at
+  900/960px that Scene/Layers/Bar and the Source/Output chips no longer
+  need to squeeze at all. `LiveStatusBar.module.css` also hardened
+  `.metricLabel`/`.metricValue`/the new `.statusChip` wrapper so every
+  field can genuinely shrink toward 0 (real `overflow:hidden` +
+  `min-width:0`, not just an ancestor clip) instead of holding its full
+  natural width and geometrically spilling into a neighbor at more extreme
+  widths, plus a two-tier gap reduction (`space2` at ≤1024px, `0` at
+  ≤700px) that closes the last few px at the 640px supported floor.
+  `frontend/e2e/resize.spec.ts` now passes at 640/900/960/1280/1920
+  (verified stable across repeated runs); `persistent-shell-*-win32.png`,
+  `dialog-layer-*-900-win32.png`, and every other 900px shell/workspace
+  baseline that captures the header were re-captured to match. The
+  320x240 `Overview` destination's separate, still-open
+  `findOverflowingControls` failure (`SafetyCluster`/`MidiLearnToggle`/
+  `Diagnose` past the viewport, below the 640px supported floor) is
+  unrelated to this entry and reproduces identically on the pre-fix
+  baseline -- left open, matching this suite's existing
+  `KNOWN_SUB_640PX_OFFENDERS` precedent for other sub-640px destinations.
 - **Found during:** Plan 13-32 (Task 1, persistent shell baselines), while
   writing the shell surface's own semantic pre-capture assertions.
 - **Symptom:** `helpers.ts`'s `expectTopBarTextToBeReadable(page)` fails at
@@ -86,6 +108,43 @@ logged here per the executor's SCOPE BOUNDARY rule rather than fixed inline.
   module) in a future Guided First Show polish pass; re-capture the four
   `guided-first-show-*-win32.png` baselines afterward since the fix will
   change their pixels.
+
+## 260804-13-32b: `Overview` destination overflows the viewport at 320x240, below the supported floor
+
+- **Found during:** fixing 260803-13-32 (above) and re-running the full
+  `frontend/e2e/resize.spec.ts` sweep to confirm the header fix didn't
+  regress anything else.
+- **Symptom:** `Test 1`'s 320x240 case fails on the `Overview` destination
+  with `findOverflowingControls` (not `expectTopBarTextToBeReadable`):
+  `"Stop / Release All"`, `"MIDI Learn"`, and `"Diagnose"` each report a
+  right edge past the 320px viewport.
+- **Confirmed pre-existing, not caused by 260803-13-32's fix:** reproduces
+  identically with `SafetyCluster.module.css`/`TempoControls.module.css`/
+  `MidiLearnToggle.module.css`/`LiveStatusBar.module.css` reverted to their
+  pre-fix state (`git stash` of those four files, same test, same result).
+  320px is below `resize.spec.ts`'s own `HEADER_MIN_SUPPORTED_WIDTH`
+  (640px) floor, the same territory `KNOWN_SUB_640PX_OFFENDERS` already
+  allowlists per-destination for six other destinations (Settings, Fixture
+  Library, Patch & Pools, Scenes & Looks, Operator Surface, Desk) --
+  `Overview` simply isn't in that dict yet.
+- **Likely root cause:** the same `SafetyCluster` 28px→44px target-size
+  growth (13-15) that motivated 260803-13-32 above; even fully collapsed to
+  icon-only (which 260803-13-32's breakpoint raise does not change below
+  700px), three 44px safety controls plus `MidiLearnToggle` plus
+  `LiveStatusBar`'s own 60px floor no longer fit in a 320px-wide header.
+- **Why deferred rather than fixed here:** below the documented supported
+  floor, this suite's own convention is to allowlist known offenders per
+  destination rather than force a narrow-width redesign (see
+  `KNOWN_SUB_640PX_OFFENDERS`'s existing six entries) -- `D-13`'s actual
+  guarantee (the safety cluster stays available) is separately verified by
+  `expectSafetyClusterAvailable` regardless of on-screen position, and this
+  is well outside the header-legibility floor 260803-13-32 targeted.
+- **Recommended follow-up:** add `Overview: /^"(Stop \/ Release All|MIDI
+  Learn|Diagnose)":/` (or similarly scoped pattern) to
+  `KNOWN_SUB_640PX_OFFENDERS` in `frontend/e2e/resize.spec.ts`, or -- if a
+  future pass wants genuine sub-640px header coverage -- give
+  `SafetyCluster`/`MidiLearnToggle` a second, narrower collapse tier below
+  700px.
 
 ## 260803-13-18: `ROADMAP.md`'s Phase 13 heading uses `**Requirements**:` instead of `**Requirements:**`
 

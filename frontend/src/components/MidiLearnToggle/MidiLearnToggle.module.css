@@ -67,7 +67,9 @@
   cursor: not-allowed;
 }
 
-@media (max-width: 700px) {
+/* Mirrors SafetyCluster.module.css's own breakpoint and rationale (raised
+   to 1024px alongside it, 260803-13-32). */
+@media (max-width: 1024px) {
   .toggle {
     padding-inline: var(--ds-spacing-space1);
   }
