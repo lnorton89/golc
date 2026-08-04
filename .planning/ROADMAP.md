@@ -583,7 +583,7 @@ Plans:
 **Goal:** Every reachable desktop surface uses one documented Paper/Ink design system whose semantic tokens, typed components, accessibility states, theme parity, safety invariants, and exceptions are mechanically enforced with zero unregistered drift.
 **Requirements:** DSYS-01, DSYS-02, DSYS-03, DSYS-04, DSYS-05, DSYS-06, DSYS-07, DSYS-08, DSYS-09, DSYS-10, DSYS-11, DSYS-12, DSYS-13, DSYS-14
 **Depends on:** Phase 12
-**Plans:** 40/41 plans executed
+**Plans:** 41/41 plans executed
 
 Plans:
 
@@ -625,7 +625,7 @@ Plans:
 - [x] 13-36-PLAN.md — Final public inventory/theme/contrast parity (wave 14)
 - [x] 13-37-PLAN.md — ConfirmModal implementation and compatibility removal (wave 13)
 - [x] 13-38-PLAN.md — Complete local acceptance with semantic result evidence (wave 16)
-- [ ] 13-39-PLAN.md — Machine-checked final Nyquist sign-off (wave 17)
+- [x] 13-39-PLAN.md — Machine-checked final Nyquist sign-off (wave 17)
 - [x] 13-40-PLAN.md — Six-file scene timeline and layer geometry migration (wave 7)
 - [x] 13-41-PLAN.md — 200% text-zoom and provider/daemon-offline safety acceptance (wave 9)
 
