@@ -4,7 +4,6 @@
     { "name": "Button", "kind": "primitive", "exportPath": "src/components/primitives/Button/Button.tsx", "guideAnchor": "#button", "testPath": "src/components/primitives/Button/Button.test.tsx" },
     { "name": "Chip", "kind": "primitive", "exportPath": "src/components/primitives/Chip/Chip.tsx", "guideAnchor": "#chip", "testPath": "src/components/primitives/Chip/Chip.test.tsx" },
     { "name": "ConfirmDialog", "kind": "primitive", "exportPath": "src/components/primitives/ConfirmDialog/ConfirmDialog.tsx", "guideAnchor": "#confirmdialog", "testPath": "src/components/primitives/ConfirmDialog/ConfirmDialog.test.tsx" },
-    { "name": "ConfirmModal", "kind": "primitive", "exportPath": "src/components/primitives/ConfirmModal/ConfirmModal.tsx", "guideAnchor": "#confirmmodal", "testPath": "src/design-system/design-system.contract.test.ts" },
     { "name": "DataList", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#datalist", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" },
     { "name": "Dialog", "kind": "primitive", "exportPath": "src/components/primitives/Dialog/Dialog.tsx", "guideAnchor": "#dialog", "testPath": "src/components/primitives/Dialog/Dialog.test.tsx" },
     { "name": "EmptyState", "kind": "primitive", "exportPath": "src/components/primitives/EmptyState/EmptyState.tsx", "guideAnchor": "#emptystate", "testPath": "src/components/primitives/EmptyState/EmptyState.test.tsx" },

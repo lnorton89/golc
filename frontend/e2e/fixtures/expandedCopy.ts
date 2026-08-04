@@ -73,7 +73,7 @@ export const COPY_PAIRS: CopyPair[] = [
     id: "dialog-notes-delete-confirm",
     category: "dialog",
     description:
-      "NotesWorkspace's destructive ConfirmModal impact message (Copywriting Contract's 'This {specific impact}. This can't be undone.' pattern, interpolating the selected note's own title) -- expected to wrap and remain fully readable, never truncated.",
+      "NotesWorkspace's destructive ConfirmDialog impact message (Copywriting Contract's 'This {specific impact}. This can't be undone.' pattern, interpolating the selected note's own title) -- expected to wrap and remain fully readable, never truncated.",
     canonical: "Show Notes",
     expanded:
       "Show Notes — Full Production Run-of-Show Cue Sheet and Technical Rider Annotations (Draft Revision 7, Confidential)",

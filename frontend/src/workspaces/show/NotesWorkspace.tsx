@@ -42,7 +42,7 @@ import {
   type NoteSummaryView,
 } from "../../lib/wailsBridge";
 
-import { Button, ConfirmModal, EmptyState, Field, ListRow, Panel, ResizeHandle, ScrollRegion, WorkspaceFrame } from "../../design-system";
+import { Button, ConfirmDialog, EmptyState, Field, ListRow, Panel, ResizeHandle, ScrollRegion, WorkspaceFrame } from "../../design-system";
 import NoteEditor from "../../components/Notes/NoteEditor";
 import { useResizablePanel } from "../../hooks/useResizablePanel";
 import styles from "./NotesWorkspace.module.css";
@@ -451,15 +451,17 @@ export default function NotesWorkspace() {
         )}
       </div>
 
-      {confirmingDelete && selectedNote ? (
-        <ConfirmModal
-          title="Delete Note"
-          message={`This permanently removes "${selectedNote.title}" from this show. This can't be undone.`}
-          confirmLabel="Delete Note"
-          onConfirm={handleDelete}
-          onCancel={() => setConfirmingDelete(false)}
-        />
-      ) : null}
+      <ConfirmDialog
+        open={confirmingDelete && selectedNote !== null}
+        destructive
+        title="Delete Note"
+        message={
+          selectedNote ? `This permanently removes "${selectedNote.title}" from this show. This can't be undone.` : ""
+        }
+        confirmLabel="Delete Note"
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmingDelete(false)}
+      />
     </WorkspaceFrame>
   );
 }
