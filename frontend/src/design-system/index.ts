@@ -2,7 +2,6 @@
 export { default as Button } from "../components/primitives/Button/Button";
 export { default as Chip } from "../components/primitives/Chip/Chip";
 export { default as ConfirmDialog } from "../components/primitives/ConfirmDialog/ConfirmDialog";
-export { default as ConfirmModal } from "../components/primitives/ConfirmModal/ConfirmModal";
 export { default as Dialog } from "../components/primitives/Dialog/Dialog";
 export { default as EmptyState } from "../components/primitives/EmptyState/EmptyState";
 export { default as ErrorState } from "../components/primitives/ErrorState/ErrorState";

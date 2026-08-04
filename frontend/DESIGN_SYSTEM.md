@@ -45,7 +45,6 @@ Do not use raw colors, local token namespaces, theme-name conditionals, custom `
 | Button | primitive | `src/components/primitives/Button/Button.tsx` | `src/components/primitives/Button/Button.test.tsx` |
 | Chip | primitive | `src/components/primitives/Chip/Chip.tsx` | `src/components/primitives/Chip/Chip.test.tsx` |
 | ConfirmDialog | primitive | `src/components/primitives/ConfirmDialog/ConfirmDialog.tsx` | `src/components/primitives/ConfirmDialog/ConfirmDialog.test.tsx` |
-| ConfirmModal | primitive | `src/components/primitives/ConfirmModal/ConfirmModal.tsx` | `src/design-system/design-system.contract.test.ts` |
 | DataList | pattern | `src/design-system/patterns/index.tsx` | `src/design-system/fixtures/DesignSystemGallery.test.tsx` |
 | Dialog | primitive | `src/components/primitives/Dialog/Dialog.tsx` | `src/components/primitives/Dialog/Dialog.test.tsx` |
 | EmptyState | primitive | `src/components/primitives/EmptyState/EmptyState.tsx` | `src/components/primitives/EmptyState/EmptyState.test.tsx` |

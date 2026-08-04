@@ -49,7 +49,7 @@ import ContextualInspector from "./ContextualInspector";
 import WorkspaceRouter from "./WorkspaceRouter";
 import HelpOverlay from "./HelpOverlay";
 import QuickSwitcher from "./QuickSwitcher";
-import ConfirmModal from "../components/primitives/ConfirmModal/ConfirmModal";
+import ConfirmDialog from "../components/primitives/ConfirmDialog/ConfirmDialog";
 import { InspectorPortalProvider } from "./InspectorSlot";
 import { PlaybackSnapshotProvider } from "./PlaybackSnapshotContext";
 import { useGlobalKeyboardWorkflow } from "./useGlobalKeyboardWorkflow";
@@ -70,10 +70,12 @@ function ShellCanvas({ active }: { active: DestinationId }) {
 // guiding silently did nothing (activeDestination changed underneath the
 // still-open guide overlay, with zero visible effect) -- guide-navigation
 // -guard pass. Now the rail visually dims (CommandRail's own `dimmed`
-// prop) and a click prompts a ConfirmModal instead of navigating
+// prop) and a click prompts a ConfirmDialog instead of navigating
 // straight away; confirming calls the same `navigateTo` a stage's own
 // primary action already uses to hand off to a real workspace, so
 // leaving-via-nav-click and leaving-via-a-stage-action behave identically.
+// Uses ConfirmDialog (the design-system's public confirmation contract),
+// not a bespoke conditional-render dialog.
 function GuardedCommandRail({ active }: { active: DestinationId }) {
   const { open, navigateTo } = useGuidedFirstShow();
   const [pendingDestination, setPendingDestination] = useState<DestinationId | null>(null);
@@ -91,20 +93,21 @@ function GuardedCommandRail({ active }: { active: DestinationId }) {
           }
         }}
       />
-      {pendingDestination && (
-        <ConfirmModal
-          title="Leave the guide?"
-          message="You're leaving the Guided First Show before finishing. Your progress is kept, and you can resume from Overview later."
-          confirmLabel="Leave Guide"
-          cancelLabel="Stay in Guide"
-          onConfirm={() => {
+      <ConfirmDialog
+        open={pendingDestination !== null}
+        title="Leave the guide?"
+        message="You're leaving the Guided First Show before finishing. Your progress is kept, and you can resume from Overview later."
+        confirmLabel="Leave Guide"
+        cancelLabel="Stay in Guide"
+        onConfirm={() => {
+          if (pendingDestination) {
             const destination = pendingDestination;
             setPendingDestination(null);
             navigateTo(destination);
-          }}
-          onCancel={() => setPendingDestination(null)}
-        />
-      )}
+          }
+        }}
+        onCancel={() => setPendingDestination(null)}
+      />
     </>
   );
 }
