@@ -1,5 +1,6 @@
 {
-  "status": "pending",
+  "status": "failed",
+  "conclusion": "REJECTED - this is an honest failure record, not passing Windows CI evidence. Plan 13-35 could not produce the required successful Windows design-system.yml evidence at commit 78ebde6c53e12c21a6aa0daf1f00755555e628a6. Do not treat any field below as a claim of success.",
   "authorization": {
     "mechanism": "authorize-push-via-evidence-branch-pr",
     "description": "A corrected/clarified form of Task 1's originally-offered 'authorize-push' option. Direct push of the approved SHA to origin/master cannot trigger .github/workflows/design-system.yml because that workflow's sole trigger is `on: pull_request` (confirmed by reading the workflow file, `gh workflow view design-system.yml --yaml`, and `gh run list --workflow design-system.yml` returning zero total runs prior to this plan). The executor halted and reported this finding rather than pushing directly or improvising an unauthorized mechanism. The user then gave fresh, explicit authorization for the corrected mechanism: create a short-lived branch at the exact approved SHA, push only that branch to origin, and open a pull request against master from it so a genuine pull_request event fires the required workflow. The exact approved implementation SHA is unchanged from the original authorization.",
@@ -12,25 +13,130 @@
       "url": "https://github.com/lnorton89/golc/pull/6",
       "baseRef": "master",
       "headRef": "phase13-ci-evidence-78ebde6c",
-      "note": "Disposable evidence-gathering PR. Not merged, not closed for the duration of evidence gathering; exists solely to fire the pull_request event."
+      "note": "Disposable evidence-gathering PR. Left open (not merged, not closed) for the duration of evidence gathering per the authorized mechanism; existed solely to fire the pull_request event."
     },
     "approvedBy": "user, via a second AskUserQuestion, answer \"Authorize branch + PR (Recommended)\"",
     "noForcePush": true,
     "noOtherRefsModified": true,
     "masterUntouchedDirectly": true
   },
-  "trigger": {
-    "mechanismExecuted": "created branch phase13-ci-evidence-78ebde6c pointing at exactly 78ebde6c53e12c21a6aa0daf1f00755555e628a6, pushed it to origin without force, opened PR #6 (lnorton89/golc) against master",
-    "branchHeadShaAtPushTime": "78ebde6c53e12c21a6aa0daf1f00755555e628a6",
-    "resultingRun": {
-      "runId": 30870575466,
-      "url": "https://github.com/lnorton89/golc/actions/runs/30870575466",
-      "event": "pull_request",
-      "headSha": "78ebde6c53e12c21a6aa0daf1f00755555e628a6",
-      "headBranch": "phase13-ci-evidence-78ebde6c",
-      "statusAtMutationTime": "in_progress",
-      "createdAt": "2026-08-04T02:02:19Z"
+  "windowsCi": {
+    "runId": 30870575466,
+    "url": "https://github.com/lnorton89/golc/actions/runs/30870575466",
+    "workflowPath": ".github/workflows/design-system.yml",
+    "workflowName": "design-system",
+    "event": "pull_request",
+    "repository": "lnorton89/golc",
+    "headSha": "78ebde6c53e12c21a6aa0daf1f00755555e628a6",
+    "headShaMatchesApprovedSha": true,
+    "headBranch": "phase13-ci-evidence-78ebde6c",
+    "attempt": 1,
+    "createdAt": "2026-08-04T02:02:19Z",
+    "updatedAt": "2026-08-04T02:13:29Z",
+    "status": "completed",
+    "conclusion": "failure",
+    "jobs": [
+      {
+        "databaseId": 91871569416,
+        "name": "design-system",
+        "status": "completed",
+        "conclusion": "failure",
+        "startedAt": "2026-08-04T02:02:22Z",
+        "completedAt": "2026-08-04T02:13:28Z",
+        "url": "https://github.com/lnorton89/golc/actions/runs/30870575466/job/91871569416",
+        "steps": [
+          { "number": 1, "name": "Set up job", "status": "completed", "conclusion": "success" },
+          { "number": 2, "name": "Checkout", "status": "completed", "conclusion": "success" },
+          { "number": 3, "name": "Install pinned Mage", "status": "completed", "conclusion": "success" },
+          { "number": 4, "name": "bootstrap", "status": "completed", "conclusion": "success" },
+          { "number": 5, "name": "Install lockfile-matched Chromium", "status": "completed", "conclusion": "success" },
+          { "number": 6, "name": "designsystembrowser", "status": "completed", "conclusion": "failure", "startedAt": "2026-08-04T02:10:02Z", "completedAt": "2026-08-04T02:13:20Z", "note": "mage DesignSystemBrowser / Playwright design-system visual suite: 92 tests run (1 worker, serialized), 68 passed, 24 failed. Every failure is a toHaveScreenshot() pixel-diff mismatch against a checked-in *-win32.png baseline. No Go/build/lint/compile error anywhere in this run." },
+          { "number": 7, "name": "Upload design-system visual evidence", "status": "completed", "conclusion": "success", "note": "if: failure() step; ran because step 6 failed, uploaded the design-system-visual-evidence artifact inspected below." },
+          { "number": 14, "name": "Post Checkout", "status": "completed", "conclusion": "success" }
+        ]
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "https://api.github.com/repos/lnorton89/golc/actions/artifacts/8877908319/zip",
+        "mediaType": "application/zip",
+        "byteCount": 8120729,
+        "sha256": "f7b57ff3e2c811269cd63abd5e3eb5139972b8e664c4f72ac76ed92fff4ba286",
+        "artifactId": 8877908319,
+        "artifactName": "design-system-visual-evidence",
+        "githubReportedDigest": "sha256:f7b57ff3e2c811269cd63abd5e3eb5139972b8e664c4f72ac76ed92fff4ba286",
+        "expiresAt": "2026-08-18T02:13:21Z",
+        "inspectedReadOnly": true,
+        "downloadedToTemporaryDirectory": true,
+        "temporaryDirectoryRemovedAfterInspection": true
+      }
+    ]
+  },
+  "implementationTree": {
+    "provenSha": "78ebde6c53e12c21a6aa0daf1f00755555e628a6",
+    "observedSha": "78ebde6c53e12c21a6aa0daf1f00755555e628a6",
+    "declaredProvenHash": "52b44a9111d634b0e0f9f9490b494bf1a0840122d7572a2a6e8354c7766b6d42",
+    "declaredObservedHash": "52b44a9111d634b0e0f9f9490b494bf1a0840122d7572a2a6e8354c7766b6d42",
+    "fieldNameNote": "provenSha/observedSha/declaredProvenHash/declaredObservedHash are the exact field names frontend/scripts/design-system/validate-phase13-evidence.mjs#validateImplementationTreeIdentity destructures from bundle.implementationTree (it spreads the object directly). The descriptive aliases below duplicate the same values under Task 3's own prose field names for human readability.",
+    "ciProvenImplementationSha": "78ebde6c53e12c21a6aa0daf1f00755555e628a6",
+    "ciProvenImplementationManifestHash": "52b44a9111d634b0e0f9f9490b494bf1a0840122d7572a2a6e8354c7766b6d42",
+    "manifestEntryCount": 930,
+    "manifestAlgorithm": "sorted `git ls-tree -r --full-tree <sha>` entries excluding any path under .planning/, joined as `{mode} blob {objectId}\\t{path}` lines, sha256 over the joined text (matches frontend/scripts/design-system/validate-phase13-evidence.mjs#computeImplementationManifest exactly)",
+    "observedDescendantSha": "78ebde6c53e12c21a6aa0daf1f00755555e628a6",
+    "observedDescendantManifestHash": "52b44a9111d634b0e0f9f9490b494bf1a0840122d7572a2a6e8354c7766b6d42",
+    "ancestryResult": "identical (observedDescendantSha equals ciProvenImplementationSha; no later commit exists yet on the evidence branch beyond the approved SHA)",
+    "changedPaths": [],
+    "allowlist": ".planning/**",
+    "manifestHashesEqual": true,
+    "note": "Trivial equality because this evidence was gathered at the exact approved commit, not a later planning-only descendant. This field set exists to support later plans (13-38/13-39) validating a planning-only descendant against this proven tree."
+  },
+  "failure": {
+    "summary": "24 of 92 Playwright design-system browser-visual tests failed on the real Windows GitHub Actions runner (windows-latest, first-ever run of this workflow -- 0 prior runs existed). Every single failure is a toHaveScreenshot() pixel-diff mismatch against a checked-in `*-win32.png` baseline; zero failures are Go/build/compile/lint errors, zero are test crashes or timeouts, and 68 of the 92 tests (including every non-visual-comparison assertion, all calibration tests, and several toHaveScreenshot() comparisons -- Guided First Show x4, Desk/Operator Surface x4, dialog layer x4) passed cleanly.",
+    "totalTests": 92,
+    "passed": 68,
+    "failed": 24,
+    "failingTests": [
+      { "spec": "e2e/design-system.visual-authoring.spec.ts", "name": "Scenes & Looks › 900px light", "baseline": "scenes-looks-light-900-win32.png", "diffPixels": 69, "diffRatio": 0.01 },
+      { "spec": "e2e/design-system.visual-authoring.spec.ts", "name": "Scenes & Looks › 900px dark", "baseline": "scenes-looks-dark-900-win32.png", "diffPixels": 84, "diffRatio": 0.01 },
+      { "spec": "e2e/design-system.visual-authoring.spec.ts", "name": "Scenes & Looks › 1280px light", "baseline": "scenes-looks-light-1280-win32.png", "diffPixels": 639, "diffRatio": 0.01 },
+      { "spec": "e2e/design-system.visual-authoring.spec.ts", "name": "Scenes & Looks › 1280px dark", "baseline": "scenes-looks-dark-1280-win32.png", "diffPixels": 805, "diffRatio": 0.01 },
+      { "spec": "e2e/design-system.visual-authoring.spec.ts", "name": "Fixture Library / Patch & Pools › 900px light", "baseline": "fixtures-patch-light-900-win32.png", "diffPixels": 69, "diffRatio": 0.01 },
+      { "spec": "e2e/design-system.visual-authoring.spec.ts", "name": "Fixture Library / Patch & Pools › 900px dark", "baseline": "fixtures-patch-dark-900-win32.png", "diffPixels": 84, "diffRatio": 0.01 },
+      { "spec": "e2e/design-system.visual-authoring.spec.ts", "name": "Fixture Library / Patch & Pools › 1280px light", "baseline": "fixtures-patch-light-1280-win32.png", "diffPixels": 69, "diffRatio": 0.01 },
+      { "spec": "e2e/design-system.visual-authoring.spec.ts", "name": "Fixture Library / Patch & Pools › 1280px dark", "baseline": "fixtures-patch-dark-1280-win32.png", "diffPixels": 84, "diffRatio": 0.01 },
+      { "spec": "e2e/design-system.visual-live-editors.spec.ts", "name": "MIDI Mapping › 900px light", "baseline": "midi-mapping-light-900-win32.png", "diffPixels": 13274, "diffRatio": 0.03 },
+      { "spec": "e2e/design-system.visual-live-editors.spec.ts", "name": "MIDI Mapping › 900px dark", "baseline": "midi-mapping-dark-900-win32.png", "diffPixels": 17377, "diffRatio": 0.03 },
+      { "spec": "e2e/design-system.visual-live-editors.spec.ts", "name": "MIDI Mapping › 1280px light", "baseline": "midi-mapping-light-1280-win32.png", "diffPixels": 17662, "diffRatio": 0.02 },
+      { "spec": "e2e/design-system.visual-live-editors.spec.ts", "name": "MIDI Mapping › 1280px dark", "baseline": "midi-mapping-dark-1280-win32.png", "diffPixels": 26156, "diffRatio": 0.03 },
+      { "spec": "e2e/design-system.visual-live-editors.spec.ts", "name": "Scripts / Notes › 900px light", "baseline": "scripts-notes-light-900-win32.png", "diffPixels": 15, "diffRatio": 0.01 },
+      { "spec": "e2e/design-system.visual-live-editors.spec.ts", "name": "Scripts / Notes › 900px dark", "baseline": "scripts-notes-dark-900-win32.png", "diffPixels": 15, "diffRatio": 0.01 },
+      { "spec": "e2e/design-system.visual-live-editors.spec.ts", "name": "Scripts / Notes › 1280px light", "baseline": "scripts-notes-light-1280-win32.png", "diffPixels": 15, "diffRatio": 0.01 },
+      { "spec": "e2e/design-system.visual-live-editors.spec.ts", "name": "Scripts / Notes › 1280px dark", "baseline": "scripts-notes-dark-1280-win32.png", "diffPixels": 15, "diffRatio": 0.01 },
+      { "spec": "e2e/design-system.visual-shell.spec.ts", "name": "persistent shell › 900px light", "baseline": "persistent-shell-light-900-win32.png", "diffPixels": 82, "diffRatio": 0.01 },
+      { "spec": "e2e/design-system.visual-shell.spec.ts", "name": "persistent shell › 900px dark", "baseline": "persistent-shell-dark-900-win32.png", "diffPixels": 97, "diffRatio": 0.01 },
+      { "spec": "e2e/design-system.visual-shell.spec.ts", "name": "persistent shell › 1280px light", "baseline": "persistent-shell-light-1280-win32.png", "diffPixels": 82, "diffRatio": 0.01 },
+      { "spec": "e2e/design-system.visual-shell.spec.ts", "name": "persistent shell › 1280px dark", "baseline": "persistent-shell-dark-1280-win32.png", "diffPixels": 97, "diffRatio": 0.01 },
+      { "spec": "e2e/design-system.visual-shell.spec.ts", "name": "shared gallery › 900px light", "baseline": "shared-gallery-light-900-win32.png", "diffPixels": 22945, "diffRatio": 0.04 },
+      { "spec": "e2e/design-system.visual-shell.spec.ts", "name": "shared gallery › 900px dark", "baseline": "shared-gallery-dark-900-win32.png", "diffPixels": 26203, "diffRatio": 0.05 },
+      { "spec": "e2e/design-system.visual-shell.spec.ts", "name": "shared gallery › 1280px light", "baseline": "shared-gallery-light-1280-win32.png", "diffPixels": 24821, "diffRatio": 0.03 },
+      { "spec": "e2e/design-system.visual-shell.spec.ts", "name": "shared gallery › 1280px dark", "baseline": "shared-gallery-dark-1280-win32.png", "diffPixels": 28192, "diffRatio": 0.04 }
+    ],
+    "artifactInspection": {
+      "method": "Downloaded the single design-system-visual-evidence artifact (id 8877908319) via `gh run download 30870575466` into a temporary contained directory, visually inspected a sample of *-diff.png images (small-diff case: scenes-looks-light-900; large-diff cases: midi-mapping-dark-1280, shared-gallery-dark-1280), computed sha256/byteCount for every one of the 24 failing tests' -actual.png and -diff.png files, then deleted the temporary directory.",
+      "smallDiffObservation": "In the small-diff cases (Scenes & Looks, Fixture Library/Patch & Pools, Scripts/Notes, persistent shell -- 15 to 805 pixels, ratio 0.01), the diff overlay shows isolated red marks confined to small icon-like glyphs (e.g. panel-header expand/collapse chevrons), with the rest of the page rendering pixel-identical (faded/white in the diff overlay).",
+      "largeDiffObservation": "In the large-diff cases (MIDI Mapping, shared gallery -- 13274 to 28192 pixels, ratio 0.02-0.05), the diff overlay shows the SAME text content duplicated at two slightly different vertical (and occasionally horizontal) positions across the entire page -- e.g. 'No Desk mappings yet', 'Warm Wash scene', 'Blackout Fade scene' in MIDI Mapping, and 'Nothing here yet', 'Create an item to begin', 'Guided flow and selected state' in the shared gallery all appear twice, overlapping, at a small vertical offset. This is a cascading-offset pattern consistent with a small per-line text/metric shift compounding down a long list of stacked rows, not different literal text content between expected and actual.",
+      "assessment": "HYPOTHESIS, NOT CONFIRMED: the pattern (isolated icon-level diffs on short/static views; cascading vertical text-position offsets on tall/list-heavy views; zero content substitution anywhere inspected; this is workflow run #1 for design-system.yml, i.e. these *-win32.png baselines had never previously been validated against a real GitHub Actions windows-latest runner) is most consistent with a font-rendering / line-height / DPI discrepancy between whichever machine originally captured these baselines (Plans 13-32/13-33/13-34, captured 2026-08-03 in this project's own executor worktrees, not verified to be genuinely pristine windows-latest GitHub Actions runners) and the actual clean windows-latest GitHub Actions image used by this run -- rather than 24 independent real visual regressions in the underlying UI code. This is an assessment based on the evidence inspected, not a proven root cause; it has NOT been verified by re-running capture on an actual windows-latest runner or by a controlled A/B rendering comparison, and it does not rule out a genuine regression as an alternative explanation.",
+      "notInvestigated": "No attempt was made to fix the baselines, regenerate them, or re-trigger a new run. No attempt was made to bisect which specific commit between baseline capture and this run introduced the discrepancy. That determination and any remediation (re-capturing baselines on a real windows-latest GitHub Actions runner, or a deeper diff-tooling investigation) is left to the orchestrator/user as a separate decision."
     }
   },
-  "note": "PENDING: Task 3 will wait for terminal completion, download/inspect artifacts read-only, and overwrite this file with the final immutable evidence record (windowsCi, implementationTree, and all other required fields) or an honest failure record."
+  "requiredArtifactCategoriesNotApplicable": {
+    "note": "Task 3's action text lists categories to download and inspect (expected result, calibration, screenshot actual/expected/diff, mask-audit, zoom, offline-safety, packaged-WebView2). Given this run's actual conclusion is failure, the only GitHub Actions artifact this workflow produces (`design-system-visual-evidence`, gated by `if: failure()` in .github/workflows/design-system.yml) is the Playwright test-results/snapshots bundle inspected above -- it does not contain separately-typed calibration/mask-audit/zoom/offline-safety/packaged-WebView2 evidence files (those already exist locally as evidence/*.json, produced by earlier plans, and are outside this run's own artifact). This is disclosed rather than papered over: no calibration/mask-audit/zoom/offline-safety/packaged-WebView2 category was fabricated or asserted from this CI run."
+  },
+  "fullBundleValidatorNote": "Running `npm run validate:phase13-evidence -- --evidence windows-ci-run.json` against this file will report additional errors beyond the CI failure itself: `validateEvidenceBundle` expects a full phase-13 sign-off bundle shape (rows[], calibration, masks, packagedWebView2, backstops, requirementsCovered, backstopsCovered, signOff) that only Plans 13-38/13-39 are scoped to assemble; this file intentionally carries only the windowsCi/implementationTree/failure fields Task 3's own action text describes. Those additional schema-category errors are a known, pre-existing scope mismatch between this narrow per-run artifact and the full-bundle validator's shape, not evidence of a problem with the Windows CI run itself, and are not being papered over -- the run's own genuine conclusion (failure, 24/92 tests failed) is what actually blocks Plan 13-35's success criteria, independent of that schema mismatch.",
+  "signOff": {
+    "wave_0_complete": false,
+    "nyquist_compliant": false,
+    "approved": false,
+    "reason": "Windows CI run 30870575466 concluded failure (24/92 Playwright visual tests failed). Plan 13-35's own must_haves require an immutable workflow run URL/id and head SHA identifying a *successful* required Windows job before phase sign-off can proceed; this run does not satisfy that. No sign-off flag is set true while this failure stands."
+  }
 }
