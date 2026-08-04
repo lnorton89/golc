@@ -137,6 +137,13 @@ function __golcCall(method: string, params: unknown): Promise<any> {
     remove: (params: any): Promise<any> => __golcCall("motion delete", params),
     rename: (params: any): Promise<any> => __golcCall("motion rename", params)
   },
+  note: {
+    create: (params: any): Promise<any> => __golcCall("note create", params),
+    edit: (params: any): Promise<any> => __golcCall("note edit", params),
+    list: (params: any): Promise<any> => __golcCall("note list", params),
+    remove: (params: any): Promise<any> => __golcCall("note delete", params),
+    show: (params: any): Promise<any> => __golcCall("note show", params)
+  },
   operatorsurface: {
     assign: (params: any): Promise<any> => __golcCall("operatorsurface assign", params),
     create: (params: any): Promise<any> => __golcCall("operatorsurface create", params),
