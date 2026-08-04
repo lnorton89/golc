@@ -84,6 +84,7 @@ func TestScopeDelivery(t *testing.T) {
 			{Name: "build", Kind: delivery.MageTargetKindRoute, Route: "build", Authority: "internal/command registry"},
 			{Name: "check", Kind: delivery.MageTargetKindRoute, Route: "check", Args: []string{"--concern", "project"}, Authority: "internal/command registry"},
 			{Name: "checkoffline", Kind: delivery.MageTargetKindRoute, Route: "check", Args: []string{"--offline"}, Authority: "internal/command registry"},
+			{Name: "designsystembrowser", Kind: delivery.MageTargetKindRoute, Route: "designsystem", Args: []string{"--browser"}, Authority: "internal/command registry"},
 			{Name: "dev", Kind: delivery.MageTargetKindRoute, Route: "dev", Authority: "internal/command registry"},
 			{Name: "generate", Kind: delivery.MageTargetKindRoute, Route: "generate", Authority: "internal/command registry"},
 			{Name: "generatecheck", Kind: delivery.MageTargetKindRoute, Route: "generate", Args: []string{"--check"}, Authority: "internal/command registry"},
