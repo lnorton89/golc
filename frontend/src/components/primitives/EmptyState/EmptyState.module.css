@@ -15,7 +15,9 @@
 
 .emptyState {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
+  min-width: 0;
   gap: var(--ds-spacing-space4);
   max-width: 48rem;
   padding: var(--ds-spacing-space6);
@@ -28,6 +30,16 @@
 
 .copy {
   min-width: 0;
+  /* Below the width the icon+copy row (flex-wrap above) no longer fits
+     side by side, .copy drops to its own full-width line -- but as a
+     lone wrapped flex item it still won't shrink past its own widest
+     unbreakable child (the action button, which per Button.module.css's
+     own convention never wraps its label) unless it's also given a
+     concrete basis to shrink from. flex-basis:100% makes .copy claim the
+     wrapped line's full width outright instead of only its min-content,
+     so a real narrow container actually gives the action button the most
+     room this layout can offer before any per-button decision is needed. */
+  flex: 1 1 100%;
 }
 
 .heading {
@@ -51,4 +63,18 @@
 
 .action {
   margin-top: var(--ds-spacing-space4);
+}
+
+/* Mirrors FixturePatch.module.css's own .createInput narrow-width rule
+   (identical 480px threshold, same reasoning): a Panel's EmptyState is
+   only ever this tight at a tiling-WM scratchpad-tile extreme, and this
+   primitive's own fixed space6 padding was chosen for its normal size,
+   not this floor -- shrinking it here (not the action button, which per
+   Button.module.css's convention never shrinks its own label) gives the
+   already-wrapped .copy column the most width this layout can offer. */
+@media (max-width: 480px) {
+  .emptyState {
+    gap: var(--ds-spacing-space2);
+    padding: var(--ds-spacing-space2);
+  }
 }

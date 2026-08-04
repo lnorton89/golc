@@ -10,6 +10,7 @@
 .content {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   gap: var(--ds-spacing-space4);
 }
 
@@ -23,6 +24,7 @@
 .subsection {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   gap: var(--ds-spacing-space2);
   border-top-width: 1px;
   border-top-style: solid;
