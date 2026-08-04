@@ -194,6 +194,16 @@ type PresetRecordParams struct {
 	Show string `json:"show"`
 }
 
+// NoteEditParams: "note edit <name> [--title <name>] [--body-file <path>]
+// --show <path>". Title/BodyFile are both optional, but at least one must
+// be set (enforced by the underlying command, not this shape).
+type NoteEditParams struct {
+	Name     string `json:"name"`
+	Title    string `json:"title,omitempty"`
+	BodyFile string `json:"bodyFile,omitempty"`
+	Show     string `json:"show"`
+}
+
 // ChaseCreateParams: "chase create <name> --unit bar|beat --step-duration
 // <value> --show <path>".
 type ChaseCreateParams struct {
@@ -470,6 +480,16 @@ var sdkMethodTable = []sdkEntry{
 	{"theme rename", "theme.rename", "Rename a color theme, preserving its identity.", show.APIKeyScopeAuthoring, RenameParams{}, AckResult{}},
 	{"theme delete", "theme.remove", "Delete a color theme by name.", show.APIKeyScopeAuthoring, NameShowParams{}, AckResult{}},
 
+	// note (authoring -- see package doc comment: list/show are pulled up
+	// from the general read-only default per the more-restrictive rule,
+	// same as programmer inspect/operatorsurface list/show above: a note's
+	// free-form body is show-authoring content, not a live-operator query)
+	{"note create", "note.create", "Create a named, empty note.", show.APIKeyScopeAuthoring, NameShowParams{}, JSONResult{}},
+	{"note list", "note.list", "List every note's id, title, and last-updated time (body omitted).", show.APIKeyScopeAuthoring, ShowOnlyParams{}, JSONResult{}},
+	{"note show", "note.show", "Show one note in full, including its body.", show.APIKeyScopeAuthoring, NameShowParams{}, JSONResult{}},
+	{"note edit", "note.edit", "Rename a note and/or replace its body with a file's bytes verbatim (max 1MiB).", show.APIKeyScopeAuthoring, NoteEditParams{}, JSONResult{}},
+	{"note delete", "note.remove", "Delete a note by name.", show.APIKeyScopeAuthoring, NameShowParams{}, AckResult{}},
+
 	// preset (authoring)
 	{"preset record", "preset.record", "Record a kind-scoped preset from the persisted Programmer buffer.", show.APIKeyScopeAuthoring, PresetRecordParams{}, AckResult{}},
 	{"preset rename", "preset.rename", "Rename a preset, preserving its identity.", show.APIKeyScopeAuthoring, RenameParams{}, AckResult{}},
@@ -562,6 +582,7 @@ var excludedRouteTable = map[string]string{
 	"docs":               "contributor build tooling, not a show-domain capability",
 	"lint":               "contributor build tooling, not a show-domain capability",
 	"tools update":       "contributor build tooling, not a show-domain capability",
+	"designsystem":       "contributor build tooling, not a show-domain capability",
 	"config inspect":     "repository configuration is a contributor concern outside the show domain",
 	"config set":         "repository configuration is a contributor concern outside the show domain",
 	"config explain":     "repository configuration is a contributor concern outside the show domain",
