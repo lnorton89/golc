@@ -86,3 +86,37 @@ logged here per the executor's SCOPE BOUNDARY rule rather than fixed inline.
   module) in a future Guided First Show polish pass; re-capture the four
   `guided-first-show-*-win32.png` baselines afterward since the fix will
   change their pixels.
+
+## 260803-13-18: `ROADMAP.md`'s Phase 13 heading uses `**Requirements**:` instead of `**Requirements:**`
+
+- **Found during:** Plan 13-18 (post-task full-suite verification via `mage
+  Test`), while confirming no unrelated package regressed.
+- **Symptom:** `go test ./internal/trace/catalog/...` fails two subtests
+  (`TestScopeLinearCatalog/real_repository_catalog_validates_end_to_end_offline`,
+  `TestScopeLinearMap/real_repository_seed_migrates_end_to_end_offline`) with
+  `GOLC_CATALOG_ROADMAP_REQUIREMENTS_MISSING: phase 13 has no **Requirements:**
+  line in ROADMAP.md`.
+- **Confirmed pre-existing, not caused by this plan:** `.planning/ROADMAP.md`
+  is not in Plan 13-18's declared `files_modified` and was never touched by
+  any of this plan's three tasks. `.planning/ROADMAP.md:584` reads
+  `**Requirements**: D-01 through D-14 and the approved Phase 13 UI-SPEC
+  acceptance contract` -- the bold markers close before the colon, unlike
+  every other phase heading in the file (e.g. line 36's
+  `**Requirements:** CONF-01, ...`, colon inside the bold markers). This is a
+  pure Markdown-formatting drift already present at this worktree's base
+  commit (`4bb10d54`), unrelated to any file this plan touches.
+- **Why deferred rather than fixed here:** `.planning/ROADMAP.md` is a shared
+  orchestrator-owned artifact outside this plan's declared scope; per the
+  executor's worktree instructions, `.planning/` documentation files are the
+  orchestrator's to update centrally after a wave completes, not an
+  individual plan's per-task edit.
+- **Impact on this plan:** none of Plan 13-18's own declared verify commands
+  (`go test ./internal/command -run DesignSystem`, `go test ./internal/delivery
+  ./magefiles -run 'DesignSystem|MageTarget' && mage -l`, `mage CheckOffline
+  && git diff --check -- .github/workflows/design-system.yml`) touch
+  `internal/trace/catalog`, so this pre-existing failure does not block this
+  plan's own success criteria. It does surface in a full, unfiltered `mage
+  Test`/`go test ./...` run.
+- **Recommended follow-up:** change `.planning/ROADMAP.md:584` from
+  `**Requirements**:` to `**Requirements:**` (moving the colon inside the bold
+  markers) to match every other phase heading's exact grammar.

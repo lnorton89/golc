@@ -118,6 +118,7 @@ func TestMCPProtocolReadOnlyInventoryAndCalls(t *testing.T) {
 		{Name: "build", Kind: "route", Route: "build", Args: []string{}, Authority: "internal/command registry"},
 		{Name: "check", Kind: "route", Route: "check", Args: []string{"--concern", "project"}, Authority: "internal/command registry"},
 		{Name: "checkoffline", Kind: "route", Route: "check", Args: []string{"--offline"}, Authority: "internal/command registry"},
+		{Name: "designsystembrowser", Kind: "route", Route: "designsystem", Args: []string{"--browser"}, Authority: "internal/command registry"},
 		{Name: "dev", Kind: "route", Route: "dev", Args: []string{}, Authority: "internal/command registry"},
 		{Name: "generate", Kind: "route", Route: "generate", Args: []string{}, Authority: "internal/command registry"},
 		{Name: "generatecheck", Kind: "route", Route: "generate", Args: []string{"--check"}, Authority: "internal/command registry"},

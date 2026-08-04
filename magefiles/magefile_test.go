@@ -100,6 +100,7 @@ func TestTargetMappingsAndProjectRoot(t *testing.T) {
 		{"generatecheck", GenerateCheck},
 		{"check", Check},
 		{"checkoffline", CheckOffline},
+		{"designsystembrowser", DesignSystemBrowser},
 		{"build", Build},
 		{"test", Test},
 		{"package", Package},
@@ -287,7 +288,7 @@ func TestMagefileExportsAndImports(t *testing.T) {
 		}
 	}
 	sort.Strings(exports)
-	want := []string{"Bootstrap", "Build", "Check", "CheckOffline", "Dev", "Generate", "GenerateCheck", "Lint", "Package", "PackageFoundation", "Pr", "Run", "Test", "TestQuick"}
+	want := []string{"Bootstrap", "Build", "Check", "CheckOffline", "Dev", "DesignSystemBrowser", "Generate", "GenerateCheck", "Lint", "Package", "PackageFoundation", "Pr", "Run", "Test", "TestQuick"}
 	sort.Strings(want)
 	require.Equal(t, want, exports, "exported functions")
 

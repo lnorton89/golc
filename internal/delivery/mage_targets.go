@@ -1,3 +1,17 @@
+// "designsystembrowser" (Plan 13-18) is the one serialized-browser Mage
+// target this package registers for frontend design-system visual
+// enforcement: it dispatches to the self-registered "designsystem
+// --browser" command route (internal/command/designsystem.go), which
+// runs the pinned-Node Playwright visual suite one worker at a time.
+// Unlike checkoffline/build/test above, it is never a step in the
+// offline core graph (internal/delivery/graph.go's coreSteps) or the
+// commands.pr graph (config/commands.toml) -- it belongs to its own
+// required Windows workflow (.github/workflows/design-system.yml, Plan
+// 13-18 Task 3), which provisions the lockfile-matched Chromium browser
+// explicitly before invoking it. Static/unit design-system checks
+// ("designsystem --static"/"--unit") are reachable directly through the
+// self-registered command route without a dedicated Mage target of
+// their own.
 package delivery
 
 import "sort"
@@ -45,6 +59,7 @@ var mageTargets = []MageTarget{
 	{Name: "build", Kind: MageTargetKindRoute, Route: "build", Authority: "internal/command registry"},
 	{Name: "check", Kind: MageTargetKindRoute, Route: "check", Args: []string{"--concern", "project"}, Authority: "internal/command registry"},
 	{Name: "checkoffline", Kind: MageTargetKindRoute, Route: "check", Args: []string{"--offline"}, Authority: "internal/command registry"},
+	{Name: "designsystembrowser", Kind: MageTargetKindRoute, Route: "designsystem", Args: []string{"--browser"}, Authority: "internal/command registry"},
 	{Name: "dev", Kind: MageTargetKindRoute, Route: "dev", Authority: "internal/command registry"},
 	{Name: "generate", Kind: MageTargetKindRoute, Route: "generate", Authority: "internal/command registry"},
 	{Name: "generatecheck", Kind: MageTargetKindRoute, Route: "generate", Args: []string{"--check"}, Authority: "internal/command registry"},

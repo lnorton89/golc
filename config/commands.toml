@@ -104,3 +104,25 @@ mutation_steps = "none"
 # review/build material, never claimed as part of the GOLC application
 # runtime); a checkout that never ran `bootstrap --include linear-sync`
 # simply produces a foundation bundle without those optional entries.
+
+# Frontend design-system enforcement (Plan 13-18): the checked-in
+# scripts/design-system/check.mjs policy checker, a design-system-scoped
+# Vitest unit suite, and a Playwright visual suite (e2e/design-system.*.
+# spec.ts) are reachable through the self-registered "designsystem
+# --static|--unit|--browser" command route (internal/command/
+# designsystem.go), each resolving the pinned project-local Node
+# toolchain directly rather than an ambient `npx`/global tool. Only the
+# browser mode has a dedicated Mage target -- "designsystembrowser"
+# (internal/delivery/mage_targets.go, MageTargetKindRoute, Route
+# "designsystem", Args ["--browser"]) -- because it is the one mode a
+# required, serialized CI job (.github/workflows/design-system.yml)
+# invokes after explicitly provisioning the lockfile-matched Chromium
+# browser; static/unit checks are reachable directly through the command
+# route without a Mage wrapper. None of the three modes is a step in
+# commands.pr.steps above or the offline core graph (internal/delivery's
+# coreSteps): whole-source design-system parity remains a moving target
+# across this phase's migration plans, and gating either of those shared
+# graphs on it would fail every ordinary bootstrap/build/test invocation
+# before that migration finishes, not just the one command that actually
+# needed it (the same remote-failure-isolation principle the Linear SDK
+# scopes documented above already establish).

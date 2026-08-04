@@ -1,0 +1,95 @@
+# GOLC required Windows design-system visual validation workflow (Plan
+# 13-18, CONTEXT D-09/D-10).
+#
+# This job is deliberately least-privilege and single-trigger, mirroring
+# check.yml's own policy:
+#   - The only trigger is an untrusted pull_request event. No manual
+#     dispatch, scheduled, or push-triggered path exists, so this
+#     workflow can never gain a second entry point.
+#   - Bootstrap and the serialized browser visual suite both run through
+#     one shared Mage target authority (internal/delivery/
+#     mage_targets.go's "designsystembrowser", dispatching to the
+#     self-registered "designsystem --browser" command route in
+#     internal/command/designsystem.go) -- there is no second,
+#     independently maintained invocation of the Playwright suite here.
+#   - No repository secret is read, exported, or referenced anywhere in
+#     this file.
+#
+# Mage itself is provisioned from the checksum-pinned archive committed
+# in config/toolchain.toml (scripts/ci/install-pinned-mage.ps1), exactly
+# the same script check.yml and cross-platform-mage.yml both use.
+#
+# Chromium is provisioned explicitly, in its own named step, after
+# bootstrap and before the visual suite runs: `npm ci`'s own postinstall
+# lifecycle scripts may or may not already reach for a browser download
+# as a side effect, but this repository's D-01/D-02 pinned-toolchain
+# discipline treats an implicit, unaudited download as insufficient
+# evidence -- the step below is the one place this workflow deliberately,
+# visibly fetches a browser binary, using the exact pinned Node
+# executable and the checked-in @playwright/test CLI entrypoint (never an
+# ambient `npx`), so the installed Chromium revision is always the one
+# `frontend/package-lock.json`'s locked @playwright/test version expects.
+#
+# Canonical visual baselines are committed once, on this Windows job
+# only (frontend/e2e/**/*-snapshots/**) -- cross-platform-mage.yml's
+# Linux/macOS legs never assert against them (README.md's own
+# webkit2gtk-4.0 note already documents why those legs are
+# observation-only, not qualifying), and `npm run build` never touches
+# Playwright at all (frontend/package.json's "build" script stays
+# tsc/vitest/vite-only; browser work is reachable only through
+# `npm run test:e2e:design-system` or this workflow's Mage target).
+name: design-system
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  design-system:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pinned Mage
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/ci/install-pinned-mage.ps1
+
+      - name: bootstrap
+        run: mage Bootstrap
+
+      - name: Install lockfile-matched Chromium
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $toolchain = Get-Content -Raw (Join-Path $env:GITHUB_WORKSPACE "config\toolchain.toml")
+          $match = [regex]::Match($toolchain, '(?ms)^\[toolchain\.node\]\r?\nversion\s*=\s*"([^"]+)"')
+          if (-not $match.Success) {
+            throw "GOLC_DESIGN_SYSTEM_NODE_MISSING: config/toolchain.toml does not pin toolchain.node.version"
+          }
+          $nodeVersion = $match.Groups[1].Value
+          $nodeExecutable = Join-Path $env:GITHUB_WORKSPACE ".tools\toolchains\node\$nodeVersion\windows-amd64\node-v$nodeVersion-win-x64\node.exe"
+          $playwrightCli = Join-Path $env:GITHUB_WORKSPACE "frontend\node_modules\@playwright\test\cli.js"
+          if (-not (Test-Path -LiteralPath $nodeExecutable -PathType Leaf) -or -not (Test-Path -LiteralPath $playwrightCli -PathType Leaf)) {
+            throw "GOLC_DESIGN_SYSTEM_NODE_MISSING: run mage Bootstrap first"
+          }
+          & $nodeExecutable $playwrightCli install chromium
+          if ($LASTEXITCODE -ne 0) {
+            throw "GOLC_DESIGN_SYSTEM_CHROMIUM_INSTALL_FAILED: playwright install chromium exited $LASTEXITCODE"
+          }
+
+      - name: designsystembrowser
+        run: mage DesignSystemBrowser
+
+      - name: Upload design-system visual evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-system-visual-evidence
+          path: |
+            frontend/test-results/**
+            frontend/e2e/**/*-snapshots/**
+            .planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/**
+          if-no-files-found: warn
+          retention-days: 14
