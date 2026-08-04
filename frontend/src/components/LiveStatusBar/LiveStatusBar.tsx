@@ -154,10 +154,10 @@ export default function LiveStatusBar() {
         </span>
       )}
 
-      <span title={`Source: ${status.controllingSource}`}>
+      <span className={styles.statusChip} title={`Source: ${status.controllingSource}`}>
         <Chip tone={toChipTone(status.controllingSource)}>{status.controllingSource}</Chip>
       </span>
-      <span title={`Output: ${status.outputState}`}>
+      <span className={styles.statusChip} title={`Output: ${status.outputState}`}>
         <Chip tone={toChipTone(status.outputState)}>{status.outputState}</Chip>
       </span>
     </div>

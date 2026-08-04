@@ -103,8 +103,17 @@
    Collapsing to icon-only frees enough width to keep every control on
    screen; each button's aria-label (SafetyCluster.tsx) keeps the same
    accessible name regardless, and the visible label reappears unchanged
-   above this breakpoint. */
-@media (max-width: 700px) {
+   above this breakpoint.
+   Raised from the original 700px to 1024px (260803-13-32): this cluster's
+   own 13-15 migration from 28px to 44px targets grew its full-label width
+   enough that, even though the cluster itself no longer clips past the
+   window edge between 700-1024px, it now leaves LiveStatusBar too little
+   of GlobalFrame's fixed-width header to render Scene/Layers/Bar and the
+   Source/Output chips without them geometrically overlapping each other
+   (deferred-items.md's own root-cause note). Collapsing this cluster (and
+   TempoControls'/MidiLearnToggle's own labels, which mirror this same
+   breakpoint) earlier restores that room. */
+@media (max-width: 1024px) {
   .control[data-safety-control] {
     padding-inline: var(--ds-spacing-space1);
   }

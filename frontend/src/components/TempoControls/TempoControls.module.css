@@ -15,11 +15,13 @@
   flex-shrink: 0;
 }
 
-/* Mirrors SafetyCluster.module.css's own breakpoint and rationale: below
-   this width GlobalFrame's header no longer fits every full label, so Tap
-   collapses to icon-only (aria-label keeps its accessible name) to help
-   keep SafetyCluster's controls on screen. */
-@media (max-width: 700px) {
+/* Mirrors SafetyCluster.module.css's own breakpoint and rationale (raised
+   to 1024px alongside it, 260803-13-32): below this width GlobalFrame's
+   header no longer fits every full label, so Tap collapses to icon-only
+   (aria-label keeps its accessible name) to help keep SafetyCluster's
+   controls on screen and leave LiveStatusBar enough room to stay
+   overlap-free. */
+@media (max-width: 1024px) {
   .tapLabel {
     display: none;
   }

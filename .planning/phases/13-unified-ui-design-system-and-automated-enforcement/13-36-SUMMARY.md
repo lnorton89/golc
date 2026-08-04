@@ -120,6 +120,9 @@ status: complete
 - **Files:** `frontend/src/design-system/theme-contrast.test.ts` (comment only, no assertion added for the failing case)
 - **Committed in:** `ace0bf31`
 
+**Resolved in a follow-up worktree session** (this worktree has `frontend/node_modules` and Playwright/Chromium available, unlike the sessions above): `foundation.focus.color` changed from `#1b44d9` to `#456ede`, chosen so a single shared value clears the 3:1 UI-component floor against every reading surface in *both* palette families with comfortable margin (worst case 3.51:1 -- dark canvas 3.98, dark control 3.51, dark panel-subdued 3.67, light canvas 3.51, light control 4.11, light panel-subdued 3.94), rather than adding a per-face schema override. `tokens.generated.css` regenerated via `npm run generate:design-system`; `theme-contrast.test.ts`'s dark-mode gap comment replaced with a real passing assertion mirroring the light-mode one. Full `npm run build` (tsc + 516 vitest tests + vite build) passes.
+Re-baselining check: grepped every `design-system.visual-*.spec.ts` file for a real `Tab` keypress preceding a `toHaveScreenshot` call -- none exists; the only near-miss (Dialog's autofocus onto its Cancel button on open) is a *programmatic* `.focus()` call, and Chromium's `:focus-visible` heuristic does not apply the pseudo-class to script-triggered focus following a prior mouse interaction. Confirmed empirically two ways: (1) `dialog-layer-*.png` screenshots are byte-identical before/after the token change under `npx playwright test`, and (2) an isolated `btn.focus()` call in a live browser tab reports `matches(':focus-visible') === false`. Ran the full `design-system.visual-*.spec.ts` suite (24 failures, all pre-existing) and reproduced the identical failure set/pixel counts against the *unmodified* `tokens.json` via `git stash` -- confirming that drift is pre-existing Chromium/font-rendering noise in this environment's baselines, unrelated to and not touched by this fix. No `.png` snapshot needed updating.
+
 ---
 
 **Total deviations:** 1 auto-fixed (Rule 1), 1 deliberately disclosed rather than fixed (see above)
@@ -133,7 +136,7 @@ None. Every change is a real doc fix or a real, passing test assertion against g
 
 | Flag | File | Description |
 |------|------|--------------|
-| threat_flag: accessibility-gap | `frontend/design-system/tokens.json` (`foundation.focus.color`) | The shared, theme-invariant focus-ring color does not clear the WCAG 1.4.11 3:1 UI-component contrast floor against the dark palette's control/panel/canvas surfaces (~2.2-2.5:1 measured). Not fixed in this plan (see Deviations #2) -- requires a token value change, `tokens.generated.css`/`.ts` regeneration, and Playwright visual-regression re-baselining outside this plan's declared scope and this worktree's verification capability. Tracked here for a follow-up plan. |
+| ~~threat_flag: accessibility-gap~~ RESOLVED | `frontend/design-system/tokens.json` (`foundation.focus.color`) | ~~The shared, theme-invariant focus-ring color does not clear the WCAG 1.4.11 3:1 UI-component contrast floor against the dark palette's control/panel/canvas surfaces (~2.2-2.5:1 measured).~~ Fixed in a follow-up worktree session: `foundation.focus.color` recalibrated to `#456ede`, clearing 3:1 against every reading surface in both palette families (worst case 3.51:1). See Deviations #2's "Resolved in a follow-up worktree session" note. |
 
 ## Issues Encountered
 
