@@ -455,7 +455,7 @@ export default function FixtureLibraryWorkspace() {
         ) : (
           <>
             {error ? <ErrorState heading="Fixture library unavailable" message={error} /> : null}
-            <div role="group" aria-label="Fixture source">
+            <div className={styles.sourceGroup} role="group" aria-label="Fixture source">
               <Button
                 variant={source === "local" ? "primary" : "secondary"}
                 aria-pressed={source === "local"}
