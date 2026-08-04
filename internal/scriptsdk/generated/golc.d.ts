@@ -151,6 +151,13 @@ interface NameShowParams {
   show: string;
 }
 
+interface NoteEditParams {
+  name: string;
+  title?: string;
+  bodyFile?: string;
+  show: string;
+}
+
 interface OperatorSurfaceAssignParams {
   surface: string;
   scene?: string;
@@ -363,6 +370,18 @@ declare namespace golc {
     function remove(params: NameShowParams): Promise<AckResult>;
     // Rename a motion preset, preserving its identity. (scope: authoring)
     function rename(params: RenameParams): Promise<AckResult>;
+  }
+  namespace note {
+    // Create a named, empty note. (scope: authoring)
+    function create(params: NameShowParams): Promise<JSONResult>;
+    // Rename a note and/or replace its body with a file's bytes verbatim (max 1MiB). (scope: authoring)
+    function edit(params: NoteEditParams): Promise<JSONResult>;
+    // List every note's id, title, and last-updated time (body omitted). (scope: authoring)
+    function list(params: ShowOnlyParams): Promise<JSONResult>;
+    // Delete a note by name. (scope: authoring)
+    function remove(params: NameShowParams): Promise<AckResult>;
+    // Show one note in full, including its body. (scope: authoring)
+    function show(params: NameShowParams): Promise<JSONResult>;
   }
   namespace operatorsurface {
     // Assign one individual control to a named operator surface. (scope: authoring)
