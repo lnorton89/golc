@@ -67,6 +67,15 @@ describe("DS001-DS010 policy boundaries", () => {
     expect((await checkFiles(root, ["src/Feature.module.css", "src/components/primitives/Button/Button.tsx"])).diagnostics).toEqual([]);
   });
 
+  it("DS006 exempts a primitive's own definitional stylesheet but still catches the identical class outside primitives/", async () => {
+    const root = await fixture({
+      "src/components/primitives/Button/Button.module.css": ".button { padding: var(--ds-spacing-space1); }",
+      "src/feature/Feature.module.css": ".button { padding: var(--ds-spacing-space1); }",
+    });
+    expect((await checkFiles(root, ["src/components/primitives/Button/Button.module.css"])).diagnostics).toEqual([]);
+    expect((await checkFiles(root, ["src/feature/Feature.module.css"])).diagnostics).toMatchObject([{ rule: "DS006" }]);
+  });
+
   it("fails closed with stable diagnostics for malformed source and unresolved paths", async () => {
     const root = await fixture({ "src/Feature.module.css": ".panel { color: red" });
     const first = await checkFiles(root, ["src/Feature.module.css", "src/missing.tsx"]);

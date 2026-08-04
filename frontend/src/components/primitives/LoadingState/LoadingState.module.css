@@ -5,11 +5,11 @@
 .status {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-sm);
-  color: var(--text2);
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-base);
-  line-height: 1.5;
+  gap: var(--ds-spacing-space2);
+  color: var(--ds-text-secondary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  line-height: var(--ds-typography-line-height-body);
 }
 
 .inline {
@@ -21,21 +21,27 @@
   min-height: 96px;
   align-items: center;
   justify-content: center;
-  padding: var(--space-lg);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+  padding: var(--ds-spacing-space6);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-medium);
 }
 
 .list-row {
   display: flex;
-  min-height: 32px;
+  min-height: var(--ds-sizing-control-default);
   align-items: center;
-  padding: 0 var(--space-md);
+  padding-block: 0;
+  padding-inline: var(--ds-spacing-space4);
 }
 
 .spinner {
   flex: 0 0 auto;
-  animation: spin var(--motion-settle) linear infinite;
+  /* spin's name+token pairing can't be a bare var(--ds-*) value, the same
+     shape as ConfirmModal's own backdropFadeIn/dialogPopIn exceptions;
+     registered in design-system/exceptions.json. */
+  animation: spin var(--ds-motion-settle) linear infinite;
 }
 
 @keyframes spin {

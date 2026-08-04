@@ -1,24 +1,37 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: var(--ds-stacking-modal);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, var(--ink) 45%, transparent);
-  animation: backdropFadeIn var(--motion-settle);
+  /* Same semantic scrim token Dialog.module.css's own .backdrop already
+     uses, rather than a hand-mixed color-mix() -- ConfirmModal is a small
+     alert-style variant of the same "backdrop over the page" concept. */
+  background: var(--ds-surface-scrim);
+  /* backdropFadeIn's name+token pairing can't be a bare var(--ds-*) value;
+     --ds-motion-settle is a combined duration+easing token that can't be
+     split into animation-duration/-timing-function longhand either
+     (animation-duration only accepts a time value). Same shape as Desk's
+     own desk-fader-learn-target-pulse-animation exception; registered in
+     design-system/exceptions.json. */
+  animation: backdropFadeIn var(--ds-motion-settle);
 }
 
 .dialog {
   width: min(400px, 90vw);
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-lg);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: var(--panel);
-  animation: dialogPopIn var(--motion-settle);
+  gap: var(--ds-spacing-space2);
+  padding: var(--ds-spacing-space6);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-large);
+  background: var(--ds-surface-panel);
+  /* Same shorthand-with-combined-token constraint as .backdrop's own
+     animation above; registered in design-system/exceptions.json. */
+  animation: dialogPopIn var(--ds-motion-settle);
 }
 
 @keyframes backdropFadeIn {
@@ -36,23 +49,23 @@
 
 .title {
   margin: 0;
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--ink);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-heading);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  color: var(--ds-text-primary);
 }
 
 .message {
   margin: 0;
-  font-family: "Archivo", system-ui, sans-serif;
-  font-size: var(--text-sm);
-  color: var(--text2);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-compact);
+  color: var(--ds-text-secondary);
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: var(--space-sm);
-  margin-top: var(--space-xs);
+  gap: var(--ds-spacing-space2);
+  margin-top: var(--ds-spacing-space1);
 }

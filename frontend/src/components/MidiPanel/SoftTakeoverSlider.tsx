@@ -16,7 +16,7 @@
 // never calls a Wails binding itself.
 //
 // Phase 13 Plan 28: the visual track/fill/ghost marker is unavoidable
-// domain geometry (design-system/exception-proposals/operator-midi.json
+// domain geometry (design-system/exceptions.json
 // has the one shorthand exception it still needs) and stays decorative
 // (aria-hidden) rather than the misleading former role="slider" -- a
 // non-interactive element with no keyboard support was never a real ARIA

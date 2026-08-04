@@ -19,14 +19,16 @@
   flex-wrap: wrap;
   row-gap: var(--ds-spacing-space1);
   gap: var(--ds-spacing-space2);
-  padding: var(--ds-spacing-space2) var(--ds-spacing-space4);
+  padding-block: var(--ds-spacing-space2);
+  padding-inline: var(--ds-spacing-space4);
   border-bottom: 1px solid var(--ds-border-default);
   background: var(--ds-surface-panel);
   color: var(--ds-text-primary);
 }
 
 .toolbar[data-density="compact"] {
-  padding: var(--ds-spacing-space1) var(--ds-spacing-space2);
+  padding-block: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space2);
 }
 
 .titleGroup {

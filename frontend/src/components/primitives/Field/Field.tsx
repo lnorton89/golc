@@ -10,6 +10,7 @@ type FieldControlProps = {
   required?: boolean;
   "aria-describedby"?: string;
   "aria-invalid"?: AriaAttributes["aria-invalid"];
+  "data-multiline"?: string;
 };
 
 export interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -44,6 +45,11 @@ const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
         required: required ?? child.props.required,
         "aria-describedby": joinIds(child.props["aria-describedby"], describedBy),
         "aria-invalid": invalid,
+        // Marks a <textarea> child so Field.module.css's [data-multiline]
+        // rule (taller min-height, resizable) applies -- an explicit
+        // attribute rather than a `textarea.input` tag selector, so any
+        // future non-<textarea> multiline control could opt in too.
+        ...(child.type === "textarea" ? { "data-multiline": "" } : {}),
       })
     : (
         <input

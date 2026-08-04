@@ -88,7 +88,8 @@ function exceptionMatches(exception, diagnostics) {
   // its match string appears anywhere in that file, independent of which
   // diagnostic it was meant to identify (the bug that made a precise,
   // single-target exception get rejected as "broad" the moment a file had
-  // 2+ diagnostics of the same rule -- see design-system/exception-proposals/desk.json).
+  // 2+ diagnostics of the same rule -- see Desk's own records, now merged
+  // into design-system/exceptions.json, for the original case that surfaced this).
   const exact = sameRulePath.filter((diagnostic) => diagnostic.value === exception.match);
   const matching = exact.length > 0 ? exact : sameRulePath.filter((diagnostic) => diagnostic.value.includes(exception.match));
   return { matching };
@@ -103,7 +104,7 @@ export async function checkFiles(root = FRONTEND_ROOT, requestedPaths = [], prop
     try {
       const target = await contained(realRoot, path);
       const source = (await readFile(target.absolute, "utf8")).replaceAll("\r\n", "\n");
-      if (extname(target.path) === ".css") diagnostics.push(...checkCSS({ path: target.path, source, declaredTokens, isDesignSystemFile: target.path.startsWith("src/design-system/") }));
+      if (extname(target.path) === ".css") diagnostics.push(...checkCSS({ path: target.path, source, declaredTokens, isDesignSystemFile: target.path.startsWith("src/design-system/"), isPrimitiveFile: target.path.includes("src/components/primitives/") }));
       else if (target.path.endsWith(".tsx")) diagnostics.push(...checkTSX({ path: target.path, source, isPrimitiveFile: target.path.includes("src/components/primitives/"), isThemeFile: target.path === "src/lib/theme.ts" }));
       else if (target.path.startsWith("design-system/") && target.path.endsWith(".json")) {
         const issue = manifestDiagnostic(target.path, source);
