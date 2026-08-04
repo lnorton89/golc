@@ -257,7 +257,7 @@ async function assertShellCategory(page: Page, pair: CopyPair, width: number, th
 }
 
 // ---------------------------------------------------------------------------
-// Category 2: dialog (Notes' destructive ConfirmModal impact message --
+// Category 2: dialog (Notes' destructive ConfirmDialog impact message --
 // expected to wrap fully, never truncate).
 // ---------------------------------------------------------------------------
 
@@ -278,7 +278,7 @@ async function gotoDialog(page: Page, theme: Theme, noteTitle: string): Promise<
 
 async function assertDialogCategory(page: Page, pair: CopyPair, width: number, theme: Theme): Promise<void> {
   const dialog = page.getByRole("alertdialog", { name: "Delete Note" });
-  const selector = 'div[role="alertdialog"] p[class*="message"]';
+  const selector = 'div[role="alertdialog"] div[class*="description"]';
   const info = await measureTextWrap(page, selector);
   expect(info, "the confirm dialog's own message paragraph must render").not.toBeNull();
 
@@ -303,8 +303,9 @@ async function assertDialogCategory(page: Page, pair: CopyPair, width: number, t
   const overlaps = await findTextOverlaps(page, 'div[role="alertdialog"]');
   expect(overlaps, "no text inside the dialog may visually overlap another element").toEqual([]);
 
-  // Focus reachability: Cancel autofocuses on open (ConfirmModal.tsx); both
-  // actions must stay reachable and operable regardless of message length.
+  // Focus reachability: Cancel autofocuses on open (ConfirmDialog's
+  // initialFocusRef); both actions must stay reachable and operable
+  // regardless of message length.
   const cancelButton = dialog.getByRole("button", { name: "Cancel", exact: true });
   const confirmButton = dialog.getByRole("button", { name: "Delete Note", exact: true });
   await expect(cancelButton).toBeFocused();
