@@ -39,7 +39,7 @@
 .spinner {
   flex: 0 0 auto;
   /* spin's name+token pairing can't be a bare var(--ds-*) value, the same
-     shape as ConfirmModal's own backdropFadeIn/dialogPopIn exceptions;
+     shape as Desk's own desk-fader-learn-target-pulse-animation exception;
      registered in design-system/exceptions.json. */
   animation: spin var(--ds-motion-settle) linear infinite;
 }
