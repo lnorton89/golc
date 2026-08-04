@@ -31,6 +31,20 @@ async function readGridTemplateColumnsPx(page: Page): Promise<number[]> {
   });
 }
 
+// waitForShellMounted asserts a concrete, always-present post-mount signal
+// (.appShell attached to the DOM) before a time-sensitive action that a
+// fixed settle() alone can't reliably gate -- a raw keyboard event fired
+// immediately after page.goto()/page.reload() can otherwise race React's
+// mount (the "?"/Control+k global-shortcut listeners aren't attached yet)
+// or the DOM read that follows can otherwise race hydration (document
+// .getElementById("root") can still have zero children). Prefer this over
+// blindly lengthening the fixed settle() duration: an actual readiness
+// assertion resolves as soon as the real signal is true, so it isn't
+// newly flaky on a slow box nor slower than necessary on a fast one.
+async function waitForShellMounted(page: Page): Promise<void> {
+  await expect(page.locator('[class*="appShell"]')).toBeAttached();
+}
+
 // A single demo script, installed only by installScriptFixture below --
 // installHealthyBindings' own ScriptService.ListScripts intentionally stays
 // empty (shared with the docs-capture suite, whose byte-identical screenshot
@@ -111,13 +125,25 @@ const KNOWN_SUB_640PX_OFFENDERS: Record<string, RegExp> = {
   "Scenes & Looks": /^"(New|Evaluate|Evaluate position \(bar\.beatfraction\))":/,
   "Operator Surface": /^"New operator surface name":/,
   Desk: /^"Release All":/,
+  Overview: /^"Diagnose":/,
 };
+
+// PERSISTENT_HEADER_SUB_640PX_OFFENDER: the safety cluster's "Stop /
+// Release All" and "MIDI Learn" controls live in GlobalFrame's persistent
+// header, mounted unconditionally on every destination -- Plan 13-15
+// deliberately bumped them to the 44px --ds-sizing-control-minimum-target
+// accessibility token (a real D-13 requirement, not being reverted here),
+// which is what pushes them past a 320px viewport. Matched separately from
+// the per-destination table above since it applies regardless of which
+// destination is active.
+const PERSISTENT_HEADER_SUB_640PX_OFFENDER = /^"(Stop \/ Release All|MIDI Learn)":/;
 
 function filterKnownSub640pxOffenders(offenders: string[], width: number, destination?: string): string[] {
   if (width >= HEADER_MIN_SUPPORTED_WIDTH) return offenders;
-  const pattern = destination ? KNOWN_SUB_640PX_OFFENDERS[destination] : undefined;
-  if (!pattern) return offenders;
-  return offenders.filter((offender) => !pattern.test(offender));
+  const destinationPattern = destination ? KNOWN_SUB_640PX_OFFENDERS[destination] : undefined;
+  return offenders.filter(
+    (offender) => !PERSISTENT_HEADER_SUB_640PX_OFFENDER.test(offender) && !(destinationPattern?.test(offender) ?? false),
+  );
 }
 
 async function expectNoOverflowWithinSupportedWidth(page: Page, width: number, context: string): Promise<void> {
@@ -240,7 +266,7 @@ test("Test 3: compact-breakpoint crossing collapses the inspector and caps the r
   // from mid-transition.
   const inspectorVar = await page.evaluate(() => {
     const el = document.querySelector<HTMLElement>('[class*="appShell"]');
-    return el?.style.getPropertyValue("--inspector-width") ?? null;
+    return el?.style.getPropertyValue("--ds-inspector-width") ?? null;
   });
   expect(inspectorVar).toBe("258px");
 });
@@ -367,6 +393,7 @@ test.describe("Test 6: open-overlay resize", () => {
     await installHealthyBindings(page);
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/");
+    await waitForShellMounted(page);
     await page.keyboard.press("?");
     const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
     await expect(dialog).toBeVisible();
@@ -386,6 +413,7 @@ test.describe("Test 6: open-overlay resize", () => {
     await installHealthyBindings(page);
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/");
+    await waitForShellMounted(page);
     await page.keyboard.press("Control+k");
     const dialog = page.getByRole("dialog", { name: "Quick switcher" });
     await expect(dialog).toBeVisible();
@@ -484,6 +512,7 @@ test("Test 8: a dragged rail size persists and re-clamps after reload at a diffe
 
   await page.setViewportSize({ width: 900, height: 720 });
   await page.reload();
+  await waitForShellMounted(page);
   await settle(page);
 
   const reloadedWidth = await page.evaluate(() => Number(window.localStorage.getItem("golc.railWidth")));
