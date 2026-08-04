@@ -180,6 +180,16 @@ func Check() error { return runTarget("check", context.Background()) }
 // CheckOffline runs the network-denied core graph.
 func CheckOffline() error { return runTarget("checkoffline", context.Background()) }
 
+// DesignSystemBrowser runs the serialized Playwright design-system
+// visual suite (e2e/design-system.*.spec.ts) through the pinned Node
+// toolchain and the checked-in @playwright/test CLI entrypoint, one
+// worker at a time so screenshot comparisons never race. It is never a
+// step in the offline core graph or the commands.pr graph: the required
+// Windows design-system.yml workflow (Plan 13-18 Task 3) is its sole
+// invoking context, and that workflow provisions the lockfile-matched
+// Chromium browser explicitly before calling this target.
+func DesignSystemBrowser() error { return runTarget("designsystembrowser", context.Background()) }
+
 // Build compiles every project package.
 func Build() error { return runTarget("build", context.Background()) }
 
