@@ -1,0 +1,196 @@
+{
+  "status": "failed",
+  "conclusion": "Complete local acceptance was executed for real against a proven-descendant commit and GENUINELY FAILED at the npm run test:e2e step (8 of 129 tests in the pre-existing, non-design-system frontend/e2e/resize.spec.ts suite). The ancestry/implementation-tree-identity proof itself PASSED cleanly: this worktree's HEAD is a real git descendant of Plan 13-35's CI-proven commit (c3fe6e72...) via the PR #6 merge, and the non-.planning/** implementation-tree manifest hash is byte-identical between the two commits. But the declared single `&&`-chained acceptance command genuinely stopped at its third stage with a non-zero exit; npm run test:e2e:design-system and every mage/validator stage after it were never reached in the real invocation, exactly as `&&` short-circuit semantics dictate. Per this plan's own explicit instruction not to weaken, mask, rebaseline, or translate failure into success, and not to attempt an undisclosed fix that could exceed this plan's declared single-file scope, this file records the genuine failure honestly rather than fabricating a full passing sign-off bundle.",
+  "task": {
+    "taskId": "13-38-01",
+    "plan": "13-38",
+    "wave": 16,
+    "declaredCommand": "cd frontend && npm run build && npm test && npm run test:e2e && npm run test:e2e:design-system && cd .. && mage GenerateCheck && mage CheckOffline && mage Build && mage TestQuick && git diff --cached --quiet -- site && cd frontend && npm run validate:phase13-evidence -- --evidence ../.planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/phase-acceptance.json",
+    "declaredCommandSha256": "61809ea682c18efb0a40077d7c9cca84a81da65403495a44e32d0fed850f9263",
+    "derivedFrom": "frontend/scripts/design-system/validate-phase13-evidence.mjs#derivePlanCommandContract, run against the 41 committed 13-NN-PLAN.md files -- confirms 77 total derived tasks, matching 13-VALIDATION.md's declared task_count: 77"
+  },
+  "implementationTreeProof": {
+    "note": "Proven exactly as 13-35's evidence/windows-ci-run.json computed it (frontend/scripts/design-system/validate-phase13-evidence.mjs#computeImplementationManifest, reused unmodified via its exported function against a real git ls-tree, not reimplemented).",
+    "ciProvenImplementationSha": "c3fe6e726a5cba598be6d68f20ab4b276400cb1a",
+    "ciProvenImplementationShaSource": ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/windows-ci-run.json#implementationTree.provenSha (Plan 13-35's CI-proven regenerated commit, Windows Actions run 30875348640, conclusion success)",
+    "ciProvenImplementationManifestHash": "c5cf21562086501b40578e259e6104410f32e9de3d0facd359c75d12e18e52e4",
+    "observedDescendantSha": "b9e9560ecdd48dcd2a77e7a3e12b158426c8ef33",
+    "observedDescendantShaNote": "The worktree base commit this plan's own acceptance run executed against -- 'chore: merge PR #6 (genuine Windows CI evidence) into local master', i.e. master's tip after PR #6 (Plan 13-35's evidence branch) was reconciled into master, satisfying the reconciliation Plan 13-35 explicitly left open for the coordinator/user.",
+    "observedDescendantManifestHash": "c5cf21562086501b40578e259e6104410f32e9de3d0facd359c75d12e18e52e4",
+    "manifestAlgorithm": "sorted `git ls-tree -r --full-tree <sha>` entries excluding any path under .planning/, joined as `{mode} blob {objectId}\\t{path}` lines, sha256 over the joined text -- identical to computeImplementationManifest in validate-phase13-evidence.mjs, invoked directly (not reimplemented) via a thin script that supplies a real git-backed lsTree() runner",
+    "manifestEntryCount": 930,
+    "ancestryResult": "identical (git merge-base --is-ancestor c3fe6e72... b9e9560e... => true; observedDescendantSha genuinely descends from ciProvenImplementationSha)",
+    "changedPathsBetweenProvenAndObserved": [
+      ".planning/ROADMAP.md",
+      ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-35-SUMMARY.md",
+      ".planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/windows-ci-run.json"
+    ],
+    "allowlist": ".planning/**",
+    "changedPathsAllOutsidePlanningAllowlist": false,
+    "changedPathsAllUnderPlanningAllowlist": true,
+    "manifestHashesEqual": true,
+    "result": "PASS -- the non-planning implementation tree at the observed commit is byte-identical to the CI-proven commit's non-planning implementation tree (same manifest hash), and every changed path between the two commits is confined to .planning/**. This part of the plan's own success_criteria is genuinely satisfied."
+  },
+  "localAcceptanceRun": {
+    "note": "The literal `&&`-chained command was executed exactly as declared, once, from the repository root. Its real exit code was captured with an explicit echo sentinel immediately after the chain. Before that authoritative run, the same npm build/test/test:e2e sequence was also run as three separate invocations (to confirm this worktree's toolchain state before attempting the single literal chain) -- both runs produced byte-identical pass/fail outcomes, confirming determinism.",
+    "startedAt": "2026-08-04T04:22:41Z",
+    "chainExitCode": 1,
+    "chainExitCodeSource": "echo \"FRONTEND_CHAIN_EXIT_CODE=$?\" appended immediately after the literal chained command; captured value was 1",
+    "repositoryCommitSha": "b9e9560ecdd48dcd2a77e7a3e12b158426c8ef33",
+    "dirtyAtRunStart": false,
+    "dirtyDuringRun": true,
+    "dirtyDuringRunNote": "Running the full e2e suite (which includes frontend/e2e/design-system/*.spec.ts, part of the unscoped `playwright test` invoked by npm run test:e2e) regenerates several already-committed evidence/*.json files and frontend/design-system/screenshot-tolerance.json as a live side effect of those specs executing (fresh timestamps, recomputed capture data). This is disclosed as a genuine, newly-observed behavior of running the full declared chain -- not something this plan introduced. All such incidental mutations were reverted with a targeted `git checkout --` on exactly those pre-existing tracked files (never a blanket reset/clean) before this record was written, since they fall outside this plan's own declared files_modified (evidence/phase-acceptance.json only) and were not part of any task in this plan.",
+    "environment": {
+      "os": "win32 (Windows 10 Pro 10.0.19045)",
+      "nodeVersion": "v22.19.0",
+      "npmVersion": "10.9.3",
+      "playwrightVersion": "1.62.0",
+      "chromiumRevision": "1208 (Playwright-pinned Chromium build, cached at C:\\Users\\Lawrence\\AppData\\Local\\ms-playwright\\chromium-1208)"
+    },
+    "steps": [
+      {
+        "order": 1,
+        "command": "cd frontend && npm run build",
+        "underlyingCommand": "tsc --noEmit && vitest run && vite build",
+        "exitCode": 0,
+        "result": "PASS",
+        "detail": "tsc --noEmit clean; vitest 77 test files / 1133 tests passed; vite production build succeeded (emits into ../cmd/golc-desktop/frontend/dist)"
+      },
+      {
+        "order": 2,
+        "command": "npm test",
+        "underlyingCommand": "vitest run",
+        "exitCode": 0,
+        "result": "PASS",
+        "detail": "77 test files / 1133 tests passed (re-run, independent of the build step's own vitest invocation)"
+      },
+      {
+        "order": 3,
+        "command": "npm run test:e2e",
+        "underlyingCommand": "playwright test",
+        "exitCode": 1,
+        "result": "FAIL",
+        "detail": "129 tests total across e2e/*.spec.ts (responsive, resize, safety-action-hold, desktop-view-docs, dialog-feasibility, design-system/*, etc.), run with Playwright's default fullyParallel scheduling (8 workers). 121 passed, 8 failed -- all 8 failures confined to the pre-existing frontend/e2e/resize.spec.ts suite. See failureAnalysis below for full detail.",
+        "reproducedIndependently": "Re-run twice with byte-identical results (same 8 test names, same failure messages) across two separate full-suite invocations in this session; a third, isolated diagnostic re-run of only resize.spec.ts with --workers=1 (outside the declared chain, for honest context only) reproduced the exact same 8 failures, ruling out worker-parallelism contention as the cause."
+      },
+      {
+        "order": 4,
+        "command": "npm run test:e2e:design-system",
+        "status": "NOT_REACHED",
+        "reason": "The declared command chains every stage with `&&`; step 3's non-zero exit code short-circuited the shell and no subsequent stage executed. This is the real, literal behavior of the exact declared command, not a decision made by this executor."
+      },
+      { "order": 5, "command": "mage GenerateCheck", "status": "NOT_REACHED", "reason": "same short-circuit" },
+      { "order": 6, "command": "mage CheckOffline", "status": "NOT_REACHED", "reason": "same short-circuit" },
+      { "order": 7, "command": "mage Build", "status": "NOT_REACHED", "reason": "same short-circuit" },
+      { "order": 8, "command": "mage TestQuick", "status": "NOT_REACHED", "reason": "same short-circuit" },
+      { "order": 9, "command": "git diff --cached --quiet -- site", "status": "NOT_REACHED", "reason": "same short-circuit" },
+      {
+        "order": 10,
+        "command": "npm run validate:phase13-evidence -- --evidence ../.planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/phase-acceptance.json",
+        "status": "NOT_REACHED",
+        "reason": "same short-circuit -- this file therefore could not have been validated by the declared command in this same run, by construction (it did not exist yet when the chain ran, and the chain never reached this stage regardless)"
+      }
+    ]
+  },
+  "failureAnalysis": {
+    "suite": "frontend/e2e/resize.spec.ts",
+    "suiteProvenance": "Added 2026-08-02 by quick task 260801-qrz, predating Phase 13's migration waves. That task's own SUMMARY records the suite as 25/25 green and the full npm run test:e2e chain (30/30) green at that time.",
+    "ciCoverageGap": "CI's required workflow (.github/workflows/design-system.yml) runs only `mage DesignSystemBrowser`, which maps to the design-system-scoped Playwright project (frontend/e2e/design-system/*.spec.ts) -- it has never invoked the unscoped `npm run test:e2e` / `playwright test` that includes resize.spec.ts. This plan's own declared acceptance command is therefore the first point across the entire 41-plan Phase 13 corpus where the complete, unscoped e2e suite has been executed since the migration began.",
+    "failedTestCount": 8,
+    "totalTestCount": 129,
+    "failures": [
+      {
+        "test": "Test 1: tiling-WM aspect-ratio sweep > every destination at 320x240 (near-minimum scratchpad tile)",
+        "location": "e2e/resize.spec.ts:141",
+        "error": "Overview at 320x240 -- expected zero overflowing controls, got 3: \"Stop / Release All\" right edge (345px) past viewport (320px); \"MIDI Learn\" right edge (385px) past viewport (320px); \"Diagnose\" right edge (325px) past viewport (320px)"
+      },
+      {
+        "test": "Test 1: tiling-WM aspect-ratio sweep > every destination at 960x1080 (half tile)",
+        "location": "e2e/resize.spec.ts:141",
+        "error": "top-bar text overlap: \"Scene\" overlaps \"Layers\"; \"Layers\" overlaps \"Bar\"; \"live\" overlaps \"120 BPM\""
+      },
+      {
+        "test": "Test 1: tiling-WM aspect-ratio sweep > every destination at 900x720 (regression anchor)",
+        "location": "e2e/resize.spec.ts:141",
+        "error": "top-bar text overlap: \"Scene\" overlaps \"Layers\"; \"Layers\" overlaps \"Bar\"; \"live\" overlaps \"120 BPM\" (same overlap as the 960x1080 case, at the suite's own named regression-anchor width)"
+      },
+      {
+        "test": "Test 3: compact-breakpoint crossing collapses the inspector and caps the rail, stably across repeats",
+        "location": "e2e/resize.spec.ts:197",
+        "error": "expected --inspector-width CSS custom property to be \"258px\", got \"\" (empty string) -- the inspector width variable is no longer being set as the suite expects"
+      },
+      {
+        "test": "Test 6: open-overlay resize > help overlay stays inside the viewport and closes cleanly while resizing",
+        "location": "e2e/resize.spec.ts:366",
+        "error": "getByRole('dialog', { name: 'Keyboard shortcuts' }) not found within 5000ms after pressing \"?\""
+      },
+      {
+        "test": "Test 6: open-overlay resize > quick switcher stays inside the viewport and closes cleanly while resizing",
+        "location": "e2e/resize.spec.ts:385",
+        "error": "getByRole('dialog', { name: 'Quick switcher' }) not found within 5000ms after pressing Control+k"
+      },
+      {
+        "test": "Test 6: open-overlay resize > \"Leave the guide?\" confirm modal stays inside the viewport and closes cleanly while resizing",
+        "location": "e2e/resize.spec.ts:405",
+        "error": "getByRole('alertdialog', { name: 'Leave the guide?' }) not found within 5000ms after navigating away from the Guided First Show"
+      },
+      {
+        "test": "Test 8: a dragged rail size persists and re-clamps after reload at a different viewport",
+        "location": "e2e/resize.spec.ts:468",
+        "error": "page.evaluate: '.appShell' not found via document.querySelector('[class*=\"appShell\"]') after a page reload at a different viewport"
+      }
+    ],
+    "disclosedHypothesisNotConfirmed": "All 8 failures are plausibly connected to Phase 13's UI migration: dialog role/name changes align with the Dialog/ConfirmDialog primitive migration (Plans 13-22, 13-37 ConfirmModal removal) and the shell/inspector rewrite (Plans 13-24, 13-13); the top-bar overlap and narrow-width overflow findings align with the LiveStatusBar/TempoControls and command-rail migrations (Plans 13-15, 13-24). This is disclosed as a plausible, NOT a confirmed, root cause -- no source file was inspected deeply enough to assert certainty, and doing so was judged out of this plan's declared single-file scope (evidence/phase-acceptance.json only). A dedicated investigation, matching the pattern Plan 13-35 used for its own genuine CI failure, is the appropriate next step, not this plan.",
+    "notFlaky": "A diagnostic-only re-run of resize.spec.ts in isolation with --workers=1 (i.e. serialized, no parallelism) reproduced the exact same 8 failures with the exact same error messages -- ruling out worker-count contention or shared-server races as the cause. This diagnostic run was NOT part of the declared acceptance chain and does not alter the recorded chain result above; it exists solely to give the orchestrator/user honest additional context rather than an unexplained failure."
+  },
+  "rows": [
+    {
+      "taskId": "13-38-01",
+      "plan": "13-38",
+      "wave": 16,
+      "command": "cd frontend && npm run build && npm test && npm run test:e2e && npm run test:e2e:design-system && cd .. && mage GenerateCheck && mage CheckOffline && mage Build && mage TestQuick && git diff --cached --quiet -- site && cd frontend && npm run validate:phase13-evidence -- --evidence ../.planning/phases/13-unified-ui-design-system-and-automated-enforcement/evidence/phase-acceptance.json",
+      "commandSha256": "61809ea682c18efb0a40077d7c9cca84a81da65403495a44e32d0fed850f9263",
+      "exitCode": 1,
+      "startedAt": "2026-08-04T04:22:41Z",
+      "completedAt": "2026-08-04T04:29:12Z",
+      "repositoryCommitSha": "b9e9560ecdd48dcd2a77e7a3e12b158426c8ef33",
+      "dirty": true,
+      "dirtyNote": "true during the run itself (see localAcceptanceRun.dirtyDuringRunNote); reverted to clean before this evidence file was written",
+      "environment": { "os": "win32", "runtime": "node v22.19.0" },
+      "build": { "identity": "vite production build emitted successfully at step 1 (../cmd/golc-desktop/frontend/dist), but the overall acceptance task genuinely failed at step 3 -- this identity string documents that a build artifact exists, not that the task passed" },
+      "artifacts": [],
+      "note": "This row intentionally records exitCode: 1 (a genuine failure) rather than fabricating exitCode: 0. frontend/scripts/design-system/validate-phase13-evidence.mjs#validateResultRow will correctly reject this row (exitCode must be exactly 0) -- that rejection is the desired, honest outcome, not a bug in this record."
+    }
+  ],
+  "fullSignOffBundleNotAssembled": {
+    "note": "This file intentionally does NOT assemble the full phase-13 sign-off bundle shape validateEvidenceBundle expects (rows[] for all 77 derived tasks, calibration, masks, packagedWebView2, backstops, requirementsCovered, backstopsCovered). Doing so would require either (a) re-executing the other 76 historical tasks' individual verify commands within this plan's own declared single-file scope, which the plan's action text does not authorize ('Run only the exact declared frontend, Mage, evidence-validation, and unrelated-site preservation commands; do not add repository path probes'), or (b) fabricating timestamps/exit codes/environment identity for work this executor did not itself run in this session, which the plan explicitly forbids ('do not weaken, mask, rebaseline, or translate failure into success'). Since this plan's own declared acceptance command already fails at its own third stage, assembling a fabricated full-pass bundle around that genuine failure would be exactly the kind of false sign-off this entire phase exists to prevent.",
+    "diagnosticValidatorRunConfirmation": {
+      "note": "As a diagnostic-only sanity check (NOT part of the declared acceptance chain, since that chain never reached this stage), `npm run validate:phase13-evidence -- --evidence <this file>` was actually run against this exact record after it was written. It correctly failed closed, confirming the predictions above rather than showing a false pass.",
+      "exitCode": 1,
+      "output": [
+        "FAIL 13-38-01: exitCode must be exactly 0 (got 1)",
+        "FAIL evidence bundle missing rows for tasks: 13-01-01, 13-01-02, 13-02-01, 13-02-02, 13-03-01, 13-03-02, 13-04-01, 13-04-02, 13-05-01, 13-05-02, 13-06-01, 13-06-02, 13-07-01, 13-07-02, 13-08-01, 13-09-01, 13-09-02, 13-10-01, 13-10-02, 13-11-01, 13-12-01, 13-13-01, 13-13-02, 13-14-01, 13-14-02, 13-15-01, 13-15-02, 13-16-01, 13-16-02, 13-17-01, 13-17-02, 13-18-01, 13-18-02, 13-18-03, 13-19-01, 13-20-01, 13-20-02, 13-21-01, 13-21-02, 13-22-01, 13-23-01, 13-23-02, 13-24-01, 13-24-02, 13-25-01, 13-25-02, 13-26-01, 13-26-02, 13-27-01, 13-27-02, 13-28-01, 13-28-02, 13-29-01, 13-29-02, 13-30-01, 13-30-02, 13-31-01, 13-31-02, 13-32-01, 13-32-02, 13-32-03, 13-33-01, 13-33-02, 13-33-03, 13-34-01, 13-34-02, 13-34-03, 13-35-01, 13-35-02, 13-35-03, 13-36-01, 13-37-01, 13-39-01, 13-40-01, 13-41-01, 13-41-02",
+        "FAIL evidence bundle missing calibration evidence",
+        "FAIL evidence bundle missing mask audit",
+        "FAIL evidence bundle missing packaged WebView2 evidence",
+        "FAIL evidence bundle missing Windows CI evidence",
+        "FAIL evidence bundle missing CI implementation-tree identity",
+        "FAIL evidence bundle missing backstop evidence for startup-theme-font-before-settle",
+        "FAIL evidence bundle missing backstop evidence for error-boundary-before-theme-css",
+        "FAIL evidence bundle missing backstop evidence for specialized-geometry-900-1280",
+        "FAIL evidence bundle missing backstop evidence for expanded-copy-2x-reflow",
+        "FAIL evidence bundle missing backstop evidence for text-zoom-200-900x720",
+        "FAIL evidence bundle missing backstop evidence for provider-daemon-offline-safety",
+        "FAIL requirements coverage: coverage list missing",
+        "FAIL backstop coverage: coverage list missing"
+      ],
+      "note2": "The 'missing CI implementation-tree identity' FAIL is a field-name mismatch, not a missing proof: this file's ancestry/manifest proof is recorded above under `implementationTreeProof` (a descriptive key), while validateEvidenceBundle strictly destructures `bundle.implementationTree` (the exact key name windows-ci-run.json uses). The underlying proof itself is genuine and passing (see implementationTreeProof.result above); it is simply not wired under the exact key name the whole-bundle validator expects, since this file is not attempting to satisfy the whole-bundle schema."
+    }
+  },
+  "signOff": {
+    "wave_0_complete": false,
+    "nyquist_compliant": false,
+    "approved": false,
+    "reason": "Complete local acceptance genuinely failed: npm run test:e2e exited 1 with 8 real, reproducible, non-flaky failures in the pre-existing frontend/e2e/resize.spec.ts suite (never previously exercised by any Phase 13 plan's own declared verify command, and never exercised by the required Windows CI workflow, which only runs the design-system-scoped Playwright project). The implementation-tree ancestry/manifest-identity proof against Plan 13-35's CI-proven commit did pass cleanly. This plan is being halted for orchestrator/user review per its own explicit instruction not to attempt an undisclosed fix that could exceed its declared single-file scope (evidence/phase-acceptance.json only) -- remediation (likely a dedicated investigation-then-fix plan, matching Plan 13-35's own precedent for its genuine Windows CI failure) is a decision for the coordinator/user, not this plan."
+  }
+}
