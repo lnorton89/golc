@@ -11,6 +11,8 @@
 .toolbarActions {
   display: flex;
   flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
   row-gap: var(--ds-spacing-space1);
   gap: var(--ds-spacing-space2);
 }
