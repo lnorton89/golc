@@ -2,13 +2,18 @@ import { describe, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
+  BACKSTOP_IDS,
   EVIDENCE_DIR,
   PHASE_DIR,
+  REQUIREMENT_IDS,
   collectAssertionErrors,
+  computeImplementationManifest,
   decodeXmlEntities,
   derivePlanCommandContract,
   normalizeCommand,
+  parseCommandLineArgs,
   parsePlanTasks,
+  parseStrictJson,
   sha256,
   validateArtifact,
   validateBackstopErrorBoundary,
@@ -19,6 +24,9 @@ import {
   validateBackstopTextZoom,
   validateCalibrationEvidence,
   validateDialogFeasibilityEvidence,
+  validateEvidenceBundle,
+  validateExactCoverage,
+  validateImplementationTreeIdentity,
   validateMaskAudit,
   validatePackagedWebView2Evidence,
   validateResultRow,
@@ -430,5 +438,371 @@ describe("collectAssertionErrors", () => {
     expect(collectAssertionErrors({ a: true, b: "yes" as unknown as boolean }, "x").length).toBe(1);
     expect(collectAssertionErrors({}, "x").length).toBe(1);
     expect(collectAssertionErrors(null, "x").length).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 2: prove every false-sign-off mutation is rejected
+// ---------------------------------------------------------------------------
+
+describe("mutation: command/hash and exit-status boundaries", () => {
+  const derivedTask = { taskId: "13-20-01", plan: "13-20", wave: 11, command: "cd frontend && npx vitest run x.test.ts", commandSha256: sha256("cd frontend && npx vitest run x.test.ts") };
+  const contract = new Map([[derivedTask.taskId, derivedTask]]);
+  function validRow() {
+    return {
+      taskId: "13-20-01",
+      plan: "13-20",
+      wave: 11,
+      command: derivedTask.command,
+      commandSha256: derivedTask.commandSha256,
+      exitCode: 0,
+      startedAt: "2026-08-03T10:00:00.000Z",
+      completedAt: "2026-08-03T10:00:05.000Z",
+      repositoryCommitSha: "a".repeat(40),
+      dirty: false,
+      environment: { os: "win32", runtime: "node-22" },
+      build: { identity: "golc-desktop.exe@abc123" },
+      artifacts: [],
+    };
+  }
+
+  it("rejects a wrong-but-successful command substitution (single character drift)", () => {
+    const row = { ...validRow(), command: derivedTask.command.replace("run x", "run  x") };
+    expect(validateResultRow(row, contract).some((e) => e.includes("command"))).toBe(true);
+  });
+
+  it("rejects a command that matches but carries a forged/stale hash", () => {
+    const row = { ...validRow(), commandSha256: "f".repeat(64) };
+    expect(validateResultRow(row, contract).some((e) => e.includes("commandSha256"))).toBe(true);
+  });
+
+  it("rejects a non-zero exit status even when everything else is correct", () => {
+    const row = { ...validRow(), exitCode: 1 };
+    expect(validateResultRow(row, contract).some((e) => e.includes("exitCode"))).toBe(true);
+  });
+
+  it("rejects a stale repository commit SHA identity (non-hex or wrong length)", () => {
+    expect(validateResultRow({ ...validRow(), repositoryCommitSha: "not-a-sha" }, contract).some((e) => e.includes("repositoryCommitSha"))).toBe(true);
+  });
+
+  it("rejects plan/wave mapping mismatches (task mapping mutation)", () => {
+    expect(validateResultRow({ ...validRow(), plan: "13-99" }, contract).some((e) => e.includes("plan mismatch"))).toBe(true);
+    expect(validateResultRow({ ...validRow(), wave: 999 }, contract).some((e) => e.includes("wave mismatch"))).toBe(true);
+  });
+});
+
+describe("mutation: semantic backstop and calibration arithmetic forgery", () => {
+  it("rejects a calibration selectedThreshold below the recomputed smallest-stable threshold", async () => {
+    const evidence = deepClone(await loadEvidence("screenshot-calibration.json"));
+    evidence.states[0].pairwiseDiffs[0].smallestPassingRatio = 0.9;
+    evidence.states[0].maxRatio = 0.9;
+    // selectedThreshold left at its original (lower) value -- now inconsistent with the new max.
+    expect(validateCalibrationEvidence(evidence).some((e) => e.includes("selectedThreshold"))).toBe(true);
+  });
+
+  it("rejects duplicate capture identities within one calibration state", async () => {
+    const evidence = deepClone(await loadEvidence("screenshot-calibration.json"));
+    evidence.states[0].captures[1].id = evidence.states[0].captures[0].id;
+    expect(validateCalibrationEvidence(evidence).some((e) => e.includes("duplicate capture ids"))).toBe(true);
+  });
+
+  it("rejects 100% zoom mislabeled as 200% zoom", async () => {
+    const evidence = deepClone(await loadEvidence("text-zoom-200.json"));
+    evidence.requestedZoom = "1";
+    evidence.computedZoom = "1";
+    expect(validateBackstopTextZoom(evidence).some((e) => e.includes("real 200% browser text zoom"))).toBe(true);
+  });
+
+  it("rejects an unreachable required safety/navigation locator at 200% zoom", async () => {
+    const evidence = deepClone(await loadEvidence("text-zoom-200.json"));
+    evidence.locators.blackout.passed = false;
+    expect(validateBackstopTextZoom(evidence).some((e) => e.includes('locator "blackout"'))).toBe(true);
+  });
+
+  it("rejects a missing keyboard focus traversal record at 200% zoom", async () => {
+    const evidence = deepClone(await loadEvidence("text-zoom-200.json"));
+    evidence.focusTraversal = [];
+    expect(validateBackstopTextZoom(evidence).some((e) => e.includes("focusTraversal"))).toBe(true);
+  });
+
+  it("rejects offline controls that are not independently keyboard-operable via their own local path", async () => {
+    const evidence = deepClone(await loadEvidence("offline-safety.json"));
+    evidence.states[0].controls.blackout.dispatchedExactlyOnce = false;
+    expect(validateBackstopOfflineSafety(evidence).some((e) => e.includes('control "blackout"'))).toBe(true);
+  });
+
+  it("rejects a cross-dispatch leak (blackout and revoke must never share a dispatch path)", async () => {
+    const evidence = deepClone(await loadEvidence("offline-safety.json"));
+    evidence.states[0].controls.revokeAutomation.crossDispatchZero = false;
+    expect(validateBackstopOfflineSafety(evidence).some((e) => e.includes('control "revokeAutomation"'))).toBe(true);
+  });
+
+  it("rejects a specialized-geometry/expanded-copy case with a flipped semantic assertion", async () => {
+    const evidence = deepClone(await loadEvidence("expanded-copy.json"));
+    const firstKey = Object.keys(evidence.cases[0].assertions)[0];
+    evidence.cases[0].assertions[firstKey] = false;
+    expect(validateBackstopExpandedCopy(evidence).length).toBeGreaterThan(0);
+  });
+});
+
+function fakeGitRunner(commits: Record<string, { path: string; mode: string; objectId: string }[]>, ancestry: Record<string, string[]>) {
+  return {
+    lsTree(sha: string) {
+      const entries = commits[sha];
+      if (!entries) throw new Error(`unknown fixture commit ${sha}`);
+      return entries;
+    },
+    diffNameOnly(a: string, b: string) {
+      return ancestry[`${a}..${b}`] ?? [];
+    },
+    isAncestor(a: string, b: string) {
+      return Boolean(ancestry[`${a}..${b}`]);
+    },
+  };
+}
+
+describe("implementation tree ancestry and non-planning manifest identity", () => {
+  const provenSha = "1".repeat(40);
+  const observedSha = "2".repeat(40);
+  const nonAncestorSha = "3".repeat(40);
+
+  const baseEntries = [
+    { mode: "100644", objectId: "aaa", path: "internal/command/foo.go" },
+    { mode: "100644", objectId: "bbb", path: "frontend/src/App.tsx" },
+  ];
+
+  it("accepts an identical commit (no drift) trivially", () => {
+    const gitRunner = fakeGitRunner({ [provenSha]: baseEntries }, {});
+    expect(validateImplementationTreeIdentity({ provenSha, observedSha: provenSha, gitRunner })).toEqual([]);
+  });
+
+  it("accepts a descendant whose only changes are under .planning/** and whose non-planning manifest hash is identical", () => {
+    const commits = {
+      [provenSha]: baseEntries,
+      [observedSha]: [...baseEntries, { mode: "100644", objectId: "ccc", path: ".planning/phases/13-x/13-20-SUMMARY.md" }],
+    };
+    const ancestry = { [`${provenSha}..${observedSha}`]: [".planning/phases/13-x/13-20-SUMMARY.md"] };
+    const gitRunner = fakeGitRunner(commits, ancestry);
+    const proven = computeImplementationManifest(provenSha, gitRunner);
+    const observed = computeImplementationManifest(observedSha, gitRunner);
+    expect(proven.hash).toBe(observed.hash); // the .planning/** addition must not change the non-planning manifest
+    expect(validateImplementationTreeIdentity({ provenSha, observedSha, gitRunner, declaredProvenHash: proven.hash, declaredObservedHash: observed.hash })).toEqual([]);
+  });
+
+  it("rejects a non-ancestor evidence commit", () => {
+    const gitRunner = fakeGitRunner({ [provenSha]: baseEntries, [nonAncestorSha]: baseEntries }, {});
+    const errors = validateImplementationTreeIdentity({ provenSha, observedSha: nonAncestorSha, gitRunner });
+    expect(errors.some((e) => e.includes("does not descend"))).toBe(true);
+  });
+
+  it("rejects a changed frontend/runtime path outside the .planning/** allowlist after the proven SHA", () => {
+    const commits = {
+      [provenSha]: baseEntries,
+      [observedSha]: [{ mode: "100644", objectId: "zzz", path: "internal/command/foo.go" }, { mode: "100644", objectId: "bbb", path: "frontend/src/App.tsx" }],
+    };
+    const ancestry = { [`${provenSha}..${observedSha}`]: ["internal/command/foo.go"] }; // changed OUTSIDE .planning/**
+    const gitRunner = fakeGitRunner(commits, ancestry);
+    const errors = validateImplementationTreeIdentity({ provenSha, observedSha, gitRunner });
+    expect(errors.some((e) => e.includes("non-.planning/** paths changed"))).toBe(true);
+  });
+
+  it("rejects a forged declared implementation-tree manifest hash", () => {
+    const gitRunner = fakeGitRunner({ [provenSha]: baseEntries }, {});
+    const errors = validateImplementationTreeIdentity({ provenSha, observedSha: provenSha, gitRunner, declaredProvenHash: "forgedhash" });
+    expect(errors.some((e) => e.includes("does not match the recomputed manifest hash"))).toBe(true);
+  });
+
+  it("rejects mismatched non-planning manifests between proven and observed commits even when ancestry/allowlist hold", () => {
+    const commits = {
+      [provenSha]: baseEntries,
+      [observedSha]: [{ mode: "100644", objectId: "different-blob", path: "internal/command/foo.go" }, { mode: "100644", objectId: "bbb", path: "frontend/src/App.tsx" }],
+    };
+    // Simulate the diff tool only reporting a .planning/** change while the ls-tree blob for a
+    // non-planning path was tampered with -- the recomputed manifest hash must still catch it.
+    const ancestry = { [`${provenSha}..${observedSha}`]: [".planning/phases/13-x/note.md"] };
+    const gitRunner = fakeGitRunner(commits, ancestry);
+    const errors = validateImplementationTreeIdentity({ provenSha, observedSha, gitRunner });
+    expect(errors.some((e) => e.includes("manifest hash differs"))).toBe(true);
+  });
+
+  it("computeImplementationManifest excludes every .planning/** path from the hashed manifest", () => {
+    const gitRunner = fakeGitRunner({
+      [provenSha]: [...baseEntries, { mode: "100644", objectId: "ddd", path: ".planning/STATE.md" }],
+    }, {});
+    const manifest = computeImplementationManifest(provenSha, gitRunner);
+    expect(manifest.entries.some((entry) => entry.path.startsWith(".planning/"))).toBe(false);
+    expect(manifest.entries).toHaveLength(2);
+  });
+
+  it("rejects a malformed proven/observed SHA (not 40-hex)", () => {
+    expect(validateImplementationTreeIdentity({ provenSha: "short", observedSha, gitRunner: fakeGitRunner({}, {}) }).length).toBeGreaterThan(0);
+  });
+});
+
+describe("requirement and backstop coverage exactness", () => {
+  it("accepts the exact canonical D-01..D-14/UI-SPEC list", () => {
+    expect(validateExactCoverage(REQUIREMENT_IDS, REQUIREMENT_IDS, "requirements")).toEqual([]);
+  });
+
+  it("rejects missing coverage for any single requirement", () => {
+    const incomplete = REQUIREMENT_IDS.filter((id) => id !== "D-13");
+    expect(validateExactCoverage(incomplete, REQUIREMENT_IDS, "requirements").some((e) => e.includes("D-13"))).toBe(true);
+  });
+
+  it("rejects unknown/extra coverage entries", () => {
+    const withExtra = [...REQUIREMENT_IDS, "D-99"];
+    expect(validateExactCoverage(withExtra, REQUIREMENT_IDS, "requirements").some((e) => e.includes("D-99"))).toBe(true);
+  });
+
+  it("rejects duplicate coverage entries", () => {
+    const withDuplicate = [...REQUIREMENT_IDS, "D-01"];
+    expect(validateExactCoverage(withDuplicate, REQUIREMENT_IDS, "requirements").some((e) => e.includes("duplicate"))).toBe(true);
+  });
+
+  it("accepts and rejects the six separately named backstops the same way", () => {
+    expect(validateExactCoverage(BACKSTOP_IDS, BACKSTOP_IDS, "backstops")).toEqual([]);
+    expect(validateExactCoverage(BACKSTOP_IDS.slice(0, 5), BACKSTOP_IDS, "backstops").length).toBeGreaterThan(0);
+  });
+});
+
+describe("strict JSON parsing (malformed/duplicate-key fail-closed)", () => {
+  it("parses well-formed JSON identically to JSON.parse", () => {
+    const source = '{"a":1,"b":[1,2,"x"],"c":{"d":true,"e":null}}';
+    expect(parseStrictJson(source, "fixture")).toEqual(JSON.parse(source));
+  });
+
+  it("rejects a duplicate object key with a stable diagnostic", () => {
+    expect(() => parseStrictJson('{"a":1,"a":2}', "fixture")).toThrow(/duplicate key "a"/);
+  });
+
+  it("rejects a duplicate key nested inside an array of objects", () => {
+    expect(() => parseStrictJson('{"rows":[{"taskId":"x","taskId":"y"}]}', "fixture")).toThrow(/duplicate key "taskId"/);
+  });
+
+  it("rejects malformed/truncated JSON with a positional diagnostic", () => {
+    expect(() => parseStrictJson('{"a":1,', "fixture")).toThrow(/PHASE13_EVIDENCE_MALFORMED_JSON/);
+    expect(() => parseStrictJson("not json at all", "fixture")).toThrow(/PHASE13_EVIDENCE_MALFORMED_JSON/);
+    expect(() => parseStrictJson('{"a":1}trailing', "fixture")).toThrow(/trailing content/);
+  });
+});
+
+describe("CLI argument parsing", () => {
+  it("accepts no arguments (light validation mode)", () => {
+    expect(parseCommandLineArgs([])).toEqual({ evidencePath: null });
+  });
+  it("accepts --evidence <path>", () => {
+    expect(parseCommandLineArgs(["--evidence", "evidence/phase-acceptance.json"])).toEqual({ evidencePath: "evidence/phase-acceptance.json" });
+  });
+  it("rejects --evidence without a value", () => {
+    expect(() => parseCommandLineArgs(["--evidence"])).toThrow("VALIDATE_ARGS");
+  });
+  it("rejects unrecognized arguments", () => {
+    expect(() => parseCommandLineArgs(["--bogus"])).toThrow("VALIDATE_ARGS");
+  });
+});
+
+describe("whole evidence bundle: false sign-off is rejected", () => {
+  async function fullyValidBundle() {
+    const { contract } = await derivePlanCommandContract(PHASE_DIR);
+    const rows = [...contract.values()].map((task) => ({
+      taskId: task.taskId,
+      plan: task.plan,
+      wave: task.wave,
+      command: task.command,
+      commandSha256: task.commandSha256,
+      exitCode: 0,
+      startedAt: "2026-08-03T10:00:00.000Z",
+      completedAt: "2026-08-03T10:00:05.000Z",
+      repositoryCommitSha: "a".repeat(40),
+      dirty: false,
+      environment: { os: "win32", runtime: "node-22" },
+      build: { identity: "golc-desktop.exe@abc123" },
+      artifacts: [],
+    }));
+    const proven = "1".repeat(40);
+    const gitRunner = fakeGitRunner({ [proven]: [{ mode: "100644", objectId: "aaa", path: "internal/command/foo.go" }] }, {});
+    const manifest = computeImplementationManifest(proven, gitRunner);
+    return {
+      bundle: {
+        rows,
+        calibration: await loadEvidence("screenshot-calibration.json"),
+        masks: [] as unknown[],
+        packagedWebView2: await loadEvidence("dialog-feasibility.json"),
+        windowsCi: validWindowsCiEvidence(proven),
+        implementationTree: { provenSha: proven, observedSha: proven, declaredProvenHash: manifest.hash, declaredObservedHash: manifest.hash },
+        backstops: {
+          startupTheme: await loadEvidence("startup-theme-font.json"),
+          errorBoundary: await loadEvidence("error-boundary-fallback.json"),
+          specializedGeometry: await loadEvidence("specialized-geometry.json"),
+          expandedCopy: await loadEvidence("expanded-copy.json"),
+          textZoom: await loadEvidence("text-zoom-200.json"),
+          offlineSafety: await loadEvidence("offline-safety.json"),
+        },
+        requirementsCovered: REQUIREMENT_IDS,
+        backstopsCovered: BACKSTOP_IDS,
+        signOff: { wave_0_complete: true, nyquist_compliant: true, approved: true },
+      },
+      contract,
+      gitRunner,
+    };
+  }
+
+  it("accepts a fully closed, semantically valid bundle and only then allows sign-off", async () => {
+    const { bundle, contract, gitRunner } = await fullyValidBundle();
+    const result = await validateEvidenceBundle(bundle, { contract, gitRunner, approvedSha: bundle.implementationTree.provenSha });
+    expect(result.errors).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects sign-off flags claimed true while evidence errors remain (premature approval)", async () => {
+    const { bundle, contract, gitRunner } = await fullyValidBundle();
+    bundle.rows[0].exitCode = 1; // introduce a genuine failure
+    const result = await validateEvidenceBundle(bundle, { contract, gitRunner });
+    expect(result.ok).toBe(false);
+    expect(result.errors.some((e) => e.includes("premature wave_0_complete/nyquist_compliant/approval"))).toBe(true);
+  });
+
+  it("rejects a bundle missing rows for one derived task (missing task row)", async () => {
+    const { bundle, contract, gitRunner } = await fullyValidBundle();
+    bundle.rows = bundle.rows.filter((row) => row.taskId !== "13-01-01");
+    const result = await validateEvidenceBundle(bundle, { contract, gitRunner });
+    expect(result.errors.some((e) => e.includes("missing rows for tasks") && e.includes("13-01-01"))).toBe(true);
+  });
+
+  it("rejects a duplicate row for the same task id", async () => {
+    const { bundle, contract, gitRunner } = await fullyValidBundle();
+    bundle.rows.push({ ...bundle.rows[0] });
+    const result = await validateEvidenceBundle(bundle, { contract, gitRunner });
+    expect(result.errors.some((e) => e.includes("duplicate row"))).toBe(true);
+  });
+
+  it("rejects a bundle with markdown-only/existence-only evidence (missing calibration/masks/webview2/windowsCi/implementationTree entirely)", async () => {
+    const { bundle, contract, gitRunner } = await fullyValidBundle();
+    delete (bundle as any).calibration;
+    delete (bundle as any).masks;
+    delete (bundle as any).packagedWebView2;
+    delete (bundle as any).windowsCi;
+    delete (bundle as any).implementationTree;
+    const result = await validateEvidenceBundle(bundle, { contract, gitRunner });
+    expect(result.errors.some((e) => e.includes("missing calibration evidence"))).toBe(true);
+    expect(result.errors.some((e) => e.includes("missing mask audit"))).toBe(true);
+    expect(result.errors.some((e) => e.includes("missing packaged WebView2 evidence"))).toBe(true);
+    expect(result.errors.some((e) => e.includes("missing Windows CI evidence"))).toBe(true);
+    expect(result.errors.some((e) => e.includes("missing CI implementation-tree identity"))).toBe(true);
+  });
+
+  it("rejects a bundle where the backstop coverage list omits one of the six named backstops", async () => {
+    const { bundle, contract, gitRunner } = await fullyValidBundle();
+    bundle.backstopsCovered = BACKSTOP_IDS.filter((id) => id !== "provider-daemon-offline-safety");
+    const result = await validateEvidenceBundle(bundle, { contract, gitRunner });
+    expect(result.errors.some((e) => e.includes("provider-daemon-offline-safety"))).toBe(true);
+  });
+
+  it("rejects any single semantic evidence category regression (offline safety false-stop) even if every row/coverage entry is otherwise correct", async () => {
+    const { bundle, contract, gitRunner } = await fullyValidBundle();
+    bundle.backstops.offlineSafety.states[0].after.outputText = "stopped";
+    const result = await validateEvidenceBundle(bundle, { contract, gitRunner });
+    expect(result.ok).toBe(false);
+    expect(result.errors.some((e) => e.includes("provider-daemon-offline-safety"))).toBe(true);
   });
 });
