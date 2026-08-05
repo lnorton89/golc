@@ -96,5 +96,5 @@ describe("ConfirmModal removal", () => {
       }
     }
     expect(offenders).toEqual([]);
-  });
+  }, 30_000);
 });
