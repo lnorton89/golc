@@ -50,17 +50,23 @@
   outline-offset: var(--ds-focus-offset);
 }
 
-/* Portaled into document.body (InfoTooltip.tsx) -- position: fixed with
-   top/left set inline from the trigger's real getBoundingClientRect().
-   Flat/paper brand (index.css): border + background separation only, no
-   box-shadow -- matches every other panel in this app. */
+/* Portaled into document.body (useTooltip.tsx) -- position: fixed with
+   top/left/right and max-width all set inline from real trigger/viewport
+   geometry computed BEFORE this ever renders (not measured and corrected
+   after the fact -- see useTooltip.tsx's own doc comment for why that
+   two-pass approach shipped two separate bugs). max-width is always the
+   real, precomputed available space on whichever side this opens toward,
+   so the box wraps within its actual budget instead of trying to grow
+   past a viewport edge and needing a later correction. Flat/paper brand
+   (index.css): border + background separation only, no box-shadow --
+   matches every other panel in this app. */
 .tooltip {
   position: fixed;
   z-index: var(--ds-stacking-popover);
   transform: translateY(-50%);
   top: clamp(var(--ds-spacing-space2), var(--ds-tooltip-top), calc(100vh - var(--ds-spacing-space2)));
-  left: clamp(var(--ds-spacing-space2), var(--ds-tooltip-left), calc(100vw - var(--ds-spacing-space2)));
-  max-width: calc(100vw - var(--ds-spacing-space4));
+  left: var(--ds-tooltip-left);
+  max-width: var(--ds-tooltip-max-width);
   padding: var(--ds-spacing-space2);
   border-width: 1px;
   border-style: solid;
@@ -78,20 +84,18 @@
   pointer-events: none;
 }
 
-/* Set by InfoTooltip.tsx's own post-mount overflow measurement: opening
-   rightward (the default `left`-anchored case above) would push this
-   tooltip past the viewport's right edge, so switch to `right` anchoring
-   and extend leftward instead. This must be a real `right` offset, not
-   `left` plus a horizontal transform: a `position: fixed` box with only
-   `left` set always has its shrink-to-fit width computed from "left to
-   the viewport's right edge" before any transform is applied -- near the
-   right edge that gap is a few px, so the box would collapse to its
-   narrowest unbreakable word and every other word would wrap onto its own
-   line. `right` makes the browser compute shrink-to-fit width from the
-   viewport's actual left edge instead, which is the real available space. */
+/* Set by useTooltip.tsx when the trigger has genuinely more room to its
+   left than its right (a nav-rail item near the right edge, say) -- opens
+   leftward from the trigger's own left edge instead of rightward from its
+   right edge. A real `right` offset, not `left` plus a horizontal
+   transform: a `position: fixed` box with only `left` set always has its
+   shrink-to-fit width computed from "left to the viewport's right edge"
+   before any transform is applied, regardless of where a transform later
+   moves it -- `right` makes the browser compute shrink-to-fit width from
+   the viewport's actual left edge instead, the real available space. */
 .tooltip[data-flip] {
   left: auto;
-  right: clamp(var(--ds-spacing-space2), var(--ds-tooltip-right), calc(100vw - var(--ds-spacing-space2)));
+  right: var(--ds-tooltip-right);
 }
 
 @media (prefers-reduced-motion: reduce) {
