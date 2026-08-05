@@ -513,6 +513,42 @@
       "source": "LoadingState.module.css",
       "owner": "phase-13-19",
       "reviewCondition": "a combined multi-property animation-list token, a duration-only motion token, or an ambient/looping motion token is added to the design system"
+    },
+    {
+      "path": "src/shell/TitleBarControlButton.tsx",
+      "rule": "DS005",
+      "match": "button",
+      "rationale": "Minimize/maximize/close window-chrome controls are deliberately plain native <button> elements, not the shared IconButton primitive -- IconButton's persistent variant styling and focus-visible ring read wrong for OS-style window chrome, which should stay visually inert until hovered. Explicit user direction: revert this control to its pre-design-system appearance/behavior.",
+      "source": "TitleBarControlButton.tsx:20",
+      "owner": "user-directed-revert",
+      "reviewCondition": "the design system gains a window-chrome-specific control primitive with hover-only, non-persistent styling"
+    },
+    {
+      "path": "src/shell/TitleBar.module.css",
+      "rule": "DS006",
+      "match": ".controlButton",
+      "rationale": "The base window-control button visual (transparent, no border, hover-tinted background) intentionally does not reuse Button/IconButton's own chrome -- see the DS005 exception on TitleBarControlButton.tsx for why. Same user-directed revert.",
+      "source": "TitleBar.module.css:74",
+      "owner": "user-directed-revert",
+      "reviewCondition": "the design system gains a window-chrome-specific control primitive with hover-only, non-persistent styling"
+    },
+    {
+      "path": "src/shell/TitleBar.module.css",
+      "rule": "DS006",
+      "match": ".controlButton:hover",
+      "rationale": "Hover-only tint for minimize/maximize, matching this control's pre-design-system appearance -- see the DS005 exception on TitleBarControlButton.tsx.",
+      "source": "TitleBar.module.css:85",
+      "owner": "user-directed-revert",
+      "reviewCondition": "the design system gains a window-chrome-specific control primitive with hover-only, non-persistent styling"
+    },
+    {
+      "path": "src/shell/TitleBar.module.css",
+      "rule": "DS006",
+      "match": ".closeButton:hover",
+      "rationale": "Close button turns solid red only on hover (no persistent destructive styling/focus ring), matching this control's pre-design-system appearance -- see the DS005 exception on TitleBarControlButton.tsx.",
+      "source": "TitleBar.module.css:89",
+      "owner": "user-directed-revert",
+      "reviewCondition": "the design system gains a window-chrome-specific control primitive with hover-only, non-persistent styling"
     }
   ]
 }

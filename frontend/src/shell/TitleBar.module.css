@@ -68,7 +68,25 @@
   right: 0;
   bottom: 0;
   display: flex;
+  align-items: stretch;
+}
+
+.controlButton {
+  display: flex;
   align-items: center;
-  gap: var(--ds-spacing-space1);
-  padding-right: var(--ds-spacing-space1);
+  justify-content: center;
+  width: 44px;
+  border: none;
+  background: transparent;
+  color: var(--ds-text-primary);
+  cursor: pointer;
+}
+
+.controlButton:hover {
+  background: var(--ds-border-default);
+}
+
+.closeButton:hover {
+  background: var(--ds-action-destructive);
+  color: var(--ds-action-on-destructive);
 }
