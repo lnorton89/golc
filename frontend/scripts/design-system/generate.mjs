@@ -17,25 +17,32 @@ function selector(face) {
   return `${palette}[data-theme="${face.mode}"]`;
 }
 
-// mediaSelector mirrors selector()'s "default" (unnamed) palette branch, but
-// gated by an OS-level prefers-color-scheme media query instead of the
-// explicit [data-theme] attribute -- this is what makes "system" mode
-// (theme.ts's applyTheme("system"), which removes data-theme entirely)
-// resolve to real colors instead of no colors at all. `:not([data-theme])`
+// mediaSelector mirrors selector()'s attribute-selector shape, but gated by
+// an OS-level prefers-color-scheme media query instead of the explicit
+// [data-theme] attribute -- this is what makes "system" mode (theme.ts's
+// applyTheme("system"), which removes data-theme entirely) resolve to real
+// colors instead of no colors at all, for EVERY theme name, not just
+// "default": "system" mode is an independent axis from theme NAME
+// (theme.ts's two separate storage keys/attributes), so a user can select
+// any named theme while leaving Mode at "Match System". `:not([data-theme])`
 // (rather than a bare :root) ensures an explicit stored light/dark
 // preference always wins over the OS default: when [data-theme] is present
 // this selector simply does not match, independent of source order or
-// specificity.
-function mediaSelector() {
-  return `:root:not([data-theme])`;
+// specificity. The "default" face additionally needs `:not([data-theme-name])`
+// -- applyThemeName("default") removes that attribute entirely, so the
+// bare-:root branch below only matches when NO theme name is stored at all,
+// leaving every non-default name's own `[data-theme-name="..."]` selector as
+// the sole match for its own name.
+function mediaSelector(face) {
+  const palette = face.name === "default" ? ":root:not([data-theme-name])" : `:root[data-theme-name="${face.name}"]`;
+  return `${palette}:not([data-theme])`;
 }
 
 function renderCSS(tokens) {
   const roles = [...tokens.semanticRoles].sort();
   const faces = [...tokens.themes].sort((a, b) => `${a.name}/${a.mode}`.localeCompare(`${b.name}/${b.mode}`));
   const blocks = faces.map((face) => [selector(face), "{", ...roles.map((role) => `  ${cssName(role)}: ${face.tokens[role]};`), "}"].join("\n"));
-  const defaultFaces = faces.filter((face) => face.name === "default").sort((a, b) => a.mode.localeCompare(b.mode));
-  const mediaBlocks = defaultFaces.map((face) => [
+  const mediaBlocks = faces.map((face) => [
     `@media (prefers-color-scheme: ${face.mode})`,
     "{",
     `  ${mediaSelector(face)}`,
