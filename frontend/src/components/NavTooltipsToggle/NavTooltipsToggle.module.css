@@ -1,0 +1,25 @@
+/*
+ * NavTooltipsToggle.module.css -- layered on top of the shared Button
+ * primitive's own "secondary"/"compact" styling (Button.module.css), not a
+ * replacement for it. Only the muted (hover-text-off) state and the
+ * narrow-viewport label collapse are this component's own concern.
+ */
+
+/* "On" is the default/normal state (most operators want hover text), so
+   this fills in only once hover text is turned OFF -- the exception state
+   is what should visually stand out, mirroring MidiLearnToggle's own
+   data-active convention but inverted (this toggle's notable state is
+   "off", not "on"). The combined class+attribute selector outweighs
+   Button.module.css's own `.secondary` class regardless of stylesheet
+   import order. */
+.toggle[data-muted] {
+  background: var(--ds-action-primary);
+  color: var(--ds-action-on-primary);
+  border-color: var(--ds-action-primary);
+}
+
+@media (max-width: 1024px) {
+  .label {
+    display: none;
+  }
+}

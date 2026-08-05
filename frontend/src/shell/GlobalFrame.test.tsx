@@ -17,5 +17,6 @@ describe("GlobalFrame", () => {
     expect(screen.getByLabelText("Live status bar")).toBeInTheDocument();
     expect(screen.getByLabelText("Tempo controls")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "0 BPM" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Turn off navigation hover text" })).toBeInTheDocument();
   });
 });
