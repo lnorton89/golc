@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.0-shipped
 milestone_name: milestone
 status: phase_not_planned
-stopped_at: "Phase 13 planning checker: revision cap reached with 3 file-ownership blockers"
-last_updated: "2026-08-03T02:07:05.069Z"
-last_activity: 2026-08-02
-last_activity_desc: Phase 13 execution started
+stopped_at: "Session crash during Phase 13's post-signoff human visual-verification pass; resumed, recovered and committed uncommitted NavTooltipsToggle work (917bd578). Phase 13 itself is machine-signed-off (13-39: nyquist_compliant true, wave_0_complete true, Approval GRANTED, 41/41 plans) and independently goal-backward-verified (13-VERIFICATION.md: 8/8 must-haves, 14/14 DSYS requirements) with one item routed to human review (visual sanity pass); that pass found and fixed real issues (window-chrome, InfoTooltip, theme-switching) in commits since. The previous stopped_at ('planning checker: revision cap reached with 3 file-ownership blockers') was stale -- it described a pre-execution planning blocker from 2026-08-02T23:26, already resolved by 13-PATTERNS.md's parallel-execution file-ownership table before this file was last touched."
+last_updated: "2026-08-05T00:00:00.000Z"
+last_activity: 2026-08-05
+last_activity_desc: crashed-session recovery (NavTooltipsToggle commit) plus REQUIREMENTS.md DSYS-01..14 checkbox reconciliation
 progress:
   total_phases: 10
   completed_phases: 9
@@ -28,12 +28,15 @@ See: .planning/PROJECT.md (updated 2026-07-27)
 ## Current Position
 
 Milestone v1.0: COMPLETE (Phases 1-8, 99/99 plans, shipped 2026-07-27)
-Next: Phase 9 (Front-Door UI Completion) — inserted 2026-07-27, not yet planned.
-Last activity: 2026-08-02 — Phase 13 execution started
+Phase 13 (Unified UI Design System and Automated Enforcement) — inserted out-of-sequence ahead of Phases 9-12, executed 2026-08-02 through 2026-08-04: all 41 plans complete, machine-signed-off (13-39, Approval: GRANTED), independently goal-backward-verified (13-VERIFICATION.md, 2026-08-04: 8/8 must-haves, 14/14 DSYS requirements). One item was routed to human review (a visual sanity pass of the running app, since no automated tool can certify "does this look right") — that pass is in progress and has already produced real fixes (window-chrome, InfoTooltip double-border/cutoff/double-tooltip, theme-switching regression, nav-tooltip suppression), the latest recovered and committed 2026-08-05 after a session crash.
+Next: Phase 9 (Front-Door UI Completion) — inserted 2026-07-27. All 7 plans have SUMMARY.md files and 09-VERIFICATION.md exists (2026-07-28, status: human_needed), but 09-UAT.md is still `status: testing` and ROADMAP.md's Phase 9 checkbox is unchecked with no completed_date — Phase 9's actual completion state needs to be resolved (finish the UAT pass, or confirm it already happened and reconcile ROADMAP.md/UAT.md) before treating it as "not yet planned."
+Last activity: 2026-08-05 — crashed-session recovery (NavTooltipsToggle commit) plus REQUIREMENTS.md DSYS-01..14 checkbox reconciliation
 
-Note: Phase 9 depends on Phase 8 (satisfied). Phase 10 (AI autonomy) depends on Phases 2/6/7/8/9, Phase 11 (Windows) depends on Phases 1-10, and Phase 12 (Telemetry) depends on Phase 11. These phases remain active (not archived) in `.planning/ROADMAP.md` since they were carried forward rather than shipped as part of v1.0.
+Note: Phase 9 depends on Phase 8 (satisfied). Phase 10 (AI autonomy) depends on Phases 2/6/7/8/9, Phase 11 (Windows) depends on Phases 1-10, and Phase 12 (Telemetry) depends on Phase 11. Phase 13 formally depends on Phase 12 per its own ROADMAP.md entry but was executed ahead of that dependency as a deliberate out-of-band design-system unification effort — not a DAG violation so much as an unenforced dependency note. These phases remain active (not archived) in `.planning/ROADMAP.md` since they were carried forward rather than shipped as part of v1.0.
 
 Progress: [███████░░░] 73% (8/11 phases, 99/99 plans in completed phases)
+
+**Progress numbers above are stale and unreconciled**, predating this note: they don't count Phase 13's 41 completed plans, Phase 9's 7 completed-but-unsealed plans, or `.planning/ROADMAP.md`'s current 12-visible-phase (+ Phase 13) structure. `total_phases: 10`/`completed_phases: 9` in this file's frontmatter is also inconsistent with `current_phase: 09` being `phase_not_planned`. Fixing this needs a full phase-by-phase audit against ROADMAP.md and each phase's own VERIFICATION/UAT status, which is out of scope for this update — flagged here rather than silently adjusted with unverified numbers.
 
 ## Accumulated Context
 
@@ -67,6 +70,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent roadmap constrain
 ### Roadmap Evolution
 
 - Phase 13 added: Unified UI design system and automated enforcement
+- 2026-08-04: Phase 13 machine-signed-off (41/41 plans, `13-VALIDATION.md` Approval: GRANTED) and independently goal-backward-verified (`13-VERIFICATION.md`: 8/8 must-haves, 14/14 DSYS requirements); one item (human visual sanity pass) routed to human review, in progress since with real fixes landing. `.planning/REQUIREMENTS.md`'s DSYS-01..14 checked off 2026-08-05 to match. `.planning/ROADMAP.md`'s top-of-file "## Phases" list and milestone summary still don't mention Phase 13 at all (only its "### Phase 13:" Phase Details section does) — a pre-existing doc-hygiene gap, not fixed here.
 - Phase 11 added: Telemetry, Usage Statistics, and Auto Crash Submission Pipeline — users can opt into anonymized usage/telemetry collection and crashes are automatically captured and submitted for diagnosis without blocking playback or requiring manual repro steps.
 - 2026-07-27: Phase 9 inserted (Front-Door UI Completion — Fixture Library workspace, show open/new/switch, Guided First Show onboarding), per `.planning/POST-PHASE-8-PLAN.md` section 2 (owner decisions 2026-07-25). Former Phase 9 (Provider-Neutral AI and Bounded Autonomy) renumbered to Phase 10, former Phase 10 (Windows Release Qualification) to Phase 11, former Phase 11 (Telemetry) to Phase 12. Inserted as a plain integer, not GSD's default decimal (`8.1`), because `internal/trace/catalog` only resolves two-digit integer phase directories/headings.
 
@@ -118,6 +122,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-08-02T23:26:44.343Z
-Stopped at: Phase 13 planning checker: revision cap reached with 3 file-ownership blockers
-Resume file: .planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-VALIDATION.md
+Last session: 2026-08-05 (crashed mid-session; resumed and recovered uncommitted work)
+Stopped at: Phase 13 is machine-signed-off and independently verified; the remaining human visual-verification pass is in progress (see `13-VERIFICATION.md`'s "Human Verification Required" section) — most recently, nav hover-text suppression (NavTooltipsToggle) was recovered from the crash and committed (917bd578). Phase 9's completion state (7/7 plans done, but 09-UAT.md still `status: testing` and its ROADMAP.md checkbox unchecked) is unresolved and worth picking up next.
+Resume file: .planning/phases/13-unified-ui-design-system-and-automated-enforcement/13-VERIFICATION.md
