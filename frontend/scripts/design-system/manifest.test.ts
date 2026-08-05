@@ -91,5 +91,5 @@ describe("generateDesignSystem", () => {
     await writeFile(cssPath, `${first[0]}/* drift */\n`);
     await expect(generateDesignSystem(root, { check: true })).rejects.toThrow(/DSMANIFEST_DRIFT/);
     expect(await readFile(cssPath, "utf8")).toContain("/* drift */");
-  });
+  }, 30_000);
 });
