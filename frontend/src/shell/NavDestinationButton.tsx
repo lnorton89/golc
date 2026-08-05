@@ -5,7 +5,11 @@
 // shows its own destination.howItWorks text on hover/focus via the same
 // shared, styled tooltip mechanism InfoTooltip and CommandRailGroupToggle's
 // sibling tooltip both use (rather than no hover text at all, which is
-// what every nav item previously had).
+// what every nav item previously had). `suppressible: true` -- unlike an
+// InfoTooltip "i" icon (which exists solely to be hovered for more detail),
+// this text pops up during ordinary navigation an operator brushes past
+// constantly; NavTooltipsToggle in the header lets that be turned off
+// without touching InfoTooltip's own icon-triggered tooltips.
 import type { LucideIcon } from "lucide-react";
 
 import { useTooltip } from "../components/primitives/InfoTooltip/useTooltip";
@@ -20,7 +24,7 @@ interface NavDestinationButtonProps {
 }
 
 export default function NavDestinationButton({ destination, icon: Icon, isActive, onSelect }: NavDestinationButtonProps) {
-  const { triggerRef, triggerProps, tooltipNode } = useTooltip<HTMLButtonElement>(destination.howItWorks);
+  const { triggerRef, triggerProps, tooltipNode } = useTooltip<HTMLButtonElement>(destination.howItWorks, { suppressible: true });
 
   return (
     <>

@@ -8,6 +8,7 @@
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ReactNode, RefObject } from "react";
 import { createPortal } from "react-dom";
+import { useNavTooltipsEnabled } from "../../../hooks/useNavTooltipsEnabled";
 import styles from "./InfoTooltip.module.css";
 
 const EDGE_MARGIN = 8;
@@ -51,8 +52,27 @@ export interface UseTooltipResult<T extends HTMLElement> {
   tooltipNode: ReactNode;
 }
 
-export function useTooltip<T extends HTMLElement = HTMLElement>(text: string): UseTooltipResult<T> {
-  const [open, setOpen] = useState(false);
+export interface UseTooltipOptions {
+  /** True for tooltips attached directly to an already-labeled control the
+   * operator brushes past during ordinary use (a nav destination button,
+   * say) rather than deliberately hovering to ask "what is this" (an
+   * InfoTooltip "i" icon, which has no other purpose and is never
+   * suppressed) -- gated behind the header's nav-tooltips preference
+   * (lib/navTooltips.ts) so an operator who finds constant hover text
+   * annoying during normal navigation can turn just this class off. */
+  suppressible?: boolean;
+}
+
+export function useTooltip<T extends HTMLElement = HTMLElement>(
+  text: string,
+  options?: UseTooltipOptions,
+): UseTooltipResult<T> {
+  const suppressible = options?.suppressible ?? false;
+  // Always called (rules of hooks) -- cheap, and irrelevant when
+  // suppressible is false since navTooltipsEnabled is never consulted below.
+  const navTooltipsEnabled = useNavTooltipsEnabled();
+  const [hovered, setHovered] = useState(false);
+  const open = hovered && (!suppressible || navTooltipsEnabled);
   const triggerRef = useRef<T>(null);
   const [position, setPosition] = useState<TooltipPosition | null>(null);
   const tooltipId = useId();
@@ -93,7 +113,7 @@ export function useTooltip<T extends HTMLElement = HTMLElement>(text: string): U
 
   const handleKeyDown = (event: KeyboardEvent) => {
     if (event.key === "Escape") {
-      setOpen(false);
+      setHovered(false);
     }
   };
 
@@ -124,10 +144,10 @@ export function useTooltip<T extends HTMLElement = HTMLElement>(text: string): U
     triggerRef,
     triggerProps: {
       "aria-describedby": open ? tooltipId : undefined,
-      onMouseEnter: () => setOpen(true),
-      onMouseLeave: () => setOpen(false),
-      onFocus: () => setOpen(true),
-      onBlur: () => setOpen(false),
+      onMouseEnter: () => setHovered(true),
+      onMouseLeave: () => setHovered(false),
+      onFocus: () => setHovered(true),
+      onBlur: () => setHovered(false),
       onKeyDown: handleKeyDown,
     },
     tooltipNode,

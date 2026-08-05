@@ -22,6 +22,10 @@
 // AppShell.tsx passes its own activeDestination straight through here
 // rather than duplicating that state (nav selection deliberately isn't in
 // useGolcStore -- see AppShell.tsx's own doc comment on why).
+// NavTooltipsToggle sits right after it: turns off CommandRail's nav-item
+// hover text (useTooltip's `suppressible` option) for operators who find
+// it intrusive once they know the rail by heart -- a client-side
+// preference (lib/navTooltips.ts), not store.ts state.
 //
 // AppLogStream mounts here for the identical reason LiveStatusBar does: it
 // is the store's sole writer of the `appLog` slice, and most "app:log"
@@ -32,6 +36,7 @@ import LiveStatusBar from "../components/LiveStatusBar/LiveStatusBar";
 import TempoControls from "../components/TempoControls/TempoControls";
 import SafetyCluster from "../components/SafetyCluster/SafetyCluster";
 import MidiLearnToggle from "../components/MidiLearnToggle/MidiLearnToggle";
+import NavTooltipsToggle from "../components/NavTooltipsToggle/NavTooltipsToggle";
 import AppLogStream from "./AppLogStream";
 import type { DestinationId } from "./navigation";
 import styles from "./GlobalFrame.module.css";
@@ -51,6 +56,7 @@ export default function GlobalFrame({ activeDestination }: GlobalFrameProps) {
       <div className={styles.safetyDivider} aria-hidden="true" />
       <SafetyCluster />
       <MidiLearnToggle activeDestination={activeDestination} />
+      <NavTooltipsToggle />
     </header>
   );
 }
