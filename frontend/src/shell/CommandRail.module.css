@@ -86,7 +86,13 @@
 .groupToggle {
   display: flex;
   align-items: center;
-  flex: 1;
+  /* Intrinsic width (not flex:1) -- this button's own clickable region
+     should end where its label/chevron content ends, so the adjacent
+     InfoTooltip sibling in .groupHeader always sits immediately next to
+     the label, the same as every other info icon in the app (e.g.
+     PanelHeader's). flex:1 previously stretched this button across the
+     whole rail row's remaining width, visibly separating the label from
+     its own tooltip by however wide the rail happened to be. */
   min-width: 0;
   gap: var(--ds-spacing-space1);
   border: none;
