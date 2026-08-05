@@ -36,7 +36,11 @@
   transition: border-color var(--ds-motion-tap), color var(--ds-motion-tap);
 }
 
-.trigger:hover,
+.trigger:hover {
+  border-color: var(--ds-border-selected);
+  color: var(--ds-action-primary);
+}
+
 .trigger:focus-visible {
   border-color: var(--ds-border-selected);
   color: var(--ds-action-primary);
@@ -72,6 +76,15 @@
   text-transform: none;
   letter-spacing: normal;
   pointer-events: none;
+}
+
+/* Set by InfoTooltip.tsx's own post-mount overflow measurement: opening
+   rightward (the default) would push this tooltip past the viewport's
+   right edge, so anchor from the trigger's left edge and extend leftward
+   instead -- translateX(-100%) reverses which side of `left` the box's
+   own measured width grows from. */
+.tooltip[data-flip] {
+  transform: translate(-100%, -50%);
 }
 
 @media (prefers-reduced-motion: reduce) {

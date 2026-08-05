@@ -26,7 +26,8 @@ interface InfoTooltipProps {
 export default function InfoTooltip({ label, text }: InfoTooltipProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+  const tooltipRef = useRef<HTMLSpanElement>(null);
+  const [position, setPosition] = useState<{ top: number; left: number; flip: boolean } | null>(null);
   const tooltipId = useId();
 
   useLayoutEffect(() => {
@@ -37,8 +38,28 @@ export default function InfoTooltip({ label, text }: InfoTooltipProps) {
     setPosition({
       top: rect.top + rect.height / 2,
       left: rect.right,
+      flip: false,
     });
   }, [open]);
+
+  // The CSS clamp() on .tooltip only bounds the anchor point itself, not
+  // the box's actual rendered extent -- a wide tooltip anchored near the
+  // right edge still overflows past 100vw, since the clamp has no way to
+  // know the box's own width at CSS-authored time. This second pass runs
+  // after the tooltip has actually mounted and can be measured for real:
+  // if opening rightward (the default) would overflow, flip to anchor
+  // from the trigger's left edge instead, extending leftward.
+  useLayoutEffect(() => {
+    if (!open || !position || position.flip || !tooltipRef.current || !triggerRef.current) {
+      return;
+    }
+    const tooltipRect = tooltipRef.current.getBoundingClientRect();
+    const margin = 8;
+    if (tooltipRect.right > window.innerWidth - margin) {
+      const triggerRect = triggerRef.current.getBoundingClientRect();
+      setPosition({ top: position.top, left: triggerRect.left, flip: true });
+    }
+  }, [open, position]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (event.key === "Escape") {
@@ -59,16 +80,17 @@ export default function InfoTooltip({ label, text }: InfoTooltipProps) {
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
         onKeyDown={handleKeyDown}
-        title={text}
       >
         i
       </button>
       {open && position
         ? createPortal(
             <span
+              ref={tooltipRef}
               role="tooltip"
               id={tooltipId}
               className={styles.tooltip}
+              data-flip={position.flip || undefined}
               style={{ "--ds-tooltip-top": `${position.top}px`, "--ds-tooltip-left": `${position.left}px` } as CSSProperties}
             >
               {text}

@@ -31,7 +31,9 @@ describe("InfoTooltip", () => {
     const tooltip = screen.getByRole("tooltip");
     expect(tooltip).toBeInTheDocument();
     expect(trigger).toHaveAttribute("aria-describedby", tooltip.id);
-    expect(trigger).toHaveAttribute("title", "Reads the currently open show's state.");
+    // No native `title` attribute: it would fire the browser's own
+    // unstyled tooltip on top of this component's styled one.
+    expect(trigger).not.toHaveAttribute("title");
 
     fireEvent.blur(trigger);
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
