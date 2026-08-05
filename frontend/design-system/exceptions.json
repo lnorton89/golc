@@ -470,11 +470,11 @@
       "reviewCondition": "a shared disclosure-toggle primitive is added to the design system"
     },
     {
-      "path": "src/shell/CommandRail.tsx",
+      "path": "src/shell/NavDestinationButton.tsx",
       "rule": "DS005",
       "match": "button",
-      "rationale": "Each nav destination button carries aria-current=\"page\" navigation-landmark semantics (WAI-ARIA's convention for persistent primary navigation), which the closest-shaped shared primitive (ListRow) does not support -- it renders aria-pressed (list-selection semantics) instead, and switching would both regress the existing aria-current contract CommandRail.test.tsx already asserts and weaken the nav's accessibility semantics. D-05's 'exceptional domain visualization' carve-out -- there is no aria-current-aware nav-item primitive in this codebase to reuse.",
-      "source": "src/shell/CommandRail.tsx:82",
+      "rationale": "Each nav destination button carries aria-current=\"page\" navigation-landmark semantics (WAI-ARIA's convention for persistent primary navigation), which the closest-shaped shared primitive (ListRow) does not support -- it renders aria-pressed (list-selection semantics) instead, and switching would both regress the existing aria-current contract CommandRail.test.tsx already asserts and weaken the nav's accessibility semantics. Extracted to its own file (useTooltip is a hook, which cannot be called inside CommandRail's own .map() loop) -- CommandRail.tsx itself now has zero raw <button> elements. D-05's 'exceptional domain visualization' carve-out -- there is no aria-current-aware nav-item primitive in this codebase to reuse.",
+      "source": "src/shell/NavDestinationButton.tsx:27",
       "owner": "phase-13-24",
       "reviewCondition": "a shared nav-item primitive with aria-current support is added to the design system"
     },

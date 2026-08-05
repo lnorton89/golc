@@ -18,6 +18,7 @@ import { NAV_GROUPS, type DestinationId } from "./navigation";
 import { DESTINATION_ICONS } from "./destinationIcons";
 import InfoTooltip from "../components/primitives/InfoTooltip/InfoTooltip";
 import CommandRailGroupToggle from "./CommandRailGroupToggle";
+import NavDestinationButton from "./NavDestinationButton";
 import styles from "./CommandRail.module.css";
 
 interface CommandRailProps {
@@ -78,22 +79,15 @@ export default function CommandRail({ active, onSelect, dimmed = false }: Comman
             </div>
             {collapsed ? null : (
               <div id={panelId} className={styles.groupItems}>
-                {group.destinations.map((destination) => {
-                  const isActive = destination.id === active;
-                  const Icon = DESTINATION_ICONS[destination.id];
-                  return (
-                    <button
-                      key={destination.id}
-                      type="button"
-                      className={isActive ? `${styles.item} ${styles.itemActive}` : styles.item}
-                      aria-current={isActive ? "page" : undefined}
-                      onClick={() => onSelect(destination.id)}
-                    >
-                      <Icon size={15} className={styles.itemIcon} aria-hidden="true" />
-                      {destination.label}
-                    </button>
-                  );
-                })}
+                {group.destinations.map((destination) => (
+                  <NavDestinationButton
+                    key={destination.id}
+                    destination={destination}
+                    icon={DESTINATION_ICONS[destination.id]}
+                    isActive={destination.id === active}
+                    onSelect={() => onSelect(destination.id)}
+                  />
+                ))}
               </div>
             )}
           </div>

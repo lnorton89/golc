@@ -85,4 +85,43 @@ test.describe("InfoTooltip viewport-edge flip", () => {
     expect(tooltipBox.width, "an unflipped tooltip must not be malformed either").toBeGreaterThan(200);
     expect(tooltipBox.x + tooltipBox.width, "unflipped tooltip must stay inside the viewport").toBeLessThanOrEqual(1280 + 2);
   });
+
+  test("a tooltip opened near the left edge (CommandRail nav item) opens rightward instead of flipping into negative space", async ({ page }) => {
+    // The second, distinct instance of the collapse bug: CommandRail's nav
+    // destination buttons sit flush against the rail's own left edge (x=8
+    // regardless of viewport width), so a flip decision that only checks
+    // "would opening rightward overflow the right edge?" without ever
+    // comparing how much room the LEFT side genuinely has can flip a trigger
+    // that has almost no room on either side -- anchoring the tooltip's
+    // right edge AT the trigger's own left edge (x=8) and pushing the box
+    // further left, off-screen. The fix compares spaceLeft/spaceRight up
+    // front and only flips when the left side is genuinely roomier.
+    await installHealthyBindings(page);
+    await page.setViewportSize({ width: NARROW_WIDTH, height: HEIGHT });
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
+    await waitForFonts(page);
+    await settle(page);
+
+    const trigger = page.getByRole("navigation", { name: "Workspace navigation" }).getByRole("button", { name: "Fixture Library" });
+    await expect(trigger).toBeVisible();
+    const triggerBox = await trigger.boundingBox();
+    expect(triggerBox, "trigger must have a real bounding box").not.toBeNull();
+    if (!triggerBox) return;
+    expect(triggerBox.x, "trigger must sit near the viewport's left edge for this test to be meaningful").toBeLessThan(20);
+
+    await trigger.hover();
+    const tooltip = page.getByRole("tooltip");
+    await expect(tooltip).toBeVisible();
+    await expect(tooltip).not.toHaveAttribute("data-flip", "true");
+
+    const tooltipBox = await tooltip.boundingBox();
+    expect(tooltipBox, "tooltip must have a real bounding box").not.toBeNull();
+    if (!tooltipBox) return;
+
+    expect(tooltipBox.width, "tooltip must not collapse to a single-word column width").toBeGreaterThan(200);
+    expect(tooltipBox.width, "tooltip must be wider than it is tall for ordinary sentence-length text").toBeGreaterThan(tooltipBox.height);
+    expect(tooltipBox.x, "tooltip must not overflow the viewport's left edge").toBeGreaterThanOrEqual(-2);
+    expect(tooltipBox.x + tooltipBox.width, "tooltip must not overflow the viewport's right edge").toBeLessThanOrEqual(NARROW_WIDTH + 2);
+  });
 });
