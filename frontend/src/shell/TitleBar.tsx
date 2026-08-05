@@ -10,13 +10,11 @@
 // handle, and the button cluster overrides it back to no-drag so the
 // buttons stay clickable. See https://wails.io/docs/guides/frameless.
 //
-// Minimize/maximize/close now render as the shared IconButton primitive
-// (size="compact", 28px -- fits inside this row's fixed 32px height with
-// no CSS override needed) instead of a hand-rolled <button> per D-05
-// ("Shared visual behavior belongs in typed React primitives"). Window
-// behavior itself (minimise/toggleMaximise/close, drag-region
-// double-click) is unchanged -- only the control's own visual chrome
-// moved to the primitive.
+// Minimize/maximize/close render via TitleBarControlButton (a plain
+// hand-rolled <button>, not the shared IconButton primitive) -- the
+// primitive's persistent destructive styling/focus ring reads wrong for
+// native window chrome, which should stay visually inert until hovered
+// (reverted per explicit user direction).
 import { useEffect, useState, type CSSProperties } from "react";
 import { Minus, Square, Copy, X } from "lucide-react";
 
@@ -27,8 +25,8 @@ import {
   windowClose,
   inspectShow,
 } from "../lib/wailsBridge";
-import { IconButton } from "../design-system";
 import appIcon from "../assets/app-icon.png";
+import TitleBarControlButton from "./TitleBarControlButton";
 import styles from "./TitleBar.module.css";
 
 const dragStyle = { "--wails-draggable": "drag" } as CSSProperties;
@@ -82,15 +80,21 @@ export default function TitleBar() {
         {projectName}
       </span>
       <div className={styles.controls} style={noDragStyle} onDoubleClick={(event) => event.stopPropagation()}>
-        <IconButton icon={Minus} label="Minimize" variant="neutral" size="compact" onClick={windowMinimise} />
-        <IconButton
+        <TitleBarControlButton icon={Minus} size={14} label="Minimize" className={styles.controlButton} onClick={windowMinimise} />
+        <TitleBarControlButton
           icon={maximised ? Copy : Square}
+          size={12}
           label={maximised ? "Restore" : "Maximize"}
-          variant="neutral"
-          size="compact"
+          className={styles.controlButton}
           onClick={toggleMaximise}
         />
-        <IconButton icon={X} label="Close" variant="destructive" size="compact" onClick={windowClose} />
+        <TitleBarControlButton
+          icon={X}
+          size={14}
+          label="Close"
+          className={`${styles.controlButton} ${styles.closeButton}`}
+          onClick={windowClose}
+        />
       </div>
     </div>
   );
