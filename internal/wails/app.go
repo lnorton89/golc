@@ -24,7 +24,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -304,7 +303,14 @@ func (a *App) OnShutdown(ctx context.Context) {
 // before the frontend asked" pattern.
 func (a *App) logEvent(level, source, format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
-	log.Printf("%s", message)
+	switch level {
+	case "warn":
+		logger.Warn(message, "source", source)
+	case "error":
+		logger.Error(message, "source", source)
+	default:
+		logger.Info(message, "source", source)
+	}
 
 	a.mu.Lock()
 	a.logSeq++

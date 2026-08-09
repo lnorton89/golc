@@ -34,7 +34,6 @@ package wails
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -334,7 +333,8 @@ func (s *MidiService) dispatchToDeskMappings(evt midi.Event) {
 		Args:  []string{"--instance", mapping.InstanceID, "--attr", mapping.Capability + "=" + rawLevel, "--source", "manual"},
 	})
 	if result.ExitCode != 0 {
-		log.Printf("GOLC_WAILS_MIDI_DESK_DISPATCH_FAILED: instance=%s capability=%s: %s", mapping.InstanceID, mapping.Capability, result.Stderr)
+		logger.Error("GOLC_WAILS_MIDI_DESK_DISPATCH_FAILED",
+			"instance", mapping.InstanceID, "capability", mapping.Capability, "stderr", result.Stderr)
 	}
 }
 
@@ -468,7 +468,7 @@ func (s *MidiService) dispatchSafetyTrigger(control operatorsurface.SafetyContro
 		Args:  []string{"--on", "true", "--source", "manual"},
 	})
 	if result.ExitCode != 0 {
-		log.Printf("GOLC_WAILS_MIDI_SAFETY_DISPATCH_FAILED: route=%s: %s", route, result.Stderr)
+		logger.Error("GOLC_WAILS_MIDI_SAFETY_DISPATCH_FAILED", "route", route, "stderr", result.Stderr)
 	}
 }
 
@@ -509,7 +509,7 @@ func (s *MidiService) dispatchMasterSet(ref operatorsurface.MasterRef, level flo
 	}
 	result := s.dialFn()(s.pipeName, ipc.Request{Route: "artnet master set", Args: args})
 	if result.ExitCode != 0 {
-		log.Printf("GOLC_WAILS_MIDI_MASTER_DISPATCH_FAILED: ref=%s: %s", ref.Kind, result.Stderr)
+		logger.Error("GOLC_WAILS_MIDI_MASTER_DISPATCH_FAILED", "ref", ref.Kind, "stderr", result.Stderr)
 	}
 }
 
