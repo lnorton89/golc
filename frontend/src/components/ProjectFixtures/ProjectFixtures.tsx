@@ -46,6 +46,7 @@ import {
 } from "../../lib/wailsBridge";
 import {
   Button,
+  Combobox,
   Dialog,
   EmptyState,
   ErrorState,
@@ -56,6 +57,7 @@ import {
   LoadingState,
   NumberStepper,
   Panel,
+  Select,
 } from "../../design-system";
 import styles from "./ProjectFixtures.module.css";
 
@@ -509,21 +511,17 @@ export default function ProjectFixtures() {
                             onChange={(event) => setReassignName(event.target.value)}
                           />
                         </div>
-                        <Field label="Mode">
-                          <select
-                            value={reassignMode}
-                            onChange={(event) => setReassignMode(event.target.value)}
-                          >
-                            <option value={reassignMode}>{reassignMode}</option>
-                            {modesForFixture(row.fixtureStableKey)
-                              .filter((modeOption) => modeOption !== reassignMode)
-                              .map((modeOption) => (
-                                <option key={modeOption} value={modeOption}>
-                                  {modeOption}
-                                </option>
-                              ))}
-                          </select>
-                        </Field>
+                        <Select
+                          label="Mode"
+                          options={[
+                            reassignMode,
+                            ...modesForFixture(row.fixtureStableKey).filter(
+                              (modeOption) => modeOption !== reassignMode,
+                            ),
+                          ].map((modeOption) => ({ value: modeOption, label: modeOption }))}
+                          value={reassignMode}
+                          onValueChange={setReassignMode}
+                        />
                         <NumberStepper value={reassignUniverse} onChange={setReassignUniverse} label="Universe" />
                         <NumberStepper value={reassignAddress} onChange={setReassignAddress} label="Address" />
                         <IconButton
@@ -603,40 +601,27 @@ export default function ProjectFixtures() {
               onClose={handleCancelAddForm}
             >
               <div className={styles.addForm}>
-                <Field label="Fixture">
-                  <select
-                    value={selectedFixture?.stableKey ?? ""}
-                    onChange={(event) => handleSelectFixture(event.target.value)}
-                  >
-                    <option value="" disabled>
-                      {libraryRows.filter((row) => row.status === "valid").length === 0
-                        ? "No fixtures in library -- import one first"
-                        : "Select a fixture…"}
-                    </option>
-                    {libraryRows
-                      .filter((row) => row.status === "valid")
-                      .map((row) => (
-                        <option key={row.stableKey} value={row.stableKey}>
-                          {row.manufacturer} {row.model}
-                        </option>
-                      ))}
-                  </select>
-                </Field>
-                <Field label="Fixture mode" disabled={!selectedFixture}>
-                  <select
-                    value={mode}
-                    onChange={(event) => setMode(event.target.value)}
-                  >
-                    <option value="" disabled>
-                      Select a mode…
-                    </option>
-                    {(selectedFixture?.modes ?? []).map((modeOption) => (
-                      <option key={modeOption} value={modeOption}>
-                        {modeOption}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+                <Combobox
+                  label="Fixture"
+                  options={libraryRows
+                    .filter((row) => row.status === "valid")
+                    .map((row) => ({ value: row.stableKey, label: `${row.manufacturer} ${row.model}` }))}
+                  value={selectedFixture?.stableKey ?? ""}
+                  onValueChange={handleSelectFixture}
+                  placeholder={
+                    libraryRows.filter((row) => row.status === "valid").length === 0
+                      ? "No fixtures in library -- import one first"
+                      : "Select a fixture…"
+                  }
+                />
+                <Select
+                  label="Fixture mode"
+                  options={(selectedFixture?.modes ?? []).map((modeOption) => ({ value: modeOption, label: modeOption }))}
+                  value={mode}
+                  onValueChange={setMode}
+                  placeholder="Select a mode…"
+                  disabled={!selectedFixture}
+                />
                 <NumberStepper value={quantity} onChange={setQuantity} label="Quantity" />
                 <NumberStepper
                   value={startUniverse}

@@ -8,11 +8,32 @@ import { useState } from "react";
 import { Plus, Check, X, Pencil, Trash2, Sparkles, Palette } from "lucide-react";
 
 import type { ProgChaseView, ProgLookView, ProgPresetView, ProgrammingView } from "../../lib/wailsBridge";
-import { Button, EmptyState, Field, PanelHeader, ScrollRegion } from "../../design-system";
+import { Button, EmptyState, Field, PanelHeader, ScrollRegion, Select } from "../../design-system";
 import styles from "./LookBrowser.module.css";
 
 type FormKind = "theme" | "motion" | "chase" | "preset" | "blend";
 export type PresetKind = "intensity" | "color" | "position" | "beam";
+
+// Small, fully-known fixed enums -- Select's intended fit, not Combobox's
+// (no typing-to-filter value on a 2-4-option list). Shared across the
+// create and inline-edit forms that both surface the same field.
+const CHASE_UNIT_OPTIONS = [
+  { value: "bar", label: "bar" },
+  { value: "beat", label: "beat" },
+] as const;
+
+const PRESET_KIND_OPTIONS = [
+  { value: "intensity", label: "intensity" },
+  { value: "color", label: "color" },
+  { value: "position", label: "position" },
+  { value: "beam", label: "beam" },
+] as const;
+
+const BLEND_CURVE_OPTIONS = [
+  { value: "linear", label: "linear" },
+  { value: "ease_in", label: "ease_in" },
+  { value: "ease_out", label: "ease_out" },
+] as const;
 
 /** RenameKind covers every look kind that only needs a plain rename +
  * delete (everything except Chase, which gets its own richer edit form
@@ -248,15 +269,12 @@ export default function LookBrowser({
             onChange={(event) => setChaseName(event.target.value)}
           />
           <div className={styles.row}>
-            <Field label="Chase step unit">
-              <select
-                value={chaseUnit}
-                onChange={(event) => setChaseUnit(event.target.value as "bar" | "beat")}
-              >
-                <option value="bar">bar</option>
-                <option value="beat">beat</option>
-              </select>
-            </Field>
+            <Select
+              label="Chase step unit"
+              options={CHASE_UNIT_OPTIONS}
+              value={chaseUnit}
+              onValueChange={(next) => setChaseUnit(next as "bar" | "beat")}
+            />
             <Field
               label="Chase step duration"
               type="number"
@@ -299,17 +317,12 @@ export default function LookBrowser({
               ))}
             </select>
           </Field>
-          <Field label="Preset kind">
-            <select
-              value={presetKind}
-              onChange={(event) => setPresetKind(event.target.value as PresetKind)}
-            >
-              <option value="intensity">intensity</option>
-              <option value="color">color</option>
-              <option value="position">position</option>
-              <option value="beam">beam</option>
-            </select>
-          </Field>
+          <Select
+            label="Preset kind"
+            options={PRESET_KIND_OPTIONS}
+            value={presetKind}
+            onValueChange={(next) => setPresetKind(next as PresetKind)}
+          />
           <Field
             label="Attribute assignments"
             type="text"
@@ -383,15 +396,12 @@ export default function LookBrowser({
                     autoFocus
                     onChange={(event) => setChaseEditName(event.target.value)}
                   />
-                  <Field label="Chase step unit">
-                    <select
-                      value={chaseEditUnit}
-                      onChange={(event) => setChaseEditUnit(event.target.value as "bar" | "beat")}
-                    >
-                      <option value="bar">bar</option>
-                      <option value="beat">beat</option>
-                    </select>
-                  </Field>
+                  <Select
+                    label="Chase step unit"
+                    options={CHASE_UNIT_OPTIONS}
+                    value={chaseEditUnit}
+                    onValueChange={(next) => setChaseEditUnit(next as "bar" | "beat")}
+                  />
                   <Field
                     label="Chase step duration"
                     type="number"
@@ -505,16 +515,12 @@ export default function LookBrowser({
               value={blendDuration}
               onChange={(event) => setBlendDuration(event.target.value)}
             />
-            <Field label="Blend curve">
-              <select
-                value={blendCurve}
-                onChange={(event) => setBlendCurve(event.target.value)}
-              >
-                <option value="linear">linear</option>
-                <option value="ease_in">ease_in</option>
-                <option value="ease_out">ease_out</option>
-              </select>
-            </Field>
+            <Select
+              label="Blend curve"
+              options={BLEND_CURVE_OPTIONS}
+              value={blendCurve}
+              onValueChange={setBlendCurve}
+            />
           </div>
           <Button
             variant="primary"

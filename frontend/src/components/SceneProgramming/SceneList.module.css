@@ -28,6 +28,22 @@
   color: var(--ds-text-muted);
 }
 
+.previewNotice {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-spacing-space1);
+  margin: 0;
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-compact);
+  color: var(--ds-text-muted);
+}
+
+.previewNoticeIcon {
+  flex-shrink: 0;
+  width: var(--ds-sizing-icon16);
+  height: var(--ds-sizing-icon16);
+}
+
 .createForm {
   display: flex;
   flex-direction: column;
@@ -56,7 +72,22 @@
 .sceneRow {
   display: flex;
   align-items: center;
+  gap: var(--ds-spacing-space1);
   border-radius: var(--ds-radii-small);
+}
+
+.dragHandle {
+  flex-shrink: 0;
+  cursor: grab;
+  touch-action: none;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.sceneRow[data-dragging] {
+  opacity: 0.6;
 }
 
 /* ListRow's own .selected/:hover backgrounds only paint the button they're
@@ -97,4 +128,19 @@
   display: flex;
   align-items: flex-end;
   gap: var(--ds-spacing-space1);
+}
+
+/* dnd-kit's useSortable sets `transform`/`transition` as an inline style on
+   each row (SceneList.tsx's SortableSceneRow) so dragged rows animate into
+   their new position -- overriding it here needs !important to win over
+   that inline style, exactly like ListRow.module.css's own DS001-exempt
+   "none" override does for its transition-duration. Only the animated
+   settle is suppressed; the reordered position itself still applies
+   instantly, matching every other prefers-reduced-motion rule in this
+   codebase (Button/IconButton/ListRow/...). */
+@media (prefers-reduced-motion: reduce) {
+  .sceneRow,
+  .renameRow {
+    transition: none !important;
+  }
 }

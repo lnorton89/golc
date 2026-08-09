@@ -6,8 +6,19 @@
 // this codebase (see wailsBridge.ts's own doc comment).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import FixturePatch from "./FixturePatch";
+
+// The Fixture field is the shared Combobox primitive and Fixture mode is
+// the shared Select primitive (both Base UI-backed) -- opening each and
+// choosing an option needs realistic pointer interaction via userEvent,
+// not a bare fireEvent.change on what used to be native <select>s.
+async function chooseComboboxOption(triggerName: string, optionName: string) {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("combobox", { name: triggerName }));
+  await user.click(await screen.findByRole("option", { name: optionName }));
+}
 
 function ok(stdout = "") {
   return { exitCode: 0, stdout, stderr: "" };
@@ -127,8 +138,8 @@ describe("FixturePatch", () => {
     await waitFor(() => expect(screen.getByText("Wash")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "Add Fixture" }));
-    fireEvent.change(screen.getByLabelText("Fixture"), { target: { value: "acme-par64" } });
-    fireEvent.change(screen.getByLabelText("Fixture mode"), { target: { value: "4ch" } });
+    await chooseComboboxOption("Fixture", "Acme PAR64");
+    await chooseComboboxOption("Fixture mode", "4ch");
     fireEvent.click(screen.getByRole("button", { name: "Review Impact" }));
 
     await waitFor(() => expect(svc.AddPoolMemberPreview).toHaveBeenCalledWith("Wash", "acme-par64", "hash-1", "4ch", 4));

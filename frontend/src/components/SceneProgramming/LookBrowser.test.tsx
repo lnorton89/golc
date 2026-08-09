@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import LookBrowser from "./LookBrowser";
 import type { ProgrammingView } from "../../lib/wailsBridge";
@@ -142,13 +143,21 @@ describe("LookBrowser", () => {
     vi.restoreAllMocks();
   });
 
-  it("updates a chase's name/unit/step-duration via the inline edit form", () => {
+  it("updates a chase's name/unit/step-duration via the inline edit form", async () => {
     const onUpdateChase = vi.fn();
+    const user = userEvent.setup();
     render(<LookBrowser view={filledView} {...baseHandlers} onUpdateChase={onUpdateChase} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Edit Sweep" }));
     fireEvent.change(screen.getByLabelText("Chase name"), { target: { value: "Sweep Renamed" } });
-    fireEvent.change(screen.getByLabelText("Chase step unit"), { target: { value: "beat" } });
+
+    // Chase step unit is the shared Select primitive (Base UI-backed) --
+    // opening it and choosing an option needs realistic pointer
+    // interaction via userEvent, not a bare fireEvent.change on what used
+    // to be a native <select>.
+    await user.click(screen.getByRole("combobox", { name: "Chase step unit" }));
+    await user.click(await screen.findByRole("option", { name: "beat" }));
+
     fireEvent.change(screen.getByLabelText("Chase step duration"), { target: { value: "2" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 

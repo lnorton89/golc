@@ -1,8 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import SceneList from "./SceneList";
+import SceneList, { reorderSceneNames } from "./SceneList";
 import type { ProgSceneView } from "../../lib/wailsBridge";
 
 const scenes: ProgSceneView[] = [
@@ -10,10 +10,68 @@ const scenes: ProgSceneView[] = [
   { name: "Beta", active: false, barsPerLoop: 8, layers: [] },
 ];
 
+const threeScenes: ProgSceneView[] = [
+  { name: "Alpha", active: true, barsPerLoop: 4, layers: [] },
+  { name: "Beta", active: false, barsPerLoop: 8, layers: [] },
+  { name: "Gamma", active: false, barsPerLoop: 2, layers: [] },
+];
+
 const noop = () => {};
+
+// visibleSceneOrder reads each row's "<name> actions" menu-trigger button
+// (already used by the existing rename/delete tests above) in DOM order --
+// a stable way to read back which scene renders in which position without
+// depending on SceneList.module.css's own private class names.
+function visibleSceneOrder(): string[] {
+  return screen.getAllByRole("button", { name: /actions$/ }).map((button) => {
+    const label = button.getAttribute("aria-label") ?? "";
+    return label.replace(/ actions$/, "");
+  });
+}
+
+// pressKey fires a keydown and then lets dnd-kit's own rAF-scheduled rect
+// measurement/collision-detection effects (useLayoutEffect-driven, but
+// deferred a tick behind the synthetic event itself) flush before the next
+// key fires -- without this, ArrowDown/the final Space run against
+// not-yet-measured droppable rects and no reorder happens at all.
+async function pressKey(target: HTMLElement, code: string): Promise<void> {
+  await act(async () => {
+    fireEvent.keyDown(target, { code });
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+  });
+}
 
 describe("SceneList", () => {
   afterEach(() => cleanup());
+
+  // dnd-kit's collision detection (closestCenter) and its keyboard
+  // coordinate getter both need real, distinct element rects to tell rows
+  // apart -- jsdom never computes layout, so every getBoundingClientRect()
+  // call returns an all-zero rect by default, which makes every row look
+  // like it occupies the exact same position. Stubbing a stacked rect per
+  // <li> (ordered by its position among its siblings) gives dnd-kit enough
+  // to work with for both the drag-end and keyboard-reorder tests below.
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this.tagName === "LI") {
+        const siblings = Array.from(this.parentElement?.children ?? []);
+        const index = siblings.indexOf(this);
+        const rectTop = index * 44;
+        return {
+          width: 260,
+          height: 44,
+          top: rectTop,
+          left: 0,
+          right: 260,
+          bottom: rectTop + 44,
+          x: 0,
+          y: rectTop,
+          toJSON: () => ({}),
+        } as DOMRect;
+      }
+      return { width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+    });
+  });
 
   it("shows an empty state when there are no scenes", () => {
     render(<SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />);
@@ -105,5 +163,141 @@ describe("SceneList", () => {
 
     expect(onDelete).not.toHaveBeenCalled();
     vi.restoreAllMocks();
+  });
+
+  describe("drag-to-reorder (frontend-only preview)", () => {
+    it("shows an always-visible, non-hover notice that the order is a local preview once there is more than one scene", () => {
+      render(<SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />);
+      expect(screen.getByText(/preview only, not saved/i)).toBeInTheDocument();
+    });
+
+    it("does not show the preview notice with zero or one scene, since there's nothing to reorder", () => {
+      const { rerender } = render(
+        <SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />,
+      );
+      expect(screen.queryByText(/preview only, not saved/i)).not.toBeInTheDocument();
+
+      rerender(
+        <SceneList
+          scenes={[scenes[0]]}
+          selectedName="Alpha"
+          onSelect={noop}
+          onCreate={noop}
+          onRename={noop}
+          onDelete={noop}
+        />,
+      );
+      expect(screen.queryByText(/preview only, not saved/i)).not.toBeInTheDocument();
+    });
+
+    it("exposes a keyboard-focusable, labeled drag handle per scene row (accessible, not pointer-only)", () => {
+      render(<SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />);
+      expect(screen.getByRole("button", { name: "Reorder Alpha" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Reorder Beta" })).toBeInTheDocument();
+    });
+
+    it("reorders the rendered rows via keyboard: focus the handle, pick up with Space, move with ArrowDown, drop with Space", async () => {
+      render(
+        <SceneList scenes={threeScenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />,
+      );
+      expect(visibleSceneOrder()).toEqual(["Alpha", "Beta", "Gamma"]);
+
+      const handle = screen.getByRole("button", { name: "Reorder Alpha" });
+      handle.focus();
+      await pressKey(handle, "Space");
+      await pressKey(handle, "ArrowDown");
+      await pressKey(handle, "Space");
+
+      expect(visibleSceneOrder()).toEqual(["Beta", "Alpha", "Gamma"]);
+    });
+
+    it("cancels a keyboard reorder with Escape, leaving the rendered order unchanged", async () => {
+      render(
+        <SceneList scenes={threeScenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />,
+      );
+
+      const handle = screen.getByRole("button", { name: "Reorder Alpha" });
+      handle.focus();
+      await pressKey(handle, "Space");
+      await pressKey(handle, "ArrowDown");
+      await pressKey(handle, "Escape");
+
+      expect(visibleSceneOrder()).toEqual(["Alpha", "Beta", "Gamma"]);
+    });
+
+    it("preserves the locally-reordered rows across an incidental scenes-prop refresh that doesn't change which scenes exist", async () => {
+      const { rerender } = render(
+        <SceneList scenes={threeScenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />,
+      );
+
+      const handle = screen.getByRole("button", { name: "Reorder Alpha" });
+      handle.focus();
+      await pressKey(handle, "Space");
+      await pressKey(handle, "ArrowDown");
+      await pressKey(handle, "Space");
+      expect(visibleSceneOrder()).toEqual(["Beta", "Alpha", "Gamma"]);
+
+      // A brand-new array reference, same three scene names -- exactly
+      // what ScenesLooksWorkspace.tsx's refresh() produces after an
+      // unrelated mutation elsewhere in the workspace (e.g. creating a
+      // theme). The local drag order must survive this.
+      rerender(
+        <SceneList
+          scenes={threeScenes.map((scene) => ({ ...scene }))}
+          selectedName="Alpha"
+          onSelect={noop}
+          onCreate={noop}
+          onRename={noop}
+          onDelete={noop}
+        />,
+      );
+      expect(visibleSceneOrder()).toEqual(["Beta", "Alpha", "Gamma"]);
+    });
+
+    it("resets the local order back to the server-provided order when a scene is actually added or removed", async () => {
+      const { rerender } = render(
+        <SceneList scenes={threeScenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />,
+      );
+
+      const handle = screen.getByRole("button", { name: "Reorder Alpha" });
+      handle.focus();
+      await pressKey(handle, "Space");
+      await pressKey(handle, "ArrowDown");
+      await pressKey(handle, "Space");
+      expect(visibleSceneOrder()).toEqual(["Beta", "Alpha", "Gamma"]);
+
+      // Real structural change: Gamma is gone, a fourth scene showed up.
+      const nextScenes: ProgSceneView[] = [
+        threeScenes[0],
+        threeScenes[1],
+        { name: "Delta", active: false, barsPerLoop: 4, layers: [] },
+      ];
+      rerender(
+        <SceneList scenes={nextScenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />,
+      );
+      expect(visibleSceneOrder()).toEqual(["Alpha", "Beta", "Delta"]);
+    });
+  });
+});
+
+describe("reorderSceneNames (pure arrayMove-based reorder logic)", () => {
+  // dnd-kit pointer-drag interaction is notoriously fiddly to simulate
+  // faithfully in jsdom; the underlying reorder math is extracted from the
+  // component specifically so it can be verified directly and
+  // unambiguously here, independent of any DnD simulation at all.
+  const order = ["Alpha", "Beta", "Gamma"];
+
+  it("moves the active name to the position of the over name", () => {
+    expect(reorderSceneNames(order, "Alpha", "Gamma")).toEqual(["Beta", "Gamma", "Alpha"]);
+    expect(reorderSceneNames(order, "Gamma", "Alpha")).toEqual(["Gamma", "Alpha", "Beta"]);
+  });
+
+  it("is a no-op when active and over are the same name", () => {
+    expect(reorderSceneNames(order, "Beta", "Beta")).toEqual(order);
+  });
+
+  it("is a no-op when either name is not present in the order", () => {
+    expect(reorderSceneNames(order, "Missing", "Beta")).toEqual(order);
+    expect(reorderSceneNames(order, "Alpha", "Missing")).toEqual(order);
   });
 });

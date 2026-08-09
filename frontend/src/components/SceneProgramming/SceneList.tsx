@@ -4,8 +4,49 @@
 // create-scene form is a toggled inline reveal, not permanently visible
 // (the sketch's own "what to avoid": permanently displaying every
 // look-creation form).
-import { useState } from "react";
-import { Plus, X, Check, Layers, MoreVertical, Pencil, Trash2 } from "lucide-react";
+//
+// Drag-to-reorder (frontend-only): there is no ProgrammingService call to
+// persist a scene order server-side (grep wailsBridge.ts -- CreateScene/
+// ActivateScene/RenameScene/DeleteScene/SetSceneLayer is the whole surface,
+// no reorder/move-index call exists). Reordering here is therefore a purely
+// local preview: `order` (a name array) lives in this component's own
+// state, independent of the `scenes` prop's own array order. The
+// always-visible notice below the header exists specifically so a dragged
+// order never reads as silently-reverted data loss -- an operator relying
+// on this list during a live show must never wonder why a reorder
+// "un-did itself" on the next refresh.
+//
+// Reset behavior (see the useEffect below): local order is preserved
+// across a `scenes` prop change UNLESS the underlying set of scene names
+// actually changed (a scene was created/deleted/renamed elsewhere). This
+// matters because ScenesLooksWorkspace.tsx calls refresh() -- which
+// produces a brand-new `scenes` array reference -- after nearly every
+// mutation in the whole workspace (creating a theme, chase, blend,
+// motion, preset, programmer set, ...), not just scene mutations. Resetting
+// on every reference change would wipe a local reorder the instant the
+// operator did anything else in the workspace, which would make the
+// feature useless. Resetting only when the name *set* changes still
+// guarantees a stale order can never silently reference a scene that no
+// longer exists (or omit one that now does).
+import { useEffect, useState, type CSSProperties } from "react";
+import { Plus, X, Check, Layers, MoreVertical, Pencil, Trash2, GripVertical, Info } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import type { ProgSceneView } from "../../lib/wailsBridge";
 import { Button, EmptyState, Field, FormActions, IconButton, ListRow, Menu, ScrollRegion } from "../../design-system";
@@ -18,6 +59,119 @@ interface SceneListProps {
   onCreate: (name: string, bars: number) => void;
   onRename: (oldName: string, newName: string) => void;
   onDelete: (name: string) => void;
+}
+
+/** reorderSceneNames applies a single drag-and-drop move to a name-ordered
+ * array using dnd-kit's own arrayMove utility. Extracted as a pure function
+ * (no hooks, no DOM) so the reorder logic itself is directly unit-testable
+ * without fighting a simulated pointer-drag in jsdom -- see SceneList.test.tsx. */
+export function reorderSceneNames(order: string[], activeName: string, overName: string): string[] {
+  const oldIndex = order.indexOf(activeName);
+  const newIndex = order.indexOf(overName);
+  if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
+    return order;
+  }
+  return arrayMove(order, oldIndex, newIndex);
+}
+
+interface SortableSceneRowProps {
+  scene: ProgSceneView;
+  selectedName: string | null;
+  isRenaming: boolean;
+  renameValue: string;
+  onSelect: (name: string) => void;
+  onStartRename: (name: string) => void;
+  onSaveRename: (name: string) => void;
+  onCancelRename: () => void;
+  onRenameValueChange: (value: string) => void;
+  onDelete: (name: string) => void;
+}
+
+function SortableSceneRow({
+  scene,
+  selectedName,
+  isRenaming,
+  renameValue,
+  onSelect,
+  onStartRename,
+  onSaveRename,
+  onCancelRename,
+  onRenameValueChange,
+  onDelete,
+}: SortableSceneRowProps) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+    id: scene.name,
+  });
+
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  if (isRenaming) {
+    return (
+      <li ref={setNodeRef} style={style} className={styles.renameRow}>
+        <Field
+          label="Scene name"
+          value={renameValue}
+          autoFocus
+          onChange={(event) => onRenameValueChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") onSaveRename(scene.name);
+            if (event.key === "Escape") onCancelRename();
+          }}
+        />
+        <IconButton icon={Check} label="Save" onClick={() => onSaveRename(scene.name)} />
+        <IconButton icon={X} label="Cancel" onClick={onCancelRename} />
+      </li>
+    );
+  }
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      data-dragging={isDragging || undefined}
+      className={scene.name === selectedName ? `${styles.sceneRow} ${styles.selected}` : styles.sceneRow}
+    >
+      <IconButton
+        ref={setActivatorNodeRef}
+        icon={GripVertical}
+        label={`Reorder ${scene.name}`}
+        size="compact"
+        className={styles.dragHandle}
+        {...attributes}
+        {...listeners}
+      />
+      <ListRow
+        label={scene.name}
+        icon={Layers}
+        meta={scene.active ? "LIVE" : `${scene.barsPerLoop}bar`}
+        selected={scene.name === selectedName}
+        onSelect={() => onSelect(scene.name)}
+        actions={
+          <Menu
+            trigger={<IconButton icon={MoreVertical} label={`${scene.name} actions`} />}
+            items={[
+              {
+                id: "rename",
+                label: "Rename",
+                icon: Pencil,
+                onSelect: () => onStartRename(scene.name),
+              },
+              {
+                id: "delete",
+                label: "Delete",
+                icon: Trash2,
+                destructive: true,
+                onSelect: () => onDelete(scene.name),
+              },
+            ]}
+          />
+        }
+      />
+    </li>
+  );
 }
 
 export default function SceneList({
@@ -33,6 +187,35 @@ export default function SceneList({
   const [bars, setBars] = useState("4");
   const [renamingName, setRenamingName] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [order, setOrder] = useState<string[]>(() => scenes.map((scene) => scene.name));
+
+  // See the file-header doc comment: only reset local order when the
+  // *identity set* of scene names changed, not on every `scenes` reference
+  // change (refresh() fires after nearly every mutation in the parent
+  // workspace, most of them unrelated to scenes at all).
+  useEffect(() => {
+    const incomingNames = scenes.map((scene) => scene.name);
+    setOrder((current) => {
+      const sameSet =
+        current.length === incomingNames.length && incomingNames.every((sceneName) => current.includes(sceneName));
+      return sameSet ? current : incomingNames;
+    });
+  }, [scenes]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const sceneByName = new Map(scenes.map((scene) => [scene.name, scene]));
+  const orderedScenes = order
+    .map((sceneName) => sceneByName.get(sceneName))
+    .filter((scene): scene is ProgSceneView => scene !== undefined);
+
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over) return;
+    setOrder((current) => reorderSceneNames(current, String(active.id), String(over.id)));
+  };
 
   const handleCreate = () => {
     const trimmed = name.trim();
@@ -75,6 +258,13 @@ export default function SceneList({
         </Button>
       </div>
 
+      {scenes.length > 1 ? (
+        <p className={styles.previewNotice}>
+          <Info className={styles.previewNoticeIcon} aria-hidden="true" />
+          Drag to reorder — preview only, not saved. Resets if the scene list refreshes.
+        </p>
+      ) : null}
+
       {creating ? (
         <div className={styles.createForm}>
           <Field label="New scene name" type="text" value={name} onChange={(event) => setName(event.target.value)} />
@@ -91,61 +281,27 @@ export default function SceneList({
         {scenes.length === 0 ? (
           <EmptyState icon={Layers}>No scenes yet — create one above.</EmptyState>
         ) : (
-          <ul className={styles.list} aria-label="Scene list">
-            {scenes.map((scene) =>
-              renamingName === scene.name ? (
-                <li key={scene.name} className={styles.renameRow}>
-                  <Field
-                    label="Scene name"
-                    value={renameValue}
-                    autoFocus
-                    onChange={(event) => setRenameValue(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") handleSaveRename(scene.name);
-                      if (event.key === "Escape") setRenamingName(null);
-                    }}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={orderedScenes.map((scene) => scene.name)} strategy={verticalListSortingStrategy}>
+              <ul className={styles.list} aria-label="Scene list">
+                {orderedScenes.map((scene) => (
+                  <SortableSceneRow
+                    key={scene.name}
+                    scene={scene}
+                    selectedName={selectedName}
+                    isRenaming={renamingName === scene.name}
+                    renameValue={renameValue}
+                    onSelect={onSelect}
+                    onStartRename={handleStartRename}
+                    onSaveRename={handleSaveRename}
+                    onCancelRename={() => setRenamingName(null)}
+                    onRenameValueChange={setRenameValue}
+                    onDelete={handleDelete}
                   />
-                  <IconButton icon={Check} label="Save" onClick={() => handleSaveRename(scene.name)} />
-                  <IconButton icon={X} label="Cancel" onClick={() => setRenamingName(null)} />
-                </li>
-              ) : (
-                <li
-                  key={scene.name}
-                  className={
-                    scene.name === selectedName ? `${styles.sceneRow} ${styles.selected}` : styles.sceneRow
-                  }
-                >
-                  <ListRow
-                    label={scene.name}
-                    icon={Layers}
-                    meta={scene.active ? "LIVE" : `${scene.barsPerLoop}bar`}
-                    selected={scene.name === selectedName}
-                    onSelect={() => onSelect(scene.name)}
-                    actions={
-                      <Menu
-                        trigger={<IconButton icon={MoreVertical} label={`${scene.name} actions`} />}
-                        items={[
-                          {
-                            id: "rename",
-                            label: "Rename",
-                            icon: Pencil,
-                            onSelect: () => handleStartRename(scene.name),
-                          },
-                          {
-                            id: "delete",
-                            label: "Delete",
-                            icon: Trash2,
-                            destructive: true,
-                            onSelect: () => handleDelete(scene.name),
-                          },
-                        ]}
-                      />
-                    }
-                  />
-                </li>
-              ),
-            )}
-          </ul>
+                ))}
+              </ul>
+            </SortableContext>
+          </DndContext>
         )}
       </ScrollRegion>
     </div>

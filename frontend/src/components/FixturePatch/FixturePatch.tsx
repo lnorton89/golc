@@ -66,7 +66,7 @@ import {
   type FixtureLibraryRowView,
   type PatchView,
 } from "../../lib/wailsBridge";
-import { Button, Chip, EmptyState, ErrorState, Field, FormActions, IconButton, ImpactReview, InfoTooltip, LoadingState, Menu, Panel } from "../../design-system";
+import { Button, Chip, Combobox, EmptyState, ErrorState, Field, FormActions, IconButton, ImpactReview, InfoTooltip, LoadingState, Menu, Panel, Select } from "../../design-system";
 import styles from "./FixturePatch.module.css";
 
 // ---------------------------------------------------------------------------
@@ -631,40 +631,27 @@ export default function FixturePatch() {
 
                       {addPoolTarget === p.name && (
                         <div className={styles.addMemberForm}>
-                          <Field label="Fixture">
-                            <select
-                              value={selectedFixture?.stableKey ?? ""}
-                              onChange={(event) => handleSelectFixture(event.target.value)}
-                            >
-                              <option value="" disabled>
-                                {libraryRows.filter((row) => row.status === "valid").length === 0
-                                  ? "No fixtures in library -- import one first"
-                                  : "Select a fixture…"}
-                              </option>
-                              {libraryRows
-                                .filter((row) => row.status === "valid")
-                                .map((row) => (
-                                  <option key={row.stableKey} value={row.stableKey}>
-                                    {row.manufacturer} {row.model}
-                                  </option>
-                                ))}
-                            </select>
-                          </Field>
-                          <Field label="Fixture mode" disabled={!selectedFixture}>
-                            <select
-                              value={addMode}
-                              onChange={(event) => setAddMode(event.target.value)}
-                            >
-                              <option value="" disabled>
-                                Select a mode…
-                              </option>
-                              {(selectedFixture?.modes ?? []).map((mode) => (
-                                <option key={mode} value={mode}>
-                                  {mode}
-                                </option>
-                              ))}
-                            </select>
-                          </Field>
+                          <Combobox
+                            label="Fixture"
+                            options={libraryRows
+                              .filter((row) => row.status === "valid")
+                              .map((row) => ({ value: row.stableKey, label: `${row.manufacturer} ${row.model}` }))}
+                            value={selectedFixture?.stableKey ?? ""}
+                            onValueChange={handleSelectFixture}
+                            placeholder={
+                              libraryRows.filter((row) => row.status === "valid").length === 0
+                                ? "No fixtures in library -- import one first"
+                                : "Select a fixture…"
+                            }
+                          />
+                          <Select
+                            label="Fixture mode"
+                            options={(selectedFixture?.modes ?? []).map((mode) => ({ value: mode, label: mode }))}
+                            value={addMode}
+                            onValueChange={setAddMode}
+                            placeholder="Select a mode…"
+                            disabled={!selectedFixture}
+                          />
                           <FormActions>
                             <Button variant="primary" leadingIcon={Eye} loading={previewLoading} disabled={!selectedFixture || !addMode} onClick={() => void handlePreviewAddMember()}>
                               {previewLoading ? "Reviewing…" : "Review Impact"}
@@ -837,21 +824,17 @@ export default function FixturePatch() {
                               <li key={instance.id} className={styles.memberRow}>
                                 {reassigningInstanceId === instance.id ? (
                                   <>
-                                    <Field label="Mode">
-                                      <select
-                                        value={reassignMode}
-                                        onChange={(event) => setReassignMode(event.target.value)}
-                                      >
-                                        <option value={reassignMode}>{reassignMode}</option>
-                                        {modesForMember(member?.fixtureStableKey ?? "")
-                                          .filter((mode) => mode !== reassignMode)
-                                          .map((mode) => (
-                                            <option key={mode} value={mode}>
-                                              {mode}
-                                            </option>
-                                          ))}
-                                      </select>
-                                    </Field>
+                                    <Select
+                                      label="Mode"
+                                      options={[
+                                        reassignMode,
+                                        ...modesForMember(member?.fixtureStableKey ?? "").filter(
+                                          (mode) => mode !== reassignMode,
+                                        ),
+                                      ].map((mode) => ({ value: mode, label: mode }))}
+                                      value={reassignMode}
+                                      onValueChange={setReassignMode}
+                                    />
                                     <Field
                                       className={styles.createInput}
                                       label="Universe"
