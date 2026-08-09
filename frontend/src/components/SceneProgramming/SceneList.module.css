@@ -98,10 +98,3 @@
   align-items: flex-end;
   gap: var(--ds-spacing-space1);
 }
-
-.rowActions {
-  display: flex;
-  align-items: center;
-  gap: var(--ds-spacing-space1);
-  flex: none;
-}

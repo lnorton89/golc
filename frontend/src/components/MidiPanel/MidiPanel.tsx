@@ -24,13 +24,18 @@
 // primitives (Panel/PanelHeader/Field/ListRow/EmptyState/ErrorState/
 // LoadingState/Chip/IconButton) -- every Wails call, state transition, and
 // dispatch path above is unchanged.
+//
+// A later revision replaced the operator-surface picker's hand-rolled
+// unstyled <select> with the shared Select primitive (Base UI-backed) --
+// a small, fully-known, fixed list of surfaces is exactly Select's
+// intended fit, not Combobox's (no typing-to-filter value here).
 
 import { useCallback, useEffect, useState } from "react";
 import { Music2, Trash2 } from "lucide-react";
 
 import { useGolcStore } from "../../store/store";
 import { onMidiFeedback, type MidiFeedback } from "../../lib/wailsBridge";
-import { Chip, EmptyState, ErrorState, Field, IconButton, ListRow, LoadingState, Panel, PanelHeader } from "../../design-system";
+import { Chip, EmptyState, ErrorState, IconButton, ListRow, LoadingState, Panel, PanelHeader, Select } from "../../design-system";
 import MidiLearn from "./MidiLearn";
 import SoftTakeoverSlider from "./SoftTakeoverSlider";
 import DeskMappingsSection from "./DeskMappingsSection";
@@ -259,20 +264,13 @@ export default function MidiPanel() {
         <LoadingState label="Loading MIDI mappings" variant="panel" />
       ) : (
         <>
-          <Field label="Operator surface">
-            <select
-              value={selectedSurface ?? ""}
-              onChange={(event) => setSelectedSurface(event.target.value || null)}
-              aria-label="Select operator surface for MIDI mappings"
-            >
-              <option value="">Select a surface…</option>
-              {surfaces.map((surface) => (
-                <option key={surface.id} value={surface.name}>
-                  {surface.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <Select
+            label="Operator surface"
+            options={surfaces.map((surface) => ({ value: surface.name, label: surface.name }))}
+            value={selectedSurface ?? undefined}
+            placeholder="Select a surface…"
+            onValueChange={(next) => setSelectedSurface(next || null)}
+          />
 
           {error && <ErrorState heading="MIDI mappings unavailable" message={error} variant="inline" />}
 

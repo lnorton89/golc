@@ -7,6 +7,7 @@
 // this codebase (see Desk.test.tsx / wailsBridge.ts's own doc comment).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import MidiPanel from "./MidiPanel";
 import { useGolcStore } from "../../store/store";
@@ -59,11 +60,18 @@ describe("MidiPanel", () => {
     useGolcStore.setState({ connectionStatus: "connecting", surfaceListVersion: 0 });
   });
 
+  // The operator-surface picker is the shared Select primitive (Base
+  // UI-backed): opening it and choosing an option needs realistic
+  // pointer interaction via userEvent, not a bare fireEvent.change on a
+  // native <select> (there isn't one anymore).
   async function selectSurface() {
+    const user = userEvent.setup();
     render(<MidiPanel />);
-    const select = await screen.findByLabelText("Select operator surface for MIDI mappings");
-    fireEvent.change(select, { target: { value: "Booth" } });
-    return select;
+    const trigger = await screen.findByRole("combobox", { name: "Operator surface" });
+    await user.click(trigger);
+    const option = await screen.findByRole("option", { name: "Booth" });
+    await user.click(option);
+    return trigger;
   }
 
   it("shows the empty state for Desk mappings when none exist", async () => {

@@ -5,10 +5,10 @@
 // (the sketch's own "what to avoid": permanently displaying every
 // look-creation form).
 import { useState } from "react";
-import { Plus, X, Check, Layers, Pencil, Trash2 } from "lucide-react";
+import { Plus, X, Check, Layers, MoreVertical, Pencil, Trash2 } from "lucide-react";
 
 import type { ProgSceneView } from "../../lib/wailsBridge";
-import { Button, EmptyState, Field, FormActions, IconButton, ListRow, ScrollRegion } from "../../design-system";
+import { Button, EmptyState, Field, FormActions, IconButton, ListRow, Menu, ScrollRegion } from "../../design-system";
 import styles from "./SceneList.module.css";
 
 interface SceneListProps {
@@ -122,10 +122,24 @@ export default function SceneList({
                     selected={scene.name === selectedName}
                     onSelect={() => onSelect(scene.name)}
                     actions={
-                      <span className={styles.rowActions}>
-                        <IconButton icon={Pencil} label={`Rename ${scene.name}`} onClick={() => handleStartRename(scene.name)} />
-                        <IconButton icon={Trash2} variant="destructive" label={`Delete ${scene.name}`} onClick={() => handleDelete(scene.name)} />
-                      </span>
+                      <Menu
+                        trigger={<IconButton icon={MoreVertical} label={`${scene.name} actions`} />}
+                        items={[
+                          {
+                            id: "rename",
+                            label: "Rename",
+                            icon: Pencil,
+                            onSelect: () => handleStartRename(scene.name),
+                          },
+                          {
+                            id: "delete",
+                            label: "Delete",
+                            icon: Trash2,
+                            destructive: true,
+                            onSelect: () => handleDelete(scene.name),
+                          },
+                        ]}
+                      />
                     }
                   />
                 </li>

@@ -110,6 +110,65 @@ describe("Desk", () => {
     await waitFor(() => expect(svc().DeskService.SetAttribute).toHaveBeenCalledWith("inst-1", "intensity", 128 / 255));
   });
 
+  it("renders a ColorField for a fixture with color_red/green/blue channels and dispatches all three on change", async () => {
+    (
+      window as unknown as { go: { wails: { FixtureLibraryService: { ListLocal: ReturnType<typeof vi.fn> } } } }
+    ).go.wails.FixtureLibraryService.ListLocal.mockResolvedValue({
+      directory: "",
+      rows: [
+        {
+          stableKey: "acme-rgb64",
+          contentHash: "hash-2",
+          manufacturer: "Acme",
+          model: "RGB64",
+          modes: ["3ch"],
+          modeChannelCounts: { "3ch": 3 },
+          modeChannels: {
+            "3ch": [
+              { index: 0, type: "color_red", occurrence: 0 },
+              { index: 1, type: "color_green", occurrence: 0 },
+              { index: 2, type: "color_blue", occurrence: 0 },
+            ],
+          },
+          fileName: "acme-rgb64.yaml",
+          source: "local",
+          status: "valid",
+          detail: "",
+        },
+      ],
+    });
+    (
+      window as unknown as { go: { wails: { FixturePatchService: { ListPatch: ReturnType<typeof vi.fn> } } } }
+    ).go.wails.FixturePatchService.ListPatch.mockResolvedValue(
+      patchView({
+        pools: [{ id: "pool-1", name: "Wash", members: [{ id: "member-1", fixtureStableKey: "acme-rgb64", fixtureContentHash: "hash-2" }] }],
+        deployments: [
+          {
+            id: "dep-1",
+            name: "Main Rig",
+            active: true,
+            instances: [{ id: "inst-1", poolId: "pool-1", poolMemberId: "member-1", mode: "3ch", universe: 1, address: 1 }],
+          },
+        ],
+      }),
+    );
+
+    render(<Desk />);
+    const swatch = await screen.findByRole("button", { name: /color$/ });
+    fireEvent.click(swatch);
+
+    // NumberStepper's Base UI NumberField.Input renders type="text" with an
+    // aria-roledescription of "Number field" rather than the implicit
+    // "spinbutton" role a native type="number" input carried -- query by
+    // the plain textbox role that type="text" now exposes.
+    const redField = await screen.findByRole("textbox", { name: /red channel/ });
+    fireEvent.change(redField, { target: { value: "200" } });
+
+    await waitFor(() => expect(svc().DeskService.SetAttribute).toHaveBeenCalledWith("inst-1", "color_red", 200 / 255));
+    expect(svc().DeskService.SetAttribute).toHaveBeenCalledWith("inst-1", "color_green", 0);
+    expect(svc().DeskService.SetAttribute).toHaveBeenCalledWith("inst-1", "color_blue", 0);
+  });
+
   it("dispatches clearDeskAttribute from a fader's own clear button once overridden", async () => {
     render(<Desk />);
     const fader = await screen.findByRole("slider", { name: /Intensity/ });

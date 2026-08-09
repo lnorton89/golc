@@ -5,8 +5,21 @@
 // inline error on a failed launch.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import ScriptRunDialog, { type ScriptDialogProfile } from "./ScriptRunDialog";
+
+// Capability scope and resource preset are the shared Select primitive
+// (Base UI-backed) as of a later revision -- opening the popup and
+// choosing an option needs realistic pointer interaction via userEvent,
+// not a bare fireEvent.change on a native <select> (there isn't one for
+// these two fields anymore; the four Advanced numeric fields are still
+// plain <input>s via Field).
+async function chooseSelectOption(triggerName: string, optionName: string) {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("combobox", { name: triggerName }));
+  await user.click(await screen.findByRole("option", { name: optionName }));
+}
 
 function profile(overrides: Partial<ScriptDialogProfile> = {}): ScriptDialogProfile {
   return {
@@ -88,11 +101,11 @@ describe("ScriptRunDialog", () => {
       />,
     );
 
-    expect(screen.getByLabelText("Capability scope")).toHaveValue("authoring");
-    expect(screen.getByLabelText("Resource limits")).toHaveValue("long-running-automation");
+    expect(screen.getByRole("combobox", { name: "Capability scope" })).toHaveTextContent("Authoring");
+    expect(screen.getByRole("combobox", { name: "Resource limits" })).toHaveTextContent("Long-running automation");
   });
 
-  it("hides the four numeric fields for a named preset, and reveals them, pre-filled, under Advanced", () => {
+  it("hides the four numeric fields for a named preset, and reveals them, pre-filled, under Advanced", async () => {
     render(
       <ScriptRunDialog
         mode="run"
@@ -114,14 +127,14 @@ describe("ScriptRunDialog", () => {
     expect(screen.queryByLabelText("Memory limit (MB)")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("CPU cap (%)")).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Resource limits"), { target: { value: "advanced" } });
+    await chooseSelectOption("Resource limits", "Advanced (custom)");
 
     expect(screen.getByLabelText("Deadline (seconds)")).toHaveValue(45);
     expect(screen.getByLabelText("Rate limit (calls/sec)")).toHaveValue(10);
     expect(screen.getByLabelText("Memory limit (MB)")).toHaveValue(128);
     expect(screen.getByLabelText("CPU cap (%)")).toHaveValue(50);
 
-    fireEvent.change(screen.getByLabelText("Resource limits"), { target: { value: "quick-action" } });
+    await chooseSelectOption("Resource limits", "Quick action");
     expect(screen.queryByLabelText("Deadline (seconds)")).not.toBeInTheDocument();
   });
 
@@ -131,7 +144,7 @@ describe("ScriptRunDialog", () => {
       <ScriptRunDialog mode="run" scriptName="Chase Cycler" profile={profile()} onSubmit={onSubmit} onCancel={vi.fn()} />,
     );
 
-    fireEvent.change(screen.getByLabelText("Capability scope"), { target: { value: "authoring" } });
+    await chooseSelectOption("Capability scope", "Authoring");
     fireEvent.click(screen.getByRole("button", { name: /^Run Chase Cycler$/ }));
 
     await waitFor(() =>
