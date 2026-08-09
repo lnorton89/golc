@@ -92,3 +92,14 @@ export const semanticTokenCSSVariables: Readonly<Record<SemanticTokenName, `--ds
   "text.primary": "--ds-text-primary",
   "text.secondary": "--ds-text-secondary",
 });
+export const motionTokenNames = [
+  "settle",
+  "snap",
+  "tap"
+] as const;
+export type MotionTokenName = (typeof motionTokenNames)[number];
+export const motionTokens: Readonly<Record<MotionTokenName, { readonly ms: number; readonly easing: string }>> = Object.freeze({
+  "settle": Object.freeze({ ms: 200, easing: "ease" }),
+  "snap": Object.freeze({ ms: 0, easing: "linear" }),
+  "tap": Object.freeze({ ms: 120, easing: "ease-out" }),
+});

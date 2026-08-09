@@ -1,0 +1,163 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: var(--ds-spacing-space1);
+}
+
+.label {
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  line-height: var(--ds-typography-line-height-body);
+  color: var(--ds-text-secondary);
+}
+
+/* Trigger is absolutely positioned inside .control rather than living in a
+   bordered InputGroup beside .input (Base UI's own docs pattern) -- a
+   single bordered box matches Field.module.css's own text-input chrome
+   exactly (same tokens, one border/one focus ring) instead of introducing
+   a second nested border seam this design system has no precedent for. */
+.control {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+.control[data-disabled] {
+  opacity: 0.5;
+}
+
+.input {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--ds-sizing-control-default);
+  padding-block: 0;
+  padding-inline-start: var(--ds-spacing-space2);
+  /* Reserves room for the absolutely-positioned .trigger button (width:
+     --ds-sizing-control-compact, 28px) sitting on top of the input's right
+     edge -- a single token rather than calc(space + sizing) because
+     check.mjs's DS001 "safe literal" pattern only allows one var() term
+     inside calc(), not two summed together. --ds-spacing-space8 (32px)
+     comfortably clears the 28px button. */
+  padding-inline-end: var(--ds-spacing-space8);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
+  background: var(--ds-surface-control);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  font-weight: var(--ds-typography-font-weight-regular);
+  line-height: var(--ds-typography-line-height-body);
+}
+
+.input:disabled {
+  cursor: not-allowed;
+}
+
+.input:focus-visible {
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
+}
+
+.trigger {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ds-sizing-control-compact);
+  padding: 0;
+  border-width: 0;
+  border-style: none;
+  background: transparent;
+  color: var(--ds-text-muted);
+  cursor: pointer;
+}
+
+.trigger:disabled {
+  cursor: not-allowed;
+}
+
+.trigger:focus-visible {
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
+}
+
+.icon {
+  width: var(--ds-sizing-icon16);
+  height: var(--ds-sizing-icon16);
+}
+
+/* No width tied to Base UI's own --anchor-width positioning variable --
+   this design system's DS003 rule rejects any var(--*) reference that
+   isn't a declared --ds-* token, so the popup gets a fixed, comfortable
+   width instead (same calc(100vw - ...) overflow guard Dialog.module.css
+   already uses). */
+.positioner {
+  z-index: var(--ds-stacking-popover);
+}
+
+.popup {
+  width: min(20rem, calc(100vw - var(--ds-spacing-space8)));
+  max-height: min(20rem, calc(100vh - var(--ds-spacing-space8)));
+  overflow: auto;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-medium);
+  background: var(--ds-surface-overlay);
+  color: var(--ds-text-primary);
+  padding-block: var(--ds-spacing-space1);
+}
+
+.empty {
+  padding-inline: var(--ds-spacing-space2);
+  padding-block: var(--ds-spacing-space2);
+  color: var(--ds-text-muted);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  line-height: var(--ds-typography-line-height-body);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  min-height: var(--ds-sizing-control-compact);
+  padding-inline: var(--ds-spacing-space2);
+  padding-block: 0;
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  line-height: var(--ds-typography-line-height-body);
+  cursor: pointer;
+  user-select: none;
+}
+
+.item[data-highlighted] {
+  background: var(--ds-surface-selected);
+}
+
+.item[data-selected] {
+  color: var(--ds-text-link);
+  font-weight: var(--ds-typography-font-weight-semibold);
+}
+
+.item[data-disabled] {
+  color: var(--ds-text-muted);
+  cursor: not-allowed;
+}

@@ -41,6 +41,7 @@
 // ContextualInspector stay mounted unconditionally exactly as before
 // (application-shell-navigation.md's interaction contract).
 import { useState, type CSSProperties } from "react";
+import { MotionConfig } from "motion/react";
 
 import TitleBar from "./TitleBar";
 import GlobalFrame from "./GlobalFrame";
@@ -189,10 +190,19 @@ function ShellBody() {
   );
 }
 
+// MotionConfig wraps the whole shell (not just wherever a `motion.*`
+// component eventually gets used) so every future Motion animation
+// anywhere in the app automatically respects the OS-level reduced-motion
+// preference for free, matching the same prefers-reduced-motion discipline
+// several primitives (Button, IconButton, InfoTooltip, ...) already apply
+// by hand in CSS. This provider has no DOM output of its own -- purely
+// context, zero layout impact.
 export default function AppShell() {
   return (
-    <PlaybackSnapshotProvider>
-      <ShellBody />
-    </PlaybackSnapshotProvider>
+    <MotionConfig reducedMotion="user">
+      <PlaybackSnapshotProvider>
+        <ShellBody />
+      </PlaybackSnapshotProvider>
+    </MotionConfig>
   );
 }
