@@ -1,0 +1,119 @@
+# GENERATED-ADJACENT, HAND-AUTHORED: this file is not code-generated (no
+# Go-ecosystem library derives AsyncAPI from Huma's route registrations
+# the way GenerateOpenAPI derives docs/api/openapi.json), but its three
+# message payload schemas are $ref'd against that committed, generated
+# file rather than duplicated here -- STACK.md's original design intent
+# ("keep api/asyncapi.yaml beside OpenAPI, reference the same JSON
+# schemas") -- so DomainEventPayload/ResyncEventPayload/ScriptEventPayload
+# can never drift between the two documents. Everything else here (the
+# channel, operation, and security description) mirrors
+# internal/api/events.go's own doc comment and registerEventsOperation's
+# Huma Description field; keep both in sync by hand when that file's
+# externally-observable contract changes.
+#
+# Validated in CI by tools/asyncapi-validate (a pinned @asyncapi/cli
+# workspace, matching tools/linear-sync's isolated-Node-workspace
+# precedent) as part of the non-blocking quality.yml workflow -- like
+# lint/govulncheck, this is new tooling for the repository, not part of
+# the offline core graph or the required commands.pr.steps graph.
+asyncapi: 3.1.0
+info:
+  title: GOLC API — Event Stream
+  version: "1.0.0"
+  description: >
+    The one-way Server-Sent-Events companion to docs/api/openapi.json's
+    REST surface (D-09/D-10/D-11/D-12): every domain's committed changes
+    on a single global stream, each event tagged with a type and a
+    strictly monotonic per-process sequence id. This is a hint stream,
+    never the source of truth -- a client must always re-fetch
+    authoritative state via the REST resource endpoints, especially after
+    a "resync" event.
+servers:
+  local:
+    host: "127.0.0.1:4590"
+    protocol: http
+    description: >
+      Loopback-default GOLC daemon API (config/api.toml's own default
+      listen address). LAN exposure is opt-in and requires an explicit
+      bind_interface; see docs/api/COMPATIBILITY.md.
+    security:
+      - $ref: "#/components/securitySchemes/apiKey"
+channels:
+  events:
+    address: /v1/events
+    title: Global revisioned event stream
+    description: >
+      GET /v1/events opens a long-lived Server-Sent-Events connection.
+      Reconnecting with the standard SSE "Last-Event-ID" request header
+      (a previously-received event's id) replays any buffered events
+      still within the server's bounded ring buffer; an id that has
+      already scrolled out of that buffer -- or one issued by a previous
+      daemon process, since the sequence resets on restart -- yields a
+      single "resync" message instead of a silent gap. Any valid,
+      non-expired API key may open this stream regardless of its coarse
+      REST scope, and once open receives every domain's events regardless
+      of that scope too: scopes gate mutations, not stream visibility. A
+      revoked or expired key's already-open stream is closed within one
+      revocation-tick interval (internal/api/events.go's
+      EventRevocationTickInterval, 5s in production).
+    messages:
+      state:
+        $ref: "#/components/messages/state"
+      resync:
+        $ref: "#/components/messages/resync"
+      script:
+        $ref: "#/components/messages/script"
+operations:
+  watchEvents:
+    action: send
+    channel:
+      $ref: "#/channels/events"
+    summary: Publish domain state changes, resync signals, and script lifecycle transitions.
+    description: >
+      One atomic /v1/batch commits a single show revision but emits one
+      separately-addressable event per sub-request, so consecutive
+      "state" events can share a revision while carrying distinct ids --
+      the committed revision itself travels in the payload's "revision"
+      field, re-fetchable via the REST resource endpoints. Frame-level
+      DMX/Art-Net output is never published here (throttled telemetry
+      only); the playback frame loop writes Art-Net independently.
+    messages:
+      - $ref: "#/channels/events/messages/state"
+      - $ref: "#/channels/events/messages/resync"
+      - $ref: "#/channels/events/messages/script"
+components:
+  messages:
+    state:
+      name: state
+      title: Domain state change
+      summary: A committed mutation's domain, originating route, and resulting revision.
+      contentType: application/json
+      payload:
+        $ref: "./openapi.json#/components/schemas/DomainEventPayload"
+    resync:
+      name: resync
+      title: Resync required
+      summary: >
+        Sent instead of a replay when a reconnecting client's
+        Last-Event-ID has already scrolled out of the server's ring
+        buffer; the client must re-fetch authoritative state via the REST
+        resource endpoints before treating the stream as caught up.
+      contentType: application/json
+      payload:
+        $ref: "./openapi.json#/components/schemas/ResyncEventPayload"
+    script:
+      name: script
+      title: Script run lifecycle
+      summary: A script run's start or terminal (succeeded/failed/terminated) transition.
+      contentType: application/json
+      payload:
+        $ref: "./openapi.json#/components/schemas/ScriptEventPayload"
+  securitySchemes:
+    apiKey:
+      type: http
+      scheme: bearer
+      description: >
+        Any valid, non-expired GOLC API key, presented as
+        "Authorization: Bearer <token>" -- the identical credential and
+        AuthMiddleware check every /v1 REST operation uses (D-08). No
+        separate streaming-specific credential or scope exists.

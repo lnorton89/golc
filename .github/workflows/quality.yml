@@ -1,5 +1,5 @@
 # GOLC non-blocking code-quality observation workflow (lint + known-
-# vulnerability scanning).
+# vulnerability scanning + AsyncAPI contract validation).
 #
 # internal/command/lint.go's own doc comment states golangci-lint is
 # deliberately excluded from the offline core graph and the required
@@ -12,8 +12,17 @@
 # rather than instantly block every open PR. The job-level
 # `continue-on-error: true` mirrors cross-platform-mage.yml's own
 # non-blocking observation pattern; each step below additionally sets its
-# own `continue-on-error: true` so a lint failure never prevents the
-# govulncheck step from also running and reporting.
+# own `continue-on-error: true` so one failing step never prevents a later
+# one from also running and reporting.
+#
+# The "asyncapi" step validates docs/api/asyncapi.yaml (including its
+# cross-file $ref into docs/api/openapi.json) via tools/asyncapi-validate,
+# an isolated pinned @asyncapi/cli workspace -- mirroring design-system.yml's
+# own pattern of resolving the pinned Node toolchain directly for an
+# npm-ecosystem CI check, rather than routing through the Go command
+# registry the way lint/govulncheck do (this is an npm tool operating on a
+# docs artifact, not a Go-ecosystem CLI). Unlike lint/govulncheck's own
+# offline-safe binaries, `npm ci` here reaches the npm registry.
 #
 # This file deliberately never touches check.yml's strict command-parity
 # contract: internal/command/check.go's "check --command-parity" route
@@ -57,3 +66,29 @@ jobs:
       - name: govulncheck
         continue-on-error: true
         run: mage Govulncheck
+
+      - name: asyncapi
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $toolchain = Get-Content -Raw (Join-Path $env:GITHUB_WORKSPACE "config\toolchain.toml")
+          $match = [regex]::Match($toolchain, '(?ms)^\[toolchain\.node\]\r?\nversion\s*=\s*"([^"]+)"')
+          if (-not $match.Success) {
+            throw "GOLC_QUALITY_NODE_MISSING: config/toolchain.toml does not pin toolchain.node.version"
+          }
+          $nodeVersion = $match.Groups[1].Value
+          $nodeDir = Join-Path $env:GITHUB_WORKSPACE ".tools\toolchains\node\$nodeVersion\windows-amd64\node-v$nodeVersion-win-x64"
+          if (-not (Test-Path -LiteralPath (Join-Path $nodeDir "node.exe") -PathType Leaf)) {
+            throw "GOLC_QUALITY_NODE_MISSING: run mage Bootstrap first"
+          }
+          $env:PATH = "$nodeDir;$env:PATH"
+          Push-Location (Join-Path $env:GITHUB_WORKSPACE "tools\asyncapi-validate")
+          try {
+            npm ci
+            if ($LASTEXITCODE -ne 0) { throw "GOLC_QUALITY_ASYNCAPI_INSTALL_FAILED: npm ci exited $LASTEXITCODE" }
+            npm run validate
+            if ($LASTEXITCODE -ne 0) { throw "GOLC_QUALITY_ASYNCAPI_INVALID: npm run validate exited $LASTEXITCODE" }
+          } finally {
+            Pop-Location
+          }
