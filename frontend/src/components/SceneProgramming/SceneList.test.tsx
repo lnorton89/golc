@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import SceneList, { reorderSceneNames } from "./SceneList";
@@ -370,7 +370,11 @@ describe("SceneList", () => {
           onReorder={noop}
         />,
       );
-      expect(visibleSceneOrder()).toEqual(["Alpha", "Beta", "Delta"]);
+      // Gamma's row plays its own exit animation (AnimatePresence) before
+      // actually leaving the DOM, so the removal isn't synchronous with the
+      // rerender -- Delta (newly added) shows up immediately, Gamma lingers
+      // briefly mid-animation.
+      await waitFor(() => expect(visibleSceneOrder()).toEqual(["Alpha", "Beta", "Delta"]));
     });
   });
 });

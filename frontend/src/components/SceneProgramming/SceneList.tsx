@@ -27,8 +27,17 @@
 // feature useless. Resetting only when the name *set* changes still
 // guarantees a stale order can never silently reference a scene that no
 // longer exists (or omit one that now does).
+//
+// Row removal is the one genuine gap CSS can't fill on its own: a deleted
+// scene's <li> is simply gone from the next render, so there is no DOM
+// node left for a CSS transition to animate -- AnimatePresence is what
+// lets the row play its own exit (collapse+fade) before React actually
+// removes it. Every other row-level styling stays exactly as it was
+// (dnd-kit's own drag-transform inline style, still merged in below);
+// only removal is Motion's job here.
 import { useEffect, useState, type CSSProperties } from "react";
 import { Plus, X, Check, Layers, MoreVertical, Pencil, Trash2, GripVertical } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   DndContext,
   KeyboardSensor,
@@ -48,8 +57,11 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 import type { ProgSceneView } from "../../lib/wailsBridge";
+import { motionTransition } from "../../design-system/motion";
 import { Button, EmptyState, Field, FormActions, IconButton, ListRow, Menu, ScrollRegion } from "../../design-system";
 import styles from "./SceneList.module.css";
+
+const rowExitTransition = motionTransition("settle");
 
 interface SceneListProps {
   scenes: ProgSceneView[];
@@ -110,7 +122,14 @@ function SortableSceneRow({
 
   if (isRenaming) {
     return (
-      <li ref={setNodeRef} style={style} className={styles.renameRow}>
+      <motion.li
+        ref={setNodeRef}
+        style={{ ...style, overflow: "hidden" }}
+        initial={false}
+        exit={{ opacity: 0, height: 0 }}
+        transition={rowExitTransition}
+        className={styles.renameRow}
+      >
         <Field
           label="Scene name"
           value={renameValue}
@@ -123,14 +142,17 @@ function SortableSceneRow({
         />
         <IconButton icon={Check} label="Save" onClick={() => onSaveRename(scene.name)} />
         <IconButton icon={X} label="Cancel" onClick={onCancelRename} />
-      </li>
+      </motion.li>
     );
   }
 
   return (
-    <li
+    <motion.li
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, overflow: "hidden" }}
+      initial={false}
+      exit={{ opacity: 0, height: 0 }}
+      transition={rowExitTransition}
       data-dragging={isDragging || undefined}
       className={scene.name === selectedName ? `${styles.sceneRow} ${styles.selected}` : styles.sceneRow}
     >
@@ -170,7 +192,7 @@ function SortableSceneRow({
           />
         }
       />
-    </li>
+    </motion.li>
   );
 }
 
@@ -284,21 +306,23 @@ export default function SceneList({
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={orderedScenes.map((scene) => scene.name)} strategy={verticalListSortingStrategy}>
               <ul className={styles.list} aria-label="Scene list">
-                {orderedScenes.map((scene) => (
-                  <SortableSceneRow
-                    key={scene.name}
-                    scene={scene}
-                    selectedName={selectedName}
-                    isRenaming={renamingName === scene.name}
-                    renameValue={renameValue}
-                    onSelect={onSelect}
-                    onStartRename={handleStartRename}
-                    onSaveRename={handleSaveRename}
-                    onCancelRename={() => setRenamingName(null)}
-                    onRenameValueChange={setRenameValue}
-                    onDelete={handleDelete}
-                  />
-                ))}
+                <AnimatePresence initial={false}>
+                  {orderedScenes.map((scene) => (
+                    <SortableSceneRow
+                      key={scene.name}
+                      scene={scene}
+                      selectedName={selectedName}
+                      isRenaming={renamingName === scene.name}
+                      renameValue={renameValue}
+                      onSelect={onSelect}
+                      onStartRename={handleStartRename}
+                      onSaveRename={handleSaveRename}
+                      onCancelRename={() => setRenamingName(null)}
+                      onRenameValueChange={setRenameValue}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </AnimatePresence>
               </ul>
             </SortableContext>
           </DndContext>
