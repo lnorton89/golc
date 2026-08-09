@@ -113,6 +113,7 @@ Bootstrap verifies every tool archive against committed SHA-256 pins in `config/
 | `mage CheckOffline` | Runs `generate`, `check`, `build`, and `test --quick` in order with network access denied — the offline core graph. |
 | `mage Build` | Compiles every project package, including `cmd/golc-desktop`; rebuilds the embedded frontend first if any frontend source changed. |
 | `mage Lint` | Runs `golangci-lint` over every project Go package with the project-local pinned toolchain. |
+| `mage Govulncheck` | Runs `govulncheck` over every project Go package with the project-local pinned toolchain, reporting known vulnerabilities in the module's dependency graph. |
 | `mage Dev` | Runs `wails dev` (hot-reload desktop dev loop) with the pinned Go/Node/Wails toolchains prepended onto its PATH. |
 | `mage Run` | Launches the already-built `golc-desktop[.exe]` with `.tools/cache/go-bin` (where `midicat` is provisioned) prepended onto the PATH of that child process — see [MIDI requires `midicat`](#midi-requires-midicat). |
 | `mage Test` | Runs the complete test route: the full Go suite plus every registered Node scope (requires the Linear-sync workspace bootstrap above). |
