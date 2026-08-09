@@ -76,6 +76,15 @@ func runVulncheck(request Request) Result {
 	stdout := &progressSink{live: request.Stdout}
 	stderr := &progressSink{live: request.Stderr}
 
+	// govulncheck prints nothing of its own until the scan is fully done
+	// (fetching the vulnerability database, then building/analyzing the
+	// call graph, both silent) -- without this line, a live "mage
+	// Govulncheck" invocation looks hung for however long that takes,
+	// exactly the silent-progress problem build.go's own progress lines
+	// (e.g. "GOLC build: resolving pinned Go toolchain...") already solve
+	// for the build route.
+	stdout.writeString("GOLC vulncheck: fetching vulnerability database and scanning...\n")
+
 	execution := exec.Command(vulncheckExecutable, "./...")
 	execution.Dir = request.Root
 	environment := projectGoEnvironment(request.Root)
