@@ -523,14 +523,15 @@ func waitForDispatchCount(t *testing.T, capture *dispatchCapture, want int) {
 
 // loadShowWithRetry re-reads the ShowState at root/showPath, retrying a
 // transient "database is locked" (SQLITE_BUSY) diagnostic before failing.
-// This is observed even for a single show.Load immediately following a
-// polling loop's own successful read: the show store's SQLite backend sets
-// no busy_timeout and performs no retry of its own (internal/show/
-// schema.go), and Windows' file-locking semantics can leave a just-closed
-// handle's lock briefly outstanding -- mirrors svc_midi.go's own
-// showLoadWithRetry production-side rationale, applied here so a test's own
-// post-wait assertion read isn't itself a source of flakiness distinct from
-// the dispatch behavior under test.
+// internal/show/schema.go's openStore applies "PRAGMA busy_timeout = 5000"
+// as the first statement on every connection, so SQLite itself already
+// waits out most transient cross-process contention internally; this loop
+// is a belt-and-suspenders guard against the residual case that PRAGMA
+// doesn't reach -- Windows' file-locking semantics can leave a just-closed
+// handle's lock briefly outstanding even after SQLite's own busy handler
+// gives up -- applied here so a test's own post-wait assertion read isn't
+// itself a source of flakiness distinct from the dispatch behavior under
+// test.
 func loadShowWithRetry(t *testing.T, root, showPath string) show.State {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
