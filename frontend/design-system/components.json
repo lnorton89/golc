@@ -3,6 +3,7 @@
   "components": [
     { "name": "Button", "kind": "primitive", "exportPath": "src/components/primitives/Button/Button.tsx", "guideAnchor": "#button", "testPath": "src/components/primitives/Button/Button.test.tsx" },
     { "name": "Chip", "kind": "primitive", "exportPath": "src/components/primitives/Chip/Chip.tsx", "guideAnchor": "#chip", "testPath": "src/components/primitives/Chip/Chip.test.tsx" },
+    { "name": "ColorField", "kind": "primitive", "exportPath": "src/components/primitives/ColorField/ColorField.tsx", "guideAnchor": "#colorfield", "testPath": "src/components/primitives/ColorField/ColorField.test.tsx" },
     { "name": "Combobox", "kind": "primitive", "exportPath": "src/components/primitives/Combobox/Combobox.tsx", "guideAnchor": "#combobox", "testPath": "src/components/primitives/Combobox/Combobox.test.tsx" },
     { "name": "ConfirmDialog", "kind": "primitive", "exportPath": "src/components/primitives/ConfirmDialog/ConfirmDialog.tsx", "guideAnchor": "#confirmdialog", "testPath": "src/components/primitives/ConfirmDialog/ConfirmDialog.test.tsx" },
     { "name": "DataList", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#datalist", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" },

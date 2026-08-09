@@ -119,6 +119,7 @@ Beyond the static checker, `e2e/design-system.*.spec.ts` covers what static anal
 | --- | --- | --- | --- |
 | Button | primitive | `src/components/primitives/Button/Button.tsx` | `src/components/primitives/Button/Button.test.tsx` |
 | Chip | primitive | `src/components/primitives/Chip/Chip.tsx` | `src/components/primitives/Chip/Chip.test.tsx` |
+| ColorField | primitive | `src/components/primitives/ColorField/ColorField.tsx` | `src/components/primitives/ColorField/ColorField.test.tsx` |
 | Combobox | primitive | `src/components/primitives/Combobox/Combobox.tsx` | `src/components/primitives/Combobox/Combobox.test.tsx` |
 | ConfirmDialog | primitive | `src/components/primitives/ConfirmDialog/ConfirmDialog.tsx` | `src/components/primitives/ConfirmDialog/ConfirmDialog.test.tsx` |
 | DataList | pattern | `src/design-system/patterns/index.tsx` | `src/design-system/fixtures/DesignSystemGallery.test.tsx` |
@@ -154,7 +155,7 @@ Beyond the static checker, `e2e/design-system.*.spec.ts` covers what static anal
 
 ### Component anchors
 
-The inventory anchors are stable selection markers: #button #chip #combobox #confirmdialog #datalist #dialog #emptystate #errorstate #field #formactions #guidedflow #iconbutton #impactreview #infotooltip #launchermasters #listrow #loadingstate #menu #midipickup #numberstepper #panel #panelheader #popover #resizehandle #safetyaction #scenestack #scrollregion #select #slider #splitpane #tabs #toolbar #workspaceframe.
+The inventory anchors are stable selection markers: #button #chip #colorfield #combobox #confirmdialog #datalist #dialog #emptystate #errorstate #field #formactions #guidedflow #iconbutton #impactreview #infotooltip #launchermasters #listrow #loadingstate #menu #midipickup #numberstepper #panel #panelheader #popover #resizehandle #safetyaction #scenestack #scrollregion #select #slider #splitpane #tabs #toolbar #workspaceframe.
 
 ## Commands
 

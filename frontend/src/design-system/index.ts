@@ -1,6 +1,8 @@
 // Public design-system boundary. Consumers import shared UI only from here.
 export { default as Button } from "../components/primitives/Button/Button";
 export { default as Chip } from "../components/primitives/Chip/Chip";
+export { default as ColorField } from "../components/primitives/ColorField/ColorField";
+export type { RgbColor } from "../components/primitives/ColorField/ColorField";
 export { default as Combobox } from "../components/primitives/Combobox/Combobox";
 export type { ComboboxOption } from "../components/primitives/Combobox/Combobox";
 export { default as ConfirmDialog } from "../components/primitives/ConfirmDialog/ConfirmDialog";
