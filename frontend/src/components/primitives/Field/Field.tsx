@@ -1,16 +1,14 @@
-import { cloneElement, forwardRef, isValidElement, useId } from "react";
-import type { AriaAttributes, InputHTMLAttributes, ReactElement, ReactNode } from "react";
+import { forwardRef, isValidElement, useId } from "react";
+import type { InputHTMLAttributes, ReactElement, ReactNode } from "react";
+import { Field as BaseField } from "@base-ui/react/field";
 
 import styles from "./Field.module.css";
 
 type FieldControlProps = {
-  id?: string;
   className?: string;
   disabled?: boolean;
   required?: boolean;
   "aria-describedby"?: string;
-  "aria-invalid"?: AriaAttributes["aria-invalid"];
-  "data-multiline"?: string;
 };
 
 export interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -40,35 +38,42 @@ const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
 ) {
   const generatedId = useId();
   const controlId = id ?? `field-${generatedId}`;
-  const descriptionId = description ? `${controlId}-description` : undefined;
-  const errorId = error ? `${controlId}-error` : undefined;
-  const describedBy = joinIds(ariaDescribedBy, descriptionId, errorId);
+  // Base UI's Field.Description/Field.Error auto-generate their own ids and
+  // append them to Field.Control's aria-describedby via context (verified
+  // empirically -- see the now-deleted scratch test this conversion used),
+  // so only a caller-supplied describedby (and, for the cloned-child branch,
+  // any describedby already on that child) needs to be threaded through by
+  // hand here.
   const invalid = error ? true : ariaInvalid;
+  const hasError = Boolean(error);
 
   const child = isValidElement(children) ? (children as ReactElement<FieldControlProps>) : null;
   const control = child
-    ? cloneElement(child, {
-        id: controlId,
-        className: [styles.input, child.props.className].filter(Boolean).join(" "),
-        disabled: disabled ?? child.props.disabled,
-        required: required ?? child.props.required,
-        "aria-describedby": joinIds(child.props["aria-describedby"], describedBy),
-        "aria-invalid": invalid,
-        ...(hideLabel ? { "aria-label": label } : {}),
-        // Marks a <textarea> child so Field.module.css's [data-multiline]
-        // rule (taller min-height, resizable) applies -- an explicit
-        // attribute rather than a `textarea.input` tag selector, so any
-        // future non-<textarea> multiline control could opt in too.
-        ...(child.type === "textarea" ? { "data-multiline": "" } : {}),
-      })
+    ? (
+        <BaseField.Control
+          id={controlId}
+          className={[styles.input, child.props.className].filter(Boolean).join(" ")}
+          disabled={disabled ?? child.props.disabled}
+          required={required ?? child.props.required}
+          aria-describedby={joinIds(ariaDescribedBy, child.props["aria-describedby"])}
+          aria-invalid={invalid}
+          {...(hideLabel ? { "aria-label": label } : {})}
+          // Marks a <textarea> child so Field.module.css's [data-multiline]
+          // rule (taller min-height, resizable) applies -- an explicit
+          // attribute rather than a `textarea.input` tag selector, so any
+          // future non-<textarea> multiline control could opt in too.
+          {...(child.type === "textarea" ? { "data-multiline": "" } : {})}
+          render={child}
+        />
+      )
     : (
-        <input
+        <BaseField.Control
           ref={ref}
           id={controlId}
           className={[styles.input, className].filter(Boolean).join(" ")}
           disabled={disabled}
           required={required}
-          aria-describedby={describedBy}
+          aria-describedby={ariaDescribedBy}
           aria-invalid={invalid}
           aria-label={hideLabel ? label : undefined}
           {...rest}
@@ -76,17 +81,21 @@ const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
       );
 
   return (
-    <div className={styles.field} data-invalid={error ? "true" : undefined}>
+    <BaseField.Root className={styles.field} invalid={hasError} data-invalid={hasError ? "true" : undefined}>
       {!hideLabel && (
-        <label className={styles.label} htmlFor={controlId}>
+        <BaseField.Label className={styles.label}>
           {label}
           {required ? <span className={styles.required} aria-hidden="true"> *</span> : null}
-        </label>
+        </BaseField.Label>
       )}
       {control}
-      {description ? <div id={descriptionId} className={styles.description}>{description}</div> : null}
-      {error ? <div id={errorId} className={styles.error} role="alert">{error}</div> : null}
-    </div>
+      {description ? <BaseField.Description className={styles.description}>{description}</BaseField.Description> : null}
+      {error ? (
+        <BaseField.Error className={styles.error} match={hasError} role="alert">
+          {error}
+        </BaseField.Error>
+      ) : null}
+    </BaseField.Root>
   );
 });
 

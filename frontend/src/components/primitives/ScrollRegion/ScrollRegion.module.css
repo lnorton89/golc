@@ -1,19 +1,59 @@
-.region {
+.root {
   min-width: 0;
   min-height: 0;
   flex: 1;
 }
 
-.vertical {
-  overflow-x: hidden;
-  overflow-y: auto;
+.viewport {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
-.horizontal {
-  overflow-x: auto;
-  overflow-y: hidden;
+/* Base UI's Scrollbar already supplies its own position/inset/thumb-size
+   inline styles (verified via a throwaway DOM dump -- it is NOT something
+   this stylesheet needs to author). This rule only owns the track's own
+   thickness and its hover/scrolling-reveal fade -- kept thin and inert at
+   rest so it reads as "the same scrolling experience, slightly more
+   consistent across platforms" rather than a new decorative control. */
+.scrollbar {
+  display: flex;
+  opacity: 0;
+  transition: opacity var(--ds-motion-settle);
 }
 
-.both {
-  overflow: auto;
+.scrollbar[data-orientation="vertical"] {
+  width: var(--ds-spacing-space2);
+}
+
+.scrollbar[data-orientation="horizontal"] {
+  height: var(--ds-spacing-space2);
+}
+
+.scrollbar[data-hovering],
+.scrollbar[data-scrolling] {
+  opacity: 1;
+}
+
+.thumb {
+  flex: 1;
+  border-radius: var(--ds-radii-pill);
+  background: var(--ds-border-strong);
+  transition: background-color var(--ds-motion-tap);
+}
+
+.scrollbar:hover .thumb {
+  background: var(--ds-text-muted);
+}
+
+.corner {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scrollbar,
+  .thumb {
+    transition-duration: var(--ds-motion-snap);
+  }
 }

@@ -1,0 +1,71 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-spacing-space2);
+  cursor: pointer;
+}
+
+/* Base UI's Checkbox.Root renders as a <span role="checkbox"> that
+   receives keyboard focus directly (confirmed against the rendered DOM --
+   unlike Slider.Thumb, there is no nested focusable <input> to reach for
+   via :has()), so :focus-visible below targets this class directly. */
+.box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ds-sizing-icon20);
+  height: var(--ds-sizing-icon20);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
+  background: var(--ds-surface-control);
+  cursor: pointer;
+  transition: var(--ds-motion-tap);
+}
+
+.box[data-checked],
+.box[data-indeterminate] {
+  border-color: var(--ds-action-primary);
+  background: var(--ds-action-primary);
+}
+
+.box[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.box:focus-visible {
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
+}
+
+.indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon {
+  width: var(--ds-sizing-icon16);
+  height: var(--ds-sizing-icon16);
+  color: var(--ds-action-on-primary);
+}
+
+.label {
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  font-weight: var(--ds-typography-font-weight-regular);
+  line-height: var(--ds-typography-line-height-body);
+  color: var(--ds-text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .box {
+    transition-duration: var(--ds-motion-snap);
+  }
+}

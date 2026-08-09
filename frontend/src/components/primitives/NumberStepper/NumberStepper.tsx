@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 import type { FocusEventHandler, KeyboardEventHandler } from "react";
+import { NumberField } from "@base-ui/react/number-field";
 import { ChevronUp, ChevronDown } from "lucide-react";
 
 import styles from "./NumberStepper.module.css";
@@ -11,8 +12,8 @@ export interface NumberStepperProps {
   min?: number;
   /** step is the nudge amount applied per click (default 1) -- callers
    * needing sub-integer precision (e.g. TempoControls' 0.1 BPM nudge)
-   * pass an explicit fractional step; rounding uses a fixed-precision
-   * factor so repeated nudges never drift from floating-point error. */
+   * pass an explicit fractional step; Base UI's NumberField owns the
+   * actual increment/decrement math and keeps it drift-free internally. */
   step?: number;
   placeholder?: string;
   disabled?: boolean;
@@ -38,59 +39,57 @@ export interface NumberStepperProps {
  * (+/-step per click, default 1) alongside direct typing and the input's
  * native keyboard stepping. The nudge buttons are excluded from the tab
  * order (tabIndex={-1}): they are a pointer-only convenience layered on
- * the field, not an independent keyboard control. */
+ * the field, not an independent keyboard control.
+ *
+ * Built on Base UI's NumberField, whose engine works in `number | null`
+ * rather than this primitive's own `string` contract -- the empty string
+ * (used by optional "Auto" fields like ProjectFixtures' starting
+ * universe/address) round-trips to/from `null` at this boundary so neither
+ * consumer needs to change. `format` disables thousands grouping (Base
+ * UI's default would otherwise render e.g. "1,234" for a universe number)
+ * and caps display rounding at 6 fraction digits -- matching the previous
+ * hand-rolled nudge math's own 1e6 precision floor -- so a caller typing a
+ * precise fractional value never sees it visually truncated on blur. */
+const NUMBER_FORMAT: Intl.NumberFormatOptions = { useGrouping: false, maximumFractionDigits: 6 };
+
 const NumberStepper = forwardRef<HTMLInputElement, NumberStepperProps>(function NumberStepper(
   { label, value, onChange, min = 1, step: stepAmount = 1, placeholder, disabled = false, description, onBlur, onKeyDown, hideLabel = false },
   ref,
 ) {
-  const step = (direction: 1 | -1) => {
-    const parsed = Number(value) || 0;
-    const next = Math.max(min, Math.round((parsed + direction * stepAmount) * 1e6) / 1e6);
-    onChange(String(next));
-  };
+  const parsed = value === "" ? null : Number(value);
+  const numericValue = parsed === null || Number.isNaN(parsed) ? null : parsed;
 
   return (
     <div className={styles.field} data-compact={hideLabel ? "true" : undefined}>
       {!hideLabel && <label className={styles.label}>{label}</label>}
-      <span className={styles.controls} data-disabled={disabled ? "true" : undefined}>
-        <input
-          ref={ref}
-          className={styles.input}
-          type="number"
-          min={min}
-          value={value}
-          disabled={disabled}
-          placeholder={placeholder}
-          aria-label={label}
-          onChange={(event) => onChange(event.target.value)}
-          onBlur={onBlur}
-          onKeyDown={onKeyDown}
-        />
-        <span className={styles.spinner}>
-          <button
-            type="button"
-            className={styles.stepControl}
-            tabIndex={-1}
-            disabled={disabled}
-            aria-label={`Increase ${label.toLowerCase()}`}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => step(1)}
-          >
-            <ChevronUp className={styles.spinnerIcon} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className={styles.stepControl}
-            tabIndex={-1}
-            disabled={disabled}
-            aria-label={`Decrease ${label.toLowerCase()}`}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => step(-1)}
-          >
-            <ChevronDown className={styles.spinnerIcon} aria-hidden="true" />
-          </button>
-        </span>
-      </span>
+      <NumberField.Root
+        className={styles.controls}
+        min={min}
+        step={stepAmount}
+        format={NUMBER_FORMAT}
+        value={numericValue}
+        disabled={disabled}
+        onValueChange={(next) => onChange(next === null ? "" : String(next))}
+      >
+        <NumberField.Group className={styles.group}>
+          <NumberField.Input
+            ref={ref}
+            className={styles.input}
+            placeholder={placeholder}
+            aria-label={label}
+            onBlur={onBlur}
+            onKeyDown={onKeyDown}
+          />
+          <span className={styles.spinner}>
+            <NumberField.Increment className={styles.stepControl} tabIndex={-1} aria-label={`Increase ${label.toLowerCase()}`}>
+              <ChevronUp className={styles.spinnerIcon} aria-hidden="true" />
+            </NumberField.Increment>
+            <NumberField.Decrement className={styles.stepControl} tabIndex={-1} aria-label={`Decrease ${label.toLowerCase()}`}>
+              <ChevronDown className={styles.spinnerIcon} aria-hidden="true" />
+            </NumberField.Decrement>
+          </span>
+        </NumberField.Group>
+      </NumberField.Root>
       {description ? <div className={styles.description}>{description}</div> : null}
     </div>
   );

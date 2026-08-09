@@ -44,7 +44,11 @@ describe("TempoControls", () => {
     await waitFor(() => screen.getByRole("button", { name: "100 BPM" }));
 
     fireEvent.click(screen.getByRole("button", { name: "100 BPM" }));
-    expect(screen.getByLabelText("BPM")).toHaveValue(100);
+    // Base UI's NumberField.Input renders type="text" (with inputmode
+    // "numeric") rather than the native type="number" the hand-rolled
+    // input used, so jest-dom's toHaveValue matcher now compares against
+    // the displayed string rather than coercing to a number.
+    expect(screen.getByLabelText("BPM")).toHaveValue("100");
   });
 
   it("commits the new BPM and returns to display mode on Enter, with no separate Set button", async () => {

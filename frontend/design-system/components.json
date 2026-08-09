@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "components": [
     { "name": "Button", "kind": "primitive", "exportPath": "src/components/primitives/Button/Button.tsx", "guideAnchor": "#button", "testPath": "src/components/primitives/Button/Button.test.tsx" },
+    { "name": "Checkbox", "kind": "primitive", "exportPath": "src/components/primitives/Checkbox/Checkbox.tsx", "guideAnchor": "#checkbox", "testPath": "src/components/primitives/Checkbox/Checkbox.test.tsx" },
     { "name": "Chip", "kind": "primitive", "exportPath": "src/components/primitives/Chip/Chip.tsx", "guideAnchor": "#chip", "testPath": "src/components/primitives/Chip/Chip.test.tsx" },
     { "name": "ColorField", "kind": "primitive", "exportPath": "src/components/primitives/ColorField/ColorField.tsx", "guideAnchor": "#colorfield", "testPath": "src/components/primitives/ColorField/ColorField.test.tsx" },
     { "name": "Combobox", "kind": "primitive", "exportPath": "src/components/primitives/Combobox/Combobox.tsx", "guideAnchor": "#combobox", "testPath": "src/components/primitives/Combobox/Combobox.test.tsx" },
@@ -25,6 +26,7 @@
     { "name": "Panel", "kind": "primitive", "exportPath": "src/components/primitives/Panel/Panel.tsx", "guideAnchor": "#panel", "testPath": "src/components/primitives/Panel/Panel.test.tsx" },
     { "name": "PanelHeader", "kind": "primitive", "exportPath": "src/components/primitives/PanelHeader/PanelHeader.tsx", "guideAnchor": "#panelheader", "testPath": "src/components/primitives/PanelHeader/PanelHeader.test.tsx" },
     { "name": "Popover", "kind": "primitive", "exportPath": "src/components/primitives/Popover/Popover.tsx", "guideAnchor": "#popover", "testPath": "src/components/primitives/Popover/Popover.test.tsx" },
+    { "name": "RadioGroup", "kind": "primitive", "exportPath": "src/components/primitives/RadioGroup/RadioGroup.tsx", "guideAnchor": "#radiogroup", "testPath": "src/components/primitives/RadioGroup/RadioGroup.test.tsx" },
     { "name": "ResizeHandle", "kind": "primitive", "exportPath": "src/components/primitives/ResizeHandle/ResizeHandle.tsx", "guideAnchor": "#resizehandle", "testPath": "src/components/primitives/ResizeHandle/ResizeHandle.test.tsx" },
     { "name": "SafetyAction", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#safetyaction", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" },
     { "name": "SceneStack", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#scenestack", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" },
@@ -32,6 +34,7 @@
     { "name": "Select", "kind": "primitive", "exportPath": "src/components/primitives/Select/Select.tsx", "guideAnchor": "#select", "testPath": "src/components/primitives/Select/Select.test.tsx" },
     { "name": "Slider", "kind": "primitive", "exportPath": "src/components/primitives/Slider/Slider.tsx", "guideAnchor": "#slider", "testPath": "src/components/primitives/Slider/Slider.test.tsx" },
     { "name": "SplitPane", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#splitpane", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" },
+    { "name": "Switch", "kind": "primitive", "exportPath": "src/components/primitives/Switch/Switch.tsx", "guideAnchor": "#switch", "testPath": "src/components/primitives/Switch/Switch.test.tsx" },
     { "name": "Tabs", "kind": "primitive", "exportPath": "src/components/primitives/Tabs/Tabs.tsx", "guideAnchor": "#tabs", "testPath": "src/components/primitives/Tabs/Tabs.test.tsx" },
     { "name": "Toolbar", "kind": "primitive", "exportPath": "src/components/primitives/Toolbar/Toolbar.tsx", "guideAnchor": "#toolbar", "testPath": "src/components/primitives/Toolbar/Toolbar.test.tsx" },
     { "name": "WorkspaceFrame", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#workspaceframe", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" }
