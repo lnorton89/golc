@@ -1,0 +1,16 @@
+{
+  "name": "asyncapi-validate",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Isolated @asyncapi/cli workspace that validates docs/api/asyncapi.yaml (CONTEXT D-03; workflow/CI tool only, not part of the GOLC runtime).",
+  "type": "module",
+  "engines": {
+    "node": ">=24.18.0"
+  },
+  "scripts": {
+    "validate": "asyncapi validate ../../docs/api/asyncapi.yaml"
+  },
+  "devDependencies": {
+    "@asyncapi/cli": "6.0.2"
+  }
+}
