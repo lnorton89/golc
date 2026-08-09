@@ -19,9 +19,13 @@ package command
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -417,7 +421,7 @@ func runBuild(request Request) Result {
 	// output (rather than buffering it all and copying it in after Run
 	// returns) is what actually makes a real "mage Build" show progress
 	// instead of going silent for the whole compile.
-	buildArgs := append([]string{"build", "-v", "-tags", "desktop,production", "-o", request.Root + string(filepath.Separator)}, packages...)
+	buildArgs := append([]string{"build", "-v", "-trimpath", "-tags", "desktop,production", "-o", request.Root + string(filepath.Separator)}, packages...)
 	err = runProjectGoLive(goExecutable, request.Root, buildArgs, stdoutSink, stderrSink)
 	if err != nil {
 		stderrSink.writeString(fmt.Sprintf("GOLC_BUILD_FAILED: %v\n", err))
@@ -438,21 +442,29 @@ func runBuild(request Request) Result {
 	// landed and "mage Build" reported success). Refreshing it here too
 	// keeps both binaries a single "mage Build" away from current source.
 	stdoutSink.writeString("GOLC build: refreshing the pinned golc-project daemon binary.\n")
-	if err := refreshPinnedGolcProject(goExecutable, request.Root, stdoutSink, stderrSink); err != nil {
+	rootProjectBinary := filepath.Join(request.Root, bootstrap.ExecutableName("golc-project"))
+	if err := refreshPinnedGolcProject(request.Root, rootProjectBinary, stdoutSink); err != nil {
 		stderrSink.writeString(fmt.Sprintf("GOLC_BUILD_PINNED_INSTALL_FAILED: %v\n", err))
 		return Result{ExitCode: 1, Stdout: stdoutSink.buffered(), Stderr: stderrSink.buffered()}
 	}
 	return Result{Stdout: stdoutSink.buffered(), Stderr: stderrSink.buffered()}
 }
 
-// refreshPinnedGolcProject rebuilds the pinned golc-project[.exe] copy the
+// refreshPinnedGolcProject refreshes the pinned golc-project[.exe] copy the
 // Wails host's daemon-spawn path resolves (internal/wails/app.go's
-// resolveDaemonExecutable), mirroring bootstrap.installGoInstallTools's own
-// build invocation exactly so the two can never drift out of sync. A
-// missing cmd/golc-project directory is not an error here (mirrors
-// bootstrap's own defensive os.Stat guard) -- a synthetic test fixture
-// repository legitimately has no such directory.
-func refreshPinnedGolcProject(goExecutable, root string, liveStdout, liveStderr io.Writer) error {
+// resolveDaemonExecutable) by copying rootBinaryPath -- the same
+// -trimpath'd binary the multi-package build just above this call already
+// produced at the repository root -- rather than re-running `go build
+// ./cmd/golc-project` a second time. That second invocation used to cost a
+// full extra compile+link of the whole dependency graph on every single
+// "mage build": bootstrap.installGoInstallTools's build step and this one
+// used identical flags, but GOCACHE still treats each `go build` process
+// invocation independently, so nothing was actually shared between the two
+// back-to-back builds in the same route. A missing cmd/golc-project
+// directory is not an error here (mirrors bootstrap's own defensive
+// os.Stat guard) -- a synthetic test fixture repository legitimately has
+// no such directory.
+func refreshPinnedGolcProject(root, rootBinaryPath string, liveStdout io.Writer) error {
 	projectDir := filepath.Join(root, "cmd", "golc-project")
 	info, err := os.Stat(projectDir)
 	if err != nil || !info.IsDir() {
@@ -462,14 +474,21 @@ func refreshPinnedGolcProject(goExecutable, root string, liveStdout, liveStderr 
 	if err := os.MkdirAll(filepath.Dir(installPath), 0o755); err != nil {
 		return fmt.Errorf("create pinned install directory: %w", err)
 	}
-	var stderrBuffer bytes.Buffer
-	var stderr io.Writer = &stderrBuffer
-	if liveStderr != nil {
-		stderr = io.MultiWriter(&stderrBuffer, liveStderr)
-	}
-	err = runProjectGoLive(goExecutable, root, []string{"build", "-trimpath", "-o", installPath, "./cmd/golc-project"}, liveStdout, stderr)
+	source, err := os.Open(rootBinaryPath)
 	if err != nil {
-		return fmt.Errorf("%w: %s", err, stderrBuffer.Bytes())
+		return fmt.Errorf("open freshly built %s: %w", rootBinaryPath, err)
+	}
+	defer source.Close()
+	destination, err := os.OpenFile(installPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o755)
+	if err != nil {
+		return fmt.Errorf("create pinned install binary: %w", err)
+	}
+	defer destination.Close()
+	if _, err := io.Copy(destination, source); err != nil {
+		return fmt.Errorf("copy pinned install binary: %w", err)
+	}
+	if liveStdout != nil {
+		fmt.Fprintf(liveStdout, "GOLC build: copied %s -> %s\n", rootBinaryPath, installPath)
 	}
 	return nil
 }
@@ -484,11 +503,128 @@ func refreshPinnedGolcProject(goExecutable, root string, liveStdout, liveStderr 
 // tag ever being dropped, not the only thing preventing the failure.
 const magefilesImportSuffix = "/magefiles"
 
+// buildablePackagesCacheName is where buildablePackages persists the last
+// package list it resolved via a real `go list ./...`, keyed by
+// packageListSignature. A real invocation on this repository was measured
+// live at ~25-30s of continuous single-core CPU time with essentially no
+// disk-I/O-wait component (Get-Process sampling during the call showed
+// CPU time tracking wall time 1:1) -- consistent with something hooking
+// every one of the ~2,000 first-party .go files' opens synchronously in
+// go.exe's own thread (a security product's inline scan-on-open is the
+// prime suspect, though it could not be confirmed without admin-level
+// filter-driver enumeration) rather than the file parsing itself being
+// slow. Since that cost is paid in full on every single "mage build" even
+// when the buildable package set is byte-identical to the last one,
+// caching it against a signature that never opens a .go file's content
+// turns the common no-package-added-or-removed case from ~30s into a
+// handful of file stats.
+const buildablePackagesCacheName = "go-buildable-packages.json"
+
+type buildablePackagesCache struct {
+	Signature string   `json:"signature"`
+	Packages  []string `json:"packages"`
+}
+
+// packageListSignature fingerprints every .go file under root (path,
+// size, and mtime -- never file content, since reading content is exactly
+// the expensive part a cache hit needs to avoid) plus go.mod/go.sum's
+// content, sufficient to detect anything that could change `go list
+// ./...`'s output: a file added, removed, edited, or a dependency change.
+// node_modules/.git/.tools/any dot-directory are skipped as never
+// containing project Go source.
+func packageListSignature(root string) (string, error) {
+	hasher := sha256.New()
+	walkErr := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		relative, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			return relErr
+		}
+		if relative == "." {
+			return nil
+		}
+		base := entry.Name()
+		if entry.IsDir() {
+			if strings.HasPrefix(base, ".") || base == "node_modules" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(base, ".go") {
+			return nil
+		}
+		info, infoErr := entry.Info()
+		if infoErr != nil {
+			return infoErr
+		}
+		fmt.Fprintf(hasher, "%s %d %d\n", filepath.ToSlash(relative), info.Size(), info.ModTime().UnixNano())
+		return nil
+	})
+	if walkErr != nil {
+		return "", walkErr
+	}
+	for _, name := range []string{"go.mod", "go.sum"} {
+		content, readErr := os.ReadFile(filepath.Join(root, name))
+		if readErr != nil {
+			return "", readErr
+		}
+		hasher.Write([]byte(name + "\n"))
+		hasher.Write(content)
+	}
+	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
+func buildablePackagesCachePath(root string) string {
+	return filepath.Join(root, ".tools", "cache", buildablePackagesCacheName)
+}
+
+// cachedBuildablePackages returns a previous buildablePackages result if
+// its recorded signature still matches signature -- any read/decode
+// failure is treated as a cache miss, never an error, since the fallback
+// (a real `go list ./...`) is always correct, just slower.
+func cachedBuildablePackages(root, signature string) ([]string, bool) {
+	raw, err := os.ReadFile(buildablePackagesCachePath(root))
+	if err != nil {
+		return nil, false
+	}
+	var cache buildablePackagesCache
+	if err := json.Unmarshal(raw, &cache); err != nil {
+		return nil, false
+	}
+	if cache.Signature != signature || len(cache.Packages) == 0 {
+		return nil, false
+	}
+	return cache.Packages, true
+}
+
+// writeBuildablePackagesCache persists packages under signature; any
+// failure to do so is non-fatal (the next call just pays for a real `go
+// list ./...` again).
+func writeBuildablePackagesCache(root, signature string, packages []string) {
+	encoded, err := json.Marshal(buildablePackagesCache{Signature: signature, Packages: packages})
+	if err != nil {
+		return
+	}
+	_ = os.MkdirAll(filepath.Dir(buildablePackagesCachePath(root)), 0o755)
+	_ = os.WriteFile(buildablePackagesCachePath(root), encoded, 0o644)
+}
+
 // buildablePackages lists every project Go package via the pinned
 // toolchain and excludes the magefiles package, so "go build ./..." style
 // verification never tries to link a package that intentionally has no
-// func main() outside of mage's own generated wrapper.
+// func main() outside of mage's own generated wrapper. It first tries a
+// cached result keyed by packageListSignature, only falling back to a
+// real `go list ./...` when the project's own source tree has actually
+// changed (see buildablePackagesCacheName).
 func buildablePackages(goExecutable, root string) ([]string, error) {
+	signature, sigErr := packageListSignature(root)
+	if sigErr == nil {
+		if cached, ok := cachedBuildablePackages(root, signature); ok {
+			return cached, nil
+		}
+	}
 	stdout, stderr, err := runProjectGo(goExecutable, root, []string{"list", "./..."})
 	if err != nil {
 		return nil, fmt.Errorf("list packages: %w: %s", err, stderr)
@@ -503,6 +639,9 @@ func buildablePackages(goExecutable, root string) ([]string, error) {
 	}
 	if len(packages) == 0 {
 		return nil, errors.New("no buildable packages found")
+	}
+	if sigErr == nil {
+		writeBuildablePackagesCache(root, signature, packages)
 	}
 	return packages, nil
 }

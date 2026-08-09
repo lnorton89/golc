@@ -453,30 +453,55 @@ func runTestQuick(root string) Result {
 	return Result{Stdout: output.Bytes(), Stderr: stderr}
 }
 
-// runTestFull serves bare "test": every project Go package's tests run
-// once through the pinned toolchain (fail on any failure), followed by
-// every registered Node scope's exact test command. "test" never filters
-// by marker: it is the one full-suite contributor/CI gate
-// 01-VALIDATION.md documents.
+// goSuiteResult carries runTestFull's `go test ./...` outcome across the
+// goroutine boundary described below.
+type goSuiteResult struct {
+	stdout, stderr []byte
+	err            error
+}
+
+// runTestFull serves bare "test": every project Go package's tests and
+// every registered Node scope's exact test command both run to
+// completion (fail if either fails). "test" never filters by marker: it
+// is the one full-suite contributor/CI gate 01-VALIDATION.md documents.
+//
+// The Go suite and the Node scopes run concurrently rather than
+// sequentially: they are two entirely separate toolchains/process trees
+// with no shared state (different subprocess invocations, different
+// subtrees of the repository, and GOCACHE/GOMODCACHE are never touched by
+// the Node side), so there is nothing forcing one to wait on the other.
+// Running them one after another only ever cost wall-clock time for
+// nothing in return.
 func runTestFull(root string) Result {
 	goExecutable, err := resolvePinnedGoExecutable(root)
 	if err != nil {
 		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
 	}
-	var output bytes.Buffer
-	output.WriteString("GOLC test: full suite (go test -tags mage ./...).\n")
-	stdout, stderr, err := runProjectGo(goExecutable, root, []string{"test", "-count=1", "-tags", "mage", "./..."})
-	output.Write(stdout)
-	if err != nil {
-		stderr = append(stderr, fmt.Appendf(nil, "GOLC_TEST_FAILED: full suite: %v\n", err)...)
-		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: stderr}
-	}
+
+	goDone := make(chan goSuiteResult, 1)
+	go func() {
+		stdout, stderr, err := runProjectGo(goExecutable, root, []string{"test", "-count=1", "-tags", "mage", "./..."})
+		goDone <- goSuiteResult{stdout: stdout, stderr: stderr, err: err}
+	}()
 
 	nodeOutput, nodeErr := runAllNodeScopes(root)
+	goResult := <-goDone
+
+	var output bytes.Buffer
+	output.WriteString("GOLC test: full suite (go test -tags mage ./... concurrently with every Node scope).\n")
+	output.Write(goResult.stdout)
 	output.Write(nodeOutput)
-	if nodeErr != nil {
-		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: append(stderr, []byte(nodeErr.Error()+"\n")...)}
+
+	if goResult.err != nil || nodeErr != nil {
+		stderr := append([]byte(nil), goResult.stderr...)
+		if goResult.err != nil {
+			stderr = append(stderr, fmt.Appendf(nil, "GOLC_TEST_FAILED: full suite: %v\n", goResult.err)...)
+		}
+		if nodeErr != nil {
+			stderr = append(stderr, []byte(nodeErr.Error()+"\n")...)
+		}
+		return Result{ExitCode: 1, Stdout: output.Bytes(), Stderr: stderr}
 	}
 	output.WriteString("GOLC test: full suite passed.\n")
-	return Result{Stdout: output.Bytes(), Stderr: stderr}
+	return Result{Stdout: output.Bytes(), Stderr: goResult.stderr}
 }

@@ -98,7 +98,7 @@ npm run test:e2e                  # Full Playwright suite (real Chromium)
 npm run test:e2e:resize           # Just the aggressive window-resize/overflow suite
 npm run test:e2e:design-system    # Just the design-system-scoped Playwright project
 npm run check:design-system       # Static design-system policy checker (see DESIGN_SYSTEM.md)
-npm run build                     # tsc --noEmit && vitest run && vite build — the full local gate
+npm run build                     # tsc --noEmit + vitest run (concurrently), then vite build — the full local gate
 ```
 
 Playwright specs are deliberately **outside** `npm test`/`npm run build` and outside the Go-side pinned-toolchain build pipeline (`mage Build`) — those need to stay fast and network-free for every Go build, while a real-browser suite needs its own downloaded Chromium binary and takes real wall-clock time per spec. Run the E2E suites explicitly when touching layout, dialogs, resize behavior, or anything design-system-scoped.

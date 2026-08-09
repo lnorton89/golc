@@ -49,8 +49,9 @@ exercises by default with no injection at all.
 <build_gate>
 ## The build gate: App.smoke.test.tsx
 
-`npm run build` (`frontend/package.json`) runs
-`tsc --noEmit && vitest run && vite build`, in that order. The middle step
+`npm run build` (`frontend/package.json`) runs `node scripts/build.mjs`,
+which runs `tsc --noEmit` and `vitest run` concurrently (they don't depend
+on each other), then `vite build` once both pass. The vitest step
 runs [`frontend/src/App.smoke.test.tsx`](../../../frontend/src/App.smoke.test.tsx),
 which mounts the real `<App/>` tree in jsdom and fails the build if
 anything throws or logs a `console.error`/`console.warn` during import or

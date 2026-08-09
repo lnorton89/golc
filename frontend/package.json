@@ -14,7 +14,7 @@
     "test:design-system": "vitest run scripts/design-system",
     "test:e2e:design-system": "playwright test e2e/design-system --workers=1",
     "validate:phase13-evidence": "node scripts/design-system/validate-phase13-evidence.mjs",
-    "build": "tsc --noEmit && vitest run && vite build",
+    "build": "node scripts/build.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
