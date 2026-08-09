@@ -183,6 +183,19 @@ module = "github.com/wailsapp/wails/v2/cmd/wails"
 version = "v2.12.2"
 module = "github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
 
+# govulncheck is the official Go team's vulnerability scanner
+# (`mage Govulncheck`), contributor/CI tooling never a build/test
+# dependency of the application itself. Installed the same way as
+# golangci-lint: `go install <module>@<version>` using the already-pinned
+# Go toolchain, best-effort/non-fatal per installGoInstallTools
+# (internal/bootstrap/engine.go). `go install` names the produced binary
+# after cmd/govulncheck's own last path element, "govulncheck", so this
+# table's key matches it exactly, the same way midicat/wails/
+# golangci-lint above already establish.
+[go_install.govulncheck]
+version = "v1.6.0"
+module = "golang.org/x/vuln/cmd/govulncheck"
+
 [cache]
 downloads = ".tools/cache/downloads"
 gomodcache = ".tools/cache/go-mod"

@@ -197,3 +197,12 @@ func (layout ProjectCacheLayout) WailsBinaryPath(executableSuffix string) string
 func (layout ProjectCacheLayout) LintBinaryPath(executableSuffix string) string {
 	return filepath.Join(layout.GoBin, "golangci-lint"+executableSuffix)
 }
+
+// VulncheckBinaryPath is where installGoInstallTools' go_install.govulncheck
+// pin (config/toolchain.toml) places the project-local govulncheck CLI,
+// matching the same GoBin placement convention as WailsBinaryPath/
+// LintBinaryPath above. executableSuffix is typically ".exe" on Windows or
+// "" elsewhere.
+func (layout ProjectCacheLayout) VulncheckBinaryPath(executableSuffix string) string {
+	return filepath.Join(layout.GoBin, "govulncheck"+executableSuffix)
+}
