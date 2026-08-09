@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import QuickSwitcher from "./QuickSwitcher";
 
@@ -13,9 +13,11 @@ describe("QuickSwitcher", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("lists every workspace when open with an empty query, focused for typing", () => {
+  it("lists every workspace when open with an empty query, focused for typing", async () => {
     render(<QuickSwitcher open onClose={vi.fn()} onNavigate={vi.fn()} />);
-    expect(screen.getByLabelText("Jump to a workspace")).toHaveFocus();
+    // Base UI (Dialog's underlying primitive) resolves initialFocus
+    // asynchronously, not synchronously on mount.
+    await waitFor(() => expect(screen.getByLabelText("Jump to a workspace")).toHaveFocus());
     expect(screen.getByRole("option", { name: /Overview/ })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /Art-Net/ })).toBeInTheDocument();
   });
@@ -85,11 +87,10 @@ describe("QuickSwitcher", () => {
     const onClose = vi.fn();
     render(<QuickSwitcher open onClose={onClose} onNavigate={onNavigate} />);
 
-    // QuickSwitcher now renders through the shared Dialog primitive, which
-    // dismisses its portal-rendered backdrop on mousedown (see
-    // Dialog.test.tsx's own convention), not a plain click on a local
-    // backdrop div.
-    fireEvent.mouseDown(screen.getByTestId("dialog-backdrop"));
+    // QuickSwitcher now renders through the shared Dialog primitive, whose
+    // Base UI-backed backdrop dismisses on a click (see Dialog.test.tsx's
+    // own convention), not a bare mousedown/pointerdown.
+    fireEvent.click(screen.getByTestId("dialog-backdrop"));
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onNavigate).not.toHaveBeenCalled();

@@ -1,16 +1,7 @@
-import { createPortal } from "react-dom";
-import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { Dialog as BaseDialog } from "@base-ui/react/dialog";
+import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 
 import styles from "./Dialog.module.css";
-
-const FOCUSABLE_SELECTOR = [
-  "a[href]",
-  "button:not([disabled])",
-  "input:not([disabled])",
-  "select:not([disabled])",
-  "textarea:not([disabled])",
-  "[tabindex]:not([tabindex='-1'])",
-].join(",");
 
 export interface DialogProps {
   open: boolean;
@@ -25,12 +16,6 @@ export interface DialogProps {
   role?: "dialog" | "alertdialog";
 }
 
-function getFocusableElements(container: HTMLElement): HTMLElement[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-    (element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true",
-  );
-}
-
 export default function Dialog({
   open,
   title,
@@ -42,82 +27,54 @@ export default function Dialog({
   closeOnBackdrop = true,
   role = "dialog",
 }: DialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
+  // finalFocus has to be tracked explicitly (not Base UI's automatic
+  // trigger-return-focus) because this Dialog is always controlled from the
+  // outside -- there is no Dialog.Trigger element for Base UI to remember as
+  // the thing to refocus on close.
   const returnFocusRef = useRef<HTMLElement | null>(null);
-  const titleId = useId();
-  const descriptionId = useId();
 
   useEffect(() => {
     if (!open) return;
-
     const activeElement = document.activeElement;
     returnFocusRef.current = activeElement instanceof HTMLElement ? activeElement : null;
+  }, [open]);
 
-    const dialog = dialogRef.current;
-    const focusTarget = initialFocusRef?.current ?? (dialog ? getFocusableElements(dialog)[0] : null) ?? dialog;
-    focusTarget?.focus();
-
-    return () => {
-      returnFocusRef.current?.focus();
-    };
-  }, [initialFocusRef, open]);
-
-  if (!open) return null;
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape" && closeOnEscape) {
-      event.preventDefault();
-      onClose();
-      return;
-    }
-
-    if (event.key !== "Tab") return;
-
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    const focusableElements = getFocusableElements(dialog);
-    if (focusableElements.length === 0) {
-      event.preventDefault();
-      dialog.focus();
-      return;
-    }
-
-    const first = focusableElements[0];
-    const last = focusableElements[focusableElements.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  };
-
-  return createPortal(
-    <div
-      className={styles.backdrop}
-      data-testid="dialog-backdrop"
-      onMouseDown={(event) => {
-        if (closeOnBackdrop && event.target === event.currentTarget) onClose();
+  return (
+    <BaseDialog.Root
+      open={open}
+      onOpenChange={(next, eventDetails) => {
+        if (next) return;
+        if (eventDetails.reason === "escape-key" && !closeOnEscape) {
+          eventDetails.cancel();
+          return;
+        }
+        if (eventDetails.reason === "outside-press" && !closeOnBackdrop) {
+          eventDetails.cancel();
+          return;
+        }
+        onClose();
       }}
     >
-      <div
-        ref={dialogRef}
-        className={styles.dialog}
-        role={role}
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={description ? descriptionId : undefined}
-        tabIndex={-1}
-        onKeyDown={handleKeyDown}
-      >
-        <div className={styles.content}>
-          <h2 id={titleId} className={styles.title}>{title}</h2>
-          {description ? <div id={descriptionId} className={styles.description}>{description}</div> : null}
-          <div className={styles.body}>{children}</div>
-        </div>
-      </div>
-    </div>,
-    document.body,
+      <BaseDialog.Portal>
+        <BaseDialog.Backdrop className={styles.backdrop} data-testid="dialog-backdrop" />
+        <BaseDialog.Popup
+          className={styles.dialog}
+          role={role}
+          // Base UI enforces modality via `inert` on background content
+          // rather than setting aria-modal itself -- added explicitly since
+          // not every assistive-tech pairing treats `inert` as sufficient on
+          // its own, and this was the existing contract's own ARIA guarantee.
+          aria-modal="true"
+          initialFocus={initialFocusRef}
+          finalFocus={returnFocusRef}
+        >
+          <div className={styles.content}>
+            <BaseDialog.Title className={styles.title}>{title}</BaseDialog.Title>
+            {description ? <BaseDialog.Description className={styles.description}>{description}</BaseDialog.Description> : null}
+            <div className={styles.body}>{children}</div>
+          </div>
+        </BaseDialog.Popup>
+      </BaseDialog.Portal>
+    </BaseDialog.Root>
   );
 }

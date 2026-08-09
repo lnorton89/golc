@@ -1,13 +1,14 @@
 import { createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import Dialog from "./Dialog";
 
 afterEach(() => cleanup());
 
 describe("Dialog", () => {
-  it("wires its title and description and focuses the supplied safe action", () => {
+  it("wires its title and description and focuses the supplied safe action", async () => {
     const safeActionRef = createRef<HTMLButtonElement>();
 
     render(
@@ -19,10 +20,12 @@ describe("Dialog", () => {
 
     expect(screen.getByRole("dialog", { name: "Review changes" })).toHaveAttribute("aria-modal", "true");
     expect(screen.getByText("Nothing has been saved yet.")).toHaveAttribute("id");
-    expect(safeActionRef.current).toHaveFocus();
+    // Base UI resolves initialFocus asynchronously, not synchronously on mount.
+    await waitFor(() => expect(safeActionRef.current).toHaveFocus());
   });
 
-  it("contains Tab navigation and closes on Escape or a backdrop click when allowed", () => {
+  it("traps Tab navigation and closes on Escape or a backdrop click when allowed", async () => {
+    const user = userEvent.setup();
     const onClose = vi.fn();
     render(
       <Dialog open title="Review changes" onClose={onClose}>
@@ -31,19 +34,45 @@ describe("Dialog", () => {
       </Dialog>,
     );
 
-    const dialog = screen.getByRole("dialog");
     const first = screen.getByRole("button", { name: "First action" });
     const last = screen.getByRole("button", { name: "Last action" });
+    // Base UI resolves its own default initial focus asynchronously; wait
+    // for that to settle before manually moving focus, or the async effect
+    // can steal focus back after this test's own last.focus() call.
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
     last.focus();
-    fireEvent.keyDown(dialog, { key: "Tab" });
-    expect(first).toHaveFocus();
-    fireEvent.keyDown(dialog, { key: "Escape" });
-    fireEvent.mouseDown(screen.getByTestId("dialog-backdrop"));
+    // Base UI traps focus with sentinel guard elements around the popup
+    // rather than intercepting a synthetic Tab keydown directly, so this
+    // needs a real Tab keypress (user-event) to exercise it, not
+    // fireEvent.keyDown. Tabbing off the last focusable element first lands
+    // on the trailing guard span; the guard's own focusin handler then
+    // redirects back to the first focusable element on the next tick.
+    await user.tab();
+    await waitFor(() => expect(first).toHaveFocus());
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    // Base UI's outside-press dismissal listens for a click, not a bare
+    // mousedown/pointerdown.
+    fireEvent.click(screen.getByTestId("dialog-backdrop"));
 
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
-  it("restores focus to the invoking control when it closes", () => {
+  it("does not close on Escape or backdrop click when both are disabled", () => {
+    const onClose = vi.fn();
+    render(
+      <Dialog open title="Review changes" onClose={onClose} closeOnEscape={false} closeOnBackdrop={false}>
+        <button>Keep editing</button>
+      </Dialog>,
+    );
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    fireEvent.click(screen.getByTestId("dialog-backdrop"));
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("restores focus to the invoking control when it closes", async () => {
     const trigger = document.createElement("button");
     trigger.textContent = "Open review";
     document.body.append(trigger);
@@ -61,7 +90,7 @@ describe("Dialog", () => {
       </Dialog>,
     );
 
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(trigger).toHaveFocus());
     trigger.remove();
   });
 });

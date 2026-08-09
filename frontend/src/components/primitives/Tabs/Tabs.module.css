@@ -29,11 +29,14 @@
   color: var(--ds-text-primary);
 }
 
-.tab:hover:not(:disabled) {
+.tab:hover:not([data-disabled]) {
   color: var(--ds-text-primary);
 }
 
-.tab:disabled {
+/* Base UI marks a disabled Tab via aria-disabled/data-disabled, not the
+   native `disabled` attribute (keeps it roving-tabindex-aware rather than
+   removing it from the accessibility tree). */
+.tab[data-disabled] {
   color: var(--ds-text-muted);
   cursor: not-allowed;
 }
