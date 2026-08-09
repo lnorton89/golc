@@ -99,6 +99,7 @@ npm run test:e2e:resize           # Just the aggressive window-resize/overflow s
 npm run test:e2e:design-system    # Just the design-system-scoped Playwright project
 npm run check:design-system       # Static design-system policy checker (see DESIGN_SYSTEM.md)
 npm run build                     # tsc --noEmit + vitest run (concurrently), then vite build — the full local gate
+npm run build:dev                 # tsc --noEmit + vite build (concurrently), no tests — what `mage Dev` runs at startup
 ```
 
 Playwright specs are deliberately **outside** `npm test`/`npm run build` and outside the Go-side pinned-toolchain build pipeline (`mage Build`) — those need to stay fast and network-free for every Go build, while a real-browser suite needs its own downloaded Chromium binary and takes real wall-clock time per spec. Run the E2E suites explicitly when touching layout, dialogs, resize behavior, or anything design-system-scoped.
@@ -111,7 +112,9 @@ A known, harmless flake: `scripts/design-system/manifest.test.ts`'s "is byte-sta
 npm run build
 ```
 
-This runs `tsc --noEmit`, the full Vitest suite, and `vite build` in sequence — any failure at any stage fails the whole command. Output is redirected to `../cmd/golc-desktop/frontend/dist` (not `frontend/dist`) so Go's `//go:embed` directive, which cannot reference a path outside its own package tree, can see it. This build also runs automatically as part of `mage Build` at the repository root.
+This runs `tsc --noEmit` and the full Vitest suite concurrently (`scripts/build.mjs`; they don't depend on each other), then `vite build` once both pass — any failure fails the whole command. Output is redirected to `../cmd/golc-desktop/frontend/dist` (not `frontend/dist`) so Go's `//go:embed` directive, which cannot reference a path outside its own package tree, can see it. This build also runs automatically as part of `mage Build` at the repository root.
+
+`wails dev` (via `mage Dev`) does **not** use this script: `wails.json`'s `frontend:dev:build` points at the separate `npm run build:dev` (`scripts/build-dev.mjs`) instead, which skips the Vitest suite entirely — starting a dev session doesn't need the test suite to have already passed, and running it added tens of seconds to every single `mage Dev` launch for no benefit (a real bug still surfaces immediately in Vite's own in-browser error overlay, same as any other Vite workflow).
 
 ## Contributing conventions
 
