@@ -1,33 +1,31 @@
-// CommandRailGroupToggle is the collapsible nav-group disclosure control,
-// extracted to its own file (Desk's FaderLearnHitArea.tsx precedent, see
-// 13-13-SUMMARY.md) so CommandRail.tsx's own raw <button> -- the
-// per-destination nav item, which needs aria-current landmark semantics
-// no shared primitive provides -- is the only DS005 "styled native
-// control" diagnostic the checker finds there. Two raw <button> elements
-// in one file always produce byte-identical DS005 diagnostic values
-// ("button"); the checker's exception mechanism can only resolve a match
-// to exactly one diagnostic per rule+path, so the two could never be
-// excepted individually without this split (see
-// design-system/exceptions.json).
-import { ChevronDown, ChevronRight } from "lucide-react";
+// CommandRailGroupToggle is the collapsible nav-group disclosure control --
+// a thin label wrapper around Base UI's Collapsible.Trigger (must render
+// inside a parent Collapsible.Root, see CommandRail.tsx), which already
+// supplies the aria-expanded/aria-controls disclosure contract this file
+// used to hand-roll. Still its own file (Desk's FaderLearnHitArea.tsx
+// precedent, see 13-13-SUMMARY.md) so CommandRail.tsx's own raw <button>
+// -- the per-destination nav item, which needs aria-current landmark
+// semantics no shared primitive provides -- stays the only literal
+// `<button>` JSX tag in that file for DS005 purposes.
+//
+// One ChevronRight icon rotated 90deg via the `data-panel-open` state
+// attribute Base UI sets on the trigger while open, rather than swapping
+// between two lucide icons -- the idiomatic Base UI pattern (see the
+// project's Collapsible docs Tailwind demo: `group-data-panel-open:rotate-90`)
+// and one fewer piece of open/closed branching to keep in sync by hand.
+import { Collapsible } from "@base-ui/react/collapsible";
+import { ChevronRight } from "lucide-react";
 import styles from "./CommandRail.module.css";
 
 interface CommandRailGroupToggleProps {
   label: string;
-  collapsed: boolean;
-  panelId: string;
-  onToggle: () => void;
 }
 
-export default function CommandRailGroupToggle({ label, collapsed, panelId, onToggle }: CommandRailGroupToggleProps) {
+export default function CommandRailGroupToggle({ label }: CommandRailGroupToggleProps) {
   return (
-    <button type="button" className={styles.groupToggle} aria-expanded={!collapsed} aria-controls={panelId} onClick={onToggle}>
-      {collapsed ? (
-        <ChevronRight size={12} className={styles.groupChevron} aria-hidden="true" />
-      ) : (
-        <ChevronDown size={12} className={styles.groupChevron} aria-hidden="true" />
-      )}
+    <Collapsible.Trigger className={styles.groupToggle}>
+      <ChevronRight size={12} className={styles.groupChevron} aria-hidden="true" />
       <span className={styles.groupLabel}>{label}</span>
-    </button>
+    </Collapsible.Trigger>
   );
 }

@@ -152,13 +152,14 @@ Beyond the static checker, `e2e/design-system.*.spec.ts` covers what static anal
 | SplitPane | pattern | `src/design-system/patterns/index.tsx` | `src/design-system/fixtures/DesignSystemGallery.test.tsx` |
 | Switch | primitive | `src/components/primitives/Switch/Switch.tsx` | `src/components/primitives/Switch/Switch.test.tsx` |
 | Tabs | primitive | `src/components/primitives/Tabs/Tabs.tsx` | `src/components/primitives/Tabs/Tabs.test.tsx` |
+| ToggleGroup | primitive | `src/components/primitives/ToggleGroup/ToggleGroup.tsx` | `src/components/primitives/ToggleGroup/ToggleGroup.test.tsx` |
 | Toolbar | primitive | `src/components/primitives/Toolbar/Toolbar.tsx` | `src/components/primitives/Toolbar/Toolbar.test.tsx` |
 | WorkspaceFrame | pattern | `src/design-system/patterns/index.tsx` | `src/design-system/fixtures/DesignSystemGallery.test.tsx` |
 <!-- DESIGN-SYSTEM-INVENTORY:END -->
 
 ### Component anchors
 
-The inventory anchors are stable selection markers: #button #checkbox #chip #colorfield #combobox #confirmdialog #datalist #dialog #emptystate #errorstate #field #formactions #guidedflow #iconbutton #impactreview #infotooltip #launchermasters #listrow #loadingstate #menu #midipickup #numberstepper #panel #panelheader #popover #radiogroup #resizehandle #safetyaction #scenestack #scrollregion #select #slider #splitpane #switch #tabs #toolbar #workspaceframe.
+The inventory anchors are stable selection markers: #button #checkbox #chip #colorfield #combobox #confirmdialog #datalist #dialog #emptystate #errorstate #field #formactions #guidedflow #iconbutton #impactreview #infotooltip #launchermasters #listrow #loadingstate #menu #midipickup #numberstepper #panel #panelheader #popover #radiogroup #resizehandle #safetyaction #scenestack #scrollregion #select #slider #splitpane #switch #tabs #togglegroup #toolbar #workspaceframe.
 
 ## Commands
 

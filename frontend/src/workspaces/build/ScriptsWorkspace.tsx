@@ -41,6 +41,16 @@
 // (never relaunching directly) so the profile is always reviewed (D-07).
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { FileCode2, Plus, X, Check, Save, Trash2, ShieldCheck, Play, Bug, Square } from "lucide-react";
+// BaseToolbar (aliased -- this file already imports the design-system's own
+// unrelated `Toolbar` primitive, a workspace title bar, not a button
+// group; see this file's own toolbarActions doc comment below for why the
+// two are false cognates that happen to share a name): Base UI's Toolbar
+// gives the Run/Debug/Delete/Validate/Stop Script action row real
+// roving-tabindex arrow-key navigation between its buttons, the same
+// composable-primitive approach Menu.tsx/Dialog.tsx already use in this
+// codebase (`render={<Button .../>}` merges Base UI's own computed props
+// onto the given Button element rather than wrapping it in a new one).
+import { Toolbar as BaseToolbar } from "@base-ui/react/toolbar";
 
 import {
   assertOk,
@@ -617,43 +627,102 @@ export default function ScriptsWorkspace() {
     </div>
   ) : null;
 
+  // toolbarActions is a genuine Base UI Toolbar use case (unlike this
+  // file's earlier-considered, declined conversion of the design-system's
+  // own `Toolbar` primitive, a workspace title bar): seven related actions
+  // in one row benefit from real roving-tabindex Left/Right arrow-key
+  // navigation between them, the way a rich-text editor's button row does.
+  //
+  // Each Button stays the actual event-handling/label/variant/icon owner --
+  // Toolbar.Button's `render` prop merges Base UI's own computed props
+  // (composite tabIndex, the onClick disabled-guard, roving-tabindex
+  // key handling) onto the given Button element rather than replacing it,
+  // confirmed via this session's Base UI docs lookup (context7 /mui/base-ui)
+  // against Menu.tsx/Dialog.tsx's identical established pattern.
+  //
+  // focusableWhenDisabled={false} on every Toolbar.Button (Base UI's own
+  // default inside a composite Toolbar is `true`, which keeps a disabled
+  // item focusable by swapping to `aria-disabled` instead of the native
+  // `disabled` attribute): Button.module.css's disabled styling
+  // (opacity/cursor/hover/active) is written entirely against the native
+  // `:disabled` pseudo-class, with every hover/active rule gated
+  // `:not(:disabled)` -- `aria-disabled` alone would leave a "disabled"
+  // Save/Run/etc. looking fully interactive (full opacity, hover states
+  // still firing) while Base UI silently no-ops its click. Forcing the
+  // native-disabled branch keeps Button's existing CSS contract intact
+  // without touching Button.module.css (a primitive shared by every other
+  // Button call site in the app) -- the one accepted trade-off is that
+  // Left/Right arrow navigation skips a disabled item entirely rather than
+  // landing focus on it to explain why it's disabled, an acceptable cost on
+  // this non-live-critical authoring/debugging surface.
   const toolbarActions = (
-    <div className={styles.toolbarActions}>
-      <Button variant="secondary" icon={creating ? X : Plus} onClick={() => setCreating((current) => !current)}>
-        {creating ? "Cancel" : "New Script"}
-      </Button>
-      <Button variant="primary" icon={Save} onClick={handleSave} disabled={!selectedName}>
-        Save
-      </Button>
-      <Button variant="destructive" icon={Trash2} onClick={() => setConfirmingDelete(true)} disabled={!selectedName}>
-        Delete Script
-      </Button>
-      <Button variant="secondary" icon={ShieldCheck} onClick={handleValidate} disabled={!selectedName || validating}>
-        Validate
-      </Button>
+    <BaseToolbar.Root className={styles.toolbarActions}>
+      <BaseToolbar.Button
+        focusableWhenDisabled={false}
+        render={
+          <Button variant="secondary" icon={creating ? X : Plus} onClick={() => setCreating((current) => !current)}>
+            {creating ? "Cancel" : "New Script"}
+          </Button>
+        }
+      />
+      <BaseToolbar.Button
+        disabled={!selectedName}
+        focusableWhenDisabled={false}
+        render={
+          <Button variant="primary" icon={Save} onClick={handleSave}>
+            Save
+          </Button>
+        }
+      />
+      <BaseToolbar.Button
+        disabled={!selectedName}
+        focusableWhenDisabled={false}
+        render={
+          <Button variant="destructive" icon={Trash2} onClick={() => setConfirmingDelete(true)}>
+            Delete Script
+          </Button>
+        }
+      />
+      <BaseToolbar.Button
+        disabled={!selectedName || validating}
+        focusableWhenDisabled={false}
+        render={
+          <Button variant="secondary" icon={ShieldCheck} onClick={handleValidate}>
+            Validate
+          </Button>
+        }
+      />
       {/* Run/Debug/Stop Script (D-10): standard 32px Button height, not
           Phase 6's 64px safety-cluster treatment -- see this file's own
           top-of-file doc comment. */}
-      <Button
-        variant="primary"
-        icon={Play}
-        onClick={() => setDialogMode("run")}
+      <BaseToolbar.Button
         disabled={!selectedName || isRunActive || validationBlocksLaunch}
-      >
-        Run
-      </Button>
-      <Button
-        variant="secondary"
-        icon={Bug}
-        onClick={() => setDialogMode("debug")}
+        focusableWhenDisabled={false}
+        render={
+          <Button variant="primary" icon={Play} onClick={() => setDialogMode("run")}>
+            Run
+          </Button>
+        }
+      />
+      <BaseToolbar.Button
         disabled={!selectedName || isRunActive || validationBlocksLaunch}
-      >
-        Debug
-      </Button>
-      <Button variant="destructive" icon={Square} onClick={handleStop} disabled={!selectedName || !isRunActive}>
-        Stop Script
-      </Button>
-    </div>
+        focusableWhenDisabled={false}
+        render={
+          <Button variant="secondary" icon={Bug} onClick={() => setDialogMode("debug")}>
+            Debug
+          </Button>
+        }
+      />
+      <BaseToolbar.Button
+        disabled={!selectedName || !isRunActive}
+        focusableWhenDisabled={false}
+        render={
+          <Button variant="destructive" icon={Square} onClick={handleStop}>
+            Stop Script
+          </Button>
+        }
+      />
+    </BaseToolbar.Root>
   );
 
   return (

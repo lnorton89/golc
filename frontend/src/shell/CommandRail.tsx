@@ -14,6 +14,7 @@
 // pointer-events:none, since the click itself is what triggers that
 // confirm dialog.
 import { useEffect, useState } from "react";
+import { Collapsible } from "@base-ui/react/collapsible";
 import { NAV_GROUPS, type DestinationId } from "./navigation";
 import { DESTINATION_ICONS } from "./destinationIcons";
 import InfoTooltip from "../components/primitives/InfoTooltip/InfoTooltip";
@@ -46,10 +47,15 @@ export default function CommandRail({ active, onSelect, dimmed = false }: Comman
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
-  const toggleGroup = (label: string) => {
+  // setGroupOpen takes Collapsible.Root's own onOpenChange boolean directly
+  // (rather than toggling blind off the previous Set) -- Base UI is the
+  // one calling this, already knowing exactly which state the panel is
+  // moving to, so there's no need to re-derive "opposite of current" the
+  // way the old raw-button onClick handler had to.
+  const setGroupOpen = (label: string, open: boolean) => {
     setCollapsedGroups((current) => {
       const next = new Set(current);
-      if (next.has(label)) {
+      if (open) {
         next.delete(label);
       } else {
         next.add(label);
@@ -65,32 +71,29 @@ export default function CommandRail({ active, onSelect, dimmed = false }: Comman
     >
       {NAV_GROUPS.map((group) => {
         const collapsed = collapsedGroups.has(group.label);
-        const panelId = `nav-group-${group.label}`;
         return (
-          <div key={group.label} className={styles.group}>
+          <Collapsible.Root
+            key={group.label}
+            className={styles.group}
+            open={!collapsed}
+            onOpenChange={(open) => setGroupOpen(group.label, open)}
+          >
             <div className={styles.groupHeader}>
-              <CommandRailGroupToggle
-                label={group.label}
-                collapsed={collapsed}
-                panelId={panelId}
-                onToggle={() => toggleGroup(group.label)}
-              />
+              <CommandRailGroupToggle label={group.label} />
               <InfoTooltip label={`About the ${group.label} section`} text={group.description} />
             </div>
-            {collapsed ? null : (
-              <div id={panelId} className={styles.groupItems}>
-                {group.destinations.map((destination) => (
-                  <NavDestinationButton
-                    key={destination.id}
-                    destination={destination}
-                    icon={DESTINATION_ICONS[destination.id]}
-                    isActive={destination.id === active}
-                    onSelect={() => onSelect(destination.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+            <Collapsible.Panel className={styles.groupItems}>
+              {group.destinations.map((destination) => (
+                <NavDestinationButton
+                  key={destination.id}
+                  destination={destination}
+                  icon={DESTINATION_ICONS[destination.id]}
+                  isActive={destination.id === active}
+                  onSelect={() => onSelect(destination.id)}
+                />
+              ))}
+            </Collapsible.Panel>
+          </Collapsible.Root>
         );
       })}
     </nav>

@@ -24,23 +24,6 @@
   gap: var(--ds-spacing-space8);
 }
 
-/* sourceGroup: the "My Library"/"Open Fixture Library" toggle -- a plain
-   unstyled div previously (no flex, no wrap), so the two Buttons (which
-   deliberately never wrap their own label text, see Button.module.css's
-   own doc comment) had no line-break opportunity between them and could
-   overflow a narrow workspace as one unbreakable run. Matches every other
-   button-group convention in this app (Toolbar.module.css's .action,
-   ShowsWorkspace.module.css's .actionRow, SettingsWorkspace.tsx's
-   .themeRow): flex-wrap lets the second button drop to its own line. */
-.sourceGroup {
-  display: flex;
-  flex-wrap: wrap;
-  min-width: 0;
-  max-width: 100%;
-  row-gap: var(--ds-spacing-space1);
-  gap: var(--ds-spacing-space2);
-}
-
 .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--ds-spacing-space1); }
 .rowMeta { display: flex; align-items: center; gap: var(--ds-spacing-space2); }
 .manufacturer { color: var(--ds-text-muted); font-family: var(--ds-typography-font-family-ui); font-size: var(--ds-typography-font-size-body); }

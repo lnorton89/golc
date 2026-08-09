@@ -461,15 +461,6 @@
       "reviewCondition": "the rail adopts a shared focus-visible primitive treatment instead of its own left-border convention"
     },
     {
-      "path": "src/shell/CommandRailGroupToggle.tsx",
-      "rule": "DS005",
-      "match": "button",
-      "rationale": "The group-disclosure control (chevron + uppercase category label, aria-expanded/aria-controls, collapses/expands a nav section) has no counterpart in any shared primitive: Button/IconButton are for standalone text or icon-only actions, and ListRow's closest-shaped API renders aria-pressed (list-selection semantics), not a disclosure toggle. Extracted to its own file (Desk's FaderLearnHitArea.tsx precedent) so CommandRail.tsx's own raw <button> (the nav item, a separate registered exception below) is the only one the checker finds there -- two raw <button> elements in one file always produce byte-identical DS005 diagnostic values, which the exception mechanism cannot resolve individually. D-05's 'Feature CSS Modules may own feature layout and exceptional domain visualization' carve-out -- there is no disclosure-toggle primitive in this codebase to reuse.",
-      "source": "src/shell/CommandRailGroupToggle.tsx:22",
-      "owner": "phase-13-24",
-      "reviewCondition": "a shared disclosure-toggle primitive is added to the design system"
-    },
-    {
       "path": "src/shell/NavDestinationButton.tsx",
       "rule": "DS005",
       "match": "button",

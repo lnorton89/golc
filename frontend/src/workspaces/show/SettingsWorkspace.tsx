@@ -14,7 +14,6 @@ import {
   ChevronRight,
   ChevronDown,
   ExternalLink,
-  type LucideIcon,
 } from "lucide-react";
 
 import {
@@ -27,14 +26,19 @@ import {
 } from "../../lib/theme";
 import { openExternalURL } from "../../lib/wailsBridge";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
-import { Button, Panel, PanelHeader, ScrollRegion, WorkspaceFrame } from "../../design-system";
+import { Button, Panel, PanelHeader, ScrollRegion, ToggleGroup, type ToggleGroupOption, WorkspaceFrame } from "../../design-system";
 import HotkeySettings from "../../components/HotkeySettings/HotkeySettings";
 import styles from "./SettingsWorkspace.module.css";
 
-const THEME_OPTIONS: Array<{ id: ThemePreference; label: string; icon: LucideIcon }> = [
-  { id: "system", label: "Match System", icon: Monitor },
-  { id: "light", label: "Light", icon: Sun },
-  { id: "dark", label: "Dark", icon: Moon },
+// THEME_OPTIONS backs the Mode row's ToggleGroup -- value is ThemePreference
+// narrowed back from ToggleGroup's own plain-string onValueChange in
+// handleSelect below (same cast pattern FixtureLibraryWorkspace's own
+// source toggle uses), since the shared primitive's contract can't carry a
+// caller-specific literal union.
+const THEME_OPTIONS: ReadonlyArray<ToggleGroupOption> = [
+  { value: "system", label: "Match System", icon: Monitor },
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon },
 ];
 
 // Swatch is a decorative preview only (this palette's accent color in its
@@ -370,18 +374,13 @@ export default function SettingsWorkspace() {
               info="Switches the desktop app between light, dark, and system mode, and picks the color palette."
             />
             <span className={styles.groupLabel}>Mode</span>
-            <div className={styles.themeRow} role="group" aria-label="Mode">
-              {THEME_OPTIONS.map((option) => (
-                <Button
-                  key={option.id}
-                  variant={theme === option.id ? "primary" : "secondary"}
-                  icon={option.icon}
-                  aria-pressed={theme === option.id}
-                  onClick={() => handleSelect(option.id)}
-                >
-                  {option.label}
-                </Button>
-              ))}
+            <div className={styles.themeRow}>
+              <ToggleGroup
+                aria-label="Mode"
+                options={THEME_OPTIONS}
+                value={theme}
+                onValueChange={(next) => handleSelect(next as ThemePreference)}
+              />
             </div>
             <span className={styles.groupLabel}>Theme</span>
             <div className={styles.themeRow} role="group" aria-label="Theme">

@@ -30,5 +30,7 @@ export type { SelectOption } from "../components/primitives/Select/Select";
 export { default as Slider } from "../components/primitives/Slider/Slider";
 export { default as Switch } from "../components/primitives/Switch/Switch";
 export { default as Tabs } from "../components/primitives/Tabs/Tabs";
+export { default as ToggleGroup } from "../components/primitives/ToggleGroup/ToggleGroup";
+export type { ToggleGroupOption } from "../components/primitives/ToggleGroup/ToggleGroup";
 export { default as Toolbar } from "../components/primitives/Toolbar/Toolbar";
 export { DataList, FormActions, GuidedFlow, ImpactReview, LauncherMasters, MidiPickup, SafetyAction, SceneStack, SplitPane, WorkspaceFrame } from "./patterns";

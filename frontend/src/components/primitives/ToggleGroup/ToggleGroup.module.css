@@ -1,0 +1,27 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-spacing-space2);
+}
+
+.label {
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  line-height: var(--ds-typography-line-height-body);
+  color: var(--ds-text-secondary);
+}
+
+/* .options mirrors the flex-wrap+gap convention every hand-rolled
+   button-group container in this app already used before this primitive
+   existed (FixtureLibraryWorkspace.module.css's own former .sourceGroup,
+   SettingsWorkspace.module.css's .themeRow): wrapping lets a later option
+   drop to its own line instead of overflowing a narrow workspace, since
+   Button itself deliberately never wraps its own label text. */
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+  gap: var(--ds-spacing-space2);
+}

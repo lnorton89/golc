@@ -106,11 +106,29 @@
 .groupChevron {
   flex-shrink: 0;
   color: var(--ds-text-muted);
+  /* Points right while collapsed (the icon's own resting orientation);
+     rotated to point down while the panel is open, via the
+     `data-panel-open` presence attribute Base UI's Collapsible.Trigger
+     sets on itself -- the idiomatic single-icon-rotate pattern from Base
+     UI's own Collapsible docs, replacing what used to be two separately
+     rendered lucide icons (ChevronRight/ChevronDown) swapped in JS. */
+  transition: var(--ds-motion-tap);
+  transition-property: transform;
+}
+
+.groupToggle[data-panel-open] .groupChevron {
+  transform: rotate(90deg);
 }
 
 .groupToggle:hover .groupLabel,
 .groupToggle:hover .groupChevron {
   color: var(--ds-text-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .groupChevron {
+    transition-duration: var(--ds-motion-snap);
+  }
 }
 
 /* outline-width/-style/-color (not the "outline" shorthand): DS001 checks

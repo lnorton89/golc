@@ -77,7 +77,7 @@ import {
   type OflSearchView,
 } from "../../lib/wailsBridge";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
-import { Button, Chip, EmptyState, ErrorState, Field, ListRow, LoadingState, Panel, PanelHeader, ScrollRegion, Toolbar } from "../../design-system";
+import { Button, Chip, EmptyState, ErrorState, Field, ListRow, LoadingState, Panel, PanelHeader, ScrollRegion, Toolbar, ToggleGroup, type ToggleGroupOption } from "../../design-system";
 import styles from "./FixtureLibraryWorkspace.module.css";
 
 // oflSearchDebounceMs is the client-side debounce D-01/T-09-05-03 require
@@ -126,6 +126,15 @@ function summarizeDiagnostics(messages: string[]): { text: string; count: number
 }
 
 type LibrarySource = "local" | "catalog";
+
+// SOURCE_OPTIONS backs the "My Library" / "Open Fixture Library" toggle
+// (D-01) -- a mutually-exclusive two-option choice, now the shared
+// ToggleGroup primitive instead of two hand-rolled Buttons each carrying
+// their own aria-pressed/variant bookkeeping.
+const SOURCE_OPTIONS: ReadonlyArray<ToggleGroupOption> = [
+  { value: "local", label: "My Library" },
+  { value: "catalog", label: "Open Fixture Library" },
+];
 
 export default function FixtureLibraryWorkspace() {
   const [directory, setDirectory] = useState("");
@@ -219,6 +228,22 @@ export default function FixtureLibraryWorkspace() {
 
   const countLabel = `${rows.length} fixture${rows.length === 1 ? "" : "s"}`;
   const trimmedQuery = search.trim();
+
+  // handleSelectSource switches the source toggle (D-01), clearing
+  // whichever side's own in-flight candidate/custom-fixture state doesn't
+  // apply to the newly selected side -- the same per-branch cleanup the
+  // former two onClick handlers each did individually.
+  const handleSelectSource = (next: string) => {
+    resetCandidate();
+    if (next === "local") {
+      setSelectedManufacturer(null);
+      setCandidateFixtureKey("");
+    } else {
+      setAddingCustomFixture(false);
+      setCustomFixturePath("");
+    }
+    setSource(next as LibrarySource);
+  };
 
   // handleSelectRow calls Inspect against the row's file resolved under
   // the library's own directory (as ListLocal reported it) -- never a
@@ -455,60 +480,7 @@ export default function FixtureLibraryWorkspace() {
         ) : (
           <>
             {error ? <ErrorState heading="Fixture library unavailable" message={error} /> : null}
-            <div className={styles.sourceGroup} role="group" aria-label="Fixture source">
-              <Button
-                variant={source === "local" ? "primary" : "secondary"}
-                aria-pressed={source === "local"}
-                onClick={() => {
-                  resetCandidate();
-                  setSelectedManufacturer(null);
-                  setCandidateFixtureKey("");
-                  setSource("local");
-                }}
-              >
-                My Library
-              </Button>
-              <Button
-                variant={source === "catalog" ? "primary" : "secondary"}
-                aria-pressed={source === "catalog"}
-                onClick={() => {
-                  resetCandidate();
-                  setAddingCustomFixture(false);
-                  setCustomFixturePath("");
-                  setSource("catalog");
-                }}
-              >
-                Open Fixture Library
-              </Button>
-            </div>
-            {/*
-              <button
-                type="button"
-                className={source === "local" ? styles.sourceButtonActive : styles.sourceButton}
-                aria-pressed={source === "local"}
-                onClick={() => {
-                  resetCandidate();
-                  setSelectedManufacturer(null);
-                  setCandidateFixtureKey("");
-                  setSource("local");
-                }}
-              >
-                My Library
-              </button>
-              <button
-                type="button"
-                className={source === "catalog" ? styles.sourceButtonActive : styles.sourceButton}
-                aria-pressed={source === "catalog"}
-                onClick={() => {
-                  resetCandidate();
-                  setAddingCustomFixture(false);
-                  setCustomFixturePath("");
-                  setSource("catalog");
-                }}
-              >
-                Open Fixture Library
-              </button>
-            */}
+            <ToggleGroup aria-label="Fixture source" options={SOURCE_OPTIONS} value={source} onValueChange={handleSelectSource} />
             <Field
               label="Search fixtures"
               value={search}
