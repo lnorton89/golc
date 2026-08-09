@@ -1,3 +1,7 @@
+# Codebase Navigation
+
+@../coldstart.md
+
 # Project Skill Routing
 
 - **Sketch findings for GOLC** (validated layout, navigation, programming, performance, MIDI,
