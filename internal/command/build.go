@@ -349,6 +349,9 @@ func runBuild(request Request) Result {
 		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
 	}
 
+	stdoutSink := &progressSink{live: request.Stdout}
+	stderrSink := &progressSink{live: request.Stderr}
+
 	if scopeName != "" {
 		if !testScopeNamePattern.MatchString(scopeName) {
 			diagnostic := fmt.Sprintf("GOLC_BUILD_SCOPE_INVALID: %q is not a safe scope name\n", scopeName)
@@ -362,18 +365,20 @@ func runBuild(request Request) Result {
 		return runBuildNodeScope(request.Root, registration, request.Stdout, request.Stderr)
 	}
 
+	stdoutSink.writeString("GOLC build: resolving pinned Go toolchain...\n")
 	goExecutable, err := resolvePinnedGoExecutable(request.Root)
 	if err != nil {
-		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+		stderrSink.writeString(err.Error() + "\n")
+		return Result{ExitCode: 1, Stdout: stdoutSink.buffered(), Stderr: stderrSink.buffered()}
 	}
 
-	stdoutSink := &progressSink{live: request.Stdout}
-	stderrSink := &progressSink{live: request.Stderr}
+	stdoutSink.writeString("GOLC build: checking frontend dist freshness (hashing frontend/ source tree)...\n")
 	if err := ensureFrontendDistFresh(request.Root, stdoutSink, stderrSink); err != nil {
 		stderrSink.writeString(err.Error() + "\n")
 		return Result{ExitCode: 1, Stdout: stdoutSink.buffered(), Stderr: stderrSink.buffered()}
 	}
 
+	stdoutSink.writeString("GOLC build: listing project packages (go list ./...)...\n")
 	packages, err := buildablePackages(goExecutable, request.Root)
 	if err != nil {
 		return Result{ExitCode: 1, Stdout: stdoutSink.buffered(), Stderr: fmt.Appendf(nil, "GOLC_BUILD_FAILED: %v\n", err)}
