@@ -1,0 +1,44 @@
+# GOLC non-blocking lint observation workflow.
+#
+# internal/command/lint.go's own doc comment states golangci-lint is
+# deliberately excluded from the offline core graph and the required
+# commands.pr.steps graph: .golangci.yml's header notes this repository
+# has never run a linter before, so the enabled ruleset stays advisory --
+# surfaced here, not gating -- until it has been battle-tested across
+# real PRs. `continue-on-error: true` mirrors cross-platform-mage.yml's
+# own non-blocking observation pattern.
+#
+# This file deliberately never touches check.yml's strict command-parity
+# contract: internal/command/check.go's "check --command-parity" route
+# only ever reads prWorkflowPath (.github/workflows/check.yml), so adding
+# or changing this workflow can never affect that check.
+#
+# Mage itself is provisioned from the checksum-pinned archive committed in
+# config/toolchain.toml (scripts/ci/install-pinned-mage.ps1), the same
+# script check.yml and design-system.yml both use. No repository secret is
+# read, exported, or referenced anywhere in this file, and the only
+# trigger is an untrusted pull_request event.
+name: lint
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pinned Mage
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/ci/install-pinned-mage.ps1
+
+      - name: bootstrap
+        run: mage Bootstrap
+
+      - name: lint
+        run: mage Lint
