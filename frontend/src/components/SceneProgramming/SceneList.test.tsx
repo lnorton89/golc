@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import SceneList from "./SceneList";
 import type { ProgSceneView } from "../../lib/wailsBridge";
@@ -66,34 +67,41 @@ describe("SceneList", () => {
     expect(onCreate).not.toHaveBeenCalled();
   });
 
-  it("renames a scene via the inline rename control", () => {
+  it("renames a scene via the row actions menu's inline rename control", async () => {
+    const user = userEvent.setup();
     const onRename = vi.fn();
     render(<SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={onRename} onDelete={noop} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Rename Alpha" }));
+    await user.click(screen.getByRole("button", { name: "Alpha actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Rename" }));
+
     fireEvent.change(screen.getByLabelText("Scene name"), { target: { value: "Alpha Renamed" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(onRename).toHaveBeenCalledWith("Alpha", "Alpha Renamed");
   });
 
-  it("deletes a scene via the delete control after confirming", () => {
+  it("deletes a scene via the row actions menu after confirming", async () => {
+    const user = userEvent.setup();
     const onDelete = vi.fn();
     vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={onDelete} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete Alpha" }));
+    await user.click(screen.getByRole("button", { name: "Alpha actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
 
     expect(onDelete).toHaveBeenCalledWith("Alpha");
     vi.restoreAllMocks();
   });
 
-  it("does not delete a scene when the confirmation is dismissed", () => {
+  it("does not delete a scene when the confirmation is dismissed", async () => {
+    const user = userEvent.setup();
     const onDelete = vi.fn();
     vi.spyOn(window, "confirm").mockReturnValue(false);
     render(<SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={onDelete} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete Alpha" }));
+    await user.click(screen.getByRole("button", { name: "Alpha actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
 
     expect(onDelete).not.toHaveBeenCalled();
     vi.restoreAllMocks();

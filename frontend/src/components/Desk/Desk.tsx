@@ -61,7 +61,7 @@ import Fader, { type MidiLearnStatus } from "./Fader";
 import FixtureStyleModal, { BACKGROUND_SIZE_CSS_VALUE, type FixtureStyle } from "./FixtureStyleModal";
 import { capabilityDetailLabel, capabilityLabel, resolveDisplayName } from "./deskLabels";
 import { useResizablePanel } from "../../hooks/useResizablePanel";
-import { Button, Chip, EmptyState, ErrorState, IconButton, LoadingState, Panel, ResizeHandle } from "../../design-system";
+import { Button, Chip, ColorField, EmptyState, ErrorState, IconButton, LoadingState, Panel, ResizeHandle, type RgbColor } from "../../design-system";
 import { useGolcStore } from "../../store/store";
 import styles from "./Desk.module.css";
 
@@ -261,6 +261,33 @@ function liveByteAt(universeValues: DeskUniverseValuesView[], universe: number, 
   const row = universeValues.find((candidate) => candidate.universe === universe);
   if (!row) return 0;
   return row.values[address - 1] ?? 0;
+}
+
+/** resolveRgbChannels finds an instance's color_red/color_green/color_blue
+ * DeskChannel triplet (color_white is deliberately excluded -- ColorField's
+ * own RGB-only contract, and a fixture's white channel keeps its own
+ * dedicated Fader either way) -- null when any of the three is missing, so
+ * ColorField only ever renders for a fixture that genuinely has all three,
+ * never a partial/misleading swatch. */
+function resolveRgbChannels(instance: DeskInstance): { red: DeskChannel; green: DeskChannel; blue: DeskChannel } | null {
+  const red = instance.channels.find((channel) => channel.capabilityType === "color_red");
+  const green = instance.channels.find((channel) => channel.capabilityType === "color_green");
+  const blue = instance.channels.find((channel) => channel.capabilityType === "color_blue");
+  return red && green && blue ? { red, green, blue } : null;
+}
+
+/** resolveChannelValue mirrors the exact overridden/live-fallback rule the
+ * per-channel Fader loop already uses (UniverseRow's own render below) --
+ * duplicated here as a named helper rather than inlined twice, since
+ * ColorField's swatch value has to resolve the SAME three channels'
+ * current bytes independently of the Fader loop that also renders them. */
+function resolveChannelValue(
+  channel: DeskChannel,
+  overrides: Record<string, number>,
+  universeValues: DeskUniverseValuesView[],
+  universe: number,
+): number {
+  return channel.key in overrides ? overrides[channel.key] : liveByteAt(universeValues, universe, channel.address);
 }
 
 /** MetaBadge is a small labeled pill for a bare identifier/value that
@@ -733,6 +760,19 @@ function UniverseRow({
             ...fixtureCardInlineStyle(cardFixtureStyle, cardImageDataURI),
           };
           const instanceHasOverride = Object.keys(overrides).some((key) => key.startsWith(`${instance.id}::`));
+          // rgbChannels/rgbValue back ColorField -- a quick-pick convenience
+          // laid over the instance's own R/G/B Fader trio below (professional-
+          // console convention: a color picker sits alongside exact per-
+          // channel faders, never replacing them). Absent entirely for a
+          // fixture with no color-mixing channels, per resolveRgbChannels.
+          const rgbChannels = resolveRgbChannels(instance);
+          const rgbValue: RgbColor | null = rgbChannels
+            ? {
+                r: resolveChannelValue(rgbChannels.red, overrides, universeValues, instance.universe),
+                g: resolveChannelValue(rgbChannels.green, overrides, universeValues, instance.universe),
+                b: resolveChannelValue(rgbChannels.blue, overrides, universeValues, instance.universe),
+              }
+            : null;
           return (
             <div key={instance.id} className={styles.fixtureGroup} style={cardStyle}>
               <div className={styles.fixtureHeader}>
@@ -741,6 +781,18 @@ function UniverseRow({
                 </span>
                 <span className={styles.badgeRow}>
                   <MetaBadge label="Address" value={String(instance.address)} />
+                  {rgbChannels && rgbValue ? (
+                    <ColorField
+                      label={`${instance.displayName} color`}
+                      hideLabel
+                      value={rgbValue}
+                      onValueChange={(next) => {
+                        onFaderChange(rgbChannels.red, instance.id, next.r);
+                        onFaderChange(rgbChannels.green, instance.id, next.g);
+                        onFaderChange(rgbChannels.blue, instance.id, next.b);
+                      }}
+                    />
+                  ) : null}
                   <IconButton
                     icon={Pencil}
                     size="compact"

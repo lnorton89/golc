@@ -44,7 +44,7 @@
 // than an interactive mid-execution checkpoint.
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Eye, X, Check, Zap, Pencil, Trash2 } from "lucide-react";
+import { Plus, Eye, X, Check, Zap, MoreVertical, Pencil, Trash2 } from "lucide-react";
 
 import {
   activateDeployment,
@@ -66,7 +66,7 @@ import {
   type FixtureLibraryRowView,
   type PatchView,
 } from "../../lib/wailsBridge";
-import { Button, Chip, EmptyState, ErrorState, Field, FormActions, IconButton, ImpactReview, InfoTooltip, LoadingState, Panel } from "../../design-system";
+import { Button, Chip, EmptyState, ErrorState, Field, FormActions, IconButton, ImpactReview, InfoTooltip, LoadingState, Menu, Panel } from "../../design-system";
 import styles from "./FixturePatch.module.css";
 
 // ---------------------------------------------------------------------------
@@ -563,16 +563,23 @@ export default function FixturePatch() {
                               {p.members.length} member
                               {p.members.length === 1 ? "" : "s"}
                             </span>
-                            <IconButton
-                              icon={Pencil}
-                              label={`Rename ${p.name}`}
-                              onClick={() => handleStartRenamePool(p.id, p.name)}
-                            />
-                            <IconButton
-                              icon={Trash2}
-                              label={`Delete ${p.name}`}
-                              variant="destructive"
-                              onClick={() => void handleDeletePool(p.name, p.members.length, instanceCountForPool(p.id))}
+                            <Menu
+                              trigger={<IconButton icon={MoreVertical} label={`${p.name} actions`} />}
+                              items={[
+                                {
+                                  id: "rename",
+                                  label: "Rename",
+                                  icon: Pencil,
+                                  onSelect: () => handleStartRenamePool(p.id, p.name),
+                                },
+                                {
+                                  id: "delete",
+                                  label: "Delete",
+                                  icon: Trash2,
+                                  destructive: true,
+                                  onSelect: () => void handleDeletePool(p.name, p.members.length, instanceCountForPool(p.id)),
+                                },
+                              ]}
                             />
                             <Button
                               variant="secondary"
@@ -799,16 +806,23 @@ export default function FixturePatch() {
                                 Activate
                               </Button>
                             )}
-                            <IconButton
-                              icon={Pencil}
-                              label={`Rename ${d.name}`}
-                              onClick={() => handleStartRenameDeployment(d.id, d.name)}
-                            />
-                            <IconButton
-                              icon={Trash2}
-                              label={`Delete ${d.name}`}
-                              variant="destructive"
-                              onClick={() => void handleDeleteDeployment(d.name, d.instances.length)}
+                            <Menu
+                              trigger={<IconButton icon={MoreVertical} label={`${d.name} actions`} />}
+                              items={[
+                                {
+                                  id: "rename",
+                                  label: "Rename",
+                                  icon: Pencil,
+                                  onSelect: () => handleStartRenameDeployment(d.id, d.name),
+                                },
+                                {
+                                  id: "delete",
+                                  label: "Delete",
+                                  icon: Trash2,
+                                  destructive: true,
+                                  onSelect: () => void handleDeleteDeployment(d.name, d.instances.length),
+                                },
+                              ]}
                             />
                           </>
                         )}

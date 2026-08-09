@@ -12,6 +12,12 @@
 // the dialog surface itself -- a deviation from the original
 // dialogRef.current?.focus() behavior, documented in this plan's SUMMARY.
 //
+// A later revision replaced the capability-scope and resource-preset
+// hand-rolled unstyled <select>s with the shared Select primitive -- both
+// are small, fully-known, fixed enums (SCOPE_OPTIONS/PRESET_OPTIONS
+// below), exactly Select's intended fit; Combobox's typing-to-filter
+// affordance would be over-engineering for a 3-option list.
+//
 // This component only ever calls one callback, onSubmit(profile, mode):
 // the caller (ScriptsWorkspace.tsx, 08-10-PLAN.md Task 3) is responsible
 // for both persisting the edited profile via SetScriptProfile (D-07: an
@@ -24,7 +30,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { X, Play, Bug } from "lucide-react";
 
 import { errorMessage } from "../../lib/wailsBridge";
-import { Button, Dialog, Field } from "../../design-system";
+import { Button, Dialog, Field, Select } from "../../design-system";
 import styles from "./ScriptRunDialog.module.css";
 
 export type ScriptLaunchMode = "run" | "debug";
@@ -118,25 +124,21 @@ export default function ScriptRunDialog({ mode, scriptName, profile, onSubmit, o
       closeOnBackdrop={!submitting}
     >
       <form className={styles.form} onSubmit={handleSubmit}>
-        <Field label="Capability scope">
-          <select value={scope} disabled={submitting} onChange={(event) => setScope(event.target.value)}>
-            {SCOPE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <Select
+          label="Capability scope"
+          options={SCOPE_OPTIONS}
+          value={scope}
+          disabled={submitting}
+          onValueChange={setScope}
+        />
 
-        <Field label="Resource limits">
-          <select value={preset} disabled={submitting} onChange={(event) => setPreset(event.target.value)}>
-            {PRESET_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <Select
+          label="Resource limits"
+          options={PRESET_OPTIONS}
+          value={preset}
+          disabled={submitting}
+          onValueChange={setPreset}
+        />
 
         {preset === ADVANCED_PRESET_VALUE ? (
           <div className={styles.advancedGrid}>
