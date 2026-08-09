@@ -1,12 +1,19 @@
-# GOLC non-blocking lint observation workflow.
+# GOLC non-blocking code-quality observation workflow (lint + known-
+# vulnerability scanning).
 #
 # internal/command/lint.go's own doc comment states golangci-lint is
 # deliberately excluded from the offline core graph and the required
 # commands.pr.steps graph: .golangci.yml's header notes this repository
 # has never run a linter before, so the enabled ruleset stays advisory --
 # surfaced here, not gating -- until it has been battle-tested across
-# real PRs. `continue-on-error: true` mirrors cross-platform-mage.yml's
-# own non-blocking observation pattern.
+# real PRs. govulncheck (internal/command/vulncheck.go) follows the same
+# policy for the same reason: it is new tooling, and a pre-existing
+# finding in an already-pinned dependency should surface for review
+# rather than instantly block every open PR. The job-level
+# `continue-on-error: true` mirrors cross-platform-mage.yml's own
+# non-blocking observation pattern; each step below additionally sets its
+# own `continue-on-error: true` so a lint failure never prevents the
+# govulncheck step from also running and reporting.
 #
 # This file deliberately never touches check.yml's strict command-parity
 # contract: internal/command/check.go's "check --command-parity" route
@@ -17,8 +24,11 @@
 # config/toolchain.toml (scripts/ci/install-pinned-mage.ps1), the same
 # script check.yml and design-system.yml both use. No repository secret is
 # read, exported, or referenced anywhere in this file, and the only
-# trigger is an untrusted pull_request event.
-name: lint
+# trigger is an untrusted pull_request event. Unlike the offline core
+# graph, govulncheck reaches the network to fetch the public vulnerability
+# database (https://vuln.go.dev) -- consistent with this workflow running
+# entirely outside RunOffline's deny-transport contract.
+name: quality
 
 on:
   pull_request:
@@ -27,7 +37,7 @@ permissions:
   contents: read
 
 jobs:
-  lint:
+  quality:
     runs-on: windows-latest
     continue-on-error: true
     steps:
@@ -41,4 +51,9 @@ jobs:
         run: mage Bootstrap
 
       - name: lint
+        continue-on-error: true
         run: mage Lint
+
+      - name: govulncheck
+        continue-on-error: true
+        run: mage Govulncheck
