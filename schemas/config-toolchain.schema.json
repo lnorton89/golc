@@ -31,46 +31,246 @@
       ],
       "type": "object"
     },
+    "go_install": {
+      "additionalProperties": {
+        "additionalProperties": false,
+        "properties": {
+          "module": {
+            "description": "Fully qualified go install module path.",
+            "type": "string"
+          },
+          "version": {
+            "description": "Exact pinned go install module version tag.",
+            "pattern": "^v[0-9]+[.][0-9]+[.][0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "module"
+        ],
+        "type": "object"
+      },
+      "description": "Go-ecosystem CLI tools provisioned via a go install invocation",
+      "type": "object"
+    },
     "schema_version": {
       "description": "Supported concern schema version.",
       "enum": [
-        1
+        2
       ],
       "type": "integer"
     },
     "toolchain": {
       "additionalProperties": false,
-      "description": "Pinned Go toolchain identity.",
+      "description": "Checksum-pinned per-platform toolchain archives.",
       "properties": {
-        "go": {
+        "deno": {
           "additionalProperties": false,
+          "description": "Pinned Deno identity",
           "properties": {
-            "archive_sha256": {
-              "description": "Lowercase hex SHA-256 of the archive.",
-              "pattern": "^[0-9a-f]{64}$",
+            "official_host": {
+              "description": "Allowlisted acquisition host (internal/bootstrap's OfficialSourcePolicy).",
               "type": "string"
             },
-            "archive_url": {
-              "description": "Official go.dev archive URL.",
-              "pattern": "^https://go[.]dev/dl/[A-Za-z0-9.-]+[.](zip|tar[.]gz)$",
+            "official_path_prefix": {
+              "description": "Allowlisted acquisition URL path prefix.",
               "type": "string"
+            },
+            "platforms": {
+              "additionalProperties": {
+                "additionalProperties": false,
+                "properties": {
+                  "archive_sha256": {
+                    "description": "Lowercase hex SHA-256 of the archive.",
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  },
+                  "archive_url": {
+                    "description": "Official archive download URL.",
+                    "format": "uri",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "archive_url",
+                  "archive_sha256"
+                ],
+                "type": "object"
+              },
+              "description": "Per-platform checksum-pinned archive",
+              "type": "object"
             },
             "version": {
-              "description": "Exact pinned Go version.",
+              "description": "Exact pinned tool version.",
               "pattern": "^[0-9]+([.][0-9]+)*$",
               "type": "string"
             }
           },
           "required": [
             "version",
-            "archive_url",
-            "archive_sha256"
+            "official_host",
+            "official_path_prefix",
+            "platforms"
+          ],
+          "type": "object"
+        },
+        "go": {
+          "additionalProperties": false,
+          "description": "Pinned Go toolchain identity -- bootstrap and every other tool's own go install step depend on it.",
+          "properties": {
+            "official_host": {
+              "description": "Allowlisted acquisition host (internal/bootstrap's OfficialSourcePolicy).",
+              "type": "string"
+            },
+            "official_path_prefix": {
+              "description": "Allowlisted acquisition URL path prefix.",
+              "type": "string"
+            },
+            "platforms": {
+              "additionalProperties": {
+                "additionalProperties": false,
+                "properties": {
+                  "archive_sha256": {
+                    "description": "Lowercase hex SHA-256 of the archive.",
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  },
+                  "archive_url": {
+                    "description": "Official archive download URL.",
+                    "format": "uri",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "archive_url",
+                  "archive_sha256"
+                ],
+                "type": "object"
+              },
+              "description": "Per-platform checksum-pinned archive",
+              "type": "object"
+            },
+            "version": {
+              "description": "Exact pinned tool version.",
+              "pattern": "^[0-9]+([.][0-9]+)*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "version",
+            "official_host",
+            "official_path_prefix",
+            "platforms"
+          ],
+          "type": "object"
+        },
+        "mage": {
+          "additionalProperties": false,
+          "description": "Pinned Mage identity",
+          "properties": {
+            "official_host": {
+              "description": "Allowlisted acquisition host (internal/bootstrap's OfficialSourcePolicy).",
+              "type": "string"
+            },
+            "official_path_prefix": {
+              "description": "Allowlisted acquisition URL path prefix.",
+              "type": "string"
+            },
+            "platforms": {
+              "additionalProperties": {
+                "additionalProperties": false,
+                "properties": {
+                  "archive_sha256": {
+                    "description": "Lowercase hex SHA-256 of the archive.",
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  },
+                  "archive_url": {
+                    "description": "Official archive download URL.",
+                    "format": "uri",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "archive_url",
+                  "archive_sha256"
+                ],
+                "type": "object"
+              },
+              "description": "Per-platform checksum-pinned archive",
+              "type": "object"
+            },
+            "version": {
+              "description": "Exact pinned tool version.",
+              "pattern": "^[0-9]+([.][0-9]+)*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "version",
+            "official_host",
+            "official_path_prefix",
+            "platforms"
+          ],
+          "type": "object"
+        },
+        "node": {
+          "additionalProperties": false,
+          "description": "Pinned Node identity",
+          "properties": {
+            "official_host": {
+              "description": "Allowlisted acquisition host (internal/bootstrap's OfficialSourcePolicy).",
+              "type": "string"
+            },
+            "official_path_prefix": {
+              "description": "Allowlisted acquisition URL path prefix.",
+              "type": "string"
+            },
+            "platforms": {
+              "additionalProperties": {
+                "additionalProperties": false,
+                "properties": {
+                  "archive_sha256": {
+                    "description": "Lowercase hex SHA-256 of the archive.",
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  },
+                  "archive_url": {
+                    "description": "Official archive download URL.",
+                    "format": "uri",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "archive_url",
+                  "archive_sha256"
+                ],
+                "type": "object"
+              },
+              "description": "Per-platform checksum-pinned archive",
+              "type": "object"
+            },
+            "version": {
+              "description": "Exact pinned tool version.",
+              "pattern": "^[0-9]+([.][0-9]+)*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "version",
+            "official_host",
+            "official_path_prefix",
+            "platforms"
           ],
           "type": "object"
         }
       },
       "required": [
-        "go"
+        "go",
+        "node",
+        "deno",
+        "mage"
       ],
       "type": "object"
     }
@@ -78,6 +278,7 @@
   "required": [
     "schema_version",
     "toolchain",
+    "go_install",
     "cache"
   ],
   "type": "object"

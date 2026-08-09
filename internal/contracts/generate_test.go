@@ -121,6 +121,7 @@ func testRegisterSchemaRejectsBlank(t *testing.T) {
 func testRegisterSchemaRejectsDuplicates(t *testing.T) {
 	descriptor, _ := newCountingDescriptor("test-duplicate-schema-alpha")
 	require.NoError(t, contracts.RegisterSchema(descriptor), "expected the first registration to succeed")
+	t.Cleanup(func() { contracts.UnregisterSchemaForTesting(descriptor.Name) })
 
 	duplicateName := descriptor
 	duplicateName.OutputPath = "schemas/test-duplicate-schema-alpha-2.schema.json"
@@ -138,6 +139,7 @@ func testRegisteredSchemasSnapshot(t *testing.T) {
 
 	descriptor, _ := newCountingDescriptor("test-snapshot-schema")
 	require.NoError(t, contracts.RegisterSchema(descriptor), "expected registration to succeed")
+	t.Cleanup(func() { contracts.UnregisterSchemaForTesting(descriptor.Name) })
 
 	snapshot := contracts.RegisteredSchemas()
 	require.Len(t, snapshot, before+1, "expected registry length %d after one new registration", before+1)
@@ -160,6 +162,7 @@ func testRegisteredSchemasSnapshot(t *testing.T) {
 func testExactlyOnceTraversal(t *testing.T) {
 	descriptor, calls := newCountingDescriptor("test-exactly-once-schema")
 	require.NoError(t, contracts.RegisterSchema(descriptor), "expected registration to succeed")
+	t.Cleanup(func() { contracts.UnregisterSchemaForTesting(descriptor.Name) })
 
 	*calls = 0
 	require.NoError(t, contracts.GenerateInto(t.TempDir()), "GenerateInto failed")
@@ -175,6 +178,7 @@ func testExactlyOnceTraversal(t *testing.T) {
 func testGenerateAllWritesCommittedPath(t *testing.T) {
 	descriptor, _ := newCountingDescriptor("test-generate-all-schema")
 	require.NoError(t, contracts.RegisterSchema(descriptor), "expected registration to succeed")
+	t.Cleanup(func() { contracts.UnregisterSchemaForTesting(descriptor.Name) })
 
 	root := t.TempDir()
 	require.NoError(t, contracts.GenerateAll(root), "GenerateAll failed")

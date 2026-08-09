@@ -16,18 +16,43 @@
           "description": "Pinned Go version; committed as a typed ref: pointer to the toolchain concern's single authority per D-05.",
           "pattern": "^([0-9]+([.][0-9]+)*|ref:[a-z0-9_]+([.][a-z0-9_]+)*)$",
           "type": "string"
+        },
+        "pr": {
+          "additionalProperties": false,
+          "description": "The exact ordered Windows PR command graph",
+          "properties": {
+            "mutation_steps": {
+              "description": "Comma-separated subset of Steps' routes permitted to mutate anything remote; must be \"none\" (D-16: pull-request CI is read-only end to end).",
+              "type": "string"
+            },
+            "network_steps": {
+              "description": "Comma-separated subset of Steps' routes permitted to open a network connection",
+              "type": "string"
+            },
+            "steps": {
+              "description": "Exact ordered comma-separated \"route [--flag ...]\" invocations the PR workflow may run.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "steps",
+            "network_steps",
+            "mutation_steps"
+          ],
+          "type": "object"
         }
       },
       "required": [
         "cli_binary",
-        "go_version"
+        "go_version",
+        "pr"
       ],
       "type": "object"
     },
     "schema_version": {
       "description": "Supported concern schema version.",
       "enum": [
-        1
+        2
       ],
       "type": "integer"
     }

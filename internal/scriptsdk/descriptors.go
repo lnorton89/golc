@@ -581,6 +581,7 @@ var excludedRouteTable = map[string]string{
 	"dev":                "contributor build tooling, not a show-domain capability",
 	"docs":               "contributor build tooling, not a show-domain capability",
 	"lint":               "contributor build tooling, not a show-domain capability",
+	"vulncheck":          "contributor build tooling, not a show-domain capability",
 	"designsystem":       "contributor build tooling, not a show-domain capability",
 	"tools update":       "contributor build tooling, not a show-domain capability",
 	"config inspect":     "repository configuration is a contributor concern outside the show domain",

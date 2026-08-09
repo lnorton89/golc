@@ -219,6 +219,8 @@ func TestScopeConfigStrict(t *testing.T) {
 			"cache.gomodcache",
 			"go_install.golangci-lint.module",
 			"go_install.golangci-lint.version",
+			"go_install.govulncheck.module",
+			"go_install.govulncheck.version",
 			"go_install.midicat.module",
 			"go_install.midicat.version",
 			"go_install.wails.module",
