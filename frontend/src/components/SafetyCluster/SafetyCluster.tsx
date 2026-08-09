@@ -218,7 +218,7 @@ function HoldButton({ label, icon: Icon, controlColorVar, textColorVar, active, 
     <Button
       type="button"
       variant="secondary"
-      size="target"
+      size="compact"
       className={styles.control}
       style={toneStyle}
       data-safety-control="true"

@@ -469,8 +469,6 @@ export default function FixturePatch() {
   return (
     <Panel aria-label="Fixture patch" aria-busy={listLoading}>
       <div className={styles.content}>
-      <h2 className={styles.sectionHeading}>Fixture Patch</h2>
-
       {listLoading ? (
         <LoadingState label="Fixture patch is loading" variant="panel" />
       ) : (

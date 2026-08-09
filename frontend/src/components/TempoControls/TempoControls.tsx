@@ -69,6 +69,7 @@ export default function TempoControls() {
         <NumberStepper
           ref={inputRef}
           label="BPM"
+          hideLabel
           value={bpmInput}
           onChange={setBpmInput}
           min={1}

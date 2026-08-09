@@ -199,7 +199,7 @@ export async function expectTopBarTextToBeReadable(page: Page): Promise<void> {
       return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0;
     });
     const failures: string[] = [];
-    const describe = (element: HTMLElement) =>
+    const describe = (element: Element) =>
       (element.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 80);
 
     for (const element of textElements) {

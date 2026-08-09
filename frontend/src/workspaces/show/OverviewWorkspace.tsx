@@ -31,7 +31,7 @@ import {
   type ShowInspectView,
 } from "../../lib/wailsBridge";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
-import { Button, Chip, EmptyState, ErrorState, InfoTooltip, ListRow, LoadingState, Panel, PanelHeader, ScrollRegion, WorkspaceFrame } from "../../design-system";
+import { Button, Chip, EmptyState, ErrorState, ListRow, LoadingState, Panel, PanelHeader, ScrollRegion, WorkspaceFrame } from "../../design-system";
 import { useGuidedFirstShow } from "./GuidedFirstShow/GuidedFirstShowContext";
 import styles from "./OverviewWorkspace.module.css";
 
@@ -84,7 +84,7 @@ export default function OverviewWorkspace() {
   return (
     <WorkspaceFrame
       title="Overview"
-      action={<InfoTooltip label="How Overview works" text={HOW_IT_WORKS_BY_ID["show-overview"]} />}
+      info={HOW_IT_WORKS_BY_ID["show-overview"]}
     >
       <div className={styles.canvas}>
         {loading ? (
@@ -139,7 +139,7 @@ export default function OverviewWorkspace() {
                   label={`Pools (${view.pools.length})`}
                   info="Lists every fixture pool in the show and how many instances belong to each; selecting one jumps to Patch & Pools."
                 />
-                <ScrollRegion>
+                <ScrollRegion className={styles.panelScroll}>
                   {view.pools.length === 0 ? (
                     <EmptyState icon={Package}>No fixture pools yet.</EmptyState>
                   ) : (
@@ -164,7 +164,7 @@ export default function OverviewWorkspace() {
                   label={`Deployments (${view.deployments.length})`}
                   info="Lists every deployment (an active grouping of patched instances) in the show; selecting one jumps to Patch & Pools."
                 />
-                <ScrollRegion>
+                <ScrollRegion className={styles.panelScroll}>
                   {view.deployments.length === 0 ? (
                     <EmptyState icon={Boxes}>No deployments yet.</EmptyState>
                   ) : (

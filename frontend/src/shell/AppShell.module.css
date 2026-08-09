@@ -71,15 +71,21 @@
   position: relative;
 }
 
-/* main/inspector get a breathing gap below the header and above the
-   window's own bottom edge; .rail deliberately gets neither -- the nav
-   stays flush top-to-bottom (only requested for "the rest of content").
-   .main deliberately has no left/right margin of its own -- every
-   workspace supplies its own edge spacing (e.g. most workspaces' own
-   .canvas { padding: var(--ds-spacing-space4) }), and giving .main a
-   blanket margin here would double up with whichever ones already do
-   (see GuidedFirstShow.module.css's .overlay for the one workspace that
-   didn't and needed its own scoped fix instead). */
+/* .main/.inspector get a breathing gap above the window's own bottom edge;
+   .rail deliberately gets neither -- the nav stays flush top-to-bottom
+   (only requested for "the rest of content"). .main deliberately has no
+   left/right margin of its own -- every workspace supplies its own edge
+   spacing (e.g. most workspaces' own .canvas { padding: var(--ds-spacing-space4) }),
+   and giving .main a blanket margin here would double up with whichever
+   ones already do (see GuidedFirstShow.module.css's .overlay for the one
+   workspace that didn't and needed its own scoped fix instead).
+   .main previously also had its own margin-top, leaving a
+   --ds-surface-canvas-colored strip between .header's own
+   --ds-surface-panel-subdued and every workspace's own Toolbar row
+   (--ds-surface-panel) -- three visibly different tones stacked in a row
+   (260806 screenshot review). Dropping it lets Toolbar's own panel-colored
+   background sit flush against .header, whose own border-bottom already
+   supplies the visual seam between them. */
 .main {
   grid-area: main;
   /* WorkspaceFrame's own root section (design-system/patterns/patterns.module.css's
@@ -99,7 +105,6 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  margin-top: var(--ds-spacing-space4);
   margin-bottom: var(--ds-spacing-space4);
   overflow: hidden;
 }

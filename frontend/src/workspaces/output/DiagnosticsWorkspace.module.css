@@ -16,11 +16,14 @@
   gap: var(--ds-spacing-space4);
 }
 
+/* padding-block: space4 (not space2) -- same Panel-has-no-gap top-spacing
+   unification as OverviewWorkspace's own .identity (260806 screenshot
+   review). */
 .summary {
   display: flex;
   align-items: center;
   gap: var(--ds-spacing-space2);
-  padding-block: var(--ds-spacing-space2);
+  padding-block: var(--ds-spacing-space4);
   padding-inline: var(--ds-spacing-space4);
   flex-wrap: wrap;
 }

@@ -3,6 +3,15 @@
   padding: var(--ds-spacing-space4);
 }
 
+/* align-content: start (not the "normal"/stretch default): .creditsColumns
+   (below) stretches both credit columns to match the taller one's height
+   (Backend has more rows than Frontend) -- without this, the shorter
+   column's own two row-tracks (its "FRONTEND" label + .creditsList)
+   absorbed that leftover height by stretching apart instead of staying
+   packed at the top, pushing every row down into a big empty gap under
+   the label (260806 screenshot review). Applies to every class in this
+   shared rule, not just .creditsColumn -- top-packed is the correct
+   behavior for all of them (a gap-based content stack), never stretch. */
 .layout,
 .about,
 .aboutHeading,
@@ -10,8 +19,30 @@
 .creditDetail {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  align-content: start;
   min-width: 0;
   gap: var(--ds-spacing-space2);
+}
+
+/* .about's own padding-inline: PanelHeader always adds its own
+   padding-inline: space4 on top of Panel's own space4 padding (32px total
+   from the panel's true border), by design, so it also works unwrapped
+   outside a Panel -- every sibling content block below it needs the
+   matching 32px inset to line up, not Panel's bare 16px alone. .about was
+   the one place missing it, reading as both "the ABOUT header sits too
+   far right" and "the title below it sits too close to the border"
+   (260806 screenshot review) -- the same single mismatch, seen from each
+   side of it.
+   padding-block: space4 (not space2): Panel has no gap between its own
+   children, so this also needs its own top breathing room from the
+   header's border-bottom, unified to the same space4 amount as
+   .formActions/.groupLabel/HotkeySettings' own .hotkeys (a follow-up pass
+   over the same "more instances ... not unified globally" report --
+   space2 here was itself an unfixed instance of the exact pattern its own
+   comment claimed to have already fixed). */
+.about {
+  padding-inline: var(--ds-spacing-space4);
+  padding-block: var(--ds-spacing-space4);
 }
 
 .groupLabel,
@@ -23,11 +54,47 @@
   text-transform: uppercase;
 }
 
+/* .groupLabel/.themeRow's own padding-inline: same PanelHeader-vs-Panel
+   32px-total-inset mismatch as .about (260806 screenshot review) --
+   "Mode"/"Theme" and their button rows are direct siblings of the
+   Appearance panel's own PanelHeader with no padding of their own
+   (.groupLabel) or only Panel's bare padding: space2 (.themeRow, 8px
+   uniform, still short of the 16px PanelHeader itself adds inline). Split
+   out from .creditsLabel above, which sits inside .about's own
+   already-corrected padding and needs no additional inset here.
+   .groupLabel's own margin-top: Panel itself has no gap between its own
+   children, so "Mode" (the first sibling after the Appearance panel's own
+   PanelHeader) sat flush against its border-bottom with zero breathing
+   room -- the same border-hugging pattern already fixed for .about/
+   .formActions, unified here to the same space4 amount instead of a third,
+   smaller gap (260806 screenshot review: "more instances ... not unified
+   globally"). */
+.groupLabel {
+  padding-inline: var(--ds-spacing-space4);
+  margin-top: var(--ds-spacing-space4);
+}
+
 .themeRow {
   display: flex;
   flex-wrap: wrap;
   gap: var(--ds-spacing-space2);
-  padding: var(--ds-spacing-space2);
+  padding-inline: var(--ds-spacing-space4);
+  padding-block: var(--ds-spacing-space2);
+}
+
+/* .swatch's background is set inline per theme (SettingsWorkspace.tsx's
+   own THEME_NAME_OPTIONS) -- a deliberately un-tokenized, fixed preview of
+   that palette's own accent, independent of whichever theme is currently
+   applied to :root. Sized/shaped here since that part (unlike the color)
+   is shared chrome, not per-theme data. */
+.swatch {
+  display: inline-block;
+  width: var(--ds-sizing-icon12);
+  height: var(--ds-sizing-icon12);
+  border-radius: var(--ds-radii-pill);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
 }
 
 .aboutTitle,
@@ -53,14 +120,56 @@
   font-size: var(--ds-typography-font-size-body);
 }
 
+/* .creditButton/.creditDescription: CreditRow's <Button> is inline-flex
+   (content-sized) by default, so with no width constraint each row's total
+   width -- and therefore .creditMeta's position -- followed that row's own
+   name+description text length, drifting per row instead of lining up in a
+   column (260806 screenshot review; the license/version pair is supposed
+   to read as a table-like trailing column, not float wherever the
+   preceding text happens to end). Stretching the button to the row's full
+   width and letting only .creditDescription (not .creditName) claim the
+   leftover space fixes .creditMeta at the row's true right edge regardless
+   of how long the name or description text is. */
+.creditButton {
+  width: 100%;
+}
+
+.creditDescription {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.creditName {
+  flex-shrink: 0;
+}
+
+.creditMeta {
+  flex-shrink: 0;
+}
+
 .creditsColumns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--ds-spacing-space4);
 }
 
+/* grid-template-columns: minmax(0, 1fr) (not omitted): a plain display:grid
+   with no explicit columns creates a single implicit "auto" column with no
+   minmax(0, ...) floor, so its automatic minimum width defaults to the
+   widest child's own min-content/percentage-width size instead of
+   respecting .creditsColumn's already-constrained track -- the same
+   overflow patterns.module.css's own .sceneStack comment documents,
+   surfaced here once .creditButton (below) started declaring width: 100%
+   (260806 screenshot review: Frontend column rows overflowing left across
+   the Backend column instead of staying inside their own half). */
 .creditsList {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
   gap: var(--ds-spacing-space1);
   margin: 0;
   padding: 0;

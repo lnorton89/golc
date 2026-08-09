@@ -14,12 +14,19 @@
 // outside the <h2>, so the heading's accessible name (asserted verbatim by
 // AppShell.navigation.test.tsx against each nav label) is unaffected.
 //
-// `info` (optional) renders an InfoTooltip -- also outside the <h2>, same
-// reasoning -- showing this destination's own howItWorks copy
-// (shell/navigation.ts's HOW_IT_WORKS_BY_ID, sourced from
-// desktopViews.json). Omitted entirely by callers that pass no `info`, so
-// existing Toolbar.test.tsx's "renders no buttons without an action"
-// assertion is unaffected.
+// `info` (optional) renders an InfoTooltip inline in .titleGroup, right
+// after the title -- same reasoning as `icon`, outside the <h2> so the
+// heading's accessible name is unaffected. Omitted entirely by callers
+// that pass no `info`, so existing Toolbar.test.tsx's "renders no buttons
+// without an action" assertion is unaffected.
+//
+// Grouped with the title rather than living in the trailing .action slot
+// (pre-260806 behavior, restored): on a full-width toolbar, .action's own
+// right edge sits far enough from the title that the two read as
+// unrelated instead of "this icon explains that heading" -- confirmed
+// against golc-site's pre-design-system desktop-view captures, where
+// title/icon/info were always one visual cluster. `action` (real
+// buttons, e.g. Diagnose) keeps its own right-aligned slot.
 import { forwardRef } from "react";
 import type { HTMLAttributes, ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";

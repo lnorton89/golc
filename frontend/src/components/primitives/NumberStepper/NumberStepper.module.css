@@ -21,6 +21,19 @@
   opacity: 0.5;
 }
 
+/* .field[data-compact] is NumberStepper.tsx's `hideLabel` opt-in: the
+   input's default flex:1 fills whatever width its containing block offers
+   (~170px for a bare <input type="number"> with no size/width set) --
+   fine inside this primitive's normal stacked block-form layout, but far
+   wider than a single-row toolbar (TempoControls' 52px persistent header)
+   has room for. Compact mode fixes a narrow content width instead of
+   flexing, sized for this primitive's own numeric use (up to 5 characters,
+   e.g. "999.9"). */
+.field[data-compact="true"] .input {
+  flex: none;
+  width: 56px;
+}
+
 .input {
   box-sizing: border-box;
   min-width: 0;
@@ -39,6 +52,19 @@
   font-size: var(--ds-typography-font-size-body);
   font-weight: var(--ds-typography-font-weight-regular);
   line-height: var(--ds-typography-line-height-body);
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* The custom .spinner chevron pair below is this primitive's only step
+   affordance -- the browser's native number-input spinner must not also
+   render next to it (Chromium/WebKit ignore appearance: textfield and
+   still paint their own arrows unless the spin-button pseudo-elements are
+   explicitly suppressed), or the field shows two conflicting spinners. */
+.input::-webkit-outer-spin-button,
+.input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .input:disabled {

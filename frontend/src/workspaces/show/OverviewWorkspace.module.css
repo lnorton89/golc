@@ -20,11 +20,26 @@
   grid-column: 1 / -1;
 }
 
+/* padding-block: space4 (not space2): Panel has no gap between its own
+   children, so .identity -- the Show panel's own PanelHeader's sole
+   sibling -- needs its own top breathing room from the header's
+   border-bottom, unified to the same space4 amount used across every
+   other panel-content wrapper (260806 screenshot review: "more instances
+   ... not unified globally"). */
+/* .panelScroll's own padding-top: Panel has no gap between its own
+   children, so the bare ScrollRegion wrapping Pools'/Deployments' own
+   list/EmptyState sat flush against its PanelHeader's border-bottom --
+   unified to the same space4 top gap as every other panel-content
+   wrapper (260806 screenshot review). */
+.panelScroll {
+  padding-top: var(--ds-spacing-space4);
+}
+
 .identity {
   display: flex;
   align-items: center;
   gap: var(--ds-spacing-space2);
-  padding-block: var(--ds-spacing-space2);
+  padding-block: var(--ds-spacing-space4);
   padding-inline: var(--ds-spacing-space4);
   flex-wrap: wrap;
 }

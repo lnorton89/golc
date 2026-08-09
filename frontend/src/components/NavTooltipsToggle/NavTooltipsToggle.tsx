@@ -28,7 +28,7 @@ export default function NavTooltipsToggle() {
       size="compact"
       className={styles.toggle}
       leadingIcon={MessageCircle}
-      data-muted={enabled ? undefined : true}
+      data-active={enabled ? true : undefined}
       aria-pressed={enabled}
       aria-label={enabled ? "Turn off navigation hover text" : "Turn on navigation hover text"}
       title={

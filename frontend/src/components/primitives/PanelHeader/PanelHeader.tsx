@@ -6,10 +6,16 @@
 // Button/Toolbar's own `icon` prop) -- purely additive, every existing
 // call site renders identically without it.
 //
-// `info` (optional) renders an InfoTooltip inside .labelGroup, after the
-// label span -- same reasoning as Toolbar's own `info`: an accessible
-// name lookup against this panel's label text (`screen.getByText(label)`)
-// stays unaffected since the tooltip is a sibling, not nested inside it.
+// `info` (optional) renders an InfoTooltip in the same trailing,
+// right-aligned .action slot `action` itself uses (info first, then
+// action) rather than inline inside .labelGroup next to the label --
+// mirrors Toolbar's own info/action unification (260806 screenshot
+// review: this panel's "SAVE" header used to put its info icon flush
+// left next to the label while the route's own title put its icon flush
+// right, reading as two different conventions). An accessible name
+// lookup against this panel's label text (`screen.getByText(label)`)
+// stays unaffected either way, since the tooltip is a sibling of the
+// label span, not nested inside it.
 import { forwardRef } from "react";
 import type { HTMLAttributes, ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
@@ -39,9 +45,13 @@ const PanelHeader = forwardRef<HTMLDivElement, PanelHeaderProps>(function PanelH
         {Icon ? <Icon className={styles.icon} aria-hidden="true" /> : null}
         <span className={styles.label}>{label}</span>
         {metadata ? <span className={styles.metadata}>{metadata}</span> : null}
-        {info ? <InfoTooltip label={`About ${label}`} text={info} /> : null}
       </span>
-      {action ? <div className={styles.action}>{action}</div> : null}
+      {info || action ? (
+        <div className={styles.action}>
+          {info ? <InfoTooltip label={`About ${label}`} text={info} /> : null}
+          {action}
+        </div>
+      ) : null}
     </div>
   );
 });

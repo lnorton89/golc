@@ -10,6 +10,26 @@
   gap: var(--ds-spacing-space4);
 }
 
+/* .recoveryScroll's own padding-top: Panel has no gap between its own
+   children, so the bare ScrollRegion wrapping Recovery Points' own list/
+   EmptyState sat flush against its PanelHeader's border-bottom -- unified
+   to the same space4 top gap as every other panel-content wrapper
+   (260806 screenshot review). */
+.recoveryScroll {
+  padding-top: var(--ds-spacing-space4);
+}
+
+/* .destPathField grows to fill the remaining row width between the Save
+   and Save As buttons (design reference, 260806 screenshot review) --
+   Field itself has no flex-basis of its own (most callers stack it in a
+   vertical form, where growing horizontally would be meaningless), so
+   this wrapper carries the flex:1 instead of adding it to the shared
+   primitive. */
+.destPathField {
+  flex: 1;
+  min-width: 0;
+}
+
 .migrationNote {
   margin: 0;
   margin-block-end: var(--ds-spacing-space2);

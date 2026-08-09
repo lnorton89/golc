@@ -19,7 +19,7 @@ import {
   relaunchWithShow,
 } from "../../lib/wailsBridge";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
-import { Button, ErrorState, InfoTooltip, LoadingState, Panel, PanelHeader, WorkspaceFrame } from "../../design-system";
+import { Button, ErrorState, LoadingState, Panel, PanelHeader, WorkspaceFrame } from "../../design-system";
 import styles from "./ShowsWorkspace.module.css";
 
 export default function ShowsWorkspace() {
@@ -87,7 +87,7 @@ export default function ShowsWorkspace() {
   return (
     <WorkspaceFrame
       title="Shows"
-      action={<InfoTooltip label="How Shows works" text={HOW_IT_WORKS_BY_ID["show-shows"]} />}
+      info={HOW_IT_WORKS_BY_ID["show-shows"]}
     >
       <div className={styles.canvas}>
         {loading ? (

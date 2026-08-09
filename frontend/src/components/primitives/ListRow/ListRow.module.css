@@ -1,7 +1,6 @@
 .row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--ds-spacing-space2);
   width: 100%;
   box-sizing: border-box;
@@ -58,6 +57,16 @@
 }
 
 .label {
+  /* flex:1 (not justify-content:space-between on .row, removed above) is
+     what pushes .meta flush right: space-between splits free space evenly
+     between EVERY adjacent pair of the row's 3 children (icon<->label,
+     label<->meta) -- with none of them growing, that centered .label
+     between the icon and .meta instead of holding it flush left right
+     after the icon (Pools/Deployments rows, 260806 screenshot review).
+     Letting .label alone claim all the leftover space keeps its text
+     flush left (immediately after the icon) while still pushing .meta to
+     the row's true right edge. */
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

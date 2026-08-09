@@ -25,6 +25,13 @@ export interface NumberStepperProps {
    * already owns. */
   onBlur?: FocusEventHandler<HTMLInputElement>;
   onKeyDown?: KeyboardEventHandler<HTMLInputElement>;
+  /** hideLabel drops the visible <label> line and narrows the input to a
+   * compact fixed width -- for a caller embedding this field inline in a
+   * single-row, fixed-height toolbar (TempoControls' persistent-header BPM
+   * field) rather than this primitive's default stacked block-form layout,
+   * which is taller/wider than a 52px chrome row can hold. The input's own
+   * `aria-label` (always set, below) keeps the accessible name regardless. */
+  hideLabel?: boolean;
 }
 
 /** NumberStepper is a labeled numeric field with a compact nudge affordance
@@ -33,7 +40,7 @@ export interface NumberStepperProps {
  * order (tabIndex={-1}): they are a pointer-only convenience layered on
  * the field, not an independent keyboard control. */
 const NumberStepper = forwardRef<HTMLInputElement, NumberStepperProps>(function NumberStepper(
-  { label, value, onChange, min = 1, step: stepAmount = 1, placeholder, disabled = false, description, onBlur, onKeyDown },
+  { label, value, onChange, min = 1, step: stepAmount = 1, placeholder, disabled = false, description, onBlur, onKeyDown, hideLabel = false },
   ref,
 ) {
   const step = (direction: 1 | -1) => {
@@ -43,8 +50,8 @@ const NumberStepper = forwardRef<HTMLInputElement, NumberStepperProps>(function 
   };
 
   return (
-    <div className={styles.field}>
-      <label className={styles.label}>{label}</label>
+    <div className={styles.field} data-compact={hideLabel ? "true" : undefined}>
+      {!hideLabel && <label className={styles.label}>{label}</label>}
       <span className={styles.controls} data-disabled={disabled ? "true" : undefined}>
         <input
           ref={ref}
