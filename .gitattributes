@@ -43,3 +43,4 @@ tests/golden/** text eol=lf
 # trailing line-ending bytes).
 docs/api/openapi.json text eol=lf
 internal/scriptsdk/generated/** text eol=lf
+.coldstart/notebook/.raw/*.jsonl merge=union

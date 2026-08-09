@@ -170,3 +170,4 @@ Desktop.ini
 # -- never written by the app itself, but common enough to land in the repo
 # root by accident to warrant a standing rule.
 golc-desktop-run*.log
+.coldstart/

@@ -232,3 +232,31 @@ unified UI design system and automated enforcement work (Phase 13) is
 the current focus, 40/41 plans executed. AI autonomy (Phase 10),
 Windows Release Qualification (Phase 11), and telemetry (Phase 12)
 have not started.
+
+## Optional: AI coding-agent tooling (coldstart, ship-it)
+
+Two additions live outside GOLC's own build graph — neither is required
+to build, test, or run the application, and neither is enforced by CI or
+the pinned toolchain above.
+
+- **[coldstart](https://coldstartmcp.dev/)** — a Tree-sitter-based
+  codebase index and per-agent notebook for AI coding agents. Installed
+  globally (`npm install -g @cstart/coldstart`) and wired into this repo
+  with `coldstart init` (CLI invocation, Claude Code client). The
+  index/notebook live in `.coldstart/` and the hook wiring
+  (`PreToolUse`/`PostToolUse`/`UserPromptSubmit`/`Stop`/`SubagentStop`)
+  lives in `.claude/settings.local.json` — both gitignored, personal,
+  machine-local state, matching coldstart's own default (share the
+  notebook later with `coldstart init --commit-notebook` if desired). A
+  teammate, or this repo on a different machine, gets none of it
+  automatically; run `coldstart init` there to activate it. `coldstart.md`
+  (repo root) is the usage reference; it's imported into
+  [`.claude/CLAUDE.md`](../.claude/CLAUDE.md) (`@../coldstart.md`) since
+  that file — not the root-level `CLAUDE.md` coldstart also generates —
+  is the one this repo's harness actually loads as project instructions.
+- **[ship-it](https://github.com/LunkiBR/ship-it)** — a markdown-only
+  Claude Code skill cataloging UX/product-completeness checklists (login,
+  pricing, onboarding, and 56 more). Installed at the user level
+  (`~/.claude/skills/ship-it/`), not inside this repo, since it's a
+  generic checklist rather than anything GOLC-specific — it's available
+  in any project for whoever has it installed on their own machine.
