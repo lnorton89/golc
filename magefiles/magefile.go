@@ -200,7 +200,7 @@ func Lint() error { return runTarget("lint", context.Background()) }
 // Govulncheck runs govulncheck over every project Go package with the
 // project-local pinned toolchain, reporting known vulnerabilities in the
 // module's dependency graph.
-func Govulncheck() error { return runTarget("vulncheck", context.Background()) }
+func Govulncheck() error { return runTarget("govulncheck", context.Background()) }
 
 // Test runs the complete project test route.
 func Test() error { return runTarget("test", context.Background()) }

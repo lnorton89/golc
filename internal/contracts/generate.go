@@ -110,6 +110,25 @@ func MustRegisterSchema(descriptor SchemaDescriptor) SchemaDescriptor {
 	return descriptor
 }
 
+// UnregisterSchemaForTesting removes name from the package-level registry
+// if present -- exported solely so a test that registers a synthetic
+// descriptor (for example to exercise RegisterSchema's own duplicate-
+// name/duplicate-output-path rejection paths) can restore the registry to
+// its pre-test state afterward via t.Cleanup, rather than permanently
+// polluting every later test in the same binary's RegisteredSchemas
+// snapshot. Production code must never call this.
+func UnregisterSchemaForTesting(name string) {
+	name = strings.TrimSpace(name)
+	delete(registry.names, name)
+	for index, descriptor := range registry.byName {
+		if descriptor.Name == name {
+			delete(registry.paths, descriptor.OutputPath)
+			registry.byName = append(registry.byName[:index], registry.byName[index+1:]...)
+			return
+		}
+	}
+}
+
 // RegisteredSchemas returns every registered descriptor as a defensive
 // snapshot sorted by stable name: mutating the returned slice, or any
 // descriptor value inside it, never affects the package-level registry,

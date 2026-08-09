@@ -270,6 +270,14 @@ func DefaultSpec() Spec {
 					// as midicat/wails above.
 					"go_install.golangci-lint.version": {Pattern: goInstallVersionPattern, Required: true},
 					"go_install.golangci-lint.module":  {Pattern: goInstallModulePattern, Required: true},
+					// go_install.govulncheck pins the official Go team's
+					// vulnerability scanner `mage Govulncheck` (internal/
+					// command/vulncheck.go) shells out to -- contributor/
+					// CI tooling, never part of the offline core graph or
+					// the committed Windows PR workflow, same as
+					// midicat/wails/golangci-lint above.
+					"go_install.govulncheck.version": {Pattern: goInstallVersionPattern, Required: true},
+					"go_install.govulncheck.module":  {Pattern: goInstallModulePattern, Required: true},
 				},
 			},
 			{

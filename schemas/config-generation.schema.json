@@ -29,7 +29,7 @@
     "schema_version": {
       "description": "Supported concern schema version.",
       "enum": [
-        1
+        2
       ],
       "type": "integer"
     }
