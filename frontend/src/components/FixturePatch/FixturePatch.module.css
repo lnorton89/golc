@@ -14,13 +14,6 @@
   gap: var(--ds-spacing-space4);
 }
 
-.sectionHeading {
-  margin: 0;
-  font-size: var(--ds-typography-font-size-heading);
-  font-weight: var(--ds-typography-font-weight-semibold);
-  color: var(--ds-text-primary);
-}
-
 .subsection {
   display: flex;
   flex-direction: column;
@@ -30,6 +23,19 @@
   border-top-style: solid;
   border-top-color: var(--ds-border-default);
   padding-top: var(--ds-spacing-space4);
+}
+
+/* :first-child (not a bare rule): the removed intro <h2> (260806
+   screenshot review -- redundant with the route's own Toolbar title
+   directly above this Panel) used to be what this divider separated the
+   first subsection from. With nothing rendered before it in the common
+   case (no error), that border-top is an orphaned line at the very top of
+   the panel; it still divides correctly from an error banner on the rare
+   path where one does precede it, since :first-child then no longer
+   matches. */
+.subsection:first-child {
+  border-top-width: 0;
+  padding-top: 0;
 }
 
 .subsectionHeadingRow {

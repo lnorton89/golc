@@ -27,7 +27,7 @@ import {
 } from "../../lib/theme";
 import { openExternalURL } from "../../lib/wailsBridge";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
-import { Button, InfoTooltip, Panel, PanelHeader, ScrollRegion, WorkspaceFrame } from "../../design-system";
+import { Button, Panel, PanelHeader, ScrollRegion, WorkspaceFrame } from "../../design-system";
 import HotkeySettings from "../../components/HotkeySettings/HotkeySettings";
 import styles from "./SettingsWorkspace.module.css";
 
@@ -38,22 +38,26 @@ const THEME_OPTIONS: Array<{ id: ThemePreference; label: string; icon: LucideIco
 ];
 
 // Swatch is a decorative preview only (this palette's accent color in its
-// dark variant) -- it does not track the active light/dark mode, since the
-// point is to let the operator tell the palettes apart at a glance
-// regardless of which mode they're currently in.
-const THEME_NAME_OPTIONS: Array<{ id: ThemeName; label: string }> = [
-  { id: "default", label: "Default" },
-  { id: "gruvbox", label: "Gruvbox" },
-  { id: "tokyo", label: "Tokyo Night" },
-  { id: "dracula", label: "Dracula" },
-  { id: "nord", label: "Nord" },
-  { id: "catppuccin", label: "Catppuccin" },
-  { id: "solarized", label: "Solarized" },
-  { id: "one-dark", label: "One Dark" },
-  { id: "rose-pine", label: "Rosé Pine" },
-  { id: "everforest", label: "Everforest" },
-  { id: "rainbow", label: "Rainbow" },
-  { id: "acid", label: "Acid" },
+// dark variant, design-system/tokens.json's own `action.primary` for each
+// theme's "-dark" face) -- it does not track the active light/dark mode,
+// since the point is to let the operator tell the palettes apart at a
+// glance regardless of which mode they're currently in. Hardcoded rather
+// than read from the generated CSS: tokens.generated.ts exports role/theme
+// *names*, not resolved color values, and this preview is deliberately
+// independent of whichever theme is currently applied to :root.
+const THEME_NAME_OPTIONS: Array<{ id: ThemeName; label: string; swatch: string }> = [
+  { id: "default", label: "Default", swatch: "#1b44d9" },
+  { id: "gruvbox", label: "Gruvbox", swatch: "#fe8019" },
+  { id: "tokyo", label: "Tokyo Night", swatch: "#7aa2f7" },
+  { id: "dracula", label: "Dracula", swatch: "#bd93f9" },
+  { id: "nord", label: "Nord", swatch: "#88c0d0" },
+  { id: "catppuccin", label: "Catppuccin", swatch: "#cba6f7" },
+  { id: "solarized", label: "Solarized", swatch: "#268bd2" },
+  { id: "one-dark", label: "One Dark", swatch: "#61afef" },
+  { id: "rose-pine", label: "Rosé Pine", swatch: "#c4a7e7" },
+  { id: "everforest", label: "Everforest", swatch: "#a7c080" },
+  { id: "rainbow", label: "Rainbow", swatch: "#ff2d95" },
+  { id: "acid", label: "Acid", swatch: "#c4fd3f" },
 ];
 
 interface Credit {
@@ -293,6 +297,7 @@ function CreditRow({ credit, expanded, onToggle }: CreditRowProps) {
     <li>
       <Button
         variant="secondary"
+        className={styles.creditButton}
         aria-expanded={expanded}
         onClick={onToggle}
       >
@@ -354,7 +359,7 @@ export default function SettingsWorkspace() {
   return (
     <WorkspaceFrame
       title="Settings"
-      action={<InfoTooltip label="How Settings works" text={HOW_IT_WORKS_BY_ID["show-settings"]} />}
+      info={HOW_IT_WORKS_BY_ID["show-settings"]}
     >
       <ScrollRegion className={styles.canvas}>
         <div className={styles.layout}>
@@ -387,6 +392,7 @@ export default function SettingsWorkspace() {
                   aria-pressed={themeName === option.id}
                   onClick={() => handleSelectThemeName(option.id)}
                 >
+                  <span className={styles.swatch} style={{ background: option.swatch }} aria-hidden="true" />
                   {option.label}
                 </Button>
               ))}

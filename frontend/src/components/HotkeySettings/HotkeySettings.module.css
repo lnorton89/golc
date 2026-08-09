@@ -1,9 +1,15 @@
+/* padding-top: space4 (not space2): .hotkeys is the sole, direct sibling
+   of the Hotkeys panel's own PanelHeader -- Panel itself has no gap
+   between children, so an 8px top pad still read as hugging the header's
+   border-bottom compared to the space4 (16px) every other panel's own
+   first-content gap now uses (.about, .formActions, SettingsWorkspace's
+   own .groupLabel -- 260806 screenshot review: "not unified globally"). */
 .hotkeys {
   display: flex;
   flex-direction: column;
   gap: var(--ds-spacing-space4);
   width: 100%;
-  padding-top: var(--ds-spacing-space2);
+  padding-top: var(--ds-spacing-space4);
   padding-inline: var(--ds-spacing-space4);
   padding-bottom: var(--ds-spacing-space4);
   box-sizing: border-box;

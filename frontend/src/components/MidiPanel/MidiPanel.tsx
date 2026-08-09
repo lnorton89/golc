@@ -280,7 +280,7 @@ export default function MidiPanel() {
 
           {selectedSurface && (
             <>
-              <div>
+              <div className={styles.assignedSection}>
                 <PanelHeader
                   label="Assigned controls"
                   info="Lists the show controls assigned to the selected operator surface that can be mapped to a physical MIDI control."

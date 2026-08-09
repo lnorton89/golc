@@ -4,8 +4,15 @@
   gap: var(--ds-spacing-space2);
 }
 
+/* .countSummary/.categoryRow's own padding-inline: same PanelHeader-vs-
+   unpadded-sibling 32px-total-inset mismatch as SettingsWorkspace's own
+   .about (260806 screenshot review) -- .browser (this file's root, no
+   padding of its own) sits inside ContextualInspector's own 16px-padded
+   .inspector, so PanelHeader's own additional 16px inline padding puts its
+   icon+label at 32px while these two plain siblings sat at 16px. */
 .countSummary {
   margin: 0;
+  padding-inline: var(--ds-spacing-space4);
   color: var(--ds-text-secondary);
   font-family: var(--ds-typography-font-family-ui);
   font-size: var(--ds-typography-font-size-body);
@@ -15,6 +22,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--ds-spacing-space1);
+  padding-inline: var(--ds-spacing-space4);
 }
 
 .form {

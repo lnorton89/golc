@@ -43,7 +43,7 @@ import {
 } from "../../lib/wailsBridge";
 
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
-import { Button, EmptyState, ErrorState, InfoTooltip, LoadingState, ResizeHandle, SceneStack, ScrollRegion, WorkspaceFrame } from "../../design-system";
+import { Button, EmptyState, ErrorState, LoadingState, ResizeHandle, SceneStack, ScrollRegion, WorkspaceFrame } from "../../design-system";
 import SceneList from "../../components/SceneProgramming/SceneList";
 import LayerRow, { LAYER_KINDS, type LayerKind } from "../../components/SceneProgramming/LayerRow";
 import LookBrowser, { type PresetKind } from "../../components/SceneProgramming/LookBrowser";
@@ -364,7 +364,7 @@ export default function ScenesLooksWorkspace() {
   return (
     <WorkspaceFrame
       title="Scenes & Looks"
-      action={<InfoTooltip label="How Scenes & Looks works" text={HOW_IT_WORKS_BY_ID["build-scenes-looks"]} />}
+      info={HOW_IT_WORKS_BY_ID["build-scenes-looks"]}
     >
       {inspectorPortal}
       <div className={styles.canvas}>

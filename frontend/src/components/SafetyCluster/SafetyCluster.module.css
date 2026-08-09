@@ -2,9 +2,10 @@
  * SafetyCluster.module.css -- the persistent safety cluster (D-13/D-15),
  * the three hold-to-confirm controls (D-14). 13-15 design-system
  * migration: `.control` now decorates the shared `Button` primitive
- * (target size, 44px min -- `--ds-sizing-control-minimum-target`, the
- * required minimum in this embedded-in-shell-header context) instead of
- * declaring its own geometry/paint from scratch. Every dynamic per-action
+ * (compact size -- `--ds-sizing-control-compact`, matching every other
+ * control in this same persistent header row: MidiLearnToggle,
+ * NavTooltipsToggle, "nav hints", 260806 header-row size-parity pass)
+ * instead of declaring its own geometry/paint from scratch. Every dynamic per-action
  * color is an always-JS-set `--ds-safety-control-*` custom property (never
  * a CSS-side fallback -- see 13-13-SUMMARY.md's `--ds-card-font-color-*`
  * precedent for why a fallback pattern here would be un-exceptable), and

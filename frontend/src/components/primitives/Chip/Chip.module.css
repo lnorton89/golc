@@ -30,22 +30,26 @@
 
 .live {
   border-color: var(--ds-status-live);
-  color: var(--ds-status-live);
+  background: var(--ds-status-live);
+  color: var(--ds-status-on-live);
 }
 
 .frameLock {
   border-color: var(--ds-status-frame-lock);
-  color: var(--ds-status-frame-lock);
+  background: var(--ds-status-frame-lock);
+  color: var(--ds-status-on-frame-lock);
 }
 
 .armed {
   border-color: var(--ds-status-armed);
-  color: var(--ds-status-armed);
+  background: var(--ds-status-armed);
+  color: var(--ds-status-on-armed);
 }
 
 .revoked {
   border-color: var(--ds-status-revoked);
-  color: var(--ds-status-revoked);
+  background: var(--ds-status-revoked);
+  color: var(--ds-status-on-revoked);
 }
 
 .blackout {
@@ -56,5 +60,6 @@
 
 .offline {
   border-color: var(--ds-status-offline);
-  color: var(--ds-status-offline);
+  background: var(--ds-status-offline);
+  color: var(--ds-status-on-offline);
 }

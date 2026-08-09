@@ -236,8 +236,6 @@ export default function ArtnetConfig() {
   return (
     <Panel aria-label="Art-Net configuration" aria-busy={loading}>
       <div className={styles.content}>
-        <h2 className={styles.sectionHeading}>Art-Net Configuration</h2>
-
         {loading ? (
           <LoadingState label="Art-Net configuration is loading" variant="panel" />
         ) : (

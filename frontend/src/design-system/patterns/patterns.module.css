@@ -13,7 +13,24 @@
    rule, since DataList/LauncherMasters/GuidedFlow/ImpactReview were not
    independently verified against this same fix. */
 .sceneStack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--ds-spacing-space2); }
-.formActions { display: flex; flex-wrap: wrap; gap: var(--ds-spacing-space2); justify-content: flex-end; }
+/* align-items: flex-end (not the flex default stretch/normal): FormActions
+   often mixes plain Button children with a labeled Field (SaveRecoveryWorkspace's
+   own Save/"Save As destination path"/Save As row) -- Field's own label-
+   above-input shape makes it taller than a bare button, and stretch grows
+   every sibling to match that height instead of leaving each at its own
+   natural size. A stretched *outline* button's extra empty space above/
+   below its centered label is easy to miss, but an equally-stretched
+   *filled* button reads as a visibly oversized block next to its own
+   sibling (260806 screenshot review) -- bottom-aligning instead keeps
+   every child at its real height, flush with the Field's own input row. */
+/* margin-top: Panel itself has no gap between its own children (padding
+   only), so FormActions -- typically the sibling right after a
+   PanelHeader -- sat flush against that header's own border-bottom with
+   no breathing room at all (260806 screenshot review: SaveRecoveryWorkspace's
+   Save row read as jammed against the "SAVE" header above it, unlike
+   content types that happen to carry their own top padding, e.g.
+   EmptyState). */
+.formActions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--ds-spacing-space2); justify-content: flex-end; margin-top: var(--ds-spacing-space4); }
 .impactSummary, .midiPickup { color: var(--ds-text-secondary); font: var(--ds-typography-body); }
 .guidedStep { display: flex; align-items: start; gap: var(--ds-spacing-space2); }
 .guidedNumber { display: grid; block-size: var(--ds-sizing-icon-20); inline-size: var(--ds-sizing-icon-20); place-items: center; border-radius: var(--ds-radii-pill); background: var(--ds-surface-selected); color: var(--ds-text-primary); font: var(--ds-typography-compact); }

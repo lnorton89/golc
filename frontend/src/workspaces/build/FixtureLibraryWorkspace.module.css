@@ -44,10 +44,27 @@
 .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--ds-spacing-space1); }
 .rowMeta { display: flex; align-items: center; gap: var(--ds-spacing-space2); }
 .manufacturer { color: var(--ds-text-muted); font-family: var(--ds-typography-font-family-ui); font-size: var(--ds-typography-font-size-body); }
-.catalogScopeNote { color: var(--ds-text-muted); font-family: var(--ds-typography-font-family-ui); font-size: var(--ds-typography-font-size-body); }
+.catalogScopeNote { padding-inline: var(--ds-spacing-space4); padding-top: var(--ds-spacing-space4); color: var(--ds-text-muted); font-family: var(--ds-typography-font-family-ui); font-size: var(--ds-typography-font-size-body); }
+/* .libraryScroll's own padding-top: Panel has no gap between its own
+   children, so the bare ScrollRegion wrapping each library list's own
+   rows/EmptyState sat flush against its PanelHeader's border-bottom --
+   unified to the same space4 top gap as every other panel-content
+   wrapper (260806 screenshot review). */
+.libraryScroll { padding-top: var(--ds-spacing-space4); }
 .candidateManufacturer { display: block; font-family: var(--ds-typography-font-family-ui); font-weight: var(--ds-typography-font-weight-semibold); color: var(--ds-text-primary); }
 .inspectPanel, .inspectBody, .candidateBody, .catalogUnreachable, .alreadyExists { display: flex; flex-direction: column; gap: var(--ds-spacing-space2); }
 .inspectPanel { padding: var(--ds-spacing-space6); }
+/* .inspectBody/.candidateBody/.catalogUnreachable/.alreadyExists/
+   .catalogScopeNote's own padding-inline: same PanelHeader-vs-unpadded-
+   sibling 32px/40px-total-inset mismatch as SettingsWorkspace's own .about
+   (260806 screenshot review) -- each sits as a plain, unpadded sibling of
+   its own panel's PanelHeader, which always adds its own extra space4
+   inline padding on top of whatever the panel itself already applies
+   (.inspectPanel's own space6, or the base Panel's space4 for the
+   others). padding-top: space4 (same pass, follow-up report) closes the
+   matching top gap -- Panel has no gap between its own children, so each
+   of these also sat flush against its header's border-bottom. */
+.inspectBody, .candidateBody, .catalogUnreachable, .alreadyExists { padding-inline: var(--ds-spacing-space4); padding-top: var(--ds-spacing-space4); }
 .candidateBody { flex: 1; min-height: 0; }
 .catalogUnreachable, .alreadyExists { align-items: flex-start; }
 .techReadout { font-family: var(--ds-typography-font-family-mono); font-size: var(--ds-typography-font-size-body); color: var(--ds-text-primary); }

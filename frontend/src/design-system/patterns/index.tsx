@@ -10,8 +10,8 @@ import Panel from "../../components/primitives/Panel/Panel";
 import Toolbar from "../../components/primitives/Toolbar/Toolbar";
 import styles from "./patterns.module.css";
 
-export function WorkspaceFrame({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
-  return <section className={styles.workspaceFrame} aria-label={`${title} workspace`}><Toolbar title={title} action={action} />{children}</section>;
+export function WorkspaceFrame({ title, info, action, children }: { title: string; info?: string; action?: ReactNode; children: ReactNode }) {
+  return <section className={styles.workspaceFrame} aria-label={`${title} workspace`}><Toolbar title={title} info={info} action={action} />{children}</section>;
 }
 
 export function SplitPane({ primary, secondary }: { primary: ReactNode; secondary: ReactNode }) {

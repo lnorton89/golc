@@ -16,6 +16,24 @@
    D-08: exactly the surface's own assignment set, never a separate
    fixed list). */
 
+/* .assignedSection wraps this section's own PanelHeader ("Assigned
+   controls", MidiPanel.tsx) plus whichever content follows it
+   (.controlList or EmptyState) -- that wrapping div previously had no
+   className/gap of its own, so the header sat flush against nothing
+   above it AND its own content sat flush against its border-bottom, the
+   same Panel-has-no-gap pattern unified everywhere else in this pass
+   (260806 screenshot review). */
+.assignedSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-spacing-space4);
+}
+
+/* max-height/overflow-y removed (260806 screenshot review, "this list
+   shouldn't scroll, plenty of vertical room" -- the same fix already
+   applied to ArtnetConfig's own .interfaceList): an arbitrary cap forced
+   an internal scrollbar regardless of how much real room the surrounding
+   page/panel actually had. */
 .controlList {
   list-style: none;
   margin: 0;
@@ -23,8 +41,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--ds-spacing-space1);
-  max-height: 220px;
-  overflow-y: auto;
 }
 
 /* MidiLearn -- per-control Learn affordance (D-05). The idle/error states
@@ -70,10 +86,18 @@
    shared primitives (ListRow/EmptyState/ErrorState/LoadingState); this
    section only keeps the shared bounding/spacing layout both lists use. */
 
+/* gap: space4 (not space2): this section's own PanelHeader ("MIDI
+   mappings"/"Desk mappings", DeskMappingsSection.tsx shares this same
+   class) is always followed by exactly one content block (the mapping
+   list, or an Empty/Error/Loading state) -- gap applies uniformly since
+   there are only ever two children, so bumping it directly closes the
+   same header-to-content gap unified everywhere else (260806 screenshot
+   review). padding-top (unchanged) separates this whole section from the
+   sibling section above it, a different relationship. */
 .mappingSection {
   display: flex;
   flex-direction: column;
-  gap: var(--ds-spacing-space2);
+  gap: var(--ds-spacing-space4);
   border-top-width: 1px;
   border-top-style: solid;
   border-top-color: var(--ds-border-default);

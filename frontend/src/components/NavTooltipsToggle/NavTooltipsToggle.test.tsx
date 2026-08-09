@@ -15,7 +15,7 @@ describe("NavTooltipsToggle", () => {
     render(<NavTooltipsToggle />);
     const toggle = screen.getByRole("button", { name: "Turn off navigation hover text" });
     expect(toggle).toHaveAttribute("aria-pressed", "true");
-    expect(toggle).not.toHaveAttribute("data-muted");
+    expect(toggle).toHaveAttribute("data-active", "true");
   });
 
   it("turns nav tooltips off and back on when clicked", () => {
@@ -23,11 +23,11 @@ describe("NavTooltipsToggle", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Turn off navigation hover text" }));
     expect(getStoredNavTooltipsEnabled()).toBe(false);
-    const muted = screen.getByRole("button", { name: "Turn on navigation hover text" });
-    expect(muted).toHaveAttribute("aria-pressed", "false");
-    expect(muted).toHaveAttribute("data-muted", "true");
+    const off = screen.getByRole("button", { name: "Turn on navigation hover text" });
+    expect(off).toHaveAttribute("aria-pressed", "false");
+    expect(off).not.toHaveAttribute("data-active");
 
-    fireEvent.click(muted);
+    fireEvent.click(off);
     expect(getStoredNavTooltipsEnabled()).toBe(true);
     expect(screen.getByRole("button", { name: "Turn off navigation hover text" })).toBeInTheDocument();
   });

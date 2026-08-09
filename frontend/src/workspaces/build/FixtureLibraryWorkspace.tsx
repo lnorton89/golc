@@ -532,7 +532,7 @@ export default function FixtureLibraryWorkspace() {
                       </Button>
                     }
                   />
-                  <ScrollRegion>
+                  <ScrollRegion className={styles.libraryScroll}>
                     {rows.length === 0 ? (
                       <EmptyState icon={Lightbulb}>
                         <strong>No fixtures yet</strong>
@@ -573,7 +573,7 @@ export default function FixtureLibraryWorkspace() {
                     icon={Lightbulb}
                     info="Searches the community Open Fixture Library catalog by manufacturer or fixture name so you can import a definition into your own library."
                   />
-                  <ScrollRegion>
+                  <ScrollRegion className={styles.libraryScroll}>
                     {trimmedQuery === "" ? (
                       <EmptyState icon={Lightbulb}>
                         Search the Open Fixture Library by fixture or manufacturer name.

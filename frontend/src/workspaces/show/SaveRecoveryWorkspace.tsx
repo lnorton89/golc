@@ -32,7 +32,7 @@ import {
   type RecoveryPointView,
 } from "../../lib/wailsBridge";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
-import { Button, EmptyState, ErrorState, Field, FormActions, InfoTooltip, LoadingState, Panel, PanelHeader, ScrollRegion, WorkspaceFrame } from "../../design-system";
+import { Button, EmptyState, ErrorState, Field, FormActions, LoadingState, Panel, PanelHeader, ScrollRegion, WorkspaceFrame } from "../../design-system";
 import styles from "./SaveRecoveryWorkspace.module.css";
 
 export default function SaveRecoveryWorkspace() {
@@ -124,7 +124,7 @@ export default function SaveRecoveryWorkspace() {
   return (
     <WorkspaceFrame
       title="Save & Recovery"
-      action={<InfoTooltip label="How Save & Recovery works" text={HOW_IT_WORKS_BY_ID["show-save-recovery"]} />}
+      info={HOW_IT_WORKS_BY_ID["show-save-recovery"]}
     >
       <div className={styles.canvas}>
         {loading ? (
@@ -151,17 +151,20 @@ export default function SaveRecoveryWorkspace() {
                   <Button variant="primary" icon={SaveIcon} disabled={saving} onClick={() => void handleSave()}>
                     {saving ? "Saving…" : "Save"}
                   </Button>
-                  <Field
-                    label="Save As destination path"
-                    value={destPath}
-                    placeholder="Save a copy to path…"
-                    onChange={(event) => setDestPath(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        void handleSaveAs();
-                      }
-                    }}
-                  />
+                  <div className={styles.destPathField}>
+                    <Field
+                      label="Save As destination path"
+                      hideLabel
+                      value={destPath}
+                      placeholder="Save a copy to path…"
+                      onChange={(event) => setDestPath(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          void handleSaveAs();
+                        }
+                      }}
+                    />
+                  </div>
                   <Button variant="secondary" icon={Copy} disabled={savingAs} onClick={() => void handleSaveAs()}>
                     {savingAs ? "Saving…" : "Save As"}
                   </Button>
@@ -186,7 +189,7 @@ export default function SaveRecoveryWorkspace() {
                     ) : undefined
                   }
                 />
-                <ScrollRegion>
+                <ScrollRegion className={styles.recoveryScroll}>
                   {points.length === 0 ? (
                     <EmptyState icon={History}>
                       No interrupted-session recovery points are currently offered.
