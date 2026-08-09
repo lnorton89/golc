@@ -50,6 +50,7 @@ package wails
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -170,6 +171,23 @@ func (s *ProgrammingService) RenameScene(oldName, newName string) Result {
 // only bounds the maximum active count at one, never a minimum).
 func (s *ProgrammingService) DeleteScene(name string) Result {
 	return s.execute("scene", "delete", name, "--show", s.showPath)
+}
+
+// ReorderScenes permutes the show's scenes via "scene reorder", the one
+// exception to this file's documented "core authoring path only" boundary
+// (see the package doc comment) -- SceneList.tsx's drag-to-reorder needs
+// this specific CLI route persisted, not the fuller rename/duplicate
+// surface still deferred to the CLI. order[i] is the original 0-based
+// index of the scene that should occupy position i; it must be an exact
+// permutation of every scene's current index or "scene reorder" itself
+// rejects it (GOLC_SCENE_USAGE), matching reorderScenes's validation
+// (internal/command/scene.go).
+func (s *ProgrammingService) ReorderScenes(order []int) Result {
+	parts := make([]string, len(order))
+	for i, index := range order {
+		parts[i] = strconv.Itoa(index)
+	}
+	return s.execute("scene", "reorder", "--order", strings.Join(parts, ","), "--show", s.showPath)
 }
 
 // CreateTheme creates a new named reusable color theme (PROG-04) via

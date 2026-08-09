@@ -74,25 +74,41 @@ describe("SceneList", () => {
   });
 
   it("shows an empty state when there are no scenes", () => {
-    render(<SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />);
+    render(
+      <SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} onReorder={noop} />,
+    );
     expect(screen.getByText("No scenes yet — create one above.")).toBeInTheDocument();
   });
 
   it("renders each scene with LIVE or bar-count meta and marks the selected one", () => {
-    render(<SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />);
+    render(
+      <SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} onReorder={noop} />,
+    );
     expect(screen.getByRole("button", { name: "AlphaLIVE" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Beta8bar" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("calls onSelect with the clicked scene's name", () => {
     const onSelect = vi.fn();
-    render(<SceneList scenes={scenes} selectedName="Alpha" onSelect={onSelect} onCreate={noop} onRename={noop} onDelete={noop} />);
+    render(
+      <SceneList
+        scenes={scenes}
+        selectedName="Alpha"
+        onSelect={onSelect}
+        onCreate={noop}
+        onRename={noop}
+        onDelete={noop}
+        onReorder={noop}
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Beta8bar" }));
     expect(onSelect).toHaveBeenCalledWith("Beta");
   });
 
   it("toggles the create form open and closed via the New/Cancel button", () => {
-    render(<SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />);
+    render(
+      <SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} onReorder={noop} />,
+    );
     expect(screen.queryByLabelText("New scene name")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "New" }));
@@ -104,7 +120,9 @@ describe("SceneList", () => {
 
   it("calls onCreate with the trimmed name and parsed bar count, then closes the form", () => {
     const onCreate = vi.fn();
-    render(<SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={onCreate} onRename={noop} onDelete={noop} />);
+    render(
+      <SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={onCreate} onRename={noop} onDelete={noop} onReorder={noop} />,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "New" }));
     fireEvent.change(screen.getByLabelText("New scene name"), { target: { value: "  Gamma  " } });
@@ -117,7 +135,9 @@ describe("SceneList", () => {
 
   it("does not call onCreate when the name is blank", () => {
     const onCreate = vi.fn();
-    render(<SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={onCreate} onRename={noop} onDelete={noop} />);
+    render(
+      <SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={onCreate} onRename={noop} onDelete={noop} onReorder={noop} />,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "New" }));
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
@@ -128,7 +148,17 @@ describe("SceneList", () => {
   it("renames a scene via the row actions menu's inline rename control", async () => {
     const user = userEvent.setup();
     const onRename = vi.fn();
-    render(<SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={onRename} onDelete={noop} />);
+    render(
+      <SceneList
+        scenes={scenes}
+        selectedName="Alpha"
+        onSelect={noop}
+        onCreate={noop}
+        onRename={onRename}
+        onDelete={noop}
+        onReorder={noop}
+      />,
+    );
 
     await user.click(screen.getByRole("button", { name: "Alpha actions" }));
     await user.click(await screen.findByRole("menuitem", { name: "Rename" }));
@@ -143,7 +173,17 @@ describe("SceneList", () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
     vi.spyOn(window, "confirm").mockReturnValue(true);
-    render(<SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={onDelete} />);
+    render(
+      <SceneList
+        scenes={scenes}
+        selectedName="Alpha"
+        onSelect={noop}
+        onCreate={noop}
+        onRename={noop}
+        onDelete={onDelete}
+        onReorder={noop}
+      />,
+    );
 
     await user.click(screen.getByRole("button", { name: "Alpha actions" }));
     await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
@@ -156,7 +196,17 @@ describe("SceneList", () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
     vi.spyOn(window, "confirm").mockReturnValue(false);
-    render(<SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={onDelete} />);
+    render(
+      <SceneList
+        scenes={scenes}
+        selectedName="Alpha"
+        onSelect={noop}
+        onCreate={noop}
+        onRename={noop}
+        onDelete={onDelete}
+        onReorder={noop}
+      />,
+    );
 
     await user.click(screen.getByRole("button", { name: "Alpha actions" }));
     await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
@@ -165,40 +215,26 @@ describe("SceneList", () => {
     vi.restoreAllMocks();
   });
 
-  describe("drag-to-reorder (frontend-only preview)", () => {
-    it("shows an always-visible, non-hover notice that the order is a local preview once there is more than one scene", () => {
-      render(<SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />);
-      expect(screen.getByText(/preview only, not saved/i)).toBeInTheDocument();
-    });
-
-    it("does not show the preview notice with zero or one scene, since there's nothing to reorder", () => {
-      const { rerender } = render(
-        <SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />,
-      );
-      expect(screen.queryByText(/preview only, not saved/i)).not.toBeInTheDocument();
-
-      rerender(
-        <SceneList
-          scenes={[scenes[0]]}
-          selectedName="Alpha"
-          onSelect={noop}
-          onCreate={noop}
-          onRename={noop}
-          onDelete={noop}
-        />,
-      );
-      expect(screen.queryByText(/preview only, not saved/i)).not.toBeInTheDocument();
-    });
-
+  describe("drag-to-reorder", () => {
     it("exposes a keyboard-focusable, labeled drag handle per scene row (accessible, not pointer-only)", () => {
-      render(<SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />);
+      render(
+        <SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} onReorder={noop} />,
+      );
       expect(screen.getByRole("button", { name: "Reorder Alpha" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Reorder Beta" })).toBeInTheDocument();
     });
 
     it("reorders the rendered rows via keyboard: focus the handle, pick up with Space, move with ArrowDown, drop with Space", async () => {
       render(
-        <SceneList scenes={threeScenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />,
+        <SceneList
+          scenes={threeScenes}
+          selectedName="Alpha"
+          onSelect={noop}
+          onCreate={noop}
+          onRename={noop}
+          onDelete={noop}
+          onReorder={noop}
+        />,
       );
       expect(visibleSceneOrder()).toEqual(["Alpha", "Beta", "Gamma"]);
 
@@ -211,9 +247,42 @@ describe("SceneList", () => {
       expect(visibleSceneOrder()).toEqual(["Beta", "Alpha", "Gamma"]);
     });
 
-    it("cancels a keyboard reorder with Escape, leaving the rendered order unchanged", async () => {
+    it("calls onReorder with the new name order once a drag-drop actually moves a row", async () => {
+      const onReorder = vi.fn();
       render(
-        <SceneList scenes={threeScenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />,
+        <SceneList
+          scenes={threeScenes}
+          selectedName="Alpha"
+          onSelect={noop}
+          onCreate={noop}
+          onRename={noop}
+          onDelete={noop}
+          onReorder={onReorder}
+        />,
+      );
+
+      const handle = screen.getByRole("button", { name: "Reorder Alpha" });
+      handle.focus();
+      await pressKey(handle, "Space");
+      await pressKey(handle, "ArrowDown");
+      await pressKey(handle, "Space");
+
+      expect(onReorder).toHaveBeenCalledTimes(1);
+      expect(onReorder).toHaveBeenCalledWith(["Beta", "Alpha", "Gamma"]);
+    });
+
+    it("cancels a keyboard reorder with Escape, leaving the rendered order unchanged and never calling onReorder", async () => {
+      const onReorder = vi.fn();
+      render(
+        <SceneList
+          scenes={threeScenes}
+          selectedName="Alpha"
+          onSelect={noop}
+          onCreate={noop}
+          onRename={noop}
+          onDelete={noop}
+          onReorder={onReorder}
+        />,
       );
 
       const handle = screen.getByRole("button", { name: "Reorder Alpha" });
@@ -223,11 +292,20 @@ describe("SceneList", () => {
       await pressKey(handle, "Escape");
 
       expect(visibleSceneOrder()).toEqual(["Alpha", "Beta", "Gamma"]);
+      expect(onReorder).not.toHaveBeenCalled();
     });
 
     it("preserves the locally-reordered rows across an incidental scenes-prop refresh that doesn't change which scenes exist", async () => {
       const { rerender } = render(
-        <SceneList scenes={threeScenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />,
+        <SceneList
+          scenes={threeScenes}
+          selectedName="Alpha"
+          onSelect={noop}
+          onCreate={noop}
+          onRename={noop}
+          onDelete={noop}
+          onReorder={noop}
+        />,
       );
 
       const handle = screen.getByRole("button", { name: "Reorder Alpha" });
@@ -249,6 +327,7 @@ describe("SceneList", () => {
           onCreate={noop}
           onRename={noop}
           onDelete={noop}
+          onReorder={noop}
         />,
       );
       expect(visibleSceneOrder()).toEqual(["Beta", "Alpha", "Gamma"]);
@@ -256,7 +335,15 @@ describe("SceneList", () => {
 
     it("resets the local order back to the server-provided order when a scene is actually added or removed", async () => {
       const { rerender } = render(
-        <SceneList scenes={threeScenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />,
+        <SceneList
+          scenes={threeScenes}
+          selectedName="Alpha"
+          onSelect={noop}
+          onCreate={noop}
+          onRename={noop}
+          onDelete={noop}
+          onReorder={noop}
+        />,
       );
 
       const handle = screen.getByRole("button", { name: "Reorder Alpha" });
@@ -273,7 +360,15 @@ describe("SceneList", () => {
         { name: "Delta", active: false, barsPerLoop: 4, layers: [] },
       ];
       rerender(
-        <SceneList scenes={nextScenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} />,
+        <SceneList
+          scenes={nextScenes}
+          selectedName="Alpha"
+          onSelect={noop}
+          onCreate={noop}
+          onRename={noop}
+          onDelete={noop}
+          onReorder={noop}
+        />,
       );
       expect(visibleSceneOrder()).toEqual(["Alpha", "Beta", "Delta"]);
     });

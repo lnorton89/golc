@@ -49,6 +49,12 @@ var _ = MustDeclareRoute(CommandRegistration{
 	Handler: runSceneLayerSet,
 })
 
+var _ = MustDeclareRoute(CommandRegistration{
+	Route:   "scene reorder",
+	Summary: "Permute a show's scenes deterministically: scene reorder --order <i,j,k,...> --show <path>.",
+	Handler: runSceneReorder,
+})
+
 var _ = MustDeclareScope(ScopeRegistration{
 	Scope:   "blend",
 	Summary: "Reusable blend presets describing transitions between scene/layer states (SCEN-07).",
@@ -494,6 +500,124 @@ func runSceneLayerSet(request Request) Result {
 	}
 	return Result{Stdout: fmt.Appendf(nil,
 		"GOLC_SCENE_LAYER_SET: scene=%s kind=%s enabled=%t\n", updatedScene.Name, layer.Kind, layer.Enabled)}
+}
+
+// parseSceneReorderArgs accepts a required "--order <comma-separated
+// 0-based indices>" and a required "--show <path>" (both --flag value and
+// --flag=value forms), rejecting anything else (GOLC_SCENE_USAGE).
+// --order's own permutation validity (every index 0..len(scenes)-1 exactly
+// once) is checked later by reorderScenes, never re-derived here -- this
+// parser only requires the flag to be present and every comma-separated
+// value to parse as an integer. Mirrors parseChaseReorderArgs
+// (internal/command/programming.go) exactly, minus the leading positional
+// name: "scene reorder" permutes the show's whole Scenes slice, not one
+// scene's own sub-list, so there is no single target to name first.
+func parseSceneReorderArgs(usage string, args []string) (order []int, showPath string, err error) {
+	var rawOrder string
+	for i := 0; i < len(args); {
+		argument := args[i]
+		switch {
+		case argument == "--order":
+			if i+1 >= len(args) {
+				return nil, "", fmt.Errorf("GOLC_SCENE_USAGE: --order requires a value; usage: %s", usage)
+			}
+			rawOrder = args[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--order="):
+			rawOrder = strings.TrimPrefix(argument, "--order=")
+			i++
+		case argument == "--show":
+			if i+1 >= len(args) {
+				return nil, "", fmt.Errorf("GOLC_SCENE_USAGE: --show requires a path; usage: %s", usage)
+			}
+			showPath = args[i+1]
+			i += 2
+		case strings.HasPrefix(argument, "--show="):
+			showPath = strings.TrimPrefix(argument, "--show=")
+			i++
+		default:
+			return nil, "", fmt.Errorf("GOLC_SCENE_USAGE: unsupported argument %q; usage: %s", argument, usage)
+		}
+	}
+	if rawOrder == "" {
+		return nil, "", fmt.Errorf("GOLC_SCENE_USAGE: --order is required; usage: %s", usage)
+	}
+	if showPath == "" {
+		return nil, "", fmt.Errorf("GOLC_SCENE_USAGE: --show is required; usage: %s", usage)
+	}
+	for _, part := range strings.Split(rawOrder, ",") {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+		index, parseErr := strconv.Atoi(trimmed)
+		if parseErr != nil {
+			return nil, "", fmt.Errorf("GOLC_SCENE_USAGE: --order value %q is not a valid integer; usage: %s", trimmed, usage)
+		}
+		order = append(order, index)
+	}
+	return order, showPath, nil
+}
+
+// reorderScenes returns scenes permuted according to order (order[i] is
+// the original index of the scene that should occupy position i),
+// rejecting any order that is not an exact permutation of
+// [0, len(scenes)) -- GOLC_SCENE_USAGE for a wrong length, an out-of-range
+// index, or a repeated index (mirrors reorderChaseSteps's identical
+// threat-T-03-05-style guard, internal/command/programming.go). scenes
+// itself is never mutated in place -- a fresh slice is built and
+// returned.
+func reorderScenes(scenes []scene.Scene, order []int) ([]scene.Scene, error) {
+	if len(order) != len(scenes) {
+		return nil, fmt.Errorf(
+			"GOLC_SCENE_USAGE: --order must list exactly %d indices (one per scene), got %d", len(scenes), len(order))
+	}
+	seen := make(map[int]bool, len(order))
+	reordered := make([]scene.Scene, len(order))
+	for i, index := range order {
+		if index < 0 || index >= len(scenes) {
+			return nil, fmt.Errorf("GOLC_SCENE_USAGE: --order index %d is out of range for %d scenes", index, len(scenes))
+		}
+		if seen[index] {
+			return nil, fmt.Errorf(
+				"GOLC_SCENE_USAGE: --order index %d is repeated; it must be a permutation of 0..%d", index, len(scenes)-1)
+		}
+		seen[index] = true
+		reordered[i] = scenes[index]
+	}
+	return reordered, nil
+}
+
+// runSceneReorder serves the self-registered "scene reorder" route: load
+// the ShowState at --show, permute state.Scenes according to --order
+// (every original index exactly once -- a non-permutation is rejected
+// with GOLC_SCENE_USAGE before any mutation), and save atomically. Unlike
+// "chase reorder", this has no single target to resolve by name first --
+// --order permutes the whole Scenes slice directly. Reordering never
+// changes a scene's ID or Active state, so the currently active scene (if
+// any) and every layer Ref stay exactly as valid as before.
+func runSceneReorder(request Request) Result {
+	usage := "scene reorder --order <i,j,k,...> --show <path>"
+	order, showPath, err := parseSceneReorderArgs(usage, request.Args)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	state, err := show.Load(request.Root, showPath)
+	if err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+
+	reordered, err := reorderScenes(state.Scenes, order)
+	if err != nil {
+		return Result{ExitCode: 2, Stderr: []byte(err.Error() + "\n")}
+	}
+	state.Scenes = reordered
+
+	if err := show.Save(request.Root, showPath, state); err != nil {
+		return Result{ExitCode: 1, Stderr: []byte(err.Error() + "\n")}
+	}
+	return Result{Stdout: fmt.Appendf(nil, "GOLC_SCENE_REORDERED: %d scene(s)\n", len(reordered))}
 }
 
 // parseBlendCreateArgs accepts a positional blend preset name followed by a

@@ -28,22 +28,6 @@
   color: var(--ds-text-muted);
 }
 
-.previewNotice {
-  display: flex;
-  align-items: center;
-  gap: var(--ds-spacing-space1);
-  margin: 0;
-  font-family: var(--ds-typography-font-family-ui);
-  font-size: var(--ds-typography-font-size-compact);
-  color: var(--ds-text-muted);
-}
-
-.previewNoticeIcon {
-  flex-shrink: 0;
-  width: var(--ds-sizing-icon16);
-  height: var(--ds-sizing-icon16);
-}
-
 .createForm {
   display: flex;
   flex-direction: column;

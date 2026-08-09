@@ -5,16 +5,15 @@
 // (the sketch's own "what to avoid": permanently displaying every
 // look-creation form).
 //
-// Drag-to-reorder (frontend-only): there is no ProgrammingService call to
-// persist a scene order server-side (grep wailsBridge.ts -- CreateScene/
-// ActivateScene/RenameScene/DeleteScene/SetSceneLayer is the whole surface,
-// no reorder/move-index call exists). Reordering here is therefore a purely
-// local preview: `order` (a name array) lives in this component's own
-// state, independent of the `scenes` prop's own array order. The
-// always-visible notice below the header exists specifically so a dragged
-// order never reads as silently-reverted data loss -- an operator relying
-// on this list during a live show must never wonder why a reorder
-// "un-did itself" on the next refresh.
+// Drag-to-reorder: dropping a row updates local `order` immediately for
+// zero-latency visual feedback, then calls `onReorder` (the caller
+// translates the dragged name order into the 0-based index permutation
+// "scene reorder" expects and persists it via ProgrammingService.
+// ReorderScenes, mirroring every other mutation in this component's
+// contract -- SceneList itself never calls wailsBridge directly). `order`
+// lives in this component's own state, independent of the `scenes` prop's
+// own array order, purely so the drop feels instant instead of waiting on
+// a round trip.
 //
 // Reset behavior (see the useEffect below): local order is preserved
 // across a `scenes` prop change UNLESS the underlying set of scene names
@@ -29,7 +28,7 @@
 // guarantees a stale order can never silently reference a scene that no
 // longer exists (or omit one that now does).
 import { useEffect, useState, type CSSProperties } from "react";
-import { Plus, X, Check, Layers, MoreVertical, Pencil, Trash2, GripVertical, Info } from "lucide-react";
+import { Plus, X, Check, Layers, MoreVertical, Pencil, Trash2, GripVertical } from "lucide-react";
 import {
   DndContext,
   KeyboardSensor,
@@ -59,6 +58,7 @@ interface SceneListProps {
   onCreate: (name: string, bars: number) => void;
   onRename: (oldName: string, newName: string) => void;
   onDelete: (name: string) => void;
+  onReorder: (orderedNames: string[]) => void;
 }
 
 /** reorderSceneNames applies a single drag-and-drop move to a name-ordered
@@ -181,6 +181,7 @@ export default function SceneList({
   onCreate,
   onRename,
   onDelete,
+  onReorder,
 }: SceneListProps) {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
@@ -214,7 +215,13 @@ export default function SceneList({
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over) return;
-    setOrder((current) => reorderSceneNames(current, String(active.id), String(over.id)));
+    setOrder((current) => {
+      const next = reorderSceneNames(current, String(active.id), String(over.id));
+      if (next !== current) {
+        onReorder(next);
+      }
+      return next;
+    });
   };
 
   const handleCreate = () => {
@@ -257,13 +264,6 @@ export default function SceneList({
           {creating ? "Cancel" : "New"}
         </Button>
       </div>
-
-      {scenes.length > 1 ? (
-        <p className={styles.previewNotice}>
-          <Info className={styles.previewNoticeIcon} aria-hidden="true" />
-          Drag to reorder — preview only, not saved. Resets if the scene list refreshes.
-        </p>
-      ) : null}
 
       {creating ? (
         <div className={styles.createForm}>

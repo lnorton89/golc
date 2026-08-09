@@ -375,6 +375,7 @@ interface ProgrammingServiceBinding {
     refId: string,
     enabled: boolean,
   ): Promise<WailsResult>;
+  ReorderScenes(order: number[]): Promise<WailsResult>;
   CreateTheme(name: string): Promise<WailsResult>;
   RenameTheme(oldName: string, newName: string): Promise<WailsResult>;
   DeleteTheme(name: string): Promise<WailsResult>;
@@ -1257,6 +1258,17 @@ export async function setSceneLayer(
   const svc = programmingService();
   if (!svc) return bridgeUnavailableResult();
   return svc.SetSceneLayer(sceneName, kind, refId, enabled);
+}
+
+/** reorderScenes calls the bound ProgrammingService.ReorderScenes via
+ * "scene reorder". order[i] must be the 0-based index (against the
+ * ShowState's current Scenes order) of the scene that should occupy
+ * position i -- an exact permutation, or the Go route rejects it with
+ * GOLC_SCENE_USAGE and persists nothing. */
+export async function reorderScenes(order: number[]): Promise<WailsResult> {
+  const svc = programmingService();
+  if (!svc) return bridgeUnavailableResult();
+  return svc.ReorderScenes(order);
 }
 
 /** createTheme calls the bound ProgrammingService.CreateTheme (PLAY-12:

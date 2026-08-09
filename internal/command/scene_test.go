@@ -239,6 +239,78 @@ func TestSceneRoutesCreateMissingBarsUsage(t *testing.T) {
 	require.True(t, result.ExitCode == 2 && strings.Contains(string(result.Stderr), "GOLC_SCENE_USAGE"), "expected exit 2 GOLC_SCENE_USAGE for a missing --bars, got exit=%d stderr=%s", result.ExitCode, result.Stderr)
 }
 
+// TestSceneRoutesReorder proves "scene reorder" permutes the whole
+// Scenes slice by 0-based original index (mirroring "chase reorder"'s
+// established --order contract, internal/command/programming.go /
+// history_test.go), preserving each scene's identity (ID, Active state)
+// while rejecting a non-permutation --order with GOLC_SCENE_USAGE before
+// any mutation is saved.
+func TestSceneRoutesReorder(t *testing.T) {
+	root := t.TempDir()
+	registry, err := command.NewDefaultCommandRegistry()
+	require.NoError(t, err, "NewDefaultCommandRegistry: %v", err)
+	showPath := filepath.Join(t.TempDir(), "show.json")
+
+	for _, name := range []string{"Verse", "Chorus", "Bridge"} {
+		createResult := registry.Execute(command.Request{Root: root, Args: []string{
+			"scene", "create", name, "--bars", "4", "--show", showPath,
+		}})
+		require.Equal(t, 0, createResult.ExitCode, "scene create (%s) failed: exit=%d stderr=%s", name, createResult.ExitCode, createResult.Stderr)
+	}
+
+	activateResult := registry.Execute(command.Request{Root: root, Args: []string{
+		"scene", "activate", "Chorus", "--show", showPath,
+	}})
+	require.Equal(t, 0, activateResult.ExitCode, "scene activate failed: exit=%d stderr=%s", activateResult.ExitCode, activateResult.Stderr)
+
+	beforeReorder, err := show.Load(root, showPath)
+	require.NoError(t, err, "show.Load before scene reorder: %v", err)
+	require.Equal(t, []string{"Verse", "Chorus", "Bridge"}, sceneNames(beforeReorder.Scenes))
+	chorusID := beforeReorder.Scenes[1].ID
+
+	nonPermutation := registry.Execute(command.Request{Root: root, Args: []string{
+		"scene", "reorder", "--order", "0,0,1", "--show", showPath,
+	}})
+	require.True(t, nonPermutation.ExitCode != 0 && strings.Contains(string(nonPermutation.Stderr), "GOLC_SCENE_USAGE"), "expected exit !=0 GOLC_SCENE_USAGE for a non-permutation --order, got exit=%d stderr=%s", nonPermutation.ExitCode, nonPermutation.Stderr)
+	unchanged, err := show.Load(root, showPath)
+	require.NoError(t, err, "show.Load after rejected reorder: %v", err)
+	require.Equal(t, []string{"Verse", "Chorus", "Bridge"}, sceneNames(unchanged.Scenes), "expected a rejected --order to leave Scenes untouched")
+
+	wrongLength := registry.Execute(command.Request{Root: root, Args: []string{
+		"scene", "reorder", "--order", "0,1", "--show", showPath,
+	}})
+	require.True(t, wrongLength.ExitCode != 0 && strings.Contains(string(wrongLength.Stderr), "GOLC_SCENE_USAGE"), "expected exit !=0 GOLC_SCENE_USAGE for a wrong-length --order, got exit=%d stderr=%s", wrongLength.ExitCode, wrongLength.Stderr)
+
+	outOfRange := registry.Execute(command.Request{Root: root, Args: []string{
+		"scene", "reorder", "--order", "0,1,5", "--show", showPath,
+	}})
+	require.True(t, outOfRange.ExitCode != 0 && strings.Contains(string(outOfRange.Stderr), "GOLC_SCENE_USAGE"), "expected exit !=0 GOLC_SCENE_USAGE for an out-of-range --order index, got exit=%d stderr=%s", outOfRange.ExitCode, outOfRange.Stderr)
+
+	missingOrder := registry.Execute(command.Request{Root: root, Args: []string{
+		"scene", "reorder", "--show", showPath,
+	}})
+	require.True(t, missingOrder.ExitCode != 0 && strings.Contains(string(missingOrder.Stderr), "GOLC_SCENE_USAGE"), "expected exit !=0 GOLC_SCENE_USAGE for a missing --order, got exit=%d stderr=%s", missingOrder.ExitCode, missingOrder.Stderr)
+
+	reorderResult := registry.Execute(command.Request{Root: root, Args: []string{
+		"scene", "reorder", "--order", "2,0,1", "--show", showPath,
+	}})
+	require.Equal(t, 0, reorderResult.ExitCode, "scene reorder failed: exit=%d stderr=%s", reorderResult.ExitCode, reorderResult.Stderr)
+
+	afterReorder, err := show.Load(root, showPath)
+	require.NoError(t, err, "show.Load after scene reorder: %v", err)
+	require.Equal(t, []string{"Bridge", "Verse", "Chorus"}, sceneNames(afterReorder.Scenes), "expected Scenes permuted to original-index order [2,0,1]")
+	chorusScene, found := findSceneByName(afterReorder.Scenes, "Chorus")
+	require.True(t, found && chorusScene.ID == chorusID && chorusScene.Active, "expected Chorus to keep its ID and Active state across reorder, got %+v", chorusScene)
+}
+
+func sceneNames(scenes []scene.Scene) []string {
+	names := make([]string, len(scenes))
+	for i, s := range scenes {
+		names[i] = s.Name
+	}
+	return names
+}
+
 func TestSceneRoutesBlendCreate(t *testing.T) {
 	root := t.TempDir()
 	registry, err := command.NewDefaultCommandRegistry()

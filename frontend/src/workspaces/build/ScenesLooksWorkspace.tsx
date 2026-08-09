@@ -33,6 +33,7 @@ import {
   renamePreset,
   renameScene,
   renameTheme,
+  reorderScenes,
   setSceneLayer,
   updateChase,
   type ProgChaseView,
@@ -237,6 +238,26 @@ export default function ScenesLooksWorkspace() {
     }
   };
 
+  // Translates SceneList's dragged name order into the 0-based index
+  // permutation "scene reorder" expects, against view.scenes' own current
+  // (pre-drag) order -- SceneList only ever hands back names, never
+  // indices, since it has no idea what the server-side order actually is
+  // once its own local `order` state has drifted from the `scenes` prop.
+  const handleReorderScenes = async (orderedNames: string[]) => {
+    const originalIndexByName = new Map(view.scenes.map((scene, index) => [scene.name, index]));
+    const order = orderedNames.map((name) => originalIndexByName.get(name) ?? -1);
+    if (order.length !== view.scenes.length || order.includes(-1)) {
+      return;
+    }
+    try {
+      const result = await reorderScenes(order);
+      assertOk(result, "ReorderScenes");
+      await refresh();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
   const handleRenameTheme = async (oldName: string, newName: string) => {
     try {
       const result = await renameTheme(oldName, newName);
@@ -393,6 +414,7 @@ export default function ScenesLooksWorkspace() {
                   onCreate={handleCreateScene}
                   onRename={(oldName, newName) => void handleRenameScene(oldName, newName)}
                   onDelete={(name) => void handleDeleteScene(name)}
+                  onReorder={(orderedNames) => void handleReorderScenes(orderedNames)}
                 />
                 <ResizeHandle
                   edge="end"
