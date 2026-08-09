@@ -1,0 +1,83 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-spacing-space1);
+}
+
+.label {
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  line-height: var(--ds-typography-line-height-body);
+  color: var(--ds-text-secondary);
+}
+
+/* The swatch's own fill (the live RGB value) is set as an inline `style`
+   prop by ColorField.tsx, not here -- see that file's own doc comment. This
+   rule only owns the swatch's fixed chrome: size, border, focus/hover
+   affordance. */
+.swatch {
+  box-sizing: border-box;
+  width: var(--ds-sizing-control-default);
+  height: var(--ds-sizing-control-default);
+  padding: 0;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
+  cursor: pointer;
+  transition: var(--ds-motion-tap);
+}
+
+.swatch:hover:not(:disabled) {
+  border-color: var(--ds-border-strong);
+}
+
+.swatch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.swatch:focus-visible {
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-spacing-space4);
+}
+
+/* react-colorful ships its own inline styles/colors for the saturation/hue
+   gradients (necessarily raw -- they render the actual color spectrum, not
+   this app's palette) and are never reached into directly here. This
+   wrapper instead clips the picker's own square corners to this design
+   system's own small radius from the outside, the same way a card or panel
+   would round a foreign embedded widget without touching its internals. */
+.pickerWrapper {
+  overflow: hidden;
+  border-radius: var(--ds-radii-small);
+}
+
+.channels {
+  display: flex;
+  gap: var(--ds-spacing-space2);
+}
+
+.channel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ds-spacing-space1);
+}
+
+.channelLabel {
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  line-height: var(--ds-typography-line-height-body);
+  color: var(--ds-text-secondary);
+}
