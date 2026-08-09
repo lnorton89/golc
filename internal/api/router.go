@@ -126,6 +126,7 @@ func buildRouter(server *Server) chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.RequestID)
 	router.Use(middleware.Recoverer)
+	router.Use(requestLoggerMiddleware())
 
 	humaAPI := humachi.New(router, huma.DefaultConfig("GOLC API", "1.0.0"))
 	humaAPI.UseMiddleware(AuthMiddleware(humaAPI, server), RateLimitMiddleware(humaAPI, server), DeprecationMiddleware(humaAPI))
