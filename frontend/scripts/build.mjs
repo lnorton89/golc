@@ -8,42 +8,11 @@
 // Invokes the checked-in node_modules entrypoints directly, matching
 // internal/command/designsystem.go's own direct-binary style rather than
 // shelling through `npm run`/`npx`.
-import { spawn } from "node:child_process";
-
-function run(label, args) {
-  const child = spawn(process.execPath, args, { stdio: "inherit" });
-  const done = new Promise((resolve, reject) => {
-    child.on("error", reject);
-    child.on("exit", (code, signal) => {
-      if (signal) {
-        reject(new Error(`${label} killed by signal ${signal}`));
-      } else if (code !== 0) {
-        reject(new Error(`${label} exited with code ${code}`));
-      } else {
-        resolve();
-      }
-    });
-  });
-  return { child, done };
-}
-
-// Runs every task concurrently; if any fails, kills the rest rather than
-// leaving them running to completion for no reason (e.g. a fast tsc
-// failure would otherwise leave a full vitest run finishing in the
-// background after this script has already reported failure and exited).
-async function runConcurrently(tasks) {
-  const started = tasks.map(([label, args]) => run(label, args));
-  try {
-    await Promise.all(started.map((task) => task.done));
-  } catch (error) {
-    for (const { child } of started) {
-      if (child.exitCode === null && child.signalCode === null) {
-        child.kill();
-      }
-    }
-    throw error;
-  }
-}
+//
+// This is frontend:build (wails.json) -- the production/CI gate. `wails
+// dev`'s own startup compile step uses the separate, test-free
+// build-dev.mjs (frontend:dev:build) instead: see that file for why.
+import { run, runConcurrently } from "./run-concurrently.mjs";
 
 async function main() {
   await runConcurrently([

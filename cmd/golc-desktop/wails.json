@@ -5,9 +5,11 @@
   "frontend:dir": "../../frontend",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
+  "frontend:dev:build": "node scripts/build-dev.mjs",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
   "wailsjsdir": "../../frontend/wailsjs",
+  "reloaddirs": "../../internal",
   "author": {
     "name": "GOLC"
   },
