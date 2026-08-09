@@ -130,6 +130,7 @@ func TestRateLimitPerKeyIndependent(t *testing.T) {
 	require.Equal(t, http.StatusOK, first.Code, "expected the first request from key A to succeed (body: %s)", first.Body.String())
 	second := doAuthedRequest(t, server.Handler(), http.MethodGet, "/v1/show", tokenA)
 	require.Equal(t, http.StatusTooManyRequests, second.Code, "expected the second request from key A (over burst=1) to be rate limited (body: %s)", second.Body.String())
+	require.Equal(t, "1", second.Header().Get("Retry-After"), "expected a Retry-After hint sized from the configured 60/min rate (1s per token)")
 
 	other := doAuthedRequest(t, server.Handler(), http.MethodGet, "/v1/show", tokenB)
 	require.Equal(t, http.StatusOK, other.Code, "expected key B's independent bucket to allow its first request (body: %s)", other.Body.String())

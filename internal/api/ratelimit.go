@@ -11,7 +11,9 @@
 package api
 
 import (
+	"math"
 	"net/http"
+	"strconv"
 	"sync"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -72,6 +74,19 @@ func (k *keyRateLimiter) burstOrDefault() int {
 	return k.burst
 }
 
+// retryAfterSeconds returns the worst-case whole-second wait for k's
+// configured bucket to accumulate one more token -- a conservative
+// Retry-After hint for a 429 response. It reads only the bucket's
+// configured rate (never a specific key's live token count), so it never
+// mutates or reserves against any *rate.Limiter.
+func (k *keyRateLimiter) retryAfterSeconds() int {
+	seconds := int(math.Ceil(1 / float64(k.limit())))
+	if seconds < 1 {
+		return 1
+	}
+	return seconds
+}
+
 // allow reports whether keyID's bucket has a token available right now,
 // consuming one if so. Each key id gets its own independent
 // *rate.Limiter, created on first use -- a key exhausting its own bucket
@@ -105,6 +120,7 @@ func RateLimitMiddleware(humaAPI huma.API, server *Server) func(huma.Context, fu
 			return
 		}
 		if !limiter.allow(keyID) {
+			ctx.SetHeader("Retry-After", strconv.Itoa(limiter.retryAfterSeconds()))
 			huma.WriteErr(humaAPI, ctx, http.StatusTooManyRequests,
 				"GOLC_API_RATE_LIMITED: this key has exceeded its request rate limit")
 			return
