@@ -118,6 +118,7 @@ Beyond the static checker, `e2e/design-system.*.spec.ts` covers what static anal
 | Name | Kind | Export path | Contract test |
 | --- | --- | --- | --- |
 | Button | primitive | `src/components/primitives/Button/Button.tsx` | `src/components/primitives/Button/Button.test.tsx` |
+| Checkbox | primitive | `src/components/primitives/Checkbox/Checkbox.tsx` | `src/components/primitives/Checkbox/Checkbox.test.tsx` |
 | Chip | primitive | `src/components/primitives/Chip/Chip.tsx` | `src/components/primitives/Chip/Chip.test.tsx` |
 | ColorField | primitive | `src/components/primitives/ColorField/ColorField.tsx` | `src/components/primitives/ColorField/ColorField.test.tsx` |
 | Combobox | primitive | `src/components/primitives/Combobox/Combobox.tsx` | `src/components/primitives/Combobox/Combobox.test.tsx` |
@@ -141,6 +142,7 @@ Beyond the static checker, `e2e/design-system.*.spec.ts` covers what static anal
 | Panel | primitive | `src/components/primitives/Panel/Panel.tsx` | `src/components/primitives/Panel/Panel.test.tsx` |
 | PanelHeader | primitive | `src/components/primitives/PanelHeader/PanelHeader.tsx` | `src/components/primitives/PanelHeader/PanelHeader.test.tsx` |
 | Popover | primitive | `src/components/primitives/Popover/Popover.tsx` | `src/components/primitives/Popover/Popover.test.tsx` |
+| RadioGroup | primitive | `src/components/primitives/RadioGroup/RadioGroup.tsx` | `src/components/primitives/RadioGroup/RadioGroup.test.tsx` |
 | ResizeHandle | primitive | `src/components/primitives/ResizeHandle/ResizeHandle.tsx` | `src/components/primitives/ResizeHandle/ResizeHandle.test.tsx` |
 | SafetyAction | pattern | `src/design-system/patterns/index.tsx` | `src/design-system/fixtures/DesignSystemGallery.test.tsx` |
 | SceneStack | pattern | `src/design-system/patterns/index.tsx` | `src/design-system/fixtures/DesignSystemGallery.test.tsx` |
@@ -148,6 +150,7 @@ Beyond the static checker, `e2e/design-system.*.spec.ts` covers what static anal
 | Select | primitive | `src/components/primitives/Select/Select.tsx` | `src/components/primitives/Select/Select.test.tsx` |
 | Slider | primitive | `src/components/primitives/Slider/Slider.tsx` | `src/components/primitives/Slider/Slider.test.tsx` |
 | SplitPane | pattern | `src/design-system/patterns/index.tsx` | `src/design-system/fixtures/DesignSystemGallery.test.tsx` |
+| Switch | primitive | `src/components/primitives/Switch/Switch.tsx` | `src/components/primitives/Switch/Switch.test.tsx` |
 | Tabs | primitive | `src/components/primitives/Tabs/Tabs.tsx` | `src/components/primitives/Tabs/Tabs.test.tsx` |
 | Toolbar | primitive | `src/components/primitives/Toolbar/Toolbar.tsx` | `src/components/primitives/Toolbar/Toolbar.test.tsx` |
 | WorkspaceFrame | pattern | `src/design-system/patterns/index.tsx` | `src/design-system/fixtures/DesignSystemGallery.test.tsx` |
@@ -155,7 +158,7 @@ Beyond the static checker, `e2e/design-system.*.spec.ts` covers what static anal
 
 ### Component anchors
 
-The inventory anchors are stable selection markers: #button #chip #colorfield #combobox #confirmdialog #datalist #dialog #emptystate #errorstate #field #formactions #guidedflow #iconbutton #impactreview #infotooltip #launchermasters #listrow #loadingstate #menu #midipickup #numberstepper #panel #panelheader #popover #resizehandle #safetyaction #scenestack #scrollregion #select #slider #splitpane #tabs #toolbar #workspaceframe.
+The inventory anchors are stable selection markers: #button #checkbox #chip #colorfield #combobox #confirmdialog #datalist #dialog #emptystate #errorstate #field #formactions #guidedflow #iconbutton #impactreview #infotooltip #launchermasters #listrow #loadingstate #menu #midipickup #numberstepper #panel #panelheader #popover #radiogroup #resizehandle #safetyaction #scenestack #scrollregion #select #slider #splitpane #switch #tabs #toolbar #workspaceframe.
 
 ## Commands
 

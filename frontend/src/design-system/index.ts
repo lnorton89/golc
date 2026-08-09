@@ -1,5 +1,6 @@
 // Public design-system boundary. Consumers import shared UI only from here.
 export { default as Button } from "../components/primitives/Button/Button";
+export { default as Checkbox } from "../components/primitives/Checkbox/Checkbox";
 export { default as Chip } from "../components/primitives/Chip/Chip";
 export { default as ColorField } from "../components/primitives/ColorField/ColorField";
 export type { RgbColor } from "../components/primitives/ColorField/ColorField";
@@ -20,11 +21,14 @@ export { default as NumberStepper } from "../components/primitives/NumberStepper
 export { default as Panel } from "../components/primitives/Panel/Panel";
 export { default as PanelHeader } from "../components/primitives/PanelHeader/PanelHeader";
 export { default as Popover } from "../components/primitives/Popover/Popover";
+export { default as RadioGroup } from "../components/primitives/RadioGroup/RadioGroup";
+export type { RadioGroupOption } from "../components/primitives/RadioGroup/RadioGroup";
 export { default as ResizeHandle } from "../components/primitives/ResizeHandle/ResizeHandle";
 export { default as ScrollRegion } from "../components/primitives/ScrollRegion/ScrollRegion";
 export { default as Select } from "../components/primitives/Select/Select";
 export type { SelectOption } from "../components/primitives/Select/Select";
 export { default as Slider } from "../components/primitives/Slider/Slider";
+export { default as Switch } from "../components/primitives/Switch/Switch";
 export { default as Tabs } from "../components/primitives/Tabs/Tabs";
 export { default as Toolbar } from "../components/primitives/Toolbar/Toolbar";
 export { DataList, FormActions, GuidedFlow, ImpactReview, LauncherMasters, MidiPickup, SafetyAction, SceneStack, SplitPane, WorkspaceFrame } from "./patterns";

@@ -79,9 +79,13 @@ describe("ColorField", () => {
 
     const popup = await screen.findByRole("dialog", { name: "Red channel color picker" });
     expect(popup).toBeInTheDocument();
-    expect(screen.getByLabelText("Red channel red channel")).toHaveValue(10);
-    expect(screen.getByLabelText("Red channel green channel")).toHaveValue(20);
-    expect(screen.getByLabelText("Red channel blue channel")).toHaveValue(30);
+    // NumberStepper's Base UI NumberField.Input renders type="text" (with
+    // inputmode="numeric"), not the native type="number" the hand-rolled
+    // input used, so jest-dom's toHaveValue matcher compares the displayed
+    // string rather than coercing to a number.
+    expect(screen.getByLabelText("Red channel red channel")).toHaveValue("10");
+    expect(screen.getByLabelText("Red channel green channel")).toHaveValue("20");
+    expect(screen.getByLabelText("Red channel blue channel")).toHaveValue("30");
   });
 
   it("dragging react-colorful's own saturation picker updates value via onValueChange", async () => {

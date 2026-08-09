@@ -1,0 +1,82 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-spacing-space2);
+  cursor: pointer;
+}
+
+/* Base UI's Switch.Root renders as a <span role="switch"> that receives
+   keyboard focus directly (confirmed against the rendered DOM, same as
+   Checkbox's own .box), so :focus-visible below targets this class
+   directly. Width is a fixed literal, not a token -- DS001 only governs
+   color/border/spacing/typography/motion properties, not width/height/
+   transform, and no --ds-sizing-* role expresses a toggle-track's own
+   2.25x-of-its-thumb proportions the way --ds-sizing-control-* expresses
+   a control's height. */
+.track {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 36px;
+  height: var(--ds-sizing-icon20);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-pill);
+  background: var(--ds-surface-control);
+  cursor: pointer;
+}
+
+.track[data-checked] {
+  border-color: var(--ds-action-primary);
+  background: var(--ds-action-primary);
+}
+
+.track[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.track:focus-visible {
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
+}
+
+/* Switch.Thumb sets no inline positioning styles of its own (confirmed
+   against the rendered DOM, unlike Slider.Thumb) -- this rule owns the
+   thumb's rest position (inset 2px inside .track) entirely, and the
+   sibling [data-checked] rule below owns its slid-right position via
+   transform, not top/left, so the single `transition` declaration
+   animates smoothly. */
+.thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: var(--ds-sizing-icon16);
+  height: var(--ds-sizing-icon16);
+  border-radius: var(--ds-radii-pill);
+  background: var(--ds-surface-panel);
+  transition: var(--ds-motion-tap);
+}
+
+.track[data-checked] .thumb {
+  transform: translateX(16px);
+}
+
+.label {
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  font-weight: var(--ds-typography-font-weight-regular);
+  line-height: var(--ds-typography-line-height-body);
+  color: var(--ds-text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb {
+    transition-duration: var(--ds-motion-snap);
+  }
+}

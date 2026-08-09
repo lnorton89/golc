@@ -12,13 +12,27 @@
   color: var(--ds-text-secondary);
 }
 
+/* .controls is Base UI's NumberField.Root -- it wraps the single .group
+   child (Group) and carries the disabled visual state. Base UI sets
+   `data-disabled` as a bare presence attribute (no ="true"/="false"
+   value), not the string-valued attribute this rule used to check for
+   when the field was a hand-rolled <span data-disabled="true">. */
 .controls {
-  display: inline-flex;
-  align-items: stretch;
+  display: flex;
 }
 
-.controls[data-disabled="true"] {
+.controls[data-disabled] {
   opacity: 0.5;
+}
+
+/* .group is NumberField.Group, required by Base UI to wrap the
+   input+spinner pair -- it takes over the row layout (input/spinner
+   side by side, stretched to equal height) that this primitive's own
+   markup used to put directly on .controls before Group existed. */
+.group {
+  display: inline-flex;
+  align-items: stretch;
+  width: 100%;
 }
 
 /* .field[data-compact] is NumberStepper.tsx's `hideLabel` opt-in: the
@@ -52,19 +66,6 @@
   font-size: var(--ds-typography-font-size-body);
   font-weight: var(--ds-typography-font-weight-regular);
   line-height: var(--ds-typography-line-height-body);
-  -moz-appearance: textfield;
-  appearance: textfield;
-}
-
-/* The custom .spinner chevron pair below is this primitive's only step
-   affordance -- the browser's native number-input spinner must not also
-   render next to it (Chromium/WebKit ignore appearance: textfield and
-   still paint their own arrows unless the spin-button pseudo-elements are
-   explicitly suppressed), or the field shows two conflicting spinners. */
-.input::-webkit-outer-spin-button,
-.input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
 }
 
 .input:disabled {

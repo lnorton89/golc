@@ -22,12 +22,18 @@ describe("Field", () => {
   it("renders custom children instead of the default input when given (e.g. a <select>)", () => {
     render(
       <Field label="Chase unit">
-        <select aria-label="unit-select">
+        <select>
           <option value="bar">bar</option>
         </select>
       </Field>,
     );
-    expect(screen.getByRole("combobox", { name: "unit-select" })).toBeInTheDocument();
+    // Base UI's Field.Label wires aria-labelledby onto the control, which
+    // (correctly, per the accname algorithm) takes precedence over any
+    // aria-label the child might also carry -- so the visible label text is
+    // what names the control, not a redundant aria-label. None of this
+    // primitive's real consumers set aria-label on a child alongside a
+    // visible Field label, so this is the realistic shape to assert on.
+    expect(screen.getByRole("combobox", { name: "Chase unit" })).toBeInTheDocument();
     // The default input must not also render alongside custom children.
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });

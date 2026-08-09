@@ -1,0 +1,93 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-spacing-space2);
+}
+
+.label {
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  line-height: var(--ds-typography-line-height-body);
+  color: var(--ds-text-secondary);
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-spacing-space2);
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-spacing-space2);
+  cursor: pointer;
+}
+
+.option[data-disabled] {
+  cursor: not-allowed;
+}
+
+/* Base UI's Radio.Root renders as a <span role="radio"> that receives
+   keyboard focus directly (confirmed against the rendered DOM, same as
+   Checkbox's own .box), so :focus-visible below targets this class
+   directly rather than needing Slider.Thumb's :has() workaround. */
+.radio {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ds-sizing-icon20);
+  height: var(--ds-sizing-icon20);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-pill);
+  background: var(--ds-surface-control);
+  cursor: pointer;
+  transition: var(--ds-motion-tap);
+}
+
+.radio[data-checked] {
+  border-color: var(--ds-action-primary);
+}
+
+/* Individual options on this roving-tabindex composite get data-disabled
+   (not the native `disabled` attribute) when disabled -- confirmed
+   against the rendered DOM (Radio.Root is a <span>, not a native
+   <button>/<input>, and Base UI marks composite items this way rather
+   than relying on a non-existent native disabled state). */
+.radio[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.radio:focus-visible {
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
+}
+
+.dot {
+  width: var(--ds-sizing-icon12);
+  height: var(--ds-sizing-icon12);
+  border-radius: var(--ds-radii-pill);
+  background: var(--ds-action-primary);
+}
+
+.optionLabel {
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  font-weight: var(--ds-typography-font-weight-regular);
+  line-height: var(--ds-typography-line-height-body);
+  color: var(--ds-text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radio {
+    transition-duration: var(--ds-motion-snap);
+  }
+}
