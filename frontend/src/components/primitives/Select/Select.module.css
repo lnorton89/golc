@@ -1,0 +1,151 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-spacing-space1);
+  min-width: 0;
+}
+
+.label {
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  line-height: var(--ds-typography-line-height-body);
+  color: var(--ds-text-secondary);
+}
+
+.trigger {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-spacing-space2);
+  width: 100%;
+  min-width: 0;
+  min-height: var(--ds-sizing-control-default);
+  padding-inline: var(--ds-spacing-space2);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
+  background: var(--ds-surface-control);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  font-weight: var(--ds-typography-font-weight-regular);
+  line-height: var(--ds-typography-line-height-body);
+  cursor: pointer;
+}
+
+.trigger:hover:not(:disabled) {
+  border-color: var(--ds-border-strong);
+}
+
+.trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.trigger:focus-visible {
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
+}
+
+.value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: start;
+}
+
+/* Base UI's own placeholder data attribute (present when the select has no
+   value yet) -- muted like Field's other placeholder-ish secondary text
+   rather than the full-strength text-primary a real selection gets. */
+.trigger[data-placeholder] .value {
+  color: var(--ds-text-muted);
+}
+
+.triggerIcon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--ds-text-muted);
+}
+
+.chevron {
+  width: var(--ds-sizing-icon16);
+  height: var(--ds-sizing-icon16);
+}
+
+.positioner {
+  z-index: var(--ds-stacking-popover);
+  box-sizing: border-box;
+}
+
+.popup {
+  box-sizing: border-box;
+  max-height: calc(100vh - var(--ds-spacing-space8));
+  overflow: auto;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
+  background: var(--ds-surface-overlay);
+  color: var(--ds-text-primary);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  padding-block: var(--ds-spacing-space1);
+}
+
+.item {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-spacing-space2);
+  min-height: var(--ds-sizing-control-default);
+  padding-inline: var(--ds-spacing-space2);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  font-weight: var(--ds-typography-font-weight-regular);
+  line-height: var(--ds-typography-line-height-body);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.item[data-highlighted] {
+  background: var(--ds-surface-selected);
+}
+
+.item[data-selected] {
+  font-weight: var(--ds-typography-font-weight-semibold);
+}
+
+/* Base UI marks a disabled Select.Item via aria-disabled/data-disabled, not
+   the native `disabled` attribute -- items are part of a roving-tabindex
+   composite list (see Tabs.module.css's identical [data-disabled] carve-out
+   for the same reason). */
+.item[data-disabled] {
+  color: var(--ds-text-muted);
+  cursor: not-allowed;
+}
+
+.itemText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemIndicator {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--ds-action-primary);
+}
+
+.checkIcon {
+  width: var(--ds-sizing-icon16);
+  height: var(--ds-sizing-icon16);
+}

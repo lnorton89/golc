@@ -47,5 +47,21 @@ export default defineConfig({
     // Vitest's own test runner (a hard error: "Playwright Test did not
     // expect test.describe() to be called here").
     exclude: [...configDefaults.exclude, "e2e/**"],
+    // Perf (vitest.dev/guide/improving-performance): `threads` pool is
+    // faster than the `forks` default on larger suites and this project has
+    // no native Node addons to lose compatibility with. fsModuleCache
+    // persists transformed-module output to disk across runs, which matters
+    // a lot for this specific workflow -- `npx vitest run` gets re-invoked
+    // repeatedly against the same large module graph (Monaco, Tiptap, Base
+    // UI, ...) during iterative development. Deliberately NOT setting
+    // `isolate: false`: several test files (MidiPanel, MidiLearnToggle,
+    // Desk, LiveStatusBar, OperatorSurface.activeSurface) mutate the shared
+    // useGolcStore singleton via setState/getState directly, and nothing
+    // resets it to a clean baseline between files -- disabling isolation
+    // would let one file's leftover store state (e.g. midiLearnMode: true)
+    // leak into the next file sharing the same worker, trading speed for
+    // real order-dependent flakiness risk in a safety-relevant app.
+    pool: "threads",
+    experimental: { fsModuleCache: true },
   },
 });

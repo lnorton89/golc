@@ -549,6 +549,15 @@
       "source": "TitleBar.module.css:89",
       "owner": "user-directed-revert",
       "reviewCondition": "the design system gains a window-chrome-specific control primitive with hover-only, non-persistent styling"
+    },
+    {
+      "path": "src/components/primitives/Popover/Popover.module.css",
+      "rule": "DS001",
+      "match": "transition: opacity var(--ds-motion-settle), transform var(--ds-motion-settle)",
+      "rationale": "Same combined-multi-property-transition-list constraint as Button.module.css's/IconButton.module.css's/ListRow.module.css's/InfoTooltip.module.css's own transition exceptions -- there is no single token that already expresses 'opacity and transform together', and --ds-motion-settle cannot be split into transition-duration/transition-timing-function longhand without becoming invalid CSS.",
+      "source": "Popover.module.css",
+      "owner": "primitives-sweep",
+      "reviewCondition": "a combined multi-property transition-list token, or a duration-only motion token, is added to the design system"
     }
   ]
 }

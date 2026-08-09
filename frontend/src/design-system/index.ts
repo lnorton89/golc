@@ -1,6 +1,8 @@
 // Public design-system boundary. Consumers import shared UI only from here.
 export { default as Button } from "../components/primitives/Button/Button";
 export { default as Chip } from "../components/primitives/Chip/Chip";
+export { default as Combobox } from "../components/primitives/Combobox/Combobox";
+export type { ComboboxOption } from "../components/primitives/Combobox/Combobox";
 export { default as ConfirmDialog } from "../components/primitives/ConfirmDialog/ConfirmDialog";
 export { default as Dialog } from "../components/primitives/Dialog/Dialog";
 export { default as EmptyState } from "../components/primitives/EmptyState/EmptyState";
@@ -10,11 +12,17 @@ export { default as IconButton } from "../components/primitives/IconButton/IconB
 export { default as InfoTooltip } from "../components/primitives/InfoTooltip/InfoTooltip";
 export { default as ListRow } from "../components/primitives/ListRow/ListRow";
 export { default as LoadingState } from "../components/primitives/LoadingState/LoadingState";
+export { default as Menu } from "../components/primitives/Menu/Menu";
+export type { MenuItem } from "../components/primitives/Menu/Menu";
 export { default as NumberStepper } from "../components/primitives/NumberStepper/NumberStepper";
 export { default as Panel } from "../components/primitives/Panel/Panel";
 export { default as PanelHeader } from "../components/primitives/PanelHeader/PanelHeader";
+export { default as Popover } from "../components/primitives/Popover/Popover";
 export { default as ResizeHandle } from "../components/primitives/ResizeHandle/ResizeHandle";
 export { default as ScrollRegion } from "../components/primitives/ScrollRegion/ScrollRegion";
+export { default as Select } from "../components/primitives/Select/Select";
+export type { SelectOption } from "../components/primitives/Select/Select";
+export { default as Slider } from "../components/primitives/Slider/Slider";
 export { default as Tabs } from "../components/primitives/Tabs/Tabs";
 export { default as Toolbar } from "../components/primitives/Toolbar/Toolbar";
 export { DataList, FormActions, GuidedFlow, ImpactReview, LauncherMasters, MidiPickup, SafetyAction, SceneStack, SplitPane, WorkspaceFrame } from "./patterns";

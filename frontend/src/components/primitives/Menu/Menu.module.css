@@ -1,0 +1,72 @@
+.positioner {
+  z-index: var(--ds-stacking-popover);
+}
+
+.popup {
+  box-sizing: border-box;
+  min-width: 12rem;
+  max-width: min(20rem, calc(100vw - var(--ds-spacing-space4)));
+  padding-block: var(--ds-spacing-space1);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-medium);
+  background: var(--ds-surface-overlay);
+  color: var(--ds-text-primary);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-spacing-space2);
+  padding-block: var(--ds-spacing-space2);
+  padding-inline: var(--ds-spacing-space4);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  line-height: var(--ds-typography-line-height-body);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.item[data-highlighted] {
+  background: var(--ds-surface-panel-subdued);
+}
+
+/* Base UI marks a disabled Item via aria-disabled/data-disabled, not the
+   native `disabled` attribute (roving-tabindex composite list, same
+   pattern Tabs already uses) -- style via [data-disabled], not :disabled. */
+.item[data-disabled] {
+  color: var(--ds-text-muted);
+  cursor: not-allowed;
+}
+
+.item.destructive {
+  color: var(--ds-action-destructive);
+}
+
+.item.destructive[data-highlighted] {
+  background: var(--ds-action-destructive);
+  color: var(--ds-action-on-destructive);
+}
+
+.item.destructive[data-disabled] {
+  color: var(--ds-text-muted);
+}
+
+.item:focus-visible {
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
+  /* Negative, not the usual positive --ds-focus-offset: an outward ring
+     would get clipped by the popup's own edge for first/last items (same
+     reasoning as Tabs.module.css's .tab:focus-visible, the other
+     scrollable/edge-adjacent composite-list item in this design system). */
+  outline-offset: -2px;
+}
+
+.icon {
+  flex-shrink: 0;
+  width: var(--ds-sizing-icon16);
+  height: var(--ds-sizing-icon16);
+}

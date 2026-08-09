@@ -1,0 +1,107 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-spacing-space1);
+}
+
+.label {
+  font-family: var(--ds-typography-font-family-mono);
+  font-size: var(--ds-typography-font-size-compact);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  line-height: var(--ds-typography-line-height-body);
+  color: var(--ds-text-secondary);
+}
+
+/* touch-action isn't a design-system-tokenized property (it carries no
+   visual value of its own) -- it just stops the browser's own touch
+   scroll/zoom gestures from fighting the thumb's pointer-drag handling,
+   the same reason Base UI's own docs examples always pair a slider
+   Control with `touch-action: none`. */
+.control {
+  display: flex;
+  align-items: center;
+  min-height: var(--ds-sizing-control-default);
+  touch-action: none;
+}
+
+.control[data-disabled] {
+  opacity: 0.5;
+}
+
+.track {
+  position: relative;
+  flex: 1;
+  height: var(--ds-spacing-space2);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-pill);
+  background: var(--ds-surface-control);
+  cursor: pointer;
+}
+
+.track[data-disabled] {
+  cursor: not-allowed;
+}
+
+.indicator {
+  position: absolute;
+  inset-block: 0;
+  border-radius: inherit;
+  background: var(--ds-action-primary);
+}
+
+/* No position/top/transform here: Base UI's own Thumb already sets
+   `position: absolute; top: 50%; inset-inline-start: <percent>;
+   translate: -50% -50%;` inline per-instance (verified against the
+   rendered DOM, not assumed) to place and center the thumb on the track
+   at its current value. A `transform: translate(-50%, -50%)` layered on
+   top here would compose with that inline `translate` (transform and the
+   individual translate/rotate/scale properties apply independently and
+   stack) and double the offset, shoving the thumb visibly off its anchor
+   -- this primitive only owns the thumb's size/color/interaction chrome. */
+.thumb {
+  width: var(--ds-sizing-icon20);
+  height: var(--ds-sizing-icon20);
+  border-radius: var(--ds-radii-pill);
+  background: var(--ds-action-primary);
+  cursor: pointer;
+  /* Omitting an explicit property name applies the shorthand to every
+     animatable property that changes below (background-color on
+     hover/active, outline on focus-visible) -- keeps the declaration's
+     value a bare `var(--ds-motion-tap)` reference, matching the checker's
+     single-token pattern instead of needing the same
+     transition-shorthand-with-multiple-properties exception Button.module.css/
+     IconButton.module.css/ListRow.module.css had to register. */
+  transition: var(--ds-motion-tap);
+}
+
+.thumb:hover:not([data-disabled]) {
+  background: var(--ds-action-primary-hover);
+}
+
+.thumb:active:not([data-disabled]) {
+  background: var(--ds-action-primary-active);
+}
+
+.thumb[data-disabled] {
+  cursor: not-allowed;
+}
+
+/* Slider.Thumb renders a wrapper <div> around the nested <input
+   type="range"> that actually receives focus -- the div itself is never
+   focusable, so :focus-visible on .thumb directly never matches (confirmed
+   against Base UI's own Tailwind example, which reaches for the same
+   :has(:focus-visible) pattern). */
+.thumb:has(:focus-visible) {
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb {
+    transition-duration: var(--ds-motion-snap);
+  }
+}

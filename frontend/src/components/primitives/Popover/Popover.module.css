@@ -1,0 +1,51 @@
+/* Positioner is the element Base UI actually gives `position: fixed`
+   geometry to (top/left computed via floating-ui) -- the popup box nested
+   inside it is a normal block, so the stacking token belongs here, not on
+   .popup, the same way InfoTooltip's own floating box carries its z-index
+   directly on the element that is actually positioned. */
+.positioner {
+  z-index: var(--ds-stacking-popover);
+}
+
+/* Flat/paper brand (index.css): border + background separation only, no
+   box-shadow -- matches Dialog's own .dialog and InfoTooltip's .tooltip.
+   Sized narrower and with a lighter radius than Dialog's .dialog (a true
+   modal) to read as this primitive's lighter-weight sibling rather than a
+   second modal. */
+.popup {
+  box-sizing: border-box;
+  max-width: min(24rem, calc(100vw - var(--ds-spacing-space8)));
+  padding: var(--ds-spacing-space4);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-medium);
+  background: var(--ds-surface-overlay);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  line-height: var(--ds-typography-line-height-body);
+  transition: opacity var(--ds-motion-settle), transform var(--ds-motion-settle);
+}
+
+/* Base UI sets these on the popup element itself while it is animating
+   in/out (present for one frame on mount, then again through the closing
+   transition) -- not raw open/closed state, which is instant. */
+.popup[data-starting-style],
+.popup[data-ending-style] {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+.popup:focus-visible {
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popup {
+    transition-duration: var(--ds-motion-snap);
+  }
+}
