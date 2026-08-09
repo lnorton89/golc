@@ -26,9 +26,11 @@ describe("HelpOverlay", () => {
   it("calls onClose when the backdrop is clicked, but not when the dialog body is clicked", () => {
     const onClose = vi.fn();
     render(<HelpOverlay open onClose={onClose} />);
-    fireEvent.mouseDown(screen.getByRole("dialog"));
+    fireEvent.click(screen.getByRole("dialog"));
     expect(onClose).not.toHaveBeenCalled();
-    fireEvent.mouseDown(screen.getByTestId("dialog-backdrop"));
+    // Dialog.tsx's Base UI-backed backdrop closes on a click (not a bare
+    // mousedown/pointerdown) -- mirrors Dialog.test.tsx's own convention.
+    fireEvent.click(screen.getByTestId("dialog-backdrop"));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

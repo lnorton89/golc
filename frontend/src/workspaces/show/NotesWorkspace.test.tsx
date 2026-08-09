@@ -6,7 +6,7 @@
 // so selecting a note and mounting the editor stays cheap and deterministic
 // here too.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 vi.mock("@tiptap/core", () => {
   class FakeEditor {
@@ -191,9 +191,13 @@ describe("NotesWorkspace", () => {
     await waitFor(() => expect(screen.getByLabelText("Note title")).toHaveValue("Load-In Checklist"));
 
     fireEvent.click(screen.getByRole("button", { name: "Delete Note" }));
-    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    const dialog = screen.getByRole("alertdialog");
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Delete Note" })[1]);
+    // Base UI (Dialog's underlying primitive) marks the rest of the page
+    // inert while the dialog is open, so the workspace's own toolbar
+    // "Delete Note" trigger drops out of the accessibility tree -- only the
+    // dialog's own confirm button is queryable now, scoped via `within`.
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete Note" }));
 
     await waitFor(() => expect(svc.DeleteNote).toHaveBeenCalledWith("Load-In Checklist"));
     await waitFor(() => expect(screen.getByText("No notes yet")).toBeInTheDocument());

@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import ConfirmDialog from "./ConfirmDialog";
 
 afterEach(() => cleanup());
 
 describe("ConfirmDialog", () => {
-  it("focuses the safe cancellation action before a confirmation", () => {
+  it("focuses the safe cancellation action before a confirmation", async () => {
     render(
       <ConfirmDialog
         open
@@ -20,7 +20,9 @@ describe("ConfirmDialog", () => {
     );
 
     expect(screen.getByRole("dialog", { name: "Remove mapping?" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Keep mapping" })).toHaveFocus();
+    // Base UI resolves initialFocus asynchronously (after its own opening
+    // effect/animation-frame settles), not synchronously on mount.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Keep mapping" })).toHaveFocus());
   });
 
   it("uses alertdialog semantics and a destructive confirmation action only when destructive", () => {

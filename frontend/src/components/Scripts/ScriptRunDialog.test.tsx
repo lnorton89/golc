@@ -56,7 +56,7 @@ describe("ScriptRunDialog", () => {
     expect(screen.getByRole("button", { name: /^Start Debugging Chase Cycler$/ })).toBeInTheDocument();
   });
 
-  it("carries role=dialog and aria-modal=true, and moves focus onto the Cancel action on open", () => {
+  it("carries role=dialog and aria-modal=true, and moves focus onto the Cancel action on open", async () => {
     render(
       <ScriptRunDialog
         mode="run"
@@ -72,8 +72,9 @@ describe("ScriptRunDialog", () => {
     // 13-27-PLAN.md Task 1 migrated this dialog onto the shared Dialog
     // primitive, which focuses the "least-destructive action" on open
     // (Dialog.tsx's own doc comment, same convention as ConfirmDialog.tsx) --
-    // Cancel, not the dialog surface itself.
-    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+    // Cancel, not the dialog surface itself. Base UI (Dialog's underlying
+    // primitive) resolves this focus asynchronously, not on mount.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus());
   });
 
   it("pre-selects the saved capability scope and resource preset, never blank", () => {
@@ -172,9 +173,9 @@ describe("ScriptRunDialog", () => {
     const onCancel = vi.fn();
     render(<ScriptRunDialog mode="run" scriptName="Chase" profile={profile()} onSubmit={onSubmit} onCancel={onCancel} />);
 
-    // Dialog.tsx's backdrop closes on mousedown (not click) -- mirrors
-    // Dialog.test.tsx's own convention.
-    fireEvent.mouseDown(screen.getByTestId("dialog-backdrop"));
+    // Dialog.tsx's Base UI-backed backdrop closes on a click (not a bare
+    // mousedown/pointerdown) -- mirrors Dialog.test.tsx's own convention.
+    fireEvent.click(screen.getByTestId("dialog-backdrop"));
 
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onSubmit).not.toHaveBeenCalled();

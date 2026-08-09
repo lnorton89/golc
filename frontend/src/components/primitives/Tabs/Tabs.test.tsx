@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import Tabs from "./Tabs";
 
@@ -26,7 +27,8 @@ describe("Tabs", () => {
     expect(screen.getByText("Fixture patch")).toBeInTheDocument();
   });
 
-  it("uses arrow keys, Home, and End to focus and select enabled tabs", () => {
+  it("uses arrow keys, Home, and End to focus and select enabled tabs", async () => {
+    const user = userEvent.setup();
     render(<Tabs aria-label="Show views" tabs={tabs} />);
 
     const fixtures = screen.getByRole("tab", { name: "Fixtures" });
@@ -34,20 +36,26 @@ describe("Tabs", () => {
     const output = screen.getByRole("tab", { name: "Output" });
 
     fixtures.focus();
-    fireEvent.keyDown(fixtures, { key: "ArrowRight" });
-    expect(scenes).toHaveFocus();
-    expect(scenes).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(fixtures).toHaveFocus());
+    // Base UI's Tabs handles arrow/Home/End navigation through its own
+    // composite-list keyboard handling, which needs a real keypress
+    // (user-event) to exercise -- a synthetic fireEvent.keyDown on a single
+    // button doesn't drive it the same way.
+    await user.keyboard("{ArrowRight}");
+    await waitFor(() => expect(scenes).toHaveFocus());
+    await waitFor(() => expect(scenes).toHaveAttribute("aria-selected", "true"));
 
-    fireEvent.keyDown(scenes, { key: "End" });
-    expect(output).toHaveFocus();
-    expect(output).toHaveAttribute("aria-selected", "true");
+    await user.keyboard("{End}");
+    await waitFor(() => expect(output).toHaveFocus());
+    await waitFor(() => expect(output).toHaveAttribute("aria-selected", "true"));
 
-    fireEvent.keyDown(output, { key: "Home" });
-    expect(fixtures).toHaveFocus();
-    expect(fixtures).toHaveAttribute("aria-selected", "true");
+    await user.keyboard("{Home}");
+    await waitFor(() => expect(fixtures).toHaveFocus());
+    await waitFor(() => expect(fixtures).toHaveAttribute("aria-selected", "true"));
   });
 
-  it("wraps arrow navigation and skips disabled tabs", () => {
+  it("wraps arrow navigation and skips disabled tabs", async () => {
+    const user = userEvent.setup();
     render(
       <Tabs
         aria-label="Show views"
@@ -64,26 +72,33 @@ describe("Tabs", () => {
     const disabled = screen.getByRole("tab", { name: "Disabled" });
 
     fixtures.focus();
-    fireEvent.keyDown(fixtures, { key: "ArrowLeft" });
-    expect(output).toHaveFocus();
+    await waitFor(() => expect(fixtures).toHaveFocus());
+    await user.keyboard("{ArrowLeft}");
+    await waitFor(() => expect(output).toHaveFocus());
 
-    fireEvent.keyDown(output, { key: "ArrowRight" });
-    expect(fixtures).toHaveFocus();
-    expect(disabled).toBeDisabled();
+    await user.keyboard("{ArrowRight}");
+    await waitFor(() => expect(fixtures).toHaveFocus());
+    // Base UI marks a disabled Tab with aria-disabled/data-disabled rather
+    // than the native `disabled` attribute -- keeps it perceivable/roving-
+    // tabindex-aware in the composite list rather than removing it from the
+    // accessibility tree outright, the recommended pattern for tablists.
+    expect(disabled).toHaveAttribute("aria-disabled", "true");
     expect(disabled).toHaveAttribute("aria-selected", "false");
   });
 
-  it("activates a focused tab with Enter or Space and reports the selected id", () => {
+  it("activates a focused tab with Enter or Space and reports the selected id", async () => {
+    const user = userEvent.setup();
     const onValueChange = vi.fn();
     render(<Tabs aria-label="Show views" tabs={tabs} onValueChange={onValueChange} />);
 
     const output = screen.getByRole("tab", { name: "Output" });
     output.focus();
-    fireEvent.keyDown(output, { key: "Enter" });
-    expect(onValueChange).toHaveBeenLastCalledWith("output");
-    expect(output).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(output).toHaveFocus());
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(onValueChange).toHaveBeenLastCalledWith("output"));
+    await waitFor(() => expect(output).toHaveAttribute("aria-selected", "true"));
 
-    fireEvent.keyDown(output, { key: " " });
+    await user.keyboard(" ");
     expect(onValueChange).toHaveBeenLastCalledWith("output");
   });
 
