@@ -3,7 +3,7 @@
   "name": "golc-desktop",
   "outputfilename": "golc-desktop",
   "frontend:dir": "../../frontend",
-  "frontend:install": "npm install",
+  "frontend:install": "npm ci --no-audit --no-fund",
   "frontend:build": "npm run build",
   "frontend:dev:build": "node scripts/build-dev.mjs",
   "frontend:dev:watcher": "npm run dev",
