@@ -15,6 +15,7 @@
     "test:e2e:design-system": "playwright test e2e/design-system --workers=1",
     "validate:phase13-evidence": "node scripts/design-system/validate-phase13-evidence.mjs",
     "build": "node scripts/build.mjs",
+    "build:dev": "node scripts/build-dev.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
