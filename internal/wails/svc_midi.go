@@ -389,9 +389,15 @@ func (s *MidiService) dispatchMapping(mapping operatorsurface.MidiMapping, armed
 // identically -- no second, divergent playback-authority path). A target
 // scene since deleted from the show resolves to "" (sceneNameByID's
 // existing read-only projection tolerance) and dispatches nothing rather
-// than risk executing against an empty/garbled scene name.
+// than risk executing against an empty/garbled scene name. show.Load/the
+// mutation this triggers both open through internal/show/schema.go's
+// openStore, which applies "PRAGMA busy_timeout = 5000" as the first
+// statement on every connection -- SQLite itself now internally waits out
+// the exact transient cross-process lock contention this dispatch loop can
+// hit (06-09-SUMMARY.md's original finding), so no application-level retry
+// is needed here.
 func (s *MidiService) dispatchSceneSwitch(sceneID uuid.UUID) {
-	state, err := showLoadWithRetry(s.root, s.showPath)
+	state, err := show.Load(s.root, s.showPath)
 	if err != nil {
 		return
 	}
@@ -399,7 +405,7 @@ func (s *MidiService) dispatchSceneSwitch(sceneID uuid.UUID) {
 	if name == "" {
 		return
 	}
-	s.executeWithRetry("playback", "switch", name, "--show", s.showPath)
+	s.execute("playback", "switch", name, "--show", s.showPath)
 }
 
 // dispatchLayerToggle flips ref's Enabled flag via "scene layer set <scene>
@@ -410,7 +416,7 @@ func (s *MidiService) dispatchSceneSwitch(sceneID uuid.UUID) {
 // divergent copy). A target scene/layer since deleted from the show
 // resolves to no match and dispatches nothing.
 func (s *MidiService) dispatchLayerToggle(ref operatorsurface.LayerRef) {
-	state, err := showLoadWithRetry(s.root, s.showPath)
+	state, err := show.Load(s.root, s.showPath)
 	if err != nil {
 		return
 	}
@@ -449,7 +455,7 @@ func (s *MidiService) dispatchLayerToggle(ref operatorsurface.LayerRef) {
 		args = append(args, "--disable")
 	}
 	args = append(args, "--show", s.showPath)
-	s.executeWithRetry(args...)
+	s.execute(args...)
 }
 
 // dispatchSafetyTrigger dials+forwards the daemon safety route matching
@@ -525,73 +531,6 @@ func (s *MidiService) execute(args ...string) Result {
 	}
 	result := registry.Execute(command.Request{Root: s.root, Args: args})
 	return Result{ExitCode: result.ExitCode, Stdout: string(result.Stdout), Stderr: string(result.Stderr)}
-}
-
-// dispatchLockRetries/dispatchLockRetryDelay bound the retry this file
-// applies around the show store's transient "database is locked"
-// contention (internal/show/schema.go sets no busy_timeout and performs no
-// retry of its own -- it documents a single-writer-per-process model, but
-// MidiService's own dispatch loop is a persistent background goroutine that
-// can race a concurrent, independently-triggered show.Load from another
-// service, e.g. PlaybackService.GetState()/SurfaceService.ListMappings()
-// polled by the frontend at the same moment as a physical MIDI press).
-// [Rule 2]: without this retry, a transient lock would silently drop the
-// operator's button press (dispatchSceneSwitch/dispatchLayerToggle already
-// discard a show.Load error as "nothing to dispatch," and the underlying
-// GOLC_SHOW_STATE_INVALID mutation failure carries no automatic retry of
-// its own) rather than switch the scene/toggle the layer as pressed. Five
-// attempts at a 5ms backoff bound the added worst-case latency to ~25ms,
-// well inside a physical control's perceived response budget.
-const (
-	dispatchLockRetries   = 5
-	dispatchLockRetryWait = 5 * time.Millisecond
-)
-
-// isTransientShowLockError reports whether err is the show store's own
-// "database is locked" (SQLite SQLITE_BUSY) diagnostic -- the one show.Load/
-// mutation failure mode this file retries; every other error (a genuinely
-// corrupt/missing store, GOLC_SHOW_NOT_GOLC_FORMAT, etc.) is not transient
-// and is returned to the caller immediately, unretried.
-func isTransientShowLockError(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "database is locked")
-}
-
-// showLoadWithRetry retries show.Load up to dispatchLockRetries times when
-// the failure is isTransientShowLockError, so dispatchSceneSwitch/
-// dispatchLayerToggle's pre-read does not silently treat a transient lock
-// as "nothing to dispatch."
-func showLoadWithRetry(root, showPath string) (show.State, error) {
-	var lastErr error
-	for attempt := 0; attempt < dispatchLockRetries; attempt++ {
-		state, err := show.Load(root, showPath)
-		if err == nil {
-			return state, nil
-		}
-		lastErr = err
-		if !isTransientShowLockError(err) {
-			return show.State{}, err
-		}
-		time.Sleep(dispatchLockRetryWait)
-	}
-	return show.State{}, lastErr
-}
-
-// executeWithRetry runs execute, retrying up to dispatchLockRetries times
-// when the registry route's own Result surfaces the show store's transient
-// "database is locked" diagnostic in Stderr -- the mutating counterpart to
-// showLoadWithRetry, so a scene switch/layer toggle is not silently dropped
-// by the same transient contention on its own internal Load-mutate-Save
-// call.
-func (s *MidiService) executeWithRetry(args ...string) Result {
-	var result Result
-	for attempt := 0; attempt < dispatchLockRetries; attempt++ {
-		result = s.execute(args...)
-		if result.ExitCode == 0 || !isTransientShowLockError(fmt.Errorf("%s", result.Stderr)) {
-			return result
-		}
-		time.Sleep(dispatchLockRetryWait)
-	}
-	return result
 }
 
 // dialFn returns s.dial, defaulting to defaultDialForward for a MidiService
