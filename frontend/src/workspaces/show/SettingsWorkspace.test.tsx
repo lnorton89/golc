@@ -7,12 +7,14 @@ describe("SettingsWorkspace", () => {
   beforeEach(() => {
     window.localStorage.clear();
     document.documentElement.removeAttribute("data-theme");
+    document.documentElement.removeAttribute("data-theme-name");
   });
 
   afterEach(() => {
     cleanup();
     window.localStorage.clear();
     document.documentElement.removeAttribute("data-theme");
+    document.documentElement.removeAttribute("data-theme-name");
   });
 
   it("defaults to Match System selected", () => {
@@ -42,5 +44,24 @@ describe("SettingsWorkspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Match System" }));
     expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
+  });
+
+  it("defaults the Theme palette picker to Default selected", () => {
+    render(<SettingsWorkspace />);
+    expect(screen.getByRole("radiogroup", { name: "Theme" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Default" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Gruvbox" })).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("selecting a palette applies data-theme-name and persists across remount", () => {
+    render(<SettingsWorkspace />);
+    fireEvent.click(screen.getByRole("radio", { name: "Gruvbox" }));
+
+    expect(screen.getByRole("radio", { name: "Gruvbox" })).toHaveAttribute("aria-checked", "true");
+    expect(document.documentElement.getAttribute("data-theme-name")).toBe("gruvbox");
+
+    cleanup();
+    render(<SettingsWorkspace />);
+    expect(screen.getByRole("radio", { name: "Gruvbox" })).toHaveAttribute("aria-checked", "true");
   });
 });

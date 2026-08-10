@@ -105,4 +105,33 @@ describe("RadioGroup", () => {
     expect(onValueChange).not.toHaveBeenCalled();
     expect(fade).toHaveAttribute("aria-checked", "false");
   });
+
+  describe('layout="wrap"', () => {
+    const SWATCH_OPTIONS = [
+      { value: "default", label: "Default", swatch: "#1b44d9" },
+      { value: "gruvbox", label: "Gruvbox", swatch: "#fe8019" },
+    ];
+
+    it("still exposes each option as a radio, and renders its swatch as a decorative element", () => {
+      render(<RadioGroup label="Theme" layout="wrap" defaultValue="default" options={SWATCH_OPTIONS} />);
+
+      const group = screen.getByRole("radiogroup", { name: "Theme" });
+      expect(group).toHaveAttribute("data-layout", "wrap");
+      const gruvbox = screen.getByRole("radio", { name: "Gruvbox" });
+      expect(gruvbox).toHaveAttribute("aria-checked", "false");
+      expect(screen.getByRole("radio", { name: "Default" })).toHaveAttribute("aria-checked", "true");
+    });
+
+    it("selects an option on click, same as the stacked layout", async () => {
+      const user = userEvent.setup();
+      const onValueChange = vi.fn();
+      render(
+        <RadioGroup label="Theme" layout="wrap" defaultValue="default" options={SWATCH_OPTIONS} onValueChange={onValueChange} />,
+      );
+
+      await user.click(screen.getByRole("radio", { name: "Gruvbox" }));
+      await waitFor(() => expect(screen.getByRole("radio", { name: "Gruvbox" })).toHaveAttribute("aria-checked", "true"));
+      expect(onValueChange).toHaveBeenLastCalledWith("gruvbox");
+    });
+  });
 });

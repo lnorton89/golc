@@ -18,6 +18,11 @@
   gap: var(--ds-spacing-space2);
 }
 
+.options[data-layout="wrap"] {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
 .option {
   display: inline-flex;
   align-items: center;
@@ -78,6 +83,69 @@
   background: var(--ds-action-primary);
 }
 
+/* `layout="wrap"` option: Radio.Root itself is styled as the whole
+   clickable pill (mirroring Button's own primary/secondary look, since
+   this replaces what used to be a literal <Button> per option) --
+   selection reads via the pill's own filled/outlined state, not a
+   separate dot, so .dot/Radio.Indicator is never rendered for this
+   layout. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-spacing-space1);
+  min-height: var(--ds-sizing-control-default);
+  padding-inline: var(--ds-spacing-space4);
+  box-sizing: border-box;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-small);
+  background: var(--ds-surface-control);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-ui);
+  font-size: var(--ds-typography-font-size-body);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  cursor: pointer;
+  transition: var(--ds-motion-tap);
+}
+
+.pill:hover:not([data-disabled]):not([data-checked]) {
+  border-color: var(--ds-border-strong);
+}
+
+.pill[data-checked] {
+  border-color: var(--ds-action-primary);
+  background: var(--ds-action-primary);
+  color: var(--ds-action-on-primary);
+}
+
+.pill[data-checked]:hover:not([data-disabled]) {
+  background: var(--ds-action-primary-hover);
+  border-color: var(--ds-action-primary-hover);
+}
+
+.pill[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.pill:focus-visible {
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
+}
+
+.swatch {
+  display: inline-block;
+  width: var(--ds-sizing-icon12);
+  height: var(--ds-sizing-icon12);
+  border-radius: var(--ds-radii-pill);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+}
+
 .optionLabel {
   font-family: var(--ds-typography-font-family-ui);
   font-size: var(--ds-typography-font-size-body);
@@ -87,7 +155,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .radio {
+  .radio,
+  .pill {
     transition-duration: var(--ds-motion-snap);
   }
 }

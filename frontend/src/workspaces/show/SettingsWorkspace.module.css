@@ -82,21 +82,6 @@
   padding-block: var(--ds-spacing-space2);
 }
 
-/* .swatch's background is set inline per theme (SettingsWorkspace.tsx's
-   own THEME_NAME_OPTIONS) -- a deliberately un-tokenized, fixed preview of
-   that palette's own accent, independent of whichever theme is currently
-   applied to :root. Sized/shaped here since that part (unlike the color)
-   is shared chrome, not per-theme data. */
-.swatch {
-  display: inline-block;
-  width: var(--ds-sizing-icon12);
-  height: var(--ds-sizing-icon12);
-  border-radius: var(--ds-radii-pill);
-  border-width: 1px;
-  border-style: solid;
-  border-color: var(--ds-border-default);
-}
-
 .aboutTitle,
 .creditUsageLabel {
   color: var(--ds-text-primary);

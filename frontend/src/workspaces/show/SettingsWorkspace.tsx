@@ -26,7 +26,7 @@ import {
 } from "../../lib/theme";
 import { openExternalURL } from "../../lib/wailsBridge";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
-import { Button, Panel, PanelHeader, ScrollRegion, ToggleGroup, type ToggleGroupOption, WorkspaceFrame } from "../../design-system";
+import { Button, Panel, PanelHeader, RadioGroup, type RadioGroupOption, ScrollRegion, ToggleGroup, type ToggleGroupOption, WorkspaceFrame } from "../../design-system";
 import HotkeySettings from "../../components/HotkeySettings/HotkeySettings";
 import styles from "./SettingsWorkspace.module.css";
 
@@ -49,19 +49,19 @@ const THEME_OPTIONS: ReadonlyArray<ToggleGroupOption> = [
 // than read from the generated CSS: tokens.generated.ts exports role/theme
 // *names*, not resolved color values, and this preview is deliberately
 // independent of whichever theme is currently applied to :root.
-const THEME_NAME_OPTIONS: Array<{ id: ThemeName; label: string; swatch: string }> = [
-  { id: "default", label: "Default", swatch: "#1b44d9" },
-  { id: "gruvbox", label: "Gruvbox", swatch: "#fe8019" },
-  { id: "tokyo", label: "Tokyo Night", swatch: "#7aa2f7" },
-  { id: "dracula", label: "Dracula", swatch: "#bd93f9" },
-  { id: "nord", label: "Nord", swatch: "#88c0d0" },
-  { id: "catppuccin", label: "Catppuccin", swatch: "#cba6f7" },
-  { id: "solarized", label: "Solarized", swatch: "#268bd2" },
-  { id: "one-dark", label: "One Dark", swatch: "#61afef" },
-  { id: "rose-pine", label: "Rosé Pine", swatch: "#c4a7e7" },
-  { id: "everforest", label: "Everforest", swatch: "#a7c080" },
-  { id: "rainbow", label: "Rainbow", swatch: "#ff2d95" },
-  { id: "acid", label: "Acid", swatch: "#c4fd3f" },
+const THEME_NAME_OPTIONS: ReadonlyArray<RadioGroupOption> = [
+  { value: "default", label: "Default", swatch: "#1b44d9" },
+  { value: "gruvbox", label: "Gruvbox", swatch: "#fe8019" },
+  { value: "tokyo", label: "Tokyo Night", swatch: "#7aa2f7" },
+  { value: "dracula", label: "Dracula", swatch: "#bd93f9" },
+  { value: "nord", label: "Nord", swatch: "#88c0d0" },
+  { value: "catppuccin", label: "Catppuccin", swatch: "#cba6f7" },
+  { value: "solarized", label: "Solarized", swatch: "#268bd2" },
+  { value: "one-dark", label: "One Dark", swatch: "#61afef" },
+  { value: "rose-pine", label: "Rosé Pine", swatch: "#c4a7e7" },
+  { value: "everforest", label: "Everforest", swatch: "#a7c080" },
+  { value: "rainbow", label: "Rainbow", swatch: "#ff2d95" },
+  { value: "acid", label: "Acid", swatch: "#c4fd3f" },
 ];
 
 interface Credit {
@@ -383,18 +383,15 @@ export default function SettingsWorkspace() {
               />
             </div>
             <span className={styles.groupLabel}>Theme</span>
-            <div className={styles.themeRow} role="group" aria-label="Theme">
-              {THEME_NAME_OPTIONS.map((option) => (
-                <Button
-                  key={option.id}
-                  variant={themeName === option.id ? "primary" : "secondary"}
-                  aria-pressed={themeName === option.id}
-                  onClick={() => handleSelectThemeName(option.id)}
-                >
-                  <span className={styles.swatch} style={{ background: option.swatch }} aria-hidden="true" />
-                  {option.label}
-                </Button>
-              ))}
+            <div className={styles.themeRow}>
+              <RadioGroup
+                label="Theme"
+                hideLabel
+                layout="wrap"
+                options={THEME_NAME_OPTIONS}
+                value={themeName}
+                onValueChange={(next) => handleSelectThemeName(next as ThemeName)}
+              />
             </div>
           </Panel>
 
