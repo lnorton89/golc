@@ -23,8 +23,9 @@
 // mode (or switching/deselecting the surface) clears both back to
 // unrestricted/author-mode dispatch.
 //
-// All Go-bound calls go through window.go.wails.SurfaceService (Wails v2's
-// runtime-injected bridge for the internal/wails.SurfaceService struct);
+// All Go-bound calls go through wailsBridge.ts's requireSurfaceService
+// accessor (that module owns every read of Wails v2's runtime-injected
+// bridge for the internal/wails.SurfaceService struct);
 // this file owns every SurfaceService call in the component tree --
 // SurfaceList.tsx and AssignmentToggle.tsx are purely presentational and
 // receive data/callbacks as props. 06-07-PLAN.md's SurfaceService returns
@@ -39,8 +40,13 @@ import { Eye, ArrowLeft } from "lucide-react";
 
 import { useGolcStore } from "../../store/store";
 import {
+  assertOk,
+  requireSurfaceService,
   setPlaybackActiveSurface,
   setSafetyActiveSurface,
+  type SurfaceControlRefInput,
+  type SurfaceControlRefView,
+  type SurfaceSummary,
 } from "../../lib/wailsBridge";
 import { Button, ErrorState, LoadingState, Panel, ScrollRegion } from "../../design-system";
 import AssignmentToggle from "./AssignmentToggle";
@@ -52,85 +58,33 @@ import styles from "./OperatorSurface.module.css";
 // Types (mirror internal/wails/svc_surface.go's JSON shapes field-for-field)
 // ---------------------------------------------------------------------------
 
-export type ControlKind = "scene" | "layer" | "master" | "safety";
+// ControlKind/ControlRefInput/ControlRefView/SurfaceSummary/SurfaceDetail
+// are re-exported from wailsBridge.ts's canonical declarations rather than
+// re-declared here: they mirror internal/wails/svc_surface.go's JSON
+// shapes, which that module owns. The re-export preserves this file as the
+// import site Launcher.tsx, SurfaceList.tsx and DeskOperatorFixture.tsx
+// already use, under the names they already import.
+export type {
+  SurfaceControlKind as ControlKind,
+  SurfaceControlRefInput as ControlRefInput,
+  SurfaceControlRefView as ControlRefView,
+  SurfaceSummary,
+  SurfaceDetail,
+} from "../../lib/wailsBridge";
 
-export interface ControlRefInput {
-  kind: ControlKind;
-  scene?: string;
-  layerKind?: string;
-  masterKind?: "grand" | "group";
-  group?: string;
-  safety?: string;
-}
+// requireSurfaceService is wailsBridge.ts's throwing accessor -- this
+// component is the one caller that treats an absent binding as a
+// programming error rather than a degraded state, and that behaviour is
+// preserved verbatim. The binding's return types are now declared
+// precisely at the source (the bridge owns the wire shapes), so the
+// `as unknown as <local shape>` narrowing cast this file used to need is
+// gone entirely.
+const surfaceService = requireSurfaceService;
 
-export interface ControlRefView extends ControlRefInput {
-  label: string;
-  assigned: boolean;
-}
-
-export interface SurfaceSummary {
-  id: string;
-  name: string;
-  sceneCount: number;
-  layerCount: number;
-  masterCount: number;
-  safetyCount: number;
-  assignedCount: number;
-  midiMappingCount: number;
-}
-
-export interface SurfaceDetail {
-  id: string;
-  name: string;
-  controls: ControlRefView[];
-  midiMappingCount: number;
-}
-
-interface GoResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
-interface SurfaceServiceBinding {
-  CreateSurface(name: string): Promise<GoResult>;
-  ListSurfaces(): Promise<SurfaceSummary[]>;
-  AssignItem(surfaceName: string, controlRef: ControlRefInput): Promise<GoResult>;
-  UnassignItem(surfaceName: string, controlRef: ControlRefInput): Promise<GoResult>;
-  ShowSurface(surfaceName: string): Promise<SurfaceDetail>;
-  RemoveSurface(surfaceName: string): Promise<GoResult>;
-  AuthorizeControl(surfaceName: string, controlRef: ControlRefInput): Promise<GoResult>;
-}
-
-// The `Window.go.wails` global shape itself is declared once, centrally,
-// in src/lib/wailsBridge.ts (see that file's comment) -- declaring it here
-// too would collide with wailsBridge.ts's declaration under TypeScript's
-// declaration-merging rules for the same inline-typed `go` property. Cast
-// through that shared shape locally instead.
-function surfaceService(): SurfaceServiceBinding {
-  const service = window.go?.wails?.SurfaceService;
-  if (!service) {
-    throw new Error(
-      "GOLC_WAILS_BINDING_UNAVAILABLE: SurfaceService is not available on window.go.wails -- this component must run inside the golc-desktop Wails webview.",
-    );
-  }
-  // wailsBridge.ts's shared ambient declaration types this binding's return
-  // values loosely (unknown) since it can't import this component's own
-  // SurfaceSummary/SurfaceDetail shapes without an awkward reverse
-  // dependency; narrow to this file's precise local shape here instead.
-  return service as unknown as SurfaceServiceBinding;
-}
-
-function assertOk(result: GoResult, action: string): void {
-  if (result.exitCode !== 0) {
-    throw new Error(result.stderr || `${action} failed (exit ${result.exitCode})`);
-  }
-}
-
-// selector strips ControlRefView's extra label/assigned fields before
+// selector strips SurfaceControlRefView's extra label/assigned fields before
 // sending a control reference back to a binding that only accepts the bare
-// ControlRefInput selector shape.
-function selector(controlRef: ControlRefInput): ControlRefInput {
+// SurfaceControlRefInput selector shape.
+function selector(controlRef: SurfaceControlRefInput): SurfaceControlRefInput {
   const { kind, scene, layerKind, masterKind, group, safety } = controlRef;
   return { kind, scene, layerKind, masterKind, group, safety };
 }
@@ -139,7 +93,7 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-function controlKey(control: ControlRefView): string {
+function controlKey(control: SurfaceControlRefView): string {
   switch (control.kind) {
     case "scene":
       return `scene:${control.scene ?? ""}`;
@@ -163,7 +117,7 @@ export default function OperatorSurface() {
 
   const [surfaces, setSurfaces] = useState<SurfaceSummary[]>([]);
   const [selectedName, setSelectedName] = useState<string | null>(null);
-  const [controls, setControls] = useState<ControlRefView[]>([]);
+  const [controls, setControls] = useState<SurfaceControlRefView[]>([]);
   const [mode, setMode] = useState<ViewMode>("author");
   const [listLoading, setListLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -258,7 +212,7 @@ export default function OperatorSurface() {
     }
   };
 
-  const handleToggle = async (control: ControlRefView) => {
+  const handleToggle = async (control: SurfaceControlRefView) => {
     if (!selectedName) {
       return;
     }

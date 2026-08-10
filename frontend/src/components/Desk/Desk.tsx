@@ -49,10 +49,12 @@ import {
   errorMessage,
   fetchDeskUniverseValues,
   getImageDataURI,
+  getMidiService,
   listLocalFixtures,
   listPatch,
   setDeskAttribute,
   type ChannelSlotView,
+  type DeskMidiMappingView,
   type DeskUniverseValuesView,
   type FixtureLibraryRowView,
   type PatchPoolView,
@@ -70,39 +72,16 @@ import styles from "./Desk.module.css";
 // ---------------------------------------------------------------------------
 // MIDI Learn (global toggle, MidiLearnToggle.tsx / store.ts midiLearnMode) --
 // direct fader<->MIDI mappings, independent of Operator Surfaces entirely
-// (internal/deskmidi's own doc comment). Types mirror
-// internal/wails.DeskMidiMappingView's JSON shape field-for-field, and the
-// binding is cast locally off window.go.wails.MidiService, mirroring
-// MidiPanel.tsx/MidiLearn.tsx's own established "each feature file owns its
-// own minimal binding cast" convention rather than centralizing this in
-// wailsBridge.ts.
+// (internal/deskmidi's own doc comment). Both the MidiService binding and
+// DeskMidiMappingView (which mirrors internal/wails.DeskMidiMappingView's
+// JSON shape field-for-field) are declared once, centrally, in
+// wailsBridge.ts -- the module that owns every window.go read. This file
+// used to cast its own minimal copy of the binding off
+// window.go.wails.MidiService; that per-file convention let three partial
+// declarations of one Go service drift independently.
 // ---------------------------------------------------------------------------
 
-interface DeskMidiMappingView {
-  id: string;
-  channel: number;
-  kind: "note" | "control_change";
-  number: number;
-  instanceId: string;
-  capability: string;
-}
-
-interface DeskGoResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
-interface DeskMidiServiceBinding {
-  StartDeskLearn(instanceId: string, capability: string): Promise<DeskGoResult>;
-  CancelLearn(): Promise<DeskGoResult>;
-  RemoveDeskMapping(mappingId: string): Promise<DeskGoResult>;
-  ListDeskMappings(): Promise<DeskMidiMappingView[]>;
-}
-
-function deskMidiService(): DeskMidiServiceBinding | undefined {
-  return window.go?.wails?.MidiService as unknown as DeskMidiServiceBinding | undefined;
-}
+const deskMidiService = getMidiService;
 
 /** deskChannelKey matches DeskChannel.key's own `${instanceId}::${capabilityType}`
  * format (buildInstances below) -- the shared identity a desk MIDI mapping

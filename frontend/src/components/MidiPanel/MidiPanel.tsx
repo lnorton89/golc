@@ -10,8 +10,9 @@
 // mapping (D-09/D-10/D-11) -- Note/button mappings render only the armed
 // chip (D-12: no takeover slider).
 //
-// All Go-bound calls go through window.go.wails.MidiService and
-// window.go.wails.SurfaceService (Wails v2's runtime-injected bridge);
+// All Go-bound calls go through wailsBridge.ts's getMidiService and
+// getSurfaceService accessors (that module owns every read of Wails v2's
+// runtime-injected bridge);
 // this file owns every such call in the component tree -- MidiLearn.tsx
 // and SoftTakeoverSlider.tsx are purely presentational, receiving
 // data/callbacks as props (mirrors OperatorSurface.tsx's own
@@ -35,7 +36,18 @@ import { Music2, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
 import { useGolcStore } from "../../store/store";
-import { onMidiFeedback, type MidiFeedback } from "../../lib/wailsBridge";
+import {
+  errorMessage,
+  getMidiService,
+  getSurfaceService,
+  onMidiFeedback,
+  type MidiFeedback,
+  type MidiMappingView,
+  type MidiMessageKind,
+  type SurfaceControlRefInput,
+  type SurfaceControlRefView,
+  type SurfaceSummary,
+} from "../../lib/wailsBridge";
 import { motionTransition } from "../../design-system/motion";
 import { Chip, EmptyState, ErrorState, IconButton, ListRow, LoadingState, Panel, PanelHeader, Select } from "../../design-system";
 import MidiLearn from "./MidiLearn";
@@ -50,84 +62,35 @@ const rowExitTransition = motionTransition("settle");
 // shapes field-for-field)
 // ---------------------------------------------------------------------------
 
-export type ControlKind = "scene" | "layer" | "master" | "safety";
+// ControlKind/ControlRefInput/MidiMessageKind/MidiMappingView are
+// re-exported from wailsBridge.ts's canonical declarations rather than
+// re-declared here: they mirror the Go host's wire shapes, which that
+// module owns. The re-export keeps this file the import site MidiLearn.tsx
+// and SoftTakeoverSlider.tsx already use.
+export type {
+  SurfaceControlKind as ControlKind,
+  SurfaceControlRefInput as ControlRefInput,
+  MidiMessageKind,
+  MidiMappingView,
+} from "../../lib/wailsBridge";
 
-export interface ControlRefInput {
-  kind: ControlKind;
-  scene?: string;
-  layerKind?: string;
-  masterKind?: "grand" | "group";
-  group?: string;
-  safety?: string;
-}
+// Both bindings come from wailsBridge.ts, the one module that reads
+// window.go. errorMessage is imported from there too rather than
+// re-declared -- this file previously carried a fourth identical copy of
+// it (the bridge's own doc comment already flags that duplication).
+const surfaceService = getSurfaceService;
+const midiService = getMidiService;
 
-interface ControlRefView extends ControlRefInput {
-  label: string;
-  assigned: boolean;
-}
-
-interface SurfaceSummary {
-  id: string;
-  name: string;
-}
-
-interface SurfaceDetail {
-  controls: ControlRefView[];
-}
-
-export type MidiMessageKind = "note" | "control_change";
-
-export interface MidiMappingView {
-  id: string;
-  channel: number;
-  kind: MidiMessageKind;
-  number: number;
-  target: ControlRefInput;
-  label: string;
-}
-
-interface GoResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
-interface SurfaceServiceBinding {
-  ListSurfaces(): Promise<SurfaceSummary[]>;
-  ShowSurface(surfaceName: string): Promise<SurfaceDetail>;
-}
-
-interface MidiServiceBinding {
-  RemoveMapping(surfaceName: string, mappingId: string): Promise<GoResult>;
-  ListMappings(surfaceName: string): Promise<MidiMappingView[]>;
-  SetActiveSurface(surfaceName: string): Promise<GoResult>;
-}
-
-// The `Window.go.wails` global shape itself is declared once, centrally,
-// in src/lib/wailsBridge.ts -- cast through that shared shape locally,
-// mirroring OperatorSurface.tsx's own surfaceService() pattern.
-function surfaceService(): SurfaceServiceBinding | undefined {
-  return window.go?.wails?.SurfaceService as unknown as SurfaceServiceBinding | undefined;
-}
-
-function midiService(): MidiServiceBinding | undefined {
-  return window.go?.wails?.MidiService as unknown as MidiServiceBinding | undefined;
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
-// selector strips ControlRefView's extra label/assigned fields before
+// selector strips SurfaceControlRefView's extra label/assigned fields before
 // sending a control reference to a binding that only accepts the bare
 // ControlRefInput selector shape (mirrors OperatorSurface.tsx's identical
 // helper).
-function selector(control: ControlRefInput): ControlRefInput {
+function selector(control: SurfaceControlRefInput): SurfaceControlRefInput {
   const { kind, scene, layerKind, masterKind, group, safety } = control;
   return { kind, scene, layerKind, masterKind, group, safety };
 }
 
-function controlKey(control: ControlRefInput): string {
+function controlKey(control: SurfaceControlRefInput): string {
   switch (control.kind) {
     case "scene":
       return `scene:${control.scene ?? ""}`;
@@ -158,7 +121,7 @@ export default function MidiPanel() {
 
   const [surfaces, setSurfaces] = useState<SurfaceSummary[]>([]);
   const [selectedSurface, setSelectedSurface] = useState<string | null>(null);
-  const [assignedControls, setAssignedControls] = useState<ControlRefView[]>([]);
+  const [assignedControls, setAssignedControls] = useState<SurfaceControlRefView[]>([]);
   const [mappings, setMappings] = useState<MidiMappingView[]>([]);
   const [feedbackByMappingId, setFeedbackByMappingId] = useState<
     Record<string, MidiFeedback>

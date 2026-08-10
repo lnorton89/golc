@@ -15,7 +15,15 @@ import { useCallback, useEffect, useState } from "react";
 import { Music2, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
-import { errorMessage, listLocalFixtures, listPatch, type FixtureLibraryRowView, type PatchView } from "../../lib/wailsBridge";
+import {
+  errorMessage,
+  getMidiService,
+  listLocalFixtures,
+  listPatch,
+  type DeskMidiMappingView,
+  type FixtureLibraryRowView,
+  type PatchView,
+} from "../../lib/wailsBridge";
 import { resolveDeskChannelLabel } from "../Desk/deskLabels";
 import { motionTransition } from "../../design-system/motion";
 import { EmptyState, ErrorState, IconButton, ListRow, LoadingState, PanelHeader } from "../../design-system";
