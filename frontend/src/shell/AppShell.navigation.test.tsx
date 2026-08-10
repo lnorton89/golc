@@ -7,7 +7,11 @@
 // convention (jsdom has no window.go, so every workspace's degraded-
 // render path is exercised here too).
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+// render comes from the Query-aware helper: this test mounts AppShell
+// standalone and navigates to every destination, including workspaces that
+// read through useQuery, so it needs the QueryClientProvider that App.tsx
+// supplies in the real tree. Everything else is re-exported unchanged.
+import { cleanup, fireEvent, render, screen } from "../test/renderWithQuery";
 
 import AppShell from "./AppShell";
 import { NAV_GROUPS } from "./navigation";

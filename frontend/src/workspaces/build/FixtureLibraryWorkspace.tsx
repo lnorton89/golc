@@ -56,7 +56,8 @@
 // error presentation, no in-app YAML editor. A staged custom-fixture
 // preview is discarded when the path is edited, the affordance is
 // dismissed, or the operator switches to the catalog side.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Lightbulb, Repeat, Plus, X, FolderOpen, ShieldCheck, Eye } from "lucide-react";
 
 import {
@@ -76,6 +77,8 @@ import {
   type OflManufacturerView,
   type OflSearchView,
 } from "../../lib/wailsBridge";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import { queryKeys } from "../../lib/queryKeys";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
 import { Button, Chip, EmptyState, ErrorState, Field, ListRow, LoadingState, Panel, PanelHeader, ScrollRegion, Toolbar, ToggleGroup, type ToggleGroupOption } from "../../design-system";
 import styles from "./FixtureLibraryWorkspace.module.css";
@@ -127,6 +130,14 @@ function summarizeDiagnostics(messages: string[]): { text: string; count: number
 
 type LibrarySource = "local" | "catalog";
 
+// PreviewRequest is the discriminated input to the one preview mutation --
+// an OFL catalog candidate (manufacturer + fixture key) or a hand-authored
+// file on disk (D-04). Both stage into the same candidate slot and render
+// through the same renderCandidateBody, so they share one mutation.
+type PreviewRequest =
+  | { kind: "ofl"; manufacturerKey: string; fixtureKey: string }
+  | { kind: "file"; path: string };
+
 // SOURCE_OPTIONS backs the "My Library" / "Open Fixture Library" toggle
 // (D-01) -- a mutually-exclusive two-option choice, now the shared
 // ToggleGroup primitive instead of two hand-rolled Buttons each carrying
@@ -137,35 +148,32 @@ const SOURCE_OPTIONS: ReadonlyArray<ToggleGroupOption> = [
 ];
 
 export default function FixtureLibraryWorkspace() {
-  const [directory, setDirectory] = useState("");
-  const [rows, setRows] = useState<FixtureLibraryRowView[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  const queryClient = useQueryClient();
 
+  const [search, setSearch] = useState("");
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
-  const [inspecting, setInspecting] = useState(false);
-  const [inspectView, setInspectView] = useState<FixtureInspectView | null>(null);
 
   // source (D-01): "My Library" (the local fixtures directory, unchanged
   // from 09-01-PLAN.md) vs. "Open Fixture Library" (this plan's catalog
   // manufacturer-name search). The same search input serves both sides.
   const [source, setSource] = useState<LibrarySource>("local");
-  const [catalogView, setCatalogView] = useState<OflSearchView | null>(null);
-  const [catalogSearching, setCatalogSearching] = useState(false);
-  const catalogRequestRef = useRef(0);
 
   // Catalog import candidate (09-06-PLAN.md, D-02): selecting a
   // manufacturer + entering a fixture key stages a preview via PreviewOFL;
   // "Add to Library" commits it. alreadyExists distinguishes a refused
   // commit (destination present) from every other failure, so the
   // "Replace" action only ever appears for that specific case.
+  //
+  // previewView/previewError/alreadyExists stay useState rather than being
+  // read off the mutations below, because all three outlive the mutation
+  // that produced them: a staged candidate stays on screen until the
+  // operator commits or abandons it, and resetCandidate has to be able to
+  // clear all three from unrelated events (manufacturer changed, fixture
+  // key edited, source toggled) that no mutation lifecycle knows about.
   const [selectedManufacturer, setSelectedManufacturer] = useState<OflManufacturerView | null>(null);
   const [candidateFixtureKey, setCandidateFixtureKey] = useState("");
-  const [previewing, setPreviewing] = useState(false);
   const [previewView, setPreviewView] = useState<FixturePreviewView | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
-  const [committing, setCommitting] = useState(false);
   const [alreadyExists, setAlreadyExists] = useState(false);
 
   // Custom-fixture add (09-07-PLAN.md, D-04): "Add Custom Fixture…" reveals
@@ -179,50 +187,107 @@ export default function FixtureLibraryWorkspace() {
   const [addingCustomFixture, setAddingCustomFixture] = useState(false);
   const [customFixturePath, setCustomFixturePath] = useState("");
 
-  const refresh = useCallback(async (): Promise<void> => {
-    try {
-      const view = await listLocalFixtures();
-      setDirectory(view.directory);
-      setRows(view.rows);
-      setError(null);
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // The local library listing. errorMessage/ErrorState below stay wired to
+  // libraryQuery.error rather than being deleted, but note that
+  // listLocalFixtures is contractually non-throwing: it catches internally
+  // and returns offlineFixtureLibraryView(), so this error branch is as
+  // unreachable now as the try/catch it replaces was. The seam is kept so a
+  // future throwing bridge surfaces here instead of silently rendering an
+  // empty library.
+  const libraryQuery = useQuery({
+    queryKey: queryKeys.fixtureLibrary.local(),
+    queryFn: listLocalFixtures,
+  });
+  const directory = libraryQuery.data?.directory ?? "";
+  const rows = libraryQuery.data?.rows ?? [];
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+  // Inspect runs as a query keyed by the resolved path rather than as an
+  // imperative call inside handleSelectRow: selecting a row now only sets
+  // selectedFileName, and the read follows from that one piece of state.
+  // Re-selecting a row already inspected serves the cached result instead
+  // of re-crossing the bridge.
+  const selectedPath =
+    selectedFileName === null ? null : directory ? `${directory}/${selectedFileName}` : selectedFileName;
+  const inspectQuery = useQuery({
+    queryKey: queryKeys.fixtureLibrary.inspect(selectedPath ?? ""),
+    queryFn: () => inspectFixtureFile(selectedPath ?? ""),
+    enabled: selectedPath !== null,
+  });
+  const inspecting = inspectQuery.isFetching;
+  const inspectView: FixtureInspectView | null = selectedPath === null ? null : (inspectQuery.data ?? null);
 
   // Debounced catalog search (T-09-05-03): at most one SearchOFL call per
   // ~250ms typing pause, and only while the catalog side is active. An
-  // empty/whitespace-only query never calls the bridge at all -- the
-  // empty-prompt copy renders immediately, with no in-flight state.
-  useEffect(() => {
-    if (source !== "catalog") return;
-    const query = search.trim();
-    if (query === "") {
-      setCatalogView(null);
-      setCatalogSearching(false);
-      return;
-    }
+  // empty/whitespace-only query never calls the bridge at all -- `enabled`
+  // keeps the empty-prompt copy rendering immediately with no in-flight
+  // state.
+  //
+  // Keying the query by the settled search text retires the monotonic
+  // request-id ref this used to need: two searches for different text are
+  // two cache entries, so a slow response for an earlier query can no
+  // longer land after a faster later one and overwrite it. keepPreviousData
+  // preserves the prior behaviour of leaving the last results on screen
+  // while the next search resolves, rather than blanking to "Searching…"
+  // on every keystroke pause.
+  const debouncedSearch = useDebouncedValue(search.trim(), oflSearchDebounceMs);
+  const catalogEnabled = source === "catalog" && debouncedSearch !== "";
+  const catalogQuery = useQuery({
+    queryKey: queryKeys.fixtureLibrary.oflSearch(debouncedSearch),
+    queryFn: () => searchOflManufacturers(debouncedSearch),
+    enabled: catalogEnabled,
+    placeholderData: keepPreviousData,
+  });
+  // Gated on catalogEnabled so clearing the search field (or switching back
+  // to "My Library") shows the empty prompt immediately -- without this,
+  // keepPreviousData would keep serving the last query's results under the
+  // now-empty key.
+  const catalogView: OflSearchView | null = catalogEnabled ? (catalogQuery.data ?? null) : null;
+  const catalogSearching = catalogEnabled && catalogQuery.isFetching;
 
-    setCatalogSearching(true);
-    const requestId = catalogRequestRef.current + 1;
-    catalogRequestRef.current = requestId;
-    const timer = setTimeout(() => {
-      void (async () => {
-        const view = await searchOflManufacturers(query);
-        if (catalogRequestRef.current !== requestId) return; // a newer query superseded this one
-        setCatalogView(view);
-        setCatalogSearching(false);
-      })();
-    }, oflSearchDebounceMs);
+  // discardPreviewMutation is fire-and-forget cleanup (T-09-06-05): an
+  // abandoned staged preview must not accumulate, but no UI ever waits on
+  // it.
+  const discardPreviewMutation = useMutation({ mutationFn: discardFixturePreview });
 
-    return () => clearTimeout(timer);
-  }, [source, search]);
+  // previewMutation stages an import candidate from either source -- the
+  // OFL catalog (PreviewOFL) or a hand-authored file (PreviewFile). One
+  // mutation rather than two because both feed the same single candidate
+  // slot, so two would let both be in flight at once and race into it.
+  const previewMutation = useMutation({
+    mutationFn: (input: PreviewRequest) =>
+      input.kind === "ofl" ? previewOflFixture(input.manufacturerKey, input.fixtureKey) : previewFixtureFile(input.path),
+    onSuccess: (view) => setPreviewView(view),
+  });
+  const previewing = previewMutation.isPending;
+
+  // commitMutation is the single confirm action. commitFixturePreview never
+  // rejects (it returns bridgeUnavailableResult() when the bridge is
+  // absent), so every outcome -- success, already-exists, and every other
+  // failure -- is dispatched from the result in onSuccess; onError would
+  // never fire.
+  const commitMutation = useMutation({
+    mutationFn: (overwrite: boolean) => commitFixturePreview(previewView?.previewToken ?? "", overwrite),
+    onSuccess: (result) => {
+      if (result.exitCode === 0) {
+        // Replaces the former `await refresh()`: invalidation refetches the
+        // listing for every mounted reader of this key, not just this
+        // component's own private copy of the rows.
+        void queryClient.invalidateQueries({ queryKey: queryKeys.fixtureLibrary.local() });
+        setPreviewView(null);
+        setPreviewError(null);
+        setAlreadyExists(false);
+        setSelectedManufacturer(null);
+        setCandidateFixtureKey("");
+        return;
+      }
+      if (result.stderr.includes("GOLC_WAILS_FIXTURE_IMPORT_EXISTS")) {
+        setAlreadyExists(true);
+        return;
+      }
+      setPreviewError(result.stderr.trim() || "Add to Library failed");
+    },
+  });
+  const committing = commitMutation.isPending;
 
   const filteredRows = useMemo(() => rows.filter((row) => matchesSearch(row, search)), [rows, search]);
 
@@ -251,18 +316,6 @@ export default function FixtureLibraryWorkspace() {
   // T-09-01-03).
   const handleSelectRow = (row: FixtureLibraryRowView) => {
     setSelectedFileName(row.fileName);
-    setInspecting(true);
-    setInspectView(null);
-    const path = directory ? `${directory}/${row.fileName}` : row.fileName;
-    void (async () => {
-      try {
-        setInspectView(await inspectFixtureFile(path));
-      } catch (err) {
-        setError(errorMessage(err));
-      } finally {
-        setInspecting(false);
-      }
-    })();
   };
 
   // discardCandidatePreview fires DiscardPreview for token (if any staged
@@ -271,7 +324,7 @@ export default function FixtureLibraryWorkspace() {
   // fire-and-forget cleanup call.
   const discardCandidatePreview = (token: string | null) => {
     if (!token) return;
-    void discardFixturePreview(token);
+    discardPreviewMutation.mutate(token);
   };
 
   // resetCandidate clears every piece of catalog-candidate state and
@@ -302,14 +355,9 @@ export default function FixtureLibraryWorkspace() {
   // field) and handleSelectFixture (a fixture search result row, which
   // already carries both keys and so previews immediately on selection).
   const beginPreview = (manufacturerKey: string, fixtureKey: string) => {
-    setPreviewing(true);
     setPreviewError(null);
     setAlreadyExists(false);
-    void (async () => {
-      const view = await previewOflFixture(manufacturerKey, fixtureKey);
-      setPreviewView(view);
-      setPreviewing(false);
-    })();
+    previewMutation.mutate({ kind: "ofl", manufacturerKey, fixtureKey });
   };
 
   // handlePreview calls PreviewOFL against the selected manufacturer's key
@@ -339,28 +387,9 @@ export default function FixtureLibraryWorkspace() {
   // Replace action -- never an automatic overwrite (T-09-06-02). On
   // success the local library list is refreshed so the newly added fixture
   // appears immediately, and the candidate is cleared.
-  const handleCommit = async (overwrite: boolean): Promise<void> => {
+  const handleCommit = (overwrite: boolean) => {
     if (!previewView) return;
-    setCommitting(true);
-    try {
-      const result = await commitFixturePreview(previewView.previewToken, overwrite);
-      if (result.exitCode === 0) {
-        await refresh();
-        setPreviewView(null);
-        setPreviewError(null);
-        setAlreadyExists(false);
-        setSelectedManufacturer(null);
-        setCandidateFixtureKey("");
-        return;
-      }
-      if (result.stderr.includes("GOLC_WAILS_FIXTURE_IMPORT_EXISTS")) {
-        setAlreadyExists(true);
-        return;
-      }
-      setPreviewError(result.stderr.trim() || "Add to Library failed");
-    } finally {
-      setCommitting(false);
-    }
+    commitMutation.mutate(overwrite);
   };
 
   // handleToggleAddCustomFixture reveals/dismisses the custom-fixture
@@ -399,14 +428,9 @@ export default function FixtureLibraryWorkspace() {
   const handleValidateCustomFixture = () => {
     const path = customFixturePath.trim();
     if (path === "") return;
-    setPreviewing(true);
     setPreviewError(null);
     setAlreadyExists(false);
-    void (async () => {
-      const view = await previewFixtureFile(path);
-      setPreviewView(view);
-      setPreviewing(false);
-    })();
+    previewMutation.mutate({ kind: "file", path });
   };
 
   // renderCandidateBody is the SAME candidate-preview rendering both the
@@ -454,7 +478,7 @@ export default function FixtureLibraryWorkspace() {
       {alreadyExists ? (
         <div className={styles.alreadyExists}>
           <p className={styles.warningText}>This fixture is already in your library.</p>
-          <Button variant="secondary" icon={Repeat} onClick={() => void handleCommit(true)} disabled={committing}>
+          <Button variant="secondary" icon={Repeat} onClick={() => handleCommit(true)} disabled={committing}>
             Replace
           </Button>
         </div>
@@ -462,7 +486,7 @@ export default function FixtureLibraryWorkspace() {
         <Button
           variant="primary"
           icon={Plus}
-          onClick={() => void handleCommit(false)}
+          onClick={() => handleCommit(false)}
           disabled={!view.inspect.valid || committing}
         >
           {committing ? "Adding…" : "Add to Library"}
@@ -475,11 +499,13 @@ export default function FixtureLibraryWorkspace() {
     <div className={styles.workspace}>
       <Toolbar title="Fixture Library" icon={Lightbulb} info={HOW_IT_WORKS_BY_ID["build-fixture-library"]} />
       <div className={styles.canvas}>
-        {loading ? (
+        {libraryQuery.isPending ? (
           <LoadingState label="Loading fixture library" />
         ) : (
           <>
-            {error ? <ErrorState heading="Fixture library unavailable" message={error} /> : null}
+            {libraryQuery.error ? (
+              <ErrorState heading="Fixture library unavailable" message={errorMessage(libraryQuery.error)} />
+            ) : null}
             <ToggleGroup aria-label="Fixture source" options={SOURCE_OPTIONS} value={source} onValueChange={handleSelectSource} />
             <Field
               label="Search fixtures"

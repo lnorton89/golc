@@ -7,7 +7,10 @@
 // real workspace; the previous "Coming Soon" stub assertions this file
 // used to carry are gone.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+// render comes from the Query-aware helper: this workspace reads through
+// useQuery, and a bare @testing-library/react render would mount it with no
+// QueryClientProvider above it. Everything else is re-exported unchanged.
+import { cleanup, fireEvent, render, screen, waitFor, within } from "../../test/renderWithQuery";
 
 import FixtureLibraryWorkspace from "./FixtureLibraryWorkspace";
 
