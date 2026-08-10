@@ -1,0 +1,746 @@
+{
+  "definition": {
+    "schema_version": 1,
+    "manufacturer": "robe",
+    "model": "Robin 600E Spot",
+    "modes": [
+      {
+        "name": "32-channel",
+        "channels": [
+          {
+            "type": "pan",
+            "occurrence": 0
+          },
+          {
+            "type": "tilt",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "gobo",
+            "occurrence": 0
+          },
+          {
+            "type": "gobo",
+            "occurrence": 0
+          },
+          {
+            "type": "zoom",
+            "occurrence": 0
+          },
+          {
+            "type": "focus",
+            "occurrence": 0
+          },
+          {
+            "type": "shutter",
+            "occurrence": 0
+          },
+          {
+            "type": "intensity",
+            "occurrence": 0
+          }
+        ]
+      },
+      {
+        "name": "25-channel",
+        "channels": [
+          {
+            "type": "pan",
+            "occurrence": 0
+          },
+          {
+            "type": "tilt",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "gobo",
+            "occurrence": 0
+          },
+          {
+            "type": "gobo",
+            "occurrence": 0
+          },
+          {
+            "type": "zoom",
+            "occurrence": 0
+          },
+          {
+            "type": "focus",
+            "occurrence": 0
+          },
+          {
+            "type": "shutter",
+            "occurrence": 0
+          },
+          {
+            "type": "intensity",
+            "occurrence": 0
+          }
+        ]
+      },
+      {
+        "name": "23-channel",
+        "channels": [
+          {
+            "type": "pan",
+            "occurrence": 0
+          },
+          {
+            "type": "tilt",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "gobo",
+            "occurrence": 0
+          },
+          {
+            "type": "gobo",
+            "occurrence": 0
+          },
+          {
+            "type": "zoom",
+            "occurrence": 0
+          },
+          {
+            "type": "focus",
+            "occurrence": 0
+          },
+          {
+            "type": "shutter",
+            "occurrence": 0
+          },
+          {
+            "type": "intensity",
+            "occurrence": 0
+          }
+        ]
+      }
+    ],
+    "capabilities": [
+      {
+        "type": "intensity",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "color",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "pan",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "tilt",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "zoom",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "focus",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "gobo",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "shutter",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "strobe",
+        "range": [
+          0.25098039215686274,
+          0.8745098039215686
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "source": "ofl:robe/robin-600e-spot",
+    "schema_version": 1,
+    "content_hash": "9973a643a14def5db58690bf9bf39917347c56ba268861033b8f82cb581ba048",
+    "revision": "9973a643a14d",
+    "validation_result": "valid",
+    "warnings": [
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CMY Macros\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"CTO Filter\" capability type \"ColorTemperature\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Effect Speed\" capability type \"EffectSpeed\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Frost\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Frost\" capability type \"Frost\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Frost\" capability type \"Frost\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Frost\" capability type \"FrostEffect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Frost\" capability type \"FrostEffect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Frost\" capability type \"FrostEffect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Hot Spot\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Iris\" capability type \"Iris\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Iris\" capability type \"Iris\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Iris\" capability type \"Iris\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Iris\" capability type \"IrisEffect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Iris\" capability type \"IrisEffect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Iris\" capability type \"IrisEffect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Iris\" capability type \"IrisEffect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Iris\" capability type \"IrisEffect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Iris\" capability type \"IrisEffect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Pan/Tilt Speed\" capability type \"PanTiltSpeed\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Pan/Tilt Speed\" capability type \"PanTiltSpeed\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Prism\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism Rotation\" capability type \"PrismRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism Rotation\" capability type \"PrismRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism Rotation\" capability type \"PrismRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism Rotation\" capability type \"PrismRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Rotating Gobo Wheel\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Rotating Gobo Wheel\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Static Gobo Wheel\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Static Gobo Wheel\" capability type \"Effect\" is not represented in the v1 canonical model"
+      }
+    ]
+  }
+}

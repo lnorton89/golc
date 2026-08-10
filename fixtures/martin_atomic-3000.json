@@ -1,0 +1,84 @@
+{
+  "definition": {
+    "schema_version": 1,
+    "manufacturer": "martin",
+    "model": "Atomic 3000",
+    "modes": [
+      {
+        "name": "1-channel",
+        "channels": [
+          {
+            "type": "shutter",
+            "occurrence": 0
+          }
+        ]
+      },
+      {
+        "name": "3-channel",
+        "channels": [
+          {
+            "type": "intensity",
+            "occurrence": 0
+          }
+        ]
+      },
+      {
+        "name": "4-channel",
+        "channels": [
+          {
+            "type": "intensity",
+            "occurrence": 0
+          },
+          {
+            "type": "strobe",
+            "occurrence": 0
+          }
+        ]
+      }
+    ],
+    "capabilities": [
+      {
+        "type": "intensity",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "shutter",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "strobe",
+        "range": [
+          0,
+          1
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "source": "ofl:martin/atomic-3000",
+    "schema_version": 1,
+    "content_hash": "750a49419e3d27d7930594f0b956c3654832e7f3be2e6e7a08ff12774cc65066",
+    "revision": "750a49419e3d",
+    "validation_result": "valid",
+    "warnings": [
+      {
+        "severity": "warning",
+        "detail": "channel \"Flash Duration\" capability type \"StrobeDuration\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Flash Rate\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Flash Rate\" capability type \"StrobeSpeed\" is not represented in the v1 canonical model"
+      }
+    ]
+  }
+}

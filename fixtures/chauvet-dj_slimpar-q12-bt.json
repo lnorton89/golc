@@ -1,0 +1,123 @@
+{
+  "definition": {
+    "schema_version": 1,
+    "manufacturer": "chauvet-dj",
+    "model": "SlimPAR Q12 BT",
+    "modes": [
+      {
+        "name": "4-channel",
+        "channels": [
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          }
+        ]
+      },
+      {
+        "name": "8-channel",
+        "channels": [
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "strobe",
+            "occurrence": 0
+          },
+          {
+            "type": "intensity",
+            "occurrence": 0
+          }
+        ]
+      }
+    ],
+    "capabilities": [
+      {
+        "type": "intensity",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "color",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "strobe",
+        "range": [
+          0,
+          1
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "source": "ofl:chauvet-dj/slimpar-q12-bt",
+    "schema_version": 1,
+    "content_hash": "4649c2e12a23dcb29e1b7768c770cd52762f918ac706b4fd741e0bd2beda248d",
+    "revision": "4649c2e12a23",
+    "validation_result": "valid",
+    "warnings": [
+      {
+        "severity": "warning",
+        "detail": "channel \"Auto Program\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Auto Program\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Auto Program\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Auto Program\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Auto Program\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Auto Program\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Auto Program Speed\" capability type \"EffectSpeed\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Auto Program Speed\" capability type \"Effect\" is not represented in the v1 canonical model"
+      }
+    ]
+  }
+}

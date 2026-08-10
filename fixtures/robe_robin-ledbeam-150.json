@@ -1,0 +1,673 @@
+{
+  "definition": {
+    "schema_version": 1,
+    "manufacturer": "robe",
+    "model": "Robin LEDBeam 150",
+    "modes": [
+      {
+        "name": "1 – Standard 16bit RGBW",
+        "channels": [
+          {
+            "type": "pan",
+            "occurrence": 0
+          },
+          {
+            "type": "tilt",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "zoom",
+            "occurrence": 0
+          },
+          {
+            "type": "shutter",
+            "occurrence": 0
+          },
+          {
+            "type": "intensity",
+            "occurrence": 0
+          }
+        ]
+      },
+      {
+        "name": "2 – Reduced 8bit RGBW",
+        "channels": [
+          {
+            "type": "pan",
+            "occurrence": 0
+          },
+          {
+            "type": "tilt",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "zoom",
+            "occurrence": 0
+          },
+          {
+            "type": "intensity",
+            "occurrence": 0
+          }
+        ]
+      },
+      {
+        "name": "1 – Standard 16bit CMY",
+        "channels": [
+          {
+            "type": "pan",
+            "occurrence": 0
+          },
+          {
+            "type": "tilt",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "zoom",
+            "occurrence": 0
+          },
+          {
+            "type": "shutter",
+            "occurrence": 0
+          },
+          {
+            "type": "intensity",
+            "occurrence": 0
+          }
+        ]
+      },
+      {
+        "name": "2 – Reduced 8bit CMY",
+        "channels": [
+          {
+            "type": "pan",
+            "occurrence": 0
+          },
+          {
+            "type": "tilt",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "zoom",
+            "occurrence": 0
+          },
+          {
+            "type": "shutter",
+            "occurrence": 0
+          },
+          {
+            "type": "intensity",
+            "occurrence": 0
+          }
+        ]
+      }
+    ],
+    "capabilities": [
+      {
+        "type": "intensity",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "color",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "pan",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "tilt",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "zoom",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "shutter",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "strobe",
+        "range": [
+          0.25098039215686274,
+          0.8745098039215686
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "source": "ofl:robe/robin-ledbeam-150",
+    "schema_version": 1,
+    "content_hash": "2800c2e89bc2042503580d6339dda46dd5b3c27c34c51278726d7cb15c042aae",
+    "revision": "2800c2e89bc2",
+    "validation_result": "valid",
+    "warnings": [
+      {
+        "severity": "warning",
+        "detail": "channel \"CTC\" capability type \"ColorTemperature\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Mix Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Mix Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Mix Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Mix Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Mix Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Mix Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Mix Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Mix Control\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Mix Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Mix Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Mix Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Pan/Tilt Speed\" capability type \"PanTiltSpeed\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Pan/Tilt Speed\" capability type \"PanTiltSpeed\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Special Functions\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Virtual Color Wheel\" capability type \"Effect\" is not represented in the v1 canonical model"
+      }
+    ]
+  }
+}

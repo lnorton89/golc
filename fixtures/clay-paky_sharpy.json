@@ -1,0 +1,375 @@
+{
+  "definition": {
+    "schema_version": 1,
+    "manufacturer": "clay-paky",
+    "model": "Sharpy",
+    "modes": [
+      {
+        "name": "Standard",
+        "channels": [
+          {
+            "type": "shutter",
+            "occurrence": 0
+          },
+          {
+            "type": "intensity",
+            "occurrence": 0
+          },
+          {
+            "type": "gobo",
+            "occurrence": 0
+          },
+          {
+            "type": "focus",
+            "occurrence": 0
+          },
+          {
+            "type": "pan",
+            "occurrence": 0
+          },
+          {
+            "type": "tilt",
+            "occurrence": 0
+          }
+        ]
+      },
+      {
+        "name": "Vector",
+        "channels": [
+          {
+            "type": "shutter",
+            "occurrence": 0
+          },
+          {
+            "type": "intensity",
+            "occurrence": 0
+          },
+          {
+            "type": "gobo",
+            "occurrence": 0
+          },
+          {
+            "type": "focus",
+            "occurrence": 0
+          },
+          {
+            "type": "pan",
+            "occurrence": 0
+          },
+          {
+            "type": "tilt",
+            "occurrence": 0
+          }
+        ]
+      }
+    ],
+    "capabilities": [
+      {
+        "type": "intensity",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "pan",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "tilt",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "focus",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "gobo",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "shutter",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "strobe",
+        "range": [
+          0.01568627450980392,
+          0.984313725490196
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "source": "ofl:clay-paky/sharpy",
+    "schema_version": 1,
+    "content_hash": "6127167dedc45caddb7e7e8c4a0cf5eec68388b39248a2abf3cb81197fd573fb",
+    "revision": "6127167dedc4",
+    "validation_result": "valid",
+    "warnings": [
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam Time\" capability type \"Time\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelSlot\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel\" capability type \"WheelRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Color Wheel Time\" capability type \"Time\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Effects Movement\" capability type \"EffectDuration\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Frost\" capability type \"Frost\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Function\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Function\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Function\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Function\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Function\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Function\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Gobo Time\" capability type \"Time\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Lamp Control\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Lamp Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Lamp Control\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Pan/Tilt Time\" capability type \"PanTiltSpeed\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism Insertion\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism Insertion\" capability type \"Prism\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism Rotation\" capability type \"PrismRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism Rotation\" capability type \"PrismRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism Rotation\" capability type \"PrismRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism Rotation\" capability type \"PrismRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism Rotation\" capability type \"PrismRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism Rotation\" capability type \"PrismRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism Rotation\" capability type \"PrismRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism Rotation\" capability type \"PrismRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism Rotation\" capability type \"PrismRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Prism Rotation\" capability type \"PrismRotation\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Reset\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Reset\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Reset\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Reset\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      }
+    ]
+  }
+}

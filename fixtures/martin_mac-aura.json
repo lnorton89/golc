@@ -1,0 +1,983 @@
+{
+  "definition": {
+    "schema_version": 1,
+    "manufacturer": "martin",
+    "model": "MAC Aura",
+    "modes": [
+      {
+        "name": "Standard",
+        "channels": [
+          {
+            "type": "shutter",
+            "occurrence": 0
+          },
+          {
+            "type": "intensity",
+            "occurrence": 0
+          },
+          {
+            "type": "zoom",
+            "occurrence": 0
+          },
+          {
+            "type": "pan",
+            "occurrence": 0
+          },
+          {
+            "type": "tilt",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          }
+        ]
+      },
+      {
+        "name": "Extended",
+        "channels": [
+          {
+            "type": "shutter",
+            "occurrence": 0
+          },
+          {
+            "type": "intensity",
+            "occurrence": 0
+          },
+          {
+            "type": "zoom",
+            "occurrence": 0
+          },
+          {
+            "type": "pan",
+            "occurrence": 0
+          },
+          {
+            "type": "tilt",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "shutter",
+            "occurrence": 0
+          },
+          {
+            "type": "intensity",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          },
+          {
+            "type": "color",
+            "occurrence": 0
+          }
+        ]
+      }
+    ],
+    "capabilities": [
+      {
+        "type": "intensity",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "color",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "pan",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "tilt",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "zoom",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "shutter",
+        "range": [
+          0,
+          1
+        ]
+      },
+      {
+        "type": "strobe",
+        "range": [
+          0.09803921568627451,
+          0.9568627450980393
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "source": "ofl:martin/mac-aura",
+    "schema_version": 1,
+    "content_hash": "bc8d5df55a03283224fe6bab1ed2ec02c8595aba4058f48f4fb084ac7f8736ae",
+    "revision": "bc8d5df55a03",
+    "validation_result": "valid",
+    "warnings": [
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Aura color wheel effect\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam CTC\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam CTC\" capability type \"ColorTemperature\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"ColorPreset\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Beam color wheel effect\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX sync\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX sync\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX sync\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX sync\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX sync\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 adjust Amount\" capability type \"EffectParameter\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 adjust Color offset\" capability type \"EffectParameter\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 adjust Speed\" capability type \"EffectSpeed\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 adjust Strength\" capability type \"EffectParameter\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 adjust Trigger Delay\" capability type \"EffectDuration\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 adjust n/a\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX1 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 adjust Amount\" capability type \"EffectParameter\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 adjust Color offset\" capability type \"EffectParameter\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 adjust Speed\" capability type \"EffectSpeed\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 adjust Strength\" capability type \"EffectParameter\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 adjust Trigger Delay\" capability type \"EffectDuration\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 adjust n/a\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"Effect\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"FX2 select\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"NoFunction\" is not represented in the v1 canonical model"
+      },
+      {
+        "severity": "warning",
+        "detail": "channel \"Fixture control settings\" capability type \"Maintenance\" is not represented in the v1 canonical model"
+      }
+    ]
+  }
+}
