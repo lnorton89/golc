@@ -1,6 +1,6 @@
 // NavTooltipsToggle is the global on/off switch for suppressible hover
 // text (lib/navTooltips.ts) -- CommandRail's nav destination buttons show
-// their own description on hover/focus (useTooltip's `suppressible: true`
+// their own description on hover/focus (HoverTooltip's `suppressible`
 // option), which some operators find intrusive once they already know the
 // rail by heart. This does not affect InfoTooltip's own "i" icons -- those
 // exist solely to be hovered for more detail and are never suppressed.

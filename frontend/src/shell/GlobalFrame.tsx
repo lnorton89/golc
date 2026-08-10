@@ -23,7 +23,7 @@
 // rather than duplicating that state (nav selection deliberately isn't in
 // useGolcStore -- see AppShell.tsx's own doc comment on why).
 // NavTooltipsToggle sits right after it: turns off CommandRail's nav-item
-// hover text (useTooltip's `suppressible` option) for operators who find
+// hover text (HoverTooltip's `suppressible` option) for operators who find
 // it intrusive once they know the rail by heart -- a client-side
 // preference (lib/navTooltips.ts), not store.ts state.
 //

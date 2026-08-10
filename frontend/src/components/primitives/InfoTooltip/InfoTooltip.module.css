@@ -50,23 +50,35 @@
   outline-offset: var(--ds-focus-offset);
 }
 
-/* Portaled into document.body (useTooltip.tsx) -- position: fixed with
-   top/left/right and max-width all set inline from real trigger/viewport
-   geometry computed BEFORE this ever renders (not measured and corrected
-   after the fact -- see useTooltip.tsx's own doc comment for why that
-   two-pass approach shipped two separate bugs). max-width is always the
-   real, precomputed available space on whichever side this opens toward,
-   so the box wraps within its actual budget instead of trying to grow
-   past a viewport edge and needing a later correction. Flat/paper brand
-   (index.css): border + background separation only, no box-shadow --
-   matches every other panel in this app. */
-.tooltip {
-  position: fixed;
+/* Positioner is the element Base UI gives position:fixed geometry to
+   (top/left computed by Floating UI); the popup nested inside it is a
+   normal block, so the stacking token belongs here, not on .tooltip --
+   the same split Popover.module.css already uses. */
+.positioner {
   z-index: var(--ds-stacking-popover);
-  transform: translateY(-50%);
-  top: clamp(var(--ds-spacing-space2), var(--ds-tooltip-top), calc(100vh - var(--ds-spacing-space2)));
-  left: var(--ds-tooltip-left);
-  max-width: var(--ds-tooltip-max-width);
+}
+
+/* Portaled into document.body by Base UI's Tooltip.Portal. Placement,
+   viewport-edge flipping, and shifting are all Floating UI's now
+   (HoverTooltip.tsx) rather than inline top/left/right computed in JS --
+   see that file's doc comment for the two real bugs the hand-rolled
+   geometry shipped before it was retired.
+
+   The max-width expression is the one piece of that geometry deliberately
+   kept. --available-width is Base UI's own measurement of the room this
+   popup actually has on the side it resolved to, so the box wraps within
+   its real budget instead of trying to grow past a viewport edge. The
+   max() floor is the old MIN_USABLE_WIDTH rule: a trigger a few px from
+   BOTH edges has no genuinely usable side, and a readable minimum that
+   slightly passes the tighter edge beats collapsing to a few px wide with
+   every word on its own line -- the exact regression
+   design-system.tooltip-overflow.spec.ts guards.
+
+   Flat/paper brand (index.css): border + background separation only, no
+   box-shadow -- matches every other panel in this app. */
+.tooltip {
+  box-sizing: border-box;
+  max-width: max(11.25rem, var(--available-width));
   padding: var(--ds-spacing-space2);
   border-width: 1px;
   border-style: solid;
@@ -81,21 +93,9 @@
   text-align: left;
   text-transform: none;
   letter-spacing: normal;
+  /* The tooltip can never sit between the operator and a control they are
+     trying to click -- unchanged from the hand-rolled implementation. */
   pointer-events: none;
-}
-
-/* Set by useTooltip.tsx when the trigger has genuinely more room to its
-   left than its right (a nav-rail item near the right edge, say) -- opens
-   leftward from the trigger's own left edge instead of rightward from its
-   right edge. A real `right` offset, not `left` plus a horizontal
-   transform: a `position: fixed` box with only `left` set always has its
-   shrink-to-fit width computed from "left to the viewport's right edge"
-   before any transform is applied, regardless of where a transform later
-   moves it -- `right` makes the browser compute shrink-to-fit width from
-   the viewport's actual left edge instead, the real available space. */
-.tooltip[data-flip] {
-  left: auto;
-  right: var(--ds-tooltip-right);
 }
 
 @media (prefers-reduced-motion: reduce) {

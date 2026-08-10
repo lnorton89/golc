@@ -464,7 +464,7 @@
       "path": "src/shell/NavDestinationButton.tsx",
       "rule": "DS005",
       "match": "button",
-      "rationale": "Each nav destination button carries aria-current=\"page\" navigation-landmark semantics (WAI-ARIA's convention for persistent primary navigation), which the closest-shaped shared primitive (ListRow) does not support -- it renders aria-pressed (list-selection semantics) instead, and switching would both regress the existing aria-current contract CommandRail.test.tsx already asserts and weaken the nav's accessibility semantics. Extracted to its own file (useTooltip is a hook, which cannot be called inside CommandRail's own .map() loop) -- CommandRail.tsx itself now has zero raw <button> elements. D-05's 'exceptional domain visualization' carve-out -- there is no aria-current-aware nav-item primitive in this codebase to reuse.",
+      "rationale": "Each nav destination button carries aria-current=\"page\" navigation-landmark semantics (WAI-ARIA's convention for persistent primary navigation), which the closest-shaped shared primitive (ListRow) does not support -- it renders aria-pressed (list-selection semantics) instead, and switching would both regress the existing aria-current contract CommandRail.test.tsx already asserts and weaken the nav's accessibility semantics. Extracted to its own file -- CommandRail.tsx itself now has zero raw <button> elements. (The original reason for the extraction, that useTooltip was a hook and so could not be called inside CommandRail's own .map() loop, no longer applies now that the tooltip is HoverTooltip, a component; the file split stands on keeping the nav-item composition out of that .map().) D-05's 'exceptional domain visualization' carve-out -- there is no aria-current-aware nav-item primitive in this codebase to reuse.",
       "source": "src/shell/NavDestinationButton.tsx:27",
       "owner": "phase-13-24",
       "reviewCondition": "a shared nav-item primitive with aria-current support is added to the design system"
@@ -576,6 +576,15 @@
       "source": "Toast.module.css",
       "owner": "base-ui-toast",
       "reviewCondition": "a combined multi-property transition-list token, or a duration-only motion token, is added to the design system"
+    },
+    {
+      "path": "src/components/primitives/InfoTooltip/InfoTooltip.module.css",
+      "rule": "DS003",
+      "match": "--available-width",
+      "rationale": "Not a design-system token and not ours to declare: Base UI's Tooltip.Positioner sets --available-width on itself at runtime (TooltipPositionerCssVars: 'the available width between the trigger and the edge of the viewport'). Reading it is what lets the popup cap its own max-width to the room it actually has, which is the retired useTooltip hook's precomputed max-width budget expressed declaratively -- the exact rule design-system.tooltip-overflow.spec.ts guards against regressing. It cannot be registered in runtime-geometry.json instead: that registry is harvested with a /--ds-[A-Za-z0-9-]+/ scan (scripts/design-system/check.mjs declaredTokenNames), so a non---ds- name added there would be silently ignored rather than declared.",
+      "source": "InfoTooltip.module.css",
+      "owner": "base-ui-tooltip",
+      "reviewCondition": "runtime-geometry.json gains the ability to declare externally-set (non---ds-) custom properties, or Base UI stops exposing --available-width"
     }
   ]
 }

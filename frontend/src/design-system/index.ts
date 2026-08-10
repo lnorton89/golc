@@ -31,7 +31,7 @@ export { default as Slider } from "../components/primitives/Slider/Slider";
 export { default as Switch } from "../components/primitives/Switch/Switch";
 export { default as Tabs } from "../components/primitives/Tabs/Tabs";
 // Only the host component is public here. Its emit hook (useToast) is
-// imported directly from the module, the same way useTooltip is -- this
+// imported directly from the module, the same way HoverTooltip is -- this
 // barrel's contract test asserts its runtime exports match the component
 // inventory one-for-one, and a hook is not an inventory component.
 export { default as Toast } from "../components/primitives/Toast/Toast";

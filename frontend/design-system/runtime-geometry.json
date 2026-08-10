@@ -8,10 +8,6 @@
     { "name": "--ds-rail-width", "type": "length", "minimum": "160px", "maximum": "360px", "fallback": "186px", "settingSite": "app-shell", "reviewCondition": "AppShell command rail resize implementation" },
     { "name": "--ds-inspector-width", "type": "length", "minimum": "220px", "maximum": "480px", "fallback": "258px", "settingSite": "app-shell", "reviewCondition": "AppShell contextual inspector resize implementation (0px when empty is a separate, non-resized collapsed state)" },
     { "name": "--ds-titlebar-label-inset-start", "type": "length", "minimum": "100px", "maximum": "100px", "fallback": "100px", "settingSite": "title-bar", "reviewCondition": "TitleBar brand cluster width changes" },
-    { "name": "--ds-titlebar-label-inset-end", "type": "length", "minimum": "140px", "maximum": "140px", "fallback": "140px", "settingSite": "title-bar", "reviewCondition": "TitleBar window-control cluster width changes" },
-    { "name": "--ds-tooltip-top", "type": "length", "minimum": "0px", "maximum": "4000px", "fallback": "0px", "settingSite": "info-tooltip", "reviewCondition": "InfoTooltip portal positioning implementation" },
-    { "name": "--ds-tooltip-left", "type": "length", "minimum": "0px", "maximum": "4000px", "fallback": "0px", "settingSite": "info-tooltip", "reviewCondition": "InfoTooltip portal positioning implementation" },
-    { "name": "--ds-tooltip-right", "type": "length", "minimum": "0px", "maximum": "4000px", "fallback": "0px", "settingSite": "info-tooltip", "reviewCondition": "InfoTooltip portal positioning implementation" },
-    { "name": "--ds-tooltip-max-width", "type": "length", "minimum": "180px", "maximum": "4000px", "fallback": "180px", "settingSite": "info-tooltip", "reviewCondition": "InfoTooltip portal positioning implementation" }
+    { "name": "--ds-titlebar-label-inset-end", "type": "length", "minimum": "140px", "maximum": "140px", "fallback": "140px", "settingSite": "title-bar", "reviewCondition": "TitleBar window-control cluster width changes" }
   ]
 }

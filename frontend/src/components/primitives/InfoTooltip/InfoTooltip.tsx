@@ -6,14 +6,14 @@
 // name.
 //
 // The actual open/close state, positioning, viewport-edge flip, and
-// portal rendering all live in useTooltip.tsx -- shared with every other
+// portal rendering all live in HoverTooltip.tsx -- shared with every other
 // element in the app that wants this same styled tooltip attached
 // directly to itself, rather than the browser's own unstyled native
 // `title` tooltip (CommandRail's own nav destination buttons, for one).
 // This component is just the dedicated "i" disclosure icon flavor of
 // that shared mechanism.
+import HoverTooltip from "./HoverTooltip";
 import styles from "./InfoTooltip.module.css";
-import { useTooltip } from "./useTooltip";
 
 interface InfoTooltipProps {
   label: string;
@@ -21,14 +21,15 @@ interface InfoTooltipProps {
 }
 
 export default function InfoTooltip({ label, text }: InfoTooltipProps) {
-  const { triggerRef, triggerProps, tooltipNode } = useTooltip<HTMLButtonElement>(text);
-
   return (
     <span className={styles.wrapper}>
-      <button ref={triggerRef} type="button" aria-label={label} className={styles.trigger} {...triggerProps}>
-        i
-      </button>
-      {tooltipNode}
+      {/* Not `suppressible`: an "i" icon exists solely to be hovered for
+          more detail, so the nav-tooltips preference never silences it. */}
+      <HoverTooltip text={text}>
+        <button type="button" aria-label={label} className={styles.trigger}>
+          i
+        </button>
+      </HoverTooltip>
     </span>
   );
 }

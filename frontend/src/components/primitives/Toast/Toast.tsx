@@ -21,8 +21,8 @@
 // not swallow the click that dismisses a blackout.
 //
 // The emit side is `useToast()` below, exported from this module rather
-// than the design-system barrel -- the same shape useTooltip.tsx already
-// uses for the hook half of a primitive, and required by the barrel's
+// than the design-system barrel -- the same shape HoverTooltip.tsx already
+// uses for the non-inventory half of a primitive, and required by the barrel's
 // contract test, which asserts the barrel's runtime exports match the
 // component inventory one-for-one.
 import { Toast as BaseToast } from "@base-ui/react/toast";

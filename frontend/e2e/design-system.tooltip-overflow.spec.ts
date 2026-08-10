@@ -9,8 +9,15 @@
 // opening near the right edge, because the browser computes a fixed box's
 // shrink-to-fit width from "left to the viewport's right edge" BEFORE any
 // transform is applied -- the transform only repositions the already-narrow
-// box afterward, it cannot widen it back out. Fixed by anchoring the flipped
-// case via a real `right` offset instead (InfoTooltip.tsx/.module.css).
+// box afterward, it cannot widen it back out. Originally fixed by anchoring
+// the flipped case via a real `right` offset instead.
+//
+// That hand-rolled geometry has since been retired: HoverTooltip.tsx builds
+// on Base UI's Tooltip, so placement, flipping, and shifting are Floating
+// UI's. These cases are kept and still matter -- they are what proves the
+// replacement did not quietly reintroduce either collapse, and the
+// max-width floor in InfoTooltip.module.css (the old MIN_USABLE_WIDTH rule)
+// is still ours to get wrong.
 import { expect, test } from "@playwright/test";
 
 import { installHealthyBindings, settle, waitForFonts } from "./helpers";
@@ -54,7 +61,12 @@ test.describe("InfoTooltip viewport-edge flip", () => {
     await trigger.hover();
     const tooltip = page.getByRole("tooltip");
     await expect(tooltip).toBeVisible();
-    await expect(tooltip).toHaveAttribute("data-flip", "true");
+    // data-side is Base UI's own resolved placement, replacing the
+    // data-flip attribute the hand-rolled implementation set. "inline-start"
+    // IS the flip: the tooltip opens toward inline-end by default
+    // (HoverTooltip.tsx) and only resolves to inline-start when Floating
+    // UI's flip middleware finds that side genuinely roomier.
+    await expect(tooltip).toHaveAttribute("data-side", "inline-start");
 
     const tooltipBox = await tooltip.boundingBox();
     expect(tooltipBox, "tooltip must have a real bounding box").not.toBeNull();
@@ -87,7 +99,10 @@ test.describe("InfoTooltip viewport-edge flip", () => {
 
     const tooltip = page.getByRole("tooltip");
     await expect(tooltip).toBeVisible();
-    await expect(tooltip).not.toHaveAttribute("data-flip", "");
+    // Asserting the positive placement rather than the old
+    // `not.toHaveAttribute("data-flip", "")`, which passed for any value
+    // other than the empty string -- including a wrongly-flipped tooltip.
+    await expect(tooltip).toHaveAttribute("data-side", "inline-end");
 
     const tooltipBox = await tooltip.boundingBox();
     expect(tooltipBox).not.toBeNull();
@@ -123,7 +138,9 @@ test.describe("InfoTooltip viewport-edge flip", () => {
     await trigger.hover();
     const tooltip = page.getByRole("tooltip");
     await expect(tooltip).toBeVisible();
-    await expect(tooltip).not.toHaveAttribute("data-flip", "true");
+    // Positive assertion, as above: the nav item must open rightward
+    // (inline-end), not merely "not flipped".
+    await expect(tooltip).toHaveAttribute("data-side", "inline-end");
 
     const tooltipBox = await tooltip.boundingBox();
     expect(tooltipBox, "tooltip must have a real bounding box").not.toBeNull();
