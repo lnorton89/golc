@@ -1,0 +1,124 @@
+/* Anchored bottom-right so the stack grows AWAY from GlobalFrame's fixed
+   header, which owns LiveStatusBar and SafetyCluster -- see Toast.tsx's own
+   doc comment: this placement is a D-13 safety constraint, not a style
+   preference. pointer-events:none means even an overlapping card cannot
+   swallow a click aimed at a control beneath it; .toast re-enables them for
+   the card itself so Close and Action still work. */
+.viewport {
+  position: fixed;
+  right: var(--ds-spacing-space4);
+  bottom: var(--ds-spacing-space4);
+  z-index: var(--ds-stacking-popover);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-spacing-space2);
+  pointer-events: none;
+}
+
+/* Flat/paper brand (index.css): border + background separation only, no
+   box-shadow -- matches Dialog's .dialog, Popover's .popup, and
+   InfoTooltip's .tooltip. box-sizing is explicit because this frontend has
+   no global border-box reset and this rule sets width alongside padding and
+   a border. */
+.toast {
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-spacing-space2);
+  width: min(22rem, calc(100vw - var(--ds-spacing-space8)));
+  padding: var(--ds-spacing-space4);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ds-border-default);
+  border-radius: var(--ds-radii-medium);
+  background: var(--ds-surface-overlay);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-typography-font-family-ui);
+  pointer-events: auto;
+  transition: opacity var(--ds-motion-settle), transform var(--ds-motion-settle);
+}
+
+/* Base UI sets these while the card animates in/out -- present for one
+   frame on mount, then again through the closing transition. Mirrors
+   Popover.module.css's identical treatment. */
+.toast[data-starting-style],
+.toast[data-ending-style] {
+  opacity: 0;
+  transform: translateX(var(--ds-spacing-space4));
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-spacing-space1);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--ds-typography-font-size-body);
+  font-weight: var(--ds-typography-font-weight-semibold);
+  line-height: var(--ds-typography-line-height-body);
+}
+
+.description {
+  margin: 0;
+  font-size: var(--ds-typography-font-size-compact);
+  line-height: var(--ds-typography-line-height-body);
+  color: var(--ds-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.close {
+  flex-shrink: 0;
+  margin-inline-start: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--ds-sizing-control-minimum-target);
+  min-height: var(--ds-sizing-control-minimum-target);
+  padding: 0;
+  border: none;
+  border-radius: var(--ds-radii-small);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.close:focus-visible {
+  outline-width: var(--ds-focus-ring);
+  outline-style: solid;
+  outline-color: var(--ds-focus-color);
+  outline-offset: var(--ds-focus-offset);
+}
+
+.closeIcon {
+  width: var(--ds-sizing-icon16);
+  height: var(--ds-sizing-icon16);
+}
+
+/* Tone is carried on the left edge rather than as a full fill: a toast is
+   read as text first, and a fully saturated status background (as Chip
+   uses) would fight the surface it floats over. The status tokens are the
+   same ones Chip's frame-lock/revoked tones use, so "added" reads as the
+   same green as a Valid chip. */
+.neutral {
+  border-inline-start-width: var(--ds-spacing-space1);
+  border-inline-start-color: var(--ds-border-strong);
+}
+
+.success {
+  border-inline-start-width: var(--ds-spacing-space1);
+  border-inline-start-color: var(--ds-status-frame-lock);
+}
+
+.error {
+  border-inline-start-width: var(--ds-spacing-space1);
+  border-inline-start-color: var(--ds-status-revoked);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    transition-duration: var(--ds-motion-snap);
+  }
+}

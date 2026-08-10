@@ -36,6 +36,7 @@
     { "name": "SplitPane", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#splitpane", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" },
     { "name": "Switch", "kind": "primitive", "exportPath": "src/components/primitives/Switch/Switch.tsx", "guideAnchor": "#switch", "testPath": "src/components/primitives/Switch/Switch.test.tsx" },
     { "name": "Tabs", "kind": "primitive", "exportPath": "src/components/primitives/Tabs/Tabs.tsx", "guideAnchor": "#tabs", "testPath": "src/components/primitives/Tabs/Tabs.test.tsx" },
+    { "name": "Toast", "kind": "primitive", "exportPath": "src/components/primitives/Toast/Toast.tsx", "guideAnchor": "#toast", "testPath": "src/components/primitives/Toast/Toast.test.tsx" },
     { "name": "ToggleGroup", "kind": "primitive", "exportPath": "src/components/primitives/ToggleGroup/ToggleGroup.tsx", "guideAnchor": "#togglegroup", "testPath": "src/components/primitives/ToggleGroup/ToggleGroup.test.tsx" },
     { "name": "Toolbar", "kind": "primitive", "exportPath": "src/components/primitives/Toolbar/Toolbar.tsx", "guideAnchor": "#toolbar", "testPath": "src/components/primitives/Toolbar/Toolbar.test.tsx" },
     { "name": "WorkspaceFrame", "kind": "pattern", "exportPath": "src/design-system/patterns/index.tsx", "guideAnchor": "#workspaceframe", "testPath": "src/design-system/fixtures/DesignSystemGallery.test.tsx" }

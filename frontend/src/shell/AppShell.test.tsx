@@ -3,7 +3,7 @@
 // switch -- distinct from AppShell.navigation.test.tsx's exhaustive
 // per-destination click sweep (which already covers navigation itself).
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cleanup, fireEvent, render, screen } from "../test/renderWithQuery";
+import { cleanup, fireEvent, render, screen } from "../test/renderWithProviders";
 
 import AppShell from "./AppShell";
 

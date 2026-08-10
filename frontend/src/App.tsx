@@ -21,10 +21,16 @@
 // const) so each mounted App owns its own cache. App.smoke.test.tsx and the
 // component tests mount and unmount App repeatedly in one process; a shared
 // module-level client would leak one test's cached rows into the next.
+// Toast mounts beside QueryClientProvider and for the same reason: it is a
+// provider, so every render path this file can take must sit beneath it or
+// a useToast() call somewhere below throws. Its viewport is anchored
+// bottom-right and pointer-events:none, so mounting it globally can never
+// intercept the safety controls in GlobalFrame's header (see Toast.tsx).
 import { lazy, Suspense, useState } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 
 import ErrorBoundary from "./shell/ErrorBoundary";
+import Toast from "./components/primitives/Toast/Toast";
 import { createQueryClient } from "./lib/queryClient";
 import DialogFeasibility from "./design-system/fixtures/DialogFeasibility";
 import DesignSystemGallery from "./design-system/fixtures/DesignSystemGallery";
@@ -42,7 +48,9 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppRoute />
+      <Toast>
+        <AppRoute />
+      </Toast>
     </QueryClientProvider>
   );
 }

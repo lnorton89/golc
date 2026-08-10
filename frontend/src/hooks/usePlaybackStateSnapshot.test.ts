@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, renderHook, waitFor } from "../test/renderWithQuery";
+import { act, cleanup, renderHook, waitFor } from "../test/renderWithProviders";
 
 import { usePlaybackStateSnapshot } from "./usePlaybackStateSnapshot";
 import { useGolcStore } from "../store/store";

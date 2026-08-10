@@ -8,7 +8,7 @@
 // unmounting" optimization would silently reintroduce stuck active-surface
 // scoping with nothing else catching it.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "../../test/renderWithQuery";
+import { cleanup, fireEvent, render, screen, waitFor } from "../../test/renderWithProviders";
 
 import OperatorSurface from "./OperatorSurface";
 import { useGolcStore } from "../../store/store";

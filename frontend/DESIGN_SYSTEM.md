@@ -159,7 +159,7 @@ Beyond the static checker, `e2e/design-system.*.spec.ts` covers what static anal
 
 ### Component anchors
 
-The inventory anchors are stable selection markers: #button #checkbox #chip #colorfield #combobox #confirmdialog #datalist #dialog #emptystate #errorstate #field #formactions #guidedflow #iconbutton #impactreview #infotooltip #launchermasters #listrow #loadingstate #menu #midipickup #numberstepper #panel #panelheader #popover #radiogroup #resizehandle #safetyaction #scenestack #scrollregion #select #slider #splitpane #switch #tabs #togglegroup #toolbar #workspaceframe.
+The inventory anchors are stable selection markers: #button #checkbox #chip #colorfield #combobox #confirmdialog #datalist #dialog #emptystate #errorstate #field #formactions #guidedflow #iconbutton #impactreview #infotooltip #launchermasters #listrow #loadingstate #menu #midipickup #numberstepper #panel #panelheader #popover #radiogroup #resizehandle #safetyaction #scenestack #scrollregion #select #slider #splitpane #switch #tabs #toast #togglegroup #toolbar #workspaceframe.
 
 ## Commands
 

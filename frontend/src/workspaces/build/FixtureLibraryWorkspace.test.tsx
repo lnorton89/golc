@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // render comes from the Query-aware helper: this workspace reads through
 // useQuery, and a bare @testing-library/react render would mount it with no
 // QueryClientProvider above it. Everything else is re-exported unchanged.
-import { cleanup, fireEvent, render, screen, waitFor, within } from "../../test/renderWithQuery";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "../../test/renderWithProviders";
 
 import FixtureLibraryWorkspace from "./FixtureLibraryWorkspace";
 
@@ -635,6 +635,49 @@ describe("FixtureLibraryWorkspace", () => {
       await waitFor(() => expect(screen.getByText("This fixture is already in your library.")).toBeInTheDocument());
       expect(screen.getByRole("button", { name: "Replace" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Add to Library" })).not.toBeInTheDocument();
+    });
+
+    it("confirms a successful add with a toast naming the fixture, and clears the candidate", async () => {
+      const svc = installMockWithOneManufacturer({
+        PreviewOFL: vi.fn().mockResolvedValue({
+          inspect: {
+            path: "",
+            valid: true,
+            errors: [],
+            schemaVersion: 1,
+            stableKey: "chauvet-dj/led-par-64-tri-b",
+            contentHash: "abc123content",
+            revision: "abc123conten",
+            source: "ofl:chauvet-dj/led-par-64-tri-b",
+            validationResult: "valid",
+            warnings: [],
+          },
+          previewToken: "/tmp/preview/chauvet-dj_led-par-64-tri-b.json",
+          destinationExists: false,
+          suggestedFileName: "chauvet-dj_led-par-64-tri-b.json",
+        }),
+        CommitPreview: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" }),
+      });
+
+      render(<FixtureLibraryWorkspace />);
+      await waitFor(() => expect(screen.getByText("No fixtures yet")).toBeInTheDocument());
+      await searchAndSelectManufacturer(svc);
+
+      fireEvent.change(screen.getByLabelText("Fixture key"), { target: { value: "led-par-64-tri-b" } });
+      fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Add to Library" })).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole("button", { name: "Add to Library" }));
+
+      await waitFor(() => expect(svc.CommitPreview).toHaveBeenCalledWith("/tmp/preview/chauvet-dj_led-par-64-tri-b.json", false));
+      // Success was previously silent: the candidate cleared and the list
+      // refetched, but nothing acknowledged the add. The toast is that
+      // acknowledgement, and it names which fixture landed.
+      expect(await screen.findByText("Fixture added")).toBeInTheDocument();
+      expect(screen.getByText("chauvet-dj/led-par-64-tri-b")).toBeInTheDocument();
+      // The candidate itself is gone -- a committed preview must never stay
+      // staged and re-committable.
+      await waitFor(() => expect(screen.queryByRole("button", { name: "Add to Library" })).not.toBeInTheDocument());
     });
   });
 

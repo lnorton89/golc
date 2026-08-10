@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // standalone and navigates to every destination, including workspaces that
 // read through useQuery, so it needs the QueryClientProvider that App.tsx
 // supplies in the real tree. Everything else is re-exported unchanged.
-import { cleanup, fireEvent, render, screen } from "../test/renderWithQuery";
+import { cleanup, fireEvent, render, screen } from "../test/renderWithProviders";
 
 import AppShell from "./AppShell";
 import { NAV_GROUPS } from "./navigation";

@@ -1,12 +1,17 @@
-// renderWithQuery is the drop-in @testing-library/react `render` for any
-// component that reads through TanStack Query. Components under test are
-// mounted standalone (not through App.tsx), so they never inherit the
-// QueryClientProvider App mounts -- without a wrapper they throw
-// "No QueryClient set, use QueryClientProvider to set one".
+// renderWithProviders is the drop-in @testing-library/react `render` for
+// any component that needs the app-level providers App.tsx mounts. A
+// component under test is mounted standalone, so it inherits none of them:
+// without a wrapper, reading through TanStack Query throws "No QueryClient
+// set", and calling useToast() throws for the missing Toast provider.
+//
+// This wrapper must stay a mirror of App.tsx's provider set. When a new
+// provider is added there, add it here too -- otherwise every standalone
+// component test starts failing at once with a context error, which reads
+// like a broken component rather than a missing test wrapper.
 //
 // A test file adopts it by changing only its import:
 //
-//   import { render } from "../../test/renderWithQuery";
+//   import { render } from "../../test/renderWithProviders";
 //
 // rather than rewriting each render() call site.
 //
@@ -27,12 +32,17 @@ import {
 } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 
+import Toast from "../components/primitives/Toast/Toast";
 import { createQueryClient } from "../lib/queryClient";
 
 function makeWrapper() {
   const queryClient = createQueryClient();
   return function Wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    return (
+      <QueryClientProvider client={queryClient}>
+        <Toast>{children}</Toast>
+      </QueryClientProvider>
+    );
   };
 }
 

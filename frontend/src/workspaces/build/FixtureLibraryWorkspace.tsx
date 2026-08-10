@@ -77,6 +77,7 @@ import {
   type OflManufacturerView,
   type OflSearchView,
 } from "../../lib/wailsBridge";
+import { useToast } from "../../components/primitives/Toast/Toast";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { queryKeys } from "../../lib/queryKeys";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
@@ -149,6 +150,7 @@ const SOURCE_OPTIONS: ReadonlyArray<ToggleGroupOption> = [
 
 export default function FixtureLibraryWorkspace() {
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   const [search, setSearch] = useState("");
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
@@ -269,6 +271,17 @@ export default function FixtureLibraryWorkspace() {
     mutationFn: (overwrite: boolean) => commitFixturePreview(previewView?.previewToken ?? "", overwrite),
     onSuccess: (result) => {
       if (result.exitCode === 0) {
+        // A successful commit was the one genuinely silent outcome in this
+        // workspace: the candidate panel cleared itself and the list
+        // refreshed, but nothing ever said the fixture had been added --
+        // the operator had to infer it from a row appearing in a list they
+        // may not have been looking at. Every FAILURE path below stays
+        // inline instead, and deliberately: "already in your library"
+        // carries its own Replace action, and a generic failure belongs
+        // next to the candidate it refers to, where it persists until the
+        // operator acts. A toast is the right shape only for the outcome
+        // that needs acknowledging and then forgetting.
+        toast.success("Fixture added", previewView?.inspect.stableKey || undefined);
         // Replaces the former `await refresh()`: invalidation refetches the
         // listing for every mounted reader of this key, not just this
         // component's own private copy of the rows.

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "../test/renderWithQuery";
+import { cleanup, fireEvent, render, screen, waitFor } from "../test/renderWithProviders";
 import { useState } from "react";
 
 import { PlaybackSnapshotProvider, usePlaybackSnapshot } from "./PlaybackSnapshotContext";
