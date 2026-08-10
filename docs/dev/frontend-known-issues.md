@@ -288,7 +288,8 @@ Switching the selected surface while in operate mode runs the effect cleanup (`s
 
 The file's header comment scopes the `outputState === "blackout"` ambiguity to the *indicator*, but `blackoutOrStopActive` also feeds the boolean sent to the daemon (`:289`, `:305`). Repro: engage Blackout only — both buttons now read "Release…" with `aria-pressed={true}`. Hold "Release Stop / Release All" and it sends `safetyStopReleaseAll(false)`, releasing something that was never engaged; `outputState` stays `"blackout"` and the button still says "Release". The reverse case sends `safetyBlackout(false)` for the same reason. Recoverable via the other button, so confusing rather than fatal.
 
-### Impact plans are `JSON.parse`d and cast with no schema validation at the Wails boundary
+### ~~Impact plans are `JSON.parse`d and cast with no schema validation at the Wails boundary~~
+**Fixed:** New `lib/wailsStdoutSchemas.ts` covers the stdout-carried payloads the way `wailsEventSchemas.ts` already covers push payloads, with the same strictness choices (unknown keys stripped, optionals stay optional). All four impact-plan sites (`FixturePatch` ×2, `ProjectFixtures` ×2) now go through `parseStdoutJson`, which throws a `GOLC_WAILS_STDOUT_INVALID` diagnostic into the error banner each call site already renders — `plan_id` is `z.string().min(1)`, so the `applyPatch(undefined as unknown as string)` path is gone. `dispatch.getState()` uses the non-throwing variant, preserving its documented "undefined for every failure mode" contract while making the drop visible. The two duplicated local `ImpactPlan`/`ImpactOperation` interfaces (which had already drifted — `FixturePatch`'s carried `pool_member_index`/`add`/`remove`, `ProjectFixtures`' didn't) are replaced by the one inferred type.
 **Severity:** smell
 **File:** `frontend/src/components/FixturePatch/FixturePatch.tsx:257`
 **Confidence:** medium

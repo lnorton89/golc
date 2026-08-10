@@ -49,6 +49,11 @@ import { AnimatePresence, motion } from "motion/react";
 
 import { motionTransition } from "../../design-system/motion";
 import { useLatestRequest } from "../../hooks/useLatestRequest";
+// ImpactPlan is no longer declared here: it is inferred from the zod schema
+// that now validates these stdout-carried plans at the boundary, so the
+// shape and its validator cannot drift apart (and ProjectFixtures.tsx no
+// longer keeps a second, subtly different copy of the interface).
+import { impactPlanSchema, parseStdoutJson, type ImpactPlan } from "../../lib/wailsStdoutSchemas";
 import {
   activateDeployment,
   addPoolMemberPreview,
@@ -81,36 +86,6 @@ import styles from "./FixturePatch.module.css";
 // nested view types are declared once, centrally, in wailsBridge.ts (WR-01)
 // -- imported above rather than re-declared here.
 // ---------------------------------------------------------------------------
-
-interface ImpactOperation {
-  dependent_kind: string;
-  dependent_ref: string;
-  dependent_id: string;
-  action: string;
-  pool_member_index: number;
-  pool_member_id: string;
-  proposed_universe?: number;
-  proposed_address?: number;
-  status: string;
-}
-
-interface ImpactPlan {
-  schema_version: number;
-  pool_id: string;
-  add?: { fixture_stable_key: string; fixture_content_hash: string; mode: string }[];
-  remove?: string[];
-  propagate: string;
-  expected_revision: number;
-  // internal/pool/impact.go's own Operations field carries no `omitempty`
-  // and is left as a nil slice (never explicitly initialized to []) when
-  // no deployment references the pool yet -- encoding/json marshals that
-  // as JSON null, not []. Every read of this field must go through
-  // `?? []`, mirroring warnings/errors below (T-FIXPATCH-NULL-OPS).
-  operations: ImpactOperation[] | null;
-  warnings?: { code: string; message: string }[];
-  errors?: { code: string; message: string }[];
-  plan_id: string;
-}
 
 function parseRequires(raw: string): string[] {
   return raw
@@ -275,7 +250,7 @@ export default function FixturePatch() {
         return;
       }
       assertOk(result, "AddPoolMemberPreview");
-      const plan = JSON.parse(result.stdout) as ImpactPlan;
+      const plan = parseStdoutJson(impactPlanSchema, "AddPoolMemberPreview", result.stdout);
       setPendingPreview({ poolName: addPoolTarget, plan });
       setError(null);
     } catch (err) {
@@ -425,7 +400,7 @@ export default function FixturePatch() {
         return;
       }
       assertOk(result, "RemovePoolMemberPreview");
-      const plan = JSON.parse(result.stdout) as ImpactPlan;
+      const plan = parseStdoutJson(impactPlanSchema, "RemovePoolMemberPreview", result.stdout);
       setPendingRemovePreview({ poolName, memberId, plan });
       setError(null);
     } catch (err) {

@@ -46,6 +46,9 @@ import {
   type PatchView,
 } from "../../lib/wailsBridge";
 import { useLatestRequest } from "../../hooks/useLatestRequest";
+// See FixturePatch.tsx: ImpactPlan/ImpactOperation are inferred from the
+// schema that validates these plans at the boundary, not re-declared here.
+import { impactPlanSchema, parseStdoutJson, type ImpactPlan } from "../../lib/wailsStdoutSchemas";
 import {
   Button,
   Combobox,
@@ -65,30 +68,6 @@ import { motionTransition } from "../../design-system/motion";
 import styles from "./ProjectFixtures.module.css";
 
 const rowExitTransition = motionTransition("settle");
-
-// ImpactOperation/ImpactPlan mirror internal/pool/impact.go's own
-// snake_case JSON tags exactly -- duplicated locally rather than
-// centralized in wailsBridge.ts, matching FixturePatch.tsx's own stated
-// reasoning (these mirror the impact plan's raw encoding, never the
-// camelCase view types wailsBridge.ts otherwise exposes).
-interface ImpactOperation {
-  dependent_kind: string;
-  dependent_ref: string;
-  dependent_id: string;
-  action: string;
-  proposed_universe?: number;
-  proposed_address?: number;
-  status: string;
-}
-
-interface ImpactPlan {
-  schema_version: number;
-  pool_id: string;
-  operations: ImpactOperation[] | null;
-  warnings?: { code: string; message: string }[];
-  errors?: { code: string; message: string }[];
-  plan_id: string;
-}
 
 interface FixtureRow {
   key: string;
@@ -172,9 +151,8 @@ function parsePositiveInt(raw: string): number {
 
 /** addImpacts/removeImpacts summarize an ImpactPlan for ImpactReview's
  * preview-before-apply contract, mirroring FixturePatch.tsx's identical
- * helpers -- this file's ImpactPlan/ImpactOperation shapes are the same
- * raw pool-impact encoding, duplicated locally per this file's own header
- * comment rather than centralized in wailsBridge.ts. */
+ * helpers over the same raw pool-impact encoding (now one shared schema in
+ * lib/wailsStdoutSchemas.ts rather than two local interface copies). */
 function addImpacts(plan: ImpactPlan): string[] {
   const additions = (plan.operations ?? [])
     .filter((op) => op.dependent_kind === "deployment_instance" && op.action === "add")
@@ -353,7 +331,7 @@ export default function ProjectFixtures() {
         selectedFixture.modeChannelCounts[mode] ?? 0,
       );
       assertOk(result, "AddPoolMembersPreview");
-      const plan = JSON.parse(result.stdout) as ImpactPlan;
+      const plan = parseStdoutJson(impactPlanSchema, "AddPoolMembersPreview", result.stdout);
       setPendingPreview(plan);
     } catch (err) {
       setError(errorMessage(err));
@@ -397,7 +375,7 @@ export default function ProjectFixtures() {
         return;
       }
       assertOk(result, "RemovePoolMemberPreview");
-      const plan = JSON.parse(result.stdout) as ImpactPlan;
+      const plan = parseStdoutJson(impactPlanSchema, "RemovePoolMemberPreview", result.stdout);
       setPendingRemovePreview(plan);
       setError(null);
     } catch (err) {

@@ -22,6 +22,7 @@
 // both import this file instead.
 
 import { getPlaybackService } from "./wailsBridge";
+import { parseStdoutJsonOrUndefined, playbackStateSummarySchema } from "./wailsStdoutSchemas";
 
 /** WailsResult mirrors internal/wails.Result's JSON tags exactly (0
  * success, 1 command failure, 2 routing/usage/startup failure). */
@@ -132,6 +133,13 @@ export const dispatch = {
     if (!result || result.exitCode !== 0 || !result.stdout) {
       return undefined;
     }
-    return JSON.parse(result.stdout) as PlaybackStateSummary;
+    // Validated, not cast: this one payload feeds the whole transport
+    // readout AND useKeyboardWorkflow's scene/layer resolution, so a shape
+    // change on the Go side used to travel silently until something far
+    // away dereferenced a field that wasn't there. Answering undefined on
+    // a bad shape keeps this function's documented "undefined for every
+    // failure mode" contract, which usePlaybackStateSnapshot turns into
+    // "keep the last known state".
+    return parseStdoutJsonOrUndefined(playbackStateSummarySchema, "PlaybackService.GetState", result.stdout);
   },
 };
