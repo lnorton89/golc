@@ -18,8 +18,11 @@ package script
 
 import (
 	"encoding/json"
+	"sort"
+	"strings"
 	"testing"
 
+	"github.com/lnorton89/golc/internal/scriptsdk"
 	"github.com/stretchr/testify/require"
 )
 
@@ -485,6 +488,100 @@ func TestBuildAPIKeyRevokeArgs(t *testing.T) {
 	})
 }
 
+// --- deployment instance reassign: every optional field independently
+// omittable ---------------------------------------------------------------
+
+func TestBuildDeploymentInstanceReassignArgs(t *testing.T) {
+	const showPath = "/shows/current.golc"
+
+	t.Run("no-optional-fields-set", func(t *testing.T) {
+		got, err := buildDeploymentInstanceReassignArgs(showPath, json.RawMessage(`{"deploymentName":"stage-left","instanceId":"a1"}`))
+		require.NoError(t, err)
+		require.Equal(t, []string{"stage-left", "a1", "--show", showPath}, got)
+	})
+
+	t.Run("all-optional-fields-set", func(t *testing.T) {
+		raw := `{"deploymentName":"stage-left","instanceId":"a1","mode":"absolute","universe":2,"address":5}`
+		got, err := buildDeploymentInstanceReassignArgs(showPath, json.RawMessage(raw))
+		require.NoError(t, err)
+		require.Equal(t, []string{"stage-left", "a1", "--mode", "absolute", "--universe", "2", "--address", "5", "--show", showPath}, got)
+	})
+}
+
+// --- note edit: both optional fields independently settable --------------
+
+func TestBuildNoteEditArgs(t *testing.T) {
+	const showPath = "/shows/current.golc"
+
+	t.Run("neither-title-nor-body-file-set", func(t *testing.T) {
+		got, err := buildNoteEditArgs(showPath, json.RawMessage(`{"name":"todo"}`))
+		require.NoError(t, err)
+		require.Equal(t, []string{"todo", "--show", showPath}, got)
+	})
+
+	t.Run("title-only", func(t *testing.T) {
+		got, err := buildNoteEditArgs(showPath, json.RawMessage(`{"name":"todo","title":"todo-v2"}`))
+		require.NoError(t, err)
+		require.Equal(t, []string{"todo", "--title", "todo-v2", "--show", showPath}, got)
+	})
+
+	t.Run("body-file-only", func(t *testing.T) {
+		got, err := buildNoteEditArgs(showPath, json.RawMessage(`{"name":"todo","bodyFile":"body.txt"}`))
+		require.NoError(t, err)
+		require.Equal(t, []string{"todo", "--body-file", "body.txt", "--show", showPath}, got)
+	})
+
+	t.Run("both-title-and-body-file", func(t *testing.T) {
+		got, err := buildNoteEditArgs(showPath, json.RawMessage(`{"name":"todo","title":"todo-v2","bodyFile":"body.txt"}`))
+		require.NoError(t, err)
+		require.Equal(t, []string{"todo", "--title", "todo-v2", "--body-file", "body.txt", "--show", showPath}, got)
+	})
+}
+
+// --- artnet desk set/clear/clear-all: no --show flag ----------------------
+
+func TestBuildArtnetDeskSetArgs(t *testing.T) {
+	t.Run("without-pipe", func(t *testing.T) {
+		got, err := buildArtnetDeskSetArgs("", json.RawMessage(`{"instance":"a1","attr":"intensity=0.5"}`))
+		require.NoError(t, err)
+		require.Equal(t, []string{"--instance", "a1", "--attr", "intensity=0.5"}, got)
+	})
+
+	t.Run("with-pipe", func(t *testing.T) {
+		got, err := buildArtnetDeskSetArgs("", json.RawMessage(`{"instance":"a1","attr":"intensity=0.5","pipe":"desk-1"}`))
+		require.NoError(t, err)
+		require.Equal(t, []string{"--instance", "a1", "--attr", "intensity=0.5", "--pipe", "desk-1"}, got)
+	})
+}
+
+func TestBuildArtnetDeskClearArgs(t *testing.T) {
+	t.Run("attr-omitted-clears-every-override", func(t *testing.T) {
+		got, err := buildArtnetDeskClearArgs("", json.RawMessage(`{"instance":"a1"}`))
+		require.NoError(t, err)
+		require.Equal(t, []string{"--instance", "a1"}, got)
+	})
+
+	t.Run("attr-and-pipe-set", func(t *testing.T) {
+		got, err := buildArtnetDeskClearArgs("", json.RawMessage(`{"instance":"a1","attr":"intensity","pipe":"desk-1"}`))
+		require.NoError(t, err)
+		require.Equal(t, []string{"--instance", "a1", "--attr", "intensity", "--pipe", "desk-1"}, got)
+	})
+}
+
+func TestBuildArtnetDeskClearAllArgs(t *testing.T) {
+	t.Run("without-pipe", func(t *testing.T) {
+		got, err := buildArtnetDeskClearAllArgs("", json.RawMessage(`{}`))
+		require.NoError(t, err)
+		require.Equal(t, []string(nil), got)
+	})
+
+	t.Run("with-pipe", func(t *testing.T) {
+		got, err := buildArtnetDeskClearAllArgs("", json.RawMessage(`{"pipe":"desk-1"}`))
+		require.NoError(t, err)
+		require.Equal(t, []string{"--pipe", "desk-1"}, got)
+	})
+}
+
 // --- decode error path, exercised directly against a per-route builder ---
 
 // TestPerRouteBuilder_PropagatesDecodeError proves a per-route builder
@@ -508,4 +605,29 @@ func TestRouteArgvBuilders_AllRegisteredBuildersAreCallable(t *testing.T) {
 	for route, builder := range routeArgvBuilders {
 		require.NotNil(t, builder, "route %q has a nil builder", route)
 	}
+}
+
+// TestEveryExposedSDKRouteHasArgvBuilder proves buildRouteArgs' own
+// GOLC_SCRIPT_ROUTE_UNSUPPORTED fallback (this file's package doc comment)
+// can never actually fire for a route scriptsdk advertises to scripts: every
+// route in scriptsdk.RegisteredSDKMethods() (the sdkMethodTable in
+// internal/scriptsdk/descriptors.go, which the generated golc.d.ts is built
+// from) must have a matching entry in routeArgvBuilders. Without this test,
+// a route added to sdkMethodTable but never wired into routeArgvBuilders
+// compiles and generates cleanly, and only fails at script runtime with
+// GOLC_SCRIPT_ROUTE_UNSUPPORTED -- exactly the class of gap this test
+// closes (15 such routes were found missing when this test was added).
+func TestEveryExposedSDKRouteHasArgvBuilder(t *testing.T) {
+	var missing []string
+	for _, descriptor := range scriptsdk.RegisteredSDKMethods() {
+		if _, ok := routeArgvBuilders[descriptor.Route]; !ok {
+			missing = append(missing, descriptor.Route)
+		}
+	}
+	sort.Strings(missing)
+	require.Empty(t, missing,
+		"GOLC_SCRIPT_ARGV_BUILDER_MISSING: the following scriptsdk-exposed route(s) have no argv builder registered "+
+			"in internal/script/argv.go's routeArgvBuilders -- a script calling one of these methods would fail at "+
+			"runtime with GOLC_SCRIPT_ROUTE_UNSUPPORTED: %s",
+		strings.Join(missing, ", "))
 }

@@ -93,14 +93,25 @@ var routeArgvBuilders = map[string]func(showPath string, raw json.RawMessage) ([
 	"preset delete":          nameShowArgs,
 	"chase delete":           nameShowArgs,
 	"motion delete":          nameShowArgs,
+	"pool delete":            nameShowArgs,
+	"deployment delete":      nameShowArgs,
+	"blend delete":           nameShowArgs,
+	"note create":            nameShowArgs,
+	"note show":              nameShowArgs,
+	"note delete":            nameShowArgs,
 
-	"theme rename":     renameArgs,
-	"preset rename":    renameArgs,
-	"motion rename":    renameArgs,
-	"motion duplicate": renameArgs,
-	"scene rename":     renameArgs,
-	"scene duplicate":  renameArgs,
-	"chase duplicate":  renameArgs,
+	"theme rename":      renameArgs,
+	"preset rename":     renameArgs,
+	"motion rename":     renameArgs,
+	"motion duplicate":  renameArgs,
+	"scene rename":      renameArgs,
+	"scene duplicate":   renameArgs,
+	"chase duplicate":   renameArgs,
+	"pool rename":       renameArgs,
+	"deployment rename": renameArgs,
+	"blend rename":      renameArgs,
+
+	"note list": showOnlyArgs,
 
 	// --- pool ----------------------------------------------------------
 
@@ -108,6 +119,14 @@ var routeArgvBuilders = map[string]func(showPath string, raw json.RawMessage) ([
 	"pool update":     buildPoolUpdateArgs,
 	"pool apply":      buildPoolApplyArgs,
 	"pool substitute": buildPoolSubstituteArgs,
+
+	// --- deployment ------------------------------------------------------
+
+	"deployment instance reassign": buildDeploymentInstanceReassignArgs,
+
+	// --- note --------------------------------------------------------------
+
+	"note edit": buildNoteEditArgs,
 
 	// --- show ------------------------------------------------------------
 
@@ -150,6 +169,9 @@ var routeArgvBuilders = map[string]func(showPath string, raw json.RawMessage) ([
 	"artnet target enable":            buildArtnetTargetArgs,
 	"artnet target disable":           buildArtnetTargetArgs,
 	"artnet master set":               buildArtnetMasterSetArgs,
+	"artnet desk set":                 buildArtnetDeskSetArgs,
+	"artnet desk clear":               buildArtnetDeskClearArgs,
+	"artnet desk clear-all":           buildArtnetDeskClearAllArgs,
 	"artnet safety blackout":          buildArtnetSafetyArgs,
 	"artnet safety stop-all":          buildArtnetSafetyArgs,
 	"artnet safety revoke-automation": buildArtnetSafetyArgs,
@@ -254,6 +276,51 @@ func buildPoolSubstituteArgs(showPath string, raw json.RawMessage) ([]string, er
 	// buildPoolUpdateArgs's identical rationale.
 	if p.Out == "" {
 		args = append(args, "--json")
+	}
+	return append(args, "--show", showPath), nil
+}
+
+// --- deployment ----------------------------------------------------------
+
+// buildDeploymentInstanceReassignArgs: "deployment instance reassign
+// <deployment-name> <instance-id> [--mode <mode>] [--universe <n>]
+// [--address <n>] --show <path>". Mode/Universe/Address are all optional --
+// an omitted field (empty string / zero) keeps the instance's current
+// value, mirroring scriptsdk.DeploymentInstanceReassignParams' doc comment.
+func buildDeploymentInstanceReassignArgs(showPath string, raw json.RawMessage) ([]string, error) {
+	p, err := decodeParams[scriptsdk.DeploymentInstanceReassignParams](raw)
+	if err != nil {
+		return nil, err
+	}
+	args := []string{p.DeploymentName, p.InstanceID}
+	if p.Mode != "" {
+		args = append(args, "--mode", p.Mode)
+	}
+	if p.Universe != 0 {
+		args = append(args, "--universe", strconv.Itoa(p.Universe))
+	}
+	if p.Address != 0 {
+		args = append(args, "--address", strconv.Itoa(p.Address))
+	}
+	return append(args, "--show", showPath), nil
+}
+
+// --- note ------------------------------------------------------------------
+
+// buildNoteEditArgs: "note edit <name> [--title <name>] [--body-file
+// <path>] --show <path>". Title/BodyFile are both optional, but at least
+// one must be set (enforced by runNoteEdit, not this builder).
+func buildNoteEditArgs(showPath string, raw json.RawMessage) ([]string, error) {
+	p, err := decodeParams[scriptsdk.NoteEditParams](raw)
+	if err != nil {
+		return nil, err
+	}
+	args := []string{p.Name}
+	if p.Title != "" {
+		args = append(args, "--title", p.Title)
+	}
+	if p.BodyFile != "" {
+		args = append(args, "--body-file", p.BodyFile)
 	}
 	return append(args, "--show", showPath), nil
 }
@@ -588,6 +655,51 @@ func buildArtnetMasterSetArgs(_ string, raw json.RawMessage) ([]string, error) {
 	} else {
 		args = []string{"--grand", formatFloat(p.Grand)}
 	}
+	if p.Pipe != "" {
+		args = append(args, "--pipe", p.Pipe)
+	}
+	return args, nil
+}
+
+// buildArtnetDeskSetArgs: "artnet desk set --instance <uuid> --attr
+// <capability>=<value> [--pipe <name>]".
+func buildArtnetDeskSetArgs(_ string, raw json.RawMessage) ([]string, error) {
+	p, err := decodeParams[scriptsdk.ArtnetDeskSetParams](raw)
+	if err != nil {
+		return nil, err
+	}
+	args := []string{"--instance", p.Instance, "--attr", p.Attr}
+	if p.Pipe != "" {
+		args = append(args, "--pipe", p.Pipe)
+	}
+	return args, nil
+}
+
+// buildArtnetDeskClearArgs: "artnet desk clear --instance <uuid> [--attr
+// <capability>] [--pipe <name>]". Attr omitted releases every override on
+// the instance (runArtnetDeskClear's own documented behavior).
+func buildArtnetDeskClearArgs(_ string, raw json.RawMessage) ([]string, error) {
+	p, err := decodeParams[scriptsdk.ArtnetDeskClearParams](raw)
+	if err != nil {
+		return nil, err
+	}
+	args := []string{"--instance", p.Instance}
+	if p.Attr != "" {
+		args = append(args, "--attr", p.Attr)
+	}
+	if p.Pipe != "" {
+		args = append(args, "--pipe", p.Pipe)
+	}
+	return args, nil
+}
+
+// buildArtnetDeskClearAllArgs: "artnet desk clear-all [--pipe <name>]".
+func buildArtnetDeskClearAllArgs(_ string, raw json.RawMessage) ([]string, error) {
+	p, err := decodeParams[scriptsdk.ArtnetDeskClearAllParams](raw)
+	if err != nil {
+		return nil, err
+	}
+	var args []string
 	if p.Pipe != "" {
 		args = append(args, "--pipe", p.Pipe)
 	}
