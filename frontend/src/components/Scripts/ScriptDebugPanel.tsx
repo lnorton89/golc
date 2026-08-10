@@ -122,6 +122,9 @@ function statusChip(status: ScriptPanelStatus, pausedLine: number | null): { ton
 interface TerminationDescription {
   sentence: string;
   isCrash: boolean;
+  /** false when the run ended cleanly and `sentence` is merely its final
+   * output -- the banner must not report that as having been stopped. */
+  isTermination: boolean;
 }
 
 // describeTermination translates a terminal event's machine-readable
@@ -139,9 +142,22 @@ interface TerminationDescription {
 // generic "Terminated: {reason}" rendering rather than guessing a limit
 // name that was never reported.
 function describeTermination(status: ScriptPanelStatus, reason: string): TerminationDescription {
+  // A SUCCEEDED run routinely carries a non-empty Reason:
+  // internal/script/session.go fills outcome.Reason from the captured
+  // stderr tail regardless of status, so a script that merely ends with a
+  // console.error and exits cleanly used to fall all the way through the
+  // four GOLC_SCRIPT_* matchers to "Terminated: done" -- while the status
+  // chip next to it simultaneously read "Succeeded". Nothing about a
+  // clean exit is a termination cause, so this is framed as what it
+  // actually is: the run's final output.
+  if (status === "succeeded") {
+    const summary = reason.split("\n")[0]?.trim() || reason;
+    return { sentence: `Finished with output: ${summary}`, isCrash: false, isTermination: false };
+  }
+
   if (status === "failed") {
     const summary = reason.split("\n")[0]?.trim() || reason;
-    return { sentence: `Script crashed: ${summary}`, isCrash: true };
+    return { sentence: `Script crashed: ${summary}`, isCrash: true, isTermination: true };
   }
 
   const deadlineMatch = /GOLC_SCRIPT_DEADLINE_EXCEEDED: run exceeded its (\S+) deadline/.exec(reason);
@@ -149,6 +165,7 @@ function describeTermination(status: ScriptPanelStatus, reason: string): Termina
     return {
       sentence: `Terminated: deadline exceeded (${deadlineMatch[1]}). Increase the limit in this script's profile if this is expected.`,
       isCrash: false,
+      isTermination: true,
     };
   }
 
@@ -157,6 +174,7 @@ function describeTermination(status: ScriptPanelStatus, reason: string): Termina
     return {
       sentence: `Terminated: rate limit exceeded (${rateMatch[1]} calls/sec). Increase the limit in this script's profile if this is expected.`,
       isCrash: false,
+      isTermination: true,
     };
   }
 
@@ -165,6 +183,7 @@ function describeTermination(status: ScriptPanelStatus, reason: string): Termina
     return {
       sentence: `Terminated: memory limit exceeded (${memoryMatch[1]} MB). Increase the limit in this script's profile if this is expected.`,
       isCrash: false,
+      isTermination: true,
     };
   }
 
@@ -174,11 +193,12 @@ function describeTermination(status: ScriptPanelStatus, reason: string): Termina
     return {
       sentence: `Terminated: this script tried to call ${scopeMatch[1]} outside its assigned ${scopeMatch[2]} capability.`,
       isCrash: false,
+      isTermination: true,
     };
   }
 
   const summary = reason.split("\n")[0]?.trim() || reason;
-  return { sentence: `Terminated: ${summary}`, isCrash: false };
+  return { sentence: `Terminated: ${summary}`, isCrash: false, isTermination: true };
 }
 
 function formatTimestamp(at?: string): string {
@@ -343,7 +363,11 @@ export default function ScriptDebugPanel({
       {isTerminal ? (
         <div className={styles.banner}>
           <p className={styles.bannerHeading}>
-            {`Stopped: ${termination ? termination.sentence.replace(/^Terminated: |^Script crashed: /, "") : status}`}
+            {termination && termination.isTermination
+              ? `Stopped: ${termination.sentence.replace(/^Terminated: |^Script crashed: /, "")}`
+              : status === "succeeded"
+                ? "Finished"
+                : `Stopped: ${status}`}
           </p>
           <p className={styles.bannerBody}>{RESTART_DISCLAIMER}</p>
           <div className={styles.bannerActions}>

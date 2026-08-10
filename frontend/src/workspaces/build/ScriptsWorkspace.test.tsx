@@ -81,7 +81,20 @@ vi.mock("monaco-editor", () => {
       get length() {
         return current.length;
       },
+      // getRanges mirrors Monaco's own IEditorDecorationsCollection API.
+      // Real Monaco reflows these ranges as the model is edited; this fake
+      // returns them verbatim, which is all ScriptEditor's
+      // onBreakpointLinesChange path needs to be exercised structurally
+      // (the reflow itself is Monaco's, not ours).
+      getRanges: () =>
+        current.map((decoration) => (decoration as { range: { startLineNumber: number } }).range),
       __current: () => current,
+      __setRanges: (lines: number[]) => {
+        current = lines.map((line) => ({
+          range: { startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 1 },
+          options: {},
+        }));
+      },
     };
   }
 
@@ -121,7 +134,14 @@ vi.mock("monaco-editor", () => {
 
     return {
       dispose: vi.fn(),
-      updateOptions: vi.fn(),
+      // updateOptions must actually apply ariaLabel: ScriptEditor now
+      // syncs the accessible name on every change rather than only at
+      // create() time.
+      updateOptions: vi.fn((next: Record<string, unknown>) => {
+        if (typeof next.ariaLabel === "string") {
+          textarea.setAttribute("aria-label", next.ariaLabel);
+        }
+      }),
       getModel: () => model,
       onMouseDown,
       createDecorationsCollection,
@@ -636,6 +656,143 @@ describe("ScriptsWorkspace", () => {
         screen.getByText("Run or Debug this script to see live logs, diagnostics, and command outcomes here."),
       ).toBeInTheDocument(),
     );
+  });
+
+  // --- 2026-08-10 review pass regressions ------------------------------
+
+  it("saves the editor buffer before launching, so Run executes what is on screen", async () => {
+    const svc = stubScriptService({
+      ListScripts: vi.fn().mockResolvedValue([summary({ name: "Chase Cycler" })]),
+      GetScript: vi.fn().mockResolvedValue({ ...summary({ name: "Chase Cycler" }), source: "" }),
+    });
+    stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(within(scriptList()).getByText("Chase Cycler")).toBeInTheDocument());
+    fireEvent.click(within(scriptList()).getByText("Chase Cycler"));
+    await waitFor(() => expect(screen.getByLabelText("Chase Cycler source")).toBeInTheDocument());
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Chase Cycler source"), { target: { value: "edited();\n" } });
+    });
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    await waitFor(() => expect(screen.getByText("Run Chase Cycler")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Run Chase Cycler" }));
+
+    // The buffer is committed before the launch, not left on disk stale.
+    await waitFor(() => expect(svc.SaveScriptSource).toHaveBeenCalledWith("Chase Cycler", "edited();\n"));
+    await waitFor(() => expect(svc.RunScript).toHaveBeenCalledWith("Chase Cycler"));
+    await waitFor(() => expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument());
+  });
+
+  it("Run Again after a Debug run re-opens the dialog in debug mode, not a plain Run", async () => {
+    const svc = stubScriptService({ ListScripts: vi.fn().mockResolvedValue([summary({ name: "Chase Cycler" })]) });
+    const { emitScriptEvent } = stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(screen.getByLabelText("Chase Cycler source")).toBeInTheDocument());
+
+    const editor = latestMountedEditor();
+    editor.__emitMouseDown({
+      target: { type: MOCK_MOUSE_TARGET_TYPE.GUTTER_GLYPH_MARGIN, position: { lineNumber: 4 } },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Debug" }));
+    await waitFor(() => expect(screen.getByText("Debug Chase Cycler")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Start Debugging Chase Cycler" }));
+    await waitFor(() => expect(svc.DebugScript).toHaveBeenCalledWith("Chase Cycler", [4]));
+
+    emitScriptEvent({
+      seq: 1,
+      kind: "script.terminal",
+      runId: "run-1",
+      scriptName: "Chase Cycler",
+      status: "failed",
+      reason: "TypeError: boom",
+    });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Run Again" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Run Again" }));
+
+    // Was hard-coded to "run", which silently dropped the breakpoints the
+    // gutter still displayed (runScript ignores them entirely).
+    expect(screen.getByText("Debug Chase Cycler")).toBeInTheDocument();
+  });
+
+  it("reports a failed launch outcome as a terminal state instead of discarding it", async () => {
+    stubScriptService({
+      ListScripts: vi.fn().mockResolvedValue([summary({ name: "Chase Cycler" })]),
+      // runScript/debugScript never reject -- they RESOLVE with a failed
+      // outcome, which the old `.catch` handler could never see.
+      RunScript: vi.fn().mockResolvedValue(
+        runOutcome({ status: "failed", reason: "GOLC_SCRIPT_NOT_FOUND: no script named Chase Cycler" }),
+      ),
+    });
+    stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(screen.getByLabelText("Chase Cycler source")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    await waitFor(() => expect(screen.getByText("Run Chase Cycler")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Run Chase Cycler" }));
+
+    // Previously the dialog just closed and the panel sat on its idle
+    // placeholder forever.
+    await waitFor(() => expect(screen.getAllByText(/GOLC_SCRIPT_NOT_FOUND/).length).toBeGreaterThan(0));
+    expect(screen.getByText(/^Script crashed: GOLC_SCRIPT_NOT_FOUND/)).toBeInTheDocument();
+  });
+
+  it("follows the gutter when an edit moves a breakpoint, instead of drifting from it", async () => {
+    const svc = stubScriptService({ ListScripts: vi.fn().mockResolvedValue([summary({ name: "Chase Cycler" })]) });
+    stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(screen.getByLabelText("Chase Cycler source")).toBeInTheDocument());
+
+    const editor = latestMountedEditor();
+    editor.__emitMouseDown({
+      target: { type: MOCK_MOUSE_TARGET_TYPE.GUTTER_GLYPH_MARGIN, position: { lineNumber: 5 } },
+    });
+    await waitFor(() => expect(editor.__decorationsCollections[0].__current()).toHaveLength(1));
+
+    // Stand in for Monaco reflowing the tracked range after three lines
+    // were inserted above the breakpoint, then edit the document.
+    editor.__decorationsCollections[0].__setRanges([8]);
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Chase Cycler source"), { target: { value: "a\nb\nc\n" } });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Debug" }));
+    await waitFor(() => expect(screen.getByText("Debug Chase Cycler")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Start Debugging Chase Cycler" }));
+
+    // State followed the glyph to 8; it used to still say [5].
+    await waitFor(() => expect(svc.DebugScript).toHaveBeenCalledWith("Chase Cycler", [8]));
+  });
+
+  it("keeps the editor's accessible name in sync when the selected script changes", async () => {
+    stubScriptService({
+      ListScripts: vi.fn().mockResolvedValue([
+        summary({ id: "script-1", name: "Chase Cycler" }),
+        summary({ id: "script-2", name: "House Lights" }),
+      ]),
+    });
+    stubRuntimeEvents();
+
+    render(<ScriptsWorkspace />);
+    await waitFor(() => expect(screen.getByLabelText("Chase Cycler source")).toBeInTheDocument());
+
+    fireEvent.click(within(scriptList()).getByText("House Lights"));
+
+    // The editor is never keyed or remounted on selection change, so
+    // without a sync effect the textarea kept announcing "Chase Cycler
+    // source" while displaying House Lights' code for the rest of the
+    // session.
+    await waitFor(() => expect(screen.getByLabelText("House Lights source")).toBeInTheDocument());
+    expect(screen.queryByLabelText("Chase Cycler source")).not.toBeInTheDocument();
   });
 
   // --- 08-12-PLAN.md Task 2: breakpoint gutter -> DebugScript wiring, the

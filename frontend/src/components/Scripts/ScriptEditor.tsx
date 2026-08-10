@@ -108,6 +108,26 @@ function currentLineDecoration(line: number): Monaco.editor.IModelDeltaDecoratio
   ];
 }
 
+/** trackedBreakpointLines reads the decorations collection's own current
+ * ranges -- i.e. where Monaco has moved each breakpoint glyph in response
+ * to model edits -- as a sorted, de-duplicated line list. Returns null when
+ * there is no live collection to read. */
+function trackedBreakpointLines(
+  collection: Monaco.editor.IEditorDecorationsCollection | null,
+): number[] | null {
+  if (!collection) return null;
+  const lines = new Set<number>();
+  for (const range of collection.getRanges()) {
+    lines.add(range.startLineNumber);
+  }
+  return [...lines].sort((a, b) => a - b);
+}
+
+/** sameLines compares two already-sorted line lists. */
+function sameLines(a: readonly number[], b: readonly number[]): boolean {
+  return a.length === b.length && a.every((line, index) => line === b[index]);
+}
+
 // environmentConfigured guards configureMonacoEnvironment against
 // reconfiguring self.MonacoEnvironment on every ScriptEditor mount --
 // module-level because the worker loader is a process-wide singleton, not
@@ -163,6 +183,16 @@ interface ScriptEditorProps {
    * lands in Task 2. */
   breakpointLines?: number[];
   onToggleBreakpoint?: (line: number) => void;
+  /** onBreakpointLinesChange reports the breakpoint set back up after the
+   * *document* moved it. Monaco's decorations collection tracks model
+   * edits and shifts each glyph with its text, but breakpointLines is a
+   * plain number[] in workspace state that never learned about the edit --
+   * so inserting three lines above a breakpoint left the glyph on line 8
+   * while state still said 5, and Debug broke on the wrong statement
+   * (toggling any other breakpoint then visibly snapped the glyph back).
+   * This closes that loop: the collection's own tracked ranges are the
+   * source of truth for where a breakpoint *is*. */
+  onBreakpointLinesChange?: (lines: number[]) => void;
   currentExecutionLine?: number | null;
 }
 
@@ -174,6 +204,7 @@ export default function ScriptEditor({
   ariaLabel,
   breakpointLines = EMPTY_BREAKPOINT_LINES,
   onToggleBreakpoint,
+  onBreakpointLinesChange,
   currentExecutionLine = null,
 }: ScriptEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -187,6 +218,8 @@ export default function ScriptEditor({
   const extraLibRef = useRef<Monaco.IDisposable | null>(null);
   const lastRegisteredTypesRef = useRef<string | null>(null);
   const onToggleBreakpointRef = useRef(onToggleBreakpoint);
+  const onBreakpointLinesChangeRef = useRef(onBreakpointLinesChange);
+  const ariaLabelRef = useRef(ariaLabel);
   const breakpointLinesRef = useRef(breakpointLines);
   const currentExecutionLineRef = useRef(currentExecutionLine);
   const breakpointDecorationsRef = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null);
@@ -199,6 +232,8 @@ export default function ScriptEditor({
   readOnlyRef.current = readOnly;
   sdkTypeDefinitionsRef.current = sdkTypeDefinitions;
   onToggleBreakpointRef.current = onToggleBreakpoint;
+  onBreakpointLinesChangeRef.current = onBreakpointLinesChange;
+  ariaLabelRef.current = ariaLabel;
   breakpointLinesRef.current = breakpointLines;
   currentExecutionLineRef.current = currentExecutionLine;
 
@@ -264,12 +299,23 @@ export default function ScriptEditor({
         readOnly: readOnlyRef.current ?? false,
         automaticLayout: true,
         scrollBeyondLastLine: false,
-        ariaLabel,
+        ariaLabel: ariaLabelRef.current,
       });
       editorRef.current = editor;
 
       const changeSubscription = model.onDidChangeContent(() => {
         onChangeRef.current(model.getValue());
+        // The edit may have moved the breakpoint glyphs (the decorations
+        // collection tracks the model); publish where they actually are
+        // now so the owner's plain number[] stops drifting from the
+        // gutter. Only fires when the set genuinely changed, so ordinary
+        // typing away from any breakpoint costs one array compare.
+        const publish = onBreakpointLinesChangeRef.current;
+        if (!publish) return;
+        const tracked = trackedBreakpointLines(breakpointDecorationsRef.current);
+        if (tracked && !sameLines(tracked, breakpointLinesRef.current)) {
+          publish(tracked);
+        }
       });
 
       // Glyph-margin breakpoint toggling (D-01, 08-12-PLAN.md Task 1):
@@ -401,6 +447,16 @@ export default function ScriptEditor({
   useEffect(() => {
     editorRef.current?.updateOptions({ readOnly: readOnly ?? false });
   }, [readOnly]);
+
+  // Keeps the editor textarea's accessible name in sync. ariaLabel was the
+  // one prop passed only into monaco.editor.create() inside the mount-only
+  // effect, with no ref mirror and no sync effect -- and the editor is
+  // never keyed or remounted on selection change, so after switching from
+  // script A to script B the textarea was still announced as "A source"
+  // while displaying B's code, for the rest of the session.
+  useEffect(() => {
+    editorRef.current?.updateOptions({ ariaLabel });
+  }, [ariaLabel]);
 
   // Breakpoint gutter decorations (D-01, 08-12-PLAN.md Task 1): replaces
   // the entire glyph-margin decoration set on every distinct

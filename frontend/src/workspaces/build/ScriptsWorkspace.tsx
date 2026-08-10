@@ -244,6 +244,12 @@ export default function ScriptsWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [source, setSource] = useState("");
+  // savedSource is the last source known to be on disk for the selected
+  // script (what getScript returned, or what the last successful
+  // saveScriptSource wrote). `source !== savedSource` is the workspace's
+  // dirty state -- there was none before, which is what let Run/Debug
+  // execute the on-disk version while the editor showed something else.
+  const [savedSource, setSavedSource] = useState("");
   const [sourceLoading, setSourceLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -266,6 +272,13 @@ export default function ScriptsWorkspace() {
   // actually paused (see currentExecutionLine below), so the two never
   // fight over the same highlight.
   const [selectedFrameLine, setSelectedFrameLine] = useState<number | null>(null);
+  // lastLaunchModeByScript remembers how each script was last launched, so
+  // ScriptDebugPanel's "Run Again" re-opens the dialog in that mode.
+  // Hard-coding "run" silently downgraded a debug run: runScript ignores
+  // breakpointLines entirely (session.go reads them only when mode ==
+  // LaunchModeDebug), so the gutter still showed breakpoints that could
+  // never fire, with no indication why.
+  const [lastLaunchModeByScript, setLastLaunchModeByScript] = useState<Record<string, ScriptLaunchMode>>({});
   const libraryPanel = useResizablePanel({
     min: 180,
     max: 440,
@@ -345,6 +358,7 @@ export default function ScriptsWorkspace() {
   useEffect(() => {
     if (!selectedName) {
       setSource("");
+      setSavedSource("");
       return;
     }
     let cancelled = false;
@@ -354,6 +368,7 @@ export default function ScriptsWorkspace() {
         const detail = await getScript(selectedName);
         if (!cancelled) {
           setSource(detail.source);
+          setSavedSource(detail.source);
         }
       } catch (err) {
         if (!cancelled) {
@@ -389,14 +404,27 @@ export default function ScriptsWorkspace() {
     })();
   };
 
+  /** persistSource writes the editor's current buffer and records it as
+   * the new on-disk baseline. Shared by the Save button and by the launch
+   * path below, which must not run a different source than the one on
+   * screen. */
+  const persistSource = useCallback(
+    async (name: string, next: string): Promise<void> => {
+      const result = await saveScriptSource(name, next);
+      assertOk(result, "SaveScriptSource");
+      setSavedSource(next);
+    },
+    [],
+  );
+
   const handleSave = () => {
     if (!selectedName) {
       return;
     }
+    const name = selectedName;
     void (async () => {
       try {
-        const result = await saveScriptSource(selectedName, source);
-        assertOk(result, "SaveScriptSource");
+        await persistSource(name, source);
         await refresh();
       } catch (err) {
         setError(errorMessage(err));
@@ -455,6 +483,19 @@ export default function ScriptsWorkspace() {
     assertOk(saveResult, "SetScriptProfile");
     await refresh();
 
+    // Run/Debug used to execute whatever was last written to disk while
+    // the editor showed something else -- and the log/stack-trace line
+    // numbers then referred to the on-disk file, which is especially
+    // confusing next to breakpoints, which ARE taken from the live gutter.
+    // Committing the buffer first makes "run what I am looking at" true.
+    // (Persisting on submit matches D-07's existing precedent that the
+    // edited profile becomes the new saved default on this same action.)
+    if (source !== savedSource) {
+      await persistSource(name, source);
+    }
+    await refresh();
+
+    setLastLaunchModeByScript((current) => ({ ...current, [name]: mode }));
     setDialogMode(null);
     setSelectedFrameLine(null);
     // debugScript's breakpointLines argument is this workspace's own
@@ -463,12 +504,32 @@ export default function ScriptsWorkspace() {
     // backend (internal/command/scriptdebug.go) is the validation
     // authority and applies the shim-offset correction, never this client.
     const launch = mode === "debug" ? debugScript(name, breakpointLines) : runScript(name);
-    void launch.catch((err) => {
+    // runScript/debugScript are non-throwing by wailsBridge.ts's contract:
+    // they catch internally and RESOLVE with offlineScriptRunOutcome(), so
+    // the .catch this block used to carry was unreachable and the resolved
+    // outcome -- which carries the real status/reason -- was discarded
+    // entirely. A pre-flight failure (script deleted between opening the
+    // dialog and submitting, script host detached) left the debug panel on
+    // its idle placeholder forever. Read the outcome instead.
+    void launch.then((outcome) => {
+      if (outcome.status !== "failed") {
+        return;
+      }
       setPanelStateByScript((current) => {
         const previous = current[name] ?? IDLE_PANEL_STATE;
+        // The live onScriptEvent stream is the source of truth once it has
+        // delivered a terminal event of its own -- this only fills the gap
+        // where it never will.
+        if (previous.terminal) {
+          return current;
+        }
         return {
           ...current,
-          [name]: { ...previous, liveStatus: "idle", terminal: { status: "failed", reason: errorMessage(err) } },
+          [name]: {
+            ...previous,
+            liveStatus: "idle",
+            terminal: { status: "failed", reason: outcome.reason ?? "The script host reported a failure with no reason." },
+          },
         };
       });
     });
@@ -537,13 +598,27 @@ export default function ScriptsWorkspace() {
   // dialog rather than relaunching directly, so the (possibly still-
   // editable) profile is reviewed again before every run (D-07) -- there
   // is no direct-relaunch path anywhere in this file (D-13).
-  const handleRunAgain = () => setDialogMode("run");
+  // Re-opens the dialog in the mode the finished run actually used, not a
+  // hard-coded "run" (see lastLaunchModeByScript).
+  const handleRunAgain = () =>
+    setDialogMode(selectedName ? (lastLaunchModeByScript[selectedName] ?? "run") : "run");
 
   // handleToggleBreakpoint is ScriptEditor's onToggleBreakpoint (D-01,
   // 08-12-PLAN.md Task 1/Task 2): a glyph-margin click on a line already in
   // the set removes it, otherwise adds it (kept sorted so the gutter's own
   // decoration order is stable/predictable, though ScriptEditor itself
   // doesn't depend on ordering).
+  // handleBreakpointLinesChange is ScriptEditor's onBreakpointLinesChange:
+  // the editor reports where Monaco's decoration collection has actually
+  // moved each glyph after a model edit, and that becomes the new state.
+  // Without it, inserting lines above a breakpoint left the glyph and the
+  // number[] disagreeing, so Debug broke on the wrong statement.
+  const handleBreakpointLinesChange = useCallback((lines: number[]) => {
+    setBreakpointLines((current) =>
+      current.length === lines.length && current.every((line, index) => line === lines[index]) ? current : lines,
+    );
+  }, []);
+
   const handleToggleBreakpoint = useCallback((line: number) => {
     setBreakpointLines((current) =>
       current.includes(line)
@@ -595,6 +670,11 @@ export default function ScriptsWorkspace() {
       : panelState.liveStatus;
   const isRunActive = panelStatus === "running" || panelStatus === "paused" || panelStatus === "stopping";
   const validationBlocksLaunch = validation !== null && !validation.valid;
+  // The editor buffer differs from what's on disk. Surfaced on the Save
+  // button, and committed automatically by handleDialogSubmit before a
+  // launch so Run/Debug can never execute a different source than the one
+  // on screen.
+  const isDirty = selectedName !== null && !sourceLoading && source !== savedSource;
 
   const inspectorPortal = useInspectorSlot(
     selectedScript ? (
@@ -807,6 +887,12 @@ export default function ScriptsWorkspace() {
                     <span className={styles.editorTitle} title={selectedScript.name}>
                       {selectedScript.name}
                     </span>
+                    {/* The unsaved-changes cue lives here rather than on
+                        the Save button: mutating a control's own label
+                        would change its accessible name mid-session. */}
+                    {isDirty ? (
+                      <Chip tone="armed">Unsaved changes</Chip>
+                    ) : null}
                   </div>
 
                   {confirmingDelete ? (
@@ -848,6 +934,7 @@ export default function ScriptsWorkspace() {
                     ariaLabel={`${selectedScript.name} source`}
                     breakpointLines={breakpointLines}
                     onToggleBreakpoint={handleToggleBreakpoint}
+                    onBreakpointLinesChange={handleBreakpointLinesChange}
                     currentExecutionLine={panelState.pausedLine ?? selectedFrameLine}
                   />
 

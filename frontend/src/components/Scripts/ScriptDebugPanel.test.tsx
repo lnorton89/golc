@@ -237,6 +237,20 @@ describe("ScriptDebugPanel", () => {
     ).toBeInTheDocument();
   });
 
+  // 2026-08-10 review pass: internal/script/session.go fills
+  // outcome.Reason from the captured stderr tail regardless of status, so
+  // a script that merely ends with a console.error and exits cleanly fell
+  // through every GOLC_SCRIPT_* matcher to "Terminated: done" -- while the
+  // status chip beside it read "Succeeded".
+  it("reports a clean exit that carried stderr output as finished, not as terminated", () => {
+    render(<ScriptDebugPanel {...baseProps({ status: "succeeded", terminalReason: "done" })} />);
+
+    expect(screen.getByText("Finished with output: done")).toBeInTheDocument();
+    expect(screen.queryByText(/^Terminated:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Stopped:/)).not.toBeInTheDocument();
+    expect(screen.getByText("Finished")).toBeInTheDocument();
+  });
+
   it("renders the exact capability-scope-violation sentence", () => {
     render(
       <ScriptDebugPanel

@@ -96,7 +96,20 @@ vi.mock("monaco-editor", () => {
       get length() {
         return current.length;
       },
+      // getRanges mirrors Monaco's own IEditorDecorationsCollection API.
+      // Real Monaco reflows these ranges as the model is edited; this fake
+      // returns them verbatim, which is all ScriptEditor's
+      // onBreakpointLinesChange path needs to be exercised structurally
+      // (the reflow itself is Monaco's, not ours).
+      getRanges: () =>
+        current.map((decoration) => (decoration as { range: { startLineNumber: number } }).range),
       __current: () => current,
+      __setRanges: (lines: number[]) => {
+        current = lines.map((line) => ({
+          range: { startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 1 },
+          options: {},
+        }));
+      },
     };
   }
 
@@ -135,7 +148,14 @@ vi.mock("monaco-editor", () => {
 
     return {
       dispose: vi.fn(),
-      updateOptions: vi.fn(),
+      // updateOptions must actually apply ariaLabel: ScriptEditor now
+      // syncs the accessible name on every change rather than only at
+      // create() time.
+      updateOptions: vi.fn((next: Record<string, unknown>) => {
+        if (typeof next.ariaLabel === "string") {
+          textarea.setAttribute("aria-label", next.ariaLabel);
+        }
+      }),
       getModel: () => model,
       onMouseDown,
       createDecorationsCollection,

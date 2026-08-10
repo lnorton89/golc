@@ -63,7 +63,8 @@ The rebind capture listener calls `event.stopPropagation()`, but both playback (
 
 `handleStartRemoveMember` fires `removePoolMemberPreview` with no generation guard, and the render gate at `:628` keys only on `removeTarget`, never on `pendingRemovePreview.memberId` — even though that state object already carries `poolName`/`memberId` for exactly this comparison. Repro: click Remove on member A, then click Remove on member B inside the round trip; when A's slower response lands, A's impact list renders under B's row and `handleApplyRemoveMember` (`:412`) commits A's `plan_id`, deleting member A instead of B. `ProjectFixtures.tsx:381` (gate at `:578`) has the same shape.
 
-### Script launch failures are silently swallowed — the `.catch` handler is unreachable
+### ~~Script launch failures are silently swallowed — the `.catch` handler is unreachable~~
+**Fixed:** `handleDialogSubmit` now reads the *resolved* `ScriptRunOutcomeView` and synthesizes the terminal state from `status === "failed"` + `reason`, only when the live `onScriptEvent` stream hasn't already delivered a terminal event of its own. The dead `.catch` is gone.
 **Severity:** bug
 **File:** `frontend/src/workspaces/build/ScriptsWorkspace.tsx:465`
 **Confidence:** high
@@ -98,7 +99,8 @@ The threshold timer sets `setProgress(1)` and latches `timers.current.completed 
 
 `handleRenameScene` calls `setSelectedSceneName(newName)` *before* `await refresh()`. That commits a render where `selectedSceneName` is the new name but `view.scenes` still holds the old one, so the selection-validity effect at `:107` sees no match and overwrites the selection with `view.scenes.find(s => s.active) ?? view.scenes[0]`. Repro: with three scenes, select the third, rename it — after the round trip the main column shows the first (or live) scene's layers instead of the renamed one. `handleCreateScene` (`:120`) does it in the correct order, so this handler is the outlier.
 
-### A successful script run is reported to the user as "Terminated: <stderr line>"
+### ~~A successful script run is reported to the user as "Terminated: <stderr line>"~~
+**Fixed:** `describeTermination` handles `status === "succeeded"` explicitly and returns `isTermination: false` with a "Finished with output: …" sentence; the banner reads "Finished" rather than "Stopped: …".
 **Severity:** bug
 **File:** `frontend/src/components/Scripts/ScriptDebugPanel.tsx:141`
 **Confidence:** high
@@ -113,7 +115,8 @@ The threshold timer sets `setProgress(1)` and latches `timers.current.completed 
 
 The nav-chord handler calls `onNavigate` (= `AppShell`'s raw `setActiveDestination`) directly, bypassing `GuidedFirstShowContext`'s leave-the-guide confirm. `ShellCanvas` (`AppShell.tsx:66`) renders `<GuidedFirstShow />` in place of `<WorkspaceRouter />` while `open`, so the destination changes underneath the still-open overlay with zero visible effect. Repro: launch the guide, press `Alt+ArrowDown` twice, press Exit Guide — you land on a workspace you never chose (and `exitGuide` returns you to the *entry* destination, so the two keystrokes are silently discarded instead). This is the exact bug `GuardedCommandRail` was added to fix for rail clicks; the file's own header comment acknowledges the keyboard path was left behind because the hook sits above `GuidedFirstShowProvider`.
 
-### Monaco editor's `aria-label` goes stale on every script switch
+### ~~Monaco editor's `aria-label` goes stale on every script switch~~
+**Fixed:** `ariaLabel` now has a ref mirror (used at create time) and a sync effect calling `editor.updateOptions({ ariaLabel })`, matching the pattern the other five props already had.
 **Severity:** bug
 **File:** `frontend/src/components/Scripts/ScriptEditor.tsx:267`
 **Confidence:** high
@@ -127,7 +130,8 @@ The nav-chord handler calls `onNavigate` (= `AppShell`'s raw `setActiveDestinati
 
 When `status` becomes `"listening"` the component returns an entirely different subtree: the focused `<Button>Learn</Button>` unmounts and is replaced by a `<div role="status">` plus a new Cancel button, with no `focus()` handoff. Repro: tab to a control's Learn button, press Enter — focus falls to `<body>`, so a keyboard user cannot reach Cancel without tabbing from the top of the document, and when the learn resolves and the Learn button remounts focus is not returned to it either.
 
-### Breakpoint line numbers drift from the gutter glyphs after an edit
+### ~~Breakpoint line numbers drift from the gutter glyphs after an edit~~
+**Fixed:** Closed the loop rather than clearing on edit: `ScriptEditor` gained `onBreakpointLinesChange`, which reads the decoration collection's own tracked ranges on each model change and reports them upward, so the workspace's `number[]` follows the glyph Monaco moved. The Monaco test fakes gained the `getRanges()` they were missing.
 **Severity:** bug
 **File:** `frontend/src/workspaces/build/ScriptsWorkspace.tsx:261`
 **Confidence:** medium
@@ -238,14 +242,16 @@ Switching the selected surface while in operate mode runs the effect cleanup (`s
 
 `SceneList` commits the new order to local state optimistically, and its reset effect (`:219`) deliberately only resets when the *name set* changes — which a failed reorder never does. `handleReorderScenes` (`ScenesLooksWorkspace.tsx:246`) either bails silently on an invalid permutation or sets an error banner; in both cases the local order stays wrong permanently. Repro: drag a scene while the `scene reorder` route rejects — the list keeps the new order for the rest of the session and the operator only discovers the truth on the next launch. There is no `onReorder` failure signal back into `SceneList` at all.
 
-### Run/Debug executes the last-saved source, not what the editor shows
+### ~~Run/Debug executes the last-saved source, not what the editor shows~~
+**Fixed:** Added dirty tracking (`savedSource` vs `source`) with an "Unsaved changes" chip in the editor header, and `handleDialogSubmit` commits the buffer via `saveScriptSource` before launching. Kept off the Save button's own label deliberately — mutating a control's accessible name mid-session is its own bug.
 **Severity:** edge-case
 **File:** `frontend/src/workspaces/build/ScriptsWorkspace.tsx:442`
 **Confidence:** high
 
 `handleDialogSubmit` calls `setScriptProfile` → `refresh` → `runScript`/`debugScript` and never calls `saveScriptSource`. There is no dirty-state tracking in the file and no unsaved-changes indicator on the Save button. Repro: edit a script, don't press Save, press Run — the backend runs the on-disk version while the editor shows different code, and the log/stack-trace line numbers refer to the on-disk file. Especially confusing combined with breakpoints, which *are* taken from the live editor gutter.
 
-### "Run Again" after a debug run silently downgrades to a plain Run
+### ~~"Run Again" after a debug run silently downgrades to a plain Run~~
+**Fixed:** The workspace remembers the mode each script was last launched with (`lastLaunchModeByScript`) and `handleRunAgain` re-opens the dialog in it.
 **Severity:** edge-case
 **File:** `frontend/src/workspaces/build/ScriptsWorkspace.tsx:540`
 **Confidence:** high
