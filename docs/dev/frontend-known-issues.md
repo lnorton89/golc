@@ -149,7 +149,8 @@ When `status` becomes `"listening"` the component returns an entirely different 
 
 `handleDragEnd` calls `onReorder(next)` inside the `setOrder` updater. `main.tsx:32` wraps the app in `React.StrictMode`, which deliberately double-invokes state updaters in development, so every drag-drop issues `ReorderScenes` twice against the Go host. The second call is computed against already-reordered server state if `refresh()` landed between them (`ScenesLooksWorkspace.tsx:247`) — a genuine ordering race, and at minimum a duplicate show-file mutation per drag. `next` is derivable from `order` outside the updater.
 
-### The Launcher swallows every dispatch failure — a rejected scene launch looks like nothing happened
+### ~~The Launcher swallows every dispatch failure — a rejected scene launch looks like nothing happened~~
+**Fixed:** Both handlers now read the returned `WailsResult` and render an `ErrorState` above the grid. An absent result (bridge unbound) counts as a failure too, per wailsBridge's documented degraded contract.
 **Severity:** bug
 **File:** `frontend/src/components/OperatorSurface/Launcher.tsx:43`
 **Confidence:** high
@@ -202,7 +203,8 @@ Every stage reports upward through `onStatusChange` (= `GuidedFirstShow.tsx:89`'
 
 Neither `onKeyDown` handler checks `event.repeat`. Repro A: hold Space — OS key auto-repeat (~30/s) floods `dispatch.recordTap()`, and since `createTapTempoRecorder` (`playbackDispatch.ts:87`) only resets after a >2s gap, the 8-tap buffer fills with repeat-interval timestamps and `TapTempo` computes a nonsense BPM from the keyboard repeat rate. Repro B: hold `?` or `Ctrl+K` — `setHelpOpen(c => !c)` / `setQuickSwitcherOpen(c => !c)` (`useGlobalKeyboardWorkflow.ts:126`/`:155`) toggle on every repeat, flickering the overlay open/closed.
 
-### Layer toggles compute the target state from a snapshot that can be up to a second stale
+### ~~Layer toggles compute the target state from a snapshot that can be up to a second stale~~
+**Fixed:** Two parts, two fixes. Keyboard (`useKeyboardWorkflow.ts:127`): a `pendingLayers` ref holds the value this hook last asked for and the toggle is computed from that whenever it is still ahead of the snapshot, dropped on a rejected dispatch or a scene change. On-screen (`Launcher.tsx:109`): the button is disabled while its own toggle is in flight, which is the honest fix for a click-driven control.
 **Severity:** edge-case
 **File:** `frontend/src/hooks/useKeyboardWorkflow.ts:127`
 **Confidence:** medium
@@ -292,14 +294,16 @@ The file's header comment scopes the `outputState === "blackout"` ambiguity to t
 
 `drafts` is deliberately keyed per universe (`:77`: "so every row … can be filled in and submitted on its own"), but the busy flag is a single boolean used at `:359` and `:409`. Repro: with three patched universes, click Add Target on universe 1 — all three rows show "Configuring…" and every existing target's Enable/Disable button goes disabled. `selectingIndex` a few lines above is the correct per-row pattern.
 
-### Launcher treats a missing layer control as unlocked rather than unassigned
+### ~~Launcher treats a missing layer control as unlocked rather than unassigned~~
+**Fixed:** **Verified reachable, then fixed** — the note's own doubt ("this may be unreachable defensive code") does not hold. `ShowSurface` (`svc_surface.go:200-216`) does enumerate all four layer kinds, but only for the scenes present in the show file *at fetch time*; `activeScene` comes from `usePlaybackSnapshot`'s separate 1s poll. A scene created after this surface's detail was fetched (another session, the CLI, an SDK script) is therefore live with no layer controls listed for it, and all four buttons rendered enabled and dispatched. Now `!control?.assigned`, matching the scene-pad path. Note the existing test `"toggles a layer on the active scene via the layer strip"` passed `controls={[]}` and asserted the toggle dispatched — it had encoded the buggy default, and was updated to pass a real assigned control.
 **Severity:** smell
 **File:** `frontend/src/components/OperatorSurface/Launcher.tsx:101`
 **Confidence:** low
 
 `const locked = control ? !control.assigned : false` — when no layer control entry exists for a kind, the button renders enabled and dispatches, the opposite of the scene-pad path (`:82`, `locked={!control.assigned}`) and of the component's own "unassigned … locked (never dispatch)" contract. I did not confirm whether `ShowSurface` can ever omit a layer control (author mode renders every control assigned-or-not, which suggests the list is exhaustive and this branch is dead), so this may be unreachable defensive code with an inverted default rather than a live bug — but if it is reachable, combined with the swallowed-failure finding above it produces a button that appears live and does nothing.
 
-### `seedAppLog` sorts synthesized "gap" markers to the very top of the log
+### ~~`seedAppLog` sorts synthesized "gap" markers to the very top of the log~~
+**Fixed:** **Verified real, then fixed** — the reviewer didn't reproduce it, but the mechanism checks out end to end: `internal/wails/events.go:323` emits `AppLogView{Level: "gap", GapCount: n}` with `Seq` left at its zero value, and `AppLogStream` subscribes before fetching the backlog precisely because the startup burst that can overflow the pusher's staging bound happens in that window. New `mergeAppLogBySeq` anchors each gap to the seq of the entry it already follows, with a tiebreak that keeps consecutive gaps ordered; a gap that genuinely precedes every known line still sorts to the top. Regression test verified failing before the fix.
 **Severity:** edge-case
 **File:** `frontend/src/store/store.ts:127`
 **Confidence:** low

@@ -96,6 +96,52 @@ describe("AppLogStream", () => {
     );
   });
 
+  // 2026-08-10 review pass: a live-synthesized gap carries no seq
+  // (internal/wails/events.go emits AppLogView{Level:"gap",GapCount:n},
+  // leaving Seq at its zero value), so the merge's plain numeric sort put
+  // it ahead of every real backlog line -- the Diagnostics log opened with
+  // "entries dropped" as its first row instead of showing it at the point
+  // in the stream where the drop happened. The window is exactly the one
+  // this component's backlog fetch exists to cover: a startup burst
+  // overflowing the pusher's staging bound while RecentAppLogs is still in
+  // flight.
+  it("keeps a live overflow gap at the point it arrived, not at the top of the merged log", async () => {
+    const { emitAppLog } = stubRuntimeEvents();
+    const backlog = [
+      { seq: 1, level: "info", source: "daemon", message: "first" },
+      { seq: 2, level: "info", source: "daemon", message: "second" },
+      { seq: 3, level: "info", source: "daemon", message: "third" },
+    ];
+    stubAppBinding(backlog);
+
+    render(<AppLogStream />);
+    // A line and then an overflow gap arrive live before the backlog
+    // fetch resolves.
+    emitAppLog({ seq: 2, level: "info", source: "daemon", message: "second" });
+    emitAppLog({ seq: 0, level: "gap", gapCount: 4 });
+
+    await waitFor(() => expect(useGolcStore.getState().appLog).toHaveLength(4));
+    expect(useGolcStore.getState().appLog.map((entry) => entry.level)).toEqual([
+      "info",
+      "info",
+      "gap",
+      "info",
+    ]);
+    expect(useGolcStore.getState().appLog[1].seq).toBe(2);
+    expect(useGolcStore.getState().appLog[3].seq).toBe(3);
+  });
+
+  it("keeps a gap that genuinely precedes every known line at the top", async () => {
+    const { emitAppLog } = stubRuntimeEvents();
+    stubAppBinding([{ seq: 5, level: "info", source: "daemon", message: "later" }]);
+
+    render(<AppLogStream />);
+    emitAppLog({ seq: 0, level: "gap", gapCount: 2 });
+
+    await waitFor(() => expect(useGolcStore.getState().appLog).toHaveLength(2));
+    expect(useGolcStore.getState().appLog.map((entry) => entry.level)).toEqual(["gap", "info"]);
+  });
+
   it("never duplicates a line present in both the live stream and the backlog fetch", async () => {
     const { emitAppLog } = stubRuntimeEvents();
     stubAppBinding([{ seq: 1, level: "info", source: "daemon", message: "daemon reachable" }]);

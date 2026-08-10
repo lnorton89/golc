@@ -85,7 +85,9 @@ export interface GolcStoreState {
    * window between subscribing and this backlog fetch resolving) are not
    * duplicated; the merged result is re-sorted by seq, since the backlog
    * and any already-live-received entries are not guaranteed to arrive in
-   * a single already-ordered batch. */
+   * a single already-ordered batch. Synthesized "gap" markers carry no seq
+   * of their own and are anchored to the entry they already follow rather
+   * than sorted numerically -- see mergeAppLogBySeq. */
   seedAppLog: (events: AppLogView[]) => void;
   clearAppLog: () => void;
   /** midiLearnMode is the global MIDI Learn toggle's own on/off state
@@ -99,6 +101,50 @@ export interface GolcStoreState {
    * non-conforming field in this store. */
   midiLearnMode: boolean;
   setMidiLearnMode: (active: boolean) => void;
+}
+
+/** mergeAppLogBySeq orders the merged backlog + already-live-received
+ * entries by `seq`, WITHOUT letting a synthesized gap marker jump the
+ * queue.
+ *
+ * A gap carries no sequence number: internal/wails/events.go's flush emits
+ * `AppLogView{Level: "gap", GapCount: n}` with Seq left at its zero value.
+ * A plain numeric sort therefore put every gap ahead of every real line,
+ * so an overflow that arrived in the narrow window between AppLogStream
+ * subscribing and fetchRecentAppLogs resolving -- exactly the startup burst
+ * that window exists for -- rendered "entries dropped" as the Diagnostics
+ * log's FIRST row instead of at the point in the stream where the drop
+ * happened.
+ *
+ * A gap means "lines were dropped right here", so it is anchored to the
+ * seq of the entry it already follows in arrival order, with a tiebreak
+ * that keeps it after that entry and keeps consecutive gaps in order. A
+ * gap that arrived before any real line anchors below every seq and stays
+ * at the top, which is correct: it genuinely precedes everything known. */
+function mergeAppLogBySeq(fresh: AppLogView[], existing: AppLogView[]): AppLogView[] {
+  interface Keyed {
+    entry: AppLogView;
+    seq: number;
+    tie: number;
+  }
+
+  const keyed = (entries: AppLogView[]): Keyed[] => {
+    let anchor = Number.NEGATIVE_INFINITY;
+    let tie = 0;
+    return entries.map((entry) => {
+      if (entry.level === "gap") {
+        tie += 1;
+        return { entry, seq: anchor, tie };
+      }
+      anchor = entry.seq;
+      tie = 0;
+      return { entry, seq: entry.seq, tie };
+    });
+  };
+
+  return [...keyed(fresh), ...keyed(existing)]
+    .sort((a, b) => (a.seq === b.seq ? a.tie - b.tie : a.seq - b.seq))
+    .map((item) => item.entry);
 }
 
 export const useGolcStore = create<GolcStoreState>((set) => ({
@@ -124,7 +170,7 @@ export const useGolcStore = create<GolcStoreState>((set) => ({
       const seen = new Set(state.appLog.filter((e) => e.level !== "gap").map((e) => e.seq));
       const fresh = events.filter((e) => e.level === "gap" || !seen.has(e.seq));
       if (fresh.length === 0) return {};
-      const merged = [...fresh, ...state.appLog].sort((a, b) => a.seq - b.seq);
+      const merged = mergeAppLogBySeq(fresh, state.appLog);
       return { appLog: merged.length > maxAppLogEntries ? merged.slice(merged.length - maxAppLogEntries) : merged };
     }),
   clearAppLog: () => set({ appLog: [] }),
