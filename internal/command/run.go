@@ -121,7 +121,7 @@ func prependPathDirectory(environment []string, dir string) []string {
 		name, value, ok := strings.Cut(entry, "=")
 		if ok && strings.EqualFold(name, "PATH") {
 			found = true
-			result = append(result, name+"="+dir+string(os.PathListSeparator)+value)
+			result = append(result, name+"="+dir+string(os.PathListSeparator)+removePathEntry(value, dir))
 			continue
 		}
 		result = append(result, entry)
@@ -130,4 +130,24 @@ func prependPathDirectory(environment []string, dir string) []string {
 		result = append(result, "PATH="+dir)
 	}
 	return result
+}
+
+// removePathEntry returns value's PATH-list segments with every segment
+// case-insensitively equal to dir dropped (Windows PATH comparisons are
+// case-insensitive, matching prependPathDirectory's own PATH-key match
+// above), so a directory that's already present is moved to the front
+// exactly once rather than duplicated -- run.go/dev.go/lint.go/
+// vulncheck.go each call prependPathDirectory against a shared base
+// environment, so the same directory can legitimately be prepended more
+// than once in one process's lifetime.
+func removePathEntry(value, dir string) string {
+	segments := strings.Split(value, string(os.PathListSeparator))
+	kept := make([]string, 0, len(segments))
+	for _, segment := range segments {
+		if strings.EqualFold(segment, dir) {
+			continue
+		}
+		kept = append(kept, segment)
+	}
+	return strings.Join(kept, string(os.PathListSeparator))
 }

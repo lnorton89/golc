@@ -27,18 +27,34 @@ func TestPrependPathDirectory(t *testing.T) {
 		}, result, "expected /new/dir prepended in place onto the PATH entry, other entries untouched")
 	})
 
-	t.Run("directory already present in PATH is prepended again rather than deduplicated", func(t *testing.T) {
-		// prependPathDirectory only locates the PATH *key* via strings.Cut; it
-		// never scans the existing value for dir, so a directory that's
-		// already there is not detected or moved -- it's prepended a second
-		// time. This test pins that real (not deduplicating) behavior down.
-		environment := []string{"PATH=/existing/dir:/usr/bin"}
+	t.Run("directory already present in PATH is moved to the front, not duplicated", func(t *testing.T) {
+		environment := []string{"PATH=/existing/dir" + string(os.PathListSeparator) + "/usr/bin"}
 
 		result := prependPathDirectory(environment, "/existing/dir")
 
 		require.Equal(t, []string{
-			"PATH=/existing/dir" + string(os.PathListSeparator) + "/existing/dir:/usr/bin",
-		}, result, "expected /existing/dir prepended again, not deduplicated")
+			"PATH=/existing/dir" + string(os.PathListSeparator) + "/usr/bin",
+		}, result, "expected /existing/dir moved to the front with no duplicate entry")
+	})
+
+	t.Run("directory present in the middle of PATH is removed from there and moved to the front", func(t *testing.T) {
+		environment := []string{"PATH=/a" + string(os.PathListSeparator) + "/existing/dir" + string(os.PathListSeparator) + "/b"}
+
+		result := prependPathDirectory(environment, "/existing/dir")
+
+		require.Equal(t, []string{
+			"PATH=/existing/dir" + string(os.PathListSeparator) + "/a" + string(os.PathListSeparator) + "/b",
+		}, result, "expected /existing/dir removed from the middle and moved to the front, /a and /b order preserved")
+	})
+
+	t.Run("directory present with different case is deduplicated case-insensitively", func(t *testing.T) {
+		environment := []string{"PATH=C:\\Tools\\Go-Bin" + string(os.PathListSeparator) + "C:\\Windows"}
+
+		result := prependPathDirectory(environment, "C:\\tools\\go-bin")
+
+		require.Equal(t, []string{
+			"PATH=C:\\tools\\go-bin" + string(os.PathListSeparator) + "C:\\Windows",
+		}, result, "expected the differently-cased existing entry deduplicated, not kept alongside the new one")
 	})
 
 	t.Run("case-insensitive match recognizes Windows' Path entry", func(t *testing.T) {
