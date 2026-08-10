@@ -106,7 +106,16 @@ function useHoldToConfirm(durationMs: number, onComplete: () => void) {
     // and invoked onComplete) must never be reset by a later, redundant
     // terminal event -- this is exactly what makes duplicate
     // pointerup/pointercancel/keyup events after completion a safe no-op.
-    if (timers.current.completed) return;
+    // The `completed` latch stays untouched here (only start() clears it,
+    // so onComplete still can't fire twice), but the *visual* progress
+    // must still drain: nothing else called setProgress(0) after a
+    // successful hold, so the .fill wash stayed at scaleX(1) covering the
+    // whole button until the next hold began -- a safety control that
+    // already fired permanently reading as mid-press.
+    if (timers.current.completed) {
+      setProgress(0);
+      return;
+    }
     clear();
     timers.current.startedAt = null;
     setHolding(false);
@@ -265,28 +274,52 @@ function HoldButton({ label, icon: Icon, controlColorVar, textColorVar, active, 
 export default function SafetyCluster() {
   const status = useGolcStore((state) => state.status);
 
-  // Individual per-control "active" indicators are best-effort: the
-  // daemon's PLAY-07 status vocabulary (controllingSource/outputState)
-  // is a single combined descriptor, not three independent flags, so
-  // Blackout and Stop/Release-All (both of which drive outputState to
-  // "blackout" identically, internal/artnet/daemon.go's
-  // newPlaybackStatusPayload) cannot be distinguished from this signal
-  // alone -- both light up together when either is active. Revoke
-  // Automation's own "revoked" controllingSource is unambiguous unless a
-  // blackout is simultaneously active (blackout takes priority in the
-  // combined vocabulary), in which case only the blackout state shows.
-  const blackoutOrStopActive = status.outputState === "blackout";
+  // The daemon's PLAY-07 status vocabulary (controllingSource/outputState)
+  // is a single combined descriptor, not three independent flags: Blackout
+  // and Stop/Release-All both drive outputState to "blackout" identically
+  // (internal/artnet/daemon.go's newPlaybackStatusPayload), so that signal
+  // alone cannot say which one is engaged.
+  //
+  // Both controls used to render straight off it, which meant more than a
+  // fuzzy indicator: the same ambiguous boolean also produced the argument
+  // sent to the daemon. Engaging Blackout alone made BOTH read "Release…",
+  // and holding "Release Stop / Release All" then sent
+  // safetyStopReleaseAll(false) -- releasing something that was never
+  // engaged, leaving outputState "blackout" and the button still saying
+  // "Release". The reverse case sent safetyBlackout(false) for the same
+  // reason.
+  //
+  // stopEngaged records which of the two THIS surface engaged, so exactly
+  // one of them claims the "Release" state and each sends the argument
+  // matching its own label. Output that went to blackout from anywhere
+  // else (another surface, a MIDI-mapped control, before this component
+  // mounted) attributes to Blackout -- the conservative default, since
+  // Blackout is the primary safety control and its release path is the one
+  // an operator reaches for first.
+  const [stopEngaged, setStopEngaged] = useState(false);
+
+  const outputStopped = status.outputState === "blackout";
+  const stopActive = outputStopped && stopEngaged;
+  const blackoutActive = outputStopped && !stopEngaged;
   const revokeActive = status.controllingSource === "revoked";
+
+  // Output came back up (from either control, or from anywhere else), so
+  // nothing this surface engaged is still engaged.
+  useEffect(() => {
+    if (!outputStopped) {
+      setStopEngaged(false);
+    }
+  }, [outputStopped]);
 
   return (
     <div className={styles.cluster} aria-label="Safety cluster">
       <HoldButton
-        label={blackoutOrStopActive ? "Release Blackout" : "Blackout"}
-        icon={blackoutOrStopActive ? Power : PowerOff}
+        label={blackoutActive ? "Release Blackout" : "Blackout"}
+        icon={blackoutActive ? Power : PowerOff}
         controlColorVar="var(--ds-status-blackout)"
         textColorVar="var(--ds-status-on-blackout)"
-        active={blackoutOrStopActive}
-        onActivate={() => safetyBlackout(!blackoutOrStopActive)}
+        active={blackoutActive}
+        onActivate={() => safetyBlackout(!blackoutActive)}
       />
       <HoldButton
         label={revokeActive ? "Restore Automation" : "Automation"}
@@ -297,12 +330,22 @@ export default function SafetyCluster() {
         onActivate={() => safetyRevokeAutomation(!revokeActive)}
       />
       <HoldButton
-        label={blackoutOrStopActive ? "Release Stop / Release All" : "Stop / Release All"}
-        icon={blackoutOrStopActive ? Play : Square}
+        label={stopActive ? "Release Stop / Release All" : "Stop / Release All"}
+        icon={stopActive ? Play : Square}
         controlColorVar="var(--ds-surface-control)"
         textColorVar="var(--ds-text-primary)"
-        active={blackoutOrStopActive}
-        onActivate={() => safetyStopReleaseAll(!blackoutOrStopActive)}
+        active={stopActive}
+        onActivate={async () => {
+          const next = !stopActive;
+          const result = await safetyStopReleaseAll(next);
+          // Only claim the engaged state once the daemon accepted it --
+          // a rejected hold must not leave this surface believing it owns
+          // an output stop it never caused.
+          if (result.exitCode === 0) {
+            setStopEngaged(next);
+          }
+          return result;
+        }}
       />
     </div>
   );

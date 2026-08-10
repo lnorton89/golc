@@ -32,7 +32,8 @@ what was found when.
 
 The rebind capture listener calls `event.stopPropagation()`, but both playback (`useKeyboardWorkflow.ts:156`) and navigation (`useGlobalKeyboardWorkflow.ts:186`) matchers are registered on `window` in the *same* capture phase. `stopPropagation()` only stops the event moving to a different node in the path — it does not stop sibling listeners on the same node (that would need `stopImmediatePropagation`), and `isTypingTarget` doesn't help because the event target is the rebind `<Button>`, not an input. Repro: Settings > Hotkeys, click the key button for "Toggle Base Look", press `W` — the Color Theme layer on the live scene actually toggles before the rebind is recorded. Pressing a digit is worse: `3` switches the show to scene 3 and *then* reports "That key is reserved for scene switching". The same applies to nav-chord recording (`Ctrl+Alt+ArrowDown` navigates the rail while recording).
 
-### "Release all overrides" on the Desk leaves every fader thumb stuck in the "touched" state
+### ~~"Release all overrides" on the Desk leaves every fader thumb stuck in the "touched" state~~
+**Fixed:** `handleClearAll` now clears `touchedKeys` alongside `overrides`, matching `handleFaderClear` and `releaseLocalOverridesFor`. Regression test asserts release-all leaves the thumb in the same resting state a per-channel release does (verified failing before the fix).
 **Severity:** bug
 **File:** `frontend/src/components/Desk/Desk.tsx:1264`
 **Confidence:** high
@@ -78,14 +79,16 @@ The rebind capture listener calls `event.stopPropagation()`, but both playback (
 
 `targetsByUniverse` (`:229`) is built from the full `status.targets`, but the list renders by iterating `patchedUniverses`, which is filtered to universes with instances in the **active** deployment (`:96`). Any target whose universe leaves that set is dropped from the DOM while the daemon keeps unicasting to it, and there is no orphan row. Repro: enable a target on universe 3, then activate a different deployment (or readdress the universe-3 fixtures) — universe 3 vanishes from Universe Targets and there is no in-app way to disable the still-live target. `ArtnetConfig.tsx` is the only consumer of `fetchArtnetStatus`/`enableArtnetTarget`/`disableArtnetTarget` in the frontend, so no other surface can recover from it.
 
-### Safety hold-progress fill stays at 100% after a completed hold
+### ~~Safety hold-progress fill stays at 100% after a completed hold~~
+**Fixed:** `cancel()` still early-returns on the `completed` latch (so `onComplete` can't fire twice) but now calls `setProgress(0)` first, so the release that follows a completed hold drains the wash.
 **Severity:** bug
 **File:** `frontend/src/components/SafetyCluster/SafetyCluster.tsx:104`
 **Confidence:** high
 
 The threshold timer sets `setProgress(1)` and latches `timers.current.completed = true` (`:129`); `cancel()` then early-returns on `completed`, and `completed` is only reset inside `start()`. Nothing calls `setProgress(0)` after a successful hold. Repro: hold Blackout to completion and release — the `.fill` wash (`transform: scaleX(1)`, `inset: 0`) stays covering the whole button until the *next* hold begins, so a safety control that already fired permanently reads as mid-press. The `completed` latch is right for suppressing duplicate `onComplete`; it just also needs to reset the visual progress.
 
-### Cancelling a MIDI Learn produces a spurious "No MIDI input received" error
+### ~~Cancelling a MIDI Learn produces a spurious "No MIDI input received" error~~
+**Fixed:** Per-attempt generation guard via `useLatestRequest`; `handleCancel` claims a fresh generation, which invalidates the in-flight `StartLearn` so its `GOLC_MIDI_LEARN_TIMEOUT` resolution can no longer write any status.
 **Severity:** bug
 **File:** `frontend/src/components/MidiPanel/MidiLearn.tsx:104`
 **Confidence:** high
@@ -123,7 +126,8 @@ The nav-chord handler calls `onNavigate` (= `AppShell`'s raw `setActiveDestinati
 
 `ariaLabel` is passed into `monaco.editor.create()` inside the mount-only effect (`:212`) with no ref mirror and no sync effect — unlike `value`, `readOnly`, `sdkTypeDefinitions`, `breakpointLines`, and `currentExecutionLine`, which all have one. `ScriptsWorkspace.tsx:848` passes `` `${selectedScript.name} source` `` and the editor is never keyed or remounted on selection change (`:843`). Repro: select script A, then script B — the editor textarea is still announced as "A source" while displaying B's code, for the rest of the session.
 
-### Pressing Learn in MidiPanel destroys keyboard focus
+### ~~Pressing Learn in MidiPanel destroys keyboard focus~~
+**Fixed:** Refs on both buttons plus a status effect: focus moves to Cancel when the listening subtree mounts and returns to the remounted Learn button afterwards. Guarded by an `ownsFocusRef` (set only when the Learn button itself had focus) and a check that focus is currently orphaned on `<body>`, so a background learn resolving never yanks focus from wherever the operator went.
 **Severity:** bug
 **File:** `frontend/src/components/MidiPanel/MidiLearn.tsx:119`
 **Confidence:** high
@@ -266,7 +270,8 @@ Switching the selected surface while in operate mode runs the effect cleanup (`s
 
 `handleEvaluate` awaits `dispatch.evaluate(parsed)` and unconditionally writes the result into `previewOutput` — no in-flight guard, no request id, and the Evaluate button is never disabled while a call is outstanding. Repro: type `4`, click Evaluate, immediately change to `8` and click again; if the first dispatch resolves last, the `<pre>` shows bar 4's evaluation while the field reads 8, with nothing signalling the mismatch. The panel also never clears `previewOutput` on failure, so an empty result leaves the previous evaluation on screen as if current.
 
-### Blackout and Stop/Release-All derive their toggle argument from a signal that can't distinguish them
+### ~~Blackout and Stop/Release-All derive their toggle argument from a signal that can't distinguish them~~
+**Fixed:** The component now tracks which of the two *it* engaged (`stopEngaged`, set only on an accepted dispatch and cleared whenever output comes back up), and derives `blackoutActive`/`stopActive` from it. Exactly one control claims the "Release" state and each sends the argument matching its own label; output stopped from anywhere else attributes to Blackout, the conservative default.
 **Severity:** edge-case
 **File:** `frontend/src/components/SafetyCluster/SafetyCluster.tsx:278`
 **Confidence:** medium

@@ -1272,6 +1272,12 @@ export default function Desk() {
 
   const handleClearAll = () => {
     setOverrides({});
+    // Clearing touchedKeys too, exactly like handleFaderClear and
+    // releaseLocalOverridesFor above: the thumb's "touched" accent
+    // (Fader.tsx's contract: "currently doing something") must not survive
+    // a release, or every previously-dragged fader stays blue after
+    // release-all while its value has already fallen back to live.
+    setTouchedKeys(new Set());
     void clearAllDeskOverrides().then((result) => {
       if (result.exitCode !== 0) setError(result.stderr || "Failed to release overrides");
     });

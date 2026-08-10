@@ -213,6 +213,34 @@ describe("Desk", () => {
     await waitFor(() => expect(svc().DeskService.ClearAll).toHaveBeenCalled());
   });
 
+  // 2026-08-10 review pass: handleClearAll cleared `overrides` but not
+  // `touchedKeys`, unlike the per-channel/per-fixture/per-universe release
+  // paths -- so every previously-dragged thumb stayed accent blue (which
+  // per Fader.tsx's contract means "currently doing something") while its
+  // value had already fallen back to live.
+  it("resets every fader thumb out of the touched state on release-all, like the narrower releases already do", async () => {
+    render(<Desk />);
+    const fader = await screen.findByRole("slider", { name: /Intensity/ });
+    fireEvent.change(fader, { target: { value: "64" } });
+    await waitFor(() => expect(svc().DeskService.SetAttribute).toHaveBeenCalled());
+
+    const touchedClass = fader.className;
+    fireEvent.click(screen.getByRole("button", { name: "Release All" }));
+    await waitFor(() => expect(svc().DeskService.ClearAll).toHaveBeenCalled());
+
+    await waitFor(() => expect(fader.className).not.toBe(touchedClass));
+    // Same resting appearance a per-channel release produces.
+    fireEvent.change(fader, { target: { value: "70" } });
+    await waitFor(() => expect(fader.className).toBe(touchedClass));
+    fireEvent.click(screen.getByTitle("Release override back to programmed output"));
+    await waitFor(() => expect(svc().DeskService.ClearAttribute).toHaveBeenCalled());
+    const afterPerChannelRelease = fader.className;
+
+    fireEvent.change(fader, { target: { value: "80" } });
+    fireEvent.click(screen.getByRole("button", { name: "Release All" }));
+    await waitFor(() => expect(fader.className).toBe(afterPerChannelRelease));
+  });
+
   it("starts a MIDI learn capture on click and refreshes mappings once it resolves", async () => {
     useGolcStore.setState({ midiLearnMode: true });
     render(<Desk />);

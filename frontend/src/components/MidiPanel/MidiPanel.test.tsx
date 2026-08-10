@@ -133,6 +133,63 @@ describe("MidiPanel", () => {
     await waitFor(() => expect(screen.queryByText("Opening scene")).not.toBeInTheDocument());
   });
 
+  it("does not report a timeout for a learn the operator cancelled", async () => {
+    // CancelLearn closes session.cancel on the Go side, which unblocks the
+    // still-pending StartLearn so it resolves with
+    // GOLC_MIDI_LEARN_TIMEOUT a moment later. That late resolution used to
+    // walk into the timeout branch and put "No MIDI input received. Try
+    // again." under the button for a deliberately aborted learn.
+    let releaseLearn!: (value: unknown) => void;
+    svc().MidiService.StartLearn.mockReturnValue(
+      new Promise((resolve) => {
+        releaseLearn = resolve;
+      }),
+    );
+
+    await selectSurface();
+    await screen.findByText("Opening scene");
+
+    fireEvent.click(screen.getByLabelText("Learn MIDI mapping for Opening scene"));
+    await waitFor(() => expect(svc().MidiService.StartLearn).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(svc().MidiService.CancelLearn).toHaveBeenCalled());
+
+    releaseLearn({ exitCode: 1, stdout: "", stderr: "GOLC_MIDI_LEARN_TIMEOUT: no MIDI input" });
+    await waitFor(() =>
+      expect(screen.getByLabelText("Learn MIDI mapping for Opening scene")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("No MIDI input received. Try again.")).not.toBeInTheDocument();
+  });
+
+  it("hands keyboard focus to Cancel while listening and returns it to Learn afterwards", async () => {
+    let releaseLearn!: (value: unknown) => void;
+    svc().MidiService.StartLearn.mockReturnValue(
+      new Promise((resolve) => {
+        releaseLearn = resolve;
+      }),
+    );
+
+    await selectSurface();
+    await screen.findByText("Opening scene");
+
+    const learnButton = screen.getByLabelText("Learn MIDI mapping for Opening scene");
+    learnButton.focus();
+    expect(learnButton).toHaveFocus();
+
+    fireEvent.click(learnButton);
+
+    // The focused Learn button unmounts and a role="status" region plus a
+    // Cancel button replaces it; without a handoff focus fell to <body>.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus());
+
+    releaseLearn({ exitCode: 0, stdout: "", stderr: "" });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Learn MIDI mapping for Opening scene")).toHaveFocus(),
+    );
+  });
+
   it("shows the empty state for Desk mappings when none exist", async () => {
     render(<MidiPanel />);
     expect(await screen.findByText("No Desk mappings yet")).toBeInTheDocument();

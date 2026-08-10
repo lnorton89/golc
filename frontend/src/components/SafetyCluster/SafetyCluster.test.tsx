@@ -13,6 +13,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 
 import SafetyCluster from "./SafetyCluster";
 import { useGolcStore } from "../../store/store";
+import { offlineStatusSnapshot } from "../../lib/wailsBridge";
 
 const HOLD_DURATION_MS = 750;
 
@@ -38,6 +39,9 @@ describe("SafetyCluster", () => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
     useGolcStore.getState().setConnectionStatus("connecting");
+    // The status snapshot is a module-singleton store; a test that drives
+    // outputState must not leak it into the next one.
+    useGolcStore.getState().setStatus(offlineStatusSnapshot());
   });
 
   it("renders all three persistent, independently labeled safety controls", () => {
@@ -100,6 +104,63 @@ describe("SafetyCluster", () => {
     fireEvent.pointerUp(button);
     fireEvent.pointerCancel(button);
     expect(Blackout).toHaveBeenCalledTimes(1);
+  });
+
+  // --- 2026-08-10 review pass regressions ------------------------------
+
+  /** progressFill reads the determinate hold wash's own transform. */
+  function progressFill(button: HTMLElement): string {
+    const fill = button.querySelector('[aria-hidden="true"]') as HTMLElement | null;
+    return fill?.style.transform ?? "";
+  }
+
+  it("drains the hold-progress fill after a completed hold instead of leaving it at 100%", () => {
+    stubSafetyService();
+    render(<SafetyCluster />);
+    const button = screen.getByRole("button", { name: "Blackout" });
+
+    fireEvent.pointerDown(button);
+    act(() => {
+      vi.advanceTimersByTime(HOLD_DURATION_MS);
+    });
+    expect(progressFill(button)).toBe("scaleX(1)");
+
+    // Releasing after a completed hold must not re-fire onComplete (the
+    // `completed` latch), but it must still clear the wash -- a safety
+    // control that already fired used to keep reading as mid-press until
+    // the next hold began.
+    fireEvent.pointerUp(button);
+    expect(progressFill(button)).toBe("scaleX(0)");
+  });
+
+  it("sends the toggle argument matching each control's own label when only one of the two is engaged", async () => {
+    const { Blackout, StopReleaseAll } = stubSafetyService();
+    render(<SafetyCluster />);
+
+    // Engage Blackout only.
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Blackout" }));
+    act(() => {
+      vi.advanceTimersByTime(HOLD_DURATION_MS);
+    });
+    expect(Blackout).toHaveBeenCalledWith(true);
+
+    // The daemon reports the combined descriptor, which cannot say which
+    // control caused it.
+    act(() => {
+      useGolcStore.setState((state) => ({ status: { ...state.status, outputState: "blackout" } }));
+    });
+
+    expect(screen.getByRole("button", { name: "Release Blackout" })).toBeInTheDocument();
+    // Stop/Release-All was never engaged, so it must NOT claim the
+    // "Release" state and must not send safetyStopReleaseAll(false).
+    const stopButton = screen.getByRole("button", { name: "Stop / Release All" });
+
+    fireEvent.pointerDown(stopButton);
+    act(() => {
+      vi.advanceTimersByTime(HOLD_DURATION_MS);
+    });
+    expect(StopReleaseAll).toHaveBeenCalledWith(true);
+    expect(StopReleaseAll).not.toHaveBeenCalledWith(false);
   });
 
   it("cancels without dispatching on early pointerup release, and a later fresh hold completes normally", () => {
