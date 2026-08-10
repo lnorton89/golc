@@ -47,6 +47,38 @@ func TestDisableWindowsResourceSyso(t *testing.T) {
 		require.True(t, os.IsNotExist(statErr), "expected %s to no longer exist after restore", disabled)
 	})
 
+	t.Run("leftover disabled file from an interrupted prior run is healed, then re-disabled for this run", func(t *testing.T) {
+		desktopDir := t.TempDir()
+		original := filepath.Join(desktopDir, windowsResourceSyso)
+		disabled := original + disabledSysoSuffix
+		const content = "fake resource bytes"
+		// Simulate a prior `mage Dev` killed hard enough to skip its own
+		// deferred restore: only the disabled-suffix file is left on disk,
+		// the original is missing.
+		require.NoError(t, os.WriteFile(disabled, []byte(content), 0o644))
+
+		restore, err := disableWindowsResourceSyso(desktopDir)
+		require.NoError(t, err)
+		require.NotNil(t, restore)
+
+		// Healed (renamed back to original) and immediately re-disabled for
+		// this run, in the same call: original still absent, disabled-suffix
+		// file still present with the same bytes -- not duplicated or lost.
+		_, statErr := os.Stat(original)
+		require.True(t, os.IsNotExist(statErr), "expected %s to still be absent after heal-and-redisable", original)
+		disabledBytes, err := os.ReadFile(disabled)
+		require.NoError(t, err)
+		require.Equal(t, content, string(disabledBytes))
+
+		require.NoError(t, restore())
+
+		restoredBytes, err := os.ReadFile(original)
+		require.NoError(t, err)
+		require.Equal(t, content, string(restoredBytes))
+		_, statErr = os.Stat(disabled)
+		require.True(t, os.IsNotExist(statErr), "expected %s to no longer exist after restore", disabled)
+	})
+
 	t.Run("missing syso file is a safe no-op, not an error", func(t *testing.T) {
 		desktopDir := t.TempDir()
 

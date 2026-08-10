@@ -87,14 +87,34 @@ const disabledSysoSuffix = ".wails-dev-disabled"
 // missing file is not an error (mirrors this file's other defensive
 // os.Stat guards): a synthetic test fixture, or a future checkout where
 // the checked-in resource is dropped entirely, still runs cleanly.
+//
+// Self-heals first: runDev's own signal handling only restores on a clean
+// Ctrl+C/SIGTERM. A harder kill of a prior `mage Dev` run (Task Manager,
+// closing the terminal/IDE pane outright, a crash) skips that deferred
+// restore and leaves disabledSysoSuffix's file on disk with the original
+// missing -- observed live. Left alone, the next run's os.Stat(original)
+// below would just see "already missing" and treat it as the synthetic-
+// fixture no-op case, silently leaving the checked-in resource renamed
+// for the rest of this run too (and every `mage Build` after it, since
+// nothing else ever renames it back). Renaming a leftover disabled file
+// back onto original before proceeding means every `mage Dev` run starts
+// from the same clean state regardless of how the previous one ended.
 func disableWindowsResourceSyso(desktopDir string) (func() error, error) {
 	original := filepath.Join(desktopDir, windowsResourceSyso)
 	disabled := original + disabledSysoSuffix
 	if _, err := os.Stat(original); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return func() error { return nil }, nil
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("stat %s: %w", original, err)
 		}
-		return nil, fmt.Errorf("stat %s: %w", original, err)
+		if _, statErr := os.Stat(disabled); statErr == nil {
+			if renameErr := os.Rename(disabled, original); renameErr != nil {
+				return nil, fmt.Errorf("heal leftover %s from an interrupted prior wails dev: %w", disabled, renameErr)
+			}
+		} else if errors.Is(statErr, os.ErrNotExist) {
+			return func() error { return nil }, nil
+		} else {
+			return nil, fmt.Errorf("stat %s: %w", disabled, statErr)
+		}
 	}
 	if err := os.Rename(original, disabled); err != nil {
 		return nil, fmt.Errorf("disable %s for wails dev: %w", original, err)
