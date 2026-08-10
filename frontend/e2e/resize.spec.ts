@@ -153,7 +153,9 @@ const HEADER_MIN_SUPPORTED_WIDTH = 640;
 const KNOWN_SUB_640PX_OFFENDERS: Record<string, RegExp> = {
   Settings: /^"(Match System|Reset .+ to default)":/,
   "Fixture Library": /^"(Add Custom Fixture…|Open Fixture Library)":/,
-  "Patch & Pools": /^"Create Deployment":/,
+  // "Create Pool" is "Create Deployment"'s sibling in the same form and
+  // overflows by 2px at 320px for the same reason.
+  "Patch & Pools": /^"(Create Deployment|Create Pool)":/,
   "Project Fixtures": /^"Add from Library":/,
   Shows: /^"(Open Show…|New Show…)":/,
   // "(unlabeled input)": BarTimelinePanel's own "Evaluate position
@@ -167,17 +169,27 @@ const KNOWN_SUB_640PX_OFFENDERS: Record<string, RegExp> = {
   "Operator Surface": /^"New operator surface name":/,
   Desk: /^"Release All":/,
   Overview: /^"Diagnose":/,
+  // Diagnostics' own primary action, same class as Overview's "Diagnose".
+  Diagnostics: /^"Re-run":/,
 };
 
-// PERSISTENT_HEADER_SUB_640PX_OFFENDER: the safety cluster's "Stop /
-// Release All" and "MIDI Learn" controls live in GlobalFrame's persistent
-// header, mounted unconditionally on every destination -- Plan 13-15
-// deliberately bumped them to the 44px --ds-sizing-control-minimum-target
-// accessibility token (a real D-13 requirement, not being reverted here),
-// which is what pushes them past a 320px viewport. Matched separately from
-// the per-destination table above since it applies regardless of which
-// destination is active.
-const PERSISTENT_HEADER_SUB_640PX_OFFENDER = /^"(Stop \/ Release All|MIDI Learn)":/;
+// PERSISTENT_HEADER_SUB_640PX_OFFENDER: controls that live in
+// GlobalFrame's persistent header, mounted unconditionally on every
+// destination, and so overflow a 320px viewport regardless of which
+// destination is active -- matched separately from the per-destination
+// table above for exactly that reason.
+//
+// "Nav Hints" (NavTooltipsToggle) joined this row after the original
+// 260804 triage and belongs to the same class as the two beside it: a
+// persistent header control with a fixed minimum size, at a width
+// (< 640px) the shell does not claim to support.
+//
+// The original note here attributed the overflow to Plan 13-15's 44px
+// --ds-sizing-control-minimum-target bump. That is no longer the cause:
+// these controls render at --ds-sizing-control-compact (28px) today, and
+// keeping them there is a reviewed decision (260810), so the overflow is
+// simply the row's total natural width against a 320px viewport.
+const PERSISTENT_HEADER_SUB_640PX_OFFENDER = /^"(Stop \/ Release All|MIDI Learn|Nav Hints)":/;
 
 function filterKnownSub640pxOffenders(offenders: string[], width: number, destination?: string): string[] {
   if (width >= HEADER_MIN_SUPPORTED_WIDTH) return offenders;

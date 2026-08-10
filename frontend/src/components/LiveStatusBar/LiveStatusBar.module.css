@@ -34,12 +34,23 @@
 /* Mirrors SafetyCluster's/TempoControls'/MidiLearnToggle's own 1024px
    collapse breakpoint: below it those three are already icon-only, but at
    the supported floor (640px, HEADER_MIN_SUPPORTED_WIDTH in
-   e2e/resize.spec.ts) that alone still leaves this slot a few px short of
+   e2e/resize.spec.ts) that alone still leaves this slot short of
    Scene/Layers/Bar's full labels plus both status chips at their full
-   natural width. expectTopBarTextToBeReadable forbids any real clipping
-   (not just overlap), so a chip max-width below its natural content size
-   is not an option here -- closing this last few-px gap has to come out
-   of the gap between fields instead, down to 0. */
+   natural width.
+
+   Closing that gap by squeezing the fields was tried first (gap: 0, kept
+   below) and is not enough on its own: at 640px the labels still clipped
+   to "SCEN"/"LAYER"/"BAR", which is worse than useless -- these are
+   single short words, so truncating them (with or without an ellipsis)
+   destroys the meaning rather than abbreviating it.
+   expectTopBarTextToBeReadable forbids exactly that.
+
+   Scene/Layers/Bar are the readout an operator scans at a glance and must
+   never truncate or disappear. The two status chips are the lower-priority
+   half of this row, so they drop out instead and hand their width over.
+   Nothing is lost that isn't shown elsewhere: SafetyCluster's own buttons
+   already flip to "Release Blackout"/"Restore Automation" whenever
+   outputState/controllingSource leave their normal values. */
 @media (max-width: 700px) {
   .bar {
     gap: 0;
@@ -125,6 +136,17 @@
   display: inline-flex;
   min-width: 0;
   overflow: hidden;
+}
+
+/* Deliberately placed AFTER .statusChip's base rule above, not folded into
+   the max-width:700px block near the top of this file: a media query adds
+   no specificity, so a `display: none` declared up there loses to the
+   `display: inline-flex` declared later at equal specificity. Source order
+   is what decides it. */
+@media (max-width: 700px) {
+  .statusChip {
+    display: none;
+  }
 }
 
 /* Chip's own root <span> (Chip.tsx) has no shrink/overflow handling of its
