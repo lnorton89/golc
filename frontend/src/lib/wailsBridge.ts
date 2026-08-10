@@ -18,6 +18,24 @@
 // result, never a thrown exception that would crash the safety cluster's
 // render tree.
 
+// This module's ONLY runtime import is wailsEventSchemas.ts (and, through
+// it, zod). That is deliberate and worth keeping: several modules depend on
+// this one specifically because it sits near the root of the import graph
+// -- playbackDispatch.ts says so explicitly, having been rewritten to fix a
+// circular-import bug that App.smoke.test.tsx now guards against. The
+// invariant that makes those dependencies safe is not "wailsBridge imports
+// nothing" but the weaker, still-sufficient "wailsBridge imports only leaf
+// modules that never import it back at runtime". wailsEventSchemas.ts
+// qualifies: its reference to this file's types is `import type`, which is
+// erased at compile time. Anything added here in future must qualify too.
+import {
+  appLogSchema,
+  midiFeedbackSchema,
+  parseEventPayload,
+  scriptEventSchema,
+  statusSnapshotSchema,
+} from "./wailsEventSchemas";
+
 /** WailsResult mirrors internal/wails.Result's JSON shape exactly
  * (ExitCode/Stdout/Stderr -> exitCode/stdout/stderr) -- every
  * SafetyService toggle method returns this. */
@@ -1237,7 +1255,7 @@ export function onStatusUpdate(
   const runtime = window.runtime;
   if (!runtime) return () => {};
   return runtime.EventsOn("status:update", (...data: unknown[]) => {
-    const snapshot = data[0] as StatusSnapshot | undefined;
+    const snapshot = parseEventPayload(statusSnapshotSchema, "status:update", data[0]);
     if (snapshot) callback(snapshot);
   });
 }
@@ -1256,7 +1274,7 @@ export function onMidiFeedback(
   const runtime = window.runtime;
   if (!runtime) return () => {};
   return runtime.EventsOn("midi:feedback", (...data: unknown[]) => {
-    const feedback = data[0] as MidiFeedback | undefined;
+    const feedback = parseEventPayload(midiFeedbackSchema, "midi:feedback", data[0]);
     if (feedback) callback(feedback);
   });
 }
@@ -2482,7 +2500,7 @@ export function onScriptEvent(
   const runtime = window.runtime;
   if (!runtime) return () => {};
   return runtime.EventsOn("script:event", (...data: unknown[]) => {
-    const event = data[0] as ScriptEventView | undefined;
+    const event = parseEventPayload(scriptEventSchema, "script:event", data[0]);
     if (event) callback(event);
   });
 }
@@ -2499,7 +2517,7 @@ export function onAppLog(callback: (event: AppLogView) => void): () => void {
   const runtime = window.runtime;
   if (!runtime) return () => {};
   return runtime.EventsOn("app:log", (...data: unknown[]) => {
-    const event = data[0] as AppLogView | undefined;
+    const event = parseEventPayload(appLogSchema, "app:log", data[0]);
     if (event) callback(event);
   });
 }

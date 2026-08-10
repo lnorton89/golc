@@ -67,9 +67,11 @@ export interface PlaybackStateSummary {
 // This module no longer reads that global itself: wailsBridge.ts owns
 // every window.go access and exports getPlaybackService, which carries the
 // same `typeof window` guard and the same undefined-when-unbound contract
-// this file's own accessor used to. wailsBridge.ts imports nothing, so
-// depending on it here cannot reintroduce the circular-import class of bug
-// documented at the top of this file.
+// this file's own accessor used to. wailsBridge.ts imports only leaf
+// modules that never import it back at runtime (today: wailsEventSchemas.ts,
+// whose own reference to wailsBridge's types is an erased `import type`),
+// so depending on it here cannot reintroduce the circular-import class of
+// bug documented at the top of this file.
 const playbackService = getPlaybackService;
 
 const TAP_RESET_GAP_MS = 2000;
