@@ -9,9 +9,23 @@
 // workspace, the safety cluster, anything) renders a visible error screen
 // instead of unmounting into a blank window (see ErrorBoundary.tsx's own
 // doc comment for the real bug that motivated this).
-import { lazy, Suspense } from "react";
+//
+// QueryClientProvider sits OUTSIDE the ?e2e= fixture early-returns rather
+// than around <AppShell/> alone: DeskOperatorFixture renders the real Desk,
+// which reads its live universe values through useQuery, so a fixture route
+// that skipped the provider would throw "No QueryClient set" the moment a
+// Playwright matrix run loaded it. Mounting it above every branch keeps one
+// rule -- every render path this file can take has a client.
+//
+// The client is created via useState's lazy initialiser (not a module-level
+// const) so each mounted App owns its own cache. App.smoke.test.tsx and the
+// component tests mount and unmount App repeatedly in one process; a shared
+// module-level client would leak one test's cached rows into the next.
+import { lazy, Suspense, useState } from "react";
+import { QueryClientProvider } from "@tanstack/react-query";
 
 import ErrorBoundary from "./shell/ErrorBoundary";
+import { createQueryClient } from "./lib/queryClient";
 import DialogFeasibility from "./design-system/fixtures/DialogFeasibility";
 import DesignSystemGallery from "./design-system/fixtures/DesignSystemGallery";
 import EmergencyFallbackFixture from "./design-system/fixtures/EmergencyFallbackFixture";
@@ -24,6 +38,19 @@ import ScriptsNotesFixture from "./design-system/fixtures/ScriptsNotesFixture";
 const AppShell = lazy(() => import("./shell/AppShell"));
 
 export default function App() {
+  const [queryClient] = useState(createQueryClient);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppRoute />
+    </QueryClientProvider>
+  );
+}
+
+// AppRoute holds the pre-existing route selection verbatim -- split out of
+// App only so the provider above can wrap every branch without turning each
+// early return into its own nested provider.
+function AppRoute() {
   if (globalThis.location.search === "?e2e=dialog-feasibility") {
     return <DialogFeasibility />;
   }
