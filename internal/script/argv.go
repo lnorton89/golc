@@ -367,8 +367,8 @@ func buildChaseUpdateArgs(showPath string, raw json.RawMessage) ([]string, error
 	if p.Unit != "" {
 		args = append(args, "--unit", p.Unit)
 	}
-	if p.StepDuration != 0 {
-		args = append(args, "--step-duration", formatFloat(p.StepDuration))
+	if p.StepDuration != nil {
+		args = append(args, "--step-duration", formatFloat(*p.StepDuration))
 	}
 	return append(args, "--show", showPath), nil
 }

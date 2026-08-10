@@ -216,11 +216,18 @@ type ChaseCreateParams struct {
 // ChaseUpdateParams: "chase update <name> [--name <new-name>] [--unit
 // bar|beat] [--step-duration <value>] --show <path>".
 type ChaseUpdateParams struct {
-	Name         string  `json:"name"`
-	NewName      string  `json:"newName,omitempty"`
-	Unit         string  `json:"unit,omitempty"`
-	StepDuration float64 `json:"stepDuration,omitempty"`
-	Show         string  `json:"show"`
+	Name    string `json:"name"`
+	NewName string `json:"newName,omitempty"`
+	Unit    string `json:"unit,omitempty"`
+	// StepDuration is a pointer, unlike every other optional numeric field
+	// in this file: 0 is itself a meaningful step-duration value, so a
+	// plain float64 could never distinguish "the caller wants 0" from
+	// "the caller didn't set this field" -- both decode to the zero
+	// value. A nil pointer means omitted; a non-nil pointer to 0 means an
+	// explicit zero, and buildChaseUpdateArgs (internal/script/argv.go)
+	// includes "--step-duration 0" for the latter.
+	StepDuration *float64 `json:"stepDuration,omitempty"`
+	Show         string   `json:"show"`
 }
 
 // ChaseReorderParams: "chase reorder <name> --order <i,j,k,...> --show <path>".

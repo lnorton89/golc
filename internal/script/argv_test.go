@@ -299,8 +299,9 @@ func TestBuildChaseCreateArgs(t *testing.T) {
 	require.Equal(t, []string{"sweep", "--unit", "beat", "--step-duration", "0.25", "--show", showPath}, got)
 }
 
-// --- chase update: every field optional, including the StepDuration==0
-// zero-value-means-omitted edge case ---------------------------------------
+// --- chase update: every field optional, including a real explicit-zero
+// StepDuration (a *float64, unlike this file's other optional numeric
+// fields, so JSON null/absent is distinguishable from an explicit 0) -----
 
 func TestBuildChaseUpdateArgs(t *testing.T) {
 	const showPath = "/shows/current.golc"
@@ -317,12 +318,17 @@ func TestBuildChaseUpdateArgs(t *testing.T) {
 		require.Equal(t, []string{"sweep", "--name", "sweep2", "--unit", "bar", "--step-duration", "2", "--show", showPath}, got)
 	})
 
-	t.Run("explicit-zero-step-duration-is-indistinguishable-from-omitted", func(t *testing.T) {
-		// buildChaseUpdateArgs guards on "p.StepDuration != 0", so a script
-		// that explicitly requests stepDuration: 0 has no way to express
-		// that -- it is silently treated the same as an omitted field. This
-		// pins that real, documented behavior of the current implementation.
+	t.Run("explicit-zero-step-duration-is-distinguishable-from-omitted", func(t *testing.T) {
+		// StepDuration is *float64 specifically so this case is
+		// representable: a script explicitly requesting stepDuration: 0
+		// now produces "--step-duration 0", not a silently-dropped flag.
 		got, err := buildChaseUpdateArgs(showPath, json.RawMessage(`{"name":"sweep","stepDuration":0}`))
+		require.NoError(t, err)
+		require.Equal(t, []string{"sweep", "--step-duration", "0", "--show", showPath}, got)
+	})
+
+	t.Run("omitted-step-duration-still-produces-no-flag", func(t *testing.T) {
+		got, err := buildChaseUpdateArgs(showPath, json.RawMessage(`{"name":"sweep","stepDuration":null}`))
 		require.NoError(t, err)
 		require.Equal(t, []string{"sweep", "--show", showPath}, got)
 	})
