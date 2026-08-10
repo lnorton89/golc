@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 
 import SceneList, { reorderSceneNames } from "./SceneList";
 import type { ProgSceneView } from "../../lib/wailsBridge";
@@ -17,6 +18,11 @@ const threeScenes: ProgSceneView[] = [
 ];
 
 const noop = () => {};
+// onReorder reports whether the server accepted the new order (SceneList
+// rolls its optimistic local order back on false); acceptReorder is the
+// "server said yes" stub every test that isn't specifically about
+// rejection uses.
+const acceptReorder = () => true;
 
 // visibleSceneOrder reads each row's "<name> actions" menu-trigger button
 // (already used by the existing rename/delete tests above) in DOM order --
@@ -75,14 +81,14 @@ describe("SceneList", () => {
 
   it("shows an empty state when there are no scenes", () => {
     render(
-      <SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} onReorder={noop} />,
+      <SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} onReorder={acceptReorder} />,
     );
     expect(screen.getByText("No scenes yet — create one above.")).toBeInTheDocument();
   });
 
   it("renders each scene with LIVE or bar-count meta and marks the selected one", () => {
     render(
-      <SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} onReorder={noop} />,
+      <SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} onReorder={acceptReorder} />,
     );
     expect(screen.getByRole("button", { name: "AlphaLIVE" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Beta8bar" })).toHaveAttribute("aria-pressed", "false");
@@ -98,7 +104,7 @@ describe("SceneList", () => {
         onCreate={noop}
         onRename={noop}
         onDelete={noop}
-        onReorder={noop}
+        onReorder={acceptReorder}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Beta8bar" }));
@@ -107,7 +113,7 @@ describe("SceneList", () => {
 
   it("toggles the create form open and closed via the New/Cancel button", () => {
     render(
-      <SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} onReorder={noop} />,
+      <SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} onReorder={acceptReorder} />,
     );
     expect(screen.queryByLabelText("New scene name")).not.toBeInTheDocument();
 
@@ -121,7 +127,7 @@ describe("SceneList", () => {
   it("calls onCreate with the trimmed name and parsed bar count, then closes the form", () => {
     const onCreate = vi.fn();
     render(
-      <SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={onCreate} onRename={noop} onDelete={noop} onReorder={noop} />,
+      <SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={onCreate} onRename={noop} onDelete={noop} onReorder={acceptReorder} />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "New" }));
@@ -136,7 +142,7 @@ describe("SceneList", () => {
   it("does not call onCreate when the name is blank", () => {
     const onCreate = vi.fn();
     render(
-      <SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={onCreate} onRename={noop} onDelete={noop} onReorder={noop} />,
+      <SceneList scenes={[]} selectedName={null} onSelect={noop} onCreate={onCreate} onRename={noop} onDelete={noop} onReorder={acceptReorder} />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "New" }));
@@ -156,7 +162,7 @@ describe("SceneList", () => {
         onCreate={noop}
         onRename={onRename}
         onDelete={noop}
-        onReorder={noop}
+        onReorder={acceptReorder}
       />,
     );
 
@@ -181,7 +187,7 @@ describe("SceneList", () => {
         onCreate={noop}
         onRename={noop}
         onDelete={onDelete}
-        onReorder={noop}
+        onReorder={acceptReorder}
       />,
     );
 
@@ -204,7 +210,7 @@ describe("SceneList", () => {
         onCreate={noop}
         onRename={noop}
         onDelete={onDelete}
-        onReorder={noop}
+        onReorder={acceptReorder}
       />,
     );
 
@@ -218,7 +224,7 @@ describe("SceneList", () => {
   describe("drag-to-reorder", () => {
     it("exposes a keyboard-focusable, labeled drag handle per scene row (accessible, not pointer-only)", () => {
       render(
-        <SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} onReorder={noop} />,
+        <SceneList scenes={scenes} selectedName="Alpha" onSelect={noop} onCreate={noop} onRename={noop} onDelete={noop} onReorder={acceptReorder} />,
       );
       expect(screen.getByRole("button", { name: "Reorder Alpha" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Reorder Beta" })).toBeInTheDocument();
@@ -233,7 +239,7 @@ describe("SceneList", () => {
           onCreate={noop}
           onRename={noop}
           onDelete={noop}
-          onReorder={noop}
+          onReorder={acceptReorder}
         />,
       );
       expect(visibleSceneOrder()).toEqual(["Alpha", "Beta", "Gamma"]);
@@ -248,7 +254,7 @@ describe("SceneList", () => {
     });
 
     it("calls onReorder with the new name order once a drag-drop actually moves a row", async () => {
-      const onReorder = vi.fn();
+      const onReorder = vi.fn().mockReturnValue(true);
       render(
         <SceneList
           scenes={threeScenes}
@@ -271,8 +277,88 @@ describe("SceneList", () => {
       expect(onReorder).toHaveBeenCalledWith(["Beta", "Alpha", "Gamma"]);
     });
 
+    // 2026-08-10 review pass: onReorder was called from INSIDE the
+    // setOrder updater, and main.tsx wraps the app in React.StrictMode,
+    // which deliberately double-invokes updaters in development -- so
+    // every drag issued two ReorderScenes calls against the Go host.
+    it("calls onReorder exactly once per drag even when React double-invokes state updaters", async () => {
+      const onReorder = vi.fn().mockReturnValue(true);
+      render(
+        <StrictMode>
+          <SceneList
+            scenes={threeScenes}
+            selectedName="Alpha"
+            onSelect={noop}
+            onCreate={noop}
+            onRename={noop}
+            onDelete={noop}
+            onReorder={onReorder}
+          />
+        </StrictMode>,
+      );
+
+      const handle = screen.getByRole("button", { name: "Reorder Alpha" });
+      handle.focus();
+      await pressKey(handle, "Space");
+      await pressKey(handle, "ArrowDown");
+      await pressKey(handle, "Space");
+
+      expect(onReorder).toHaveBeenCalledTimes(1);
+    });
+
+    it("rolls the optimistic order back when the server rejects the reorder", async () => {
+      const onReorder = vi.fn().mockResolvedValue(false);
+      render(
+        <SceneList
+          scenes={threeScenes}
+          selectedName="Alpha"
+          onSelect={noop}
+          onCreate={noop}
+          onRename={noop}
+          onDelete={noop}
+          onReorder={onReorder}
+        />,
+      );
+
+      const handle = screen.getByRole("button", { name: "Reorder Alpha" });
+      handle.focus();
+      await pressKey(handle, "Space");
+      await pressKey(handle, "ArrowDown");
+      await pressKey(handle, "Space");
+
+      expect(onReorder).toHaveBeenCalledWith(["Beta", "Alpha", "Gamma"]);
+      // The reset effect can't catch this on its own: it only fires when
+      // the scene NAME SET changes, which a failed reorder never does, so
+      // the wrong order used to stick for the rest of the session.
+      await waitFor(() => expect(visibleSceneOrder()).toEqual(["Alpha", "Beta", "Gamma"]));
+    });
+
+    it("keeps the new order when the server accepts it", async () => {
+      const onReorder = vi.fn().mockResolvedValue(true);
+      render(
+        <SceneList
+          scenes={threeScenes}
+          selectedName="Alpha"
+          onSelect={noop}
+          onCreate={noop}
+          onRename={noop}
+          onDelete={noop}
+          onReorder={onReorder}
+        />,
+      );
+
+      const handle = screen.getByRole("button", { name: "Reorder Alpha" });
+      handle.focus();
+      await pressKey(handle, "Space");
+      await pressKey(handle, "ArrowDown");
+      await pressKey(handle, "Space");
+
+      await waitFor(() => expect(onReorder).toHaveBeenCalled());
+      expect(visibleSceneOrder()).toEqual(["Beta", "Alpha", "Gamma"]);
+    });
+
     it("cancels a keyboard reorder with Escape, leaving the rendered order unchanged and never calling onReorder", async () => {
-      const onReorder = vi.fn();
+      const onReorder = vi.fn().mockReturnValue(true);
       render(
         <SceneList
           scenes={threeScenes}
@@ -304,7 +390,7 @@ describe("SceneList", () => {
           onCreate={noop}
           onRename={noop}
           onDelete={noop}
-          onReorder={noop}
+          onReorder={acceptReorder}
         />,
       );
 
@@ -327,7 +413,7 @@ describe("SceneList", () => {
           onCreate={noop}
           onRename={noop}
           onDelete={noop}
-          onReorder={noop}
+          onReorder={acceptReorder}
         />,
       );
       expect(visibleSceneOrder()).toEqual(["Beta", "Alpha", "Gamma"]);
@@ -342,7 +428,7 @@ describe("SceneList", () => {
           onCreate={noop}
           onRename={noop}
           onDelete={noop}
-          onReorder={noop}
+          onReorder={acceptReorder}
         />,
       );
 
@@ -367,7 +453,7 @@ describe("SceneList", () => {
           onCreate={noop}
           onRename={noop}
           onDelete={noop}
-          onReorder={noop}
+          onReorder={acceptReorder}
         />,
       );
       // Gamma's row plays its own exit animation (AnimatePresence) before

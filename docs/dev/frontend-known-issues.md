@@ -95,7 +95,8 @@ The threshold timer sets `setProgress(1)` and latches `timers.current.completed 
 
 `CancelLearn` closes `session.cancel` on the Go side, which unblocks the still-pending `StartLearn` so it returns `GOLC_MIDI_LEARN_TIMEOUT` (documented at `svc_midi.go:741`). `handleCancel` sets `status = "idle"` but never invalidates the in-flight `StartLearn` promise; when it resolves a moment later, `handleLearn`'s `stderr.includes(TIMEOUT_MARKER)` branch fires and sets `status = "timeout"` plus the timeout copy. Repro: click Learn, then click Cancel — a "No MIDI input received. Try again." error appears under the button for an action the user deliberately aborted. Needs a per-attempt generation counter or `cancelled` ref checked before every `setStatus`. (`Desk.tsx:1029` already implements exactly this guard via `capturingKeyRef`; `MidiLearn.tsx` doesn't.)
 
-### Renaming the selected scene makes the selection jump to a different scene
+### ~~Renaming the selected scene makes the selection jump to a different scene~~
+**Fixed:** `setSelectedSceneName(newName)` moved after `await refresh()`, matching `handleCreateScene`'s ordering.
 **Severity:** bug
 **File:** `frontend/src/workspaces/build/ScenesLooksWorkspace.tsx:218`
 **Confidence:** high
@@ -142,7 +143,8 @@ When `status` becomes `"listening"` the component returns an entirely different 
 
 `breakpointLines` is a plain `number[]` in workspace state, never adjusted for edits, but Monaco's decoration collection (`ScriptEditor.tsx:413`) tracks model edits and shifts the glyph with the text. Repro: set a breakpoint on line 5, put the cursor on line 1 and press Enter three times — the glyph is now at line 8 but state still holds `[5]`, so Debug breaks on the wrong statement. Toggling any other breakpoint re-runs the sync effect's `.set(breakpointDecorations([5, ...]))` and visibly snaps the glyph back to line 5. Either the collection's tracked ranges need to feed back into state, or breakpoints need clearing on edit.
 
-### `onReorder` is invoked from inside a `setState` updater — fires twice under StrictMode
+### ~~`onReorder` is invoked from inside a `setState` updater — fires twice under StrictMode~~
+**Fixed:** `next` is derived from `order` outside the updater and `onReorder` is called once from the handler. Regression test renders `SceneList` inside `<StrictMode>` and asserts exactly one call per drag.
 **Severity:** bug
 **File:** `frontend/src/components/SceneProgramming/SceneList.tsx:238`
 **Confidence:** high
@@ -234,14 +236,16 @@ Switching the selected surface while in operate mode runs the effect cleanup (`s
 
 `surfaceListVersion` correctly re-runs `refreshSurfaces`, but nothing reconciles `selectedSurface` against the returned list. Repro: select surface X in MidiPanel, delete X from the Operator Surfaces view (both are permanently mounted side by side). `surfaces` loses X but `selectedSurface` still holds `"X"`, so the Select renders a value with no matching option, `refreshSurfaceDetail("X")` fails with `GOLC_OPERATORSURFACE_NOT_FOUND`, and the assigned-controls / mappings sections stay mounted showing an error banner instead of collapsing.
 
-### Picking a look for a disabled layer silently re-enables it
+### ~~Picking a look for a disabled layer silently re-enables it~~
+**Fixed:** `handleSelectLayerLook` passes the layer's current `enabled` value instead of a hard-coded `true`, so pre-staging a look on a disabled layer stays a staging action.
 **Severity:** edge-case
 **File:** `frontend/src/workspaces/build/ScenesLooksWorkspace.tsx:150`
 **Confidence:** medium
 
 `handleSelectLayerLook` hard-codes `enabled: true` in `setSceneLayer(scene.name, kind, refId, true)`, and nothing prevents the picker being used while the layer is off (`LayerRow.tsx`'s header comment states the select stays live regardless of the toggle). Repro: disable the Chase layer on the *live* scene, then use its still-enabled dropdown to pre-stage a different chase — the layer immediately goes enabled and starts contributing to output. On a lighting console that is a visible-on-stage side effect from what reads as a staging action.
 
-### A rejected scene reorder is never rolled back
+### ~~A rejected scene reorder is never rolled back~~
+**Fixed:** `onReorder` now returns `boolean | Promise<boolean>`; `SceneList` keeps the pre-drag order and restores it when the answer is `false`. `handleReorderScenes` returns `false` for both the invalid-permutation bail and the caught error.
 **Severity:** edge-case
 **File:** `frontend/src/components/SceneProgramming/SceneList.tsx:238`
 **Confidence:** medium

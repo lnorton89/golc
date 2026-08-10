@@ -10,7 +10,10 @@
 // translates the dragged name order into the 0-based index permutation
 // "scene reorder" expects and persists it via ProgrammingService.
 // ReorderScenes, mirroring every other mutation in this component's
-// contract -- SceneList itself never calls wailsBridge directly). `order`
+// contract -- SceneList itself never calls wailsBridge directly). The
+// optimistic order is rolled back when onReorder reports the server
+// rejected it, since the reset effect below can't see that on its own.
+// `order`
 // lives in this component's own state, independent of the `scenes` prop's
 // own array order, purely so the drop feels instant instead of waiting on
 // a round trip.
@@ -70,7 +73,13 @@ interface SceneListProps {
   onCreate: (name: string, bars: number) => void;
   onRename: (oldName: string, newName: string) => void;
   onDelete: (name: string) => void;
-  onReorder: (orderedNames: string[]) => void;
+  /** onReorder commits the dragged order upstream and reports whether the
+   * server accepted it. A `false` result rolls the local optimistic order
+   * back: the reset effect below deliberately only fires when the scene
+   * *name set* changes, which a failed reorder never does, so without this
+   * signal a rejected reorder left the list permanently wrong for the rest
+   * of the session and the operator only found out on the next launch. */
+  onReorder: (orderedNames: string[]) => boolean | Promise<boolean>;
 }
 
 /** reorderSceneNames applies a single drag-and-drop move to a name-ordered
@@ -237,12 +246,21 @@ export default function SceneList({
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over) return;
-    setOrder((current) => {
-      const next = reorderSceneNames(current, String(active.id), String(over.id));
-      if (next !== current) {
-        onReorder(next);
+    // `next` is derived from `order` OUTSIDE the updater deliberately.
+    // main.tsx wraps the app in React.StrictMode, which double-invokes
+    // state updaters in development -- calling onReorder from inside one
+    // issued two ReorderScenes calls per drag against the Go host, the
+    // second computed against already-reordered server state if refresh()
+    // landed between them.
+    const next = reorderSceneNames(order, String(active.id), String(over.id));
+    if (next === order) return;
+
+    const previous = order;
+    setOrder(next);
+    void Promise.resolve(onReorder(next)).then((accepted) => {
+      if (!accepted) {
+        setOrder(previous);
       }
-      return next;
     });
   };
 

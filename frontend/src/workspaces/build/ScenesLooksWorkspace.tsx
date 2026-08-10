@@ -151,8 +151,16 @@ export default function ScenesLooksWorkspace() {
     if (refId === "") {
       return;
     }
+    // Preserve the layer's current enabled state rather than hard-coding
+    // `true`. The look picker stays live whether or not the layer is
+    // toggled on (LayerRow.tsx's own contract), so on the LIVE scene
+    // pre-staging a different chase for a disabled Chase layer used to
+    // switch it on and start contributing to output -- a visible-on-stage
+    // side effect from what reads as a staging action.
+    const currentLayer = scene.layers.find((candidate) => candidate.kind === kind);
+    const enabled = currentLayer?.enabled ?? false;
     try {
-      const result = await setSceneLayer(scene.name, kind, refId, true);
+      const result = await setSceneLayer(scene.name, kind, refId, enabled);
       assertOk(result, "SetSceneLayer");
       await refresh();
     } catch (err) {
@@ -219,10 +227,16 @@ export default function ScenesLooksWorkspace() {
     try {
       const result = await renameScene(oldName, newName);
       assertOk(result, "RenameScene");
+      // Order matters: setting the selection BEFORE the refresh committed
+      // a render where selectedSceneName was the new name while
+      // view.scenes still held the old one, so the selection-validity
+      // effect above saw no match and overwrote the selection with the
+      // active/first scene. handleCreateScene already does it this way
+      // round; this handler was the outlier.
+      await refresh();
       if (selectedSceneName === oldName) {
         setSelectedSceneName(newName);
       }
-      await refresh();
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -243,18 +257,24 @@ export default function ScenesLooksWorkspace() {
   // (pre-drag) order -- SceneList only ever hands back names, never
   // indices, since it has no idea what the server-side order actually is
   // once its own local `order` state has drifted from the `scenes` prop.
-  const handleReorderScenes = async (orderedNames: string[]) => {
+  // Reports whether the reorder was actually accepted, so SceneList can
+  // roll its optimistic local order back on rejection -- its own reset
+  // effect deliberately only fires when the scene name set changes, which
+  // a failed reorder never does.
+  const handleReorderScenes = async (orderedNames: string[]): Promise<boolean> => {
     const originalIndexByName = new Map(view.scenes.map((scene, index) => [scene.name, index]));
     const order = orderedNames.map((name) => originalIndexByName.get(name) ?? -1);
     if (order.length !== view.scenes.length || order.includes(-1)) {
-      return;
+      return false;
     }
     try {
       const result = await reorderScenes(order);
       assertOk(result, "ReorderScenes");
       await refresh();
+      return true;
     } catch (err) {
       setError(errorMessage(err));
+      return false;
     }
   };
 
@@ -414,7 +434,7 @@ export default function ScenesLooksWorkspace() {
                   onCreate={handleCreateScene}
                   onRename={(oldName, newName) => void handleRenameScene(oldName, newName)}
                   onDelete={(name) => void handleDeleteScene(name)}
-                  onReorder={(orderedNames) => void handleReorderScenes(orderedNames)}
+                  onReorder={handleReorderScenes}
                 />
                 <ResizeHandle
                   edge="end"

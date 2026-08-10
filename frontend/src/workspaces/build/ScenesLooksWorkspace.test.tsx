@@ -176,6 +176,69 @@ describe("ScenesLooksWorkspace", () => {
     vi.restoreAllMocks();
   });
 
+  // --- 2026-08-10 review pass regressions ------------------------------
+
+  function svcOf() {
+    return (window as unknown as { go: { wails: { ProgrammingService: Record<string, ReturnType<typeof vi.fn>> } } })
+      .go.wails.ProgrammingService;
+  }
+
+  it("keeps the renamed scene selected instead of jumping to the active/first scene", async () => {
+    const svc = svcOf();
+    const renamedView = view({
+      scenes: [
+        { name: "Alpha", active: true, barsPerLoop: 4, layers: [{ kind: "base_look", enabled: true, ref: "preset-1" }] },
+        { name: "Renamed", active: false, barsPerLoop: 8, layers: [] },
+      ],
+    });
+    svc.ListProgramming.mockResolvedValueOnce(view()).mockResolvedValue(renamedView);
+    svc.RenameScene = vi.fn().mockResolvedValue(ok());
+
+    render(<ScenesLooksWorkspace />);
+    await waitFor(() => expect(screen.getByLabelText("Alpha layers")).toBeInTheDocument());
+
+    // Select the non-live scene, then rename it.
+    fireEvent.click(screen.getByRole("button", { name: "Beta8bar" }));
+    await waitFor(() => expect(screen.getByLabelText("Beta layers")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Beta actions" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Rename" }));
+    fireEvent.change(screen.getByLabelText("Scene name"), { target: { value: "Renamed" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(svc.RenameScene).toHaveBeenCalledWith("Beta", "Renamed"));
+    // Setting the selection before the refresh let the selection-validity
+    // effect see a name with no match and overwrite it with the live scene.
+    await waitFor(() => expect(screen.getByLabelText("Renamed layers")).toBeInTheDocument());
+    expect(screen.queryByLabelText("Alpha layers")).not.toBeInTheDocument();
+  });
+
+  it("does not enable a disabled layer just because a look was picked for it", async () => {
+    const svc = svcOf();
+    svc.ListProgramming.mockResolvedValue(
+      view({
+        scenes: [
+          {
+            name: "Alpha",
+            active: true,
+            barsPerLoop: 4,
+            // Base Look is OFF but its picker stays live (LayerRow's
+            // contract), so pre-staging a look must not switch it on.
+            layers: [{ kind: "base_look", enabled: false, ref: "" }],
+          },
+        ],
+      }),
+    );
+
+    render(<ScenesLooksWorkspace />);
+    await waitFor(() => expect(screen.getByLabelText("Alpha layers")).toBeInTheDocument());
+
+    const picker = screen.getByLabelText("Base Look look");
+    fireEvent.change(picker, { target: { value: "preset-1" } });
+
+    await waitFor(() => expect(svc.SetSceneLayer).toHaveBeenCalledWith("Alpha", "base_look", "preset-1", false));
+  });
+
   it("shows an empty state when there are no scenes yet", async () => {
     const svc = (window as unknown as { go: { wails: { ProgrammingService: Record<string, ReturnType<typeof vi.fn>> } } })
       .go.wails.ProgrammingService;
