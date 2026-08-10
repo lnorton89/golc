@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { errorMessage, listProgramming } from "../../../../lib/wailsBridge";
 import { ErrorState, LoadingState } from "../../../../design-system";
+import { useLatestRequest } from "../../../../hooks/useLatestRequest";
 import { deriveProgramStatus } from "../readiness";
 import type { GuideStageStatus } from "../stages";
 
@@ -27,18 +28,35 @@ export default function ProgramStage({ onStatusChange }: ProgramStageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Every stage reports upward through onStatusChange from an async read,
+  // and switching stages unmounts the previous one -- an in-flight read
+  // landing afterwards used to overwrite the *new* stage's status, so the
+  // footer's primary button showed the old stage's label and disabled
+  // state over the new stage's body. useLatestRequest answers both "did a
+  // newer read start" and "are we still mounted" with one predicate.
+  const beginLatest = useLatestRequest();
+
   const refresh = useCallback(async (): Promise<void> => {
+    const isCurrent = beginLatest();
     try {
       const view = await listProgramming();
+      if (!isCurrent()) {
+        return;
+      }
       onStatusChange(deriveProgramStatus(view));
       setError(null);
     } catch (err) {
+      if (!isCurrent()) {
+        return;
+      }
       setError(errorMessage(err));
       onStatusChange({ items: [], primaryLabel: PRIMARY_LABEL, primaryDisabled: false });
     } finally {
-      setLoading(false);
+      if (isCurrent()) {
+        setLoading(false);
+      }
     }
-  }, [onStatusChange]);
+  }, [onStatusChange, beginLatest]);
 
   // Re-reads the show's programming on every mount (no cached readiness
   // flag) -- same discipline as FixturesStage/PatchStage, deliberately

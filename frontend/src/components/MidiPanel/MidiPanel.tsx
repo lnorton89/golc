@@ -36,6 +36,7 @@ import { Music2, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
 import { useGolcStore } from "../../store/store";
+import { useLatestRequest } from "../../hooks/useLatestRequest";
 import {
   errorMessage,
   getMidiService,
@@ -128,6 +129,7 @@ export default function MidiPanel() {
   >({});
   const [listLoading, setListLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const beginLatestDetail = useLatestRequest();
 
   const refreshSurfaces = useCallback(async (): Promise<void> => {
     const svc = surfaceService();
@@ -146,26 +148,42 @@ export default function MidiPanel() {
     }
   }, []);
 
-  const refreshSurfaceDetail = useCallback(async (name: string): Promise<void> => {
-    const surfSvc = surfaceService();
-    const midiSvc = midiService();
-    if (!surfSvc || !midiSvc) {
-      return;
-    }
-    try {
-      const [detail, mappingRows] = await Promise.all([
-        surfSvc.ShowSurface(name),
-        midiSvc.ListMappings(name),
-      ]);
-      setAssignedControls(detail.controls.filter((control) => control.assigned));
-      setMappings(mappingRows);
-      setError(null);
-    } catch (err) {
-      setError(errorMessage(err));
-      setAssignedControls([]);
-      setMappings([]);
-    }
-  }, []);
+  // Generation-guarded for the same reason OperatorSurface's own detail
+  // read is: selecting surface A then surface B inside A's round trip
+  // used to leave B's header over A's assigned controls and mappings when
+  // A resolved last, and the follow-on StartLearn(B, controlRefFromA)
+  // then came back as an authorization error on a control the user could
+  // see listed. See useLatestRequest.
+  const refreshSurfaceDetail = useCallback(
+    async (name: string): Promise<void> => {
+      const surfSvc = surfaceService();
+      const midiSvc = midiService();
+      if (!surfSvc || !midiSvc) {
+        return;
+      }
+      const isCurrent = beginLatestDetail();
+      try {
+        const [detail, mappingRows] = await Promise.all([
+          surfSvc.ShowSurface(name),
+          midiSvc.ListMappings(name),
+        ]);
+        if (!isCurrent()) {
+          return;
+        }
+        setAssignedControls(detail.controls.filter((control) => control.assigned));
+        setMappings(mappingRows);
+        setError(null);
+      } catch (err) {
+        if (!isCurrent()) {
+          return;
+        }
+        setError(errorMessage(err));
+        setAssignedControls([]);
+        setMappings([]);
+      }
+    },
+    [beginLatestDetail],
+  );
 
   useEffect(() => {
     void refreshSurfaces();
@@ -174,6 +192,22 @@ export default function MidiPanel() {
     // by side, so this list must re-fetch whenever the other one changes it,
     // not just once on mount.
   }, [refreshSurfaces, surfaceListVersion]);
+
+  // Re-fetching the list is not enough on its own: deleting the selected
+  // surface from the Operator Surfaces view (mounted side by side with
+  // this one) left `selectedSurface` pointing at a name with no matching
+  // option, so the Select rendered a dangling value and
+  // refreshSurfaceDetail kept failing with GOLC_OPERATORSURFACE_NOT_FOUND
+  // under a still-mounted controls/mappings section. Deselect instead, so
+  // the panel collapses back to its own empty state.
+  useEffect(() => {
+    if (listLoading || !selectedSurface) {
+      return;
+    }
+    if (!surfaces.some((surface) => surface.name === selectedSurface)) {
+      setSelectedSurface(null);
+    }
+  }, [surfaces, selectedSurface, listLoading]);
 
   useEffect(() => {
     if (!selectedSurface) {

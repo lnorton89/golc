@@ -39,21 +39,24 @@ The rebind capture listener calls `event.stopPropagation()`, but both playback (
 
 `handleClearAll` does `setOverrides({})` and never clears `touchedKeys`, unlike `handleFaderClear` (`:1216`) and `releaseLocalOverridesFor` (`:1244`), which both explicitly drop the key so the thumb returns to dimmed grey. The comment at `:1230` even claims `handleClearAll` owns the same `overrides`/`touchedKeys` pair. Repro: drag any fader (thumb turns accent blue), click the global release-all control — the override clears and the value falls back to live, but every previously-dragged thumb stays blue, which per `Fader.tsx:110`'s contract means "currently doing something". Per-channel, per-fixture, and per-universe release all behave correctly; only release-all is wrong.
 
-### Operator-surface detail fetch has no request-id guard — a slow response repopulates the panel for the wrong surface
+### ~~Operator-surface detail fetch has no request-id guard — a slow response repopulates the panel for the wrong surface~~
+**Fixed:** New shared `hooks/useLatestRequest.ts` generation guard (see the closing note on this section); `refreshDetail` and `MidiPanel`'s `refreshSurfaceDetail` both check it before every commit. Regression tests in `OperatorSurface.detailRace.test.tsx` and `MidiPanel.test.tsx` land two overlapping responses out of order and assert the newer one survives (both verified failing before the fix).
 **Severity:** bug
 **File:** `frontend/src/components/OperatorSurface/OperatorSurface.tsx:140`
 **Confidence:** high
 
 `refreshDetail(name)` awaits `ShowSurface(name)` and unconditionally `setControls(detail.controls)` with no check that `name` is still `selectedName`. Repro: click surface A, then click surface B before A's round trip finishes; if A resolves last, the detail panel header reads "B" while listing A's controls. `handleToggle` then calls `AssignItem(selectedName /* B */, selector(controlFromA))`, assigning A's control to B. `MidiPanel.tsx:149` has the identical unguarded shape for `ShowSurface`+`ListMappings` (there the follow-on `StartLearn(B, controlRefFromA)` is rejected server-side at `command.Authorize`, so it surfaces as an authorization error on a control the user can see listed).
 
-### FixturePatch keeps a stale add-preview after you change the fixture or mode, so Apply commits the wrong plan
+### ~~FixturePatch keeps a stale add-preview after you change the fixture or mode, so Apply commits the wrong plan~~
+**Fixed:** `handleSelectFixture` and a new `handleSelectAddMode` both `setPendingPreview(null)`, matching `ProjectFixtures.tsx`. `handlePreviewAddMember` is also generation-guarded so rapid Review Impact clicks can't land out of order.
 **Severity:** bug
 **File:** `frontend/src/components/FixturePatch/FixturePatch.tsx:237`
 **Confidence:** high
 
 `handleSelectFixture` sets `selectedFixture`/`addMode` but never clears `pendingPreview`, and the mode `<Select onValueChange={setAddMode}>` doesn't either. The render gate at `:683` only checks `pendingPreview.poolName === p.name`. Repro: open Add Fixture on a pool, pick a 4-channel fixture, click Review Impact, then switch the Combobox to a 32-channel fixture — the old proposed universe/address stays on screen and clicking Apply commits the *first* fixture's `plan_id` at the *first* footprint. `ProjectFixtures.tsx:293` does the right thing (`setPendingPreview(null)` in its own `handleSelectFixture`); FixturePatch is the outlier.
 
-### Remove-member impact preview races: an earlier member's plan renders and applies under a different member's row
+### ~~Remove-member impact preview races: an earlier member's plan renders and applies under a different member's row~~
+**Fixed:** Generation-guarded via `useLatestRequest`, and the render gate now compares `pendingRemovePreview.poolName`/`.memberId` as well as `removeTarget`. `ProjectFixtures.tsx:381` got the same guard — its `pendingRemovePreview` is a bare `ImpactPlan` with no member identity, so the render-gate half wasn't available there and discarding the stale response is the whole fix.
 **Severity:** bug
 **File:** `frontend/src/components/FixturePatch/FixturePatch.tsx:388`
 **Confidence:** high
@@ -167,7 +170,8 @@ The persist effect is keyed on `[storageKey, size]`, and `size` is set from `han
 
 `handlePointerDown` never calls `setPointerCapture` and never checks `event.button`, and the drag is terminated only by a `pointerup`/`pointercancel` that reaches `window`. Repro A: start dragging the rail handle, drag past the window edge, release outside the webview — no `pointerup` arrives, `isResizing` stays true, and the panel resumes resizing the moment the cursor re-enters. Repro B: right-click or middle-click the handle and move — the panel resizes from a non-primary button press (and `preventDefault()` at `:49` suppresses the context menu that would otherwise explain it).
 
-### Guided-First-Show stage status leaks across a stage switch
+### ~~Guided-First-Show stage status leaks across a stage switch~~
+**Fixed:** All five `stages/*.tsx` now hold a `useLatestRequest` guard across their read and check it before every `onStatusChange`/`setError`/`setLoading`. Switching stages unmounts the previous one, so the guard's mounted-check is what does the work here. Regression test verified failing before the fix.
 **Severity:** bug
 **File:** `frontend/src/workspaces/show/GuidedFirstShow/stages/VerifyStage.tsx:81`
 **Confidence:** medium
@@ -204,14 +208,16 @@ The handler sends `!layerEnabled[layerKind]`, where `layerEnabled` comes from `u
 
 `handleDiscardAll` calls `discardRecoveryPoints()` straight from the button's `onClick` — no `ConfirmDialog`, no `window.confirm`, despite this permanently deleting every crash-recovery snapshot for the open show and despite `ConfirmDialog` being the design system's public confirmation contract (used by `AppShell.tsx:97` and mirrored by `window.confirm` in `SurfaceList.tsx:56` / `SceneList.tsx:276`). The button sits directly next to per-row "Accept", so a misclick on a list the operator is scanning destroys the only copy of unsaved work. Medium confidence only because I did not check whether the Go route has its own guard.
 
-### Cancelling and re-establishing the operate-mode active surface race each other
+### ~~Cancelling and re-establishing the operate-mode active surface race each other~~
+**Fixed:** The `SetActiveSurface` calls are serialized through one promise chain (`activeSurfaceChainRef`), so a clear issued before a set can never resolve after it. Rejections are swallowed deliberately — the chain exists only to order the calls.
 **Severity:** edge-case
 **File:** `frontend/src/components/OperatorSurface/OperatorSurface.tsx:173`
 **Confidence:** medium
 
 Switching the selected surface while in operate mode runs the effect cleanup (`setSafetyActiveSurface("")`, `setPlaybackActiveSurface("")`) and the new effect body (`setSafetyActiveSurface(B)`) back to back, all as unawaited `void` calls. Nothing sequences them, so if the clear resolves on the Go side after the set, dispatch is left unrestricted while the UI shows surface B in locked operate mode — the exact D-04 enforcement the CR-01 fix exists to guarantee. Repro requires overlapping bridge latency, so it's rare, but the two calls are genuinely unordered.
 
-### MidiPanel stays pinned to a surface deleted elsewhere in the app
+### ~~MidiPanel stays pinned to a surface deleted elsewhere in the app~~
+**Fixed:** A reconciliation effect deselects `selectedSurface` when it is absent from a freshly-fetched `surfaces` list, so the panel collapses to its empty state instead of sitting on a `GOLC_OPERATORSURFACE_NOT_FOUND` banner under a dangling Select value.
 **Severity:** edge-case
 **File:** `frontend/src/components/MidiPanel/MidiPanel.tsx:132`
 **Confidence:** medium
@@ -246,7 +252,8 @@ Switching the selected surface while in operate mode runs the effect cleanup (`s
 
 `const handleRunAgain = () => setDialogMode("run")` — hard-coded, and the workspace keeps no memory of which mode the finished run used. Repro: Debug a script, hit a breakpoint, let it crash, click "Run Again" in the terminal banner. The dialog opens titled "Run <name>", and submitting calls `runScript()`, which ignores `breakpointLines` entirely (`session.go`'s `Run` reads breakpoints only when `mode == LaunchModeDebug`). The gutter still shows the breakpoints, which will never fire, with no indication why.
 
-### Overlapping Evaluate requests can display a stale bar preview
+### ~~Overlapping Evaluate requests can display a stale bar preview~~
+**Fixed:** Generation-guarded via `useLatestRequest`; the Evaluate button is disabled while a call is outstanding; and a thrown dispatch now clears `previewOutput` and renders an `ErrorState` instead of leaving the previous evaluation on screen as if current.
 **Severity:** edge-case
 **File:** `frontend/src/components/SceneProgramming/BarTimelinePanel.tsx:23`
 **Confidence:** medium

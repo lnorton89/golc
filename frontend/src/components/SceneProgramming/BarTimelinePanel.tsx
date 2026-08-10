@@ -8,8 +8,10 @@
 import { useState } from "react";
 import { Zap } from "lucide-react";
 
-import { Button, Field, Panel } from "../../design-system";
+import { Button, ErrorState, Field, Panel } from "../../design-system";
+import { useLatestRequest } from "../../hooks/useLatestRequest";
 import { dispatch } from "../../lib/playbackDispatch";
+import { errorMessage } from "../../lib/wailsBridge";
 import styles from "./BarTimelinePanel.module.css";
 
 interface BarTimelinePanelProps {
@@ -19,14 +21,41 @@ interface BarTimelinePanelProps {
 export default function BarTimelinePanel({ activeSceneName }: BarTimelinePanelProps) {
   const [evaluateAt, setEvaluateAt] = useState("0");
   const [previewOutput, setPreviewOutput] = useState("");
+  const [evaluating, setEvaluating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const beginLatest = useLatestRequest();
 
+  // Latest-wins (see useLatestRequest): evaluating bar 4, then changing
+  // the field to 8 and evaluating again, used to show bar 4's output under
+  // a field reading 8 whenever the first dispatch resolved last. The
+  // button is also disabled while a call is outstanding, and a thrown
+  // dispatch now clears the previous output instead of leaving it on
+  // screen as if it were current.
   const handleEvaluate = async () => {
     const parsed = Number(evaluateAt);
     if (!Number.isFinite(parsed)) {
       return;
     }
-    const result = await dispatch.evaluate(parsed);
-    setPreviewOutput(result?.stdout || result?.stderr || "");
+    const isCurrent = beginLatest();
+    setEvaluating(true);
+    try {
+      const result = await dispatch.evaluate(parsed);
+      if (!isCurrent()) {
+        return;
+      }
+      setPreviewOutput(result?.stdout || result?.stderr || "");
+      setError(null);
+    } catch (err) {
+      if (!isCurrent()) {
+        return;
+      }
+      setPreviewOutput("");
+      setError(errorMessage(err));
+    } finally {
+      if (isCurrent()) {
+        setEvaluating(false);
+      }
+    }
   };
 
   return (
@@ -42,10 +71,11 @@ export default function BarTimelinePanel({ activeSceneName }: BarTimelinePanelPr
           value={evaluateAt}
           onChange={(event) => setEvaluateAt(event.target.value)}
         />
-        <Button variant="primary" icon={Zap} onClick={() => void handleEvaluate()}>
-          Evaluate
+        <Button variant="primary" icon={Zap} loading={evaluating} disabled={evaluating} onClick={() => void handleEvaluate()}>
+          {evaluating ? "Evaluating…" : "Evaluate"}
         </Button>
       </div>
+      {error ? <ErrorState heading="Evaluate failed" message={error} /> : null}
       {previewOutput ? <pre className={styles.output}>{previewOutput}</pre> : null}
     </Panel>
   );

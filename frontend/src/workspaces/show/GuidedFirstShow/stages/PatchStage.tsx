@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { errorMessage, listPatch } from "../../../../lib/wailsBridge";
 import { ErrorState, LoadingState } from "../../../../design-system";
+import { useLatestRequest } from "../../../../hooks/useLatestRequest";
 import { derivePatchStatus } from "../readiness";
 import type { GuideStageStatus } from "../stages";
 
@@ -31,18 +32,35 @@ export default function PatchStage({ onStatusChange }: PatchStageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Every stage reports upward through onStatusChange from an async read,
+  // and switching stages unmounts the previous one -- an in-flight read
+  // landing afterwards used to overwrite the *new* stage's status, so the
+  // footer's primary button showed the old stage's label and disabled
+  // state over the new stage's body. useLatestRequest answers both "did a
+  // newer read start" and "are we still mounted" with one predicate.
+  const beginLatest = useLatestRequest();
+
   const refresh = useCallback(async (): Promise<void> => {
+    const isCurrent = beginLatest();
     try {
       const view = await listPatch();
+      if (!isCurrent()) {
+        return;
+      }
       onStatusChange(derivePatchStatus(view));
       setError(null);
     } catch (err) {
+      if (!isCurrent()) {
+        return;
+      }
       setError(errorMessage(err));
       onStatusChange({ items: [], primaryLabel: PRIMARY_LABEL, primaryDisabled: false });
     } finally {
-      setLoading(false);
+      if (isCurrent()) {
+        setLoading(false);
+      }
     }
-  }, [onStatusChange]);
+  }, [onStatusChange, beginLatest]);
 
   // Re-reads the patch state on every mount (no cached readiness flag) --
   // same discipline as FixturesStage, deliberately keyed on an empty

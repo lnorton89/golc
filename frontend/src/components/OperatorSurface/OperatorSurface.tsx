@@ -35,10 +35,11 @@
 // This Wave 3 plan replaces this file's contents; App.tsx's mount point for
 // <OperatorSurface /> is never changed.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Eye, ArrowLeft } from "lucide-react";
 
 import { useGolcStore } from "../../store/store";
+import { useLatestRequest } from "../../hooks/useLatestRequest";
 import {
   assertOk,
   requireSurfaceService,
@@ -122,6 +123,19 @@ export default function OperatorSurface() {
   const [listLoading, setListLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const beginLatestDetail = useLatestRequest();
+
+  /** activeSurfaceChainRef serializes the SetActiveSurface round trips so
+   * a clear issued before a set can never resolve after it (see the
+   * operate-mode effect below). Rejections are swallowed deliberately:
+   * this chain only exists to order the calls, and a failed scope change
+   * must not poison every later one. */
+  const activeSurfaceChainRef = useRef<Promise<unknown>>(Promise.resolve());
+  const enqueueActiveSurface = useCallback((name: string) => {
+    activeSurfaceChainRef.current = activeSurfaceChainRef.current
+      .then(() => Promise.all([setSafetyActiveSurface(name), setPlaybackActiveSurface(name)]))
+      .catch(() => undefined);
+  }, []);
 
   const refreshSurfaces = useCallback(async (): Promise<SurfaceSummary[]> => {
     try {
@@ -137,19 +151,35 @@ export default function OperatorSurface() {
     }
   }, []);
 
-  const refreshDetail = useCallback(async (name: string): Promise<void> => {
-    setDetailLoading(true);
-    try {
-      const detail = await surfaceService().ShowSurface(name);
-      setControls(detail.controls);
-      setError(null);
-    } catch (err) {
-      setError(errorMessage(err));
-      setControls([]);
-    } finally {
-      setDetailLoading(false);
-    }
-  }, []);
+  // Every detail read is generation-guarded: clicking surface A then
+  // surface B inside A's round trip used to leave the panel headed "B"
+  // while listing A's controls if A resolved last -- and handleToggle
+  // would then assign A's control to B. See useLatestRequest.
+  const refreshDetail = useCallback(
+    async (name: string): Promise<void> => {
+      const isCurrent = beginLatestDetail();
+      setDetailLoading(true);
+      try {
+        const detail = await surfaceService().ShowSurface(name);
+        if (!isCurrent()) {
+          return;
+        }
+        setControls(detail.controls);
+        setError(null);
+      } catch (err) {
+        if (!isCurrent()) {
+          return;
+        }
+        setError(errorMessage(err));
+        setControls([]);
+      } finally {
+        if (isCurrent()) {
+          setDetailLoading(false);
+        }
+      }
+    },
+    [beginLatestDetail],
+  );
 
   useEffect(() => {
     void refreshSurfaces();
@@ -170,17 +200,24 @@ export default function OperatorSurface() {
   // the preview -- switching modes, switching/deselecting the surface, or
   // unmounting entirely -- clears both back to unrestricted/author-mode
   // dispatch via this same effect's cleanup.
+  //
+  // Switching the selected surface while in operate mode runs this
+  // effect's cleanup (clear) and the next effect body (set) back to back.
+  // Both are Go round trips, so as bare `void` calls nothing stopped the
+  // clear from landing *after* the set -- leaving dispatch unrestricted
+  // while the UI showed surface B in locked operate mode, i.e. exactly the
+  // D-04 enforcement CR-01 exists to guarantee. Serializing them through
+  // one promise chain makes the order on the Go side match the order the
+  // component asked for.
   useEffect(() => {
     if (mode !== "operate" || !selectedName) {
       return;
     }
-    void setSafetyActiveSurface(selectedName);
-    void setPlaybackActiveSurface(selectedName);
+    enqueueActiveSurface(selectedName);
     return () => {
-      void setSafetyActiveSurface("");
-      void setPlaybackActiveSurface("");
+      enqueueActiveSurface("");
     };
-  }, [mode, selectedName]);
+  }, [mode, selectedName, enqueueActiveSurface]);
 
   const handleSelect = (name: string) => {
     setSelectedName(name);

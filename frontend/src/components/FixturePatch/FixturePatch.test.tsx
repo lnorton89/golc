@@ -150,6 +150,143 @@ describe("FixturePatch", () => {
     await waitFor(() => expect(svc.ApplyPatch).toHaveBeenCalledWith("plan-abc123456789"));
   });
 
+  // --- 2026-08-10 review pass regressions ------------------------------
+
+  function patchService() {
+    return (window as unknown as { go: { wails: { FixturePatchService: Record<string, ReturnType<typeof vi.fn>> } } })
+      .go.wails.FixturePatchService;
+  }
+
+  /** deferred lets a test choose the order two in-flight reads resolve. */
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  }
+
+  it("discards a reviewed add-preview when the fixture is changed underneath it", async () => {
+    const svc = patchService();
+    svc.ListPatch.mockResolvedValue(patchView({ pools: [{ id: "pool-1", name: "Wash", members: [] }] }));
+    svc.ListLocal = svc.ListLocal ?? vi.fn();
+    (window as unknown as { go: { wails: { FixtureLibraryService: Record<string, ReturnType<typeof vi.fn>> } } })
+      .go.wails.FixtureLibraryService.ListLocal.mockResolvedValue({
+        directory: "",
+        rows: [
+          {
+            stableKey: "acme-par64",
+            contentHash: "hash-1",
+            manufacturer: "Acme",
+            model: "PAR64",
+            modes: ["4ch"],
+            modeChannelCounts: { "4ch": 4 },
+            modeChannels: { "4ch": [] },
+            fileName: "acme-par64.yaml",
+            source: "local",
+            status: "valid",
+            detail: "",
+          },
+          {
+            stableKey: "acme-mover",
+            contentHash: "hash-2",
+            manufacturer: "Acme",
+            model: "Mover",
+            modes: ["32ch"],
+            modeChannelCounts: { "32ch": 32 },
+            modeChannels: { "32ch": [] },
+            fileName: "acme-mover.yaml",
+            source: "local",
+            status: "valid",
+            detail: "",
+          },
+        ],
+      });
+
+    render(<FixturePatch />);
+    await waitFor(() => expect(screen.getByText("Wash")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Fixture" }));
+    await chooseComboboxOption("Fixture", "Acme PAR64");
+    await chooseComboboxOption("Fixture mode", "4ch");
+    fireEvent.click(screen.getByRole("button", { name: "Review Impact" }));
+    await waitFor(() => expect(screen.getByText(/Universe 1, Address 5/)).toBeInTheDocument());
+
+    // Switching to a different fixture must retire the reviewed plan --
+    // Apply used to still commit the FIRST fixture's plan_id.
+    await chooseComboboxOption("Fixture", "Acme Mover");
+
+    expect(screen.queryByText(/Universe 1, Address 5/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
+  });
+
+  it("renders the newer member's removal impact when the older preview resolves last", async () => {
+    const svc = patchService();
+    svc.ListPatch.mockResolvedValue(
+      patchView({
+        pools: [
+          {
+            id: "pool-1",
+            name: "Wash",
+            members: [
+              { id: "member-a", fixtureStableKey: "acme-par64" },
+              { id: "member-b", fixtureStableKey: "acme-mover" },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const removePlan = (memberId: string, ref: string) =>
+      ok(
+        JSON.stringify({
+          schema_version: 1,
+          pool_id: "pool-1",
+          propagate: "none",
+          expected_revision: 1,
+          operations: [
+            {
+              dependent_kind: "deployment_instance",
+              dependent_ref: ref,
+              dependent_id: "inst-1",
+              action: "remove",
+              pool_member_index: 0,
+              pool_member_id: memberId,
+              status: "pending",
+            },
+          ],
+          plan_id: `plan-${memberId}`,
+        }),
+      );
+
+    const first = deferred<ReturnType<typeof ok>>();
+    const second = deferred<ReturnType<typeof ok>>();
+    svc.RemovePoolMemberPreview.mockImplementation((_pool: string, memberId: string) =>
+      memberId === "member-a" ? first.promise : second.promise,
+    );
+
+    render(<FixturePatch />);
+    await waitFor(() => expect(screen.getByText("Wash")).toBeInTheDocument());
+
+    const removeButtons = screen.getAllByRole("button", { name: "Remove" });
+    fireEvent.click(removeButtons[0]);
+    await waitFor(() => expect(svc.RemovePoolMemberPreview).toHaveBeenCalledWith("Wash", "member-a"));
+    fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[1]);
+    await waitFor(() => expect(svc.RemovePoolMemberPreview).toHaveBeenCalledWith("Wash", "member-b"));
+
+    // B lands first; the slower A preview arrives afterwards.
+    second.resolve(removePlan("member-b", "Deployment A / B instance"));
+    await waitFor(() => expect(screen.getByText(/B instance/)).toBeInTheDocument());
+
+    first.resolve(removePlan("member-a", "Deployment A / A instance"));
+    await waitFor(() => expect(svc.RemovePoolMemberPreview).toHaveBeenCalledTimes(2));
+
+    // A's plan must neither render under B's row nor be what Apply commits.
+    expect(screen.queryByText(/A instance/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() => expect(svc.ApplyPatch).toHaveBeenCalledWith("plan-member-b"));
+  });
+
   it("creates and activates a deployment", async () => {
     const svc = (window as unknown as { go: { wails: { FixturePatchService: Record<string, ReturnType<typeof vi.fn>> } } })
       .go.wails.FixturePatchService;

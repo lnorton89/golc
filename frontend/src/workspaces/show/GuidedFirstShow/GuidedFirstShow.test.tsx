@@ -281,6 +281,42 @@ describe("GuidedFirstShow", () => {
     await waitFor(() => expect(listProgramming).toHaveBeenCalledTimes(2));
   });
 
+  // 2026-08-10 review pass: every stage reported upward through
+  // onStatusChange from an async read with no unmount/generation guard, so
+  // opening Verify (four parallel reads, the slowest stage by
+  // construction) and immediately switching to Fixtures let Verify's late
+  // response overwrite the new stage's status -- the footer read "Perform"
+  // with Verify's blocker-derived disabled state over the Fixtures body.
+  it("a late stage response does not overwrite the status of the stage that replaced it", async () => {
+    let releaseVerify!: (value: unknown) => void;
+    const verifyProgramming = new Promise((resolve) => {
+      releaseVerify = resolve;
+    });
+
+    const { listProgramming } = stubBridge(readyBridge);
+    // Verify reads ListProgramming too; hold only its call open.
+    let call = 0;
+    listProgramming.mockImplementation(() => {
+      call += 1;
+      return call === 1 ? verifyProgramming : Promise.resolve(programmingView({ scenes: readyBridge.scenes ?? [] }));
+    });
+
+    renderGuide();
+
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    await waitFor(() => expect(listProgramming).toHaveBeenCalledTimes(1));
+
+    // Leave Verify before its reads land.
+    fireEvent.click(screen.getByRole("button", { name: "Fixtures" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Fixtures" })).toBeInTheDocument());
+
+    releaseVerify(programmingView({ scenes: readyBridge.scenes ?? [] }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Fixtures" })).toBeInTheDocument());
+
+    // The footer must still belong to Fixtures, not Verify.
+    expect(screen.queryByRole("button", { name: "Perform" })).not.toBeInTheDocument();
+  });
+
   it("a later stage is viewable while an earlier one reports a blocker", async () => {
     stubBridge({ ...readyBridge, fixtureRows: [] });
     renderGuide();

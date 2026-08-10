@@ -74,6 +74,65 @@ describe("MidiPanel", () => {
     return trigger;
   }
 
+  // --- 2026-08-10 review pass regressions ------------------------------
+
+  /** deferred lets a test choose the order two in-flight reads resolve. */
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  }
+
+  it("keeps the newer surface's controls when the older detail read resolves last", async () => {
+    const boothDetail = deferred<unknown>();
+    const stageDetail = deferred<unknown>();
+    svc().SurfaceService.ListSurfaces.mockResolvedValue([
+      { id: "surface-1", name: "Booth" },
+      { id: "surface-2", name: "Stage" },
+    ]);
+    svc().SurfaceService.ShowSurface.mockImplementation((name: string) =>
+      name === "Booth" ? boothDetail.promise : stageDetail.promise,
+    );
+
+    const user = userEvent.setup();
+    render(<MidiPanel />);
+    const trigger = await screen.findByRole("combobox", { name: "Operator surface" });
+
+    await user.click(trigger);
+    await user.click(await screen.findByRole("option", { name: "Booth" }));
+    await waitFor(() => expect(svc().SurfaceService.ShowSurface).toHaveBeenCalledWith("Booth"));
+
+    await user.click(trigger);
+    await user.click(await screen.findByRole("option", { name: "Stage" }));
+    await waitFor(() => expect(svc().SurfaceService.ShowSurface).toHaveBeenCalledWith("Stage"));
+
+    // Stage lands first; the slower Booth response arrives afterwards.
+    stageDetail.resolve({ controls: [{ kind: "scene", scene: "Finale", label: "Stage control", assigned: true }] });
+    expect(await screen.findByText("Stage control")).toBeInTheDocument();
+
+    boothDetail.resolve({ controls: [{ kind: "scene", scene: "Opening", label: "Booth control", assigned: true }] });
+    await waitFor(() => expect(svc().SurfaceService.ShowSurface).toHaveBeenCalledTimes(2));
+
+    expect(screen.getByText("Stage control")).toBeInTheDocument();
+    expect(screen.queryByText("Booth control")).not.toBeInTheDocument();
+  });
+
+  it("deselects a surface that disappears from the list (deleted elsewhere in the app)", async () => {
+    await selectSurface();
+    await screen.findByText("Opening scene");
+
+    // OperatorSurface.tsx deletes the surface and bumps the shared
+    // invalidation counter; the list re-fetches without it.
+    svc().SurfaceService.ListSurfaces.mockResolvedValue([]);
+    useGolcStore.getState().bumpSurfaceListVersion();
+
+    // The assigned-controls section collapses instead of sitting on a
+    // GOLC_OPERATORSURFACE_NOT_FOUND error banner for a dangling value.
+    await waitFor(() => expect(screen.queryByText("Opening scene")).not.toBeInTheDocument());
+  });
+
   it("shows the empty state for Desk mappings when none exist", async () => {
     render(<MidiPanel />);
     expect(await screen.findByText("No Desk mappings yet")).toBeInTheDocument();

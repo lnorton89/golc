@@ -34,6 +34,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { errorMessage, listLocalFixtures, listPatch, listProgramming, readSurfaceCount } from "../../../../lib/wailsBridge";
 import { ErrorState, LoadingState } from "../../../../design-system";
+import { useLatestRequest } from "../../../../hooks/useLatestRequest";
 import {
   aggregateReadiness,
   deriveAssignStatus,
@@ -60,7 +61,16 @@ export default function VerifyStage({ onStatusChange }: VerifyStageProps) {
   const [error, setError] = useState<string | null>(null);
   const [rollup, setRollup] = useState<ReadinessRollup | null>(null);
 
+  // Every stage reports upward through onStatusChange from an async read,
+  // and switching stages unmounts the previous one -- an in-flight read
+  // landing afterwards used to overwrite the *new* stage's status, so the
+  // footer's primary button showed the old stage's label and disabled
+  // state over the new stage's body. useLatestRequest answers both "did a
+  // newer read start" and "are we still mounted" with one predicate.
+  const beginLatest = useLatestRequest();
+
   const refresh = useCallback(async (): Promise<void> => {
+    const isCurrent = beginLatest();
     try {
       const [fixturesView, patchView, progView, surfaceCount] = await Promise.all([
         listLocalFixtures(),
@@ -68,6 +78,9 @@ export default function VerifyStage({ onStatusChange }: VerifyStageProps) {
         listProgramming(),
         readSurfaceCount(),
       ]);
+      if (!isCurrent()) {
+        return;
+      }
 
       const statuses: GuideStageStatus[] = [
         deriveFixturesStatus(fixturesView),
@@ -85,13 +98,18 @@ export default function VerifyStage({ onStatusChange }: VerifyStageProps) {
       });
       setError(null);
     } catch (err) {
+      if (!isCurrent()) {
+        return;
+      }
       setError(errorMessage(err));
       setRollup(null);
       onStatusChange({ items: [], primaryLabel: PRIMARY_LABEL, primaryDisabled: true });
     } finally {
-      setLoading(false);
+      if (isCurrent()) {
+        setLoading(false);
+      }
     }
-  }, [onStatusChange]);
+  }, [onStatusChange, beginLatest]);
 
   // Re-derives readiness from four live reads on every mount -- no result
   // cached across mounts (T-09-04-01), deliberately keyed on an empty

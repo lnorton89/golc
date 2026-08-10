@@ -48,6 +48,7 @@ import { Plus, Eye, X, Check, Zap, MoreVertical, Pencil, Trash2 } from "lucide-r
 import { AnimatePresence, motion } from "motion/react";
 
 import { motionTransition } from "../../design-system/motion";
+import { useLatestRequest } from "../../hooks/useLatestRequest";
 import {
   activateDeployment,
   addPoolMemberPreview,
@@ -191,6 +192,10 @@ export default function FixturePatch() {
   const [reassignAddress, setReassignAddress] = useState("");
   const [reassignLoading, setReassignLoading] = useState(false);
 
+  // Both impact-preview round trips are latest-wins (see useLatestRequest).
+  const beginLatestPreview = useLatestRequest();
+  const beginLatestRemovePreview = useLatestRequest();
+
   const refreshPatch = useCallback(async (): Promise<void> => {
     try {
       const view = await listPatch();
@@ -234,16 +239,29 @@ export default function FixturePatch() {
     setPendingPreview(null);
   };
 
+  // Changing either half of the proposed member invalidates any preview
+  // already on screen: the render gate below only checks the pool name, so
+  // a preview reviewed for a 4-channel fixture stayed visible after
+  // switching to a 32-channel one and Apply committed the FIRST fixture's
+  // plan_id at the first footprint. ProjectFixtures.tsx's own
+  // handleSelectFixture already did this; this one was the outlier.
   const handleSelectFixture = (stableKey: string) => {
     const row = libraryRows.find((candidate) => candidate.stableKey === stableKey) ?? null;
     setSelectedFixture(row);
     setAddMode(row?.modes[0] ?? "");
+    setPendingPreview(null);
+  };
+
+  const handleSelectAddMode = (mode: string) => {
+    setAddMode(mode);
+    setPendingPreview(null);
   };
 
   const handlePreviewAddMember = async () => {
     if (!addPoolTarget || !selectedFixture || !addMode) {
       return;
     }
+    const isCurrent = beginLatestPreview();
     setPreviewLoading(true);
     try {
       const result = await addPoolMemberPreview(
@@ -253,14 +271,22 @@ export default function FixturePatch() {
         addMode,
         selectedFixture.modeChannelCounts[addMode] ?? 0,
       );
+      if (!isCurrent()) {
+        return;
+      }
       assertOk(result, "AddPoolMemberPreview");
       const plan = JSON.parse(result.stdout) as ImpactPlan;
       setPendingPreview({ poolName: addPoolTarget, plan });
       setError(null);
     } catch (err) {
+      if (!isCurrent()) {
+        return;
+      }
       setError(errorMessage(err));
     } finally {
-      setPreviewLoading(false);
+      if (isCurrent()) {
+        setPreviewLoading(false);
+      }
     }
   };
 
@@ -385,21 +411,35 @@ export default function FixturePatch() {
     }
   };
 
+  // Generation-guarded: clicking Remove on member A and then on member B
+  // inside A's round trip used to render A's impact list under B's row and
+  // commit A's plan_id on Apply, deleting the wrong member. The render
+  // gate below now also compares pendingRemovePreview's own
+  // poolName/memberId (which it has always carried) against removeTarget.
   const handleStartRemoveMember = async (poolName: string, memberId: string) => {
+    const isCurrent = beginLatestRemovePreview();
     setRemoveTarget({ poolName, memberId });
     setPendingRemovePreview(null);
     setRemovePreviewLoading(true);
     try {
       const result = await removePoolMemberPreview(poolName, memberId);
+      if (!isCurrent()) {
+        return;
+      }
       assertOk(result, "RemovePoolMemberPreview");
       const plan = JSON.parse(result.stdout) as ImpactPlan;
       setPendingRemovePreview({ poolName, memberId, plan });
       setError(null);
     } catch (err) {
+      if (!isCurrent()) {
+        return;
+      }
       setError(errorMessage(err));
       setRemoveTarget(null);
     } finally {
-      setRemovePreviewLoading(false);
+      if (isCurrent()) {
+        setRemovePreviewLoading(false);
+      }
     }
   };
 
@@ -629,7 +669,9 @@ export default function FixturePatch() {
                                 removePreviewLoading ? (
                                   <LoadingState label="Reviewing removal impact" variant="inline" />
                                 ) : (
-                                  pendingRemovePreview && (
+                                  pendingRemovePreview &&
+                                  pendingRemovePreview.poolName === p.name &&
+                                  pendingRemovePreview.memberId === m.id && (
                                     <ImpactReview
                                       summary={`Impact Preview (plan ${pendingRemovePreview.plan.plan_id.slice(0, 12)})`}
                                       impacts={removeMemberImpacts(pendingRemovePreview.plan)}
@@ -669,7 +711,7 @@ export default function FixturePatch() {
                             label="Fixture mode"
                             options={(selectedFixture?.modes ?? []).map((mode) => ({ value: mode, label: mode }))}
                             value={addMode}
-                            onValueChange={setAddMode}
+                            onValueChange={handleSelectAddMode}
                             placeholder="Select a mode…"
                             disabled={!selectedFixture}
                           />

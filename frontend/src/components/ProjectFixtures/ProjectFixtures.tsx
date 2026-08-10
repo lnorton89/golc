@@ -45,6 +45,7 @@ import {
   type PatchPoolMemberView,
   type PatchView,
 } from "../../lib/wailsBridge";
+import { useLatestRequest } from "../../hooks/useLatestRequest";
 import {
   Button,
   Combobox,
@@ -242,6 +243,7 @@ export default function ProjectFixtures() {
   const [removePreviewLoading, setRemovePreviewLoading] = useState(false);
   const [pendingRemovePreview, setPendingRemovePreview] = useState<ImpactPlan | null>(null);
   const [removeApplyLoading, setRemoveApplyLoading] = useState(false);
+  const beginLatestRemovePreview = useLatestRequest();
 
   const [reassigningInstanceId, setReassigningInstanceId] = useState<string | null>(null);
   const [reassignName, setReassignName] = useState("");
@@ -378,21 +380,36 @@ export default function ProjectFixtures() {
     }
   };
 
+  // Generation-guarded (see useLatestRequest): clicking Remove on member A
+  // and then on member B inside A's round trip used to render A's impact
+  // list under B's row and commit A's plan_id on Apply. Unlike
+  // FixturePatch.tsx's own copy, pendingRemovePreview here is a bare
+  // ImpactPlan with no member identity on it, so tightening the render
+  // gate is not available -- discarding the stale response is the fix.
   const handleStartRemove = async (poolName: string, poolMemberId: string) => {
+    const isCurrent = beginLatestRemovePreview();
     setRemoveTarget({ poolName, poolMemberId });
     setPendingRemovePreview(null);
     setRemovePreviewLoading(true);
     try {
       const result = await removePoolMemberPreview(poolName, poolMemberId);
+      if (!isCurrent()) {
+        return;
+      }
       assertOk(result, "RemovePoolMemberPreview");
       const plan = JSON.parse(result.stdout) as ImpactPlan;
       setPendingRemovePreview(plan);
       setError(null);
     } catch (err) {
+      if (!isCurrent()) {
+        return;
+      }
       setError(errorMessage(err));
       setRemoveTarget(null);
     } finally {
-      setRemovePreviewLoading(false);
+      if (isCurrent()) {
+        setRemovePreviewLoading(false);
+      }
     }
   };
 
