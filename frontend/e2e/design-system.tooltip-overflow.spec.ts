@@ -27,18 +27,28 @@ test.describe("InfoTooltip viewport-edge flip", () => {
     await waitForFonts(page);
     await settle(page);
 
-    // WorkspaceFrame's own `action` slot sits at the workspace title row's
-    // far right edge by design -- the same slot every workspace's own
-    // "How <X> works" InfoTooltip renders into, and the one that actually
-    // shipped the collapsed-tooltip regression this test guards against.
-    const trigger = page.getByRole("button", { name: "How Overview works" });
+    // This used to hover Toolbar's own "How <X> works" tooltip, on the
+    // premise that it sat in WorkspaceFrame's right-aligned `action` slot.
+    // That stopped being true: Toolbar.tsx deliberately moved `info` into
+    // .titleGroup beside the heading ("pre-260806 behavior, restored" --
+    // an icon that explains a heading has to sit next to it), leaving
+    // `action` for real buttons. "How Overview works" now ends 613px clear
+    // of the right edge at this width, so the guard below correctly failed
+    // rather than letting the test silently stop exercising the flip path.
+    //
+    // A PanelHeader `info` trigger in Overview's right-hand column is the
+    // honest near-right-edge case now: Deployments' own tooltip ends ~49px
+    // from the viewport edge at 900px. Matched by prefix because the label
+    // carries a live count ("About Deployments (1)") that follows the
+    // mock's fixture data.
+    const trigger = page.getByRole("button", { name: /^About Deployments/ });
     await expect(trigger).toBeVisible();
     const triggerBox = await trigger.boundingBox();
     expect(triggerBox, "trigger must have a real bounding box").not.toBeNull();
     if (!triggerBox) return;
     // Confirms this test is actually exercising the near-edge case it
-    // claims to -- if WorkspaceFrame's layout ever moves this trigger away
-    // from the edge, this assertion (not a silent pass) is what catches it.
+    // claims to -- if this trigger ever moves away from the edge, this
+    // assertion (not a silent pass) is what catches it.
     expect(triggerBox.x + triggerBox.width, "trigger must sit near the viewport's right edge for this test to be meaningful").toBeGreaterThan(NARROW_WIDTH - 80);
 
     await trigger.hover();
