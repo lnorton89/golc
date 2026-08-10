@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 
 import { Dialog } from "../design-system";
+import { fuzzySearch } from "../lib/fuzzySearch";
 import { NAV_GROUPS, type DestinationId } from "./navigation";
 import { DESTINATION_ICONS } from "./destinationIcons";
 import styles from "./QuickSwitcher.module.css";
@@ -45,14 +46,28 @@ export default function QuickSwitcher({ open, onClose, onNavigate }: QuickSwitch
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Ranked rather than merely filtered (lib/fuzzySearch.ts): a command
+  // palette's first row is the one Enter activates, so ordering by match
+  // quality is the whole point -- the previous substring filter returned
+  // hits in NAV_GROUPS declaration order, which put the best match first
+  // only by luck.
+  //
+  // Destination labels and group labels are searched SEPARATELY, with
+  // label hits ranked ahead of group-only hits. Searching one joined
+  // "{label} {groupLabel}" haystack was tried first and was actively
+  // worse: every destination in the Show group then contains the
+  // standalone term "Show", and uFuzzy scores a whole-term match ("Notes
+  // Show") above a prefix match ("Shows Show"), so typing "show" ranked
+  // the destination actually named "Shows" dead LAST. Matching each field
+  // on its own keeps "type a group name to see its destinations" working
+  // without letting the group name outrank the thing the operator named.
   const results = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) {
-      return RESULTS;
-    }
-    return RESULTS.filter(
-      (result) => result.label.toLowerCase().includes(needle) || result.groupLabel.toLowerCase().includes(needle),
+    const byLabel = fuzzySearch(RESULTS, query, (result) => result.label);
+    const matchedIds = new Set(byLabel.map((result) => result.id));
+    const byGroup = fuzzySearch(RESULTS, query, (result) => result.groupLabel).filter(
+      (result) => !matchedIds.has(result.id),
     );
+    return [...byLabel, ...byGroup];
   }, [query]);
 
   useEffect(() => {

@@ -48,16 +48,39 @@ describe("QuickSwitcher", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  // "show" matches the destination literally named "Shows" by label, and
+  // every other Show-group destination by group label only. Results are
+  // ranked (lib/fuzzySearch.ts), so the label match is first and Enter
+  // alone activates it -- this used to depend on NAV_GROUPS declaration
+  // order putting Overview first, which was luck rather than intent.
+  it("ranks a destination-name match above a group-name-only match", () => {
+    const onNavigate = vi.fn();
+    render(<QuickSwitcher open onClose={vi.fn()} onNavigate={onNavigate} />);
+    const input = screen.getByLabelText("Jump to a workspace");
+
+    fireEvent.change(input, { target: { value: "show" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(onNavigate).toHaveBeenCalledWith("show-shows");
+  });
+
   it("moves the selection with ArrowDown/ArrowUp before committing on Enter", () => {
     const onNavigate = vi.fn();
     render(<QuickSwitcher open onClose={vi.fn()} onNavigate={onNavigate} />);
     const input = screen.getByLabelText("Jump to a workspace");
 
     fireEvent.change(input, { target: { value: "show" } });
+    // Down to the second result, then back up to the first, to prove both
+    // directions move the selection rather than only asserting one of them.
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "ArrowUp" });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onNavigate).toHaveBeenCalledWith("show-shows");
+
+    onNavigate.mockClear();
     fireEvent.keyDown(input, { key: "ArrowDown" });
     fireEvent.keyDown(input, { key: "Enter" });
-
-    expect(onNavigate).toHaveBeenCalledWith("show-shows");
+    expect(onNavigate).toHaveBeenCalledWith("show-overview");
   });
 
   it("closes on Escape without navigating", () => {

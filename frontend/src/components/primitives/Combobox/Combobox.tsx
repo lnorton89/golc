@@ -2,6 +2,7 @@ import { Combobox as BaseCombobox } from "@base-ui/react/combobox";
 import { useId } from "react";
 import { ChevronDown } from "lucide-react";
 
+import { fuzzyMatches } from "../../../lib/fuzzySearch";
 import styles from "./Combobox.module.css";
 
 export interface ComboboxOption {
@@ -62,11 +63,17 @@ export default function Combobox({
         items={options}
         itemToStringLabel={(option: ComboboxOption | null) => option?.label ?? ""}
         // Deliberately narrower than Base UI's default match (which
-        // stringifies the whole item): the contract asks for a
-        // case-insensitive substring match against `label` only, so a
+        // stringifies the whole item): matched against `label` only, so a
         // fixture's internal id/value never becomes an accidental filter
         // hit.
-        filter={(option: ComboboxOption, query: string) => option.label.toLowerCase().includes(query.toLowerCase())}
+        //
+        // fuzzyMatches rather than the former .includes(): a transposed
+        // character no longer empties the list. Ranking is NOT applied
+        // here and cannot be through this API -- Base UI's `filter` is a
+        // per-option yes/no predicate, so options keep their given order.
+        // A caller that needs best-match-first should rank its own
+        // `options` array with fuzzySearch before passing it in.
+        filter={(option: ComboboxOption, query: string) => fuzzyMatches(option.label, query)}
         onValueChange={(nextOption: ComboboxOption | null) => onValueChange?.(nextOption?.value ?? "")}
         {...controlledValueProps}
       >

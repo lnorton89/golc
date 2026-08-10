@@ -79,6 +79,7 @@ import {
 } from "../../lib/wailsBridge";
 import { useToast } from "../../components/primitives/Toast/Toast";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import { fuzzySearch } from "../../lib/fuzzySearch";
 import { queryKeys } from "../../lib/queryKeys";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
 import { Button, Chip, EmptyState, ErrorState, Field, ListRow, LoadingState, Panel, PanelHeader, ScrollRegion, Toolbar, ToggleGroup, type ToggleGroupOption } from "../../design-system";
@@ -89,14 +90,14 @@ import styles from "./FixtureLibraryWorkspace.module.css";
 // call, not one per keystroke.
 const oflSearchDebounceMs = 250;
 
-// matchesSearch performs D-03's basic client-side text search: a
-// case-insensitive substring test against manufacturer OR model, over the
-// already-fetched rows -- no backend round-trip, no faceted filter
-// controls.
-function matchesSearch(row: FixtureLibraryRowView, query: string): boolean {
-  if (query.trim() === "") return true;
-  const needle = query.trim().toLowerCase();
-  return row.manufacturer.toLowerCase().includes(needle) || row.model.toLowerCase().includes(needle);
+// rowHaystack is what a local-library row is searched by: manufacturer and
+// model together, so either (or a query spanning both, "chauvet slimpar")
+// hits. D-03's scope is unchanged -- still client-side over already-fetched
+// rows, still no backend round-trip and no faceted filter controls -- but
+// the match is now ranked and typo-tolerant (lib/fuzzySearch.ts) rather
+// than a plain substring test that returned nothing for one wrong letter.
+function rowHaystack(row: FixtureLibraryRowView): string {
+  return `${row.manufacturer} ${row.model}`;
 }
 
 // humanizeFixtureKey renders an OFL fixture key ("colorband-pix") as a
@@ -302,7 +303,22 @@ export default function FixtureLibraryWorkspace() {
   });
   const committing = commitMutation.isPending;
 
-  const filteredRows = useMemo(() => rows.filter((row) => matchesSearch(row, search)), [rows, search]);
+  const filteredRows = useMemo(() => fuzzySearch(rows, search, rowHaystack), [rows, search]);
+
+  // The catalog side is matched Go-side (internal/fixture/ofl's
+  // FilterFixtureIndex/FilterManufacturers, both strings.Contains) and
+  // returns UNCAPPED results -- a query like "par" pulls hundreds of
+  // entries out of a ~4000-fixture index, in index order. Ranking them
+  // here does not change which entries Go decided match; it only puts the
+  // closest ones first, where an operator will actually see them.
+  const rankedCatalogFixtures = useMemo(
+    () => fuzzySearch(catalogView?.fixtures ?? [], debouncedSearch, (fixture) => `${fixture.manufacturerName} ${fixture.fixtureKey}`),
+    [catalogView, debouncedSearch],
+  );
+  const rankedCatalogManufacturers = useMemo(
+    () => fuzzySearch(catalogView?.manufacturers ?? [], debouncedSearch, (manufacturer) => `${manufacturer.name} ${manufacturer.key}`),
+    [catalogView, debouncedSearch],
+  );
 
   const countLabel = `${rows.length} fixture${rows.length === 1 ? "" : "s"}`;
   const trimmedQuery = search.trim();
@@ -602,9 +618,9 @@ export default function FixtureLibraryWorkspace() {
                       </EmptyState>
                     ) : catalogView ? (
                       <>
-                        {catalogView.fixtures.length > 0 ? (
+                        {rankedCatalogFixtures.length > 0 ? (
                           <ul className={styles.list} aria-label="Open Fixture Library fixtures">
-                            {catalogView.fixtures.map((fixture) => (
+                            {rankedCatalogFixtures.map((fixture) => (
                               <li key={`${fixture.manufacturerKey}/${fixture.fixtureKey}`}>
                                 <ListRow
                                   label={humanizeFixtureKey(fixture.fixtureKey)}
@@ -619,9 +635,9 @@ export default function FixtureLibraryWorkspace() {
                             ))}
                           </ul>
                         ) : null}
-                        {catalogView.manufacturers.length > 0 ? (
+                        {rankedCatalogManufacturers.length > 0 ? (
                           <ul className={styles.list} aria-label="Open Fixture Library manufacturers">
-                            {catalogView.manufacturers.map((manufacturer) => (
+                            {rankedCatalogManufacturers.map((manufacturer) => (
                               <li key={manufacturer.key}>
                                 <ListRow
                                   label={manufacturer.name}
