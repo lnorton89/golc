@@ -178,7 +178,6 @@ describe("SceneList", () => {
   it("deletes a scene via the row actions menu after confirming", async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     render(
       <SceneList
         scenes={scenes}
@@ -194,14 +193,16 @@ describe("SceneList", () => {
     await user.click(screen.getByRole("button", { name: "Alpha actions" }));
     await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
 
+    // The confirmation is the design system's ConfirmDialog now, not the
+    // native window.confirm the app used to block the JS thread on.
+    await user.click(await screen.findByRole("button", { name: "Delete Scene" }));
+
     expect(onDelete).toHaveBeenCalledWith("Alpha");
-    vi.restoreAllMocks();
   });
 
   it("does not delete a scene when the confirmation is dismissed", async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
-    vi.spyOn(window, "confirm").mockReturnValue(false);
     render(
       <SceneList
         scenes={scenes}

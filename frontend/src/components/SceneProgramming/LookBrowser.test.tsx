@@ -132,15 +132,25 @@ describe("LookBrowser", () => {
     expect(onRenameTheme).toHaveBeenCalledWith("Sunset", "Sunset Renamed");
   });
 
-  it("deletes a blend preset via the delete control after confirming", () => {
+  it("deletes a blend preset via the delete control after confirming", async () => {
     const onDeleteBlend = vi.fn();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<LookBrowser view={filledView} {...baseHandlers} onDeleteBlend={onDeleteBlend} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Delete Cross Fade" }));
+    // ConfirmDialog, not the native window.confirm.
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
 
     expect(onDeleteBlend).toHaveBeenCalledWith("Cross Fade");
-    vi.restoreAllMocks();
+  });
+
+  it("does not delete a blend preset when the confirmation is cancelled", async () => {
+    const onDeleteBlend = vi.fn();
+    render(<LookBrowser view={filledView} {...baseHandlers} onDeleteBlend={onDeleteBlend} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete Cross Fade" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+
+    expect(onDeleteBlend).not.toHaveBeenCalled();
   });
 
   it("updates a chase's name/unit/step-duration via the inline edit form", async () => {

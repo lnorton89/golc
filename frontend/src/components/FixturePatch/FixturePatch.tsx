@@ -69,7 +69,7 @@ import {
   type FixtureLibraryRowView,
   type PatchView,
 } from "../../lib/wailsBridge";
-import { Button, Chip, Combobox, EmptyState, ErrorState, Field, FormActions, IconButton, ImpactReview, InfoTooltip, LoadingState, Menu, Panel, Select } from "../../design-system";
+import { Button, Chip, Combobox, ConfirmDialog, EmptyState, ErrorState, Field, FormActions, IconButton, ImpactReview, InfoTooltip, LoadingState, Menu, Panel, Select } from "../../design-system";
 import styles from "./FixturePatch.module.css";
 
 // ---------------------------------------------------------------------------
@@ -358,13 +358,16 @@ export default function FixturePatch() {
     }
   };
 
-  const handleDeletePool = async (name: string, memberCount: number, instanceCount: number) => {
-    const confirmed = window.confirm(
-      `Delete pool "${name}"? This removes ${memberCount} member${memberCount === 1 ? "" : "s"} and unpatches ${instanceCount} instance${instanceCount === 1 ? "" : "s"}.`,
-    );
-    if (!confirmed) {
-      return;
-    }
+  // Destructive confirmations go through ConfirmDialog (the design
+  // system's public confirmation contract), not window.confirm: in a
+  // Wails webview the native dialog blocks the JS thread and renders
+  // unstyled chrome outside the app's own focus/return-focus contract.
+  const [pendingDelete, setPendingDelete] = useState<
+    { kind: "pool"; name: string; message: string } | { kind: "deployment"; name: string; message: string } | null
+  >(null);
+
+  const handleDeletePool = async (name: string) => {
+    setPendingDelete(null);
     try {
       const result = await deletePool(name);
       assertOk(result, "DeletePool");
@@ -395,13 +398,8 @@ export default function FixturePatch() {
     }
   };
 
-  const handleDeleteDeployment = async (name: string, instanceCount: number) => {
-    const confirmed = window.confirm(
-      `Delete deployment "${name}"? This removes ${instanceCount} instance${instanceCount === 1 ? "" : "s"}.`,
-    );
-    if (!confirmed) {
-      return;
-    }
+  const handleDeleteDeployment = async (name: string) => {
+    setPendingDelete(null);
     try {
       const result = await deleteDeployment(name);
       assertOk(result, "DeleteDeployment");
@@ -629,7 +627,16 @@ export default function FixturePatch() {
                                   label: "Delete",
                                   icon: Trash2,
                                   destructive: true,
-                                  onSelect: () => void handleDeletePool(p.name, p.members.length, instanceCountForPool(p.id)),
+                                  onSelect: () =>
+                                    setPendingDelete({
+                                      kind: "pool",
+                                      name: p.name,
+                                      message: `This removes ${p.members.length} member${
+                                        p.members.length === 1 ? "" : "s"
+                                      } and unpatches ${instanceCountForPool(p.id)} instance${
+                                        instanceCountForPool(p.id) === 1 ? "" : "s"
+                                      }.`,
+                                    }),
                                 },
                               ]}
                             />
@@ -879,7 +886,14 @@ export default function FixturePatch() {
                                   label: "Delete",
                                   icon: Trash2,
                                   destructive: true,
-                                  onSelect: () => void handleDeleteDeployment(d.name, d.instances.length),
+                                  onSelect: () =>
+                                    setPendingDelete({
+                                      kind: "deployment",
+                                      name: d.name,
+                                      message: `This removes ${d.instances.length} instance${
+                                        d.instances.length === 1 ? "" : "s"
+                                      }.`,
+                                    }),
                                 },
                               ]}
                             />
@@ -959,6 +973,23 @@ export default function FixturePatch() {
         </>
       )}
     </div>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={pendingDelete?.kind === "deployment" ? "Delete deployment?" : "Delete pool?"}
+        message={pendingDelete ? `Delete "${pendingDelete.name}". ${pendingDelete.message}` : ""}
+        confirmLabel="Delete"
+        destructive
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          if (pendingDelete.kind === "pool") {
+            void handleDeletePool(pendingDelete.name);
+          } else {
+            void handleDeleteDeployment(pendingDelete.name);
+          }
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </Panel>
   );
 }

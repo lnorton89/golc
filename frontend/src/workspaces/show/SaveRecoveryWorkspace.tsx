@@ -32,7 +32,7 @@ import {
   type RecoveryPointView,
 } from "../../lib/wailsBridge";
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
-import { Button, EmptyState, ErrorState, Field, FormActions, LoadingState, Panel, PanelHeader, ScrollRegion, WorkspaceFrame } from "../../design-system";
+import { Button, ConfirmDialog, EmptyState, ErrorState, Field, FormActions, LoadingState, Panel, PanelHeader, ScrollRegion, WorkspaceFrame } from "../../design-system";
 import styles from "./SaveRecoveryWorkspace.module.css";
 
 export default function SaveRecoveryWorkspace() {
@@ -46,6 +46,13 @@ export default function SaveRecoveryWorkspace() {
   const [savingAs, setSavingAs] = useState(false);
   const [acceptingId, setAcceptingId] = useState<number | null>(null);
   const [discarding, setDiscarding] = useState(false);
+  // Discard All permanently deletes every crash-recovery snapshot for the
+  // open show, and it sits directly beside the per-row "Accept" button on
+  // a list the operator is scanning -- a misclick destroyed the only copy
+  // of unsaved work with no confirmation of any kind. ConfirmDialog is the
+  // design system's public confirmation contract (AppShell.tsx uses it for
+  // the leave-the-guide prompt).
+  const [confirmingDiscardAll, setConfirmingDiscardAll] = useState(false);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -109,6 +116,7 @@ export default function SaveRecoveryWorkspace() {
   };
 
   const handleDiscardAll = async () => {
+    setConfirmingDiscardAll(false);
     setDiscarding(true);
     try {
       const result = await discardRecoveryPoints();
@@ -182,7 +190,7 @@ export default function SaveRecoveryWorkspace() {
                         variant="destructive"
                         icon={Trash2}
                         disabled={discarding}
-                        onClick={() => void handleDiscardAll()}
+                        onClick={() => setConfirmingDiscardAll(true)}
                       >
                         {discarding ? "Discarding…" : "Discard All"}
                       </Button>
@@ -220,6 +228,19 @@ export default function SaveRecoveryWorkspace() {
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmingDiscardAll}
+        title="Discard all recovery points?"
+        message={`This permanently deletes ${points.length} crash-recovery snapshot${
+          points.length === 1 ? "" : "s"
+        } for this show. Anything not already saved into the show file is lost, and this can't be undone.`}
+        confirmLabel="Discard All"
+        cancelLabel="Keep Them"
+        destructive
+        onConfirm={() => void handleDiscardAll()}
+        onCancel={() => setConfirmingDiscardAll(false)}
+      />
     </WorkspaceFrame>
   );
 }

@@ -50,7 +50,7 @@ import {
   type SurfaceSummary,
 } from "../../lib/wailsBridge";
 import { motionTransition } from "../../design-system/motion";
-import { Chip, EmptyState, ErrorState, IconButton, ListRow, LoadingState, Panel, PanelHeader, Select } from "../../design-system";
+import { Chip, ConfirmDialog, EmptyState, ErrorState, IconButton, ListRow, LoadingState, Panel, PanelHeader, Select } from "../../design-system";
 import MidiLearn from "./MidiLearn";
 import SoftTakeoverSlider from "./SoftTakeoverSlider";
 import DeskMappingsSection from "./DeskMappingsSection";
@@ -234,16 +234,16 @@ export default function MidiPanel() {
     }
   };
 
+  // Destructive confirmations go through ConfirmDialog (the design
+  // system's public confirmation contract), not window.confirm: in a
+  // Wails webview the native dialog blocks the JS thread and renders
+  // unstyled chrome outside the app's own focus/return-focus contract.
+  const [pendingRemoval, setPendingRemoval] = useState<MidiMappingView | null>(null);
+
   const handleRemove = async (mapping: MidiMappingView) => {
+    setPendingRemoval(null);
     const svc = midiService();
     if (!svc || !selectedSurface) {
-      return;
-    }
-    // 06-UI-SPEC.md Destructive confirmation -- Remove MIDI Mapping.
-    const confirmed = window.confirm(
-      `Remove Mapping: This unassigns ${mappingTechnical(mapping)} from ${mapping.label} on ${selectedSurface}.`,
-    );
-    if (!confirmed) {
       return;
     }
     try {
@@ -357,7 +357,7 @@ export default function MidiPanel() {
                                     label={`Remove mapping from ${mapping.label}`}
                                     variant="destructive"
                                     size="compact"
-                                    onClick={() => handleRemove(mapping)}
+                                    onClick={() => setPendingRemoval(mapping)}
                                   />
                                 </>
                               }
@@ -373,6 +373,20 @@ export default function MidiPanel() {
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={pendingRemoval !== null}
+        title="Remove MIDI mapping?"
+        message={
+          pendingRemoval
+            ? `This unassigns ${mappingTechnical(pendingRemoval)} from ${pendingRemoval.label} on ${selectedSurface}.`
+            : ""
+        }
+        confirmLabel="Remove Mapping"
+        destructive
+        onConfirm={() => void handleRemove(pendingRemoval!)}
+        onCancel={() => setPendingRemoval(null)}
+      />
     </Panel>
   );
 }

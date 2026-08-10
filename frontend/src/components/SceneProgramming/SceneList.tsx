@@ -61,7 +61,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 import type { ProgSceneView } from "../../lib/wailsBridge";
 import { motionTransition } from "../../design-system/motion";
-import { Button, EmptyState, Field, FormActions, IconButton, ListRow, Menu, ScrollRegion } from "../../design-system";
+import { Button, ConfirmDialog, EmptyState, Field, FormActions, IconButton, ListRow, Menu, ScrollRegion } from "../../design-system";
 import styles from "./SceneList.module.css";
 
 const rowExitTransition = motionTransition("settle");
@@ -290,10 +290,14 @@ export default function SceneList({
     setRenamingName(null);
   };
 
+  // Destructive confirmations go through ConfirmDialog (the design
+  // system's public confirmation contract), not window.confirm: in a
+  // Wails webview the native dialog blocks the JS thread and renders
+  // unstyled chrome outside the app's own focus/return-focus contract.
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+
   const handleDelete = (sceneName: string) => {
-    if (window.confirm(`Delete scene "${sceneName}"?`)) {
-      onDelete(sceneName);
-    }
+    setPendingDelete(sceneName);
   };
 
   return (
@@ -346,6 +350,19 @@ export default function SceneList({
           </DndContext>
         )}
       </ScrollRegion>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete scene?"
+        message={`This permanently deletes the scene "${pendingDelete ?? ""}" and its layer assignments.`}
+        confirmLabel="Delete Scene"
+        destructive
+        onConfirm={() => {
+          if (pendingDelete) onDelete(pendingDelete);
+          setPendingDelete(null);
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

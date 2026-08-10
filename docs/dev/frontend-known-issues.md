@@ -216,7 +216,8 @@ Neither `onKeyDown` handler checks `event.repeat`. Repro A: hold Space — OS ke
 
 The handler sends `!layerEnabled[layerKind]`, where `layerEnabled` comes from `usePlaybackStateSnapshot`'s 1s poll (`usePlaybackStateSnapshot.ts:19`) and there is no optimistic local update. Repro: press `Q` twice inside one poll interval — both keypresses read the same cached `enabled: true` and both dispatch `SetLayerEnabled(scene, base_look, false)`, so the layer ends up off when the operator expects it back on. The same applies to `Launcher.tsx:109`'s on-screen layer buttons, which do refresh after each call but still race a rapid second click.
 
-### Discarding all recovery points is irreversible with no confirmation step
+### ~~Discarding all recovery points is irreversible with no confirmation step~~
+**Fixed:** Gated behind `ConfirmDialog` (destructive, naming the snapshot count). The Go route's own guard was not checked either way — an unconfirmed irreversible delete next to a per-row Accept button is a UI problem regardless of what the backend does.
 **Severity:** edge-case
 **File:** `frontend/src/workspaces/show/SaveRecoveryWorkspace.tsx:111`
 **Confidence:** medium
@@ -318,7 +319,8 @@ The file's header comment scopes the `outputState === "blackout"` ambiguity to t
 
 `seedAppLog` merges the `RecentAppLogs` backlog and re-sorts by `seq`, but a live-synthesized "gap" entry carries `seq: 0` (unset — the code at `:119` says so explicitly), so it sorts ahead of every real line. Repro requires an overflow gap to arrive in the narrow window between `onAppLog` subscribing and `fetchRecentAppLogs` resolving (`AppLogStream.tsx:40`), after which the Diagnostics log shows "entries dropped" as its first row rather than at the point in the stream where the drop happened. Narrow, cosmetic, and I did not reproduce it.
 
-### `window.confirm` is used for six destructive actions with no exceptions.json record
+### ~~`window.confirm` is used for six destructive actions with no exceptions.json record~~
+**Fixed:** Confirmed as drift, not a reviewed decision: all 65 records in `exceptions.json` are DS001/003/005/006/010 findings about raw elements and hardcoded CSS values, and none names any of these files — `window.confirm` isn't visible to the static checker at all, so it could never have been recorded as an exception. All eight sites (`SurfaceList`, `SceneList`, `LookBrowser` ×2, `MidiPanel`, `DeskMappingsSection`, `FixturePatch` ×2) now use `ConfirmDialog`. Their tests dropped their `window.confirm` spies and drive the real dialog instead; two gained a cancel-path case they didn't have.
 **Severity:** smell
 **File:** `frontend/src/components/OperatorSurface/SurfaceList.tsx:56`
 **Confidence:** medium

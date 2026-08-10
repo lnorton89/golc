@@ -26,7 +26,7 @@ import {
 } from "../../lib/wailsBridge";
 import { resolveDeskChannelLabel } from "../Desk/deskLabels";
 import { motionTransition } from "../../design-system/motion";
-import { EmptyState, ErrorState, IconButton, ListRow, LoadingState, PanelHeader } from "../../design-system";
+import { ConfirmDialog, EmptyState, ErrorState, IconButton, ListRow, LoadingState, PanelHeader } from "../../design-system";
 import styles from "./MidiPanel.module.css";
 
 const rowExitTransition = motionTransition("settle");
@@ -77,14 +77,16 @@ export default function DeskMappingsSection() {
     void refresh();
   }, [refresh]);
 
+  // Destructive confirmations go through ConfirmDialog (the design
+  // system's public confirmation contract), not window.confirm: in a
+  // Wails webview the native dialog blocks the JS thread and renders
+  // unstyled chrome outside the app's own focus/return-focus contract.
+  const [pendingRemoval, setPendingRemoval] = useState<DeskMidiMappingView | null>(null);
+
   const handleRemove = async (mapping: DeskMidiMappingView) => {
+    setPendingRemoval(null);
     const svc = deskMidiService();
     if (!svc) return;
-    const label = resolveDeskChannelLabel(patch, library, mapping.instanceId, mapping.capability);
-    // Mirrors MidiPanel.tsx's own 06-UI-SPEC.md destructive-confirmation
-    // convention for Remove Mapping.
-    const confirmed = window.confirm(`Remove Mapping: This unassigns ${mappingTechnical(mapping)} from ${label}.`);
-    if (!confirmed) return;
     try {
       const result = await svc.RemoveDeskMapping(mapping.id);
       if (result.exitCode !== 0) {
@@ -133,7 +135,7 @@ export default function DeskMappingsSection() {
                         label={`Remove mapping from ${label}`}
                         variant="destructive"
                         size="compact"
-                        onClick={() => handleRemove(mapping)}
+                        onClick={() => setPendingRemoval(mapping)}
                       />
                     }
                   />
@@ -143,6 +145,25 @@ export default function DeskMappingsSection() {
           </AnimatePresence>
         </ul>
       )}
+
+      <ConfirmDialog
+        open={pendingRemoval !== null}
+        title="Remove Desk MIDI mapping?"
+        message={
+          pendingRemoval
+            ? `This unassigns ${mappingTechnical(pendingRemoval)} from ${resolveDeskChannelLabel(
+                patch,
+                library,
+                pendingRemoval.instanceId,
+                pendingRemoval.capability,
+              )}.`
+            : ""
+        }
+        confirmLabel="Remove Mapping"
+        destructive
+        onConfirm={() => void handleRemove(pendingRemoval!)}
+        onCancel={() => setPendingRemoval(null)}
+      />
     </div>
   );
 }

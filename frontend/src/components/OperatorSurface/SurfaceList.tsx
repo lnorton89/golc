@@ -14,13 +14,18 @@
 // (selected/meta/actions), and the empty state onto EmptyState -- following
 // the exact template SceneList.tsx (frontend/src/components/SceneProgramming)
 // already established for this same "create form + removable row list"
-// shape, including its window.confirm-before-destructive-remove pattern.
+// shape, including its confirm-before-destructive-remove pattern.
+//
+// Destructive confirmations go through ConfirmDialog (the design
+// system's public confirmation contract), not window.confirm: in a
+// Wails webview the native dialog blocks the JS thread and renders
+// unstyled chrome outside the app's own focus/return-focus contract.
 import { useState } from "react";
 import { Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
 import { motionTransition } from "../../design-system/motion";
-import { Button, EmptyState, Field, FormActions, IconButton, ListRow, ScrollRegion } from "../../design-system";
+import { Button, ConfirmDialog, EmptyState, Field, FormActions, IconButton, ListRow, ScrollRegion } from "../../design-system";
 import styles from "./OperatorSurface.module.css";
 import type { SurfaceSummary } from "./OperatorSurface";
 
@@ -52,13 +57,13 @@ export default function SurfaceList({
     setDraftName("");
   };
 
-  const handleRemove = (surface: SurfaceSummary) => {
-    const confirmed = window.confirm(
-      `Remove Operator Surface: This deletes ${surface.name} and all its scene/layer/master assignments and MIDI mappings. This can't be undone.`,
-    );
-    if (confirmed) {
-      onRemove(surface.name);
+  const [pendingRemoval, setPendingRemoval] = useState<SurfaceSummary | null>(null);
+
+  const handleConfirmRemove = () => {
+    if (pendingRemoval) {
+      onRemove(pendingRemoval.name);
     }
+    setPendingRemoval(null);
   };
 
   const assignedLabel = (surface: SurfaceSummary) =>
@@ -125,7 +130,7 @@ export default function SurfaceList({
                             icon={Trash2}
                             variant="destructive"
                             label={`Remove ${surface.name}`}
-                            onClick={() => handleRemove(surface)}
+                            onClick={() => setPendingRemoval(surface)}
                           />
                         }
                       />
@@ -137,6 +142,20 @@ export default function SurfaceList({
           </ScrollRegion>
         </>
       )}
+
+      <ConfirmDialog
+        open={pendingRemoval !== null}
+        title="Remove operator surface?"
+        message={
+          pendingRemoval
+            ? `This deletes ${pendingRemoval.name} and all its scene/layer/master assignments and MIDI mappings. This can't be undone.`
+            : ""
+        }
+        confirmLabel="Remove Surface"
+        destructive
+        onConfirm={handleConfirmRemove}
+        onCancel={() => setPendingRemoval(null)}
+      />
     </div>
   );
 }

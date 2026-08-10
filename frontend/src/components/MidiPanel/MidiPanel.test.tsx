@@ -51,7 +51,7 @@ describe("MidiPanel", () => {
         },
       },
     });
-    vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
+    // No window.confirm stub: destructive actions go through ConfirmDialog.
   });
 
   afterEach(() => {
@@ -247,6 +247,7 @@ describe("MidiPanel", () => {
     await screen.findByText("Blackout");
 
     fireEvent.click(screen.getByLabelText("Remove mapping from Blackout"));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove Mapping" }));
 
     await waitFor(() => expect(svc().MidiService.RemoveMapping).toHaveBeenCalledWith("Booth", "map-1"));
   });
@@ -259,6 +260,7 @@ describe("MidiPanel", () => {
 
     const removeButton = await screen.findByLabelText(/^Remove mapping from /);
     fireEvent.click(removeButton);
+    fireEvent.click(await screen.findByRole("button", { name: "Remove Mapping" }));
 
     await waitFor(() => expect(svc().MidiService.RemoveDeskMapping).toHaveBeenCalledWith("desk-map-1"));
   });

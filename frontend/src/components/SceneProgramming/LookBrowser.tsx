@@ -10,7 +10,7 @@ import { AnimatePresence, motion } from "motion/react";
 
 import type { ProgChaseView, ProgLookView, ProgPresetView, ProgrammingView } from "../../lib/wailsBridge";
 import { motionTransition } from "../../design-system/motion";
-import { Button, EmptyState, Field, PanelHeader, ScrollRegion, Select } from "../../design-system";
+import { Button, ConfirmDialog, EmptyState, Field, PanelHeader, ScrollRegion, Select } from "../../design-system";
 import styles from "./LookBrowser.module.css";
 
 const rowExitTransition = motionTransition("settle");
@@ -155,10 +155,16 @@ export default function LookBrowser({
     setRenamingKey(null);
   };
 
+// Destructive confirmations go through ConfirmDialog (the design
+// system's public confirmation contract), not window.confirm: in a
+// Wails webview the native dialog blocks the JS thread and renders
+// unstyled chrome outside the app's own focus/return-focus contract.
+  const [pendingDelete, setPendingDelete] = useState<
+    { kind: "look"; lookKind: RenameKind; name: string; label: string } | { kind: "chase"; name: string } | null
+  >(null);
+
   const handleDelete = (kind: RenameKind, name: string, label: string) => {
-    if (window.confirm(`Delete ${label} "${name}"?`)) {
-      deleteHandlers[kind](name);
-    }
+    setPendingDelete({ kind: "look", lookKind: kind, name, label });
   };
 
   const handleStartEditChase = (chase: ProgChaseView) => {
@@ -179,9 +185,17 @@ export default function LookBrowser({
   };
 
   const handleDeleteChase = (name: string) => {
-    if (window.confirm(`Delete chase "${name}"?`)) {
-      onDeleteChase(name);
+    setPendingDelete({ kind: "chase", name });
+  };
+
+  const handleConfirmDelete = () => {
+    if (!pendingDelete) return;
+    if (pendingDelete.kind === "chase") {
+      onDeleteChase(pendingDelete.name);
+    } else {
+      deleteHandlers[pendingDelete.lookKind](pendingDelete.name);
     }
+    setPendingDelete(null);
   };
 
   const looksTotal = view.themes.length + view.chases.length + view.motions.length + view.presets.length;
@@ -655,6 +669,22 @@ export default function LookBrowser({
           </AnimatePresence>
         </ul>
       )}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={pendingDelete?.kind === "chase" ? "Delete chase?" : "Delete look?"}
+        message={
+          pendingDelete === null
+            ? ""
+            : pendingDelete.kind === "chase"
+              ? `This permanently deletes the chase "${pendingDelete.name}".`
+              : `This permanently deletes the ${pendingDelete.label} "${pendingDelete.name}".`
+        }
+        confirmLabel="Delete"
+        destructive
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

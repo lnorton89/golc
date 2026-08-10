@@ -4,7 +4,7 @@
 // wailsBridge.ts's own doc comment; mirrors ScenesLooksWorkspace.test.tsx's
 // identical shape).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import SaveRecoveryWorkspace from "./SaveRecoveryWorkspace";
 
@@ -103,7 +103,26 @@ describe("SaveRecoveryWorkspace", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Discard All" })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "Discard All" }));
+    // Discard All permanently deletes every recovery point and sits right
+    // beside the per-row Accept button, so it is gated by a confirmation.
+    const dialog = await screen.findByRole("alertdialog", { name: /discard all recovery points\?/i });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Discard All" }));
+
     await waitFor(() => expect(svc.DiscardRecoveryPoints).toHaveBeenCalled());
+  });
+
+  it("does not discard recovery points when the confirmation is cancelled", async () => {
+    const svc = (window as unknown as { go: { wails: { ShowService: Record<string, ReturnType<typeof vi.fn>> } } })
+      .go.wails.ShowService;
+    svc.DetectRecoveryPoints.mockResolvedValue([{ id: 1, createdAt: "2026-07-25T00:00:01Z", revision: 5 }]);
+
+    render(<SaveRecoveryWorkspace />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Discard All" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard All" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Keep Them" }));
+
+    expect(svc.DiscardRecoveryPoints).not.toHaveBeenCalled();
   });
 
   it("shows a migration-required note pointing at the CLI confirm flag", async () => {
