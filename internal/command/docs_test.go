@@ -37,7 +37,7 @@ func TestDocsRouteRegeneratesIntoDisposableRoot(t *testing.T) {
 	if err := os.MkdirAll(catalogDir, 0o755); err != nil {
 		require.NoError(t, err)
 	}
-	catalog := `{"schemaVersion":1,"groups":[{"label":"Show","views":[{"id":"show-overview","slug":"show-overview","navLabel":"Overview","title":"Show overview","purpose":"Review the current show.","actions":["Inspect"],"screenshot":"/desktop-views/show-overview.png"}]}]}`
+	catalog := `{"schemaVersion":1,"groups":[{"label":"Show","description":"Everything about the open show.","views":[{"id":"show-overview","slug":"show-overview","navLabel":"Overview","title":"Show overview","purpose":"Review the current show.","howItWorks":"Reads the currently open show's state directly from the application.","actions":["Inspect"],"screenshot":"/desktop-views/show-overview.png"}]}]}`
 	if err := os.WriteFile(filepath.Join(catalogDir, "desktopViews.json"), []byte(catalog), 0o644); err != nil {
 		require.NoError(t, err)
 	}

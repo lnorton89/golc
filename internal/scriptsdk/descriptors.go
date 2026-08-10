@@ -177,6 +177,15 @@ type SceneLayerSetParams struct {
 	Show        string   `json:"show"`
 }
 
+// SceneReorderParams: "scene reorder --order <i,j,k,...> --show <path>".
+// Unlike ChaseReorderParams, there is no target Name -- --order permutes
+// the show's whole Scenes slice directly (scene.go's runSceneReorder doc
+// comment).
+type SceneReorderParams struct {
+	Order []int  `json:"order"`
+	Show  string `json:"show"`
+}
+
 // BlendCreateParams: "blend create <name> --duration-bars <value> [--curve
 // linear|ease_in|ease_out] --show <path>".
 type BlendCreateParams struct {
@@ -469,6 +478,7 @@ var sdkMethodTable = []sdkEntry{
 	{"scene create", "scene.create", "Create a named bar-loop scene.", show.APIKeyScopeAuthoring, SceneCreateParams{}, AckResult{}},
 	{"scene activate", "scene.activate", "Mark exactly one scene active, deactivating every other scene.", show.APIKeyScopeAuthoring, NameShowParams{}, AckResult{}},
 	{"scene layer set", "scene.layer.set", "Enable/point one of a scene's four fixed layers.", show.APIKeyScopeAuthoring, SceneLayerSetParams{}, AckResult{}},
+	{"scene reorder", "scene.reorder", "Permute a show's whole scene list deterministically.", show.APIKeyScopeAuthoring, SceneReorderParams{}, AckResult{}},
 	{"scene rename", "scene.rename", "Rename a scene, preserving its identity.", show.APIKeyScopeAuthoring, RenameParams{}, AckResult{}},
 	{"scene duplicate", "scene.duplicate", "Duplicate a scene under a fresh, inactive identity.", show.APIKeyScopeAuthoring, RenameParams{}, AckResult{}},
 	// Method is "remove", not "delete": "delete" is a reserved TypeScript

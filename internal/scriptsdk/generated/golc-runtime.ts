@@ -185,7 +185,8 @@ function __golcCall(method: string, params: unknown): Promise<any> {
       set: (params: any): Promise<any> => __golcCall("scene layer set", params)
     },
     remove: (params: any): Promise<any> => __golcCall("scene delete", params),
-    rename: (params: any): Promise<any> => __golcCall("scene rename", params)
+    rename: (params: any): Promise<any> => __golcCall("scene rename", params),
+    reorder: (params: any): Promise<any> => __golcCall("scene reorder", params)
   },
   show: {
     diagnose: (params: any): Promise<any> => __golcCall("show diagnose", params),

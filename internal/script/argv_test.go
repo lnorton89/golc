@@ -344,6 +344,16 @@ func TestBuildChaseReorderArgs(t *testing.T) {
 	require.Equal(t, []string{"sweep", "--order", "2,0,1", "--show", showPath}, got)
 }
 
+// --- scene reorder: []int -> comma-joined string, no leading name ---------
+
+func TestBuildSceneReorderArgs(t *testing.T) {
+	const showPath = "/shows/current.golc"
+
+	got, err := buildSceneReorderArgs(showPath, json.RawMessage(`{"order":[2,0,1]}`))
+	require.NoError(t, err)
+	require.Equal(t, []string{"--order", "2,0,1", "--show", showPath}, got)
+}
+
 // --- operatorsurface assign: fixed-precedence selector switch -------------
 
 // TestBuildOperatorSurfaceAssignArgs_SelectorPrecedence proves the

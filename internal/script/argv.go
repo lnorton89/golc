@@ -119,6 +119,7 @@ var routeArgvBuilders = map[string]func(showPath string, raw json.RawMessage) ([
 
 	"scene create":    buildSceneCreateArgs,
 	"scene layer set": buildSceneLayerSetArgs,
+	"scene reorder":   buildSceneReorderArgs,
 	"blend create":    buildBlendCreateArgs,
 	"preset record":   buildPresetRecordArgs,
 	"chase create":    buildChaseCreateArgs,
@@ -317,6 +318,22 @@ func buildSceneLayerSetArgs(showPath string, raw json.RawMessage) ([]string, err
 		args = append(args, "--disable")
 	}
 	return append(args, "--show", showPath), nil
+}
+
+// buildSceneReorderArgs: "scene reorder --order <i,j,k,...> --show <path>".
+// Unlike buildChaseReorderArgs, there is no leading target name -- --order
+// permutes the show's whole scene list directly (mirrors
+// scriptsdk.SceneReorderParams' own doc comment).
+func buildSceneReorderArgs(showPath string, raw json.RawMessage) ([]string, error) {
+	p, err := decodeParams[scriptsdk.SceneReorderParams](raw)
+	if err != nil {
+		return nil, err
+	}
+	order := make([]string, len(p.Order))
+	for i, v := range p.Order {
+		order[i] = strconv.Itoa(v)
+	}
+	return []string{"--order", strings.Join(order, ","), "--show", showPath}, nil
 }
 
 // buildBlendCreateArgs: "blend create <name> --duration-bars <value>

@@ -257,6 +257,11 @@ interface SceneLayerSetParams {
   show: string;
 }
 
+interface SceneReorderParams {
+  order: Array<number>;
+  show: string;
+}
+
 interface ShowOnlyParams {
   show: string;
 }
@@ -448,6 +453,8 @@ declare namespace golc {
     function remove(params: NameShowParams): Promise<AckResult>;
     // Rename a scene, preserving its identity. (scope: authoring)
     function rename(params: RenameParams): Promise<AckResult>;
+    // Permute a show's whole scene list deterministically. (scope: authoring)
+    function reorder(params: SceneReorderParams): Promise<AckResult>;
     namespace layer {
       // Enable/point one of a scene's four fixed layers. (scope: authoring)
       function set(params: SceneLayerSetParams): Promise<AckResult>;
