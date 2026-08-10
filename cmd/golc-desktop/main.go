@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -26,13 +25,6 @@ import (
 
 //go:embed all:frontend/dist
 var assets embed.FS
-
-// repoRootEnvName mirrors cmd/golc-project/main.go's own GOLC_PROJECT_ROOT
-// convention -- the desktop entrypoint resolves the same project root a
-// CLI invocation would, so a supervised "golc-project.exe artnet serve"
-// spawn (internal/wails/app.go's ensureDaemon) resolves the identical
-// show/config paths a matching CLI invocation would.
-const repoRootEnvName = "GOLC_PROJECT_ROOT"
 
 // showPathEnvName/interfaceIndexEnvName/interfaceNameEnvName/
 // fixturesDirEnvName configure the supervised daemon spawn's "artnet
@@ -65,7 +57,7 @@ const (
 )
 
 func main() {
-	projectRoot := resolveProjectRoot()
+	projectRoot := golcwails.ResolveProjectRoot()
 	showPath := os.Getenv(showPathEnvName)
 	if showPath == "" {
 		showPath = filepath.Join(projectRoot, defaultShowFileName)
@@ -73,7 +65,7 @@ func main() {
 	cfg := golcwails.Config{
 		PipeName:       ipc.PipeName,
 		ShowPath:       showPath,
-		InterfaceIndex: envInt(interfaceIndexEnvName, 0),
+		InterfaceIndex: golcwails.EnvInt(interfaceIndexEnvName, 0),
 		InterfaceName:  os.Getenv(interfaceNameEnvName),
 		FixturesDir:    os.Getenv(fixturesDirEnvName),
 		ProjectRoot:    projectRoot,
@@ -182,36 +174,4 @@ func main() {
 		fmt.Fprintln(os.Stderr, "GOLC_WAILS_RUN_FAILED:", err)
 		os.Exit(1)
 	}
-}
-
-// resolveProjectRoot prefers GOLC_PROJECT_ROOT (mirroring
-// cmd/golc-project/main.go's resolveProjectRoot) and falls back to the
-// current working directory.
-func resolveProjectRoot() string {
-	root := os.Getenv(repoRootEnvName)
-	if root == "" {
-		workingDirectory, err := os.Getwd()
-		if err != nil {
-			return ""
-		}
-		root = workingDirectory
-	}
-	absolute, err := filepath.Abs(root)
-	if err != nil {
-		return root
-	}
-	return absolute
-}
-
-// envInt parses name as an int, returning fallback when unset or invalid.
-func envInt(name string, fallback int) int {
-	raw := os.Getenv(name)
-	if raw == "" {
-		return fallback
-	}
-	parsed, err := strconv.Atoi(raw)
-	if err != nil {
-		return fallback
-	}
-	return parsed
 }
