@@ -265,10 +265,18 @@ export default function MidiPanel() {
         <LoadingState label="Loading MIDI mappings" variant="panel" />
       ) : (
         <>
+          {/* value is "" (not undefined) when nothing is selected: Base UI
+              treats an undefined value as UNCONTROLLED, so this Select
+              flipped uncontrolled -> controlled on the first pick and
+              logged a React controlled-component error -- and the
+              deselect-on-disappear effect above would now flip it back the
+              other way too. Empty string is the controlled-empty form every
+              other Select/Combobox here already uses, and the placeholder
+              still renders for it. */}
           <Select
             label="Operator surface"
             options={surfaces.map((surface) => ({ value: surface.name, label: surface.name }))}
-            value={selectedSurface ?? undefined}
+            value={selectedSurface ?? ""}
             placeholder="Select a surface…"
             onValueChange={(next) => setSelectedSurface(next || null)}
           />

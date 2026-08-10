@@ -329,6 +329,16 @@ The file's header comment scopes the `outputState === "blackout"` ambiguity to t
 `window.confirm` is the destructive-action gate in `SurfaceList.tsx:56`, `SceneList.tsx:276`, `LookBrowser.tsx:159`/`:182`, `MidiPanel.tsx:209`, `DeskMappingsSection.tsx:86`, and `FixturePatch.tsx:336`/`:373`, while `ConfirmDialog` is the design system's stated confirmation contract and is used by `AppShell.tsx:97`. I grepped all 65 records in `frontend/design-system/exceptions.json` and none mention `confirm` or any of these files, so this looks like drift rather than a reviewed decision. It is also a real behavior difference in a Wails webview: `window.confirm` blocks the JS thread and renders unstyled native chrome that the app's own focus/return-focus contract doesn't cover.
 
 ### Loading/fetching patterns are split three ways across the app
+**Status (2026-08-10 fix pass):** deliberately left open as a note — it is an
+architectural observation, not a site to patch, and migrating unrelated
+workspaces onto Query was explicitly out of scope for a bug-fix pass. Its
+stated *practical* cost is closed, though: every "slow response overwrites
+newer state" finding it points at (`OperatorSurface.tsx:140`,
+`MidiPanel.tsx:149`, `FixturePatch.tsx:388`, plus `ProjectFixtures`,
+`BarTimelinePanel` and all five guide stages) now holds a generation guard
+from the new `hooks/useLatestRequest.ts`, which is the small shared thing
+Query's `queryKey` would have provided for free. The three patterns still
+coexist; what no longer differs between them is guard coverage.
 **Severity:** smell
 **File:** `frontend/src/workspaces/show/SaveRecoveryWorkspace.tsx:50`
 **Confidence:** high
