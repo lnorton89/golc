@@ -56,8 +56,9 @@
 // error presentation, no in-app YAML editor. A staged custom-fixture
 // preview is discarded when the path is edited, the affordance is
 // dismissed, or the operator switches to the catalog side.
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Lightbulb, Repeat, Plus, X, FolderOpen, ShieldCheck, Eye } from "lucide-react";
 
 import {
@@ -130,6 +131,104 @@ function summarizeDiagnostics(messages: string[]): { text: string; count: number
   return Array.from(counts.entries()).map(([text, count]) => ({ text, count }));
 }
 
+// VIRTUALIZE_ABOVE_ROWS mirrors AppLogPanel's identical threshold and
+// exists for the same reason: windowing costs absolute positioning, a
+// per-row measurement pass, and a resize observer, which is not worth
+// paying until there are more rows than any viewport could show.
+const VIRTUALIZE_ABOVE_ROWS = 60;
+
+/** CatalogFixtureList renders the OFL fixture-key results.
+ *
+ * Its own component purely so the virtualizer hook has an unconditional
+ * top level to live at -- the list itself renders inside a chain of
+ * ternaries that React's rules of hooks forbid calling a hook from.
+ *
+ * This is the list that most needs windowing anywhere in the app.
+ * internal/fixture/ofl's FilterFixtureIndex returns UNCAPPED matches from
+ * a ~4000-fixture index, so an ordinary query like "par" mounts hundreds
+ * of ListRows at once, each with its own label and meta line. */
+function CatalogFixtureList({
+  fixtures,
+  scrollElement,
+  isSelected,
+  onSelect,
+}: {
+  fixtures: OflFixtureView[];
+  scrollElement: HTMLDivElement | null;
+  isSelected: (fixture: OflFixtureView) => boolean;
+  onSelect: (fixture: OflFixtureView) => void;
+}) {
+  const listRef = useRef<HTMLUListElement>(null);
+  const virtualized = fixtures.length > VIRTUALIZE_ABOVE_ROWS;
+
+  const virtualizer = useVirtualizer({
+    count: virtualized ? fixtures.length : 0,
+    // The scroll element arrives as a VALUE rather than a ref on purpose.
+    // It belongs to an ancestor (the shared ScrollRegion), and a
+    // virtualizer only reads getScrollElement during render/layout: if it
+    // ever saw null there and nothing subsequently re-rendered, it would
+    // stay detached from the scroll container -- still drawing a
+    // plausible window at the top and reporting a full total size, so it
+    // would LOOK correct while scrolling never moved the window.
+    //
+    // Passing a ref happens to work today, because this component only
+    // mounts once search results exist, long after the ScrollRegion's ref
+    // has attached. That is a property of the current render order, not a
+    // guarantee. Threading the element through state makes its arrival a
+    // re-render and removes the dependency on that ordering entirely.
+    getScrollElement: () => scrollElement,
+    estimateSize: () => 44,
+    overscan: 10,
+    // The scroll container is shared with the manufacturers list below, so
+    // this list does not start at scrollTop 0 once the viewport has any
+    // padding. scrollMargin tells the virtualizer where the list actually
+    // begins; without it every row sits that many pixels too high.
+    scrollMargin: listRef.current?.offsetTop ?? 0,
+  });
+
+  const renderRow = (fixture: OflFixtureView) => (
+    <ListRow
+      label={humanizeFixtureKey(fixture.fixtureKey)}
+      meta={`${fixture.manufacturerName} · ${fixture.fixtureKey}`}
+      selected={isSelected(fixture)}
+      onSelect={() => onSelect(fixture)}
+    />
+  );
+
+  return (
+    <ul
+      ref={listRef}
+      className={styles.list}
+      aria-label="Open Fixture Library fixtures"
+      style={virtualized ? { position: "relative", height: `${virtualizer.getTotalSize()}px` } : undefined}
+    >
+      {virtualized
+        ? virtualizer.getVirtualItems().map((virtualRow) => {
+            const fixture = fixtures[virtualRow.index];
+            return (
+              <li
+                key={`${fixture.manufacturerKey}/${fixture.fixtureKey}`}
+                ref={virtualizer.measureElement}
+                data-index={virtualRow.index}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
+                }}
+              >
+                {renderRow(fixture)}
+              </li>
+            );
+          })
+        : fixtures.map((fixture) => (
+            <li key={`${fixture.manufacturerKey}/${fixture.fixtureKey}`}>{renderRow(fixture)}</li>
+          ))}
+    </ul>
+  );
+}
+
 type LibrarySource = "local" | "catalog";
 
 // PreviewRequest is the discriminated input to the one preview mutation --
@@ -152,6 +251,10 @@ const SOURCE_OPTIONS: ReadonlyArray<ToggleGroupOption> = [
 export default function FixtureLibraryWorkspace() {
   const queryClient = useQueryClient();
   const toast = useToast();
+  // State rather than a ref: CatalogFixtureList's virtualizer needs this
+  // element, and its arrival has to trigger a render for the virtualizer
+  // to see it (see that component's own comment).
+  const [catalogScrollElement, setCatalogScrollElement] = useState<HTMLDivElement | null>(null);
 
   const [search, setSearch] = useState("");
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
@@ -600,7 +703,7 @@ export default function FixtureLibraryWorkspace() {
                     icon={Lightbulb}
                     info="Searches the community Open Fixture Library catalog by manufacturer or fixture name so you can import a definition into your own library."
                   />
-                  <ScrollRegion className={styles.libraryScroll}>
+                  <ScrollRegion ref={setCatalogScrollElement} className={styles.libraryScroll}>
                     {trimmedQuery === "" ? (
                       <EmptyState icon={Lightbulb}>
                         Search the Open Fixture Library by fixture or manufacturer name.
@@ -619,21 +722,15 @@ export default function FixtureLibraryWorkspace() {
                     ) : catalogView ? (
                       <>
                         {rankedCatalogFixtures.length > 0 ? (
-                          <ul className={styles.list} aria-label="Open Fixture Library fixtures">
-                            {rankedCatalogFixtures.map((fixture) => (
-                              <li key={`${fixture.manufacturerKey}/${fixture.fixtureKey}`}>
-                                <ListRow
-                                  label={humanizeFixtureKey(fixture.fixtureKey)}
-                                  meta={`${fixture.manufacturerName} · ${fixture.fixtureKey}`}
-                                  selected={
-                                    selectedManufacturer?.key === fixture.manufacturerKey &&
-                                    candidateFixtureKey === fixture.fixtureKey
-                                  }
-                                  onSelect={() => handleSelectFixture(fixture)}
-                                />
-                              </li>
-                            ))}
-                          </ul>
+                          <CatalogFixtureList
+                            fixtures={rankedCatalogFixtures}
+                            scrollElement={catalogScrollElement}
+                            isSelected={(fixture) =>
+                              selectedManufacturer?.key === fixture.manufacturerKey &&
+                              candidateFixtureKey === fixture.fixtureKey
+                            }
+                            onSelect={handleSelectFixture}
+                          />
                         ) : null}
                         {rankedCatalogManufacturers.length > 0 ? (
                           <ul className={styles.list} aria-label="Open Fixture Library manufacturers">

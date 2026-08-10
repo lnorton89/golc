@@ -18,7 +18,8 @@
 // background tint for warn/error so the eye can scan a mixed stream at a
 // glance, and every source gets its own recognizable icon rather than a
 // bare text tag.
-import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useMemo, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   CircleAlert,
   CircleX,
@@ -48,6 +49,14 @@ interface AppLogPanelProps {
 
 type Level = "info" | "warn" | "error";
 type Tone = Level | "neutral";
+
+// VIRTUALIZE_ABOVE_ROWS is the row count past which the stream switches to
+// a windowed render. Chosen to sit comfortably above any plausible
+// viewport's worth of rows (a full-height panel shows roughly 25-30 at the
+// ~22px single-line height), so the plain path always covers "everything
+// on screen anyway" and the windowed path only engages for streams no
+// viewport could show at once.
+const VIRTUALIZE_ABOVE_ROWS = 60;
 
 const LEVEL_META: { key: Level; label: string; icon: LucideIcon }[] = [
   { key: "info", label: "Info", icon: Info },
@@ -131,10 +140,26 @@ function LevelRowClass(level: Level): string {
   return styles.levelInfo;
 }
 
-function LogRow({ event }: { event: AppLogView }) {
+/** virtualRef/index/offset position one row within the virtualized list,
+ * and are all absent on the plain (below-threshold) path. `data-index` is
+ * not decorative: react-virtual's measureElement reads it to know which
+ * row it just measured. */
+interface LogRowProps {
+  event: AppLogView;
+  virtualRef?: (node: Element | null) => void;
+  index?: number;
+  offset?: number;
+}
+
+function virtualRowStyle(offset: number | undefined): CSSProperties | undefined {
+  if (offset === undefined) return undefined;
+  return { position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${offset}px)` };
+}
+
+function LogRow({ event, virtualRef, index, offset }: LogRowProps) {
   if (event.level === "gap") {
     return (
-      <li className={styles.resyncRow}>
+      <li ref={virtualRef} data-index={index} style={virtualRowStyle(offset)} className={styles.resyncRow}>
         <RefreshCw size={12} className={styles.resyncIcon} aria-hidden="true" />
         {`Resyncing — some log lines may have been missed${event.gapCount ? ` (${event.gapCount} dropped)` : ""}.`}
       </li>
@@ -146,7 +171,12 @@ function LogRow({ event }: { event: AppLogView }) {
   const SourceIcon = event.source ? sourceIcon(event.source) : null;
 
   return (
-    <li className={`${styles.logRow} ${LevelRowClass(level)}`}>
+    <li
+      ref={virtualRef}
+      data-index={index}
+      style={virtualRowStyle(offset)}
+      className={`${styles.logRow} ${LevelRowClass(level)}`}
+    >
       <LevelIcon size={13} className={styles.levelIcon} aria-hidden="true" />
       <span className={styles.timestamp}>{formatTimestamp(event.at)}</span>
       {event.source ? (
@@ -193,11 +223,38 @@ export default function AppLogPanel({ events, onClear }: AppLogPanelProps) {
     });
   };
 
+  // State rather than a ref, matching CatalogFixtureList in
+  // FixtureLibraryWorkspace.tsx: a virtualizer only reads
+  // getScrollElement during render, so making the element's arrival a
+  // re-render removes any dependence on ref-attachment ordering.
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
+
   const visibleRows = events.filter((event) => {
     if (event.level === "gap") return true;
     if (hiddenLevels.has(event.level)) return false;
     if (event.source && hiddenSources.has(event.source)) return false;
     return true;
+  });
+
+  // Virtualization is worth real overhead (absolute positioning, a
+  // measurement pass per row, a resize observer) only once there are
+  // enough rows to pay for it. Below the threshold the list renders
+  // plainly, which is both faster and simpler; above it -- the case this
+  // exists for, an app:log burst during App.OnStartup filling the store's
+  // 500-line buffer -- only the visible window mounts instead of ~2500
+  // DOM nodes being reconciled on every new line.
+  const virtualized = visibleRows.length > VIRTUALIZE_ABOVE_ROWS;
+
+  // estimateSize is the single-line row height; measureElement corrects it
+  // per row once mounted, so this only has to be close enough to size the
+  // scrollbar plausibly before anything has been measured. overscan keeps a
+  // few rows rendered beyond the viewport so a fast scroll does not reveal
+  // blank space while the next rows measure.
+  const rowVirtualizer = useVirtualizer({
+    count: virtualized ? visibleRows.length : 0,
+    getScrollElement: () => scrollElement,
+    estimateSize: () => 22,
+    overscan: 12,
   });
 
   return (
@@ -259,11 +316,40 @@ export default function AppLogPanel({ events, onClear }: AppLogPanelProps) {
       ) : visibleRows.length === 0 ? (
         <EmptyState icon={ScrollText}>Every line is hidden by the current filters.</EmptyState>
       ) : (
-        <ScrollRegion className={styles.stream}>
-          <ul className={styles.streamList} aria-label="Application log">
-            {visibleRows.map((event, index) => (
-              <LogRow key={`${event.seq}-${index}`} event={event} />
-            ))}
+        <ScrollRegion ref={setScrollElement} className={styles.stream}>
+          {/* Virtualized: the store holds up to maxAppLogEntries (500)
+              lines, and every one of them used to mount as its own <li>
+              with four child spans. That is ~2500 nodes, all of which
+              React reconciled again on each new line -- and app:log
+              arrives in bursts during App.OnStartup, so the burst was
+              exactly when the cost landed.
+
+              The <ul> keeps its accessible name and stays the list; only
+              which <li>s exist at a time changes. Its height is the
+              virtualizer's total so the scrollbar reflects the whole
+              stream rather than the rendered window, and each row is
+              absolutely positioned at its measured offset.
+
+              measureElement (not a fixed estimate) because a log line
+              wraps to as many lines as its message needs -- a fixed row
+              height would misplace every row after the first wrapped
+              one. */}
+          <ul
+            className={styles.streamList}
+            aria-label="Application log"
+            style={virtualized ? { position: "relative", height: `${rowVirtualizer.getTotalSize()}px` } : undefined}
+          >
+            {virtualized
+              ? rowVirtualizer.getVirtualItems().map((virtualRow) => (
+                  <LogRow
+                    key={virtualRow.key}
+                    event={visibleRows[virtualRow.index]}
+                    virtualRef={rowVirtualizer.measureElement}
+                    index={virtualRow.index}
+                    offset={virtualRow.start}
+                  />
+                ))
+              : visibleRows.map((event, index) => <LogRow key={`${event.seq}-${index}`} event={event} />)}
           </ul>
         </ScrollRegion>
       )}

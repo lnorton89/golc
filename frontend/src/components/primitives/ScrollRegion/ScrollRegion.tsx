@@ -30,8 +30,16 @@
 // (which always wins over an external class) -- Viewport still renders
 // the real padding, so the visual inset is unchanged, just no longer
 // doubled.
+// The forwarded ref lands on the VIEWPORT, not the Root. Root is the flex
+// item the surrounding layout sizes; Viewport is the element that actually
+// scrolls, and it is the one a caller needs a handle on -- @tanstack/
+// react-virtual's getScrollElement() has to be given the box whose
+// scrollTop changes, and pointing it at Root yields a virtualizer that
+// never scrolls. This mirrors how className is already applied: the
+// component knows which of Base UI's two nodes each concern belongs to,
+// and callers should not have to.
 import { ScrollArea } from "@base-ui/react/scroll-area";
-import type { HTMLAttributes, ReactNode } from "react";
+import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
 
 import styles from "./ScrollRegion.module.css";
 
@@ -42,7 +50,7 @@ interface ScrollRegionProps extends Omit<HTMLAttributes<HTMLDivElement>, "role">
   direction?: ScrollDirection;
 }
 
-export default function ScrollRegion({ children, className, direction = "vertical", "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy, tabIndex, ...rest }: ScrollRegionProps) {
+const ScrollRegion = forwardRef<HTMLDivElement, ScrollRegionProps>(function ScrollRegion({ children, className, direction = "vertical", "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy, tabIndex, ...rest }, ref) {
   const rootClassName = [styles.root, className].filter(Boolean).join(" ");
   const viewportClassName = [styles.viewport, className].filter(Boolean).join(" ");
   const isNamed = Boolean(ariaLabel || ariaLabelledBy);
@@ -62,6 +70,7 @@ export default function ScrollRegion({ children, className, direction = "vertica
     <ScrollArea.Root className={rootClassName} style={{ padding: 0 }}>
       <ScrollArea.Viewport
         {...rest}
+        ref={ref}
         aria-label={ariaLabel}
         aria-labelledby={ariaLabelledBy}
         className={viewportClassName}
@@ -85,4 +94,6 @@ export default function ScrollRegion({ children, className, direction = "vertica
       {direction === "both" && <ScrollArea.Corner className={styles.corner} />}
     </ScrollArea.Root>
   );
-}
+});
+
+export default ScrollRegion;
