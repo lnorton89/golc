@@ -257,6 +257,56 @@ const FRONTEND_CREDITS: Credit[] = [
     url: "https://www.npmjs.com/package/monaco-editor",
   },
   {
+    name: "Base UI",
+    version: "1.7.0",
+    license: "MIT",
+    description: "Headless React component primitives",
+    longDescription:
+      "A library of headless (\"unstyled\") React components and low-level hooks, built by the Radix and Floating UI teams, giving complete control over an app's own CSS and accessibility features.",
+    usage: "Unstyled behavior underneath every design-system primitive (Dialog, Select, Menu, Slider, etc.)",
+    url: "https://www.npmjs.com/package/@base-ui/react",
+  },
+  {
+    name: "dnd kit",
+    version: "6.3.1, 10.0.0",
+    license: "MIT",
+    description: "Drag-and-drop toolkit",
+    longDescription:
+      "A lightweight, modular, performant, accessible, and extensible React library for building drag-and-drop interfaces, with a sortable preset built on top of its core sensors and collision detection.",
+    usage: "Drag-to-reorder for the Scene Stack's scene list",
+    url: "https://www.npmjs.com/package/@dnd-kit/core",
+  },
+  {
+    name: "Tiptap",
+    version: "3.29.2",
+    license: "MIT",
+    description: "Headless rich-text editor framework",
+    longDescription:
+      "A headless, framework-agnostic rich-text editor built on ProseMirror, providing a starter kit of common extensions (bold, lists, etc.) plus additional task-list/task-item extensions for structured checklists.",
+    usage: "Powers the Notes workspace's rich-text editor",
+    url: "https://www.npmjs.com/package/@tiptap/core",
+  },
+  {
+    name: "Motion",
+    version: "13.0.0",
+    license: "MIT",
+    description: "Animation library",
+    longDescription:
+      "An animation library for JavaScript and React (the successor to Framer Motion), combining a hardware-accelerated engine with a small bundle size for spring physics, gestures, and layout animations.",
+    usage: "Shared motion tokens and transitions across the shell and workspaces",
+    url: "https://www.npmjs.com/package/motion",
+  },
+  {
+    name: "react-colorful",
+    version: "5.8.0",
+    license: "MIT",
+    description: "Color picker component",
+    longDescription:
+      "A tiny, dependency-free color picker component for React and Preact apps -- fast, well-tested, and mobile-friendly, supporting RGB(A), HSL(A), HSV(A), and HEX(A) formats.",
+    usage: "The color-swatch field's RGB picker",
+    url: "https://www.npmjs.com/package/react-colorful",
+  },
+  {
     name: "Lucide",
     version: "1.27.0",
     license: "ISC",
