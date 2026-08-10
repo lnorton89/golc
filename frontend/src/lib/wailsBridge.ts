@@ -71,8 +71,12 @@ interface PlaybackServiceBinding {
   SetActiveSurface(surfaceName: string): Promise<WailsResult>;
 }
 
-interface SurfaceControlRefInput {
-  kind: "scene" | "layer" | "master" | "safety";
+/** SurfaceControlKind is the closed set of control kinds an Operator
+ * Surface can carry (internal/wails/svc_surface.go). */
+export type SurfaceControlKind = "scene" | "layer" | "master" | "safety";
+
+export interface SurfaceControlRefInput {
+  kind: SurfaceControlKind;
   scene?: string;
   layerKind?: string;
   masterKind?: "grand" | "group";
@@ -80,12 +84,45 @@ interface SurfaceControlRefInput {
   safety?: string;
 }
 
+/** SurfaceControlRefView is a SurfaceControlRefInput as the Go host
+ * returns it -- the same selector fields plus the host-rendered label and
+ * the assigned flag. */
+export interface SurfaceControlRefView extends SurfaceControlRefInput {
+  label: string;
+  assigned: boolean;
+}
+
+/** SurfaceSummary/SurfaceDetail mirror internal/wails/svc_surface.go's
+ * ListSurfaces/ShowSurface JSON shapes field-for-field. They live here
+ * rather than in a component because they describe the Go host's wire
+ * shape, which is this module's whole subject -- a consumer that needs
+ * only a subset (MidiPanel.tsx reads id/name and controls) is satisfied
+ * structurally, without a second narrower declaration drifting from the
+ * Go source. */
+export interface SurfaceSummary {
+  id: string;
+  name: string;
+  sceneCount: number;
+  layerCount: number;
+  masterCount: number;
+  safetyCount: number;
+  assignedCount: number;
+  midiMappingCount: number;
+}
+
+export interface SurfaceDetail {
+  id: string;
+  name: string;
+  controls: SurfaceControlRefView[];
+  midiMappingCount: number;
+}
+
 interface SurfaceServiceBinding {
   CreateSurface(name: string): Promise<WailsResult>;
-  ListSurfaces(): Promise<unknown[]>;
+  ListSurfaces(): Promise<SurfaceSummary[]>;
   AssignItem(surfaceName: string, controlRef: SurfaceControlRefInput): Promise<WailsResult>;
   UnassignItem(surfaceName: string, controlRef: SurfaceControlRefInput): Promise<WailsResult>;
-  ShowSurface(surfaceName: string): Promise<unknown>;
+  ShowSurface(surfaceName: string): Promise<SurfaceDetail>;
   RemoveSurface(surfaceName: string): Promise<WailsResult>;
   AuthorizeControl(surfaceName: string, controlRef: SurfaceControlRefInput): Promise<WailsResult>;
 }
@@ -112,12 +149,51 @@ export interface MidiFeedback {
   physical: number;
 }
 
+/** MidiMessageKind is the closed set of MIDI message kinds GOLC maps
+ * (internal/deskmidi, internal/midi). */
+export type MidiMessageKind = "note" | "control_change";
+
+/** MidiMappingView mirrors internal/wails/svc_midi.go's surface-scoped
+ * ListMappings JSON shape: one learned Note/CC mapping bound to an
+ * Operator Surface control. */
+export interface MidiMappingView {
+  id: string;
+  channel: number;
+  kind: MidiMessageKind;
+  number: number;
+  target: SurfaceControlRefInput;
+  label: string;
+}
+
+/** DeskMidiMappingView mirrors internal/wails.DeskMidiMappingView's JSON
+ * shape: a direct fader<->MIDI mapping, independent of Operator Surfaces
+ * entirely (internal/deskmidi's own doc comment), keyed on the fixture
+ * instance and capability rather than a surface control ref. */
+export interface DeskMidiMappingView {
+  id: string;
+  channel: number;
+  kind: MidiMessageKind;
+  number: number;
+  instanceId: string;
+  capability: string;
+}
+
+/** MidiServiceBinding is the whole bound surface of
+ * internal/wails.MidiService -- both the Operator-Surface mapping methods
+ * (StartLearn/RemoveMapping/ListMappings, consumed by MidiPanel.tsx) and
+ * the independent desk-fader ones (StartDeskLearn/RemoveDeskMapping/
+ * ListDeskMappings, consumed by Desk.tsx and DeskMappingsSection.tsx).
+ * One Go service, one declaration: consumers narrow by using only the
+ * methods they need, never by re-declaring a second partial shape. */
 interface MidiServiceBinding {
   StartLearn(surfaceName: string, controlRef: SurfaceControlRefInput): Promise<WailsResult>;
   CancelLearn(): Promise<WailsResult>;
   RemoveMapping(surfaceName: string, mappingId: string): Promise<WailsResult>;
-  ListMappings(surfaceName: string): Promise<unknown[]>;
+  ListMappings(surfaceName: string): Promise<MidiMappingView[]>;
   SetActiveSurface(surfaceName: string): Promise<WailsResult>;
+  StartDeskLearn(instanceId: string, capability: string): Promise<WailsResult>;
+  RemoveDeskMapping(mappingId: string): Promise<WailsResult>;
+  ListDeskMappings(): Promise<DeskMidiMappingView[]>;
 }
 
 /** PatchPoolMemberView mirrors internal/wails.PatchPoolMemberView's JSON
@@ -965,6 +1041,100 @@ function safetyService(): SafetyServiceBinding | undefined {
 
 function playbackServiceBridge(): PlaybackServiceBinding | undefined {
   return window.go?.wails?.PlaybackService;
+}
+
+// ---------------------------------------------------------------------------
+// Exported service accessors
+//
+// These exist so no file outside this module ever reads `window.go` or
+// `window.runtime` itself. Before them, nine components and one lib module
+// each re-declared a narrow local copy of a service's binding interface and
+// cast through `window.go?.wails?.<Service> as unknown as <local shape>` --
+// which meant a Go service's wire shape had up to three competing partial
+// declarations that could silently drift from each other and from the Go
+// source, and it meant the Wails coupling this file's header claims to
+// centralize was in fact spread across eleven files.
+//
+// The accessors below return the canonical binding declared above, so a
+// consumer imports a typed handle and narrows by simply not calling the
+// methods it does not need. Each returns `undefined` rather than throwing
+// when the bridge is absent (jsdom, a plain browser preview, `npm run
+// build`'s tsc pass), preserving this module's "every export degrades
+// gracefully" contract; requireSurfaceService is the single deliberate
+// exception, for the one caller that has always treated a missing binding
+// as a programming error.
+//
+// This is also what keeps a future Wails v3 migration to one file: v3
+// removes the window.go/window.runtime globals in favour of
+// `@wailsio/runtime` imports and generated per-service modules, and every
+// such read now lives here (.planning/research/WAILS-V3-DECISION.md).
+// ---------------------------------------------------------------------------
+
+/** getSurfaceService returns the bound SurfaceService, or undefined when
+ * the Wails bridge is absent. */
+export function getSurfaceService(): SurfaceServiceBinding | undefined {
+  return window.go?.wails?.SurfaceService;
+}
+
+/** requireSurfaceService returns the bound SurfaceService or throws.
+ * OperatorSurface.tsx is the one caller that treats an absent binding as
+ * a programming error (it cannot render anything meaningful without the
+ * service) rather than a degraded state; every other consumer should use
+ * getSurfaceService and handle undefined. */
+export function requireSurfaceService(): SurfaceServiceBinding {
+  const service = getSurfaceService();
+  if (!service) {
+    throw new Error(
+      "GOLC_WAILS_BINDING_UNAVAILABLE: SurfaceService is not available on the Wails bridge -- this component must run inside the golc-desktop Wails webview.",
+    );
+  }
+  return service;
+}
+
+/** getMidiService returns the bound MidiService, or undefined when the
+ * Wails bridge is absent. Serves both the Operator-Surface mapping
+ * callers and the independent desk-fader ones. */
+export function getMidiService(): MidiServiceBinding | undefined {
+  return window.go?.wails?.MidiService;
+}
+
+/** getPlaybackService returns the bound PlaybackService, or undefined
+ * when the Wails bridge is absent. The `typeof window` guard keeps this
+ * safe to call from a module evaluated outside a DOM (SSR-shaped tooling,
+ * a bare node test runner) -- playbackDispatch.ts's original accessor
+ * carried that guard and it is preserved here. */
+export function getPlaybackService(): PlaybackServiceBinding | undefined {
+  return typeof window !== "undefined" ? window.go?.wails?.PlaybackService : undefined;
+}
+
+/** isScriptServiceAvailable reports whether the ScriptService binding is
+ * present. ScriptsWorkspace.tsx uses it to distinguish "the script host is
+ * unreachable" from "there are simply no scripts" -- listScripts() itself
+ * never throws, so the empty result alone cannot tell those apart. */
+export function isScriptServiceAvailable(): boolean {
+  return typeof window !== "undefined" && Boolean(window.go?.wails?.ScriptService);
+}
+
+/** isNotesServiceAvailable reports whether the NotesService binding is
+ * present, for the same reason isScriptServiceAvailable exists. */
+export function isNotesServiceAvailable(): boolean {
+  return typeof window !== "undefined" && Boolean(window.go?.wails?.NotesService);
+}
+
+/** readSurfaceCount returns how many Operator Surfaces exist, falling back
+ * to 0 when the bridge is missing or the call rejects -- so an unreachable
+ * bridge can only ever make readiness look less ready, never more
+ * (T-09-04-03). Guided First Show's AssignStage and VerifyStage both need
+ * exactly this and previously carried identical private copies of it. */
+export async function readSurfaceCount(): Promise<number> {
+  const svc = getSurfaceService();
+  if (!svc) return 0;
+  try {
+    const surfaces = await svc.ListSurfaces();
+    return surfaces?.length ?? 0;
+  } catch {
+    return 0;
+  }
 }
 
 /** setSafetyActiveSurface (CR-01 fix) calls the bound

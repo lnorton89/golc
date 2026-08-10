@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "../test/renderWithQuery";
 
 import { usePlaybackStateSnapshot } from "./usePlaybackStateSnapshot";
 import { useGolcStore } from "../store/store";
@@ -46,7 +46,14 @@ describe("usePlaybackStateSnapshot", () => {
     await act(async () => {
       await result.current.refreshState();
     });
-    expect(result.current.state?.bpm).toBe(140);
+    // waitFor rather than a bare expect: refreshState resolves as soon as
+    // the refetch itself has, and Query then notifies subscribers on a
+    // microtask, so the re-render carrying the new value lands just after
+    // act() unwinds. The assertion is unchanged in substance -- exactly two
+    // getState calls have happened by here (mount + this refresh), and the
+    // second one's value must reach the hook's returned state.
+    await waitFor(() => expect(result.current.state?.bpm).toBe(140));
+    expect(dispatch.getState).toHaveBeenCalledTimes(2);
   });
 
   it("stops polling once connection is lost, clearing the interval", async () => {

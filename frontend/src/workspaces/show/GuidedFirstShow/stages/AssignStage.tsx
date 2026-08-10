@@ -1,9 +1,9 @@
 // AssignStage is the Guided First Show's fourth stage (09-04-PLAN.md
 // Task 2, FDUI-03): on every mount it reads the operator surface count
-// via window.go?.wails?.SurfaceService?.ListSurfaces() -- wailsBridge.ts's
-// own documented "for a service without a helper yet, cast through
-// window.go?.wails?.<Service>" escape hatch -- wrapped in a try/catch
-// that falls back to an empty count, plus listProgramming() for the scene
+// via wailsBridge.ts's readSurfaceCount(), which falls back to a zero
+// count when the bridge is absent or the call rejects (this stage and
+// VerifyStage.tsx previously carried identical private copies of that
+// helper, each reading window.go directly), plus listProgramming() for the scene
 // context, and derives its GuideStageStatus purely via readiness.ts's
 // deriveAssignStatus. Its single primary action hands off to the real
 // Operator Surface workspace (navigateTo("operate-operator-surface"),
@@ -15,7 +15,7 @@
 // LoadingState/ErrorState primitives instead of bare <p> tags.
 import { useCallback, useEffect, useState } from "react";
 
-import { errorMessage, listProgramming } from "../../../../lib/wailsBridge";
+import { errorMessage, listProgramming, readSurfaceCount } from "../../../../lib/wailsBridge";
 import { ErrorState, LoadingState } from "../../../../design-system";
 import { deriveAssignStatus } from "../readiness";
 import type { GuideStageStatus } from "../stages";
@@ -26,15 +26,6 @@ interface AssignStageProps {
 
 const PRIMARY_LABEL = "Go to Operator Surface";
 const LOADING_STATUS: GuideStageStatus = { items: [], primaryLabel: "Loading…", primaryDisabled: true };
-
-async function readSurfaceCount(): Promise<number> {
-  try {
-    const surfaces = await window.go?.wails?.SurfaceService?.ListSurfaces();
-    return surfaces?.length ?? 0;
-  } catch {
-    return 0;
-  }
-}
 
 export default function AssignStage({ onStatusChange }: AssignStageProps) {
   const [loading, setLoading] = useState(true);

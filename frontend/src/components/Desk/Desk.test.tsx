@@ -8,7 +8,7 @@
 // Plan 13-13's own scoped design-system checker exceptions' job, not this
 // suite's.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "../../test/renderWithQuery";
 
 import Desk from "./Desk";
 import { useGolcStore } from "../../store/store";

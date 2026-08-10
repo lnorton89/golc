@@ -21,6 +21,8 @@
 // PlaybackControls.tsx nor useKeyboardWorkflow.ts imports the other now;
 // both import this file instead.
 
+import { getPlaybackService } from "./wailsBridge";
+
 /** WailsResult mirrors internal/wails.Result's JSON tags exactly (0
  * success, 1 command failure, 2 routing/usage/startup failure). */
 export interface WailsResult {
@@ -59,25 +61,16 @@ export interface PlaybackStateSummary {
   scenes: SceneSummary[];
 }
 
-interface PlaybackServiceBinding {
-  SwitchScene(sceneName: string): Promise<WailsResult>;
-  SetLayerEnabled(sceneName: string, kind: string, enabled: boolean): Promise<WailsResult>;
-  SetBPM(bpm: number): Promise<WailsResult>;
-  TapTempo(timestamps: string[]): Promise<WailsResult>;
-  Evaluate(at: number): Promise<WailsResult>;
-  GetState(): Promise<WailsResult>;
-}
-
 // Wails v2 injects window.go.<goPackageName>.<StructName> at runtime for
 // every struct bound via cmd/golc-desktop/main.go's options.App{Bind:
 // [...]} -- internal/wails.PlaybackService's Go package name is "wails".
-// The `Window.go.wails` global shape itself is declared once, centrally,
-// in src/lib/wailsBridge.ts (see that file's comment) -- declaring it here
-// too would collide with wailsBridge.ts's declaration under TypeScript's
-// declaration-merging rules for the same inline-typed `go` property.
-function playbackService(): PlaybackServiceBinding | undefined {
-  return typeof window !== "undefined" ? window.go?.wails?.PlaybackService : undefined;
-}
+// This module no longer reads that global itself: wailsBridge.ts owns
+// every window.go access and exports getPlaybackService, which carries the
+// same `typeof window` guard and the same undefined-when-unbound contract
+// this file's own accessor used to. wailsBridge.ts imports nothing, so
+// depending on it here cannot reintroduce the circular-import class of bug
+// documented at the top of this file.
+const playbackService = getPlaybackService;
 
 const TAP_RESET_GAP_MS = 2000;
 const TAP_HISTORY_MAX = 8;

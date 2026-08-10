@@ -23,29 +23,12 @@ import styles from "./MidiPanel.module.css";
 
 const rowExitTransition = motionTransition("settle");
 
-export interface DeskMidiMappingView {
-  id: string;
-  channel: number;
-  kind: "note" | "control_change";
-  number: number;
-  instanceId: string;
-  capability: string;
-}
-
-interface DeskGoResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
-interface DeskMidiServiceBinding {
-  RemoveDeskMapping(mappingId: string): Promise<DeskGoResult>;
-  ListDeskMappings(): Promise<DeskMidiMappingView[]>;
-}
-
-function deskMidiService(): DeskMidiServiceBinding | undefined {
-  return window.go?.wails?.MidiService as unknown as DeskMidiServiceBinding | undefined;
-}
+// The MidiService binding and DeskMidiMappingView are declared once,
+// centrally, in src/lib/wailsBridge.ts, which owns every window.go read.
+// This section uses only the two desk-mapping methods it needs
+// (ListDeskMappings/RemoveDeskMapping); Desk.tsx uses the learn methods
+// off the same single declaration.
+const deskMidiService = getMidiService;
 
 function mappingTechnical(mapping: DeskMidiMappingView): string {
   const kindLabel = mapping.kind === "note" ? "Note" : "CC";

@@ -1,9 +1,9 @@
 // VerifyStage is the Guided First Show's fifth and final stage
 // (09-04-PLAN.md Task 3, FDUI-03): on every mount it performs all four
 // live reads in parallel (listLocalFixtures, listPatch, listProgramming,
-// and the operator-surface count via the same
-// window.go?.wails?.SurfaceService cast-through escape hatch
-// AssignStage.tsx uses), re-derives all four upstream stage statuses
+// and the operator-surface count via wailsBridge.ts's shared
+// readSurfaceCount(), the same helper AssignStage.tsx
+// uses), re-derives all four upstream stage statuses
 // through readiness.ts's pure functions, and rolls them up with
 // aggregateReadiness -- it stores no result across mounts and reads no
 // persisted readiness record anywhere (T-09-04-01: a green verdict must
@@ -32,7 +32,7 @@
 // now render through the shared LoadingState/ErrorState primitives.
 import { useCallback, useEffect, useState } from "react";
 
-import { errorMessage, listLocalFixtures, listPatch, listProgramming } from "../../../../lib/wailsBridge";
+import { errorMessage, listLocalFixtures, listPatch, listProgramming, readSurfaceCount } from "../../../../lib/wailsBridge";
 import { ErrorState, LoadingState } from "../../../../design-system";
 import {
   aggregateReadiness,
@@ -50,20 +50,6 @@ interface VerifyStageProps {
 
 const PRIMARY_LABEL = "Perform";
 const LOADING_STATUS: GuideStageStatus = { items: [], primaryLabel: "Loading…", primaryDisabled: true };
-
-// readSurfaceCount mirrors AssignStage.tsx's own identical helper --
-// wailsBridge.ts's documented "for a service without a helper yet, cast
-// through window.go?.wails?.<Service>" escape hatch, falling back to zero
-// rather than throwing so an unreachable bridge can only ever look less
-// ready, never more (T-09-04-03).
-async function readSurfaceCount(): Promise<number> {
-  try {
-    const surfaces = await window.go?.wails?.SurfaceService?.ListSurfaces();
-    return surfaces?.length ?? 0;
-  } catch {
-    return 0;
-  }
-}
 
 function pluralize(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;

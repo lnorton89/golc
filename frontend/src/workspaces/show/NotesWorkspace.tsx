@@ -38,6 +38,7 @@ import {
   deleteNote,
   errorMessage,
   getNote,
+  isNotesServiceAvailable,
   listNotes,
   saveNote,
   type NoteSummaryView,
@@ -127,8 +128,7 @@ export default function NotesWorkspace() {
     try {
       const next = await listNotes();
       setNotes(next);
-      const bridgeMissing = typeof window === "undefined" || !window.go?.wails?.NotesService;
-      setError(bridgeMissing ? HOST_UNREACHABLE_MESSAGE : null);
+      setError(isNotesServiceAvailable() ? null : HOST_UNREACHABLE_MESSAGE);
       return next;
     } catch (err) {
       setError(errorMessage(err));

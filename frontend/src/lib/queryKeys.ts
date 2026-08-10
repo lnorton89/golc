@@ -24,4 +24,14 @@ export const queryKeys = {
      * fast "chauvet" one and overwrite it. */
     oflSearch: (query: string) => ["fixtureLibrary", "oflSearch", query] as const,
   },
+  playback: {
+    all: () => ["playback"] as const,
+    /** The playback engine's state summary, polled while connected. */
+    snapshot: () => ["playback", "snapshot"] as const,
+  },
+  desk: {
+    all: () => ["desk"] as const,
+    /** Live per-universe DMX byte values behind the desk faders. */
+    universeValues: () => ["desk", "universeValues"] as const,
+  },
 } as const;

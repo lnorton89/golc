@@ -17,19 +17,36 @@
 // the right ones for jsdom, so this deliberately does not fork a second set
 // of options that could drift from what actually ships.
 import type { ReactElement, ReactNode } from "react";
-import { render as testingLibraryRender, type RenderOptions, type RenderResult } from "@testing-library/react";
+import {
+  render as testingLibraryRender,
+  renderHook as testingLibraryRenderHook,
+  type RenderHookOptions,
+  type RenderHookResult,
+  type RenderOptions,
+  type RenderResult,
+} from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 
 import { createQueryClient } from "../lib/queryClient";
 
-export function render(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">): RenderResult {
+function makeWrapper() {
   const queryClient = createQueryClient();
-
-  function Wrapper({ children }: { children: ReactNode }) {
+  return function Wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
-  }
+  };
+}
 
-  return testingLibraryRender(ui, { ...options, wrapper: Wrapper });
+export function render(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">): RenderResult {
+  return testingLibraryRender(ui, { ...options, wrapper: makeWrapper() });
+}
+
+/** The renderHook counterpart, for hooks that read through Query directly
+ * (usePlaybackStateSnapshot) rather than via a component under test. */
+export function renderHook<Result, Props>(
+  hook: (initialProps: Props) => Result,
+  options?: Omit<RenderHookOptions<Props>, "wrapper">,
+): RenderHookResult<Result, Props> {
+  return testingLibraryRenderHook(hook, { ...options, wrapper: makeWrapper() });
 }
 
 // Re-exported so an adopting test file can take everything it needs from

@@ -25,31 +25,17 @@
 import { useState } from "react";
 import { Radio, X } from "lucide-react";
 
+import { getMidiService } from "../../lib/wailsBridge";
 import { Button } from "../../design-system";
 import styles from "./MidiPanel.module.css";
 import type { ControlRefInput } from "./MidiPanel";
 
-interface GoResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
-interface MidiServiceBinding {
-  StartLearn(surfaceName: string, controlRef: ControlRefInput): Promise<GoResult>;
-  CancelLearn(): Promise<GoResult>;
-}
-
-// The `Window.go.wails` global shape itself is declared once, centrally,
-// in src/lib/wailsBridge.ts -- cast through that shared shape locally
-// here, mirroring OperatorSurface.tsx's own surfaceService() pattern,
-// rather than re-declaring `declare global` (which would collide under
-// TypeScript's declaration-merging rules for the same inline-typed `go`
-// property).
-function midiService(): MidiServiceBinding | undefined {
-  const service = window.go?.wails?.MidiService;
-  return service as unknown as MidiServiceBinding | undefined;
-}
+// The MidiService binding and its wire types are declared once, centrally,
+// in src/lib/wailsBridge.ts, which owns every window.go read; this file
+// imports the typed accessor and uses only the two methods it needs
+// (StartLearn/CancelLearn) rather than re-declaring a narrower local copy
+// of the binding that could drift from the Go source.
+const midiService = getMidiService;
 
 type LearnStatus = "idle" | "listening" | "conflict" | "timeout" | "error";
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "../../test/renderWithQuery";
 
 import Launcher from "./Launcher";
 import type { ControlRefView } from "./OperatorSurface";
@@ -48,7 +48,12 @@ async function renderLauncher(controls: ControlRefView[]) {
       <Launcher controls={controls} />
     </PlaybackSnapshotProvider>,
   );
-  await waitFor(() => expect(screen.getByText(/Layers/)).toBeInTheDocument());
+  // Gate on the ACTIVE SCENE NAME, not the bare "Layers" label: the label
+  // renders unconditionally (Launcher.tsx appends " — {name}" only once a
+  // snapshot has arrived), so waiting on /Layers/ alone returned before the
+  // playback state had loaded and left the assertions below racing the
+  // fetch. Every test here stubs Alpha as the active scene.
+  await waitFor(() => expect(screen.getByText(/Layers — Alpha/)).toBeInTheDocument());
   return utils;
 }
 

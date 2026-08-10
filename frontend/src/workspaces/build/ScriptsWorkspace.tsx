@@ -62,6 +62,7 @@ import {
   errorMessage,
   getScript,
   getSdkTypeDefinitions,
+  isScriptServiceAvailable,
   listScripts,
   onScriptEvent,
   runScript,
@@ -194,8 +195,8 @@ function deriveStackFramesFromReason(reason: string): string[] {
 
 // HOST_UNREACHABLE_MESSAGE is the UI-SPEC's exact "script host unreachable"
 // copy (Copywriting Contract), rendered inline whenever ScriptService is
-// not bound -- both a missing window.go bridge (jsdom, a plain browser
-// preview) and a rejected ListScripts call resolve to this same message,
+// not bound (isScriptServiceAvailable) -- both a missing bridge (jsdom, a
+// plain browser preview) and a rejected ListScripts call resolve to this same message,
 // alongside the D-16 empty state (listScripts/never throws, see
 // wailsBridge.ts's doc comment).
 const HOST_UNREACHABLE_MESSAGE = "Can't reach the script host. GOLC will try to reconnect automatically.";
@@ -286,8 +287,7 @@ export default function ScriptsWorkspace() {
     try {
       const next = await listScripts();
       setScripts(next);
-      const bridgeMissing = typeof window === "undefined" || !window.go?.wails?.ScriptService;
-      setError(bridgeMissing ? HOST_UNREACHABLE_MESSAGE : null);
+      setError(isScriptServiceAvailable() ? null : HOST_UNREACHABLE_MESSAGE);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -586,7 +586,7 @@ export default function ScriptsWorkspace() {
 
   const selectedScript = scripts.find((script) => script.name === selectedName) ?? null;
 
-  const bridgeMissing = typeof window === "undefined" || !window.go?.wails?.ScriptService;
+  const bridgeMissing = !isScriptServiceAvailable();
   const panelState = selectedName ? (panelStateByScript[selectedName] ?? IDLE_PANEL_STATE) : IDLE_PANEL_STATE;
   const panelStatus: ScriptPanelStatus = bridgeMissing
     ? "offline"

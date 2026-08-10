@@ -24,6 +24,7 @@
 // visually fights the poll it itself caused; releasing the override drops
 // back to trusting the poll.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   ChevronsDownUp,
   ChevronsLeftRight,
@@ -57,6 +58,7 @@ import {
   type PatchPoolView,
   type PatchView,
 } from "../../lib/wailsBridge";
+import { queryKeys } from "../../lib/queryKeys";
 import Fader, { type MidiLearnStatus } from "./Fader";
 import FixtureStyleModal, { BACKGROUND_SIZE_CSS_VALUE, type FixtureStyle } from "./FixtureStyleModal";
 import { capabilityDetailLabel, capabilityLabel, resolveDisplayName } from "./deskLabels";
@@ -879,7 +881,6 @@ function UniverseRow({
 export default function Desk() {
   const [patch, setPatch] = useState<PatchView | null>(null);
   const [library, setLibrary] = useState<FixtureLibraryRowView[]>([]);
-  const [universeValues, setUniverseValues] = useState<DeskUniverseValuesView[]>([]);
   const [overrides, setOverrides] = useState<Record<string, number>>({});
   // touchedKeys is every channel currently grabbed-or-overridden -- gains
   // a key the moment a fader is dragged (handleFaderChange), loses it the
@@ -889,7 +890,6 @@ export default function Desk() {
   const [touchedKeys, setTouchedKeys] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [reachable, setReachable] = useState(true);
   // MIDI Learn (global toggle, MidiLearnToggle.tsx / store.ts midiLearnMode)
   // -- deskMappings mirrors ListDeskMappings' current result, refreshed on
   // mount and after every learn/remap/clear; midiCapturing is which single
@@ -996,26 +996,23 @@ export default function Desk() {
     void loadLayout();
   }, [loadLayout]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const poll = async (): Promise<void> => {
-      try {
-        const values = await fetchDeskUniverseValues();
-        if (!cancelled) {
-          setUniverseValues(values);
-          setReachable(true);
-        }
-      } catch {
-        if (!cancelled) setReachable(false);
-      }
-    };
-    void poll();
-    const id = window.setInterval(() => void poll(), pollIntervalMs);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, []);
+  // The live-value poll is Query's refetchInterval rather than a
+  // hand-rolled window.setInterval + cancelled flag. Unlike most of
+  // wailsBridge.ts, fetchDeskUniverseValues DOES reject when the daemon is
+  // unreachable, so the two states map directly: `data` retains the last
+  // successful frame across a failed poll (matching the old code, which
+  // only ever called setUniverseValues on success), and isError drives the
+  // reachability chip. refetchInterval keeps firing through errors, so the
+  // desk recovers on its own once the daemon answers again.
+  const universeValuesQuery = useQuery({
+    queryKey: queryKeys.desk.universeValues(),
+    queryFn: fetchDeskUniverseValues,
+    refetchInterval: pollIntervalMs,
+  });
+  const universeValues = universeValuesQuery.data ?? [];
+  // Starts true and only goes false on an actual failed poll -- the initial
+  // in-flight fetch must not render as "unreachable" before it answers.
+  const reachable = !universeValuesQuery.isError;
 
   const instances = useMemo(() => (patch ? buildInstances(patch, library) : []), [patch, library]);
   const universes = useMemo(() => groupByUniverse(instances), [instances]);
