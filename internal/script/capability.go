@@ -226,7 +226,7 @@ func memoryTriggerBytes(mb int, percent int) (uint64, bool) {
 	if err != nil {
 		return 0, false
 	}
-	return limitBytes/100*uint64(percent), true
+	return limitBytes / 100 * uint64(percent), true
 }
 
 // memoryLimitReason is the single constructor both checkMemoryPressure
