@@ -184,6 +184,68 @@ describe("ArtnetConfig", () => {
     await waitFor(() => expect(svc.DisableTarget).toHaveBeenCalledWith(1, "10.0.0.9", 6454));
   });
 
+  // --- 2026-08-10 review pass regressions ------------------------------
+
+  it("still lists a target whose universe left the active deployment, with a way to disable it", async () => {
+    // Universe 3 has a live target, but the active deployment only patches
+    // universe 1 -- previously the whole row was dropped from the DOM while
+    // the daemon kept unicasting to it, and ArtnetConfig is the frontend's
+    // only consumer of the enable/disable routes.
+    stubBridge({ artnetStatus: status({ targets: [target({ universe: 3, ip: "10.0.0.30" })] }) });
+    render(<ArtnetConfig />);
+
+    await waitFor(() => expect(screen.getByText("Universe 3")).toBeInTheDocument());
+    expect(screen.getByText("Not in the active deployment")).toBeInTheDocument();
+    expect(screen.getByText("10.0.0.30:6454")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Disable" }));
+    await waitFor(() =>
+      expect(
+        (window as unknown as { go: { wails: { ArtnetConfigService: Record<string, ReturnType<typeof vi.fn>> } } })
+          .go.wails.ArtnetConfigService.DisableTarget,
+      ).toHaveBeenCalledWith(3, "10.0.0.30", 6454),
+    );
+  });
+
+  it("keeps the busy state on the row being acted on, not on every universe row", async () => {
+    let releaseConfigure!: (value: unknown) => void;
+    stubBridge({
+      patch: patchView({
+        deployments: [
+          {
+            id: "dep-1",
+            name: "Main",
+            active: true,
+            instances: [
+              { id: "inst-1", poolId: "pool-1", poolMemberId: "member-1", mode: "4ch", universe: 1, address: 1 },
+              { id: "inst-2", poolId: "pool-1", poolMemberId: "member-2", mode: "4ch", universe: 2, address: 1 },
+            ],
+          },
+        ],
+      }),
+    });
+    const svc = (window as unknown as { go: { wails: { ArtnetConfigService: Record<string, ReturnType<typeof vi.fn>> } } })
+      .go.wails.ArtnetConfigService;
+    svc.Configure.mockReturnValue(
+      new Promise((resolve) => {
+        releaseConfigure = resolve;
+      }),
+    );
+
+    render(<ArtnetConfig />);
+    await waitFor(() => expect(screen.getByText("Universe 2")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText("Universe 1 target IP address"), { target: { value: "10.0.0.9" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Add Target" })[0]);
+
+    // Universe 1 goes busy; universe 2's own Add Target stays available.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Configuring…" })).toBeInTheDocument());
+    expect(screen.getAllByRole("button", { name: "Add Target" })).toHaveLength(1);
+
+    releaseConfigure(ok());
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Add Target" })).toHaveLength(2));
+  });
+
   it("surfaces a failed Configure call's own stderr diagnostic", async () => {
     stubBridge();
     const svc = (window as unknown as { go: { wails: { ArtnetConfigService: { Configure: ReturnType<typeof vi.fn> } } } }).go.wails.ArtnetConfigService;

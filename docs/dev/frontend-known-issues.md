@@ -72,7 +72,8 @@ The rebind capture listener calls `event.stopPropagation()`, but both playback (
 
 `handleDialogSubmit` does `void launch.catch(...)` to synthesize a failed terminal state, but `runScript`/`debugScript` (`wailsBridge.ts:2378`/`:2392`) both catch internally and *resolve* with `offlineScriptRunOutcome()` — they never reject. The `.catch` body is dead code and the resolved `ScriptRunOutcomeView` (which carries the real `status: "failed"` / `reason`) is discarded entirely. Repro: delete the script from the CLI between opening the dialog and submitting, or run with the script host detached — the dialog closes, the debug panel sits at its idle placeholder forever, no error and no terminal banner. The block comment at `:437` describes behavior the code cannot produce.
 
-### Art-Net targets on universes outside the active deployment become invisible and unreachable
+### ~~Art-Net targets on universes outside the active deployment become invisible and unreachable~~
+**Fixed:** The list now iterates the union of `patchedUniverses` and every universe that has a configured target. An orphaned universe renders its existing targets with their Enable/Disable buttons, a "Not in the active deployment" chip, and an explanation in place of the add-target form.
 **Severity:** bug
 **File:** `frontend/src/components/ArtnetConfig/ArtnetConfig.tsx:334`
 **Confidence:** high
@@ -167,14 +168,16 @@ When `status` becomes `"listening"` the component returns an entirely different 
 
 `layerEnabled` (built as a fresh object literal at `:110`) and `sceneNames` (`:114`, a fresh `.map()`) are new references on every render, and both sit in `useKeyboardWorkflow`'s effect dependency array (`useKeyboardWorkflow.ts:158`). Since `usePlaybackSnapshot` repolls every 1s and this hook lives at shell level, the `window.addEventListener("keydown", …, {capture:true})` / `removeEventListener` pair runs at least once per second for the whole session, rebuilding the `keyToAction` map each time. Memoizing `sceneNames`/`layerEnabled` (or passing the snapshot through a ref) removes the churn without changing behavior.
 
-### `useResizablePanel` writes localStorage synchronously on every pointermove frame
+### ~~`useResizablePanel` writes localStorage synchronously on every pointermove frame~~
+**Fixed:** The persist effect now skips while `isResizing`, so it writes once when the drag ends. Non-drag changes (`resetSize`, `setClampedSize`) still persist immediately. Regression test asserts zero writes across 60 pointermove frames and exactly one on pointerup.
 **Severity:** perf
 **File:** `frontend/src/hooks/useResizablePanel.ts:86`
 **Confidence:** high
 
 The persist effect is keyed on `[storageKey, size]`, and `size` is set from `handlePointerMove` on every pointer event during a drag — so a single one-second rail drag performs hundreds of synchronous `localStorage.setItem` calls. Desk makes this worse: every `UniverseRow` instantiates two of these hooks (`Desk.tsx:600` height, `:610` width), so dragging one row's width handle writes per frame while every other row's effect is also live. Persisting on `pointerup` (or debouncing) would be equivalent for the user-visible contract.
 
-### A resize drag never ends if the pointer is released outside the window, and any mouse button starts one
+### ~~A resize drag never ends if the pointer is released outside the window, and any mouse button starts one~~
+**Fixed:** `handlePointerDown` returns early for `event.button !== 0` (before `preventDefault`, so the context menu is no longer suppressed) and calls `setPointerCapture`, with `lostpointercapture` and window `blur` as additional stop signals. Capture is best-effort — the window-level listeners still terminate the drag if it fails. The hook had no unit suite at all; it has one now.
 **Severity:** edge-case
 **File:** `frontend/src/hooks/useResizablePanel.ts:47`
 **Confidence:** medium
@@ -291,7 +294,8 @@ The file's header comment scopes the `outputState === "blackout"` ambiguity to t
 
 `JSON.parse(result.stdout) as ImpactPlan` (also `:395`, and `ProjectFixtures.tsx:354`/`:388`) is the remaining unvalidated cast on the patch path — push-event payloads moved behind zod (`wailsBridge.ts:1257`), but this stdout-carried plan did not. A plan missing `plan_id` sails through the cast into `applyPatch(undefined as unknown as string)`, and absent `proposed_universe`/`proposed_address` render as the literal string "Universe undefined, Address undefined" (`:126`, `:180`) instead of failing loudly. `dispatch.getState()` (`lib/playbackDispatch.ts:135`) has the same shape — a bare `JSON.parse(result.stdout) as PlaybackStateSummary` feeding the whole transport readout and the keyboard workflow.
 
-### One global `actionLoading` flag freezes every per-universe Art-Net row
+### ~~One global `actionLoading` flag freezes every per-universe Art-Net row~~
+**Fixed:** Replaced with `addingUniverse` and `togglingTargetKey`, following `selectingIndex`'s per-row pattern. Regression test holds Configure open on universe 1 and asserts universe 2's Add Target stays available.
 **Severity:** smell
 **File:** `frontend/src/components/ArtnetConfig/ArtnetConfig.tsx:74`
 **Confidence:** high

@@ -65,13 +65,26 @@ interface TargetDraft {
 
 const emptyDraft: TargetDraft = { ip: "", port: "", enabled: true };
 
+/** targetKey identifies one configured target for per-row busy tracking --
+ * the same universe/ip/port triple the enable/disable routes take. */
+function targetKey(target: ArtnetTargetView): string {
+  return `${target.universe}-${target.ip}-${target.port}`;
+}
+
 export default function ArtnetConfig() {
   const [interfaces, setInterfaces] = useState<ArtnetInterfaceView[]>([]);
   const [status, setStatus] = useState<ArtnetStatusView | null>(null);
   const [patchedUniverses, setPatchedUniverses] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
+  // Per-row busy flags, following selectingIndex's own established
+  // pattern. A single shared `actionLoading` boolean froze every universe
+  // row at once: clicking Add Target on universe 1 put "Configuring…" on
+  // all three rows and disabled every existing target's Enable/Disable
+  // button, even though `drafts` is deliberately keyed per universe so
+  // each row can be filled in and submitted on its own.
+  const [addingUniverse, setAddingUniverse] = useState<number | null>(null);
+  const [togglingTargetKey, setTogglingTargetKey] = useState<string | null>(null);
   const [selectingIndex, setSelectingIndex] = useState<number | null>(null);
 
   // One independent add-target draft per patched universe (keyed by
@@ -184,7 +197,7 @@ export default function ArtnetConfig() {
       );
       return;
     }
-    setActionLoading(true);
+    setAddingUniverse(universeNum);
     try {
       const result = await configureArtnetTarget(
         universeNum,
@@ -201,12 +214,12 @@ export default function ArtnetConfig() {
     } catch (err) {
       setError(errorMessage(err));
     } finally {
-      setActionLoading(false);
+      setAddingUniverse(null);
     }
   };
 
   const handleToggleTarget = async (target: ArtnetTargetView) => {
-    setActionLoading(true);
+    setTogglingTargetKey(targetKey(target));
     try {
       const result = target.enabled
         ? await disableArtnetTarget(target.universe, target.ip, target.port)
@@ -219,7 +232,7 @@ export default function ArtnetConfig() {
     } catch (err) {
       setError(errorMessage(err));
     } finally {
-      setActionLoading(false);
+      setTogglingTargetKey(null);
     }
   };
 
@@ -232,6 +245,17 @@ export default function ArtnetConfig() {
     list.push(target);
     targetsByUniverse.set(target.universe, list);
   }
+
+  // The list iterates every universe that has a configured target as well
+  // as every patched one. Rendering only patchedUniverses (which is
+  // filtered to the ACTIVE deployment) dropped any target whose universe
+  // left that set -- activating a different deployment, or readdressing
+  // the universe's fixtures -- from the DOM entirely while the daemon kept
+  // unicasting to it, with no in-app way to disable it. ArtnetConfig is
+  // the frontend's only consumer of fetchArtnetStatus/enable/disable, so
+  // no other surface could recover from it either.
+  const patchedUniverseSet = new Set(patchedUniverses);
+  const listedUniverses = [...new Set([...patchedUniverses, ...targetsByUniverse.keys()])].sort((a, b) => a - b);
 
   return (
     <Panel aria-label="Art-Net configuration" aria-busy={loading}>
@@ -331,13 +355,15 @@ export default function ArtnetConfig() {
               ) : null}
 
               <ul className={styles.rowScroll} aria-label="Universe target list">
-                {patchedUniverses.map((u) => {
+                {listedUniverses.map((u) => {
                   const existing = targetsByUniverse.get(u) ?? [];
                   const draft = drafts[u] ?? emptyDraft;
+                  const orphaned = !patchedUniverseSet.has(u);
                   return (
                     <li key={u} className={styles.row}>
                       <div className={styles.rowHeader}>
                         <span className={styles.rowName}>Universe {u}</span>
+                        {orphaned ? <Chip tone="armed">Not in the active deployment</Chip> : null}
                       </div>
 
                       {existing.map((target) => (
@@ -355,7 +381,7 @@ export default function ArtnetConfig() {
                             variant="secondary"
                             size="compact"
                             leadingIcon={target.enabled ? PowerOff : Power}
-                            disabled={actionLoading}
+                            disabled={togglingTargetKey === targetKey(target)}
                             onClick={() => void handleToggleTarget(target)}
                           >
                             {target.enabled ? "Disable" : "Enable"}
@@ -370,6 +396,12 @@ export default function ArtnetConfig() {
                         </div>
                       ))}
 
+                      {orphaned ? (
+                        <p className={styles.offlineText}>
+                          No fixtures in the active deployment use this universe, but the daemon is still
+                          unicasting to the targets above. Disable them here, or re-patch the universe.
+                        </p>
+                      ) : (
                       <div className={styles.createRow}>
                         <Field
                           className={styles.createInput}
@@ -406,12 +438,13 @@ export default function ArtnetConfig() {
                         <Button
                           variant="primary"
                           leadingIcon={Plus}
-                          loading={actionLoading}
+                          loading={addingUniverse === u}
                           onClick={() => void handleAddTarget(u)}
                         >
-                          {actionLoading ? "Configuring…" : "Add Target"}
+                          {addingUniverse === u ? "Configuring…" : "Add Target"}
                         </Button>
                       </div>
+                      )}
                     </li>
                   );
                 })}
