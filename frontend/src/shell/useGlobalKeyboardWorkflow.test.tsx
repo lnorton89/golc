@@ -6,6 +6,7 @@ import { PlaybackSnapshotProvider, usePlaybackSnapshot } from "./PlaybackSnapsho
 import { useGlobalKeyboardWorkflow } from "./useGlobalKeyboardWorkflow";
 import { DEFAULT_DESTINATION, type DestinationId } from "./navigation";
 import { useGolcStore } from "../store/store";
+import { beginHotkeyCapture } from "../lib/hotkeys";
 
 function Harness() {
   const [activeDestination, setActiveDestination] = useState<DestinationId>(DEFAULT_DESTINATION);
@@ -159,5 +160,81 @@ describe("useGlobalKeyboardWorkflow", () => {
 
     fireEvent.keyDown(window, { key: ",", ctrlKey: true });
     expect(screen.getByTestId("active-destination")).toHaveTextContent("show-settings");
+  });
+
+  it("ignores auto-repeat, so holding '?' does not flicker the help overlay", () => {
+    render(
+      <PlaybackSnapshotProvider>
+        <Harness />
+      </PlaybackSnapshotProvider>,
+    );
+
+    fireEvent.keyDown(window, { key: "?" });
+    expect(screen.getByTestId("help-state")).toHaveTextContent("open");
+
+    for (let i = 0; i < 5; i += 1) {
+      fireEvent.keyDown(window, { key: "?", repeat: true });
+    }
+    expect(screen.getByTestId("help-state")).toHaveTextContent("open");
+  });
+
+  it("ignores auto-repeat on a held nav chord, so it steps exactly one destination", () => {
+    render(
+      <PlaybackSnapshotProvider>
+        <Harness />
+      </PlaybackSnapshotProvider>,
+    );
+
+    fireEvent.keyDown(window, { key: "ArrowDown", altKey: true });
+    for (let i = 0; i < 5; i += 1) {
+      fireEvent.keyDown(window, { key: "ArrowDown", altKey: true, repeat: true });
+    }
+
+    expect(screen.getByTestId("active-destination")).toHaveTextContent("show-shows");
+  });
+
+  it("ignores '?' and nav chords while Settings is capturing a rebind", () => {
+    render(
+      <PlaybackSnapshotProvider>
+        <Harness />
+      </PlaybackSnapshotProvider>,
+    );
+
+    const release = beginHotkeyCapture();
+    fireEvent.keyDown(window, { key: "?" });
+    fireEvent.keyDown(window, { key: "ArrowDown", altKey: true });
+    expect(screen.getByTestId("help-state")).toHaveTextContent("closed");
+    expect(screen.getByTestId("active-destination")).toHaveTextContent("show-overview");
+
+    release();
+    fireEvent.keyDown(window, { key: "?" });
+    expect(screen.getByTestId("help-state")).toHaveTextContent("open");
+  });
+
+  // The playback matcher's window listener used to be torn down and
+  // re-added on every render, because layerEnabled/sceneNames were fresh
+  // object literals feeding its effect dependency array -- and this hook
+  // sits at shell level under a 1s snapshot poll, so that ran at least
+  // once a second for the whole session.
+  it("does not re-arm the playback keydown listener when nothing about the snapshot changed", () => {
+    const addSpy = vi.spyOn(window, "addEventListener");
+    const { rerender } = render(
+      <PlaybackSnapshotProvider>
+        <Harness />
+      </PlaybackSnapshotProvider>,
+    );
+
+    const keydownAddsAfterMount = addSpy.mock.calls.filter(([type]) => type === "keydown").length;
+
+    for (let i = 0; i < 5; i += 1) {
+      rerender(
+        <PlaybackSnapshotProvider>
+          <Harness />
+        </PlaybackSnapshotProvider>,
+      );
+    }
+
+    expect(addSpy.mock.calls.filter(([type]) => type === "keydown").length).toBe(keydownAddsAfterMount);
+    addSpy.mockRestore();
   });
 });

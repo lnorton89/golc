@@ -51,4 +51,55 @@ describe("AppShell", () => {
     expect(screen.getByRole("button", { name: "Art-Net" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("navigation", { name: "Workspace navigation" })).toBeInTheDocument();
   });
+
+  // A nav chord used to call setActiveDestination straight through,
+  // bypassing GuardedCommandRail's leave-the-guide confirm entirely: the
+  // destination changed underneath the still-open guide with zero visible
+  // effect, and exitGuide then returned to the *entry* destination, so the
+  // keystrokes were silently discarded. Both keyboard entry points now
+  // route through the same guard a rail click does.
+  describe("navigating out of the Guided First Show", () => {
+    // Overview renders its "Start Guide" CTA (D-10's manual entry point)
+    // only once its own async refresh has settled, so this waits rather
+    // than querying synchronously.
+    async function startGuide() {
+      render(<AppShell />);
+      fireEvent.click(await screen.findByRole("button", { name: /start guide/i }));
+      expect(screen.getByRole("navigation", { name: "First show steps" })).toBeInTheDocument();
+    }
+
+    it("prompts to leave the guide when a nav chord tries to navigate, instead of navigating underneath it", async () => {
+      await startGuide();
+
+      fireEvent.keyDown(window, { key: "ArrowDown", altKey: true });
+
+      // The confirm is the guard: previously the chord went straight to
+      // setActiveDestination and nothing at all appeared. (The guide rail
+      // itself is inert to getByRole while the modal is open, so the
+      // still-in-the-guide assertion lives in the cancel case below.)
+      expect(screen.getByRole("alertdialog", { name: /leave the guide\?/i })).toBeInTheDocument();
+    });
+
+    it("stays in the guide when the confirm is cancelled", async () => {
+      await startGuide();
+
+      fireEvent.keyDown(window, { key: "ArrowDown", altKey: true });
+      fireEvent.click(screen.getByRole("button", { name: /stay in guide/i }));
+
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(screen.getByRole("navigation", { name: "First show steps" })).toBeInTheDocument();
+    });
+
+    it("leaves the guide for the chord's own destination once confirmed", async () => {
+      await startGuide();
+
+      fireEvent.keyDown(window, { key: "ArrowDown", altKey: true });
+      fireEvent.click(screen.getByRole("button", { name: /leave guide/i }));
+
+      expect(screen.queryByRole("navigation", { name: "First show steps" })).not.toBeInTheDocument();
+      // Overview is the guide's entry destination and the first item in
+      // its nav group, so Alt+ArrowDown lands on the next one.
+      expect(screen.queryByRole("button", { name: "Overview" })).not.toHaveAttribute("aria-current", "page");
+    });
+  });
 });

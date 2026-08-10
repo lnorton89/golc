@@ -1,8 +1,38 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import HotkeySettings from "./HotkeySettings";
 import { getStoredHotkeys, getStoredNavHotkeys } from "../../lib/hotkeys";
+import { useKeyboardWorkflow } from "../../hooks/useKeyboardWorkflow";
+import { dispatch } from "../../lib/playbackDispatch";
+
+vi.mock("../../lib/playbackDispatch", async () => {
+  const actual = await vi.importActual<typeof import("../../lib/playbackDispatch")>("../../lib/playbackDispatch");
+  return {
+    ...actual,
+    dispatch: {
+      switchScene: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" }),
+      setLayerEnabled: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" }),
+      setBPM: vi.fn(),
+      recordTap: vi.fn(),
+      evaluate: vi.fn(),
+      getState: vi.fn(),
+    },
+  };
+});
+
+/** LiveMatcherHarness mounts the real playback keydown matcher next to the
+ * rebind UI -- the actual production arrangement, since useKeyboardWorkflow
+ * lives at shell level and stays mounted while Settings is on screen. */
+function LiveMatcherHarness() {
+  useKeyboardWorkflow({
+    sceneNames: ["Alpha", "Beta", "Gamma"],
+    activeSceneName: "Alpha",
+    layerEnabled: { base_look: true, color_theme: true, chase: false, motion: false },
+    bpm: 120,
+  });
+  return <HotkeySettings />;
+}
 
 describe("HotkeySettings", () => {
   beforeEach(() => {
@@ -11,6 +41,7 @@ describe("HotkeySettings", () => {
 
   afterEach(() => {
     cleanup();
+    vi.clearAllMocks();
     window.localStorage.clear();
   });
 
@@ -77,6 +108,52 @@ describe("HotkeySettings", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent(/reserved for scene switching/i);
     expect(getStoredHotkeys().evaluate).toBe("Enter");
+  });
+
+  it("rejects a key the shell reserves for the help overlay", () => {
+    render(<HotkeySettings />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Enter" }));
+    fireEvent.keyDown(window, { key: "?" });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/reserved by the app/i);
+    expect(getStoredHotkeys().evaluate).toBe("Enter");
+  });
+
+  it("does not fire the live playback action bound to the key being recorded", () => {
+    render(<LiveMatcherHarness />);
+
+    // Rebinding "Toggle Base Look" by pressing W used to *also* toggle the
+    // Color Theme layer on the live scene, because both listeners sit on
+    // `window` in the capture phase and stopPropagation() can't separate
+    // same-node siblings.
+    fireEvent.click(screen.getByRole("button", { name: "Q" }));
+    fireEvent.keyDown(window, { key: "w" });
+
+    expect(dispatch.setLayerEnabled).not.toHaveBeenCalled();
+    // ...and it still records as an ordinary conflict, not silently.
+    expect(screen.getByRole("alert")).toHaveTextContent(/already used by/i);
+  });
+
+  it("does not switch scenes when a digit is pressed during a rebind capture", () => {
+    render(<LiveMatcherHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Enter" }));
+    fireEvent.keyDown(window, { key: "3" });
+
+    expect(dispatch.switchScene).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(/reserved for scene switching/i);
+  });
+
+  it("releases the capture suppression once recording ends, so live shortcuts work again", () => {
+    render(<LiveMatcherHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Q" }));
+    fireEvent.keyDown(window, { key: "z" });
+    expect(getStoredHotkeys().toggleBaseLook).toBe("z");
+
+    fireEvent.keyDown(window, { key: "w" });
+    expect(dispatch.setLayerEnabled).toHaveBeenCalledWith("Alpha", "color_theme", false);
   });
 
   it("rejects a chorded key press while recording a playback action", () => {

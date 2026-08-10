@@ -3,12 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   HOTKEY_ACTIONS,
   NAV_ACTIONS,
+  beginHotkeyCapture,
   findChordConflict,
   findHotkeyConflict,
   formatChordLabel,
   formatHotkeyLabel,
   getStoredHotkeys,
   getStoredNavHotkeys,
+  isHotkeyCaptureActive,
   isModifierKeyEvent,
   normalizeHotkeyChord,
   normalizeHotkeyEvent,
@@ -94,6 +96,30 @@ describe("hotkeys", () => {
   it("flags a digit 1-9 as a scene-switch conflict", () => {
     const bindings = getStoredHotkeys();
     expect(findHotkeyConflict(bindings, "evaluate", "5")).toBe("scene-switch");
+  });
+
+  it("flags the shell's own reserved help-overlay keys", () => {
+    const bindings = getStoredHotkeys();
+    // '?' and Escape are hard-coded in useGlobalKeyboardWorkflow, not
+    // HOTKEY_ACTIONS entries, so the bindings-vs-bindings check can't see
+    // them -- binding a playback action to '?' used to save cleanly and
+    // then fire alongside the help overlay on every press.
+    expect(findHotkeyConflict(bindings, "evaluate", "?")).toBe("shell-reserved");
+    expect(findHotkeyConflict(bindings, "evaluate", "Escape")).toBe("shell-reserved");
+  });
+
+  it("tracks rebind-capture suppression with nesting and idempotent release", () => {
+    expect(isHotkeyCaptureActive()).toBe(false);
+    const releaseOuter = beginHotkeyCapture();
+    const releaseInner = beginHotkeyCapture();
+    expect(isHotkeyCaptureActive()).toBe(true);
+
+    releaseInner();
+    releaseInner();
+    expect(isHotkeyCaptureActive()).toBe(true);
+
+    releaseOuter();
+    expect(isHotkeyCaptureActive()).toBe(false);
   });
 
   it("flags a key already bound to another action, but not itself", () => {

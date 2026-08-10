@@ -40,7 +40,7 @@
 // replaces the canvas alone; SafetyCluster/GlobalFrame/CommandRail/
 // ContextualInspector stay mounted unconditionally exactly as before
 // (application-shell-navigation.md's interaction contract).
-import { useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { MotionConfig } from "motion/react";
 
 import TitleBar from "./TitleBar";
@@ -77,23 +77,43 @@ function ShellCanvas({ active }: { active: DestinationId }) {
 // leaving-via-nav-click and leaving-via-a-stage-action behave identically.
 // Uses ConfirmDialog (the design-system's public confirmation contract),
 // not a bespoke conditional-render dialog.
-function GuardedCommandRail({ active }: { active: DestinationId }) {
+//
+// The same guard has to cover the keyboard nav chords and the quick
+// switcher, which reach navigation from ShellBody -- i.e. from *above*
+// GuidedFirstShowProvider, where useGuidedFirstShow() isn't callable. So
+// rather than relocating the provider, this component publishes its own
+// already-guarded select handler upward through onGuardedNavigate; ShellBody
+// routes its keyboard/quick-switcher navigation through that instead of
+// through the raw setActiveDestination setter. One guard, one dialog, three
+// entry points.
+function GuardedCommandRail({
+  active,
+  onGuardedNavigate,
+}: {
+  active: DestinationId;
+  onGuardedNavigate: (navigate: (destination: DestinationId) => void) => void;
+}) {
   const { open, navigateTo } = useGuidedFirstShow();
   const [pendingDestination, setPendingDestination] = useState<DestinationId | null>(null);
 
+  const handleSelect = useCallback(
+    (destination: DestinationId) => {
+      if (open) {
+        setPendingDestination(destination);
+      } else {
+        navigateTo(destination);
+      }
+    },
+    [open, navigateTo],
+  );
+
+  useEffect(() => {
+    onGuardedNavigate(handleSelect);
+  }, [handleSelect, onGuardedNavigate]);
+
   return (
     <>
-      <CommandRail
-        active={active}
-        dimmed={open}
-        onSelect={(destination) => {
-          if (open) {
-            setPendingDestination(destination);
-          } else {
-            navigateTo(destination);
-          }
-        }}
-      />
+      <CommandRail active={active} dimmed={open} onSelect={handleSelect} />
       <ConfirmDialog
         open={pendingDestination !== null}
         title="Leave the guide?"
@@ -124,9 +144,24 @@ function ShellBody() {
   // size even after the thing driving it genuinely changed). Fed by
   // ContextualInspector.tsx's own MutationObserver on the portal target.
   const [inspectorHasContent, setInspectorHasContent] = useState(false);
+  // guardedNavigateRef holds GuardedCommandRail's own select handler (see
+  // its doc comment): navigating from here -- keyboard nav chords, the
+  // quick switcher -- has to pass through the same leave-the-guide confirm
+  // a rail click does, but this component sits above
+  // GuidedFirstShowProvider and can't read the guide state directly. The
+  // ref keeps `navigateGuarded` referentially stable, so it never re-arms
+  // the keyboard hook's listener. Falls back to the raw setter until the
+  // rail has mounted and registered.
+  const guardedNavigateRef = useRef<((destination: DestinationId) => void) | null>(null);
+  const registerGuardedNavigate = useCallback((navigate: (destination: DestinationId) => void) => {
+    guardedNavigateRef.current = navigate;
+  }, []);
+  const navigateGuarded = useCallback((destination: DestinationId) => {
+    (guardedNavigateRef.current ?? setActiveDestination)(destination);
+  }, []);
   const { helpOpen, closeHelp, quickSwitcherOpen, closeQuickSwitcher } = useGlobalKeyboardWorkflow({
     activeDestination,
-    onNavigate: setActiveDestination,
+    onNavigate: navigateGuarded,
   });
   // Rail and inspector widths are each user-resizable (drag the handle on
   // their shared boundary with .main) and persisted independently across
@@ -157,7 +192,7 @@ function ShellBody() {
       </div>
       <GuidedFirstShowProvider activeDestination={activeDestination} onNavigate={setActiveDestination}>
         <div className={styles.rail}>
-          <GuardedCommandRail active={activeDestination} />
+          <GuardedCommandRail active={activeDestination} onGuardedNavigate={registerGuardedNavigate} />
           <ResizeHandle
             edge="end"
             label="Resize navigation rail"
@@ -185,7 +220,7 @@ function ShellBody() {
         <ContextualInspector onContainerReady={setInspectorContainer} onHasContentChange={setInspectorHasContent} />
       </div>
       <HelpOverlay open={helpOpen} onClose={closeHelp} />
-      <QuickSwitcher open={quickSwitcherOpen} onClose={closeQuickSwitcher} onNavigate={setActiveDestination} />
+      <QuickSwitcher open={quickSwitcherOpen} onClose={closeQuickSwitcher} onNavigate={navigateGuarded} />
     </div>
   );
 }

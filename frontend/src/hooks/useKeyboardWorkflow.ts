@@ -24,12 +24,13 @@
 // this hook's matcher and KeyboardShortcuts.tsx's reference panel both
 // read -- adding or removing an action is a one-place change there.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { dispatch, LAYER_KINDS, type LayerKind } from "../lib/playbackDispatch";
 import {
   HOTKEY_ACTIONS,
   getStoredHotkeys,
+  isHotkeyCaptureActive,
   normalizeHotkeyEvent,
   onHotkeysChanged,
   type HotkeyActionId,
@@ -83,6 +84,34 @@ export function useKeyboardWorkflow(options: UseKeyboardWorkflowOptions): void {
 
   useEffect(() => onHotkeysChanged(() => setBindings(getStoredHotkeys())), []);
 
+  // `layerEnabled` comes from a snapshot that only refreshes once a
+  // second, so two presses of the same layer key inside one poll interval
+  // would both read the same pre-toggle value and both dispatch the SAME
+  // target state -- the layer ends up off when the operator expects the
+  // second press to have put it back on. pendingLayers holds the value
+  // this hook last asked for, and the toggle is computed from that
+  // whenever it's still ahead of the snapshot.
+  const pendingLayersRef = useRef<{ scene: string | null; kinds: Partial<Record<LayerKind, boolean>> }>({
+    scene: activeSceneName,
+    kinds: {},
+  });
+
+  // Retire a pending value as soon as the snapshot agrees with it (the
+  // round trip landed), and drop the whole set on a scene change -- a
+  // pending toggle is only ever meaningful for the scene it was sent for.
+  useEffect(() => {
+    const pending = pendingLayersRef.current;
+    if (pending.scene !== activeSceneName) {
+      pendingLayersRef.current = { scene: activeSceneName, kinds: {} };
+      return;
+    }
+    for (const kind of Object.keys(pending.kinds) as LayerKind[]) {
+      if (layerEnabled[kind] === pending.kinds[kind]) {
+        delete pending.kinds[kind];
+      }
+    }
+  }, [layerEnabled, activeSceneName]);
+
   useEffect(() => {
     const keyToAction = new Map<string, HotkeyActionId>();
     for (const action of HOTKEY_ACTIONS) {
@@ -91,6 +120,26 @@ export function useKeyboardWorkflow(options: UseKeyboardWorkflowOptions): void {
 
     function onKeyDown(event: KeyboardEvent) {
       if (isTypingTarget(event.target)) {
+        return;
+      }
+
+      // Settings > Hotkeys is recording this keystroke as a new binding,
+      // so it must not also *fire* as one (lib/hotkeys.ts's own
+      // beginHotkeyCapture comment covers why DOM propagation control
+      // can't do this job here).
+      if (isHotkeyCaptureActive()) {
+        return;
+      }
+
+      // OS key auto-repeat fires ~30 keydowns/second while a key is held.
+      // Every action in this set is a discrete transport command, not a
+      // hold-to-ramp one -- without this guard, holding the tap-tempo key
+      // fills createTapTempoRecorder's buffer with keyboard-repeat
+      // intervals and TapTempo computes a BPM from the repeat rate. (The
+      // BPM nudges lose nothing either: they're computed off a snapshot
+      // that only refreshes once a second, so a held key re-sends the same
+      // target value rather than ramping.)
+      if (event.repeat) {
         return;
       }
 
@@ -124,7 +173,23 @@ export function useKeyboardWorkflow(options: UseKeyboardWorkflowOptions): void {
       if (layerKind) {
         if (activeSceneName) {
           event.preventDefault();
-          void dispatch.setLayerEnabled(activeSceneName, layerKind, !layerEnabled[layerKind]);
+          const pending = pendingLayersRef.current;
+          if (pending.scene !== activeSceneName) {
+            pendingLayersRef.current = { scene: activeSceneName, kinds: {} };
+          }
+          const current = pendingLayersRef.current.kinds[layerKind] ?? layerEnabled[layerKind];
+          const next = !current;
+          pendingLayersRef.current.kinds[layerKind] = next;
+          void (async () => {
+            const result = await dispatch.setLayerEnabled(activeSceneName, layerKind, next);
+            // A rejected toggle never lands, so the snapshot will never
+            // catch up to it -- drop the optimistic value immediately so
+            // the next press works off real state again.
+            const live = pendingLayersRef.current;
+            if ((!result || result.exitCode !== 0) && live.kinds[layerKind] === next) {
+              delete live.kinds[layerKind];
+            }
+          })();
         }
         return;
       }

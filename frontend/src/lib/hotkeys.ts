@@ -163,19 +163,71 @@ export function formatHotkeyLabel(key: string): string {
   return key.length === 1 ? key.toUpperCase() : key;
 }
 
+/** RESERVED_SHELL_KEYS are the bare keys useGlobalKeyboardWorkflow.ts
+ * hard-codes for itself ('?' toggles the help overlay, Escape closes it).
+ * They are not HOTKEY_ACTIONS entries, so the bindings-vs-bindings clash
+ * check below can't see them -- without this set a playback action bound
+ * to '?' would save cleanly and then double-fire against the overlay on
+ * every press. */
+const RESERVED_SHELL_KEYS = new Set(["?", "Escape"]);
+
 /** findHotkeyConflict reports why `key` cannot be bound to `id`: another
- * rebindable action already using it, or the fixed 1-9 scene-switch range.
- * Returns null when the key is free. */
+ * rebindable action already using it, the fixed 1-9 scene-switch range, or
+ * a key the shell reserves for the help overlay. Returns null when the key
+ * is free. */
 export function findHotkeyConflict(
   bindings: HotkeyBindings,
   id: HotkeyActionId,
   key: string,
-): HotkeyActionId | "scene-switch" | null {
+): HotkeyActionId | "scene-switch" | "shell-reserved" | null {
   if (/^[1-9]$/.test(key)) {
     return "scene-switch";
   }
+  if (RESERVED_SHELL_KEYS.has(key)) {
+    return "shell-reserved";
+  }
   const clash = HOTKEY_ACTIONS.find((action) => action.id !== id && bindings[action.id] === key);
   return clash ? clash.id : null;
+}
+
+// --- Rebind-capture suppression ---------------------------------------
+//
+// While Settings > Hotkeys is recording a new binding, the keystroke the
+// operator presses must be *recorded*, never *executed*. Both live
+// matchers (useKeyboardWorkflow.ts's bare-key one and
+// useGlobalKeyboardWorkflow.ts's chord one) listen on `window` in the
+// capture phase -- the same node and the same phase as the recording
+// listener itself -- so DOM propagation control can't reliably separate
+// them: stopPropagation() doesn't affect sibling listeners on the same
+// node at all, and even stopImmediatePropagation() only suppresses
+// listeners registered *after* the caller, while useKeyboardWorkflow's
+// effect re-registers on binding/snapshot changes and so can land on
+// either side of the recording listener. This module-scoped flag replaces
+// that ordering dependency with an explicit one: recording sets it, and
+// both matchers refuse to act while it is set.
+
+let hotkeyCaptureDepth = 0;
+
+/** beginHotkeyCapture marks a rebind capture as in progress and returns
+ * the matching release function (shaped for direct use as a useEffect
+ * cleanup). Counted rather than boolean so overlapping captures can't
+ * clear each other's suppression. */
+export function beginHotkeyCapture(): () => void {
+  hotkeyCaptureDepth += 1;
+  let released = false;
+  return () => {
+    if (released) {
+      return;
+    }
+    released = true;
+    hotkeyCaptureDepth = Math.max(0, hotkeyCaptureDepth - 1);
+  };
+}
+
+/** isHotkeyCaptureActive reports whether a rebind capture is currently
+ * recording -- the guard every live keyboard matcher checks first. */
+export function isHotkeyCaptureActive(): boolean {
+  return hotkeyCaptureDepth > 0;
 }
 
 const MODIFIER_KEY_NAMES = new Set(["Control", "Alt", "Shift", "Meta"]);

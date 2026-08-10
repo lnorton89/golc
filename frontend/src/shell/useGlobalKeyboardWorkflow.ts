@@ -21,13 +21,18 @@
 // lib/hotkeys.ts's normalizeHotkeyChord, the chord equivalent of
 // useKeyboardWorkflow.ts's own bare-key matcher. Every nav chord requires a
 // Ctrl/Alt modifier, so unlike '?' this safely bypasses the isTypingTarget
-// guard: no ordinary typing produces Ctrl+K or Alt+ArrowUp. Like the rail's
-// own click-to-navigate before the guide-navigation-guard pass, these
-// navigate directly, bypassing GuidedFirstShowContext's leave-the-guide
-// confirm prompt: this hook is instantiated above GuidedFirstShowProvider
-// in AppShell.tsx, so useGuidedFirstShow() isn't reachable from here
-// without relocating the call site.
-import { useEffect, useState } from "react";
+// guard: no ordinary typing produces Ctrl+K or Alt+ArrowUp.
+//
+// These used to navigate directly, bypassing GuidedFirstShowContext's
+// leave-the-guide confirm prompt -- the destination changed underneath the
+// still-open guide overlay with zero visible effect. This hook is still
+// instantiated above GuidedFirstShowProvider in AppShell.tsx, so
+// useGuidedFirstShow() genuinely isn't reachable from here; instead
+// `onNavigate` is now AppShell's `navigateGuarded`, which forwards to
+// GuardedCommandRail's own already-guarded select handler (see its doc
+// comment). Nothing about this hook's contract changed: it still just
+// calls the navigate function it was handed.
+import { useEffect, useMemo, useState } from "react";
 
 import { useKeyboardWorkflow } from "../hooks/useKeyboardWorkflow";
 import { usePlaybackSnapshot } from "./PlaybackSnapshotContext";
@@ -35,6 +40,7 @@ import { NAV_GROUPS, type DestinationId } from "./navigation";
 import {
   NAV_ACTIONS,
   getStoredNavHotkeys,
+  isHotkeyCaptureActive,
   normalizeHotkeyChord,
   onHotkeysChanged,
   type NavActionId,
@@ -107,11 +113,21 @@ export function useGlobalKeyboardWorkflow(options: UseGlobalKeyboardWorkflowOpti
 
   const activeScene = state?.scenes?.find((scene) => scene.active) ?? state?.scenes?.[0];
   const activeSceneName = activeScene?.name ?? null;
-  const layerEnabled: Record<string, boolean> = {};
-  for (const layer of activeScene?.layers ?? []) {
-    layerEnabled[layer.kind] = layer.enabled;
-  }
-  const sceneNames = state?.scenes?.map((scene) => scene.name) ?? [];
+  // Both of these feed useKeyboardWorkflow's effect dependency array, so a
+  // fresh object/array literal per render would tear down and re-add its
+  // window keydown listener on every render -- and this hook sits at shell
+  // level under a 1s snapshot poll, so that was happening at least once a
+  // second for the whole session. Query applies structural sharing to
+  // `state`, so an unchanged poll returns the *same* `scenes` reference
+  // and these memos genuinely hold across polls.
+  const layerEnabled = useMemo(() => {
+    const out: Record<string, boolean> = {};
+    for (const layer of activeScene?.layers ?? []) {
+      out[layer.kind] = layer.enabled;
+    }
+    return out;
+  }, [activeScene]);
+  const sceneNames = useMemo(() => state?.scenes?.map((scene) => scene.name) ?? [], [state?.scenes]);
   const bpm = state?.bpm ?? 0;
 
   useKeyboardWorkflow({ sceneNames, activeSceneName, layerEnabled, bpm });
@@ -119,6 +135,12 @@ export function useGlobalKeyboardWorkflow(options: UseGlobalKeyboardWorkflowOpti
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (isTypingTarget(event.target)) {
+        return;
+      }
+      // Held '?'/Escape must not machine-gun the overlay open and shut,
+      // and a keystroke Settings > Hotkeys is recording must not also
+      // fire. Same two guards useKeyboardWorkflow.ts applies.
+      if (event.repeat || isHotkeyCaptureActive()) {
         return;
       }
       if (event.key === "?") {
@@ -141,6 +163,9 @@ export function useGlobalKeyboardWorkflow(options: UseGlobalKeyboardWorkflowOpti
     }
 
     function onKeyDown(event: KeyboardEvent) {
+      if (event.repeat || isHotkeyCaptureActive()) {
+        return;
+      }
       const chord = normalizeHotkeyChord(event);
       if (!chord) {
         return;

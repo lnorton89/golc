@@ -24,7 +24,8 @@ what was found when.
 
 <!-- Findings appended below by the review agent. -->
 
-### Rebinding a hotkey in Settings also fires the action currently bound to the key you press
+### ~~Rebinding a hotkey in Settings also fires the action currently bound to the key you press~~
+**Fixed:** `lib/hotkeys.ts` gained `beginHotkeyCapture()`/`isHotkeyCaptureActive()`, a module-scoped suppression flag both live matchers check before acting. DOM propagation control could not do this job: `stopImmediatePropagation()` only suppresses listeners registered *after* the caller, and `useKeyboardWorkflow`'s effect re-registers on binding/snapshot changes, so it can sit on either side of the recording listener. `HotkeySettings` now raises the flag for the lifetime of a recording (and uses `stopImmediatePropagation` rather than `stopPropagation`, which is strictly more correct but not load-bearing).
 **Severity:** bug
 **File:** `frontend/src/components/HotkeySettings/HotkeySettings.tsx:69`
 **Confidence:** high
@@ -101,7 +102,8 @@ The threshold timer sets `setProgress(1)` and latches `timers.current.completed 
 
 `describeTermination` special-cases only `status === "failed"`; every other terminal status falls through the four `GOLC_SCRIPT_*` regexes to `Terminated: ${summary}`. But a **succeeded** run routinely carries a non-empty `Reason`: `internal/script/session.go:658` fills `outcome.Reason` from the captured stderr tail regardless of status. Repro: write a script that ends with `console.error("done")` and exits cleanly, click Run — the panel renders "Terminated: done" and the banner reads "Stopped: done" while the status chip simultaneously says "Succeeded".
 
-### Nav hotkeys navigate invisibly while the Guided First Show is open
+### ~~Nav hotkeys navigate invisibly while the Guided First Show is open~~
+**Fixed:** `GuardedCommandRail` now publishes its already-guarded select handler upward (`onGuardedNavigate`); `ShellBody` routes both the keyboard nav chords and the quick switcher through it instead of through the raw `setActiveDestination`. The hook stays above `GuidedFirstShowProvider` — only what it is handed as `onNavigate` changed. One guard, one `ConfirmDialog`, three entry points.
 **Severity:** bug
 **File:** `frontend/src/shell/useGlobalKeyboardWorkflow.ts:163`
 **Confidence:** high
@@ -143,7 +145,8 @@ When `status` becomes `"listening"` the component returns an entirely different 
 
 `handleLaunch` and `handleToggleLayer` (`:51`) both `await dispatch.switchScene(...)` / `dispatch.setLayerEnabled(...)` and discard the returned `WailsResult` entirely, and the component renders no error surface of any kind. Repro: enter operate mode with the daemon unreachable (or trigger a server-side `AuthorizeControl` rejection) and tap a scene pad — `refreshState()` runs, the UI doesn't change, and the operator gets zero indication that the launch failed. This is the surface handed to a player mid-show, so silent failure is the worst place for it.
 
-### The playback keyboard workflow's window listener is torn down and re-added on every render
+### ~~The playback keyboard workflow's window listener is torn down and re-added on every render~~
+**Fixed:** `layerEnabled`/`sceneNames` are `useMemo`'d on `activeScene`/`state?.scenes`. Query's structural sharing keeps those references stable across an unchanged poll, so the listener is armed once instead of once per second. Regression test asserts the `keydown` `addEventListener` count is unchanged across re-renders (verified failing before the fix).
 **Severity:** perf
 **File:** `frontend/src/shell/useGlobalKeyboardWorkflow.ts:110`
 **Confidence:** high
@@ -171,14 +174,16 @@ The persist effect is keyed on `[storageKey, size]`, and `size` is set from `han
 
 Every stage reports upward through `onStatusChange` (= `GuidedFirstShow.tsx:89`'s `setStatus`) from an async `refresh()` with no unmount/generation guard. Repro: open the Verify stage (which fires four parallel reads — the slowest stage by construction), then immediately click "Fixtures" in the stage rail. `GuidedFirstShow`'s reset effect (`:94`) sets the placeholder, FixturesStage reports its own status, and then Verify's late response lands and overwrites it — the footer primary button now reads "Perform" (and inherits Verify's blocker-derived `primaryDisabled`) while the Fixtures stage body is on screen. Same shape in every `stages/*.tsx`.
 
-### A playback hotkey can be bound to `?` or `Escape`, which then double-fires with the help overlay
+### ~~A playback hotkey can be bound to `?` or `Escape`, which then double-fires with the help overlay~~
+**Fixed:** `findHotkeyConflict` now returns a `"shell-reserved"` verdict for the two keys `useGlobalKeyboardWorkflow` hard-codes, and Settings renders it as its own inline message.
 **Severity:** edge-case
 **File:** `frontend/src/lib/hotkeys.ts:169`
 **Confidence:** high
 
 `findHotkeyConflict` rejects only digits `1-9` and other playback bindings. It knows nothing about the two hard-coded keys `useGlobalKeyboardWorkflow.ts:124` owns (`?` toggles the help overlay, `Escape` closes it). Repro: Settings > Hotkeys, bind "Evaluate/preview the active scene" to `?` — it saves with no conflict warning, and from then on pressing `?` both opens the help overlay and evaluates the scene. Binding to `Escape` is blocked by accident (the capture handler treats it as cancel), but `?` is not.
 
-### No `event.repeat` guard anywhere in the keyboard workflow — holding Space machine-guns tap tempo
+### ~~No `event.repeat` guard anywhere in the keyboard workflow — holding Space machine-guns tap tempo~~
+**Fixed:** Both `onKeyDown` handlers (playback and nav/help) return early on `event.repeat`. The BPM nudges lose nothing: they compute from a once-a-second snapshot, so a held key re-sent the same target value rather than ramping.
 **Severity:** edge-case
 **File:** `frontend/src/hooks/useKeyboardWorkflow.ts:92`
 **Confidence:** high

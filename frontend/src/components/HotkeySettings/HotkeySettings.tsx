@@ -27,6 +27,7 @@ import {
   HOTKEY_ACTIONS,
   NAV_ACTIONS,
   SCENE_SWITCH_SHORTCUT,
+  beginHotkeyCapture,
   findChordConflict,
   findHotkeyConflict,
   formatChordLabel,
@@ -49,6 +50,18 @@ const PLAYBACK_CATEGORIES = ["Layers", "Tempo", "Transport"];
 
 type Recording = { kind: "playback"; id: HotkeyActionId } | { kind: "nav"; id: NavActionId } | null;
 
+/** conflictMessage renders findHotkeyConflict's verdict as the inline
+ * message shown while recording stays open. */
+function conflictMessage(clash: NonNullable<ReturnType<typeof findHotkeyConflict>>): string {
+  if (clash === "scene-switch") {
+    return "That key is reserved for scene switching (1–9).";
+  }
+  if (clash === "shell-reserved") {
+    return "That key is reserved by the app (? opens keyboard help, Escape closes it).";
+  }
+  return `That key is already used by "${HOTKEY_ACTIONS.find((action) => action.id === clash)?.description}".`;
+}
+
 export default function HotkeySettings() {
   const bindings = useHotkeyBindings();
   const navBindings = useNavHotkeyBindings();
@@ -67,7 +80,15 @@ export default function HotkeySettings() {
       }
 
       event.preventDefault();
-      event.stopPropagation();
+      // stopImmediatePropagation, not stopPropagation: the live playback
+      // and navigation matchers listen on `window` in the capture phase
+      // too, and stopPropagation() has no effect on sibling listeners
+      // attached to the same node. This alone still isn't sufficient
+      // (it only suppresses listeners registered after this one, and
+      // useKeyboardWorkflow re-registers on every binding/snapshot
+      // change) -- the authoritative guard is the beginHotkeyCapture()
+      // flag below, which both matchers check regardless of order.
+      event.stopImmediatePropagation();
 
       if (event.key === "Escape") {
         setRecording(null);
@@ -84,11 +105,7 @@ export default function HotkeySettings() {
         const activeId = recording!.id as HotkeyActionId;
         const clash = findHotkeyConflict(bindings, activeId, key);
         if (clash) {
-          setConflict(
-            clash === "scene-switch"
-              ? "That key is reserved for scene switching (1–9)."
-              : `That key is already used by "${HOTKEY_ACTIONS.find((action) => action.id === clash)?.description}".`,
-          );
+          setConflict(conflictMessage(clash));
           return;
         }
         setHotkeyBinding(activeId, key);
@@ -114,8 +131,12 @@ export default function HotkeySettings() {
       setConflict(null);
     }
 
+    const releaseCapture = beginHotkeyCapture();
     window.addEventListener("keydown", onKeyDown, { capture: true });
-    return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, { capture: true });
+      releaseCapture();
+    };
   }, [recording, bindings, navBindings]);
 
   const hasCustomBindings =

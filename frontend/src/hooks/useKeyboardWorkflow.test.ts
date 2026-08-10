@@ -3,7 +3,7 @@ import { cleanup, fireEvent, renderHook } from "@testing-library/react";
 
 import { useKeyboardWorkflow } from "./useKeyboardWorkflow";
 import { dispatch } from "../lib/playbackDispatch";
-import { setHotkeyBinding } from "../lib/hotkeys";
+import { beginHotkeyCapture, setHotkeyBinding } from "../lib/hotkeys";
 
 vi.mock("../lib/playbackDispatch", async () => {
   const actual = await vi.importActual<typeof import("../lib/playbackDispatch")>("../lib/playbackDispatch");
@@ -111,6 +111,74 @@ describe("useKeyboardWorkflow", () => {
     expect(dispatch.setBPM).not.toHaveBeenCalled();
     expect(dispatch.setLayerEnabled).not.toHaveBeenCalled();
     expect(dispatch.evaluate).not.toHaveBeenCalled();
+  });
+
+  it("ignores auto-repeat keydowns so a held key can't machine-gun an action", () => {
+    renderHook(() => useKeyboardWorkflow(baseOptions));
+
+    fireEvent.keyDown(window, { code: "Space" });
+    for (let i = 0; i < 10; i += 1) {
+      fireEvent.keyDown(window, { code: "Space", repeat: true });
+    }
+
+    expect(dispatch.recordTap).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores every shortcut while Settings is capturing a rebind", () => {
+    renderHook(() => useKeyboardWorkflow(baseOptions));
+    const release = beginHotkeyCapture();
+
+    fireEvent.keyDown(window, { key: "w" });
+    fireEvent.keyDown(window, { key: "3" });
+    expect(dispatch.setLayerEnabled).not.toHaveBeenCalled();
+    expect(dispatch.switchScene).not.toHaveBeenCalled();
+
+    release();
+    fireEvent.keyDown(window, { key: "w" });
+    expect(dispatch.setLayerEnabled).toHaveBeenCalledTimes(1);
+  });
+
+  it("toggles a layer against its own pending value, not a snapshot that hasn't caught up yet", async () => {
+    vi.mocked(dispatch.setLayerEnabled).mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    // layerEnabled stays `base_look: true` for the whole test: the props
+    // are the 1s poll's snapshot, and both presses land inside one
+    // interval, so neither sees the other's result.
+    renderHook(() => useKeyboardWorkflow(baseOptions));
+
+    fireEvent.keyDown(window, { key: "q" });
+    fireEvent.keyDown(window, { key: "q" });
+
+    expect(dispatch.setLayerEnabled).toHaveBeenNthCalledWith(1, "Alpha", "base_look", false);
+    expect(dispatch.setLayerEnabled).toHaveBeenNthCalledWith(2, "Alpha", "base_look", true);
+  });
+
+  it("drops the pending layer value when the dispatch is rejected, so the next press reads real state", async () => {
+    vi.mocked(dispatch.setLayerEnabled).mockResolvedValue({ exitCode: 1, stdout: "", stderr: "denied" });
+    renderHook(() => useKeyboardWorkflow(baseOptions));
+
+    fireEvent.keyDown(window, { key: "q" });
+    await vi.waitFor(() => expect(dispatch.setLayerEnabled).toHaveBeenCalledTimes(1));
+
+    fireEvent.keyDown(window, { key: "q" });
+    // Snapshot still says enabled and the first attempt never landed, so
+    // the second press must ask for `false` again -- not flip to `true`.
+    expect(dispatch.setLayerEnabled).toHaveBeenNthCalledWith(2, "Alpha", "base_look", false);
+  });
+
+  it("clears pending layer values when the snapshot catches up", async () => {
+    vi.mocked(dispatch.setLayerEnabled).mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    const { rerender } = renderHook((props: typeof baseOptions) => useKeyboardWorkflow(props), {
+      initialProps: baseOptions,
+    });
+
+    fireEvent.keyDown(window, { key: "q" });
+    expect(dispatch.setLayerEnabled).toHaveBeenNthCalledWith(1, "Alpha", "base_look", false);
+
+    // The poll lands and now agrees with what we asked for.
+    rerender({ ...baseOptions, layerEnabled: { ...baseOptions.layerEnabled, base_look: false } });
+
+    fireEvent.keyDown(window, { key: "q" });
+    expect(dispatch.setLayerEnabled).toHaveBeenNthCalledWith(2, "Alpha", "base_look", true);
   });
 
   it("ignores every shortcut while the event target is a text-entry element", () => {
