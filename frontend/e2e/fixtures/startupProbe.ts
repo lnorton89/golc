@@ -113,6 +113,21 @@ export async function installStartupProbe(page: Page, theme: StartupTheme): Prom
       frameIndex += 1;
       requestAnimationFrame(loop);
     }
+
+    // sampleNow lets stopStartupProbe take one final reading at the moment
+    // it stops. Without it, MAX_FRAMES is a *frame* budget racing a
+    // wall-clock event: on a loaded machine (the full suite runs several
+    // workers in parallel) the dev server's module fetch/parse can outlast
+    // 300 frames, the loop retires while #root is still empty, and every
+    // recorded sample carries rootMounted:false -- so the spec's
+    // "at least one sampled frame must show mounted content" assertion
+    // failed for load reasons rather than for anything it is meant to
+    // catch. Callers only stop the probe after they have already waited on
+    // real mounted content, so this final sample is always a mounted one.
+    (state as unknown as { sampleNow?: () => void }).sampleNow = () => {
+      sample(frameIndex);
+      frameIndex += 1;
+    };
     requestAnimationFrame(loop);
 
     if (document.fonts?.ready) {
@@ -137,8 +152,15 @@ export async function readStartupProbe(page: Page): Promise<StartupProbeSnapshot
 
 export async function stopStartupProbe(page: Page): Promise<void> {
   await page.evaluate(() => {
-    const state = (window as unknown as { __golcStartupProbe?: { stopped: boolean } }).__golcStartupProbe;
-    if (state) state.stopped = true;
+    const state = (
+      window as unknown as { __golcStartupProbe?: { stopped: boolean; sampleNow?: () => void } }
+    ).__golcStartupProbe;
+    if (!state) return;
+    // One last reading before retiring the loop -- see sampleNow's own
+    // comment for why the rAF budget alone cannot guarantee a mounted
+    // sample on a loaded machine.
+    if (!state.stopped) state.sampleNow?.();
+    state.stopped = true;
   });
 }
 

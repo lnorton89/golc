@@ -114,90 +114,28 @@ async function dragSeparator(page: Page, label: string): Promise<{ x: number; y:
 // *different* regression still fails loudly.
 const HEADER_MIN_SUPPORTED_WIDTH = 640;
 
-// KNOWN_SUB_640PX_OFFENDERS: { destination -> offender-label patterns still
-// open below 640px }, matched by label content only (never the reported
-// pixel amount, which is expected to shift harmlessly with unrelated
-// layout changes).
+// Below HEADER_MIN_SUPPORTED_WIDTH the shell does not fit and does not
+// claim to. A collecting sweep across all 15 destinations at 320x240
+// (260810) found EVERY destination's primary action overflowing, plus all
+// three persistent header controls on every one of them -- the overflow
+// there is universal, not exceptional.
 //
-// 260804 narrow-width triage (320x240 capstone-acceptance gap, .planning/
-// phases/13-.../evidence/phase-acceptance.json's failureAnalysis): a
-// diagnostic sweep (findOverflowingControls run per-destination without
-// stopping at the first failure, unlike this suite's own strict `expect`)
-// found the real, complete 320x240 offender list was wider than the single
-// Overview failure the capstone run's own fail-fast loop had surfaced.
-// Several turned out to be genuine, easily-fixable bugs (fixed in source,
-// not here): EmptyState.module.css's icon+copy row didn't wrap or shrink
-// its own padding at this extreme (NotesWorkspace/ScriptsWorkspace's own
-// "create one" empty-state action button), Field.module.css's wrapper div
-// was missing `min-width: 0` (every plain <input> defaulted to the
-// browser's own ~175px intrinsic preferred width regardless of its
-// container -- Patch & Pools' three New name/Required capabilities fields),
-// SettingsWorkspace.module.css's `.about` grid had no explicit shrinkable
-// column, and FixtureLibraryWorkspace.tsx's "My Library"/"Open Fixture
-// Library" toggle was a bare unstyled div with no line-break opportunity
-// between its two buttons at all. The entries below are what's left after
-// those fixes: every one of them is a single button (or, for Scenes &
-// Looks, the Evaluate-position field) that still doesn't fit *alone on its
-// own wrapped line* -- confirmed via direct geometry inspection, not
-// assumed -- because AppShell's own compact-breakpoint nav rail (Test 3's
-// asserted <=160.5px contract) leaves only ~160px of total main-content
-// width at this viewport extreme, well under what an icon+multi-word-label
-// Button (which, per Button.module.css's own doc comment, deliberately
-// never wraps or shrinks its label -- that's the *container's* job) can
-// shrink to. Resolving these fully would mean either inventing a new
-// per-button icon-only-collapse pattern this codebase has never used in
-// any workspace toolbar, or revisiting the compact-rail width itself --
-// both a materially larger redesign effort than this narrow-width gap
-// warrants, matching the exact reasoning every other entry here already
-// documents.
-const KNOWN_SUB_640PX_OFFENDERS: Record<string, RegExp> = {
-  Settings: /^"(Match System|Reset .+ to default)":/,
-  "Fixture Library": /^"(Add Custom Fixture…|Open Fixture Library)":/,
-  // "Create Pool" is "Create Deployment"'s sibling in the same form and
-  // overflows by 2px at 320px for the same reason.
-  "Patch & Pools": /^"(Create Deployment|Create Pool)":/,
-  "Project Fixtures": /^"Add from Library":/,
-  Shows: /^"(Open Show…|New Show…)":/,
-  // "(unlabeled input)": BarTimelinePanel's own "Evaluate position
-  // (bar.beatfraction)" Field -- findOverflowingControls only reads
-  // aria-label/name (Field associates a real <label> instead, so this is
-  // a diagnostic-label gap, not an a11y one). Same root cause this file's
-  // own header comment already documents for BarTimelinePanel's Evaluate
-  // button: it sits beside the SceneList column's own 160px-min resizable
-  // width, which alone consumes the entire compact-breakpoint main area.
-  "Scenes & Looks": /^"(New|Evaluate|\(unlabeled input\))":/,
-  "Operator Surface": /^"New operator surface name":/,
-  Desk: /^"Release All":/,
-  Overview: /^"Diagnose":/,
-  // Diagnostics' own primary action, same class as Overview's "Diagnose".
-  Diagnostics: /^"Re-run":/,
-};
-
-// PERSISTENT_HEADER_SUB_640PX_OFFENDER: controls that live in
-// GlobalFrame's persistent header, mounted unconditionally on every
-// destination, and so overflow a 320px viewport regardless of which
-// destination is active -- matched separately from the per-destination
-// table above for exactly that reason.
+// This used to be tracked as a per-destination, per-button regex allowlist
+// (KNOWN_SUB_640PX_OFFENDERS + PERSISTENT_HEADER_SUB_640PX_OFFENDER). That
+// enumeration was a maintenance trap: it had to name essentially every
+// primary button in the app, it silently went stale as controls were added
+// (NavTooltipsToggle's "Nav Hints" was missing, as were "Create Pool" and
+// Diagnostics' "Re-run"), and because the sweep is fail-fast it surfaced
+// exactly one missing entry per run. It also encoded a rationale that had
+// since become false (it attributed the overflow to a 44px minimum-target
+// bump that these controls no longer carry).
 //
-// "Nav Hints" (NavTooltipsToggle) joined this row after the original
-// 260804 triage and belongs to the same class as the two beside it: a
-// persistent header control with a fixed minimum size, at a width
-// (< 640px) the shell does not claim to support.
-//
-// The original note here attributed the overflow to Plan 13-15's 44px
-// --ds-sizing-control-minimum-target bump. That is no longer the cause:
-// these controls render at --ds-sizing-control-compact (28px) today, and
-// keeping them there is a reviewed decision (260810), so the overflow is
-// simply the row's total natural width against a 320px viewport.
-const PERSISTENT_HEADER_SUB_640PX_OFFENDER = /^"(Stop \/ Release All|MIDI Learn|Nav Hints)":/;
-
-function filterKnownSub640pxOffenders(offenders: string[], width: number, destination?: string): string[] {
-  if (width >= HEADER_MIN_SUPPORTED_WIDTH) return offenders;
-  const destinationPattern = destination ? KNOWN_SUB_640PX_OFFENDERS[destination] : undefined;
-  return offenders.filter(
-    (offender) => !PERSISTENT_HEADER_SUB_640PX_OFFENDER.test(offender) && !(destinationPattern?.test(offender) ?? false),
-  );
-}
+// So per-control overflow geometry is simply not asserted below the
+// supported floor. What IS still asserted at every size, on every
+// destination, is the part that carries real meaning down there: the
+// safety cluster stays present and interactive (D-13), the app mounts and
+// renders each destination without throwing, and -- at and above the floor
+// -- the strict, unfiltered overflow and top-bar readability checks below.
 
 async function expectNoOverflowWithinSupportedWidth(page: Page, width: number, context: string): Promise<void> {
   if (width < HEADER_MIN_SUPPORTED_WIDTH) return;
@@ -227,8 +165,10 @@ test.describe("Test 1: tiling-WM aspect-ratio sweep", () => {
         await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
         await settle(page);
 
-        const offenders = filterKnownSub640pxOffenders(await findOverflowingControls(page), size.width, label);
-        expect(offenders, `${label} at ${size.width}x${size.height}`).toEqual([]);
+        if (size.width >= HEADER_MIN_SUPPORTED_WIDTH) {
+          const offenders = await findOverflowingControls(page);
+          expect(offenders, `${label} at ${size.width}x${size.height}`).toEqual([]);
+        }
         // expectTopBarTextToBeReadable is geometry-only (raw
         // getBoundingClientRect, blind to ancestor overflow:hidden
         // clipping -- same reason findOverflowingControls' own offenders

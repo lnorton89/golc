@@ -344,3 +344,68 @@ coexist; what no longer differs between them is guard coverage.
 **Confidence:** high
 
 Three coexisting patterns: TanStack Query (`FixtureLibraryWorkspace`, `usePlaybackStateSnapshot`, `Desk.tsx:986`), hand-rolled `useCallback` + `useEffect` + `loading`/`error` `useState` (most workspaces — `SaveRecoveryWorkspace`, `ShowsWorkspace`, `DiagnosticsWorkspace`, `OperatorSurface`, `NotesWorkspace`, the guide stages), and a couple of ad-hoc `void fn().then(setState)` calls. Noting once, not per file: the practical cost is that the unguarded hand-rolled ones are where every "slow response overwrites newer state" finding in this pass lives (`OperatorSurface.tsx:140`, `MidiPanel.tsx:149`, `FixturePatch.tsx:388`) — Query's `queryKey` would have given those a generation guard for free.
+
+---
+
+## 2026-08-10 — Playwright e2e repair pass
+
+Found while repairing the e2e suite (45 failed / 89 passed → 134 passed).
+All three are regressions from `6fd8e62e` ("land Phase 13 design-system
+token and primitive migration WIP"), i.e. the Base UI adoption — none were
+introduced by the Opus review-pass fixes above. Recorded here even though
+they are already fixed, per this file's own "honest record of what was
+found when" contract.
+
+### ~~Every dialog button in the app was unclickable by pointer~~
+**Severity:** bug
+**File:** `frontend/src/components/primitives/Dialog/Dialog.module.css:1`
+**Confidence:** high (reproduced by hit-test)
+
+`.backdrop` was `position: fixed; z-index: 80` while `.dialog` (the Base UI
+Popup) was `position: static; z-index: auto`. Backdrop and Popup are
+**siblings** inside `BaseDialog.Portal`, so the scrim painted over the
+dialog. `document.elementFromPoint()` at a dialog button's centre returned
+`DIV._backdrop_...`, not the button. Every dialog button — including all
+eight destructive `ConfirmDialog`s — was visible, focusable and
+keyboard-operable but silently swallowed mouse clicks. Keyboard operability
+is why it survived review; jsdom does no hit-testing, so no unit test could
+see it either.
+
+**Fixed:** the popup owns its own fixed centring (Base UI's documented
+shape) and shares the backdrop's stacking layer while sitting later in DOM
+order. Nesting the popup inside the backdrop is NOT viable — Base UI marks
+the backdrop `aria-hidden` and `inert`, which would make the dialog inert.
+
+### ~~Dialogs never centred~~
+**Severity:** bug
+**File:** `frontend/src/components/primitives/Dialog/Dialog.module.css:1`
+**Confidence:** high
+
+Same root cause. `.backdrop` carried `display: grid; place-items: center`
+and a padding — styling that only makes sense for a backdrop that
+*contains* the dialog, which was this component's pre-migration shape. As
+siblings that centring applied to nothing, and the popup landed wherever
+normal flow put it (measured at y=679 in a 720px-tall viewport). **Fixed**
+with the same change; the committed screenshot baselines had captured the
+correctly-centred pre-migration rendering all along.
+
+### ~~LiveStatusBar clipped its labels at 640px, a supported width~~
+**Severity:** bug
+**File:** `frontend/src/components/LiveStatusBar/LiveStatusBar.module.css:34`
+**Confidence:** high
+
+At 640px (`HEADER_MIN_SUPPORTED_WIDTH`) the metric labels clipped to
+`SCEN` / `LAYER` / `BAR` and the two status chips were sliced by the
+viewport edge. These are single short words, so truncation destroys the
+meaning rather than abbreviating it — an ellipsis variant was rendered for
+comparison and was worse (`SC…` / `..LAY…` / `..B…`). **Fixed** by hiding
+the two lower-priority status chips below 700px so Scene/Layers/Bar always
+render in full (reviewed decision, 260810). The states the chips carry stay
+visible: SafetyCluster's own buttons flip to "Release Blackout" /
+"Restore Automation" whenever output/source leave their normal values.
+
+Gotcha worth remembering: the first attempt put `display: none` in the
+existing `@media (max-width: 700px)` block near the top of the file and
+silently did nothing — `.statusChip { display: inline-flex }` is declared
+later at equal specificity, and **a media query adds no specificity**, so
+source order decided it. Only measuring the computed style caught that.
