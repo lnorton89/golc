@@ -323,3 +323,42 @@ export async function expectSafetyClusterAvailable(page: Page): Promise<void> {
     await expect(controls.nth(index)).toBeEnabled();
   }
 }
+
+// chooseOption drives the design system's Select and Combobox primitives,
+// both of which are Base UI-backed and expose `role="combobox"` on their
+// trigger -- a <button> for Select, an <input> for Combobox -- with their
+// options portalled out as `role="option"` elements.
+//
+// This exists because Playwright's `selectOption()` only works on a native
+// <select>, which is what these controls used to be before the design-system
+// migration. Specs that still called selectOption() failed two different
+// ways depending on which primitive they hit: "Element is not a <select>
+// element" for the Combobox, and a 30s timeout for the Select (whose
+// accessible name also changed with the migration). Driving the real
+// controls the way an operator does -- open, then pick -- keeps every future
+// spec off that rake, and matches the equivalent helper the Vitest suites
+// already share (see FixturePatch.test.tsx's chooseComboboxOption).
+//
+// `optionLabel` is the option's VISIBLE text, not the underlying value: the
+// old native-<select> calls passed values ("par-rgbw"), while the rendered
+// option reads "Acme PAR RGBW".
+export async function chooseOption(page: Page, triggerName: string, optionLabel: string): Promise<void> {
+  await page.getByRole("combobox", { name: triggerName, exact: true }).click();
+  await page.getByRole("option", { name: optionLabel, exact: true }).click();
+}
+
+// expectChosenOption asserts a Select/Combobox is currently showing
+// `optionLabel`. Deliberately not toHaveValue(): a Base UI Select's trigger
+// is a <button>, which has no value property at all, so the old
+// toHaveValue() assertions silently only ever made sense for the native
+// <select> these replaced. The Combobox's <input> does carry a value, so
+// both shapes are handled here rather than at each call site.
+export async function expectChosenOption(page: Page, triggerName: string, optionLabel: string): Promise<void> {
+  const trigger = page.getByRole("combobox", { name: triggerName, exact: true });
+  const tag = await trigger.evaluate((node) => node.tagName);
+  if (tag === "INPUT") {
+    await expect(trigger).toHaveValue(optionLabel);
+  } else {
+    await expect(trigger).toHaveText(optionLabel);
+  }
+}

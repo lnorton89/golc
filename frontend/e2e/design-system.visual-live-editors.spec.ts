@@ -34,13 +34,7 @@
 // the persistent shell exactly like every other single-row surface.
 import { test, expect, type Page } from "@playwright/test";
 
-import {
-  assertNoRuntimeIssues,
-  expectSafetyClusterAvailable,
-  findOverflowingControls,
-  installHealthyBindings,
-  waitForFonts,
-} from "./helpers";
+import { assertNoRuntimeIssues, chooseOption, expectSafetyClusterAvailable, findOverflowingControls, installHealthyBindings, waitForFonts } from "./helpers";
 import { installCalibrationBindings } from "./fixtures/designSystem";
 
 type Theme = "light" | "dark";
@@ -310,8 +304,10 @@ test.describe("MIDI Mapping", () => {
         await page.getByRole("button", { name: "MIDI Mapping", exact: true }).click();
         await expect(page.getByRole("heading", { name: "MIDI Mapping", exact: true })).toBeVisible();
 
-        const surfaceSelect = page.getByLabel("Select operator surface for MIDI mappings");
-        await surfaceSelect.selectOption("Booth");
+        // The picker is the Base UI Select primitive; its accessible name is
+        // its visible field label ("Operator surface"), not the longer
+        // hand-written aria-label the pre-migration native <select> carried.
+        await chooseOption(page, "Operator surface", "Booth");
         await expect(page.getByText("Warm Wash scene").first()).toBeVisible();
 
         // conflict/error state: Learn a second assigned control against a

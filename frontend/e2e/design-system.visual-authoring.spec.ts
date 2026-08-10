@@ -20,13 +20,7 @@
 // second pattern.
 import { test, expect, type Page } from "@playwright/test";
 
-import {
-  assertNoRuntimeIssues,
-  expectSafetyClusterAvailable,
-  findOverflowingControls,
-  installHealthyBindings,
-  waitForFonts,
-} from "./helpers";
+import { assertNoRuntimeIssues, chooseOption, expectChosenOption, expectSafetyClusterAvailable, findOverflowingControls, installHealthyBindings, waitForFonts } from "./helpers";
 import type {
   FixtureLibraryView,
   PatchView,
@@ -401,13 +395,17 @@ test.describe("Fixture Library / Patch & Pools", () => {
 
         // Drive the inline "review impact before apply" inspect flow.
         await page.getByRole("button", { name: "Add Fixture" }).click();
-        await page.getByLabel("Fixture", { exact: true }).selectOption("par-rgbw");
-        await page.getByLabel("Fixture mode").selectOption("RGBW");
+        // Fixture is a Combobox and Fixture mode is a Select (both Base
+        // UI-backed since the design-system migration) -- driven through the
+        // shared helper rather than selectOption(), which only ever worked on
+        // the native <select> these replaced.
+        await chooseOption(page, "Fixture", "Chauvet COLORado 1 Quad Zoom");
+        await chooseOption(page, "Fixture mode", "RGBW");
 
         // selection identity: the exact fixture/mode chosen is reflected
         // back by the form before the review is requested.
-        await expect(page.getByLabel("Fixture", { exact: true })).toHaveValue("par-rgbw");
-        await expect(page.getByLabel("Fixture mode")).toHaveValue("RGBW");
+        await expectChosenOption(page, "Fixture", "Chauvet COLORado 1 Quad Zoom");
+        await expectChosenOption(page, "Fixture mode", "RGBW");
 
         const reviewButton = page.getByRole("button", { name: "Review Impact" });
         await expect(reviewButton).toBeEnabled();

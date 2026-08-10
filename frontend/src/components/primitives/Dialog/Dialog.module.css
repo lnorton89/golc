@@ -1,18 +1,37 @@
+/* Backdrop and popup are SIBLINGS inside Base UI's Portal, not parent and
+   child. This rule used to carry `display: grid; place-items: center` and a
+   padding, which only makes sense for a backdrop that *contains* the
+   dialog -- the shape this component had before the Base UI migration. As
+   siblings, that centering applied to nothing, and a `position: fixed`
+   z-indexed backdrop against a `position: static` popup painted the scrim
+   OVER the dialog: document.elementFromPoint at any dialog button returned
+   the backdrop, so every button was visible, focusable and keyboard-
+   operable but silently unclickable by pointer. The popup also never
+   centered, landing wherever normal flow put it.
+
+   Nesting the popup inside the backdrop is not the fix -- Base UI marks the
+   backdrop aria-hidden and inert, which would make the dialog itself inert.
+   The popup owns its own fixed centering instead, which is Base UI's own
+   documented shape. */
 .backdrop {
   position: fixed;
   z-index: var(--ds-stacking-modal);
   inset: 0;
-  display: grid;
-  place-items: center;
-  padding: var(--ds-spacing-space4);
   background: var(--ds-surface-scrim);
 }
 
 .dialog {
+  /* Same stacking layer as the backdrop, and later in DOM order, so it
+     paints above it -- the popup must never be behind its own scrim. */
+  position: fixed;
+  z-index: var(--ds-stacking-modal);
+  top: 50%;
+  left: 50%;
   width: min(32rem, calc(100vw - var(--ds-spacing-space8)));
   max-height: calc(100vh - var(--ds-spacing-space8));
   padding: 0;
   overflow: auto;
+  transform: translate(-50%, -50%);
   border-width: 1px;
   border-style: solid;
   border-color: var(--ds-border-default);

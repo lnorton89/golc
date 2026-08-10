@@ -278,7 +278,11 @@ async function gotoDialog(page: Page, theme: Theme, noteTitle: string): Promise<
 
 async function assertDialogCategory(page: Page, pair: CopyPair, width: number, theme: Theme): Promise<void> {
   const dialog = page.getByRole("alertdialog", { name: "Delete Note" });
-  const selector = 'div[role="alertdialog"] div[class*="description"]';
+  // Base UI's Dialog.Description renders a <p> (semantically a paragraph,
+  // which is also what this assertion's own message calls it) and wires it
+  // to the popup's aria-describedby. The old `div` selector predates the
+  // primitive and matched nothing.
+  const selector = 'div[role="alertdialog"] p[class*="description"]';
   const info = await measureTextWrap(page, selector);
   expect(info, "the confirm dialog's own message paragraph must render").not.toBeNull();
 
