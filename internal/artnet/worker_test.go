@@ -24,6 +24,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/google/uuid"
@@ -433,23 +434,43 @@ func TestWorkerSequenceAdvancesPerUniverseNeverZero(t *testing.T) {
 // TestWorkerStopEndsGoroutine proves (e): ctx cancel (via Stop) ends the
 // tick goroutine cleanly -- no further CurrentFrame reads occur once Stop
 // returns.
+//
+// This case runs in a testing/synctest bubble (stable in Go 1.26, this
+// repo's pinned toolchain). It is bubble-safe precisely because its
+// Targets map is empty: Start dials no UDP sender at all, so the only
+// things in the bubble are the tick goroutine, its ticker, and a fake
+// frame source. Every other test in this file binds a real loopback
+// listener and must therefore stay on the real clock.
+//
+// The fake clock also upgrades the assertion: the tick count after N
+// virtual tick periods is exactly N, so "the goroutine stopped" is now
+// proven by an exact equality rather than by "no more calls appeared
+// during a 125ms wall-clock window."
 func TestWorkerStopEndsGoroutine(t *testing.T) {
-	frames := &fakeFrameSource{frame: &playback.Frame{}}
+	synctest.Test(t, func(t *testing.T) {
+		frames := &fakeFrameSource{frame: &playback.Frame{}}
 
-	w := NewWorker(WorkerConfig{
-		Frames:  frames,
-		Targets: map[int][]Target{},
+		w := NewWorker(WorkerConfig{
+			Frames:  frames,
+			Targets: map[int][]Target{},
+		})
+
+		ctx := context.Background()
+		w.Start(ctx)
+
+		time.Sleep(3 * workerTickInterval)
+		synctest.Wait()
+		require.EqualValues(t, 3, frames.calls.Load(), "expected exactly one CurrentFrame read per tick")
+
+		// Stop joins the tick goroutine (<-w.done) before returning, so
+		// the count is already final here.
+		w.Stop()
+
+		callsAtStop := frames.calls.Load()
+		time.Sleep(5 * workerTickInterval)
+		synctest.Wait()
+		callsAfterWait := frames.calls.Load()
+
+		require.Equalf(t, callsAtStop, callsAfterWait, "expected no further CurrentFrame reads after Stop, got %d more", callsAfterWait-callsAtStop)
 	})
-
-	ctx := context.Background()
-	w.Start(ctx)
-
-	time.Sleep(3 * workerTickInterval)
-	w.Stop()
-
-	callsAtStop := frames.calls.Load()
-	time.Sleep(5 * workerTickInterval)
-	callsAfterWait := frames.calls.Load()
-
-	require.Equalf(t, callsAtStop, callsAfterWait, "expected no further CurrentFrame reads after Stop, got %d more", callsAfterWait-callsAtStop)
 }

@@ -21,14 +21,23 @@
 // white-box test: it reads/overrides Engine's unexported loopStart/lastBar
 // fields and calls the unexported tick method directly so every case is
 // deterministic and driven by synthetic timestamps, never real wall-clock
-// sleeps (except the Start/Stop lifecycle smoke test, which only checks
-// clean shutdown, never an exact tick count).
+// sleeps.
+//
+// The two lifecycle tests that must drive the real ticker goroutine
+// instead of calling tick directly are split deliberately:
+// TestEngineStartStopCleanShutdown runs in a testing/synctest bubble
+// (stable in Go 1.26, this repo's pinned toolchain) so its ticks come
+// from a fake clock and cost no wall-clock time, while
+// TestEngineCurrentFrameNonBlockingUnderConcurrentTick deliberately does
+// NOT -- see its own comment for why a busy-spin reader is the one shape
+// synctest cannot model.
 package playback
 
 import (
 	"context"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/google/uuid"
@@ -191,22 +200,46 @@ func TestEngineDelayedTickMatchesSequentialTicks(t *testing.T) {
 	require.InDelta(t, seqIntensity, delayedIntensity, 1e-9, "delayed single tick should match sequential ticking")
 }
 
+// TestEngineStartStopCleanShutdown drives the real ticker goroutine
+// Start installs, then proves Stop shuts it down cleanly. It runs in a
+// synctest bubble: the engine goroutine parks on ticker.C (durably
+// blocked) and the test goroutine parks in time.Sleep, so the fake clock
+// advances exactly three tick periods at zero wall-clock cost. The
+// synctest.Wait() after Stop is what makes "shut down cleanly"
+// observable rather than assumed -- it returns only once the ticker
+// goroutine has actually observed ctx.Done() and exited, and the bubble
+// itself would fail the test if that goroutine ever leaked.
 func TestEngineStartStopCleanShutdown(t *testing.T) {
-	state, _, _ := newEngineTestState(t)
+	synctest.Test(t, func(t *testing.T) {
+		state, _, _ := newEngineTestState(t)
 
-	e, err := NewEngine(state)
-	require.NoError(t, err, "NewEngine")
+		e, err := NewEngine(state)
+		require.NoError(t, err, "NewEngine")
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	e.Start(ctx)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		e.Start(ctx)
 
-	time.Sleep(3 * tickInterval)
-	e.Stop()
+		time.Sleep(3 * tickInterval)
+		synctest.Wait()
+		require.NotNil(t, e.CurrentFrame(), "expected a non-nil CurrentFrame while running")
 
-	require.NotNil(t, e.CurrentFrame(), "expected a non-nil CurrentFrame after Start/Stop")
+		e.Stop()
+		synctest.Wait()
+
+		require.NotNil(t, e.CurrentFrame(), "expected a non-nil CurrentFrame after Start/Stop")
+	})
 }
 
+// TestEngineCurrentFrameNonBlockingUnderConcurrentTick is deliberately
+// NOT wrapped in synctest.Test, and must not be. Its eight reader
+// goroutines spin on `default: _ = e.CurrentFrame()`, which never
+// durably blocks -- and a synctest bubble's clock advances only once
+// every goroutine in it is durably blocked, so the fake clock would
+// never move and the bubble would hang instead of running the test.
+// That is exactly the property this test exists to prove (the lock-free
+// atomic.Pointer read never blocks), so it keeps the real clock and a
+// real time.Sleep. The sleep is 5 tick periods at tickHz -- ~125ms.
 func TestEngineCurrentFrameNonBlockingUnderConcurrentTick(t *testing.T) {
 	state, _, _ := newEngineTestState(t)
 
