@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0-shipped
 milestone_name: milestone
 status: phase_not_planned
-stopped_at: "Session crash during Phase 13's post-signoff human visual-verification pass; resumed, recovered and committed uncommitted NavTooltipsToggle work (917bd578). Phase 13 itself is machine-signed-off (13-39: nyquist_compliant true, wave_0_complete true, Approval GRANTED, 41/41 plans) and independently goal-backward-verified (13-VERIFICATION.md: 8/8 must-haves, 14/14 DSYS requirements) with one item routed to human review (visual sanity pass); that pass found and fixed real issues (window-chrome, InfoTooltip, theme-switching) in commits since. The previous stopped_at ('planning checker: revision cap reached with 3 file-ownership blockers') was stale -- it described a pre-execution planning blocker from 2026-08-02T23:26, already resolved by 13-PATTERNS.md's parallel-execution file-ownership table before this file was last touched."
-last_updated: "2026-08-05T00:00:00.000Z"
-last_activity: 2026-08-05
-last_activity_desc: crashed-session recovery (NavTooltipsToggle commit) plus REQUIREMENTS.md DSYS-01..14 checkbox reconciliation
+stopped_at: "Phase 09 is NOT awaiting planning -- despite `status: phase_not_planned` above, all 7 of its plans are executed and 09-VERIFICATION.md is `status: human_needed` with 3/3 must-haves verified and 0 behaviors unverified. The only thing blocking `complete: true` is the human-only checklist in 09-UAT.md, every item still `result: [pending]`: each one needs the live Wails desktop shell (supervised self-relaunch into another show, the Guided First Show walkthrough on a real empty show, CLI-import-then-see-it-on-screen). The `status` field is left untouched only because no valid alternative value exists anywhere in this repo -- treat this note, not that field, as authoritative. || 2026-08-10 progress correction: total_phases was 10 and completed_phases 9; ROADMAP.md actually lists 12 phases (10 Provider-Neutral AI, 11 Windows Release Qualification, 12 Telemetry are all unplanned) with 8 complete. completed_plans was 107 (phases 1-9) and did not count Phase 13's own 41/41 signed-off plans, which total_plans already included."
+last_updated: "2026-08-10T00:00:00.000Z"
+last_activity: 2026-08-10
+last_activity_desc: "frontend known-issues fix pass (38 of 39 findings, 1 verified as a non-issue) plus a full Playwright e2e repair (45 failed / 89 passed → 134 passed), which uncovered and fixed three Base UI migration regressions: every dialog button unclickable by pointer, dialogs never centring, and LiveStatusBar clipping its labels at 640px."
 progress:
-  total_phases: 10
-  completed_phases: 9
+  total_phases: 12
+  completed_phases: 8
   total_plans: 148
-  completed_plans: 107
+  completed_plans: 148
 current_phase: 09
 current_phase_name: front-door-ui-completion
 ---
@@ -29,8 +29,8 @@ See: .planning/PROJECT.md (updated 2026-07-27)
 
 Milestone v1.0: COMPLETE (Phases 1-8, 99/99 plans, shipped 2026-07-27)
 Phase 13 (Unified UI Design System and Automated Enforcement) — inserted out-of-sequence ahead of Phases 9-12, executed 2026-08-02 through 2026-08-04: all 41 plans complete, machine-signed-off (13-39, Approval: GRANTED), independently goal-backward-verified (13-VERIFICATION.md, 2026-08-04: 8/8 must-haves, 14/14 DSYS requirements). One item was routed to human review (a visual sanity pass of the running app, since no automated tool can certify "does this look right") — that pass is in progress and has already produced real fixes (window-chrome, InfoTooltip double-border/cutoff/double-tooltip, theme-switching regression, nav-tooltip suppression), the latest recovered and committed 2026-08-05 after a session crash.
-Next: Phase 9 (Front-Door UI Completion) — inserted 2026-07-27. All 7 plans have SUMMARY.md files and 09-VERIFICATION.md exists (2026-07-28, status: human_needed), but 09-UAT.md is still `status: testing` and ROADMAP.md's Phase 9 checkbox is unchecked with no completed_date — Phase 9's actual completion state needs to be resolved (finish the UAT pass, or confirm it already happened and reconcile ROADMAP.md/UAT.md) before treating it as "not yet planned."
-Last activity: 2026-08-05 — crashed-session recovery (NavTooltipsToggle commit) plus REQUIREMENTS.md DSYS-01..14 checkbox reconciliation
+Next: Phase 9 (Front-Door UI Completion) — inserted 2026-07-27. RESOLVED 2026-08-10: the open question this line previously raised is answered. All 7 plans are executed with SUMMARY.md files, and 09-VERIFICATION.md (2026-07-28) reports status: human_needed, 3/3 must-haves verified, 0 behaviors unverified — the machine side is done. What is genuinely outstanding is 09-UAT.md, whose every item is still `result: [pending]`, and each one requires the live Wails desktop shell: the supervised self-relaunch into another show, the Guided First Show walkthrough end-to-end on a real empty show, and CLI-import-then-confirm-on-screen. None of it is automatable from an agent session. So Phase 9 is NOT "not yet planned" — it is fully built and awaiting a human UAT pass, after which ROADMAP.md's checkbox and completed_date can be set.
+Last activity: 2026-08-10 — frontend known-issues fix pass (38 of 39 findings, 1 verified as a non-issue) plus a full Playwright e2e repair (45 failed / 89 passed → 134 passed), which uncovered and fixed three Base UI migration regressions: every dialog button unclickable by pointer, dialogs never centring, and LiveStatusBar clipping its labels at 640px.
 
 Note: Phase 9 depends on Phase 8 (satisfied). Phase 10 (AI autonomy) depends on Phases 2/6/7/8/9, Phase 11 (Windows) depends on Phases 1-10, and Phase 12 (Telemetry) depends on Phase 11. Phase 13 formally depends on Phase 12 per its own ROADMAP.md entry but was executed ahead of that dependency as a deliberate out-of-band design-system unification effort — not a DAG violation so much as an unenforced dependency note. These phases remain active (not archived) in `.planning/ROADMAP.md` since they were carried forward rather than shipped as part of v1.0.
 
