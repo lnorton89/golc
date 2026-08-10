@@ -17,10 +17,14 @@
 // shape, including its window.confirm-before-destructive-remove pattern.
 import { useState } from "react";
 import { Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 
+import { motionTransition } from "../../design-system/motion";
 import { Button, EmptyState, Field, FormActions, IconButton, ListRow, ScrollRegion } from "../../design-system";
 import styles from "./OperatorSurface.module.css";
 import type { SurfaceSummary } from "./OperatorSurface";
+
+const rowExitTransition = motionTransition("settle");
 
 interface SurfaceListProps {
   surfaces: SurfaceSummary[];
@@ -100,27 +104,35 @@ export default function SurfaceList({
           </p>
           <ScrollRegion aria-label="Operator surface list">
             <ul className={styles.list}>
-              {surfaces.map((surface) => {
-                const isSelected = surface.name === selectedName;
-                return (
-                  <li key={surface.id}>
-                    <ListRow
-                      label={surface.name}
-                      meta={`${assignedLabel(surface)} - ${midiLabel(surface)}`}
-                      selected={isSelected}
-                      onSelect={() => onSelect(surface.name)}
-                      actions={
-                        <IconButton
-                          icon={Trash2}
-                          variant="destructive"
-                          label={`Remove ${surface.name}`}
-                          onClick={() => handleRemove(surface)}
-                        />
-                      }
-                    />
-                  </li>
-                );
-              })}
+              <AnimatePresence initial={false}>
+                {surfaces.map((surface) => {
+                  const isSelected = surface.name === selectedName;
+                  return (
+                    <motion.li
+                      key={surface.id}
+                      style={{ overflow: "hidden" }}
+                      initial={false}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={rowExitTransition}
+                    >
+                      <ListRow
+                        label={surface.name}
+                        meta={`${assignedLabel(surface)} - ${midiLabel(surface)}`}
+                        selected={isSelected}
+                        onSelect={() => onSelect(surface.name)}
+                        actions={
+                          <IconButton
+                            icon={Trash2}
+                            variant="destructive"
+                            label={`Remove ${surface.name}`}
+                            onClick={() => handleRemove(surface)}
+                          />
+                        }
+                      />
+                    </motion.li>
+                  );
+                })}
+              </AnimatePresence>
             </ul>
           </ScrollRegion>
         </>

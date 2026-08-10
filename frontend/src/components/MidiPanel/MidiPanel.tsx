@@ -32,14 +32,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Music2, Trash2 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 
 import { useGolcStore } from "../../store/store";
 import { onMidiFeedback, type MidiFeedback } from "../../lib/wailsBridge";
+import { motionTransition } from "../../design-system/motion";
 import { Chip, EmptyState, ErrorState, IconButton, ListRow, LoadingState, Panel, PanelHeader, Select } from "../../design-system";
 import MidiLearn from "./MidiLearn";
 import SoftTakeoverSlider from "./SoftTakeoverSlider";
 import DeskMappingsSection from "./DeskMappingsSection";
 import styles from "./MidiPanel.module.css";
+
+const rowExitTransition = motionTransition("settle");
 
 // ---------------------------------------------------------------------------
 // Types (mirror internal/wails/svc_surface.go's and svc_midi.go's JSON
@@ -328,35 +332,43 @@ export default function MidiPanel() {
                     className={styles.mappingList}
                     aria-label={`${selectedSurface} MIDI mappings`}
                   >
-                    {mappings.map((mapping) => {
-                      const feedback = feedbackByMappingId[mapping.id];
-                      return (
-                        <li key={mapping.id}>
-                          <ListRow
-                            label={mapping.label}
-                            meta={mappingTechnical(mapping)}
-                            actions={
-                              <>
-                                {mapping.kind === "control_change" ? (
-                                  <SoftTakeoverSlider feedback={feedback} />
-                                ) : (
-                                  <Chip tone={feedback?.armed ? "armed" : "neutral"}>
-                                    {feedback?.armed ? "Armed" : "Not armed"}
-                                  </Chip>
-                                )}
-                                <IconButton
-                                  icon={Trash2}
-                                  label={`Remove mapping from ${mapping.label}`}
-                                  variant="destructive"
-                                  size="compact"
-                                  onClick={() => handleRemove(mapping)}
-                                />
-                              </>
-                            }
-                          />
-                        </li>
-                      );
-                    })}
+                    <AnimatePresence initial={false}>
+                      {mappings.map((mapping) => {
+                        const feedback = feedbackByMappingId[mapping.id];
+                        return (
+                          <motion.li
+                            key={mapping.id}
+                            style={{ overflow: "hidden" }}
+                            initial={false}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={rowExitTransition}
+                          >
+                            <ListRow
+                              label={mapping.label}
+                              meta={mappingTechnical(mapping)}
+                              actions={
+                                <>
+                                  {mapping.kind === "control_change" ? (
+                                    <SoftTakeoverSlider feedback={feedback} />
+                                  ) : (
+                                    <Chip tone={feedback?.armed ? "armed" : "neutral"}>
+                                      {feedback?.armed ? "Armed" : "Not armed"}
+                                    </Chip>
+                                  )}
+                                  <IconButton
+                                    icon={Trash2}
+                                    label={`Remove mapping from ${mapping.label}`}
+                                    variant="destructive"
+                                    size="compact"
+                                    onClick={() => handleRemove(mapping)}
+                                  />
+                                </>
+                              }
+                            />
+                          </motion.li>
+                        );
+                      })}
+                    </AnimatePresence>
                   </ul>
                 )}
               </div>

@@ -25,6 +25,7 @@
 // path (mirrors FixturePatch.tsx's own header comment).
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Eye, Check, PackagePlus, Pencil, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 
 import {
   activateDeployment,
@@ -59,7 +60,10 @@ import {
   Panel,
   Select,
 } from "../../design-system";
+import { motionTransition } from "../../design-system/motion";
 import styles from "./ProjectFixtures.module.css";
+
+const rowExitTransition = motionTransition("settle");
 
 // ImpactOperation/ImpactPlan mirror internal/pool/impact.go's own
 // snake_case JSON tags exactly -- duplicated locally rather than
@@ -495,13 +499,18 @@ export default function ProjectFixtures() {
               />
             ) : (
               <ul className={styles.rowScroll} aria-label="Project fixture list">
-                {rows.map((row) => (
-                  <li
-                    key={row.key}
-                    className={
-                      reassigningInstanceId === row.key ? `${styles.row} ${styles.rowEditing}` : styles.row
-                    }
-                  >
+                <AnimatePresence initial={false}>
+                  {rows.map((row) => (
+                    <motion.li
+                      key={row.key}
+                      style={{ overflow: "hidden" }}
+                      initial={false}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={rowExitTransition}
+                      className={
+                        reassigningInstanceId === row.key ? `${styles.row} ${styles.rowEditing}` : styles.row
+                      }
+                    >
                     {reassigningInstanceId === row.key ? (
                       <>
                         <div className={styles.nameField}>
@@ -585,8 +594,9 @@ export default function ProjectFixtures() {
                         )
                       )
                     )}
-                  </li>
-                ))}
+                    </motion.li>
+                  ))}
+                </AnimatePresence>
               </ul>
             )}
 

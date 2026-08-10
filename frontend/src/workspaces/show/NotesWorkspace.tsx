@@ -30,6 +30,7 @@
 // selectedId, specifically so no call site can forget the flush.
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { NotebookPen, Plus, X, Trash2 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 
 import {
   assertOk,
@@ -43,9 +44,12 @@ import {
 } from "../../lib/wailsBridge";
 
 import { Button, ConfirmDialog, EmptyState, Field, ListRow, Panel, ResizeHandle, ScrollRegion, WorkspaceFrame } from "../../design-system";
+import { motionTransition } from "../../design-system/motion";
 import NoteEditor from "../../components/Notes/NoteEditor";
 import { useResizablePanel } from "../../hooks/useResizablePanel";
 import styles from "./NotesWorkspace.module.css";
+
+const rowExitTransition = motionTransition("settle");
 
 // HOST_UNREACHABLE_MESSAGE mirrors ScriptsWorkspace.tsx's identical "can't
 // reach the host" copy convention, rendered inline whenever NotesService is
@@ -403,16 +407,24 @@ export default function NotesWorkspace() {
                   </ul>
                 ) : (
                   <ul className={styles.list} aria-label="Note list">
-                    {notes.map((note) => (
-                      <li key={note.id}>
-                        <ListRow
-                          label={note.title}
-                          icon={NotebookPen}
-                          selected={note.id === selectedId}
-                          onSelect={() => selectNote(note.id)}
-                        />
-                      </li>
-                    ))}
+                    <AnimatePresence initial={false}>
+                      {notes.map((note) => (
+                        <motion.li
+                          key={note.id}
+                          style={{ overflow: "hidden" }}
+                          initial={false}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={rowExitTransition}
+                        >
+                          <ListRow
+                            label={note.title}
+                            icon={NotebookPen}
+                            selected={note.id === selectedId}
+                            onSelect={() => selectNote(note.id)}
+                          />
+                        </motion.li>
+                      ))}
+                    </AnimatePresence>
                   </ul>
                 )}
               </ScrollRegion>

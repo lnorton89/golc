@@ -13,11 +13,15 @@
 // IconButton); every Wails call and dispatch path above is unchanged.
 import { useCallback, useEffect, useState } from "react";
 import { Music2, Trash2 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 
 import { errorMessage, listLocalFixtures, listPatch, type FixtureLibraryRowView, type PatchView } from "../../lib/wailsBridge";
 import { resolveDeskChannelLabel } from "../Desk/deskLabels";
+import { motionTransition } from "../../design-system/motion";
 import { EmptyState, ErrorState, IconButton, ListRow, LoadingState, PanelHeader } from "../../design-system";
 import styles from "./MidiPanel.module.css";
+
+const rowExitTransition = motionTransition("settle");
 
 export interface DeskMidiMappingView {
   id: string;
@@ -118,26 +122,34 @@ export default function DeskMappingsSection() {
         />
       ) : (
         <ul className={styles.mappingList} aria-label="Desk MIDI mappings">
-          {mappings.map((mapping) => {
-            const label = resolveDeskChannelLabel(patch, library, mapping.instanceId, mapping.capability);
-            return (
-              <li key={mapping.id}>
-                <ListRow
-                  label={label}
-                  meta={mappingTechnical(mapping)}
-                  actions={
-                    <IconButton
-                      icon={Trash2}
-                      label={`Remove mapping from ${label}`}
-                      variant="destructive"
-                      size="compact"
-                      onClick={() => handleRemove(mapping)}
-                    />
-                  }
-                />
-              </li>
-            );
-          })}
+          <AnimatePresence initial={false}>
+            {mappings.map((mapping) => {
+              const label = resolveDeskChannelLabel(patch, library, mapping.instanceId, mapping.capability);
+              return (
+                <motion.li
+                  key={mapping.id}
+                  style={{ overflow: "hidden" }}
+                  initial={false}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={rowExitTransition}
+                >
+                  <ListRow
+                    label={label}
+                    meta={mappingTechnical(mapping)}
+                    actions={
+                      <IconButton
+                        icon={Trash2}
+                        label={`Remove mapping from ${label}`}
+                        variant="destructive"
+                        size="compact"
+                        onClick={() => handleRemove(mapping)}
+                      />
+                    }
+                  />
+                </motion.li>
+              );
+            })}
+          </AnimatePresence>
         </ul>
       )}
     </div>

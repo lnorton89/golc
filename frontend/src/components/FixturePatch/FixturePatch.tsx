@@ -45,7 +45,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Eye, X, Check, Zap, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 
+import { motionTransition } from "../../design-system/motion";
 import {
   activateDeployment,
   addPoolMemberPreview,
@@ -141,6 +143,8 @@ function removeMemberImpacts(plan: ImpactPlan): string[] {
     ? removals
     : ["Nothing else references this member -- only the pool member itself is removed."];
 }
+
+const rowExitTransition = motionTransition("settle");
 
 interface PendingPreview {
   poolName: string;
@@ -522,8 +526,16 @@ export default function FixturePatch() {
                   {pools.length} pool{pools.length === 1 ? "" : "s"}
                 </p>
                 <ul className={styles.rowScroll} aria-label="Pool list">
+                  <AnimatePresence initial={false}>
                   {pools.map((p) => (
-                    <li key={p.id} className={styles.row}>
+                    <motion.li
+                      key={p.id}
+                      style={{ overflow: "hidden" }}
+                      initial={false}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={rowExitTransition}
+                      className={styles.row}
+                    >
                       <div className={styles.rowHeader}>
                         {renamingPoolId === p.id ? (
                           <>
@@ -593,8 +605,16 @@ export default function FixturePatch() {
                       </div>
                       {p.members.length > 0 && (
                         <ul className={styles.memberList}>
+                          <AnimatePresence initial={false}>
                           {p.members.map((m) => (
-                            <li key={m.id} className={styles.memberRow}>
+                            <motion.li
+                              key={m.id}
+                              style={{ overflow: "hidden" }}
+                              initial={false}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={rowExitTransition}
+                              className={styles.memberRow}
+                            >
                               <span className={styles.technical}>
                                 {m.fixtureStableKey}
                               </span>
@@ -624,8 +644,9 @@ export default function FixturePatch() {
                                   )
                                 )
                               )}
-                            </li>
+                            </motion.li>
                           ))}
+                          </AnimatePresence>
                         </ul>
                       )}
 
@@ -698,8 +719,9 @@ export default function FixturePatch() {
                           )}
                         </div>
                       )}
-                    </li>
+                    </motion.li>
                   ))}
+                  </AnimatePresence>
                 </ul>
               </>
             )}
@@ -745,8 +767,16 @@ export default function FixturePatch() {
                   {deployments.length === 1 ? "" : "s"}
                 </p>
                 <ul className={styles.rowScroll} aria-label="Deployment list">
+                  <AnimatePresence initial={false}>
                   {deployments.map((d) => (
-                    <li key={d.id} className={styles.row}>
+                    <motion.li
+                      key={d.id}
+                      style={{ overflow: "hidden" }}
+                      initial={false}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={rowExitTransition}
+                      className={styles.row}
+                    >
                       <div className={styles.rowHeader}>
                         {renamingDeploymentId === d.id ? (
                           <>
@@ -877,8 +907,9 @@ export default function FixturePatch() {
                           })}
                         </ul>
                       )}
-                    </li>
+                    </motion.li>
                   ))}
+                  </AnimatePresence>
                 </ul>
               </>
             )}

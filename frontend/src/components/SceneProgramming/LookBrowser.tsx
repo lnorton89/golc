@@ -6,10 +6,14 @@
 // explicit "what to avoid".
 import { useState } from "react";
 import { Plus, Check, X, Pencil, Trash2, Sparkles, Palette } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 
 import type { ProgChaseView, ProgLookView, ProgPresetView, ProgrammingView } from "../../lib/wailsBridge";
+import { motionTransition } from "../../design-system/motion";
 import { Button, EmptyState, Field, PanelHeader, ScrollRegion, Select } from "../../design-system";
 import styles from "./LookBrowser.module.css";
+
+const rowExitTransition = motionTransition("settle");
 
 type FormKind = "theme" | "motion" | "chase" | "preset" | "blend";
 export type PresetKind = "intensity" | "color" | "position" | "beam";
@@ -358,128 +362,192 @@ export default function LookBrowser({
       <ScrollRegion className={styles.list}>
         {looksTotal > 0 ? (
           <ul className={styles.rows} aria-label="Look list">
-            {view.themes.map((look) =>
-              renamingKey === `theme-${look.id}` ? (
-                <li key={`theme-${look.id}`} className={styles.renameRow}>
-                  <Field
-                    label="Theme name"
-                    type="text"
-                    value={renameValue}
-                    autoFocus
-                    onChange={(event) => setRenameValue(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") handleSaveRename("theme", look.name);
-                      if (event.key === "Escape") setRenamingKey(null);
-                    }}
-                  />
-                  <Button variant="secondary" icon={Check} onClick={() => handleSaveRename("theme", look.name)} aria-label="Save" />
-                  <Button variant="secondary" icon={X} onClick={() => setRenamingKey(null)} aria-label="Cancel" />
-                </li>
-              ) : (
-                <li key={`theme-${look.id}`} className={styles.lookRow}>
-                  <span className={styles.lookKind}>Theme</span>
-                  <span className={styles.lookName} title={look.name}>{look.name}</span>
-                  <span className={styles.rowActions}>
-                    <Button variant="secondary" icon={Pencil} onClick={() => handleStartRename("theme", look)} aria-label={`Rename ${look.name}`} />
-                    <Button variant="destructive" icon={Trash2} onClick={() => handleDelete("theme", look.name, "theme")} aria-label={`Delete ${look.name}`} />
-                  </span>
-                </li>
-              ),
-            )}
-            {view.chases.map((chase) =>
-              editingChaseId === chase.id ? (
-                <li key={`chase-${chase.id}`} className={styles.renameRow}>
-                  <Field
-                    label="Chase name"
-                    type="text"
-                    value={chaseEditName}
-                    autoFocus
-                    onChange={(event) => setChaseEditName(event.target.value)}
-                  />
-                  <Select
-                    label="Chase step unit"
-                    options={CHASE_UNIT_OPTIONS}
-                    value={chaseEditUnit}
-                    onValueChange={(next) => setChaseEditUnit(next as "bar" | "beat")}
-                  />
-                  <Field
-                    label="Chase step duration"
-                    type="number"
-                    min={0}
-                    step="any"
-                    value={chaseEditStepDuration}
-                    onChange={(event) => setChaseEditStepDuration(event.target.value)}
-                  />
-                  <Button variant="secondary" icon={Check} onClick={() => handleSaveEditChase(chase.name)} aria-label="Save" />
-                  <Button variant="secondary" icon={X} onClick={() => setEditingChaseId(null)} aria-label="Cancel" />
-                </li>
-              ) : (
-                <li key={`chase-${chase.id}`} className={styles.lookRow}>
-                  <span className={styles.lookKind}>Chase</span>
-                  <span className={styles.lookName} title={chase.name}>{chase.name}</span>
-                  <span className={styles.rowActions}>
-                    <Button variant="secondary" icon={Pencil} onClick={() => handleStartEditChase(chase)} aria-label={`Edit ${chase.name}`} />
-                    <Button variant="destructive" icon={Trash2} onClick={() => handleDeleteChase(chase.name)} aria-label={`Delete ${chase.name}`} />
-                  </span>
-                </li>
-              ),
-            )}
-            {view.motions.map((look) =>
-              renamingKey === `motion-${look.id}` ? (
-                <li key={`motion-${look.id}`} className={styles.renameRow}>
-                  <Field
-                    label="Motion preset name"
-                    type="text"
-                    value={renameValue}
-                    autoFocus
-                    onChange={(event) => setRenameValue(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") handleSaveRename("motion", look.name);
-                      if (event.key === "Escape") setRenamingKey(null);
-                    }}
-                  />
-                  <Button variant="secondary" icon={Check} onClick={() => handleSaveRename("motion", look.name)} aria-label="Save" />
-                  <Button variant="secondary" icon={X} onClick={() => setRenamingKey(null)} aria-label="Cancel" />
-                </li>
-              ) : (
-                <li key={`motion-${look.id}`} className={styles.lookRow}>
-                  <span className={styles.lookKind}>Motion</span>
-                  <span className={styles.lookName} title={look.name}>{look.name}</span>
-                  <span className={styles.rowActions}>
-                    <Button variant="secondary" icon={Pencil} onClick={() => handleStartRename("motion", look)} aria-label={`Rename ${look.name}`} />
-                    <Button variant="destructive" icon={Trash2} onClick={() => handleDelete("motion", look.name, "motion preset")} aria-label={`Delete ${look.name}`} />
-                  </span>
-                </li>
-              ),
-            )}
-            {view.presets.map((preset) =>
-              renamingKey === `preset-${preset.id}` ? (
-                <li key={`preset-${preset.id}`} className={styles.renameRow}>
-                  <Field
-                    label="Preset name"
-                    type="text"
-                    value={renameValue}
-                    autoFocus
-                    onChange={(event) => setRenameValue(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") handleSaveRename("preset", preset.name);
-                      if (event.key === "Escape") setRenamingKey(null);
-                    }}
-                  />
-                  <Button variant="secondary" icon={Check} onClick={() => handleSaveRename("preset", preset.name)} aria-label="Save" />
-                  <Button variant="secondary" icon={X} onClick={() => setRenamingKey(null)} aria-label="Cancel" />
-                </li>
-              ) : (
-                <li key={`preset-${preset.id}`} className={styles.lookRow}>
-                  <span className={styles.lookKind}>Preset ({preset.kind})</span>
-                  <span className={styles.lookName} title={preset.name}>{preset.name}</span>
-                  <span className={styles.rowActions}>
-                    <Button variant="secondary" icon={Pencil} onClick={() => handleStartRename("preset", preset)} aria-label={`Rename ${preset.name}`} />
-                    <Button variant="destructive" icon={Trash2} onClick={() => handleDelete("preset", preset.name, "preset")} aria-label={`Delete ${preset.name}`} />
-                  </span>
-                </li>
-              ),
-            )}
+            <AnimatePresence initial={false}>
+              {view.themes.map((look) =>
+                renamingKey === `theme-${look.id}` ? (
+                  <motion.li
+                    key={`theme-${look.id}`}
+                    style={{ overflow: "hidden" }}
+                    initial={false}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={rowExitTransition}
+                    className={styles.renameRow}
+                  >
+                    <Field
+                      label="Theme name"
+                      type="text"
+                      value={renameValue}
+                      autoFocus
+                      onChange={(event) => setRenameValue(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") handleSaveRename("theme", look.name);
+                        if (event.key === "Escape") setRenamingKey(null);
+                      }}
+                    />
+                    <Button variant="secondary" icon={Check} onClick={() => handleSaveRename("theme", look.name)} aria-label="Save" />
+                    <Button variant="secondary" icon={X} onClick={() => setRenamingKey(null)} aria-label="Cancel" />
+                  </motion.li>
+                ) : (
+                  <motion.li
+                    key={`theme-${look.id}`}
+                    style={{ overflow: "hidden" }}
+                    initial={false}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={rowExitTransition}
+                    className={styles.lookRow}
+                  >
+                    <span className={styles.lookKind}>Theme</span>
+                    <span className={styles.lookName} title={look.name}>{look.name}</span>
+                    <span className={styles.rowActions}>
+                      <Button variant="secondary" icon={Pencil} onClick={() => handleStartRename("theme", look)} aria-label={`Rename ${look.name}`} />
+                      <Button variant="destructive" icon={Trash2} onClick={() => handleDelete("theme", look.name, "theme")} aria-label={`Delete ${look.name}`} />
+                    </span>
+                  </motion.li>
+                ),
+              )}
+            </AnimatePresence>
+            <AnimatePresence initial={false}>
+              {view.chases.map((chase) =>
+                editingChaseId === chase.id ? (
+                  <motion.li
+                    key={`chase-${chase.id}`}
+                    style={{ overflow: "hidden" }}
+                    initial={false}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={rowExitTransition}
+                    className={styles.renameRow}
+                  >
+                    <Field
+                      label="Chase name"
+                      type="text"
+                      value={chaseEditName}
+                      autoFocus
+                      onChange={(event) => setChaseEditName(event.target.value)}
+                    />
+                    <Select
+                      label="Chase step unit"
+                      options={CHASE_UNIT_OPTIONS}
+                      value={chaseEditUnit}
+                      onValueChange={(next) => setChaseEditUnit(next as "bar" | "beat")}
+                    />
+                    <Field
+                      label="Chase step duration"
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={chaseEditStepDuration}
+                      onChange={(event) => setChaseEditStepDuration(event.target.value)}
+                    />
+                    <Button variant="secondary" icon={Check} onClick={() => handleSaveEditChase(chase.name)} aria-label="Save" />
+                    <Button variant="secondary" icon={X} onClick={() => setEditingChaseId(null)} aria-label="Cancel" />
+                  </motion.li>
+                ) : (
+                  <motion.li
+                    key={`chase-${chase.id}`}
+                    style={{ overflow: "hidden" }}
+                    initial={false}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={rowExitTransition}
+                    className={styles.lookRow}
+                  >
+                    <span className={styles.lookKind}>Chase</span>
+                    <span className={styles.lookName} title={chase.name}>{chase.name}</span>
+                    <span className={styles.rowActions}>
+                      <Button variant="secondary" icon={Pencil} onClick={() => handleStartEditChase(chase)} aria-label={`Edit ${chase.name}`} />
+                      <Button variant="destructive" icon={Trash2} onClick={() => handleDeleteChase(chase.name)} aria-label={`Delete ${chase.name}`} />
+                    </span>
+                  </motion.li>
+                ),
+              )}
+            </AnimatePresence>
+            <AnimatePresence initial={false}>
+              {view.motions.map((look) =>
+                renamingKey === `motion-${look.id}` ? (
+                  <motion.li
+                    key={`motion-${look.id}`}
+                    style={{ overflow: "hidden" }}
+                    initial={false}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={rowExitTransition}
+                    className={styles.renameRow}
+                  >
+                    <Field
+                      label="Motion preset name"
+                      type="text"
+                      value={renameValue}
+                      autoFocus
+                      onChange={(event) => setRenameValue(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") handleSaveRename("motion", look.name);
+                        if (event.key === "Escape") setRenamingKey(null);
+                      }}
+                    />
+                    <Button variant="secondary" icon={Check} onClick={() => handleSaveRename("motion", look.name)} aria-label="Save" />
+                    <Button variant="secondary" icon={X} onClick={() => setRenamingKey(null)} aria-label="Cancel" />
+                  </motion.li>
+                ) : (
+                  <motion.li
+                    key={`motion-${look.id}`}
+                    style={{ overflow: "hidden" }}
+                    initial={false}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={rowExitTransition}
+                    className={styles.lookRow}
+                  >
+                    <span className={styles.lookKind}>Motion</span>
+                    <span className={styles.lookName} title={look.name}>{look.name}</span>
+                    <span className={styles.rowActions}>
+                      <Button variant="secondary" icon={Pencil} onClick={() => handleStartRename("motion", look)} aria-label={`Rename ${look.name}`} />
+                      <Button variant="destructive" icon={Trash2} onClick={() => handleDelete("motion", look.name, "motion preset")} aria-label={`Delete ${look.name}`} />
+                    </span>
+                  </motion.li>
+                ),
+              )}
+            </AnimatePresence>
+            <AnimatePresence initial={false}>
+              {view.presets.map((preset) =>
+                renamingKey === `preset-${preset.id}` ? (
+                  <motion.li
+                    key={`preset-${preset.id}`}
+                    style={{ overflow: "hidden" }}
+                    initial={false}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={rowExitTransition}
+                    className={styles.renameRow}
+                  >
+                    <Field
+                      label="Preset name"
+                      type="text"
+                      value={renameValue}
+                      autoFocus
+                      onChange={(event) => setRenameValue(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") handleSaveRename("preset", preset.name);
+                        if (event.key === "Escape") setRenamingKey(null);
+                      }}
+                    />
+                    <Button variant="secondary" icon={Check} onClick={() => handleSaveRename("preset", preset.name)} aria-label="Save" />
+                    <Button variant="secondary" icon={X} onClick={() => setRenamingKey(null)} aria-label="Cancel" />
+                  </motion.li>
+                ) : (
+                  <motion.li
+                    key={`preset-${preset.id}`}
+                    style={{ overflow: "hidden" }}
+                    initial={false}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={rowExitTransition}
+                    className={styles.lookRow}
+                  >
+                    <span className={styles.lookKind}>Preset ({preset.kind})</span>
+                    <span className={styles.lookName} title={preset.name}>{preset.name}</span>
+                    <span className={styles.rowActions}>
+                      <Button variant="secondary" icon={Pencil} onClick={() => handleStartRename("preset", preset)} aria-label={`Rename ${preset.name}`} />
+                      <Button variant="destructive" icon={Trash2} onClick={() => handleDelete("preset", preset.name, "preset")} aria-label={`Delete ${preset.name}`} />
+                    </span>
+                  </motion.li>
+                ),
+              )}
+            </AnimatePresence>
           </ul>
         ) : null}
       </ScrollRegion>
@@ -542,33 +610,49 @@ export default function LookBrowser({
         <EmptyState icon={Palette}>No blend presets yet.</EmptyState>
       ) : (
         <ul className={styles.rows} aria-label="Blend list">
-          {view.blends.map((blend) =>
-            renamingKey === `blend-${blend.id}` ? (
-              <li key={blend.id} className={styles.renameRow}>
-                <Field
-                  label="Blend name"
-                  type="text"
-                  value={renameValue}
-                  autoFocus
-                  onChange={(event) => setRenameValue(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") handleSaveRename("blend", blend.name);
-                    if (event.key === "Escape") setRenamingKey(null);
-                  }}
-                />
-                <Button variant="secondary" icon={Check} onClick={() => handleSaveRename("blend", blend.name)} aria-label="Save" />
-                <Button variant="secondary" icon={X} onClick={() => setRenamingKey(null)} aria-label="Cancel" />
-              </li>
-            ) : (
-              <li key={blend.id} className={styles.lookRow}>
-                <span className={styles.lookName} title={blend.name}>{blend.name}</span>
-                <span className={styles.rowActions}>
-                  <Button variant="secondary" icon={Pencil} onClick={() => handleStartRename("blend", blend)} aria-label={`Rename ${blend.name}`} />
-                  <Button variant="destructive" icon={Trash2} onClick={() => handleDelete("blend", blend.name, "blend preset")} aria-label={`Delete ${blend.name}`} />
-                </span>
-              </li>
-            ),
-          )}
+          <AnimatePresence initial={false}>
+            {view.blends.map((blend) =>
+              renamingKey === `blend-${blend.id}` ? (
+                <motion.li
+                  key={blend.id}
+                  style={{ overflow: "hidden" }}
+                  initial={false}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={rowExitTransition}
+                  className={styles.renameRow}
+                >
+                  <Field
+                    label="Blend name"
+                    type="text"
+                    value={renameValue}
+                    autoFocus
+                    onChange={(event) => setRenameValue(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") handleSaveRename("blend", blend.name);
+                      if (event.key === "Escape") setRenamingKey(null);
+                    }}
+                  />
+                  <Button variant="secondary" icon={Check} onClick={() => handleSaveRename("blend", blend.name)} aria-label="Save" />
+                  <Button variant="secondary" icon={X} onClick={() => setRenamingKey(null)} aria-label="Cancel" />
+                </motion.li>
+              ) : (
+                <motion.li
+                  key={blend.id}
+                  style={{ overflow: "hidden" }}
+                  initial={false}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={rowExitTransition}
+                  className={styles.lookRow}
+                >
+                  <span className={styles.lookName} title={blend.name}>{blend.name}</span>
+                  <span className={styles.rowActions}>
+                    <Button variant="secondary" icon={Pencil} onClick={() => handleStartRename("blend", blend)} aria-label={`Rename ${blend.name}`} />
+                    <Button variant="destructive" icon={Trash2} onClick={() => handleDelete("blend", blend.name, "blend preset")} aria-label={`Delete ${blend.name}`} />
+                  </span>
+                </motion.li>
+              ),
+            )}
+          </AnimatePresence>
         </ul>
       )}
     </div>

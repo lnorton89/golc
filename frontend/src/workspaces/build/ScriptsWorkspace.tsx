@@ -41,6 +41,7 @@
 // (never relaunching directly) so the profile is always reviewed (D-07).
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { FileCode2, Plus, X, Check, Save, Trash2, ShieldCheck, Play, Bug, Square } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 // BaseToolbar (aliased -- this file already imports the design-system's own
 // unrelated `Toolbar` primitive, a workspace title bar, not a button
 // group; see this file's own toolbarActions doc comment below for why the
@@ -78,6 +79,7 @@ import {
 } from "../../lib/wailsBridge";
 
 import { HOW_IT_WORKS_BY_ID } from "../../shell/navigation";
+import { motionTransition } from "../../design-system/motion";
 import { Button, Chip, EmptyState, Field, FormActions, ListRow, ResizeHandle, ScrollRegion, Toolbar } from "../../design-system";
 import type { ChipTone } from "../../components/primitives/Chip/Chip";
 import ScriptEditor from "../../components/Scripts/ScriptEditor";
@@ -86,6 +88,8 @@ import ScriptDebugPanel, { type ScriptPanelStatus } from "../../components/Scrip
 import { useInspectorSlot } from "../../shell/InspectorSlot";
 import { useResizablePanel } from "../../hooks/useResizablePanel";
 import styles from "./ScriptsWorkspace.module.css";
+
+const rowExitTransition = motionTransition("settle");
 
 // ScriptPanelState is one script's accumulated live-run view (08-10-PLAN.md
 // Task 3, extended by 08-12-PLAN.md Task 2 for D-01): events in arrival
@@ -765,24 +769,32 @@ export default function ScriptsWorkspace() {
                   </ul>
                 ) : (
                   <ul className={styles.list} aria-label="Script list">
-                    {scripts.map((script) => (
-                      <li key={script.id}>
-                        <ListRow
-                          label={script.name}
-                          icon={FileCode2}
-                          meta={
-                            <span className={styles.rowMeta}>
-                              <Chip tone={chipToneForStatus(script.lastRunStatus)}>
-                                {statusLabel(script.lastRunStatus)}
-                              </Chip>
-                              <span className={styles.scopeLabel}>{script.scope}</span>
-                            </span>
-                          }
-                          selected={script.name === selectedName}
-                          onSelect={() => setSelectedName(script.name)}
-                        />
-                      </li>
-                    ))}
+                    <AnimatePresence initial={false}>
+                      {scripts.map((script) => (
+                        <motion.li
+                          key={script.id}
+                          style={{ overflow: "hidden" }}
+                          initial={false}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={rowExitTransition}
+                        >
+                          <ListRow
+                            label={script.name}
+                            icon={FileCode2}
+                            meta={
+                              <span className={styles.rowMeta}>
+                                <Chip tone={chipToneForStatus(script.lastRunStatus)}>
+                                  {statusLabel(script.lastRunStatus)}
+                                </Chip>
+                                <span className={styles.scopeLabel}>{script.scope}</span>
+                              </span>
+                            }
+                            selected={script.name === selectedName}
+                            onSelect={() => setSelectedName(script.name)}
+                          />
+                        </motion.li>
+                      ))}
+                    </AnimatePresence>
                   </ul>
                 )}
               </ScrollRegion>
