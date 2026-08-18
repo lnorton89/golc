@@ -341,6 +341,34 @@ func parseBuildArgs(args []string) (string, error) {
 	return "", fmt.Errorf("GOLC_BUILD_USAGE: unsupported argument %q; usage: build [--scope <scope-name>]", args[0])
 }
 
+// ensureGoModCacheFresh fails fast, before any `go list`/`go build`
+// invocation, when the project-local GOMODCACHE (bootstrap.ProjectCacheLayout
+// .GoModCache, populated by `mage Bootstrap`'s runGoPhase) was never
+// populated for the current go.mod/go.sum, or was populated for an older
+// one. Without this check a stale/missing cache surfaces only deep inside
+// the pinned-toolchain `go build` invocation below (GOFLAGS=-mod=readonly,
+// GOPROXY=off, D-02 -- see projectGoEnvironment) as a wall of per-file
+// "module lookup disabled by GOPROXY=off" errors with no indication that
+// running 'mage Bootstrap' is the fix.
+func ensureGoModCacheFresh(root string) error {
+	layout, err := bootstrap.NewProjectCacheLayout(root)
+	if err != nil {
+		return fmt.Errorf("GOLC_BUILD_BOOTSTRAP_REQUIRED: resolve project cache layout: %w", err)
+	}
+	recorded, err := os.ReadFile(layout.GoModLockManifestPath())
+	if err != nil {
+		return fmt.Errorf("GOLC_BUILD_BOOTSTRAP_REQUIRED: %s: the project-local Go module cache has never been populated; run 'mage Bootstrap' first: %w", layout.GoModLockManifestPath(), err)
+	}
+	current, err := bootstrap.GoModLockSignature(root)
+	if err != nil {
+		return fmt.Errorf("GOLC_BUILD_BOOTSTRAP_REQUIRED: %w", err)
+	}
+	if strings.TrimSpace(string(recorded)) != current {
+		return errors.New("GOLC_BUILD_BOOTSTRAP_REQUIRED: go.mod/go.sum changed since the last 'mage Bootstrap'; run 'mage Bootstrap' again before building")
+	}
+	return nil
+}
+
 // runBuild serves the self-registered "build" route. Bare "build" compiles
 // every project Go package with the pinned toolchain (unchanged); "build
 // --scope <name>" dispatches to one registered Node build scope instead.
@@ -372,6 +400,12 @@ func runBuild(request Request) Result {
 	stdoutSink.writeString("GOLC build: resolving pinned Go toolchain...\n")
 	goExecutable, err := resolvePinnedGoExecutable(request.Root)
 	if err != nil {
+		stderrSink.writeString(err.Error() + "\n")
+		return Result{ExitCode: 1, Stdout: stdoutSink.buffered(), Stderr: stderrSink.buffered()}
+	}
+
+	stdoutSink.writeString("GOLC build: checking project-local Go module cache against go.mod/go.sum...\n")
+	if err := ensureGoModCacheFresh(request.Root); err != nil {
 		stderrSink.writeString(err.Error() + "\n")
 		return Result{ExitCode: 1, Stdout: stdoutSink.buffered(), Stderr: stderrSink.buffered()}
 	}

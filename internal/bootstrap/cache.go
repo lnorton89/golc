@@ -16,6 +16,8 @@
 package bootstrap
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -205,4 +207,37 @@ func (layout ProjectCacheLayout) LintBinaryPath(executableSuffix string) string 
 // "" elsewhere.
 func (layout ProjectCacheLayout) VulncheckBinaryPath(executableSuffix string) string {
 	return filepath.Join(layout.GoBin, "govulncheck"+executableSuffix)
+}
+
+// GoModLockManifestName is where runGoPhase records the go.mod/go.sum
+// signature (GoModLockSignature) it downloaded and verified GoModCache
+// against. build.go's runBuild reads it back before ever invoking `go list`
+// or `go build` (both GOPROXY=off, D-02): a missing or mismatched marker
+// means GoModCache was never populated for the current go.mod/go.sum, or
+// was populated for an older one, so the pinned toolchain would otherwise
+// fail deep into compilation with an opaque wall of "module lookup disabled
+// by GOPROXY=off" instead of the one clear "run mage Bootstrap" diagnostic
+// this marker makes possible.
+const GoModLockManifestName = "go-mod-lock.sha256"
+
+// GoModLockSignature fingerprints go.mod and go.sum's exact content
+// (never their mtimes -- unlike packageListSignature's whole-source-tree
+// scan, this only needs to detect a dependency change, and a content hash
+// survives a fresh checkout or `git stash` where mtimes wouldn't).
+func GoModLockSignature(root string) (string, error) {
+	hasher := sha256.New()
+	for _, name := range []string{"go.mod", "go.sum"} {
+		content, err := os.ReadFile(filepath.Join(root, name))
+		if err != nil {
+			return "", fmt.Errorf("read %s: %w", name, err)
+		}
+		hasher.Write([]byte(name + "\n"))
+		hasher.Write(content)
+	}
+	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
+// GoModLockManifestPath is where GoModLockManifestName lives inside layout.
+func (layout ProjectCacheLayout) GoModLockManifestPath() string {
+	return filepath.Join(layout.Manifest, GoModLockManifestName)
 }

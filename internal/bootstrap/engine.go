@@ -882,6 +882,13 @@ func (engine *bootstrapEngine) runGoPhase(ctx context.Context, goExecutable stri
 	if err := writeAtomicFile(filepath.Join(engine.layout.Manifest, "go-modules.txt"), []byte(graph), 0o644); err != nil {
 		return fmt.Errorf("GOLC_BOOTSTRAP_MODULE_GRAPH: %w", err)
 	}
+	lockSignature, err := GoModLockSignature(engine.root)
+	if err != nil {
+		return fmt.Errorf("GOLC_BOOTSTRAP_MODULE_GRAPH: %w", err)
+	}
+	if err := writeAtomicFile(engine.layout.GoModLockManifestPath(), []byte(lockSignature), 0o644); err != nil {
+		return fmt.Errorf("GOLC_BOOTSTRAP_MODULE_GRAPH: %w", err)
+	}
 	if _, err := engine.runProcess(ctx, goExecutable, "GOLC_BOOTSTRAP_PROBE_FAILED", "test", "-count=1", "./internal/bootstrap/"); err != nil {
 		return err
 	}
