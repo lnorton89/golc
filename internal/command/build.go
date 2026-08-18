@@ -355,9 +355,13 @@ func ensureGoModCacheFresh(root string) error {
 	if err != nil {
 		return fmt.Errorf("GOLC_BUILD_BOOTSTRAP_REQUIRED: resolve project cache layout: %w", err)
 	}
-	recorded, err := os.ReadFile(layout.GoModLockManifestPath())
+	markerPath := layout.GoModLockManifestPath()
+	recorded, err := os.ReadFile(markerPath)
 	if err != nil {
-		return fmt.Errorf("GOLC_BUILD_BOOTSTRAP_REQUIRED: %s: the project-local Go module cache has never been populated; run 'mage Bootstrap' first: %w", layout.GoModLockManifestPath(), err)
+		if errors.Is(err, fs.ErrNotExist) {
+			return errors.New("GOLC_BUILD_BOOTSTRAP_REQUIRED: the project-local Go module cache has never been populated; run 'mage Bootstrap' first")
+		}
+		return fmt.Errorf("GOLC_BUILD_BOOTSTRAP_REQUIRED: read %s: %w", markerPath, err)
 	}
 	current, err := bootstrap.GoModLockSignature(root)
 	if err != nil {
