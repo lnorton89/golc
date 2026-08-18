@@ -225,16 +225,34 @@ const GoModLockManifestName = "go-mod-lock.sha256"
 // scan, this only needs to detect a dependency change, and a content hash
 // survives a fresh checkout or `git stash` where mtimes wouldn't).
 func GoModLockSignature(root string) (string, error) {
-	hasher := sha256.New()
-	for _, name := range []string{"go.mod", "go.sum"} {
-		content, err := os.ReadFile(filepath.Join(root, name))
-		if err != nil {
-			return "", fmt.Errorf("read %s: %w", name, err)
-		}
-		hasher.Write([]byte(name + "\n"))
-		hasher.Write(content)
+	goModContent, err := os.ReadFile(filepath.Join(root, "go.mod"))
+	if err != nil {
+		return "", fmt.Errorf("read go.mod: %w", err)
 	}
-	return hex.EncodeToString(hasher.Sum(nil)), nil
+	goSumContent, err := os.ReadFile(filepath.Join(root, "go.sum"))
+	if err != nil {
+		return "", fmt.Errorf("read go.sum: %w", err)
+	}
+	return GoModLockSignatureFromContent(goModContent, goSumContent), nil
+}
+
+// GoModLockSignatureFromContent is GoModLockSignature's hashing step taken
+// on already-read content, for a caller (runGoPhase) that must fingerprint
+// the exact pristine bytes it read before running anything -- not whatever
+// happens to be on disk at the moment it computes the signature. `go mod
+// download all` legitimately rewrites go.sum on disk mid-phase (see
+// goSumIsSupersetExpansion), and that rewrite is only undone by runGoPhase's
+// deferred cleanup *after* the phase's main body (and any signature it
+// computes there) has already run; reading disk at that point would hash
+// the transiently-expanded go.sum instead of the committed one this
+// signature is meant to describe.
+func GoModLockSignatureFromContent(goModContent, goSumContent []byte) string {
+	hasher := sha256.New()
+	hasher.Write([]byte("go.mod\n"))
+	hasher.Write(goModContent)
+	hasher.Write([]byte("go.sum\n"))
+	hasher.Write(goSumContent)
+	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 // GoModLockManifestPath is where GoModLockManifestName lives inside layout.

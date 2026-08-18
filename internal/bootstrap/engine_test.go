@@ -42,6 +42,8 @@ type engineFakeRunner struct {
 	calls         []processCall
 	moduleGraph   string
 	mutateLock    bool
+	expandGoSum   bool
+	corruptGoSum  bool
 	failGoInstall bool
 }
 
@@ -55,6 +57,19 @@ func (runner *engineFakeRunner) Run(_ context.Context, request processRequest) (
 	runner.calls = append(runner.calls, call)
 	if runner.mutateLock && len(runner.calls) == 1 {
 		if err := os.WriteFile(filepath.Join(request.Dir, "go.mod"), []byte("mutated\n"), 0o644); err != nil {
+			return nil, err
+		}
+	}
+	if runner.expandGoSum && len(runner.calls) == 1 {
+		// Mirrors `go mod download all`'s real, documented behavior
+		// (docs/skills/go-sum-verification/SKILL.md): it only appends lines
+		// for the unpruned module graph, it never rewrites an existing one.
+		if err := appendToFile(filepath.Join(request.Dir, "go.sum"), []byte("extra line one\nextra line two\n")); err != nil {
+			return nil, err
+		}
+	}
+	if runner.corruptGoSum && len(runner.calls) == 1 {
+		if err := os.WriteFile(filepath.Join(request.Dir, "go.sum"), []byte("sum-altered\n"), 0o644); err != nil {
 			return nil, err
 		}
 	}
@@ -122,6 +137,14 @@ func cloneEngineTestMap(source map[string]string) map[string]string {
 		result[key] = value
 	}
 	return result
+}
+
+func appendToFile(path string, suffix []byte) error {
+	existing, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(existing, suffix...), 0o644)
 }
 
 func platformToolArchive(t *testing.T, root, tool, version string) (path string, digest string, archiveRoot string) {
@@ -585,6 +608,50 @@ func TestScopeBootstrapEngine(t *testing.T) {
 		require.ErrorContains(t, err, "GOLC_BOOTSTRAP_LOCK_MUTATION", "expected lock mutation diagnostic")
 		after, _ := os.ReadFile(filepath.Join(root, "go.mod"))
 		require.Equal(t, before, after, "go.mod changed on return")
+	})
+
+	t.Run("go.sum expansion from `go mod download all` is tolerated and the pruned file is restored", func(t *testing.T) {
+		root, source, _ := writeEngineRepository(t)
+		beforeSum, err := os.ReadFile(filepath.Join(root, "go.sum"))
+		require.NoError(t, err, "read fixture go.sum")
+		runner := &engineFakeRunner{
+			moduleGraph: "github.com/BurntSushi/toml v1.6.0\ngithub.com/invopop/jsonschema v0.14.0\n",
+			expandGoSum: true,
+		}
+		err = runBootstrap(context.Background(), root, Options{}, bootstrapDependencies{Source: source, Runner: runner})
+		require.NoError(t, err, "a pure go.sum expansion must not fail bootstrap")
+		afterSum, err := os.ReadFile(filepath.Join(root, "go.sum"))
+		require.NoError(t, err, "read go.sum after bootstrap")
+		require.Equal(t, beforeSum, afterSum, "pruned go.sum must be restored, not left expanded")
+
+		// Regression guard: the lock marker runGoPhase writes must describe
+		// the *restored* (pruned) go.mod/go.sum, not whatever transiently-
+		// expanded go.sum sat on disk mid-phase -- otherwise `mage build`'s
+		// ensureGoModCacheFresh recomputes GoModLockSignature against the
+		// pruned files afterward and never matches, permanently blocking
+		// every build right after a clean bootstrap succeeded.
+		layout, err := NewProjectCacheLayout(root)
+		require.NoError(t, err, "resolve project cache layout")
+		recordedMarker, err := os.ReadFile(layout.GoModLockManifestPath())
+		require.NoError(t, err, "read go-mod-lock marker")
+		expectedSignature, err := GoModLockSignature(root)
+		require.NoError(t, err, "compute GoModLockSignature against restored go.mod/go.sum")
+		require.Equal(t, expectedSignature, string(recordedMarker), "lock marker must match the restored (pruned) go.mod/go.sum, not the transient expansion")
+	})
+
+	t.Run("a corrupted (non-superset) go.sum is still a hard lock-mutation failure", func(t *testing.T) {
+		root, source, _ := writeEngineRepository(t)
+		before, err := os.ReadFile(filepath.Join(root, "go.sum"))
+		require.NoError(t, err, "read fixture go.sum")
+		runner := &engineFakeRunner{
+			moduleGraph:  "github.com/BurntSushi/toml v1.6.0\ngithub.com/invopop/jsonschema v0.14.0\n",
+			corruptGoSum: true,
+		}
+		err = runBootstrap(context.Background(), root, Options{}, bootstrapDependencies{Source: source, Runner: runner})
+		require.ErrorContains(t, err, "GOLC_BOOTSTRAP_LOCK_MUTATION", "expected lock mutation diagnostic")
+		after, readErr := os.ReadFile(filepath.Join(root, "go.sum"))
+		require.NoError(t, readErr, "read go.sum after bootstrap")
+		require.Equal(t, before, after, "go.sum changed on return")
 	})
 
 	t.Run("mismatched configured platform fails before source or install work", func(t *testing.T) {

@@ -840,19 +840,41 @@ func (engine *bootstrapEngine) runGoPhase(ctx context.Context, goExecutable stri
 	defer func() {
 		modAfter, modErr := os.ReadFile(goModPath)
 		sumAfter, sumErr := os.ReadFile(goSumPath)
-		mutated := modErr != nil || sumErr != nil || !bytes.Equal(goModBefore, modAfter) || !bytes.Equal(goSumBefore, sumAfter)
-		if !mutated {
+		if modErr != nil || sumErr != nil {
+			resultErr = fmt.Errorf("GOLC_BOOTSTRAP_LOCK_MUTATION: re-reading go.mod/go.sum after the Go phase: mod=%v sum=%v", modErr, sumErr)
 			return
 		}
-		restoreErr := writeExactFile(goModPath, goModBefore, 0o644)
-		if err := writeExactFile(goSumPath, goSumBefore, 0o644); restoreErr == nil {
-			restoreErr = err
-		}
-		if restoreErr != nil {
-			resultErr = fmt.Errorf("GOLC_BOOTSTRAP_LOCK_MUTATION: locks changed and restoration failed: %w", restoreErr)
+		if !bytes.Equal(goModBefore, modAfter) {
+			if restoreErr := writeExactFile(goModPath, goModBefore, 0o644); restoreErr != nil {
+				resultErr = fmt.Errorf("GOLC_BOOTSTRAP_LOCK_MUTATION: go.mod changed and restoration failed: %w", restoreErr)
+				return
+			}
+			resultErr = errors.New("GOLC_BOOTSTRAP_LOCK_MUTATION: bootstrap must never rewrite go.mod")
 			return
 		}
-		resultErr = errors.New("GOLC_BOOTSTRAP_LOCK_MUTATION: bootstrap must never rewrite go.mod or go.sum")
+		if bytes.Equal(goSumBefore, sumAfter) {
+			return
+		}
+		if !goSumIsSupersetExpansion(goSumBefore, sumAfter) {
+			if restoreErr := writeExactFile(goSumPath, goSumBefore, 0o644); restoreErr != nil {
+				resultErr = fmt.Errorf("GOLC_BOOTSTRAP_LOCK_MUTATION: go.sum changed incompatibly and restoration failed: %w", restoreErr)
+				return
+			}
+			resultErr = errors.New("GOLC_BOOTSTRAP_LOCK_MUTATION: bootstrap must never rewrite an existing go.sum entry")
+			return
+		}
+		// `go mod download all` legitimately re-expands go.sum to the full
+		// (pre-pruning) module graph -- see
+		// docs/skills/go-sum-verification/SKILL.md and the go.sum-pruning
+		// commit ("remove ~234 unused go.sum entries") it documents. That
+		// expansion is harmless (the module cache it downloaded into stays
+		// warm regardless of which lines are committed) and every original
+		// line survived unchanged (goSumIsSupersetExpansion), so restore the
+		// pruned go.sum rather than failing the whole bootstrap over noise a
+		// contributor would otherwise just `git checkout -- go.sum` away.
+		if restoreErr := writeExactFile(goSumPath, goSumBefore, 0o644); restoreErr != nil {
+			resultErr = fmt.Errorf("GOLC_BOOTSTRAP_LOCK_MUTATION: restore pruned go.sum: %w", restoreErr)
+		}
 	}()
 
 	if _, err := engine.runProcess(ctx, goExecutable, "GOLC_BOOTSTRAP_MODULE_DOWNLOAD", "mod", "download", "all"); err != nil {
@@ -882,10 +904,7 @@ func (engine *bootstrapEngine) runGoPhase(ctx context.Context, goExecutable stri
 	if err := writeAtomicFile(filepath.Join(engine.layout.Manifest, "go-modules.txt"), []byte(graph), 0o644); err != nil {
 		return fmt.Errorf("GOLC_BOOTSTRAP_MODULE_GRAPH: %w", err)
 	}
-	lockSignature, err := GoModLockSignature(engine.root)
-	if err != nil {
-		return fmt.Errorf("GOLC_BOOTSTRAP_MODULE_GRAPH: %w", err)
-	}
+	lockSignature := GoModLockSignatureFromContent(goModBefore, goSumBefore)
 	if err := writeAtomicFile(engine.layout.GoModLockManifestPath(), []byte(lockSignature), 0o644); err != nil {
 		return fmt.Errorf("GOLC_BOOTSTRAP_MODULE_GRAPH: %w", err)
 	}
@@ -903,6 +922,34 @@ func (engine *bootstrapEngine) runGoPhase(ctx context.Context, goExecutable stri
 		}
 	}
 	return nil
+}
+
+// goSumIsSupersetExpansion reports whether after contains every line of
+// before unchanged, ignoring blank lines -- the exact shape `go mod
+// download all` produces when it re-adds a pruned go.sum's full
+// (unpruned) module graph: it only appends new lines, it never rewrites or
+// drops an existing one. A dropped or altered original line (a real
+// checksum/version discrepancy, not mere expansion) makes this return
+// false, so runGoPhase's caller still treats that as a hard failure.
+func goSumIsSupersetExpansion(before, after []byte) bool {
+	afterLines := map[string]struct{}{}
+	for _, line := range strings.Split(string(after), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		afterLines[trimmed] = struct{}{}
+	}
+	for _, line := range strings.Split(string(before), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := afterLines[trimmed]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func (engine *bootstrapEngine) runProcess(ctx context.Context, executable, diagnostic string, args ...string) ([]byte, error) {
